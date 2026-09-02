@@ -1558,18 +1558,6 @@ export type AssetFileVersion = {
   versionNumber: Scalars['Int']['output'];
 };
 
-export type AssignDataTableOwnerInput = {
-  dataTableId: Scalars['ID']['input'];
-  /** Omit to return the table to the vendor, making it shared with every account again. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
-};
-
-export type AssignKnowledgeBaseOwnerInput = {
-  knowledgeBaseId: Scalars['ID']['input'];
-  /** Omit to return the knowledge base to the vendor, making it shared with every account again. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
-};
-
 export type AttachAiHubChatToolInput = {
   chatId: Scalars['ID']['input'];
   clusterElementName: Scalars['String']['input'];
@@ -1869,6 +1857,30 @@ export type ComponentPolicy = {
   title?: Maybe<Scalars['String']['output']>;
   version: Scalars['Int']['output'];
 };
+
+export type ComponentRule = {
+  __typename?: 'ComponentRule';
+  actionName?: Maybe<Scalars['String']['output']>;
+  componentIcon?: Maybe<Scalars['String']['output']>;
+  componentName: Scalars['String']['output'];
+  componentTitle?: Maybe<Scalars['String']['output']>;
+  condition: Scalars['String']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  phase: ComponentRulePhase;
+  ruleAction: ComponentRuleActionType;
+};
+
+export enum ComponentRuleActionType {
+  Block = 'BLOCK',
+  Tag = 'TAG'
+}
+
+export enum ComponentRulePhase {
+  After = 'AFTER',
+  Before = 'BEFORE'
+}
 
 export type ConnectedUser = {
   __typename?: 'ConnectedUser';
@@ -2270,8 +2282,6 @@ export type CreateEmbeddedDataTableInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   environmentId: Scalars['ID']['input'];
   name: Scalars['String']['input'];
-  /** Omit to create the table shared with every account. Naming an account gives it a physical table of its own, which is what lets two accounts each hold a table of the same name. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 export type CreateEmbeddedKnowledgeBaseInput = {
@@ -2284,8 +2294,6 @@ export type CreateEmbeddedKnowledgeBaseInput = {
   name: Scalars['String']['input'];
   /** Omit to take the platform's own default. */
   overlap?: InputMaybe<Scalars['Int']['input']>;
-  /** Omit to create the knowledge base shared with every account. Naming an account gives it a knowledge base of its own, which is what lets two accounts each hold one of the same name. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 export type CreateEmbeddedMcpServerInput = {
@@ -2613,8 +2621,6 @@ export type EmbeddedDataTable = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
-  /** Null means the vendor owns it and every account can see it. */
-  ownerId?: Maybe<Scalars['ID']['output']>;
 };
 
 export type EmbeddedDataTableColumn = {
@@ -2639,8 +2645,6 @@ export type EmbeddedKnowledgeBase = {
   minChunkSizeChars: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   overlap: Scalars['Int']['output'];
-  /** Null means the vendor owns it and every account can see it. */
-  ownerId?: Maybe<Scalars['ID']['output']>;
 };
 
 export type EndpointDefinitionInput = {
@@ -3435,8 +3439,6 @@ export type Mutation = {
   addWorkspaceUser: WorkspaceUser;
   /** Appends an assistant message to the chat's chat memory — persists an approval-resolution continuation streamed outside the bridge turn model. */
   appendAiHubChatAssistantMessage: Scalars['Boolean']['output'];
-  assignEmbeddedDataTableOwner: Scalars['Boolean']['output'];
-  assignEmbeddedKnowledgeBaseOwner: Scalars['Boolean']['output'];
   /** Scope a notification to a workspace (moves it if it was scoped to another one). */
   assignNotificationToWorkspace: Scalars['Boolean']['output'];
   /**
@@ -3626,6 +3628,8 @@ export type Mutation = {
   deleteAssetFile: Scalars['Boolean']['output'];
   deleteAutomationWorkflowProject: Scalars['Boolean']['output'];
   deleteAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
+  /** Deletes a rule. Admin-only. */
+  deleteComponentRule: Scalars['Boolean']['output'];
   deleteConnectedUserMcpServer?: Maybe<Scalars['Boolean']['output']>;
   deleteConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
   deleteContextStore: Scalars['Boolean']['output'];
@@ -3776,6 +3780,11 @@ export type Mutation = {
   runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
+  /**
+   * Creates a rule when id is absent, updates that rule when it is present. Rejects a BLOCK rule in the AFTER phase,
+   * and a condition that is not a valid ByteChef formula expression, as typed errors. Admin-only.
+   */
+  saveComponentRule: ComponentRule;
   saveWorkflowTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Deliver a synthetic test alert (not persisted to history) through the rule's notifications so admins can
@@ -4019,16 +4028,6 @@ export type MutationAppendAiHubChatAssistantMessageArgs = {
   content: Scalars['String']['input'];
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
-};
-
-
-export type MutationAssignEmbeddedDataTableOwnerArgs = {
-  input: AssignDataTableOwnerInput;
-};
-
-
-export type MutationAssignEmbeddedKnowledgeBaseOwnerArgs = {
-  input: AssignKnowledgeBaseOwnerInput;
 };
 
 
@@ -4660,6 +4659,11 @@ export type MutationDeleteAutomationWorkflowProjectWorkflowArgs = {
 };
 
 
+export type MutationDeleteComponentRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteConnectedUserMcpServerArgs = {
   connectedUserId: Scalars['ID']['input'];
   mcpServerId: Scalars['ID']['input'];
@@ -5212,6 +5216,18 @@ export type MutationSaveClusterElementTestOutputArgs = {
   inputParameters?: InputMaybe<Scalars['Map']['input']>;
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSaveComponentRuleArgs = {
+  actionName?: InputMaybe<Scalars['String']['input']>;
+  componentName: Scalars['String']['input'];
+  condition: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  id?: InputMaybe<Scalars['ID']['input']>;
+  phase: ComponentRulePhase;
+  ruleAction: ComponentRuleActionType;
 };
 
 
@@ -6548,6 +6564,11 @@ export type Query = {
    * conditions that hold; a condition absent from the map is false.
    */
   componentPropertyDisplayConditions: Scalars['Map']['output'];
+  /**
+   * Lists configured component rules. Omit componentName to list every rule in the tenant, which is what the flat
+   * Rules list renders. Admin-only.
+   */
+  componentRules: Array<ComponentRule>;
   connectedUser?: Maybe<ConnectedUser>;
   connectedUserCodeWorkflowReferences: Array<ConnectedUserCodeWorkflowReference>;
   connectedUserMcpServers: Array<ConnectedUserMcpServer>;
@@ -6607,9 +6628,7 @@ export type Query = {
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
   eligibleErrorWorkflows: Array<ProjectWorkflow>;
-  /** ownerId filters to what that connected user would see, which includes the vendor's shared tables. */
   embeddedDataTables: Array<EmbeddedDataTable>;
-  /** ownerId filters to what that connected user would see, which includes the vendor's shared knowledge bases. */
   embeddedKnowledgeBases: Array<EmbeddedKnowledgeBase>;
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
@@ -7416,6 +7435,11 @@ export type QueryComponentPropertyDisplayConditionsArgs = {
 };
 
 
+export type QueryComponentRulesArgs = {
+  componentName?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type QueryConnectedUserArgs = {
   id?: InputMaybe<Scalars['ID']['input']>;
 };
@@ -7590,13 +7614,11 @@ export type QueryEligibleErrorWorkflowsArgs = {
 
 export type QueryEmbeddedDataTablesArgs = {
   environmentId: Scalars['ID']['input'];
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
 export type QueryEmbeddedKnowledgeBasesArgs = {
   environmentId: Scalars['ID']['input'];
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -8590,7 +8612,6 @@ export type UpdateDataTableTagsInput = {
   tags?: InputMaybe<Array<TagInput>>;
 };
 
-/** The owner is deliberately absent: reassigning one is assignEmbeddedKnowledgeBaseOwner, and folding it in here would give two mutations that can both move a knowledge base between accounts. */
 export type UpdateEmbeddedKnowledgeBaseInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   knowledgeBaseId: Scalars['ID']['input'];

@@ -3282,18 +3282,10 @@ export type DuplicateAutomationWorkflowProjectWorkflowMutation = { duplicateAuto
 
 export type EmbeddedDataTablesQueryVariables = Exact<{
   environmentId: string | number;
-  ownerId?: string | number | null | undefined;
 }>;
 
 
-export type EmbeddedDataTablesQuery = { embeddedDataTables: Array<{ id: string, baseName: string, description: string | null, lastModifiedDate: any, ownerId: string | null, columns: Array<{ id: string, name: string, type: Types.ColumnType }> }> };
-
-export type AssignEmbeddedDataTableOwnerMutationVariables = Exact<{
-  input: Types.AssignDataTableOwnerInput;
-}>;
-
-
-export type AssignEmbeddedDataTableOwnerMutation = { assignEmbeddedDataTableOwner: boolean };
+export type EmbeddedDataTablesQuery = { embeddedDataTables: Array<{ id: string, baseName: string, description: string | null, lastModifiedDate: any, columns: Array<{ id: string, name: string, type: Types.ColumnType }> }> };
 
 export type CreateEmbeddedDataTableMutationVariables = Exact<{
   input: Types.CreateEmbeddedDataTableInput;
@@ -3304,18 +3296,10 @@ export type CreateEmbeddedDataTableMutation = { createEmbeddedDataTable: boolean
 
 export type EmbeddedKnowledgeBasesQueryVariables = Exact<{
   environmentId: string | number;
-  ownerId?: string | number | null | undefined;
 }>;
 
 
-export type EmbeddedKnowledgeBasesQuery = { embeddedKnowledgeBases: Array<{ id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any, ownerId: string | null, maxChunkSize: number, minChunkSizeChars: number, overlap: number }> };
-
-export type AssignEmbeddedKnowledgeBaseOwnerMutationVariables = Exact<{
-  input: Types.AssignKnowledgeBaseOwnerInput;
-}>;
-
-
-export type AssignEmbeddedKnowledgeBaseOwnerMutation = { assignEmbeddedKnowledgeBaseOwner: boolean };
+export type EmbeddedKnowledgeBasesQuery = { embeddedKnowledgeBases: Array<{ id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any, maxChunkSize: number, minChunkSizeChars: number, overlap: number }> };
 
 export type CreateEmbeddedKnowledgeBaseMutationVariables = Exact<{
   input: Types.CreateEmbeddedKnowledgeBaseInput;
@@ -3674,6 +3658,34 @@ export type UpdateComponentPolicyMutationVariables = Exact<{
 
 
 export type UpdateComponentPolicyMutation = { updateComponentPolicy: { name: string, title: string | null, icon: string | null, version: number, enabled: boolean } };
+
+export type ComponentRulesQueryVariables = Exact<{
+  componentName?: string | null | undefined;
+}>;
+
+
+export type ComponentRulesQuery = { componentRules: Array<{ id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean }> };
+
+export type DeleteComponentRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteComponentRuleMutation = { deleteComponentRule: boolean };
+
+export type SaveComponentRuleMutationVariables = Exact<{
+  id?: string | number | null | undefined;
+  componentName: string;
+  actionName?: string | null | undefined;
+  phase: Types.ComponentRulePhase;
+  ruleAction: Types.ComponentRuleActionType;
+  condition: string;
+  description?: string | null | undefined;
+  enabled: boolean;
+}>;
+
+
+export type SaveComponentRuleMutation = { saveComponentRule: { id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean } };
 
 export type AdminApiKeysQueryVariables = Exact<{
   environmentId: string | number;
@@ -15994,8 +16006,8 @@ export const useDuplicateAutomationWorkflowProjectWorkflowMutation = <
     )};
 
 export const EmbeddedDataTablesDocument = new TypedDocumentString(`
-    query EmbeddedDataTables($environmentId: ID!, $ownerId: ID) {
-  embeddedDataTables(environmentId: $environmentId, ownerId: $ownerId) {
+    query EmbeddedDataTables($environmentId: ID!) {
+  embeddedDataTables(environmentId: $environmentId) {
     id
     baseName
     description
@@ -16005,7 +16017,6 @@ export const EmbeddedDataTablesDocument = new TypedDocumentString(`
       type
     }
     lastModifiedDate
-    ownerId
   }
 }
     `);
@@ -16022,25 +16033,6 @@ export const useEmbeddedDataTablesQuery = <
       {
     queryKey: ['EmbeddedDataTables', variables],
     queryFn: fetcher<EmbeddedDataTablesQuery, EmbeddedDataTablesQueryVariables>(EmbeddedDataTablesDocument, variables),
-    ...options
-  }
-    )};
-
-export const AssignEmbeddedDataTableOwnerDocument = new TypedDocumentString(`
-    mutation AssignEmbeddedDataTableOwner($input: AssignDataTableOwnerInput!) {
-  assignEmbeddedDataTableOwner(input: $input)
-}
-    `);
-
-export const useAssignEmbeddedDataTableOwnerMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<AssignEmbeddedDataTableOwnerMutation, TError, AssignEmbeddedDataTableOwnerMutationVariables, TContext>) => {
-    
-    return useMutation<AssignEmbeddedDataTableOwnerMutation, TError, AssignEmbeddedDataTableOwnerMutationVariables, TContext>(
-      {
-    mutationKey: ['AssignEmbeddedDataTableOwner'],
-    mutationFn: (variables?: AssignEmbeddedDataTableOwnerMutationVariables) => fetcher<AssignEmbeddedDataTableOwnerMutation, AssignEmbeddedDataTableOwnerMutationVariables>(AssignEmbeddedDataTableOwnerDocument, variables)(),
     ...options
   }
     )};
@@ -16065,14 +16057,13 @@ export const useCreateEmbeddedDataTableMutation = <
     )};
 
 export const EmbeddedKnowledgeBasesDocument = new TypedDocumentString(`
-    query EmbeddedKnowledgeBases($environmentId: ID!, $ownerId: ID) {
-  embeddedKnowledgeBases(environmentId: $environmentId, ownerId: $ownerId) {
+    query EmbeddedKnowledgeBases($environmentId: ID!) {
+  embeddedKnowledgeBases(environmentId: $environmentId) {
     id
     name
     description
     createdDate
     lastModifiedDate
-    ownerId
     maxChunkSize
     minChunkSizeChars
     overlap
@@ -16092,25 +16083,6 @@ export const useEmbeddedKnowledgeBasesQuery = <
       {
     queryKey: ['EmbeddedKnowledgeBases', variables],
     queryFn: fetcher<EmbeddedKnowledgeBasesQuery, EmbeddedKnowledgeBasesQueryVariables>(EmbeddedKnowledgeBasesDocument, variables),
-    ...options
-  }
-    )};
-
-export const AssignEmbeddedKnowledgeBaseOwnerDocument = new TypedDocumentString(`
-    mutation AssignEmbeddedKnowledgeBaseOwner($input: AssignKnowledgeBaseOwnerInput!) {
-  assignEmbeddedKnowledgeBaseOwner(input: $input)
-}
-    `);
-
-export const useAssignEmbeddedKnowledgeBaseOwnerMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<AssignEmbeddedKnowledgeBaseOwnerMutation, TError, AssignEmbeddedKnowledgeBaseOwnerMutationVariables, TContext>) => {
-    
-    return useMutation<AssignEmbeddedKnowledgeBaseOwnerMutation, TError, AssignEmbeddedKnowledgeBaseOwnerMutationVariables, TContext>(
-      {
-    mutationKey: ['AssignEmbeddedKnowledgeBaseOwner'],
-    mutationFn: (variables?: AssignEmbeddedKnowledgeBaseOwnerMutationVariables) => fetcher<AssignEmbeddedKnowledgeBaseOwnerMutation, AssignEmbeddedKnowledgeBaseOwnerMutationVariables>(AssignEmbeddedKnowledgeBaseOwnerDocument, variables)(),
     ...options
   }
     )};
@@ -17492,6 +17464,97 @@ export const useUpdateComponentPolicyMutation = <
       {
     mutationKey: ['UpdateComponentPolicy'],
     mutationFn: (variables?: UpdateComponentPolicyMutationVariables) => fetcher<UpdateComponentPolicyMutation, UpdateComponentPolicyMutationVariables>(UpdateComponentPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ComponentRulesDocument = new TypedDocumentString(`
+    query ComponentRules($componentName: String) {
+  componentRules(componentName: $componentName) {
+    id
+    componentName
+    componentTitle
+    componentIcon
+    actionName
+    phase
+    ruleAction
+    condition
+    description
+    enabled
+  }
+}
+    `);
+
+export const useComponentRulesQuery = <
+      TData = ComponentRulesQuery,
+      TError = unknown
+    >(
+      variables?: ComponentRulesQueryVariables,
+      options?: Omit<UseQueryOptions<ComponentRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ComponentRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ComponentRulesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ComponentRules'] : ['ComponentRules', variables],
+    queryFn: fetcher<ComponentRulesQuery, ComponentRulesQueryVariables>(ComponentRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const DeleteComponentRuleDocument = new TypedDocumentString(`
+    mutation DeleteComponentRule($id: ID!) {
+  deleteComponentRule(id: $id)
+}
+    `);
+
+export const useDeleteComponentRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteComponentRuleMutation, TError, DeleteComponentRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteComponentRuleMutation, TError, DeleteComponentRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteComponentRule'],
+    mutationFn: (variables?: DeleteComponentRuleMutationVariables) => fetcher<DeleteComponentRuleMutation, DeleteComponentRuleMutationVariables>(DeleteComponentRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SaveComponentRuleDocument = new TypedDocumentString(`
+    mutation SaveComponentRule($id: ID, $componentName: String!, $actionName: String, $phase: ComponentRulePhase!, $ruleAction: ComponentRuleActionType!, $condition: String!, $description: String, $enabled: Boolean!) {
+  saveComponentRule(
+    id: $id
+    componentName: $componentName
+    actionName: $actionName
+    phase: $phase
+    ruleAction: $ruleAction
+    condition: $condition
+    description: $description
+    enabled: $enabled
+  ) {
+    id
+    componentName
+    componentTitle
+    componentIcon
+    actionName
+    phase
+    ruleAction
+    condition
+    description
+    enabled
+  }
+}
+    `);
+
+export const useSaveComponentRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SaveComponentRuleMutation, TError, SaveComponentRuleMutationVariables, TContext>) => {
+    
+    return useMutation<SaveComponentRuleMutation, TError, SaveComponentRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveComponentRule'],
+    mutationFn: (variables?: SaveComponentRuleMutationVariables) => fetcher<SaveComponentRuleMutation, SaveComponentRuleMutationVariables>(SaveComponentRuleDocument, variables)(),
     ...options
   }
     )};
