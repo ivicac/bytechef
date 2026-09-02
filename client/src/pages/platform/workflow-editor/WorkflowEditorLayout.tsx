@@ -10,6 +10,7 @@ import useWorkflowIssuesSweep from '@/pages/platform/workflow-editor/hooks/useWo
 import useWorkflowIssuesValidation from '@/pages/platform/workflow-editor/hooks/useWorkflowIssuesValidation';
 import {useWorkflowLayout} from '@/pages/platform/workflow-editor/hooks/useWorkflowLayout';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
+import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useRightSidebarStore from '@/pages/platform/workflow-editor/stores/useRightSidebarStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowIssuesStore from '@/pages/platform/workflow-editor/stores/useWorkflowIssuesStore';
@@ -98,7 +99,7 @@ const WorkflowEditorLayout = ({
     const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
     const workflow = useWorkflowDataStore((state) => state.workflow);
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
-    const clusterElementsViewMode = useClusterElementsViewMode();
+    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
     const issuesSidebarOpen = useWorkflowIssuesStore((state) => state.issuesSidebarOpen);
     const workflowNodeDetailsPanelOpen = useWorkflowNodeDetailsPanelStore(
         (state) => state.workflowNodeDetailsPanelOpen
@@ -234,6 +235,8 @@ const WorkflowEditorLayout = ({
         };
     }, []);
 
+    // The dialog renders its own details panel, so the root-level one stands down while it is open.
+    // In box mode there is no dialog, so cluster roots and elements get this panel like anything else.
     const showRootLevelDetailsPanel =
         !!currentNode?.type &&
         !clusterElementsCanvasOpen &&
@@ -373,24 +376,6 @@ const WorkflowEditorLayout = ({
             {workflow.id && workflowTestChatPanelOpen && (
                 <Suspense fallback={null}>
                     <WorkflowTestChatPanel />
-                </Suspense>
-            )}
-
-            {clusterElementsViewMode === 'box' && testingPanelOpen && !clusterElementsCanvasOpen && (
-                <Suspense fallback={null}>
-                    <div
-                        className={twMerge(
-                            'absolute top-[15px] bottom-6 z-10 w-screen max-w-workflow-node-details-panel-width overflow-hidden rounded-lg border border-stroke-neutral-secondary bg-surface-main',
-                            copilotLayoutShifted ? 'right-[57px]' : 'right-[69px]'
-                        )}
-                    >
-                        <AiAgentTestingPanel
-                            contentClassName="rounded-none bg-transparent"
-                            headerClassName="p-4"
-                            onClose={handleClosePlayground}
-                            skipIntro
-                        />
-                    </div>
                 </Suspense>
             )}
 
