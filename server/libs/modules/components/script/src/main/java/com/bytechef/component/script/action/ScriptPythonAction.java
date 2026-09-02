@@ -32,7 +32,10 @@ import static com.bytechef.platform.component.definition.ScriptComponentDefiniti
 
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.script.action.definition.ScriptActionDefinition;
-import com.bytechef.platform.component.runner.PolyglotEngine;
+import com.bytechef.platform.component.runner.TaskRunnerCapability;
+import com.bytechef.platform.component.runner.TaskRunnerPropertyFactory;
+import com.bytechef.platform.component.runner.TaskRunnerRegistry;
+import java.util.Set;
 
 /**
  * @author Matija Petanjek
@@ -40,7 +43,7 @@ import com.bytechef.platform.component.runner.PolyglotEngine;
  */
 public class ScriptPythonAction {
 
-    public static ScriptActionDefinition of(PolyglotEngine polyglotEngine) {
+    public static ScriptActionDefinition of(TaskRunnerRegistry taskRunnerRegistry) {
         return new ScriptActionDefinition(
             action("python")
                 .title("Python")
@@ -68,9 +71,11 @@ public class ScriptPythonAction {
                                     #     {"uri": "https://api.example.com/items"}, "my-connection")
 
                                     return None""")
-                        .required(true))
+                        .required(true),
+                    TaskRunnerPropertyFactory.taskRunnerProperty(
+                        taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)))
                 .output(),
-            "python", polyglotEngine);
+            "python", taskRunnerRegistry);
     }
 
     private ScriptPythonAction() {
