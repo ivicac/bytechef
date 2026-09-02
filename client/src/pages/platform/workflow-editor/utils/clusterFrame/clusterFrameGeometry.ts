@@ -15,6 +15,16 @@ export const CLUSTER_FRAME_HEADER_HEIGHT = 40;
 /** Breathing room between the outermost member and the box edge. */
 export const CLUSTER_FRAME_PADDING = 32;
 
+/**
+ * The dashed border ClusterFrameShell paints (`border-2`).
+ *
+ * React Flow positions a frame's CHILD nodes from the frame node's own origin, but anything inside
+ * the frame element is laid out after its border. Left uncompensated that puts the root card -- and
+ * every cluster element handle on it -- two pixels right of the placeholders those handles connect
+ * to, so every edge in the box leans by a constant amount.
+ */
+export const CLUSTER_FRAME_BORDER_WIDTH = 2;
+
 export const CLUSTER_FRAME_MIN_HEIGHT = 220;
 export const CLUSTER_FRAME_MIN_WIDTH = 420;
 
