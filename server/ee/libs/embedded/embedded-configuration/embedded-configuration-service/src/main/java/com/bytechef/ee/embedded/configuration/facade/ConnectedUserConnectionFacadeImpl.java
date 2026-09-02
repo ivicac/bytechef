@@ -62,9 +62,18 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
         this.connectionFacade = connectionFacade;
     }
 
+    /**
+     * Forces {@code shared} off regardless of the request body. A connected user who could mark their own connection
+     * shared would hand their credentials to every other connected user in the environment; the flag is settable only
+     * from the tenant admin surface.
+     */
     @Override
     public long createConnectedUserConnection(long connectedUserId, ConnectionDTO connectionDTO) {
-        long connectionId = connectionFacade.create(connectionDTO, PlatformType.EMBEDDED);
+        ConnectionDTO unsharedConnectionDTO = ConnectionDTO.builder(connectionDTO)
+            .shared(false)
+            .build();
+
+        long connectionId = connectionFacade.create(unsharedConnectionDTO, PlatformType.EMBEDDED);
 
         connectedUserConnectionService.create(connectedUserId, connectionId);
 
@@ -80,9 +89,8 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
 
     /**
      * Returns the connections this connected user is entitled to: their own -- the connections behind their integration
-     * instances plus the ones they created themselves -- and the connections bound at the configuration level of the
-     * configurations those instances derive from, which is what a shared connection is in this data model.
-     * {@link ConnectedUserConnectionMembership} computes all three, and it is the same computation
+     * instances plus the ones they created themselves -- and the connections a tenant admin marked {@code shared} in
+     * this environment. {@link ConnectedUserConnectionMembership} computes all three, and it is the same computation
      * {@code ConnectedUserResourceMembershipResolver} authorizes against, so what this list shows and what a subsequent
      * request is granted cannot disagree.
      * <p>
@@ -90,11 +98,11 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
      * browser -- declared over the {@code EMBED_INIT} postMessage handshake and forwarded as a request parameter. It is
      * a caller assertion the server cannot verify, and it used to be added to the result unconditionally, which let any
      * connected user read any embedded connection in the tenant by guessing its id. It is now ignored entirely: the
-     * sharing it was meant to express is derived server-side instead, from configuration-level bindings the tenant
-     * admin actually made.
+     * sharing it was meant to express is derived server-side instead, from the {@code shared} flag the tenant admin
+     * actually set.
      * <p>
-     * Ids the entitlement does not cover are logged rather than rejected, so a host that declares a connection no
-     * configuration binds is visible to an operator instead of silently losing it.
+     * Ids the entitlement does not cover are logged rather than rejected, so a host that declares a connection this
+     * user is neither entitled to nor owns is visible to an operator instead of silently losing it.
      */
     @Override
     public List<ConnectionDTO> getConnections(
@@ -127,10 +135,10 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
     }
 
     /**
-     * Entitlement is not ownership, and this check is the reason the difference matters. A configuration-level shared
-     * connection is entitled to every connected user attached to that configuration, so it now appears in
-     * {@link #getConnections}; deleting or reauthorizing it would act on every one of those users at once. The
-     * connection belongs to the tenant admin who bound it, and only the admin surface may change it.
+     * Entitlement is not ownership, and this check is the reason the difference matters. A shared connection is
+     * entitled to every connected user in the environment, so it now appears in {@link #getConnections}; deleting or
+     * reauthorizing it would act on every one of those users at once. The connection belongs to the tenant admin who
+     * marked it shared, and only the admin surface may change it.
      */
     private void requireOwned(long connectedUserId, long connectionId) {
         ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserId);
@@ -167,9 +175,10 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
     }
 
     /**
-     * Logs the requested ids this connected user is not entitled to. Now that configuration-level bindings are derived
-     * server-side, a declared id that still lands here is one no configuration this user is attached to binds -- which
-     * is the residual worth an operator's attention: a host declaring a connection it was never actually given.
+     * Logs the requested ids this connected user is not entitled to, rather than rejecting the request outright: a
+     * declared id that still lands here is one that is neither one of this user's own connections nor marked shared in
+     * this environment -- which is the residual worth an operator's attention: a host declaring a connection it was
+     * never actually given.
      */
     private static void logUnentitledRequestedConnectionIds(
         Long connectedUserId, List<Long> connectionIds, Set<Long> entitledConnectionIds) {
@@ -185,8 +194,7 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
         if (!unentitledConnectionIds.isEmpty() && shouldWarnFor(connectedUserId)) {
             log.warn(
                 "Ignored {} shared connection id(s) {} requested for connected user id={}: they are neither this " +
-                    "user's own connections nor bound at any integration instance configuration this user has an " +
-                    "instance for",
+                    "user's own connections nor marked shared in this environment",
                 unentitledConnectionIds.size(), unentitledConnectionIds, connectedUserId);
         }
     }
