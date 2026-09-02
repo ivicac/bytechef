@@ -530,6 +530,7 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/ai-gateway-guardrails.md` | Gateway adapter + project overlay |
 | `.agents/ai-model-catalog.md` | CE snapshot vs EE persisted twin |
 | `.agents/agentic-ai-component.md` | Embabel GOAP component (opt-in) |
+| `.agents/data-table-knowledge-base-ownership.md` | Row-level ownership in embedded: the only boundary between two accounts' data, and the tests that prove it |
 | `.agents/code-artifacts.md` | Custom components & code workflows: draft/publish, perform context, declared connections |
 | `.agents/mcp-a2a-servers.md` | MCP workflows-as-tools (fromAi), A2A servers |
 | `.agents/environment-promotion.md` | Promoting API collections / MCP / A2A / deployments across environments |
