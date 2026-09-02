@@ -154,6 +154,8 @@ export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 100;
 export const PLACEHOLDER_NODE_HEIGHT = 28;
 export const PLACEHOLDER_NODE_WIDTH = 28;
+// The dashed end-of-chain "+" (size-12 in PlaceholderNode), as distinct from the 28px insert "+".
+export const FINAL_PLACEHOLDER_NODE_SIZE = 48;
 export const TRIGGER_PLACEHOLDER_NODE_SIZE = 48;
 export const CLUSTER_ELEMENT_TYPE_TOOLS = 'tools';
 export const CLUSTER_ELEMENT_NODE_WIDTH = 72;

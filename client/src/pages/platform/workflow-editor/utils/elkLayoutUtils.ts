@@ -1,4 +1,6 @@
 import {
+    FINAL_PLACEHOLDER_NODE_ID,
+    FINAL_PLACEHOLDER_NODE_SIZE,
     GRAPH_START_EDGE_TYPE,
     GRAPH_TRANSITION_EDGE_TYPE,
     LayoutDirectionType,
@@ -969,6 +971,13 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
         }
 
         if (node.type === 'placeholder') {
+            // The end-of-chain "+" is the 48px dashed box (mx-3 keeps its DOM 72px wide); the chain
+            // is drawn through this anchor's vertical centre, so assuming the 28px insert "+" here
+            // met it 10px above its middle and the last edge in LR sloped down into it.
+            if (node.id === FINAL_PLACEHOLDER_NODE_ID) {
+                return {height: FINAL_PLACEHOLDER_NODE_SIZE, width: NODE_ANCHOR_SIZE};
+            }
+
             // The 28px "+" square renders with mx-[22px] margins (PlaceholderNode.tsx),
             // so the node's DOM box is 72px wide with the "+" at its center
             return {height: PLACEHOLDER_NODE_HEIGHT, width: NODE_ANCHOR_SIZE};
