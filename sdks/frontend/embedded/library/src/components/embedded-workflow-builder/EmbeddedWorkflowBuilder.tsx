@@ -19,8 +19,8 @@ interface EmbeddedWorkflowBuilderProps {
      * Whether to allow the connection dialog to be shown in the workflow builder.
      * When true, users can create and manage connections directly in the workflow builder.
      * When false, users can only use existing connections. Those existing connections can be
-     * either shared connections created inside ByteChef and defined by `sharedConnectionIds`
-     * or integration connections created via `ConnectDialog`.
+     * either connections a tenant admin marked as shared inside ByteChef's '/embedded/connections'
+     * page or integration connections created via `ConnectDialog`.
      */
     connectionDialogAllowed: boolean;
 
@@ -45,13 +45,6 @@ interface EmbeddedWorkflowBuilderProps {
     jwtToken: string;
 
     /**
-     * Array of connection IDs that should be shared with this workflow builder.
-     * These connections will be available for use in the workflow being built.
-     * Shared connections can be created via the ByteChef's '/embedded/connections' page.
-     */
-    sharedConnectionIds: number[];
-
-    /**
      * The uuid for the workflow being edited.
      * This is used to load the correct workflow in the builder.
      */
@@ -74,13 +67,18 @@ const EmbeddedWorkflowBuilder = ({
     environment = 'PRODUCTION',
     includeComponents,
     jwtToken,
-    sharedConnectionIds,
     workflowUuid,
 }: EmbeddedWorkflowBuilderProps) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const propsRef = useRef({connectionDialogAllowed, environment, includeComponents, jwtToken, sharedConnectionIds});
+    const propsRef = useRef({connectionDialogAllowed, environment, includeComponents, jwtToken});
 
-    propsRef.current = {connectionDialogAllowed, environment, includeComponents, jwtToken, sharedConnectionIds};
+    // Kept up to date via an effect (rather than assigned during render) so that a late prop
+    // change is still visible to the next EMBED_READY handshake, without mutating the ref while
+    // rendering -- postMessage delivery is always async relative to React's render/effect cycle,
+    // so this remains observably identical to an in-render assignment.
+    useEffect(() => {
+        propsRef.current = {connectionDialogAllowed, environment, includeComponents, jwtToken};
+    }, [connectionDialogAllowed, environment, includeComponents, jwtToken]);
 
     useEffect(() => {
         const targetOrigin = new URL(baseUrl).origin;

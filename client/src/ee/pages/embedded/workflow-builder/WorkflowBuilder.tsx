@@ -46,7 +46,6 @@ const WorkflowBuilder = () => {
         initialized,
         invalidateWorkflowQueries,
         projectId,
-        sharedConnectionIds,
         updateClusterElementParameterMutation,
         updateWorkflowEditorMutation,
         updateWorkflowMutation,
@@ -101,8 +100,7 @@ const WorkflowBuilder = () => {
                                 useGetComponentDefinitionsQuery: useGetComponentDefinitionsQuery,
                                 useGetConnectionTagsQuery: useGetConnectionTagsQuery,
                                 useGetConnectionsQuery: getConnectedUserConnectionsQuery(
-                                    connectedUserProjectWorkflow.connectedUserId!,
-                                    sharedConnectionIds ? sharedConnectionIds : []
+                                    connectedUserProjectWorkflow.connectedUserId!
                                 ),
                                 webhookTriggerTestApi: new WebhookTriggerTestApi(),
                             }}
