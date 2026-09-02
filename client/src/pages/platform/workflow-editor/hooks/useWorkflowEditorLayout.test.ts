@@ -1,7 +1,6 @@
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
-import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
 import {NodeDataType} from '@/shared/types';
 import {act, renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it} from 'vitest';
@@ -21,7 +20,6 @@ beforeEach(() => {
     useWorkflowDataStore.setState({workflow: {nodeNames: []}});
     useWorkflowEditorStore.setState({
         clusterElementsCanvasOpen: false,
-        mainClusterRootComponentDefinition: undefined,
         rootClusterElementNodeData: undefined,
     });
     useWorkflowNodeDetailsPanelStore.setState({currentNode: undefined});
@@ -152,7 +150,6 @@ describe('useWorkflowEditorLayout', () => {
     it('closes a cluster elements canvas left open by a previous workflow when the editor mounts', () => {
         useWorkflowEditorStore.setState({
             clusterElementsCanvasOpen: true,
-            mainClusterRootComponentDefinition: {name: 'aiAgent'} as ComponentDefinition,
             rootClusterElementNodeData: aiAgentRootNode,
         });
 
@@ -160,7 +157,6 @@ describe('useWorkflowEditorLayout', () => {
 
         expect(useWorkflowEditorStore.getState().clusterElementsCanvasOpen).toBe(false);
         expect(useWorkflowEditorStore.getState().rootClusterElementNodeData).toBeUndefined();
-        expect(useWorkflowEditorStore.getState().mainClusterRootComponentDefinition).toBeUndefined();
     });
 
     it('closes the cluster elements canvas when the editor switches to another workflow', () => {

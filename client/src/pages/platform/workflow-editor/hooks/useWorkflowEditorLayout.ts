@@ -10,19 +10,14 @@ const useWorkflowEditorLayout = () => {
     const workflowId = useWorkflowDataStore((state) => state.workflow.id);
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
     const clusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.clusterElementsCanvasOpen);
-    const {
-        setClusterElementsCanvasOpen,
-        setMainClusterRootComponentDefinition,
-        setNestedClusterRootsComponentDefinitions,
-        setRootClusterElementNodeData,
-    } = useWorkflowEditorStore(
-        useShallow((state) => ({
-            setClusterElementsCanvasOpen: state.setClusterElementsCanvasOpen,
-            setMainClusterRootComponentDefinition: state.setMainClusterRootComponentDefinition,
-            setNestedClusterRootsComponentDefinitions: state.setNestedClusterRootsComponentDefinitions,
-            setRootClusterElementNodeData: state.setRootClusterElementNodeData,
-        }))
-    );
+    const {setClusterElementsCanvasOpen, setNestedClusterRootsComponentDefinitions, setRootClusterElementNodeData} =
+        useWorkflowEditorStore(
+            useShallow((state) => ({
+                setClusterElementsCanvasOpen: state.setClusterElementsCanvasOpen,
+                setNestedClusterRootsComponentDefinitions: state.setNestedClusterRootsComponentDefinitions,
+                setRootClusterElementNodeData: state.setRootClusterElementNodeData,
+            }))
+        );
 
     const isMainRootClusterElement = useMemo(
         () => currentNode?.clusterRoot && !currentNode?.isNestedClusterRoot,
@@ -37,16 +32,15 @@ const useWorkflowEditorLayout = () => {
                 seededRootNodeNameRef.current = undefined;
 
                 setRootClusterElementNodeData(undefined);
-                setMainClusterRootComponentDefinition(undefined);
+
+                // clusterRootComponentDefinitions is not reset here: it is keyed by root workflow node
+                // name now, so a stale entry from one root can never bleed into another the way the old
+                // singular slot could -- reopening the same root just reuses its already-fetched
+                // definition instead of re-fetching it.
                 setNestedClusterRootsComponentDefinitions({});
             }
         },
-        [
-            setClusterElementsCanvasOpen,
-            setMainClusterRootComponentDefinition,
-            setNestedClusterRootsComponentDefinitions,
-            setRootClusterElementNodeData,
-        ]
+        [setClusterElementsCanvasOpen, setNestedClusterRootsComponentDefinitions, setRootClusterElementNodeData]
     );
 
     // Seeds the root data once per root while the canvas is open, and only then. currentNode is re-created by
