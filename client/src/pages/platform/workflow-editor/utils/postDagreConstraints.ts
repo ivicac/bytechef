@@ -962,6 +962,16 @@ export function hasConfiguredClusterElements(node: Node): boolean {
 }
 
 function getNodeCrossSize(node: Node, crossAxis: 'x' | 'y'): number {
+    // In box mode the node IS the frame: `ClusterFrameShell` draws a box of `clusterFrame` size, so
+    // neighbours have to be spaced against those dimensions and not against a card-sized constant.
+    // Measuring a box against CLUSTER_ROOT_NODE_WIDTH/NODE_HEIGHT left the successor placeholder
+    // overlapping the frame's bottom edge.
+    const clusterFrame = (node.data as NodeDataType | undefined)?.clusterFrame;
+
+    if (clusterFrame) {
+        return crossAxis === 'y' ? clusterFrame.height : clusterFrame.width;
+    }
+
     if (crossAxis === 'y') {
         return NODE_HEIGHT;
     }
@@ -973,6 +983,14 @@ export const REGULAR_NODE_HANDLE_OFFSET = 36;
 export const CONFIGURED_CLUSTER_ROOT_HANDLE_OFFSET = 120;
 
 function getNodeHandleOffset(node: Node, crossAxis: 'x' | 'y'): number {
+    // `ClusterFrameShell` renders the box's chain handles with React Flow's default centring, so in
+    // box mode the handle is at the middle of the frame -- not at the fixed offset a card would use.
+    const clusterFrame = (node.data as NodeDataType | undefined)?.clusterFrame;
+
+    if (clusterFrame && crossAxis === 'x') {
+        return clusterFrame.width / 2;
+    }
+
     if (crossAxis !== 'x') {
         return REGULAR_NODE_HANDLE_OFFSET;
     }

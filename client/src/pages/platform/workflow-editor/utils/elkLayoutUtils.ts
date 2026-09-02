@@ -926,6 +926,17 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
         return {height: graphFrame.height, width: graphFrame.width};
     }
 
+    const clusterFrame = (node.data as NodeDataType).clusterFrame;
+
+    // A cluster box is the same shape of thing: ClusterFrameShell paints `data.clusterFrame`
+    // exactly and carries the chain handles on the box's own edges, centered. Falling through to
+    // the configured-cluster-root branch below would center a phantom CLUSTER_ROOT_RENDERED_MAIN_SIZE
+    // anchor inside the box's footprint and put the chain axis through THAT — which is what left the
+    // incoming edge left of the box's centre and the successor placeholder across its bottom border.
+    if (clusterFrame) {
+        return {height: clusterFrame.height, width: clusterFrame.width};
+    }
+
     const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
     const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
 
