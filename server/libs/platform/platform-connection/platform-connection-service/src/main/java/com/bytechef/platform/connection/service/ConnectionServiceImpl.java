@@ -193,6 +193,13 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Connection> getSharedConnections(int environmentId, PlatformType type) {
+        return connectionRepository.findAllBySharedIsTrueAndEnvironmentAndTypeOrderByName(
+            environmentId, type.ordinal());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Connection> getConnections(String componentName, int version, PlatformType type) {
         List<Connection> connections = populateAll(
             connectionRepository.findAllByComponentNameAndConnectionVersionAndTypeOrderByName(
