@@ -490,10 +490,11 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
      * credential material to a list surface that normally filters it through the component definition.
      */
     private static ConnectionDTO buildDegradedConnectionDTO(Connection connection, List<Tag> tags, Throwable cause) {
-        // The Builder hardcodes authorizationParameters and connectionParameters to Map.of() in its
-        // build() step, which is exactly what we want here — a corrupted row must not leak raw
-        // credential material to a list surface that normally filters it through the component
-        // definition. `parameters` is also left null (the Builder's default) for the same reason.
+        // The Builder defaults authorizationParameters and connectionParameters to Map.of() when their
+        // setters are never called, which is exactly what we want here — a corrupted row must not leak
+        // raw credential material to a list surface that normally filters it through the component
+        // definition. This call site deliberately never calls those setters. `parameters` is also left
+        // null (the Builder's default) for the same reason.
         return ConnectionDTO.builder()
             .active(false)
             .authorizationType(null)

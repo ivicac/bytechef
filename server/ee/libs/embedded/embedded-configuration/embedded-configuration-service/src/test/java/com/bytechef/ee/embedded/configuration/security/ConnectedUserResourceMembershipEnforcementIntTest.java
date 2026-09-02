@@ -934,6 +934,11 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         }
 
         @Bean
+        ConnectionService connectionService() {
+            return mock(ConnectionService.class);
+        }
+
+        @Bean
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService() {
             return mock(IntegrationInstanceConfigurationWorkflowService.class);
         }
