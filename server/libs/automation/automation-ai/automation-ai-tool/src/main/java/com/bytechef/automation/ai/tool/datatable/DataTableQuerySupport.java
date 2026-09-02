@@ -17,6 +17,7 @@
 package com.bytechef.automation.ai.tool.datatable;
 
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.util.List;
@@ -69,14 +70,16 @@ public final class DataTableQuerySupport {
     }
 
     /**
-     * Fetches up to {@code fetchLimit} rows for {@code baseName} in {@code environmentId} and applies the optional
-     * simple-equals {@code where} filter (e.g. {@code "status = 'qualified'"}), returning the row value maps.
+     * Fetches up to {@code fetchLimit} rows for {@code baseName} in {@code environmentId}, applies the optional
+     * simple-equals {@code where} filter (e.g. {@code "status = 'qualified'"}), and returns the row value maps.
+     *
      */
     public static List<Map<String, Object>> queryRowMaps(
         DataTableRowService dataTableRowService, String baseName, @Nullable String where, int fetchLimit,
         long environmentId) throws WhereParseException {
 
-        List<DataTableRow> rows = dataTableRowService.listRows(baseName, fetchLimit, 0, environmentId);
+        List<DataTableRow> rows = dataTableRowService.listRows(
+            new DataTableRef(baseName, environmentId), fetchLimit, 0);
 
         if (where != null && !where.isBlank()) {
             WhereClause whereClause = parseWhere(where);

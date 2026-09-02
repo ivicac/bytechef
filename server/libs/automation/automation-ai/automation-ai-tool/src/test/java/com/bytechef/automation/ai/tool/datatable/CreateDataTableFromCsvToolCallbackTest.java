@@ -30,6 +30,7 @@ import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.time.LocalDate;
 import java.util.List;
@@ -148,7 +149,8 @@ class CreateDataTableFromCsvToolCallbackTest {
 
         callback.call(buildInput("contacts", csv), toolContextWithWorkspace());
 
-        verify(dataTableRowService, times(2)).insertRow(eq("contacts"), any(), eq(0L));
+        verify(dataTableRowService, times(2)).insertRow(
+            eq(new DataTableRef("contacts", 0L)), any());
     }
 
     @Test
@@ -213,7 +215,8 @@ class CreateDataTableFromCsvToolCallbackTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> rowCaptor = ArgumentCaptor.forClass(Map.class);
 
-        verify(dataTableRowService, atLeastOnce()).insertRow(eq("typed"), rowCaptor.capture(), eq(0L));
+        verify(dataTableRowService, atLeastOnce()).insertRow(
+            eq(new DataTableRef("typed", 0L)), rowCaptor.capture());
 
         Map<String, Object> values = rowCaptor.getValue();
 

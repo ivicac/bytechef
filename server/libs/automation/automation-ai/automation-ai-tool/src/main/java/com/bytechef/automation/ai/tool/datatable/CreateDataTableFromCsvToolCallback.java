@@ -19,8 +19,10 @@ package com.bytechef.automation.ai.tool.datatable;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.LocalDate;
@@ -160,7 +162,8 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                             .type()));
                 }
 
-                dataTableRowService.insertRow(input.baseName(), values, environmentId);
+                dataTableRowService.insertRow(
+                    new DataTableRef(input.baseName(), environmentId), values);
                 inserted++;
             }
 
@@ -172,7 +175,7 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                         .name()))
                     .toList(),
                 inserted));
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | DataTableException exception) {
             return ToolErrors.toolError(jsonMapper, exception.getMessage());
         } catch (JacksonException exception) {
             return ToolErrors.toolError(jsonMapper, "Invalid tool input: " + exception.getMessage());

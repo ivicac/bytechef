@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.tool.datatable;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -43,10 +44,10 @@ import tools.jackson.databind.json.JsonMapper;
  * </p>
  *
  * <p>
- * Direct execution rather than staged: the existing {@link DataTableService#duplicateTable(String, String, long)}
- * implementation is the same primitive {@code AddDataTableRowToolCallback}-style staged mutations would commit, but
- * cloning is fully additive (creates a brand-new physical table, never mutates the source). The staged-review loop adds
- * friction without a clear payoff — same rationale as {@link CreateDataTableFromCsvToolCallback}.
+ * Direct execution rather than staged: {@code WorkspaceDataTableFacade.duplicateTable} is the same primitive
+ * {@code AddDataTableRowToolCallback}-style staged mutations would commit, but cloning is fully additive (creates a
+ * brand-new physical table, never mutates the source). The staged-review loop adds friction without a clear payoff —
+ * same rationale as {@link CreateDataTableFromCsvToolCallback}.
  * </p>
  *
  *
@@ -148,7 +149,11 @@ public class CloneDataTableToolCallback implements ToolCallback {
             }
 
             try {
-                dataTableService.duplicateTable(tableInfo.baseName(), input.newBaseName(), environmentId);
+                // Through the workspace facade, never DataTableService.duplicateTable directly: the service registers
+                // the data_table row but not the workspace_data_table relation, so the clone is invisible to
+                // listTables(workspaceId, environmentId) -- including resolveTableInWorkspace above, meaning the tool
+                // cannot see the table it just made. Fixed on the GraphQL path in 1e842972a21; this path was missed.
+                workspaceDataTableFacade.duplicateTable(dataTableId, input.newBaseName(), environmentId);
             } catch (IllegalArgumentException exception) {
                 // Captures both validateBaseName failures (invalid characters) and registry collisions when the new
                 // base name is already taken in this environment. Surface verbatim so the LLM can pick a different
@@ -156,7 +161,7 @@ public class CloneDataTableToolCallback implements ToolCallback {
                 return toolError(exception.getMessage());
             }
 
-            long newId = dataTableService.getIdByBaseName(input.newBaseName());
+            long newId = dataTableService.getIdByBaseName(input.newBaseName(), PlatformType.AUTOMATION);
 
             return jsonMapper.writeValueAsString(new CloneDataTableOutput(newId, input.newBaseName()));
         } catch (JacksonException exception) {

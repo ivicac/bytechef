@@ -43,6 +43,18 @@ class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
     }
 
     @Test
+    void testGetKnowledgeBaseTagsByKnowledgeBaseRequiresWorkspaceViewer() {
+        assertExpression(
+            "getKnowledgeBaseTagsByKnowledgeBase", "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')");
+    }
+
+    @Test
+    void testUpdateKnowledgeBaseTagsRequiresResourceEditor() {
+        assertExpression(
+            "updateKnowledgeBaseTags", "hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_EDIT')");
+    }
+
+    @Test
     void testGetKnowledgeBaseRequiresResourceViewer() {
         assertExpression("getKnowledgeBase", "hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_VIEW')");
     }

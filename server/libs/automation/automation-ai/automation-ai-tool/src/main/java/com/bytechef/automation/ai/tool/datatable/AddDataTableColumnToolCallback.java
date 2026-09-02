@@ -171,7 +171,8 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
 
             String baseName = tableInfo.baseName();
 
-            dataTableService.addColumn(baseName, new ColumnSpec(input.columnName(), columnType), environmentId);
+            dataTableService.addColumn(
+                baseName, new ColumnSpec(input.columnName(), columnType), environmentId);
 
             recordArtifact(invocationContext, baseName, input.dataTableId(), input.columnName(), environmentId);
 

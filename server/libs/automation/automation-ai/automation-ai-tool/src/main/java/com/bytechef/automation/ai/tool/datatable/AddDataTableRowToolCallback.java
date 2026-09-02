@@ -21,6 +21,7 @@ import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -146,7 +147,8 @@ public class AddDataTableRowToolCallback implements ToolCallback {
                     "Data table " + dataTableIdString + " not found in the current workspace.");
             }
 
-            DataTableRow inserted = dataTableRowService.insertRow(tableInfo.baseName(), values, environmentId);
+            DataTableRow inserted = dataTableRowService.insertRow(
+                new DataTableRef(tableInfo.baseName(), environmentId), values);
 
             recordArtifact(invocationContext, tableInfo.baseName(), inserted.id());
 

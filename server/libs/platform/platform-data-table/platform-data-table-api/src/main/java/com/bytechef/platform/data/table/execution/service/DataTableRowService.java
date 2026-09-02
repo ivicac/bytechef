@@ -16,6 +16,9 @@
 
 package com.bytechef.platform.data.table.execution.service;
 
+import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.data.table.domain.RowFilter;
+import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,22 @@ import java.util.Map;
  * are managed by {@link com.bytechef.platform.data.table.configuration.service.DataTableService}.
  * </p>
  *
+ * <p>
+ * Every method names its table with a {@link DataTableRef} rather than with a base name, and that is the module's one
+ * defence against a run touching another account's data. A ref already carries the pool, the environment and BOTH
+ * owners resolution settled on -- the one that chose the physical table and the one the run acts for -- so this service
+ * never chooses any of them. There is no base name here for it to pair with an owner of its own, and no owner parameter
+ * on any operation for a caller to supply one, so neither the table a statement reaches nor the rows it matches can
+ * differ from what resolution picked. Get a ref from {@code DataTableService.fetchDataTableResolution}; see
+ * {@link DataTableRef} for the one other, deliberately narrow, way to build one.
+ * </p>
+ *
+ * <p>
+ * Reads and writes are scoped differently, and the difference is deliberate: a read admits the run's own rows and the
+ * ones belonging to nobody, a write matches the run's alone. A vendor-seeded reference row is every account's to read
+ * and nobody's to change.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public interface DataTableRowService {
@@ -35,72 +54,73 @@ public interface DataTableRowService {
     /**
      * Deletes a row by id.
      *
-     * @param baseName      the logical table base name
-     * @param id            the row id
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param id           the row id
      * @return true if a row was deleted, false if no row with that id exists
      */
-    boolean deleteRow(String baseName, long id, long environmentId);
+    boolean deleteRow(DataTableRef dataTableRef, long id);
 
     /**
      * Gets a single row by its id.
      *
-     * @param baseName      the logical table base name
-     * @param id            the row id
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param id           the row id
      * @return the row if found, null otherwise
      */
-    DataTableRow getRow(String baseName, long id, long environmentId);
+    DataTableRow getRow(DataTableRef dataTableRef, long id);
 
     /**
      * Inserts a row with provided values. Returns the created row including generated id.
      *
-     * @param baseName      the logical table base name
-     * @param values        column name to value map
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param values       column name to value map
      * @return the created row with generated id
      */
-    DataTableRow insertRow(String baseName, Map<String, Object> values, long environmentId);
+    DataTableRow insertRow(DataTableRef dataTableRef, Map<String, Object> values);
 
     /**
      * Lists rows of a dynamic table with pagination.
      *
-     * @param baseName      the logical table base name
-     * @param limit         maximum number of rows to return
-     * @param offset        number of rows to skip
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param limit        maximum number of rows to return
+     * @param offset       number of rows to skip
      * @return list of rows with their data
      */
-    List<DataTableRow> listRows(String baseName, int limit, int offset, long environmentId);
+    List<DataTableRow> listRows(DataTableRef dataTableRef, int limit, int offset);
+
+    /**
+     * Filtered and sorted form. These filters narrow within what the run may already see, and are ANDed onto the row
+     * owner predicate rather than replacing it -- a workflow can ask for less than its own rows and never for more. See
+     * {@link RowFilter} and {@link RowSort}.
+     */
+    List<DataTableRow> listRows(
+        DataTableRef dataTableRef, int limit, int offset, List<RowFilter> rowFilters, List<RowSort> rowSorts);
 
     /**
      * Exports the entire table (excluding the primary key column 'id' in the header) as CSV text. The first row is a
      * header with column names in their physical order.
      *
-     * @param baseName      the logical table base name
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
      * @return CSV text representation of all rows
      */
-    String exportCsv(String baseName, long environmentId);
+    String exportCsv(DataTableRef dataTableRef);
 
     /**
      * Imports CSV text into the table. The CSV must contain a header row with column names matching existing columns
      * (case-insensitive). Unknown columns are ignored. The 'id' column, if present, is ignored.
      *
-     * @param baseName      the logical table base name
-     * @param csv           CSV text with header row
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param csv          CSV text with header row
      */
-    void importCsv(String baseName, String csv, long environmentId);
+    void importCsv(DataTableRef dataTableRef, String csv);
 
     /**
      * Updates a row by its stable id. Returns the updated row.
      *
-     * @param baseName      the logical table base name
-     * @param id            the row id
-     * @param values        column name to value map (only provided columns will be updated)
-     * @param environmentId the environment ID
+     * @param dataTableRef the resolved physical table
+     * @param id           the row id
+     * @param values       column name to value map (only provided columns will be updated)
      * @return the updated row
      */
-    DataTableRow updateRow(String baseName, long id, Map<String, Object> values, long environmentId);
+    DataTableRow updateRow(DataTableRef dataTableRef, long id, Map<String, Object> values);
 }
