@@ -16,9 +16,23 @@
 
 package com.bytechef.component.script;
 
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.CPU;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.DOCKER;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENTRYPOINT;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.EXTRA_HOSTS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.GRAALVM;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.IMAGE;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.MEMORY;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.NETWORK_MODE;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.PROCESS;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.PULL_POLICY;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.TIMEOUT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.USER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bytechef.component.definition.ActionDefinition;
@@ -31,21 +45,39 @@ import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.runner.GraalVmTaskRunner;
 import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 import com.bytechef.platform.component.runner.TaskRunnerRegistryImpl;
+import com.bytechef.platform.component.runner.external.DockerTaskRunner;
+import com.bytechef.platform.component.runner.external.ProcessTaskRunner;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
  * The definition is configuration dependent: the {@code taskRunner} property is assembled from whichever runners the
- * registry reports as enabled. The registry is therefore built here explicitly, with GraalVM enabled and its trusted
- * mode left off, matching the shipped defaults - an incidentally empty registry would let the snapshot record a feature
- * that is not there without anything failing.
+ * registry reports as enabled. The registry is therefore built here explicitly - an incidentally empty registry would
+ * let the snapshot record a feature that is not there without anything failing.
+ *
+ * <p>
+ * All three built-in runners are enabled, which is deliberately <em>not</em> the shipped default. The snapshot this
+ * test writes is what {@code generateDocumentation} turns into the published reference page's property table, so the
+ * registry decides what the documentation describes: with GraalVM alone enabled the page named no external runner at
+ * all, and {@code env}, {@code inputFiles}, {@code outputFiles}, {@code timeout} and every one of Docker's own settings
+ * were absent from it while the component offered them. Enabling all three makes the page describe the full surface.
+ *
+ * <p>
+ * GraalVM's trusted mode stays off, still matching the shipped default. It is an operator-gated escape hatch rather
+ * than part of the surface, and the option is genuinely not offered until the flag is set - documenting it as if it
+ * were always there would be the same mistake in the other direction.
  *
  * @author Matija Petanjek
  * @author Ivica Cardic
  */
 public class ScriptComponentHandlerTest {
+
+    private static final List<String> ALWAYS_VISIBLE_PROPERTY_NAMES = List.of("input", "script", TASK_RUNNER);
 
     private final ComponentDefinition componentDefinition = new ScriptComponentHandler(
         null, createTaskRunnerRegistry()).getDefinition();
@@ -55,8 +87,13 @@ public class ScriptComponentHandlerTest {
         JsonFileAssert.assertEquals("definition/script_v1.json", componentDefinition);
     }
 
+    /**
+     * Every enabled runner declares {@code INLINE_SCRIPT}, so every action's select offers all three. GraalVM stays the
+     * default even though it is no longer the only option - that is the runner a workflow carrying no
+     * {@code taskRunner} configuration falls back to at runtime, and the editor's default has to agree with it.
+     */
     @Test
-    public void testEveryActionOffersTheGraalVmTaskRunner() {
+    public void testEveryActionOffersEveryEnabledTaskRunner() {
         List<ActionDefinition> actionDefinitions = componentDefinition.getActions();
 
         assertThat(actionDefinitions).isNotEmpty();
@@ -69,19 +106,86 @@ public class ScriptComponentHandlerTest {
                 .map(Option::getValue)
                 .toList();
 
-            assertThat(optionValues).containsExactly(GRAALVM);
+            assertThat(optionValues).containsExactly(DOCKER, GRAALVM, PROCESS);
             assertThat(typeProperty.getDefaultValue()).contains(GRAALVM);
         }
     }
 
-    private static StringProperty findTaskRunnerTypeProperty(ActionDefinition actionDefinition) {
-        List<? extends Property> properties = actionDefinition.getProperties();
+    /**
+     * Docker's own properties must reach every action, which is the reason it was added to this registry: the published
+     * reference page's property table comes from the snapshot, and until Docker was enabled here the page described a
+     * runner the component offers without naming a single one of its settings.
+     */
+    @Test
+    public void testEveryActionOffersTheDockerRunnerProperties() {
+        List<ActionDefinition> actionDefinitions = componentDefinition.getActions();
 
-        ObjectProperty taskRunnerProperty = properties.stream()
-            .filter(property -> TASK_RUNNER.equals(property.getName()))
-            .map(ObjectProperty.class::cast)
-            .findFirst()
-            .orElseThrow();
+        for (ActionDefinition actionDefinition : actionDefinitions) {
+            ObjectProperty taskRunnerProperty = findTaskRunnerProperty(actionDefinition);
+
+            Map<String, Optional<String>> displayConditions = displayConditionsByName(
+                taskRunnerProperty.getProperties());
+
+            assertThat(displayConditions).containsKeys(
+                CPU, ENTRYPOINT, EXTRA_HOSTS, IMAGE, MEMORY, NETWORK_MODE, PULL_POLICY, USER);
+        }
+    }
+
+    /**
+     * Replaces the evidence a phase 2 review leaned on. That review read "{@code script_v1.json} contains none of the
+     * four new property names" as proof that nothing had leaked past a display condition. Enabling every runner makes
+     * those names appear by design, so an absence check is now worthless and this asserts the property that actually
+     * matters: every property a runner contributes, at either level, carries a {@code displayCondition}. One appearing
+     * without a condition - and so visible whichever runner is selected - still fails.
+     */
+    @Test
+    public void testEveryRunnerContributedPropertyCarriesADisplayCondition() {
+        List<ActionDefinition> actionDefinitions = componentDefinition.getActions();
+
+        for (ActionDefinition actionDefinition : actionDefinitions) {
+            Map<String, Optional<String>> displayConditions = displayConditionsByName(
+                actionDefinition.getProperties());
+
+            ALWAYS_VISIBLE_PROPERTY_NAMES.forEach(displayConditions::remove);
+
+            assertThat(displayConditions).containsKeys(ENV, INPUT_FILES, OUTPUT_FILES, TIMEOUT);
+
+            assertDisplayConditionsArePresent(displayConditions, actionDefinition.getName());
+
+            ObjectProperty taskRunnerProperty = findTaskRunnerProperty(actionDefinition);
+
+            Map<String, Optional<String>> runnerDisplayConditions = displayConditionsByName(
+                taskRunnerProperty.getProperties());
+
+            runnerDisplayConditions.remove(TYPE);
+
+            assertDisplayConditionsArePresent(runnerDisplayConditions, actionDefinition.getName());
+        }
+    }
+
+    private static void assertDisplayConditionsArePresent(
+        Map<String, Optional<String>> displayConditions, String actionName) {
+
+        for (Map.Entry<String, Optional<String>> entry : displayConditions.entrySet()) {
+            assertThat(entry.getValue())
+                .as("property '%s' of action '%s' must be shown only for the runners that support it",
+                    entry.getKey(), actionName)
+                .isPresent();
+        }
+    }
+
+    private static Map<String, Optional<String>> displayConditionsByName(List<? extends Property> properties) {
+        Map<String, Optional<String>> displayConditions = new LinkedHashMap<>();
+
+        for (Property property : properties) {
+            displayConditions.put(property.getName(), property.getDisplayCondition());
+        }
+
+        return displayConditions;
+    }
+
+    private static StringProperty findTaskRunnerTypeProperty(ActionDefinition actionDefinition) {
+        ObjectProperty taskRunnerProperty = findTaskRunnerProperty(actionDefinition);
 
         return taskRunnerProperty.getProperties()
             .stream()
@@ -91,18 +195,37 @@ public class ScriptComponentHandlerTest {
             .orElseThrow();
     }
 
+    private static ObjectProperty findTaskRunnerProperty(ActionDefinition actionDefinition) {
+        List<? extends Property> properties = actionDefinition.getProperties();
+
+        return properties.stream()
+            .filter(property -> TASK_RUNNER.equals(property.getName()))
+            .map(ObjectProperty.class::cast)
+            .findFirst()
+            .orElseThrow();
+    }
+
     private static TaskRunnerRegistry createTaskRunnerRegistry() {
-        ApplicationProperties.Script.Runner runner = new ApplicationProperties.Script.Runner();
-
-        runner.setEnabled(true);
-
         ApplicationProperties applicationProperties = new ApplicationProperties();
 
         ApplicationProperties.Script script = applicationProperties.getScript();
 
-        script.setRunners(Map.of(GRAALVM, runner));
+        Map<String, ApplicationProperties.Script.Runner> runners = new HashMap<>();
+
+        for (String type : List.of(DOCKER, GRAALVM, PROCESS)) {
+            ApplicationProperties.Script.Runner runner = new ApplicationProperties.Script.Runner();
+
+            runner.setEnabled(true);
+
+            runners.put(type, runner);
+        }
+
+        script.setRunners(runners);
 
         return new TaskRunnerRegistryImpl(
-            List.of(new GraalVmTaskRunner(null, applicationProperties)), applicationProperties);
+            List.of(
+                new DockerTaskRunner(applicationProperties), new GraalVmTaskRunner(null, applicationProperties),
+                new ProcessTaskRunner(applicationProperties)),
+            applicationProperties);
     }
 }
