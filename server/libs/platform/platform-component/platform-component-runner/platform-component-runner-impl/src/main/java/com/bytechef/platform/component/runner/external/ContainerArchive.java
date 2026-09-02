@@ -83,14 +83,33 @@ import org.slf4j.LoggerFactory;
  * Symbolic link and hard link entries are skipped outright in both directions rather than made safe. There is no
  * representation of a link that is worth the analysis: a link written during extraction is a link a later entry can be
  * routed through, and a link read during archiving would send the target's content into the container. An execution
- * that wants a file moved can write the file. Mode bits are not applied either - nothing needs a guest-chosen
- * {@code setuid} bit on the host.
+ * that wants a file moved can write the file. Mode bits coming <em>out</em> of a container are not applied either -
+ * nothing needs a guest-chosen {@code setuid} bit on the host.
+ *
+ * <p>
+ * Mode bits going <em>in</em> are set rather than copied, for a reason that is invisible until a container runs as
+ * somebody: the working directory is a host temporary directory, so it is created {@code 0700} and its entries carry
+ * whatever the server's umask gave them. Extraction inside the container runs as root and applies those modes, so a
+ * container told to run as {@code 1000} found {@code output/} owned by root and unwritable - and the bootstrap writes
+ * {@code output.json} there, so every such execution failed at its last step. The host directory's own modes are not
+ * touched; only the copy inside a single-use container, whose one user is the execution itself, is widened.
  *
  * @author Ivica Cardic
  */
 final class ContainerArchive {
 
     private static final Logger log = LoggerFactory.getLogger(ContainerArchive.class);
+
+    /**
+     * {@code rwxrwxrwx}, the mode every directory entry is archived with. Written in binary because the ruleset forbids
+     * octal literals, which is how a file mode would ordinarily be spelled.
+     */
+    private static final int ARCHIVED_DIRECTORY_MODE = 0b111_111_111;
+
+    /**
+     * {@code rw-rw-rw-}, the mode every file entry is archived with.
+     */
+    private static final int ARCHIVED_FILE_MODE = 0b110_110_110;
 
     /**
      * The default ceiling on the total number of bytes one extraction may write.
@@ -337,6 +356,8 @@ final class ContainerArchive {
 
         TarArchiveEntry tarArchiveEntry = new TarArchiveEntry(
             path, directory ? entryName + "/" : entryName, LinkOption.NOFOLLOW_LINKS);
+
+        tarArchiveEntry.setMode(directory ? ARCHIVED_DIRECTORY_MODE : ARCHIVED_FILE_MODE);
 
         tarArchiveOutputStream.putArchiveEntry(tarArchiveEntry);
 
