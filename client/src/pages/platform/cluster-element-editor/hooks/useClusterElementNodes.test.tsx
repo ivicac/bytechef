@@ -2,12 +2,22 @@ import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/st
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
+import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import {ReactNode} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useClusterElementNodes from './useClusterElementNodes';
+
+// The view-mode toggle is behind ff-5470, and `useClusterElementsViewMode` reports 'dialog'
+// regardless of the stored mode while the flag is off -- that is the kill switch. Box-mode tests
+// therefore have to turn the flag on as well as set the store.
+function enableClusterElementsBoxModeFlag() {
+    applicationInfoStore.setState((state) => ({
+        featureFlags: {...state.featureFlags, 'ff-5470': true},
+    }));
+}
 
 // ComponentDefinition declares clusterElement/clusterRoot/connectionRequired as required (non-optional)
 // fields -- the brief's fixture omitted them, which would leave this test not actually typechecking as
@@ -197,6 +207,7 @@ describe('useClusterElementNodes', () => {
     // layoutClusterFrames parent it to clusterRootId (itself) and then filter the real frame out of
     // outerNodes as a "member", dropping the box from the canvas.
     it("does not add the root's own card when rootClusterElementNodeData is seeded but view mode is box", async () => {
+        enableClusterElementsBoxModeFlag();
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
         useWorkflowEditorStore.setState({
             rootClusterElementNodeData: {
