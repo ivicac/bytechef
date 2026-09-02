@@ -91,6 +91,10 @@ const ConnectionTabConnectionSelect = ({
         }))
     );
 
+    // A cluster element's test connection is keyed by its ROOT task's name, which the dialog supplies
+    // through `rootClusterElementNodeData`. On the main canvas that field is seeded only after a box
+    // header destination has been opened, so the root is resolved from the node itself as well; a
+    // node that is not a cluster element resolves to nothing and keeps its own name.
     const testConfigurationWorkflowNodeName =
         resolveMainClusterRootName(currentNode, rootClusterElementNodeData) || workflowNodeName;
 
