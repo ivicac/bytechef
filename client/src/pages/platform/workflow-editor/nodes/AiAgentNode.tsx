@@ -34,6 +34,7 @@ import pasteNode from '../utils/pasteNode';
 import removeWorkflowNodePosition from '../utils/removeWorkflowNodePosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
+import ClusterFrameShell from './ClusterFrameShell';
 import DisabledNodeBadge from './DisabledNodeBadge';
 import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
@@ -337,47 +338,47 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     return (
-        <WorkflowNodeContextMenu
-            canPaste={canPaste}
-            data={data}
-            hasSavedPosition={!!hasSavedNodePosition}
-            onCopy={handleCopyNode}
-            onCut={handleCutNode}
-            onDelete={handleDelete}
-            onInfo={() => setInfoCardOpen(true)}
-            onPaste={handlePasteNode}
-            onRename={handleStartRename}
-            onResetPosition={handleResetPosition}
-            onSwitch={handleSwitch}
-            onToggleDisabled={handleToggleDisabledClick}
-            showCopyAction
-            showCutAction
-            showDeleteAction
-            showDisableAction
-            showInfoAction
-            showRenameAction
-        >
-            <div
-                className={twMerge(
-                    'group relative flex min-w-60 cursor-pointer items-center justify-center',
-                    !isHorizontal && 'justify-start',
-                    !hasIcons && 'min-w-0',
-                    isEffectivelyDisabled && 'opacity-50 grayscale'
-                )}
-                data-nodetype="clusterRoot"
-                key={id}
+        <ClusterFrameShell data={data} nodeId={id}>
+            <WorkflowNodeContextMenu
+                canPaste={canPaste}
+                data={data}
+                hasSavedPosition={!!hasSavedNodePosition}
+                onCopy={handleCopyNode}
+                onCut={handleCutNode}
+                onDelete={handleDelete}
+                onInfo={() => setInfoCardOpen(true)}
+                onPaste={handlePasteNode}
+                onRename={handleStartRename}
+                onResetPosition={handleResetPosition}
+                onSwitch={handleSwitch}
+                onToggleDisabled={handleToggleDisabledClick}
+                showCopyAction
+                showCutAction
+                showDeleteAction
+                showDisableAction
+                showInfoAction
+                showRenameAction
             >
-                {!suppressHover && (
-                    <div
-                        className="nodrag invisible absolute top-0 -left-8 z-10 group-hover:visible data-[open=true]:visible"
-                        data-open={nodeMenuOpen}
-                        onMouseDown={(event) => event.stopPropagation()}
-                    >
-                        {nodeMenuTrigger}
-                    </div>
-                )}
+                <div
+                    className={twMerge(
+                        'group relative flex min-w-60 cursor-pointer items-center justify-center',
+                        !isHorizontal && 'justify-start',
+                        !hasIcons && 'min-w-0',
+                        isEffectivelyDisabled && 'opacity-50 grayscale'
+                    )}
+                    data-nodetype="clusterRoot"
+                    key={id}
+                >
+                    {!suppressHover && (
+                        <div
+                            className="nodrag invisible absolute top-0 -left-8 z-10 group-hover:visible data-[open=true]:visible"
+                            data-open={nodeMenuOpen}
+                            onMouseDown={(event) => event.stopPropagation()}
+                        >
+                            {nodeMenuTrigger}
+                        </div>
+                    )}
 
-                <div className="relative w-fit">
                     <WorkflowNodeIssueBadge includeClusterElementIssues nodeName={data.name} />
 
                     <Popover
@@ -502,120 +503,128 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                             )}
                         </PopoverContent>
                     </Popover>
-                </div>
 
-                <div
-                    className={twMerge(
-                        'ml-2 flex w-full flex-col items-start',
-                        isHorizontal && 'absolute top-full ml-0 w-auto max-w-[150px] min-w-0 items-center text-center'
-                    )}
-                    style={isHorizontal ? undefined : {maxWidth: CLUSTER_ROOT_NODE_LABEL_WIDTH}}
-                >
-                    {isRenaming ? (
-                        <div className="z-10 flex max-h-7 items-center rounded-md border-2 bg-surface-neutral-primary p-1">
-                            <input
-                                autoFocus
-                                className="nodrag max-h-5 w-40 cursor-text rounded border border-stroke-neutral-secondary bg-surface-neutral-secondary px-2 py-1 text-sm font-semibold outline-hidden select-text hover:bg-surface-neutral-secondary-hover"
-                                onBlur={handleRenameInputBlur}
-                                onChange={handleRenameInputChange}
-                                onKeyDown={handleRenameKeyDown}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                value={renameValue}
-                            />
+                    <div
+                        className={twMerge(
+                            'ml-2 flex w-full flex-col items-start',
+                            isHorizontal &&
+                                'absolute top-full ml-0 w-auto max-w-[150px] min-w-0 items-center text-center'
+                        )}
+                        style={isHorizontal ? undefined : {maxWidth: CLUSTER_ROOT_NODE_LABEL_WIDTH}}
+                    >
+                        {isRenaming ? (
+                            <div className="z-10 flex max-h-7 items-center rounded-md border-2 bg-surface-neutral-primary p-1">
+                                <input
+                                    autoFocus
+                                    className="nodrag max-h-5 w-40 cursor-text rounded border border-stroke-neutral-secondary bg-surface-neutral-secondary px-2 py-1 text-sm font-semibold outline-hidden select-text hover:bg-surface-neutral-secondary-hover"
+                                    onBlur={handleRenameInputBlur}
+                                    onChange={handleRenameInputChange}
+                                    onKeyDown={handleRenameKeyDown}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    value={renameValue}
+                                />
 
-                            <Button
-                                className="ml-1 size-5 shrink-0 cursor-pointer [&_svg]:size-4"
-                                icon={<CheckIcon className="text-content-brand-primary" />}
-                                onClick={handleRenameConfirmClick}
-                                size="icon"
-                                variant="ghost"
-                            />
-                        </div>
-                    ) : (
-                        <div
+                                <Button
+                                    className="ml-1 size-5 shrink-0 cursor-pointer [&_svg]:size-4"
+                                    icon={<CheckIcon className="text-content-brand-primary" />}
+                                    onClick={handleRenameConfirmClick}
+                                    size="icon"
+                                    variant="ghost"
+                                />
+                            </div>
+                        ) : (
+                            <div
+                                className={twMerge(
+                                    'flex w-full items-center gap-1',
+                                    isHorizontal && 'justify-center text-center'
+                                )}
+                            >
+                                <span className="truncate font-semibold">{nodeLabel}</span>
+
+                                {data.disabled && <DisabledNodeBadge />}
+                            </div>
+                        )}
+
+                        {data.operationName && (
+                            <pre className={twMerge('w-full truncate text-sm', isHorizontal && 'text-center')}>
+                                {data.operationName}
+                            </pre>
+                        )}
+
+                        <span
                             className={twMerge(
-                                'flex w-full items-center gap-1',
-                                isHorizontal && 'justify-center text-center'
+                                'w-full truncate text-sm text-content-neutral-secondary',
+                                isHorizontal && 'text-center'
                             )}
                         >
-                            <span className="truncate font-semibold">{nodeLabel}</span>
+                            {data.workflowNodeName}
+                        </span>
+                    </div>
 
-                            {data.disabled && <DisabledNodeBadge />}
-                        </div>
+                    {/* In box mode the shell wraps this card and owns the chain handles instead, so the
+                    surrounding flow connects to the box rather than to the card inside it. */}
+
+                    {!data.clusterFrame && (
+                        <Handle
+                            className={twMerge(
+                                styles.handleVisible,
+                                layoutDirection === 'LR'
+                                    ? '-left-px rounded-l-xs rounded-r-none'
+                                    : '-top-px rounded-t-xs rounded-b-none'
+                            )}
+                            isConnectable={false}
+                            position={mapHandlePosition(Position.Top, layoutDirection)}
+                            style={
+                                layoutDirection === 'TB'
+                                    ? hasValidClusterElements
+                                        ? {left: '120px'}
+                                        : {left: '36px'}
+                                    : // LR: ReactFlow's default centres these on the box, and
+                                      // centerClusterRootsOnChain puts that centre on the chain's line —
+                                      // so an edge meets the box at its middle and still runs straight.
+                                      undefined
+                            }
+                            type="target"
+                        />
                     )}
 
-                    {data.operationName && (
-                        <pre className={twMerge('w-full truncate text-sm', isHorizontal && 'text-center')}>
-                            {data.operationName}
-                        </pre>
+                    {!data.clusterFrame && (
+                        <Handle
+                            className={twMerge(
+                                styles.handleVisible,
+                                layoutDirection === 'LR' ? 'rounded-l-none rounded-r-xs' : 'rounded-t-none rounded-b-xs'
+                            )}
+                            isConnectable={false}
+                            position={mapHandlePosition(Position.Bottom, layoutDirection)}
+                            style={
+                                layoutDirection === 'TB'
+                                    ? hasValidClusterElements
+                                        ? {left: '120px'}
+                                        : {left: '36px'}
+                                    : // LR: ReactFlow's default centres these on the box, and
+                                      // centerClusterRootsOnChain puts that centre on the chain's line —
+                                      // so an edge meets the box at its middle and still runs straight.
+                                      undefined
+                            }
+                            type="source"
+                        />
                     )}
 
-                    <span
-                        className={twMerge(
-                            'w-full truncate text-sm text-content-neutral-secondary',
-                            isHorizontal && 'text-center'
-                        )}
-                    >
-                        {data.workflowNodeName}
-                    </span>
-                </div>
-
-                <Handle
-                    className={twMerge(
-                        styles.handleVisible,
-                        layoutDirection === 'LR'
-                            ? '-left-px rounded-l-xs rounded-r-none'
-                            : '-top-px rounded-t-xs rounded-b-none'
-                    )}
-                    isConnectable={false}
-                    position={mapHandlePosition(Position.Top, layoutDirection)}
-                    style={
-                        layoutDirection === 'TB'
-                            ? hasValidClusterElements
-                                ? {left: '120px'}
-                                : {left: '36px'}
-                            : // LR: ReactFlow's default centres these on the box, and
-                              // centerClusterRootsOnChain puts that centre on the chain's line —
-                              // so an edge meets the box at its middle and still runs straight.
-                              undefined
-                    }
-                    type="target"
-                />
-
-                <Handle
-                    className={twMerge(
-                        styles.handleVisible,
-                        layoutDirection === 'LR' ? 'rounded-l-none rounded-r-xs' : 'rounded-t-none rounded-b-xs'
-                    )}
-                    isConnectable={false}
-                    position={mapHandlePosition(Position.Bottom, layoutDirection)}
-                    style={
-                        layoutDirection === 'TB'
-                            ? hasValidClusterElements
-                                ? {left: '120px'}
-                                : {left: '36px'}
-                            : // LR: ReactFlow's default centres these on the box, and
-                              // centerClusterRootsOnChain puts that centre on the chain's line —
-                              // so an edge meets the box at its middle and still runs straight.
-                              undefined
-                    }
-                    type="source"
-                />
-
-                {/* `AiAgentNode` never renders in a read-only workflow — `useLayout` converts every
+                    {/* `AiAgentNode` never renders in a read-only workflow — `useLayout` converts every
                     `clusterRoot` node to `readonly` there — so an agent rendered by this component
                     is always on an editable canvas and its handles are connectable. */}
 
-                {data.graphData && (
-                    <GraphTransitionHandles
-                        boxWidth={hasValidClusterElements ? 240 : 72}
-                        connectable
-                        direction={layoutDirection}
-                        nodeId={id}
-                    />
-                )}
-            </div>
-        </WorkflowNodeContextMenu>
+                    {data.graphData && (
+                        <GraphTransitionHandles
+                            boxWidth={hasValidClusterElements ? 240 : 72}
+                            connectable
+                            direction={layoutDirection}
+                            nodeId={id}
+                        />
+                    )}
+                </div>
+            </WorkflowNodeContextMenu>
+        </ClusterFrameShell>
     );
 };
 export default memo(AiAgentNode);
