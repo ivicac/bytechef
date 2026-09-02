@@ -18,7 +18,9 @@ package com.bytechef.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -193,7 +195,8 @@ public class AggregateDataTableToolCallback implements ToolCallback {
 
             long environmentId = resolveEnvironmentId(invocationContext);
 
-            List<DataTableRow> rows = dataTableRowService.listRows(baseName, MAX_ROW_LIMIT, 0, environmentId);
+            List<DataTableRow> rows = dataTableRowService.listRows(
+                DataTableRef.unowned(baseName, environmentId, PlatformType.AUTOMATION), MAX_ROW_LIMIT, 0);
 
             boolean truncated = rows.size() >= MAX_ROW_LIMIT;
             long scannedRows = rows.size();

@@ -18,6 +18,7 @@ package com.bytechef.automation.data.table.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableTagService;
 import com.bytechef.platform.tag.domain.Tag;
@@ -65,7 +66,8 @@ public class DataTableTagGraphQlController {
 
         return tagsByTableName.entrySet()
             .stream()
-            .map(entry -> new DataTableTagsEntry(dataTableService.getIdByBaseName(entry.getKey()), entry.getValue()))
+            .map(entry -> new DataTableTagsEntry(
+                dataTableService.getIdByBaseName(entry.getKey(), PlatformType.AUTOMATION), entry.getValue()))
             .toList();
     }
 

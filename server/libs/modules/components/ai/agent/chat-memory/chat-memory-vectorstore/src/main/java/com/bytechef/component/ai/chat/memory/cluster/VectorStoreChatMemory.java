@@ -18,12 +18,12 @@ package com.bytechef.component.ai.chat.memory.cluster;
 
 import static com.bytechef.component.ai.chat.memory.constant.VectorStoreChatMemoryConstants.CONVERSATION_ID;
 import static com.bytechef.component.definition.ComponentDsl.string;
-import static com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction.CHAT_MEMORY;
 import static com.bytechef.platform.component.definition.ai.agent.VectorStoreFunction.VECTOR_STORE;
 
 import com.bytechef.component.ai.chat.memory.util.VectorStoreChatMemoryUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -39,7 +39,7 @@ import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMem
 /**
  * @author Ivica Cardic
  */
-public class VectorStoreChatMemory {
+public class VectorStoreChatMemory implements ChatMemoryFunction {
 
     private static final String CHAT_MEMORY_RETRIEVE_SIZE = "chatMemoryRetrieveSize";
 
@@ -72,12 +72,28 @@ public class VectorStoreChatMemory {
                     .label("Chat Memory Retrieve Size")
                     .description("The number of messages to retrieve from the vector store.")
                     .defaultValue(20))
-            .object(() -> this::apply);
+            // Supplies the instance itself rather than a `this::apply` method reference. A method reference implements
+            // only the SAM -- the context-free four-argument form -- so the interface default would run for a
+            // five-argument call and delegate straight back to it, discarding the context before it ever reached the
+            // override below.
+            .object(() -> this);
     }
 
-    protected ChatMemoryFunction.Result apply(
+    @Override
+    public ChatMemoryFunction.Result apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
         Map<String, ComponentConnection> componentConnections) throws Exception {
+
+        // Reached only by a caller that holds no context of its own. It stays null rather than being invented here;
+        // the follow-up task that resolves an owner from the context decides what an absent one means, and inventing
+        // a substitute at this frame would hide the absence from it.
+        return apply(inputParameters, connectionParameters, extensions, componentConnections, null);
+    }
+
+    @Override
+    public ChatMemoryFunction.Result apply(
+        Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
 
         ClusterElement clusterElement = ClusterElementMap.of(extensions)
             .getClusterElement(VECTOR_STORE);
@@ -95,7 +111,7 @@ public class VectorStoreChatMemory {
                 vectorStoreFunction.apply(
                     ParametersFactory.create(clusterElement.getParameters()),
                     ParametersFactory.create(componentConnectionConnectionParameters),
-                    ParametersFactory.create(clusterElement.getExtensions()), componentConnections))
+                    ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context))
             .defaultTopK(
                 inputParameters.getInteger(CHAT_MEMORY_RETRIEVE_SIZE, 20));
 

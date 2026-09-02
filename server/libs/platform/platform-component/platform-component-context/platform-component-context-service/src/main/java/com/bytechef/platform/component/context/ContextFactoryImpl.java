@@ -154,6 +154,23 @@ public class ContextFactoryImpl implements ContextFactory {
 
     @Override
     public ClusterElementContext createClusterElementContext(
+        String componentName, int componentVersion, String clusterElementName, @Nullable Long jobPrincipalId,
+        @Nullable ComponentConnection componentConnection, @Nullable PlatformType type, boolean editorEnvironment) {
+
+        return ClusterElementContextImpl
+            .builder(
+                componentName, componentVersion, clusterElementName, editorEnvironment, cacheManager, dataStorage,
+                eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment))
+            .componentConnection(componentConnection)
+            .jobPrincipalId(jobPrincipalId)
+            .logFileStorageWriter(getLogFileStorageWriter(editorEnvironment))
+            .publicUrl(publicUrl)
+            .type(type)
+            .build();
+    }
+
+    @Override
+    public ClusterElementContext createClusterElementContext(
         String componentName, int componentVersion, String clusterElementName,
         @Nullable ComponentConnection componentConnection, boolean editorEnvironment,
         @Nullable ActionContext agentActionContext) {

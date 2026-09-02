@@ -52,6 +52,7 @@ import com.bytechef.platform.component.definition.ai.vectorstore.DocumentEnriche
 import com.bytechef.platform.component.definition.ai.vectorstore.DocumentReaderFunction;
 import com.bytechef.platform.component.definition.ai.vectorstore.DocumentSplitterFunction;
 import com.bytechef.platform.component.definition.ai.vectorstore.DocumentTransformerFunction;
+import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
@@ -60,11 +61,13 @@ import com.bytechef.platform.knowledgebase.file.storage.KnowledgeBaseFileStorage
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentChunkService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
+import com.bytechef.platform.owner.OwnerResolver;
 import java.util.List;
 import java.util.Map;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.DocumentReader;
 import org.springframework.ai.document.DocumentTransformer;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Marko Kriskovic
@@ -80,11 +83,12 @@ public final class KnowledgeBaseUpdateAction {
         KnowledgeBaseDocumentChunkFacade knowledgeBaseDocumentChunkFacade,
         KnowledgeBaseDocumentChunkService knowledgeBaseDocumentChunkService,
         KnowledgeBaseDocumentService knowledgeBaseDocumentService,
-        KnowledgeBaseFileStorage knowledgeBaseFileStorage, KnowledgeBaseService knowledgeBaseService) {
+        KnowledgeBaseFileStorage knowledgeBaseFileStorage, KnowledgeBaseService knowledgeBaseService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
         VectorStore updateVectorStore = createVectorStore(
             knowledgeBaseDocumentChunkService, knowledgeBaseDocumentService, knowledgeBaseFileStorage,
-            knowledgeBaseService, vectorStore);
+            knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return action(UPDATE)
             .title("Update Documents")
@@ -99,12 +103,16 @@ public final class KnowledgeBaseUpdateAction {
                 integer(KNOWLEDGE_BASE_ID)
                     .label("Knowledge Base")
                     .description("The knowledge base to update documents in.")
-                    .options(KnowledgeBaseOptionsUtils.knowledgeBaseActionOptions(knowledgeBaseService))
+                    .options(
+                        KnowledgeBaseOptionsUtils.knowledgeBaseActionOptions(
+                            knowledgeBaseService, ownerResolverProvider))
                     .required(true),
                 integer(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .label("Document")
                     .description("The document to update in the knowledge base.")
-                    .options(KnowledgeBaseOptionsUtils.documentActionOptions(knowledgeBaseDocumentService))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentActionOptions(
+                            knowledgeBaseDocumentService, knowledgeBaseService, ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_ID)
                     .displayCondition(IS_MULTIPLE + "== false")
                     .required(false),
@@ -113,7 +121,10 @@ public final class KnowledgeBaseUpdateAction {
                     .description(
                         "The specific chunk to update. If not selected, all chunks of the selected document " +
                             "will be replaced.")
-                    .options(KnowledgeBaseOptionsUtils.documentChunkActionOptions(knowledgeBaseDocumentChunkFacade))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentChunkActionOptions(
+                            knowledgeBaseDocumentChunkFacade, knowledgeBaseDocumentService, knowledgeBaseService,
+                            ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .displayCondition(IS_MULTIPLE + "== false")
                     .required(false),
@@ -141,9 +152,15 @@ public final class KnowledgeBaseUpdateAction {
                             "document reader.")
                     .required(false))
             .perform((MultipleConnectionsPerformFunction) (
-                inputParameters, componentConnections, extensions, context) -> perform(
+                inputParameters, componentConnections, extensions, context) -> {
+                KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+                    knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+                    OwnerResolution.resolve((ActionContextAware) context, ownerResolverProvider));
+
+                return perform(
                     inputParameters, componentConnections, extensions, context, updateVectorStore,
-                    clusterElementDefinitionService));
+                    clusterElementDefinitionService);
+            });
     }
 
     private static Object perform(
@@ -162,7 +179,7 @@ public final class KnowledgeBaseUpdateAction {
             : getDocumentTransformers(extensions, componentConnections, clusterElementDefinitionService);
 
         updateVectorStore.update(inputParameters, ParametersFactory.create(Map.of()), null,
-            documentReader, documentTransformers);
+            documentReader, documentTransformers, context);
 
         return null;
     }

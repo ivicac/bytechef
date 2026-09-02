@@ -23,7 +23,9 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.DataTableNotFoundException;
 import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.WhereParseException;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.util.List;
@@ -31,6 +33,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class DataTableQuerySupportTest {
+
+    private static final DataTableRef CONTACTS_REF = DataTableRef.unowned("contacts", 0L, PlatformType.AUTOMATION);
 
     @Test
     void testResolveLimitCapsAndDefaults() {
@@ -55,7 +59,7 @@ class DataTableQuerySupportTest {
     void testQueryRowMapsReturnsAllRowsWithoutWhere() throws Exception {
         DataTableRowService dataTableRowService = mock(DataTableRowService.class);
 
-        when(dataTableRowService.listRows("contacts", 50, 0, 0L)).thenReturn(
+        when(dataTableRowService.listRows(CONTACTS_REF, 50, 0)).thenReturn(
             List.of(new DataTableRow(1L, Map.of("name", "Alice")), new DataTableRow(2L, Map.of("name", "Bob"))));
 
         List<Map<String, Object>> rowMaps = DataTableQuerySupport.queryRowMaps(
@@ -68,7 +72,7 @@ class DataTableQuerySupportTest {
     void testQueryRowMapsAppliesEqualsWhereFilter() throws Exception {
         DataTableRowService dataTableRowService = mock(DataTableRowService.class);
 
-        when(dataTableRowService.listRows("contacts", 50, 0, 0L)).thenReturn(
+        when(dataTableRowService.listRows(CONTACTS_REF, 50, 0)).thenReturn(
             List.of(
                 new DataTableRow(1L, Map.of("status", "qualified")),
                 new DataTableRow(2L, Map.of("status", "new"))));
@@ -84,10 +88,11 @@ class DataTableQuerySupportTest {
     void testQueryRowMapsThrowsOnMalformedWhere() {
         DataTableRowService dataTableRowService = mock(DataTableRowService.class);
 
-        when(dataTableRowService.listRows("contacts", 50, 0, 0L)).thenReturn(List.of());
+        when(dataTableRowService.listRows(CONTACTS_REF, 50, 0)).thenReturn(List.of());
 
         assertThatExceptionOfType(WhereParseException.class)
             .isThrownBy(
-                () -> DataTableQuerySupport.queryRowMaps(dataTableRowService, "contacts", "no operator", 50, 0L));
+                () -> DataTableQuerySupport.queryRowMaps(
+                    dataTableRowService, "contacts", "no operator", 50, 0L));
     }
 }

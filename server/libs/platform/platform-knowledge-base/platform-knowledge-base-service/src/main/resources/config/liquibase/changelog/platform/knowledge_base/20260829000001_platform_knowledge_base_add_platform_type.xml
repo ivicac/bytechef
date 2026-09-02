@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="20260829000001-1" author="Ivica Cardic">
+        <addColumn tableName="knowledge_base">
+            <column name="platform_type" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        The drop is preconditioned and stands alone, because uk_knowledge_base_name is already gone on any database
+        that ran 20260831000001_platform_knowledge_base_name_unique_per_environment, which reached 0_732 separately
+        while this branch was in flight and was removed here. This changeset is dated before that one but is unrun
+        on such a database, so it executes after it; an unguarded drop fails, and a precondition covering the add as
+        well would leave uk_knowledge_base_name_platform_type_environment uncreated for 20260831000001-1 to drop.
+    -->
+    <changeSet id="20260829000001-2" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <uniqueConstraintExists tableName="knowledge_base" constraintName="uk_knowledge_base_name"/>
+        </preConditions>
+
+        <dropUniqueConstraint tableName="knowledge_base" constraintName="uk_knowledge_base_name"/>
+
+        <rollback>
+            <addUniqueConstraint
+                tableName="knowledge_base" columnNames="name" constraintName="uk_knowledge_base_name"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20260829000001-3" author="Ivica Cardic">
+        <addUniqueConstraint
+            tableName="knowledge_base"
+            columnNames="name, platform_type, environment"
+            constraintName="uk_knowledge_base_name_platform_type_environment"/>
+    </changeSet>
+</databaseChangeLog>

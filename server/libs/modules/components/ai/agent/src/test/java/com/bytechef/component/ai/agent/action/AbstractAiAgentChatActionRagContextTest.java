@@ -1,0 +1,220 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.component.ai.agent.action;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
+import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
+import com.bytechef.component.ai.llm.util.ModelUtils;
+import com.bytechef.component.definition.Context;
+import com.bytechef.component.definition.Parameters;
+import com.bytechef.component.test.definition.MockParametersFactory;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
+import com.bytechef.platform.component.definition.ai.agent.RagFunction;
+import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.beans.factory.ObjectProvider;
+
+/**
+ * The first frame of the agent RAG path: what {@link AbstractAiAgentChatAction#getRagAdvisor} hands a {@code RAG}
+ * cluster element, which passes it straight on to the {@code VECTOR_STORE} element beneath it.
+ *
+ * <p>
+ * The claim worth pinning is not that a context arrives but WHICH one. A knowledge base is reachable only for the owner
+ * the run acts for, and an owner can be derived only from a context that carries the job principal -- an
+ * {@link ActionContextAware}. A context that merely satisfied the parameter type would resolve to an empty owner, which
+ * opens both pools and admits every account's knowledge base while looking hardened.
+ *
+ * @author Ivica Cardic
+ */
+@ExtendWith(MockitoExtension.class)
+class AbstractAiAgentChatActionRagContextTest {
+
+    @Mock
+    private AiAgentToolFacade aiAgentToolFacade;
+
+    @Mock
+    private ClusterElementDefinitionService clusterElementDefinitionService;
+
+    @Mock
+    private ToolCallingManager toolCallingManager;
+
+    @Test
+    void testRagReceivesTheRunsOwnOwnerBearingContext() throws Exception {
+        RecordingRagFunction ragFunction = new RecordingRagFunction();
+
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+
+        buildRequestSpec(ragFunction, actionContext);
+
+        assertThat(ragFunction.receivedContext).isSameAs(actionContext);
+
+        // The type is the load-bearing half: OwnerResolution reads the job principal and the pool off this interface,
+        // and returns an empty owner for anything else.
+        assertThat(ragFunction.receivedContext).isInstanceOf(ActionContextAware.class);
+    }
+
+    private void buildRequestSpec(RagFunction ragFunction, ActionContextAware actionContext) throws Exception {
+        Parameters inputParameters = MockParametersFactory.create(Map.of());
+
+        stubModelLookup();
+
+        when(clusterElementDefinitionService.<RagFunction>getClusterElement(
+            eq("testRagComponent"), eq(1), eq("testRag"))).thenReturn(ragFunction);
+
+        TestAiAgentChatAction action = new TestAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null, emptyProvider());
+
+        try (MockedStatic<ModelUtils> modelUtilsMockedStatic = mockStatic(ModelUtils.class)) {
+            modelUtilsMockedStatic.when(() -> ModelUtils.getMessages(any(), any()))
+                .thenReturn(List.of());
+
+            ChatClient.ChatClientRequestSpec chatClientRequestSpec = action.getChatClientRequestSpec(
+                inputParameters, buildConnectionParameters(), buildExtensions(), null, actionContext);
+
+            assertThat(chatClientRequestSpec).isNotNull();
+        }
+    }
+
+    private static Parameters buildExtensions() {
+        return MockParametersFactory.create(
+            Map.of(
+                "clusterElements",
+                Map.of(
+                    "model", buildModelElement(),
+                    "rag", buildRagElement())));
+    }
+
+    private static Map<String, Object> buildModelElement() {
+        Map<String, Object> modelParameters = new HashMap<>();
+
+        modelParameters.put("model", "gpt-4o");
+
+        Map<String, Object> modelElement = new HashMap<>();
+
+        modelElement.put("name", "model_1");
+        modelElement.put("type", "testComponent/v1/testModel");
+        modelElement.put("parameters", modelParameters);
+
+        return modelElement;
+    }
+
+    private static Map<String, Object> buildRagElement() {
+        Map<String, Object> ragElement = new HashMap<>();
+
+        ragElement.put("name", "rag_1");
+        ragElement.put("type", "testRagComponent/v1/testRag");
+        ragElement.put("parameters", new HashMap<String, Object>());
+
+        return ragElement;
+    }
+
+    private static Map<String, ComponentConnection> buildConnectionParameters() {
+        return Map.of(
+            "model_1", new ComponentConnection("testComponent", 1, 1L, Map.of(), null),
+            "rag_1", new ComponentConnection("testRagComponent", 1, 2L, Map.of(), null));
+    }
+
+    private void stubModelLookup() throws Exception {
+        ModelFunction modelFunction = mock(ModelFunction.class);
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(clusterElementDefinitionService.<ModelFunction>getClusterElement(
+            eq("testComponent"), eq(1), eq("testModel"))).thenReturn(modelFunction);
+        when(modelFunction.apply(any(), any(), anyBoolean())).thenAnswer(invocation -> chatModel);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> emptyProvider() {
+        return mock(ObjectProvider.class);
+    }
+
+    private static final class RecordingRagFunction implements RagFunction {
+
+        private @Nullable Context receivedContext;
+
+        @Override
+        public Advisor apply(
+            Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
+            Map<String, ComponentConnection> componentConnections, Context context) {
+
+            receivedContext = context;
+
+            return new NoOpAdvisor();
+        }
+    }
+
+    /** Minimal advisor so the chain is well-formed; it is never walked here. */
+    private static final class NoOpAdvisor implements BaseAdvisor {
+
+        @Override
+        public ChatClientRequest before(ChatClientRequest chatClientRequest, AdvisorChain advisorChain) {
+            return chatClientRequest;
+        }
+
+        @Override
+        public ChatClientResponse after(ChatClientResponse chatClientResponse, AdvisorChain advisorChain) {
+            return chatClientResponse;
+        }
+
+        @Override
+        public int getOrder() {
+            return 0;
+        }
+    }
+
+    private static class TestAiAgentChatAction extends AbstractAiAgentChatAction {
+
+        TestAiAgentChatAction(
+            AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+            ToolCallingManager toolCallingManager,
+            ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+            ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
+
+            super(
+                aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
+                toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider);
+        }
+    }
+}

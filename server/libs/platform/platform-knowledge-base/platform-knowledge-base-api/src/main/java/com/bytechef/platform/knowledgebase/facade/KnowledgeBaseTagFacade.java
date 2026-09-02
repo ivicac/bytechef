@@ -23,16 +23,16 @@ import java.util.Map;
 /**
  * Service for accessing tags associated with KnowledgeBases.
  *
+ * <p>
+ * Every read here names the knowledge bases it may see, and that is deliberate. There is no tenant-wide reader: this
+ * facade sits below every separation the product has -- the {@code workspace_knowledge_base} relation, the
+ * {@code platform_type} pool split, and the {@code owner_id}/{@code owner_type} pair an embedded per-account knowledge
+ * base carries -- so an unscoped {@code findAll} over {@code knowledge_base} crosses all three at once. Knowledge base
+ * ids are what a caller can be authorized against, so they are the only way in.
+ *
  * @author Ivica Cardic
  */
 public interface KnowledgeBaseTagFacade {
-
-    /**
-     * Retrieves a list of all tags.
-     *
-     * @return a list of Tag objects representing all available tags
-     */
-    List<Tag> getAllTags();
 
     /**
      * Retrieves the distinct tags assigned to the given knowledge bases.
@@ -43,19 +43,13 @@ public interface KnowledgeBaseTagFacade {
     List<Tag> getTags(List<Long> knowledgeBaseIds);
 
     /**
-     * Retrieves a mapping from knowledgebase ID to list of tags assigned to that knowledgeBase.
+     * Retrieves a mapping from knowledge base id to the tags assigned to that knowledge base, for the given knowledge
+     * bases only.
      *
-     * @return a map where keys are knowledgebase IDs and values are lists of Tag objects assigned to each knowledgebase
+     * @param knowledgeBaseIds the ids of the knowledge bases whose tags are to be retrieved
+     * @return a map where keys are knowledge base ids and values are lists of Tag objects assigned to each of them
      */
-    Map<Long, List<Tag>> getTagsByKnowledgeBaseId();
-
-    /**
-     * Retrieves a mapping from knowledgebase name to list of tags assigned to that knowledgeBase.
-     *
-     * @return a map where keys are knowledgebase names and values are lists of Tag objects assigned to each
-     *         knowledgebase
-     */
-    Map<String, List<Tag>> getTagsByKnowledgeBaseName();
+    Map<Long, List<Tag>> getTagsByKnowledgeBaseIds(List<Long> knowledgeBaseIds);
 
     /**
      * Updates the tags associated with a specific knowledgeBase.

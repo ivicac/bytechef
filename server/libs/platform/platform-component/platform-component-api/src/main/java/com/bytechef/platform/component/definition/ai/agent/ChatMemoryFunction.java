@@ -17,6 +17,7 @@
 package com.bytechef.platform.component.definition.ai.agent;
 
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -61,6 +62,34 @@ public interface ChatMemoryFunction {
     Result apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
         Map<String, ComponentConnection> componentConnections) throws Exception;
+
+    /**
+     * Context-carrying form. It defaults to the context-free one because only a chat memory backed by a vector store
+     * needs to know who the run is for — the other nine implementations address a store the vendor configured, not one
+     * that belongs to an account, so they inherit this default unchanged. An implementation whose store does belong to
+     * an account overrides this form and resolves the owner from the context: a knowledge base is reachable only for
+     * the owner the run belongs to.
+     *
+     * <p>
+     * Callers that hold a context MUST invoke this five-argument form explicitly. Java resolves overloads by arity, so
+     * a four-argument call binds to the abstract method above and never reaches an override of this one.
+     * </p>
+     *
+     * @param inputParameters      the input parameters of the chat memory cluster element
+     * @param connectionParameters the connection parameters
+     * @param extensions           the extensions containing nested cluster elements
+     * @param componentConnections the component connections map
+     * @param context              the component invocation context, from which an owner-aware implementation resolves
+     *                             the owner the run belongs to
+     * @return the advisor and its backing chat memory
+     * @throws Exception
+     */
+    default Result apply(
+        Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
+
+        return apply(inputParameters, connectionParameters, extensions, componentConnections);
+    }
 
     /**
      * Holds the advisor and the backing {@link ChatMemory} together so callers can read conversation history without

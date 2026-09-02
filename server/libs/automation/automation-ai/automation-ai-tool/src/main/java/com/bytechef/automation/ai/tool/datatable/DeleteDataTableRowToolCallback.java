@@ -20,7 +20,9 @@ import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -156,9 +158,11 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
 
             String baseName = tableInfo.baseName();
 
-            DataTableRow priorRow = dataTableRowService.getRow(baseName, rowId, environmentId);
+            DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, PlatformType.AUTOMATION);
 
-            boolean wasDeleted = dataTableRowService.deleteRow(baseName, rowId, environmentId);
+            DataTableRow priorRow = dataTableRowService.getRow(dataTableRef, rowId);
+
+            boolean wasDeleted = dataTableRowService.deleteRow(dataTableRef, rowId);
 
             if (wasDeleted) {
                 recordArtifact(invocationContext, baseName, input.dataTableId(), environmentId, priorRow, rowId);

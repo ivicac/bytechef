@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"
+                   logicalFilePath="config/liquibase/changelog/platform/data_table/20260901000002_platform_data_table_webhook_add_owner.xml">
+
+    <!--
+        A registration carries the owner of the run that made it, so that a shared table, which has no owner of its own
+        and holds many accounts' rows, does not fire every registration on it for every row written into it.
+
+        These columns were added once before, by a changeset that was then deleted rather than reverted, so a database
+        built while it existed already has them and its DATABASECHANGELOG still names the deleted file. Every changeset
+        below is therefore guarded and marks itself ran rather than failing on what is already there. One changeset per
+        object, not one guard over three: a half-applied earlier run must be able to finish, and a single guard reading
+        only the first column would skip the other two.
+    -->
+    <changeSet id="20260901000002-1" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="data_table_webhook" columnName="owner_id"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="data_table_webhook">
+            <column name="owner_id" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260901000002-2" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="data_table_webhook" columnName="owner_type"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="data_table_webhook">
+            <column name="owner_type" type="INT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260901000002-3" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists tableName="data_table_webhook" indexName="idx_data_table_webhook_owner"/>
+            </not>
+        </preConditions>
+
+        <createIndex tableName="data_table_webhook" indexName="idx_data_table_webhook_owner">
+            <column name="owner_type"/>
+            <column name="owner_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

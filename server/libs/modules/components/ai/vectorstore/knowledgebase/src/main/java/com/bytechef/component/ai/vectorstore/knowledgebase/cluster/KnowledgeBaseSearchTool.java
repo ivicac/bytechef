@@ -34,9 +34,12 @@ import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
+import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
+import com.bytechef.platform.owner.OwnerResolver;
 import java.util.stream.Stream;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -45,9 +48,10 @@ public class KnowledgeBaseSearchTool {
 
     public static ClusterElementDefinition<MultipleConnectionsToolFunction> of(
         org.springframework.ai.vectorstore.VectorStore vectorStore,
-        KnowledgeBaseService knowledgeBaseService, KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService) {
+        KnowledgeBaseService knowledgeBaseService, KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
-        VectorStore kbVectorStore = createVectorStore(vectorStore);
+        VectorStore kbVectorStore = createVectorStore(knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return ComponentDsl.<MultipleConnectionsToolFunction>clusterElement("search")
             .title("Knowledge Base Search")
@@ -60,7 +64,9 @@ public class KnowledgeBaseSearchTool {
                             integer(KNOWLEDGE_BASE_ID)
                                 .label("Knowledge Base")
                                 .description("The knowledge base to search.")
-                                .options(KnowledgeBaseOptionsUtils.knowledgeBaseOptions(knowledgeBaseService))
+                                .options(
+                                    KnowledgeBaseOptionsUtils.knowledgeBaseOptions(
+                                        knowledgeBaseService, ownerResolverProvider))
                                 .required(true),
                             array(TAG_NAMES)
                                 .label("Tags")
@@ -68,7 +74,9 @@ public class KnowledgeBaseSearchTool {
                                     "Filter results by tags. Documents with ANY of the selected tags will be " +
                                         "returned (OR logic).")
                                 .items(string())
-                                .options(KnowledgeBaseOptionsUtils.tagOptions(knowledgeBaseDocumentTagService))
+                                .options(
+                                    KnowledgeBaseOptionsUtils.tagOptions(
+                                        knowledgeBaseDocumentTagService, knowledgeBaseService, ownerResolverProvider))
                                 .optionsLookupDependsOn(KNOWLEDGE_BASE_ID)
                                 .required(false),
                             QUERY_PROPERTY),
@@ -79,8 +87,12 @@ public class KnowledgeBaseSearchTool {
                 inputParameters, connectionParameters, extensions, componentConnections, context) -> {
                 ComponentConnection vectorStoreComponentConnection = componentConnections.get(KNOWLEDGE_BASE);
 
+                KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+                    knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+                    OwnerResolution.resolve(context, ownerResolverProvider));
+
                 return kbVectorStore.search(
-                    inputParameters, ParametersFactory.create(vectorStoreComponentConnection), null);
+                    inputParameters, ParametersFactory.create(vectorStoreComponentConnection), null, context);
             });
     }
 }

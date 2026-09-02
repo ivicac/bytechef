@@ -21,6 +21,7 @@ package com.bytechef.component.datatable.constant;
  */
 public class DataTableConstants {
 
+    public static final String ACCOUNT_ID = "accountId";
     public static final String DATA_TABLE = "dataTable";
     public static final String TABLE = "table";
     public static final String ID = "id";
@@ -29,6 +30,12 @@ public class DataTableConstants {
     public static final String RECORDS = "records";
     public static final String LIMIT = "limit";
     public static final String OFFSET = "offset";
+    public static final String FILTERS = "filters";
+    public static final String FIELD = "field";
+    public static final String OPERATOR = "operator";
+    public static final String VALUE = "value";
+    public static final String SORTS = "sorts";
+    public static final String DIRECTION = "direction";
 
     private DataTableConstants() {
     }

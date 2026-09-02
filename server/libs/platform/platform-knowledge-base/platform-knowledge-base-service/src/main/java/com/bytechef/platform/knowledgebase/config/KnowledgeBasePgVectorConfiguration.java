@@ -17,6 +17,7 @@
 package com.bytechef.platform.knowledgebase.config;
 
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseVectorStoreMetadataService;
+import com.bytechef.platform.knowledgebase.service.KnowledgeBaseVectorStoreOwnershipBackfill;
 import com.bytechef.tenant.annotation.ConditionalOnSingleTenant;
 import io.micrometer.observation.ObservationRegistry;
 import org.apache.commons.lang3.StringUtils;
@@ -70,13 +71,28 @@ class KnowledgeBasePgVectorConfiguration {
         @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate,
         ObjectMapper objectMapper, PgVectorStoreProperties properties) {
 
+        String fullTableName = getFullTableName(properties);
+
+        return new KnowledgeBaseVectorStoreMetadataService(pgVectorJdbcTemplate, objectMapper, () -> fullTableName);
+    }
+
+    @Bean
+    public KnowledgeBaseVectorStoreOwnershipBackfill knowledgeBaseVectorStoreOwnershipBackfill(
+        @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate, PgVectorStoreProperties properties) {
+
+        String fullTableName = getFullTableName(properties);
+
+        return new KnowledgeBaseVectorStoreOwnershipBackfill(pgVectorJdbcTemplate, () -> fullTableName);
+    }
+
+    private static String getFullTableName(PgVectorStoreProperties properties) {
         String schemaName = properties.getSchemaName();
         String tableName = "kb_" + properties.getTableName();
 
-        String fullTableName = !StringUtils.isBlank(schemaName)
-            ? schemaName + "." + tableName
-            : tableName;
+        if (StringUtils.isBlank(schemaName)) {
+            return tableName;
+        }
 
-        return new KnowledgeBaseVectorStoreMetadataService(pgVectorJdbcTemplate, objectMapper, () -> fullTableName);
+        return schemaName + "." + tableName;
     }
 }

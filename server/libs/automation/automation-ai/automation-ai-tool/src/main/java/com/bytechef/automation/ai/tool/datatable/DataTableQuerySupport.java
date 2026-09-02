@@ -16,7 +16,9 @@
 
 package com.bytechef.automation.ai.tool.datatable;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.util.List;
@@ -69,14 +71,22 @@ public final class DataTableQuerySupport {
     }
 
     /**
-     * Fetches up to {@code fetchLimit} rows for {@code baseName} in {@code environmentId} and applies the optional
-     * simple-equals {@code where} filter (e.g. {@code "status = 'qualified'"}), returning the row value maps.
+     * Fetches up to {@code fetchLimit} rows for {@code baseName} in {@code environmentId}, applies the optional
+     * simple-equals {@code where} filter (e.g. {@code "status = 'qualified'"}), and returns the row value maps.
+     *
+     * <p>
+     * Deliberately not parameterised by pool. It reaches its table with {@link DataTableRef#unowned}, which is a claim
+     * that no account scopes the rows -- true of every AUTOMATION table and of no EMBEDDED one. A pool taken from the
+     * caller would let the first EMBEDDED caller read every account's rows at once, and this helper sits outside the
+     * component guard that would otherwise catch it. An embedded surface needs to resolve its own {@link DataTableRef}
+     * rather than widen this one.
      */
     public static List<Map<String, Object>> queryRowMaps(
         DataTableRowService dataTableRowService, String baseName, @Nullable String where, int fetchLimit,
         long environmentId) throws WhereParseException {
 
-        List<DataTableRow> rows = dataTableRowService.listRows(baseName, fetchLimit, 0, environmentId);
+        List<DataTableRow> rows = dataTableRowService.listRows(
+            DataTableRef.unowned(baseName, environmentId, PlatformType.AUTOMATION), fetchLimit, 0);
 
         if (where != null && !where.isBlank()) {
             WhereClause whereClause = parseWhere(where);

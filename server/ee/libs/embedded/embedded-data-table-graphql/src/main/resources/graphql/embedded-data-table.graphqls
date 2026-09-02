@@ -1,0 +1,33 @@
+extend type Query {
+    embeddedDataTables(environmentId: ID!): [EmbeddedDataTable!]!
+}
+
+extend type Mutation {
+    createEmbeddedDataTable(input: CreateEmbeddedDataTableInput!): Boolean!
+}
+
+input CreateEmbeddedDataTableInput {
+    environmentId: ID!
+    name: String!
+    description: String
+    columns: [EmbeddedDataTableColumnInput!]!
+}
+
+input EmbeddedDataTableColumnInput {
+    name: String!
+    type: ColumnType!
+}
+
+type EmbeddedDataTable {
+    id: ID!
+    baseName: String!
+    description: String
+    columns: [EmbeddedDataTableColumn!]!
+    lastModifiedDate: Long
+}
+
+type EmbeddedDataTableColumn {
+    id: ID!
+    name: String!
+    type: ColumnType!
+}

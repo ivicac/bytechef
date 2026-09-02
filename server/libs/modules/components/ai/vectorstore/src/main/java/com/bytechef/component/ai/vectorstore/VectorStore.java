@@ -22,6 +22,7 @@ import static com.bytechef.component.ai.vectorstore.constant.VectorStoreConstant
 import static com.bytechef.component.ai.vectorstore.constant.VectorStoreConstants.SIMILARITY_THRESHOLD;
 import static com.bytechef.component.ai.vectorstore.constant.VectorStoreConstants.TOP_K;
 
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import java.util.HashMap;
@@ -45,12 +46,36 @@ public interface VectorStore {
     org.springframework.ai.vectorstore.VectorStore createVectorStore(
         Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel);
 
+    /**
+     * Context-carrying form. Defaults to the context-free one, so the thirteen vector store components that address a
+     * store the vendor configured need no change and this interface stays functional; only a store whose identity
+     * belongs to an account overrides it, to resolve the owner the run acts for before addressing anything.
+     *
+     * @param inputParameters      the input parameters of the vector store
+     * @param connectionParameters the connection parameters
+     * @param embeddingModel       the embedding model, or {@code null} where the component configures one globally
+     * @param context              the component invocation context, or {@code null} when the caller holds none
+     * @return the vector store
+     */
+    default org.springframework.ai.vectorstore.VectorStore createVectorStore(
+        Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel, Context context) {
+
+        return createVectorStore(inputParameters, connectionParameters, embeddingModel);
+    }
+
     default void load(
         Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel,
         DocumentReader documentReader, List<DocumentTransformer> documentTransformers) {
 
+        load(inputParameters, connectionParameters, embeddingModel, documentReader, documentTransformers, null);
+    }
+
+    default void load(
+        Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel,
+        DocumentReader documentReader, List<DocumentTransformer> documentTransformers, Context context) {
+
         org.springframework.ai.vectorstore.VectorStore vectorStore = createVectorStore(
-            inputParameters, connectionParameters, embeddingModel);
+            inputParameters, connectionParameters, embeddingModel, context);
 
         List<Document> documents = documentReader.read();
 
@@ -85,8 +110,14 @@ public interface VectorStore {
     default void delete(
         Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel) {
 
+        delete(inputParameters, connectionParameters, embeddingModel, null);
+    }
+
+    default void delete(
+        Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel, Context context) {
+
         org.springframework.ai.vectorstore.VectorStore vectorStore = createVectorStore(
-            inputParameters, connectionParameters, embeddingModel);
+            inputParameters, connectionParameters, embeddingModel, context);
 
         List<Map<String, Object>> metadataFilters = inputParameters.getList(
             METADATA_FILTER, new TypeReference<>() {});
@@ -103,8 +134,14 @@ public interface VectorStore {
     default List<Document> search(
         Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel) {
 
+        return search(inputParameters, connectionParameters, embeddingModel, null);
+    }
+
+    default List<Document> search(
+        Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel, Context context) {
+
         org.springframework.ai.vectorstore.VectorStore vectorStore = createVectorStore(
-            inputParameters, connectionParameters, embeddingModel);
+            inputParameters, connectionParameters, embeddingModel, context);
 
         List<Map<String, Object>> metadata = inputParameters.getList(
             METADATA_FILTER, new TypeReference<>() {});
@@ -129,8 +166,15 @@ public interface VectorStore {
         Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel,
         DocumentReader documentReader, List<DocumentTransformer> documentTransformers) {
 
-        delete(inputParameters, connectionParameters, embeddingModel);
-        load(inputParameters, connectionParameters, embeddingModel, documentReader, documentTransformers);
+        update(inputParameters, connectionParameters, embeddingModel, documentReader, documentTransformers, null);
+    }
+
+    default void update(
+        Parameters inputParameters, Parameters connectionParameters, EmbeddingModel embeddingModel,
+        DocumentReader documentReader, List<DocumentTransformer> documentTransformers, Context context) {
+
+        delete(inputParameters, connectionParameters, embeddingModel, context);
+        load(inputParameters, connectionParameters, embeddingModel, documentReader, documentTransformers, context);
     }
 
     private static Optional<Filter.Expression> getFilterExpression(List<Map<String, Object>> metadataFilters) {

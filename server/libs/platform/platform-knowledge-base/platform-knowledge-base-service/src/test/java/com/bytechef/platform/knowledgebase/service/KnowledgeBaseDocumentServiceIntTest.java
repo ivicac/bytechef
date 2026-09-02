@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.knowledgebase.config.KnowledgeBaseIntTestConfiguration;
 import com.bytechef.platform.knowledgebase.config.KnowledgeBaseIntTestConfigurationSharedMocks;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
@@ -37,11 +38,14 @@ import com.bytechef.platform.knowledgebase.file.storage.KnowledgeBaseFileStorage
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseDocumentRepository;
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseRepository;
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseSourceRepository;
+import com.bytechef.platform.owner.Owner;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +57,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.PayloadApplicationEvent;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.event.SmartApplicationListener;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Integration tests for {@link KnowledgeBaseDocumentService}.
@@ -63,6 +68,9 @@ import org.springframework.context.event.SmartApplicationListener;
 @Import(PostgreSQLContainerConfiguration.class)
 @KnowledgeBaseIntTestConfigurationSharedMocks
 class KnowledgeBaseDocumentServiceIntTest {
+
+    private static final Owner OWNER = Owner.connectedUser(42L);
+    private static final Owner OTHER_OWNER = Owner.connectedUser(43L);
 
     @Autowired
     private ConfigurableApplicationContext applicationContext;
@@ -81,6 +89,9 @@ class KnowledgeBaseDocumentServiceIntTest {
 
     @Autowired
     private KnowledgeBaseSourceRepository knowledgeBaseSourceRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private KnowledgeBase knowledgeBase;
 
@@ -219,7 +230,7 @@ class KnowledgeBaseDocumentServiceIntTest {
 
         KnowledgeBaseDocument created = impl.createSyncedDocument(
             knowledgeBase.getId(), source.getId(), "rec-1", "Record One", "Hello world",
-            Map.of("kind", "contact"), null, "hash-1", now);
+            Map.of("kind", "contact"), null, "hash-1", now, null);
 
         assertThat(created.getId()).isNotNull();
         assertThat(created.getKnowledgeBaseId()).isEqualTo(knowledgeBase.getId());
@@ -250,7 +261,7 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant initial = Instant.parse("2026-05-08T10:00:00Z");
         KnowledgeBaseDocument original = impl.createSyncedDocument(
             knowledgeBase.getId(), source.getId(), "rec-1", "Record One", "Hello v1",
-            Map.of("kind", "contact"), null, "hash-1", initial);
+            Map.of("kind", "contact"), null, "hash-1", initial, null);
 
         // Mark the doc as tombstoned to verify replaceSyncedDocument clears deleted_at on re-appearance.
         original.setDeletedAt(Instant.parse("2026-05-08T11:00:00Z"));
@@ -281,7 +292,7 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant initial = Instant.parse("2026-05-08T10:00:00Z");
         KnowledgeBaseDocument original = impl.createSyncedDocument(
             knowledgeBase.getId(), source.getId(), "rec-1", "Record One", "Hello v1",
-            Map.of("kind", "contact"), null, "hash-1", initial);
+            Map.of("kind", "contact"), null, "hash-1", initial, null);
 
         FileEntry originalFileEntry = original.getDocument();
 
@@ -310,15 +321,18 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant initial = Instant.parse("2026-05-08T10:00:00Z");
 
         KnowledgeBaseDocument seenA = impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial);
+            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial,
+            null);
         KnowledgeBaseDocument seenB = impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-B", "Record B", "Body B", Map.of(), null, "hash-B", initial);
+            knowledgeBase.getId(), source.getId(), "rec-B", "Record B", "Body B", Map.of(), null, "hash-B", initial,
+            null);
         KnowledgeBaseDocument missingC = impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-C", "Record C", "Body C", Map.of(), null, "hash-C", initial);
+            knowledgeBase.getId(), source.getId(), "rec-C", "Record C", "Body C", Map.of(), null, "hash-C", initial,
+            null);
 
         Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
 
-        int tombstoned = knowledgeBaseDocumentRepository.tombstoneUnseen(
+        int tombstoned = knowledgeBaseDocumentRepository.tombstoneUnseenUnowned(
             source.getId(), List.of("rec-A", "rec-B"), runEnd);
 
         assertThat(tombstoned).isEqualTo(1);
@@ -346,26 +360,29 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant initial = Instant.parse("2026-05-08T10:00:00Z");
 
         impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial);
+            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial,
+            null);
         KnowledgeBaseDocument tombstoned = impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-B", "Record B", "Body B", Map.of(), null, "hash-B", initial);
+            knowledgeBase.getId(), source.getId(), "rec-B", "Record B", "Body B", Map.of(), null, "hash-B", initial,
+            null);
         KnowledgeBaseDocument otherSourceTombstoned = impl.createSyncedDocument(
             knowledgeBase.getId(), otherSource.getId(), "rec-C", "Record C", "Body C", Map.of(), null, "hash-C",
-            initial);
+            initial, null);
 
         Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
 
-        knowledgeBaseDocumentRepository.tombstoneUnseen(source.getId(), List.of("rec-A"), runEnd);
-        knowledgeBaseDocumentRepository.tombstoneUnseen(otherSource.getId(), List.of("__never_matches__"), runEnd);
+        knowledgeBaseDocumentRepository.tombstoneUnseenUnowned(source.getId(), List.of("rec-A"), runEnd);
+        knowledgeBaseDocumentRepository.tombstoneUnseenUnowned(otherSource.getId(), List.of("__never_matches__"),
+            runEnd);
 
         List<KnowledgeBaseDocument> tombstonedDocuments = knowledgeBaseDocumentService.getTombstonedDocuments(
-            source.getId());
+            source.getId(), Optional.empty());
 
         assertThat(tombstonedDocuments).extracting(KnowledgeBaseDocument::getId)
             .containsExactly(tombstoned.getId());
 
         List<KnowledgeBaseDocument> otherTombstonedDocuments = knowledgeBaseDocumentService.getTombstonedDocuments(
-            otherSource.getId());
+            otherSource.getId(), Optional.empty());
 
         assertThat(otherTombstonedDocuments).extracting(KnowledgeBaseDocument::getId)
             .containsExactly(otherSourceTombstoned.getId());
@@ -383,7 +400,8 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant initial = Instant.parse("2026-05-08T10:00:00Z");
 
         impl.createSyncedDocument(
-            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial);
+            knowledgeBase.getId(), source.getId(), "rec-A", "Record A", "Body A", Map.of(), null, "hash-A", initial,
+            null);
 
         // Manual upload — source_id is NULL, so it must not be touched by the tombstone sweep.
         KnowledgeBaseDocument manualUpload = knowledgeBaseDocumentRepository.save(createDocument("Manual"));
@@ -391,7 +409,7 @@ class KnowledgeBaseDocumentServiceIntTest {
         Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
 
         // Empty seen set ⇒ all source-tagged rows for this source are unseen.
-        int tombstoned = knowledgeBaseDocumentRepository.tombstoneUnseen(
+        int tombstoned = knowledgeBaseDocumentRepository.tombstoneUnseenUnowned(
             source.getId(), List.of("__never_matches__"), runEnd);
 
         assertThat(tombstoned).isEqualTo(1);
@@ -412,6 +430,355 @@ class KnowledgeBaseDocumentServiceIntTest {
         source.setStatus(KnowledgeBaseSourceStatus.BUILDING_PREVIEW);
 
         return knowledgeBaseSourceRepository.save(source);
+    }
+
+    /**
+     * The owner is on the row because the chunker cannot ask anyone. This pins the storage half: both columns written,
+     * both read back, through the real schema the changeset builds.
+     */
+    @Test
+    void testAnOwnedDocumentRoundTripsBothOwnerColumns() {
+        KnowledgeBaseDocument document = createDocument("Owned Document");
+
+        document.setOwner(Owner.connectedUser(42L));
+
+        KnowledgeBaseDocument saved = knowledgeBaseDocumentService.saveKnowledgeBaseDocument(document);
+
+        KnowledgeBaseDocument reloaded = knowledgeBaseDocumentService.getKnowledgeBaseDocument(saved.getId());
+
+        assertThat(reloaded.getOwner()).contains(Owner.connectedUser(42L));
+
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+            "SELECT owner_id, owner_type FROM knowledge_base_document WHERE id = ?", saved.getId());
+
+        assertThat(row.get("owner_id")).isEqualTo(42L);
+        assertThat(row.get("owner_type")).isEqualTo(OwnerType.CONNECTED_USER.ordinal());
+    }
+
+    /**
+     * The columns move as a pair. One written without the other belongs to nobody -- it satisfies neither the owned
+     * predicate nor the shared one -- so an unowned document has to leave both null rather than one.
+     */
+    @Test
+    void testAnUnownedDocumentLeavesBothOwnerColumnsNull() {
+        KnowledgeBaseDocument saved = knowledgeBaseDocumentService.saveKnowledgeBaseDocument(
+            createDocument("Unowned Document"));
+
+        KnowledgeBaseDocument reloaded = knowledgeBaseDocumentService.getKnowledgeBaseDocument(saved.getId());
+
+        assertThat(reloaded.getOwner()).isEmpty();
+
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+            "SELECT owner_id, owner_type FROM knowledge_base_document WHERE id = ?", saved.getId());
+
+        assertThat(row.get("owner_id")).isNull();
+        assertThat(row.get("owner_type")).isNull();
+    }
+
+    /**
+     * A synced document created for an account carries that account, and one created by the vendor's own sync carries
+     * nobody. Re-syncing never moves a document between accounts, which is why {@code replaceSyncedDocument} has no
+     * owner argument to disagree with this one.
+     */
+    @Test
+    void testCreateSyncedDocumentPersistsTheOwnerItWasCreatedFor() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        when(knowledgeBaseFileStorage.storeDocument(anyString(), any(InputStream.class)))
+            .thenAnswer(
+                invocation -> new FileEntry(invocation.getArgument(0), "file://stored/" + invocation.getArgument(0)));
+
+        Instant now = Instant.parse("2026-05-08T12:00:00Z");
+
+        KnowledgeBaseDocument owned = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-owned", "Owned", "Hello", Map.of(), null, "hash-owned", now,
+            Owner.connectedUser(42L));
+        KnowledgeBaseDocument unowned = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-unowned", "Unowned", "Hello", Map.of(), null, "hash-unowned",
+            now, null);
+
+        assertThat(knowledgeBaseDocumentService.getKnowledgeBaseDocument(owned.getId())
+            .getOwner()).contains(Owner.connectedUser(42L));
+        assertThat(knowledgeBaseDocumentService.getKnowledgeBaseDocument(unowned.getId())
+            .getOwner()).isEmpty();
+    }
+
+    /**
+     * The tombstone half of the finding. Two accounts sync the same source into one shared knowledge base, and account
+     * 42's FULL_REPLACE run sees none of its records this time round. Before the owner was part of the predicate the
+     * sweep keyed on {@code source_id} alone and reaped account 43's rows and the vendor's along with 42's, and the
+     * chunk sweep that follows then deleted their chunks out of the vector store by raw id.
+     *
+     * <p>
+     * The assertion is on {@code deleted_at} of every row, not on the returned count: a count is one number that a
+     * wrong predicate can still produce, whereas the survivors name themselves.
+     */
+    @Test
+    void testTombstoneUnseenLeavesAnotherAccountsDocumentsFromTheSameSource() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        KnowledgeBaseDocument ours = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-ours", "Ours", "Body", Map.of(), null, "hash-ours", initial,
+            OWNER);
+        KnowledgeBaseDocument theirs = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-theirs", "Theirs", "Body", Map.of(), null, "hash-theirs",
+            initial, OTHER_OWNER);
+        KnowledgeBaseDocument vendors = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-vendors", "Vendors", "Body", Map.of(), null, "hash-vendors",
+            initial, null);
+
+        Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
+
+        int tombstoned = knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.of(OWNER));
+
+        // The survivors are asserted first, so an unscoped build names the account whose documents it reaped rather
+        // than reporting a count that happens to be wrong.
+        assertThat(deletedAtOf(theirs)).isNull();
+        assertThat(deletedAtOf(vendors)).isNull();
+        assertThat(deletedAtOf(ours)).isEqualTo(runEnd);
+        assertThat(tombstoned).isEqualTo(1);
+    }
+
+    /**
+     * The other direction, and the one an empty owner makes easy to get wrong: the vendor's own sync reaps the
+     * documents belonging to nobody and never falls through to an account's.
+     */
+    @Test
+    void testTombstoneUnseenForAVendorRunReapsTheUnownedDocumentsAlone() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        KnowledgeBaseDocument ours = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-ours", "Ours", "Body", Map.of(), null, "hash-ours", initial,
+            OWNER);
+        KnowledgeBaseDocument vendors = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-vendors", "Vendors", "Body", Map.of(), null, "hash-vendors",
+            initial, null);
+
+        Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
+
+        int tombstoned = knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.empty());
+
+        assertThat(deletedAtOf(ours)).isNull();
+        assertThat(deletedAtOf(vendors)).isEqualTo(runEnd);
+        assertThat(tombstoned).isEqualTo(1);
+    }
+
+    /**
+     * A document carrying an {@code owner_id} beside a null {@code owner_type} belongs to nobody, and must satisfy
+     * neither predicate: the account whose id it carries may not reap it, and neither may the vendor. Written through
+     * raw SQL because {@code setOwner} cannot produce this shape -- which is the point of that method.
+     */
+    @Test
+    void testTombstoneUnseenReapsNeitherHalfOfAHalfWrittenOwner() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        KnowledgeBaseDocument halfOwned = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-half", "Half", "Body", Map.of(), null, "hash-half", initial,
+            null);
+
+        jdbcTemplate.update(
+            "UPDATE knowledge_base_document SET owner_id = ?, owner_type = NULL WHERE id = ?", OWNER.id(),
+            halfOwned.getId());
+
+        Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
+
+        knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.of(OWNER));
+        knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.empty());
+
+        assertThat(deletedAtOf(halfOwned)).isNull();
+    }
+
+    /**
+     * What the chunk sweep is handed. It deletes every chunk of every document this returns, out of the vector store by
+     * raw id and with no owner filter of its own, so a listing wider than the caller's own documents is a cross-account
+     * delete by another name.
+     */
+    @Test
+    void testGetTombstonedDocumentsReturnsOnlyTheGivenOwnersDocuments() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        KnowledgeBaseDocument ours = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-ours", "Ours", "Body", Map.of(), null, "hash-ours", initial,
+            OWNER);
+        KnowledgeBaseDocument theirs = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-theirs", "Theirs", "Body", Map.of(), null, "hash-theirs",
+            initial, OTHER_OWNER);
+        KnowledgeBaseDocument vendors = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-vendors", "Vendors", "Body", Map.of(), null, "hash-vendors",
+            initial, null);
+
+        Instant runEnd = Instant.parse("2026-05-08T12:00:00Z");
+
+        // Everything is tombstoned, by each owner's own sweep, so the listing below is separating owners rather than
+        // separating tombstoned rows from live ones.
+        knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.of(OWNER));
+        knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.of(OTHER_OWNER));
+        knowledgeBaseDocumentService.tombstoneUnseen(
+            source.getId(), Set.of("__never_matches__"), runEnd, Optional.empty());
+
+        assertThat(knowledgeBaseDocumentService.getTombstonedDocuments(source.getId(), Optional.of(OWNER)))
+            .extracting(KnowledgeBaseDocument::getId)
+            .containsExactly(ours.getId());
+        assertThat(knowledgeBaseDocumentService.getTombstonedDocuments(source.getId(), Optional.of(OTHER_OWNER)))
+            .extracting(KnowledgeBaseDocument::getId)
+            .containsExactly(theirs.getId());
+        assertThat(knowledgeBaseDocumentService.getTombstonedDocuments(source.getId(), Optional.empty()))
+            .extracting(KnowledgeBaseDocument::getId)
+            .containsExactly(vendors.getId());
+    }
+
+    /**
+     * The fifth instance of the defect class, at the level where it bites. Two accounts sync the same source record
+     * into one shared knowledge base. Unscoped, account 43's lookup found account 42's document and the replace path
+     * rewrote its content: ownership never moved, the content did.
+     *
+     * <p>
+     * The intended outcome is two documents, one per account, and the assertions say so directly rather than counting
+     * rows -- a count of two is also what a build that created two documents for ONE account would produce. Each
+     * account's lookup must return its own, and only its own.
+     */
+    @Test
+    void testTwoAccountsSyncingOneSourceRecordEachKeepTheirOwnDocument() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.of(OWNER)))
+            .isEmpty();
+
+        KnowledgeBaseDocument ours = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Ours", "Body ours", Map.of(), null, "hash-ours", initial,
+            OWNER);
+
+        // The second account's run for the SAME source record. It must not find the first account's document, or the
+        // replace path below rewrites content that stays somebody else's.
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.of(OTHER_OWNER)))
+            .isEmpty();
+
+        KnowledgeBaseDocument theirs = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Theirs", "Body theirs", Map.of(), null, "hash-theirs",
+            initial, OTHER_OWNER);
+
+        assertThat(theirs.getId()).isNotEqualTo(ours.getId());
+
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.of(OWNER)))
+            .map(KnowledgeBaseDocument::getId)
+            .contains(ours.getId());
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.of(OTHER_OWNER)))
+            .map(KnowledgeBaseDocument::getId)
+            .contains(theirs.getId());
+    }
+
+    /**
+     * The content-crossing half, asserted on the other account's document rather than on the lookup: account 42's
+     * re-sync rewrites its own document and leaves account 43's exactly as 43's run wrote it.
+     */
+    @Test
+    void testARunReSyncingOneSourceRecordLeavesAnotherAccountsCopyUntouched() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Ours v1", "Body ours v1", Map.of(), null, "hash-ours-1",
+            initial, OWNER);
+
+        KnowledgeBaseDocument theirs = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Theirs", "Body theirs", Map.of(), null, "hash-theirs",
+            initial, OTHER_OWNER);
+
+        Instant later = Instant.parse("2026-05-08T12:00:00Z");
+
+        KnowledgeBaseDocument found = knowledgeBaseDocumentService
+            .findSyncedDocument(source.getId(), "rec-1", Optional.of(OWNER))
+            .orElseThrow();
+
+        impl.replaceSyncedDocument(
+            found.getId(), "Ours v2", "Body ours v2", Map.of(), null, "hash-ours-2", later);
+
+        KnowledgeBaseDocument reloadedTheirs = knowledgeBaseDocumentRepository.findById(theirs.getId())
+            .orElseThrow();
+
+        assertThat(reloadedTheirs.getName()).isEqualTo("Theirs");
+        assertThat(reloadedTheirs.getSyncedPayloadHash()).isEqualTo("hash-theirs");
+        assertThat(reloadedTheirs.getOwner()).contains(OTHER_OWNER);
+    }
+
+    /**
+     * The direction an empty owner makes easy to get wrong: the vendor's own sync reaches the documents belonging to
+     * nobody and never falls through to an account's. An unscoped lookup returns whichever row the database offers
+     * first, which for a shared source is an account's as often as not.
+     */
+    @Test
+    void testFindSyncedDocumentForAVendorRunReachesTheUnownedDocumentAlone() {
+        KnowledgeBaseDocumentServiceImpl impl = (KnowledgeBaseDocumentServiceImpl) knowledgeBaseDocumentService;
+        KnowledgeBaseSource source = persistSource("HubSpot");
+
+        stubDocumentStorage();
+
+        Instant initial = Instant.parse("2026-05-08T10:00:00Z");
+
+        impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Ours", "Body ours", Map.of(), null, "hash-ours", initial,
+            OWNER);
+
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.empty()))
+            .as("an account's document is not the vendor's to find, still less to rewrite")
+            .isEmpty();
+
+        KnowledgeBaseDocument vendors = impl.createSyncedDocument(
+            knowledgeBase.getId(), source.getId(), "rec-1", "Vendors", "Body vendors", Map.of(), null, "hash-vendors",
+            initial, null);
+
+        assertThat(knowledgeBaseDocumentService.findSyncedDocument(source.getId(), "rec-1", Optional.empty()))
+            .map(KnowledgeBaseDocument::getId)
+            .contains(vendors.getId());
+    }
+
+    private Instant deletedAtOf(KnowledgeBaseDocument document) {
+        KnowledgeBaseDocument reloaded = knowledgeBaseDocumentRepository.findById(document.getId())
+            .orElseThrow();
+
+        return reloaded.getDeletedAt();
+    }
+
+    private void stubDocumentStorage() {
+        when(knowledgeBaseFileStorage.storeDocument(anyString(), any(InputStream.class)))
+            .thenAnswer(
+                invocation -> new FileEntry(invocation.getArgument(0), "file://stored/" + invocation.getArgument(0)));
     }
 
     private KnowledgeBaseDocument createDocument(String name) {

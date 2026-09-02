@@ -33,13 +33,18 @@ import com.bytechef.component.definition.TriggerDefinition.WebhookMethod;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.definition.BaseOutputDefinition.OutputResponse;
 import com.bytechef.platform.component.definition.TriggerContextAware;
+import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
+import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Record Updated trigger for Data Tables.
@@ -49,22 +54,26 @@ import java.util.Objects;
 public class DataTableRecordUpdatedTrigger {
 
     private final DataTableRowService dataTableRowService;
+    private final ObjectProvider<OwnerResolver> ownerResolverProvider;
     private final DataTableService dataTableService;
     private final DataTableWebhookService dataTableWebhookService;
 
     @SuppressFBWarnings("EI")
     public static ModifiableTriggerDefinition of(
         DataTableRowService dataTableRowService, DataTableService dataTableService,
-        DataTableWebhookService dataTableWebhookService) {
+        DataTableWebhookService dataTableWebhookService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
         return new DataTableRecordUpdatedTrigger(
-            dataTableRowService, dataTableService, dataTableWebhookService).build();
+            dataTableRowService, dataTableService, dataTableWebhookService, ownerResolverProvider).build();
     }
 
     private DataTableRecordUpdatedTrigger(
         DataTableRowService dataTableRowService, DataTableService dataTableService,
-        DataTableWebhookService dataTableWebhookService) {
+        DataTableWebhookService dataTableWebhookService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
+        this.ownerResolverProvider = ownerResolverProvider;
         this.dataTableRowService = dataTableRowService;
         this.dataTableService = dataTableService;
         this.dataTableWebhookService = dataTableWebhookService;
@@ -80,7 +89,7 @@ public class DataTableRecordUpdatedTrigger {
                     .label("Table")
                     .description("Select a Data Table.")
                     .required(true)
-                    .options(DataTableUtils.getTriggerTableOptions(dataTableService)))
+                    .options(DataTableUtils.getTriggerTableOptions(dataTableService, ownerResolverProvider)))
             .output(this::output)
             .webhookEnable(this::webhookEnable)
             .webhookDisable(this::webhookDisable)
@@ -91,9 +100,13 @@ public class DataTableRecordUpdatedTrigger {
     private OutputResponse output(
         Parameters inputParameters, Parameters connectionParameters, TriggerContext triggerContext) {
 
+        TriggerContextAware triggerContextAware = (TriggerContextAware) triggerContext;
+
         var baseName = inputParameters.getRequiredString(TABLE);
 
-        return DataTableUtils.createTriggerOutputResponse(dataTableRowService, dataTableService, baseName);
+        Optional<Owner> owner = OwnerResolution.resolve(triggerContextAware, ownerResolverProvider);
+
+        return DataTableUtils.createTriggerOutputResponse(dataTableRowService, dataTableService, baseName, owner);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -105,9 +118,10 @@ public class DataTableRecordUpdatedTrigger {
 
         String baseName = inputParameters.getRequiredString(TABLE);
 
-        long webhookId = dataTableWebhookService.addWebhook(
-            baseName, webhookUrl, DataTableWebhookType.RECORD_UPDATED,
-            Objects.requireNonNull(triggerContextAware.getEnvironmentId()));
+        long webhookId = DataTableUtils.registerWebhook(
+            dataTableService, dataTableWebhookService, baseName, webhookUrl, DataTableWebhookType.RECORD_UPDATED,
+            Objects.requireNonNull(triggerContextAware.getEnvironmentId()),
+            OwnerResolution.resolve(triggerContextAware, ownerResolverProvider));
 
         return new WebhookEnableOutput(Map.of("webhookId", webhookId), null);
     }

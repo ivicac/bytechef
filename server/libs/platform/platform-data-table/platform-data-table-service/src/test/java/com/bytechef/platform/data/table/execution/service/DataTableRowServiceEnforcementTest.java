@@ -21,6 +21,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.exception.DataTableStorageLimitExceededException;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -42,8 +44,10 @@ class DataTableRowServiceEnforcementTest {
             .when(dataTableStorageService)
             .checkWithinLimit(0);
 
-        assertThatThrownBy(() -> dataTableRowService.insertRow("orders", Map.of("name", "x"), 1))
-            .isInstanceOf(DataTableStorageLimitExceededException.class);
+        assertThatThrownBy(
+            () -> dataTableRowService.insertRow(dataTableRef("orders", 1, PlatformType.AUTOMATION),
+                Map.of("name", "x")))
+                    .isInstanceOf(DataTableStorageLimitExceededException.class);
 
         verifyNoInteractions(jdbcTemplate);
     }
@@ -54,8 +58,10 @@ class DataTableRowServiceEnforcementTest {
             .when(dataTableStorageService)
             .checkWithinLimit(0);
 
-        assertThatThrownBy(() -> dataTableRowService.updateRow("orders", 1, Map.of("name", "x"), 1))
-            .isInstanceOf(DataTableStorageLimitExceededException.class);
+        assertThatThrownBy(
+            () -> dataTableRowService.updateRow(dataTableRef("orders", 1, PlatformType.AUTOMATION), 1,
+                Map.of("name", "x")))
+                    .isInstanceOf(DataTableStorageLimitExceededException.class);
 
         verifyNoInteractions(jdbcTemplate);
     }
@@ -66,9 +72,15 @@ class DataTableRowServiceEnforcementTest {
             .when(dataTableStorageService)
             .checkWithinLimit(org.mockito.ArgumentMatchers.anyLong());
 
-        assertThatThrownBy(() -> dataTableRowService.importCsv("orders", "name\nx\n", 1))
-            .isInstanceOf(DataTableStorageLimitExceededException.class);
+        assertThatThrownBy(
+            () -> dataTableRowService.importCsv(dataTableRef("orders", 1, PlatformType.AUTOMATION), "name\nx\n"))
+                .isInstanceOf(DataTableStorageLimitExceededException.class);
 
         verifyNoInteractions(jdbcTemplate);
     }
+
+    private static DataTableRef dataTableRef(String baseName, long environmentId, PlatformType platformType) {
+        return DataTableRef.unowned(baseName, environmentId, platformType);
+    }
+
 }

@@ -4,13 +4,15 @@ extend type Query {
     knowledgeBaseEmbeddingActive(environment: Int!): Boolean!
     knowledgeBaseStorageUsage: KnowledgeBaseStorageUsage!
     knowledgeBaseTags(workspaceId: ID!): [Tag!]
-    knowledgeBaseTagsByKnowledgeBase: [KnowledgeBaseTagsEntry!]
+    knowledgeBaseTagsByKnowledgeBase(workspaceId: ID!): [KnowledgeBaseTagsEntry!]
     searchKnowledgeBase(id: ID!, query: String!, metadataFilters: String): [KnowledgeBaseDocumentChunk]
 }
 
 extend type Mutation {
     createKnowledgeBase(knowledgeBase: KnowledgeBaseInput!, environmentId: ID!, workspaceId: ID!): KnowledgeBase
     updateKnowledgeBase(id: ID!, knowledgeBase: KnowledgeBaseInput!): KnowledgeBase
+    "Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it."
+    rechunkKnowledgeBase(id: ID!): Int!
     deleteKnowledgeBase(id: ID!): Boolean
     updateKnowledgeBaseTags(input: UpdateKnowledgeBaseTagsInput!): Boolean!
 }

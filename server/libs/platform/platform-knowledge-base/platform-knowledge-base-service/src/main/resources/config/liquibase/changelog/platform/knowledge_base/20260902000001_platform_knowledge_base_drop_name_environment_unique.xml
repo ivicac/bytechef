@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"
+                   logicalFilePath="config/liquibase/changelog/platform/knowledge_base/20260902000001_platform_knowledge_base_drop_name_environment_unique.xml">
+
+    <!--
+        uk_knowledge_base_name_environment comes from
+        20260831000001_platform_knowledge_base_name_unique_per_environment and keys the name on (name, environment)
+        with no platform_type, so it forbids the same name existing in both the AUTOMATION and EMBEDDED pools. The
+        registry key is (name, platform_type, environment); this constraint is strictly narrower and must go.
+
+        It was dropped by the owner unique-index changeset, which has been deleted along with the rest of resource
+        ownership. This drop has nothing to do with owners and is kept on its own.
+
+        Preconditioned because the constraint exists only where that changeset ran.
+    -->
+    <changeSet id="20260902000001-1" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <uniqueConstraintExists tableName="knowledge_base" constraintName="uk_knowledge_base_name_environment"/>
+        </preConditions>
+
+        <dropUniqueConstraint tableName="knowledge_base" constraintName="uk_knowledge_base_name_environment"/>
+
+        <rollback>
+            <addUniqueConstraint
+                tableName="knowledge_base" columnNames="name, environment"
+                constraintName="uk_knowledge_base_name_environment"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

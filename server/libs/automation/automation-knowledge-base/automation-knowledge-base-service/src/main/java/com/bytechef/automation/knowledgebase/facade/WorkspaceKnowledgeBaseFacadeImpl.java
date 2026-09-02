@@ -19,6 +19,7 @@ package com.bytechef.automation.knowledgebase.facade;
 import com.bytechef.automation.knowledgebase.domain.WorkspaceKnowledgeBase;
 import com.bytechef.automation.knowledgebase.service.WorkspaceKnowledgeBaseService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
@@ -32,6 +33,7 @@ import com.bytechef.platform.knowledgebase.service.KnowledgeBaseStorageService;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -88,6 +90,38 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
         return knowledgeBaseTagFacade.getTags(knowledgeBaseIds);
     }
 
+    /**
+     * The map behind the console's tag filter, scoped to one workspace.
+     *
+     * <p>
+     * The gate is the point of the method. The GraphQL query it serves took no argument at all and reached
+     * {@link KnowledgeBaseTagFacade} directly, so it answered any authenticated principal with every knowledge base in
+     * the tenant -- and {@code /graphql} is only {@code .authenticated()}, with the embedded API-key configurer routing
+     * a connected user's JWT there holding no authorities.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')")
+    public Map<Long, List<Tag>> getKnowledgeBaseTagsByKnowledgeBase(long workspaceId) {
+        List<Long> knowledgeBaseIds = workspaceKnowledgeBaseService.getWorkspaceKnowledgeBases(workspaceId)
+            .stream()
+            .map(WorkspaceKnowledgeBase::getKnowledgeBaseId)
+            .filter(Objects::nonNull)
+            .toList();
+
+        return knowledgeBaseTagFacade.getTagsByKnowledgeBaseIds(knowledgeBaseIds);
+    }
+
+    /**
+     * The write beside that listing, and it was unguarded for the same reason: its GraphQL mutation went straight to
+     * {@link KnowledgeBaseTagFacade}. Keyed on {@code EDIT} rather than {@code VIEW} because it replaces the tag set.
+     */
+    @Override
+    @PreAuthorize("hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_EDIT')")
+    public void updateKnowledgeBaseTags(Long knowledgeBaseId, List<Tag> tags) {
+        knowledgeBaseTagFacade.updateTags(knowledgeBaseId, tags);
+    }
+
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')")
@@ -116,6 +150,12 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
     }
 
     @Override
+    @PreAuthorize("hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_EDIT')")
+    public int rechunkKnowledgeBase(Long knowledgeBaseId) {
+        return knowledgeBaseDocumentFacade.rechunkKnowledgeBaseDocuments(knowledgeBaseId);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_VIEW')")
     public List<KnowledgeBaseDocumentChunk> searchKnowledgeBase(
@@ -136,6 +176,7 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
         }
 
         knowledgeBase.setEnvironment(environments[(int) environmentId]);
+        knowledgeBase.setPlatformType(PlatformType.AUTOMATION);
 
         KnowledgeBase createdKnowledgeBase = knowledgeBaseService.createKnowledgeBase(knowledgeBase);
 
@@ -179,6 +220,7 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
         clone.setMinChunkSizeChars(source.getMinChunkSizeChars());
         clone.setOverlap(source.getOverlap());
         clone.setEnvironment(environments[(int) targetEnvironmentId]);
+        clone.setPlatformType(PlatformType.AUTOMATION);
 
         // Documents intentionally NOT copied. Knowledge base ingestion fans out to async embedding jobs that hit
         // the configured embedding model — copying them in a single facade call would silently spin up a potentially

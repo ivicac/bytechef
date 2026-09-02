@@ -18,6 +18,7 @@ package com.bytechef.automation.knowledgebase.search;
 
 import com.bytechef.automation.search.SearchAssetProvider;
 import com.bytechef.automation.search.SearchAssetType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
@@ -57,7 +58,9 @@ class KnowledgeBaseDocumentSearchAssetProvider implements SearchAssetProvider {
     public List<KnowledgeBaseDocumentSearchResult> search(String query, int limit) {
         String queryLower = query.toLowerCase(Locale.ROOT);
 
-        List<KnowledgeBase> knowledgeBases = knowledgeBaseService.getKnowledgeBases();
+        // AUTOMATION only -- see the identical note in KnowledgeBaseSearchAssetProvider. This provider additionally
+        // fetches every matched knowledge base's documents, so the unscoped listing leaked document names too.
+        List<KnowledgeBase> knowledgeBases = knowledgeBaseService.getKnowledgeBases(PlatformType.AUTOMATION);
 
         List<KnowledgeBaseDocumentSearchResult> results = new ArrayList<>();
 

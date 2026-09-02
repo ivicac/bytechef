@@ -18,6 +18,7 @@ package com.bytechef.automation.knowledgebase.search;
 
 import com.bytechef.automation.search.SearchAssetProvider;
 import com.bytechef.automation.search.SearchAssetType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -51,7 +52,12 @@ class KnowledgeBaseSearchAssetProvider implements SearchAssetProvider {
     public List<KnowledgeBaseSearchResult> search(String query, int limit) {
         String queryLower = query.toLowerCase(Locale.ROOT);
 
-        return knowledgeBaseService.getKnowledgeBases()
+        // AUTOMATION only: this provider feeds the automation-workspace search bar. Passing the unscoped listing
+        // here used to surface EMBEDDED knowledge bases too, and AutomationSearchFacadeImpl.isAccessible treats a
+        // null workspaceId (every EMBEDDED knowledge base, since KnowledgeBaseWorkspaceResolver only resolves the
+        // automation-only workspace_knowledge_base relation) as accessible -- so every tenant's embedded knowledge
+        // bases leaked into every user's automation search results.
+        return knowledgeBaseService.getKnowledgeBases(PlatformType.AUTOMATION)
             .stream()
             .filter(
                 knowledgeBase -> containsIgnoreCase(knowledgeBase.getName(), queryLower) ||
