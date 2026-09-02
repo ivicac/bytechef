@@ -83,20 +83,15 @@ const WorkflowNodesPopoverMenuOperationList = ({
         }))
     );
 
-    const {
-        clusterElementsCanvasOpen,
-        mainClusterRootComponentDefinition,
-        rootClusterElementNodeData,
-        setRootClusterElementNodeData,
-    } = useWorkflowEditorStore(
-        useShallow((state) => ({
-            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
-            mainClusterRootComponentDefinition:
-                state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
-            rootClusterElementNodeData: state.rootClusterElementNodeData,
-            setRootClusterElementNodeData: state.setRootClusterElementNodeData,
-        }))
-    );
+    const {mainClusterRootComponentDefinition, rootClusterElementNodeData, setRootClusterElementNodeData} =
+        useWorkflowEditorStore(
+            useShallow((state) => ({
+                mainClusterRootComponentDefinition:
+                    state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
+                rootClusterElementNodeData: state.rootClusterElementNodeData,
+                setRootClusterElementNodeData: state.setRootClusterElementNodeData,
+            }))
+        );
     const {currentNode, setCurrentNode, setWorkflowNodeDetailsPanelOpen, workflowNodeDetailsPanelOpen} =
         useWorkflowNodeDetailsPanelStore(
             useShallow((state) => ({
@@ -113,8 +108,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
 
     const queryClient = useQueryClient();
 
-    const {actions, clusterElement, clusterElements, clusterRoot, icon, name, title, triggers, version} =
-        componentDefinition;
+    const {actions, clusterElements, clusterRoot, icon, name, title, triggers, version} = componentDefinition;
 
     const clusterElementOperations = useMemo(() => {
         if (!clusterElementType) {
@@ -133,8 +127,8 @@ const WorkflowNodesPopoverMenuOperationList = ({
     }, [clusterElementType, clusterElements, hiddenClusterElementNames]);
 
     const operations = useMemo(
-        () => (trigger ? triggers : clusterElementsCanvasOpen && clusterElement ? clusterElementOperations : actions),
-        [trigger, triggers, clusterElementsCanvasOpen, clusterElement, clusterElementOperations, actions]
+        () => (trigger ? triggers : clusterElementType ? clusterElementOperations : actions),
+        [trigger, triggers, clusterElementType, clusterElementOperations, actions]
     );
 
     const getNodeData = useCallback(
@@ -338,7 +332,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
                     return;
                 }
 
-                if (clusterElementsCanvasOpen && clusterElementType) {
+                if (clusterElementType) {
                     captureComponentUsed(componentName, undefined, operationName);
 
                     const getClusterElementDefinitionRequest = {
@@ -443,7 +437,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
                             updateWorkflowMutation: updateWorkflowMutation!,
                             workflow,
                         });
-                    } else if (!clusterElementsCanvasOpen) {
+                    } else {
                         const placeholderNode = nodes.find((node) => node.id === sourceNodeId);
 
                         if (!placeholderNode) {
@@ -485,7 +479,6 @@ const WorkflowNodesPopoverMenuOperationList = ({
             loadingOperationName,
             setLatestComponentDefinition,
             trigger,
-            clusterElementsCanvasOpen,
             clusterElementType,
             queryClient,
             getNodeData,
@@ -521,7 +514,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
                     <h3 className="text-sm text-muted-foreground">
                         {trigger
                             ? 'Triggers'
-                            : clusterElementsCanvasOpen
+                            : clusterElementType
                               ? getClusterElementsLabel(clusterElementType as string)
                               : 'Actions'}
                     </h3>
