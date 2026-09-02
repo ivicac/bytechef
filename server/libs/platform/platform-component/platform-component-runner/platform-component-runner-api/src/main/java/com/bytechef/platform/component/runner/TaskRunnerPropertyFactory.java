@@ -22,10 +22,12 @@ import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.object;
 import static com.bytechef.component.definition.ComponentDsl.option;
 import static com.bytechef.component.definition.ComponentDsl.string;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.DOCKER;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.GRAALVM;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.PROCESS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TIMEOUT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
@@ -49,6 +51,12 @@ import java.util.stream.Collectors;
  * @author Ivica Cardic
  */
 public class TaskRunnerPropertyFactory {
+
+    /**
+     * The order the editor's default runner is chosen in, most preferred first. See {@link #defaultTaskRunnerType} for
+     * why each sits where it does.
+     */
+    private static final List<String> PREFERRED_DEFAULT_TYPES = List.of(GRAALVM, PROCESS, DOCKER);
 
     private TaskRunnerPropertyFactory() {
     }
@@ -241,25 +249,40 @@ public class TaskRunnerPropertyFactory {
     }
 
     /**
-     * Prefers {@link TaskRunnerConstants#GRAALVM} when it is among the enabled runners, so the editor's default matches
-     * the runner a workflow falls back to at runtime when it carries no {@code taskRunner} configuration at all.
+     * Resolves the editor's default runner by an explicit preference order, not by whichever runner happens to sort
+     * first.
      *
      * <p>
-     * The two agree whenever GraalVM is enabled, which is the shipped default. They cannot agree when it is not: the
-     * runtime fallback in {@code ScriptActionDefinition} is the literal {@code graalvm}, while this default is
-     * whichever runner the operator did enable. A workflow built in the editor then carries that runner explicitly and
-     * runs, and a hand-written workflow with no {@code taskRunner} at all resolves {@code graalvm} and fails with
+     * {@link TaskRunnerConstants#GRAALVM} comes first so the editor's default matches the runner a workflow falls back
+     * to at runtime when it carries no {@code taskRunner} configuration at all. The two agree whenever GraalVM is
+     * enabled, which is the shipped default. They cannot agree when it is not: the runtime fallback in
+     * {@code ScriptActionDefinition} is the literal {@code graalvm}, while this default is whichever runner the
+     * operator did enable. A workflow built in the editor then carries that runner explicitly and runs, and a
+     * hand-written workflow with no {@code taskRunner} at all resolves {@code graalvm} and fails with
      * {@link TaskRunnerNotEnabledException}, whose message names the configuration key to set. That is a loud failure
      * on a deliberately unusual configuration, not a silent divergence.
+     *
+     * <p>
+     * {@link TaskRunnerConstants#PROCESS} comes before {@link TaskRunnerConstants#DOCKER} because Docker's image
+     * allowlist is fail-closed: an operator who enables Docker without naming images has nothing runnable, so
+     * defaulting a newly added action to it produces a rejection rather than a run. Process needs no second setting
+     * once enabled. Without this order the answer fell out of the registry's alphabetical sort, which put
+     * {@code docker} first for no reason anyone chose.
+     *
+     * <p>
+     * A runner contributed by another module is not in the order and is used only when none of the three is enabled,
+     * which keeps the list from becoming a registry every new runner has to edit.
      */
     private static String defaultTaskRunnerType(List<TaskRunner> taskRunners) {
         if (taskRunners.isEmpty()) {
             return null;
         }
 
-        for (TaskRunner taskRunner : taskRunners) {
-            if (GRAALVM.equals(taskRunner.getType())) {
-                return GRAALVM;
+        for (String preferredType : PREFERRED_DEFAULT_TYPES) {
+            for (TaskRunner taskRunner : taskRunners) {
+                if (preferredType.equals(taskRunner.getType())) {
+                    return preferredType;
+                }
             }
         }
 
