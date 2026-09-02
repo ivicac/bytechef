@@ -29,6 +29,8 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class SchemaGenerator {
 
+    private static final String SCHEMA_URI = "https://json-schema.org/draft/2020-12/schema";
+
     private final ObjectMapper objectMapper;
 
     @SuppressFBWarnings("EI")
@@ -39,24 +41,13 @@ public class SchemaGenerator {
     public String generateSchemaFromJson(String json) {
         try {
             JsonNode jsonNode = objectMapper.readTree(json);
+
             ObjectNode schemaNode = objectMapper.createObjectNode();
 
-            schemaNode.put("$schema", "https://json-schema.org/draft/2020-12/schema");
+            schemaNode.put("$schema", SCHEMA_URI);
 
-            if (jsonNode.isObject()) {
-                schemaNode.put("type", "object");
-
-                ObjectNode propertiesNode = schemaNode.putObject("properties");
-
-                generateSchemaFromObject(jsonNode, propertiesNode);
-            } else if (jsonNode.isArray()) {
-                schemaNode.put("type", "array");
-
-                if (!jsonNode.isEmpty()) {
-                    ObjectNode itemsNode = schemaNode.putObject("items");
-
-                    generateSchemaFromObject(jsonNode.get(0), itemsNode);
-                }
+            for (Map.Entry<String, JsonNode> field : generateNode(jsonNode).properties()) {
+                schemaNode.set(field.getKey(), field.getValue());
             }
 
             return objectMapper.writerWithDefaultPrettyPrinter()
@@ -66,35 +57,47 @@ public class SchemaGenerator {
         }
     }
 
-    private void generateSchemaFromObject(JsonNode jsonNode, ObjectNode propertiesNode) {
-        for (Map.Entry<String, JsonNode> field : jsonNode.properties()) {
-            ObjectNode propertyNode = propertiesNode.putObject(field.getKey());
+    private ObjectNode generateNode(JsonNode jsonNode) {
+        ObjectNode node = objectMapper.createObjectNode();
 
-            JsonNode value = field.getValue();
+        if (jsonNode.isObject()) {
+            node.put("type", "object");
 
-            if (value.isTextual()) {
-                propertyNode.put("type", "string");
-            } else if (value.isInt()) {
-                propertyNode.put("type", "integer");
-            } else if (value.isBoolean()) {
-                propertyNode.put("type", "boolean");
-            } else if (value.isObject()) {
-                propertyNode.put("type", "object");
+            ObjectNode propertiesNode = node.putObject("properties");
 
-                ObjectNode childPropertiesNode = propertyNode.putObject("properties");
-
-                generateSchemaFromObject(value, childPropertiesNode);
-            } else if (value.isArray()) {
-                propertyNode.put("type", "array");
-
-                if (!value.isEmpty()) {
-                    ObjectNode itemsNode = propertyNode.putObject("items");
-
-                    generateSchemaFromObject(value.get(0), itemsNode);
-                }
-            } else {
-                propertyNode.put("type", "string"); // default to string for unknown types
+            for (Map.Entry<String, JsonNode> field : jsonNode.properties()) {
+                propertiesNode.set(field.getKey(), generateNode(field.getValue()));
             }
+        } else if (jsonNode.isArray()) {
+            node.put("type", "array");
+
+            if (!jsonNode.isEmpty()) {
+                node.set("items", generateNode(jsonNode.get(0)));
+            }
+        } else {
+            node.put("type", getScalarType(jsonNode));
         }
+
+        return node;
+    }
+
+    /**
+     * A JSON null carries no type information, so it falls through to string, the least surprising default for a
+     * sample-derived schema.
+     */
+    private static String getScalarType(JsonNode jsonNode) {
+        if (jsonNode.isBoolean()) {
+            return "boolean";
+        }
+
+        if (jsonNode.isIntegralNumber()) {
+            return "integer";
+        }
+
+        if (jsonNode.isNumber()) {
+            return "number";
+        }
+
+        return "string";
     }
 }
