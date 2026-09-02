@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <changeSet id="20260831000001-01" author="Ivica Cardic">
+        <addColumn tableName="connection">
+            <column name="shared" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <comment>Embedded connections only. TRUE means every connected user in the same environment
+            may use this connection; it stays outside the OWNED set, so an end user still cannot
+            delete or reauthorize it.</comment>
+
+        <rollback>
+            <dropColumn tableName="connection" columnName="shared"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

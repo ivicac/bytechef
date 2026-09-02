@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -259,6 +260,37 @@ public class ConnectionServiceIntTest {
 
         assertThat((Map<String, Object>) viaService.getParameters()).containsEntry("apiKey", "secret-from-vault");
         assertThat(viaService.getCredentialRef()).isEqualTo("preprovisioned-ref-123");
+    }
+
+    @Test
+    void testCreateAndReadSharedConnection() {
+        Connection savedConnection = connectionService.create(
+            embeddedConnection("House Slack", Environment.PRODUCTION, true));
+
+        Connection fetchedConnection = connectionService.getConnection(savedConnection.getId());
+
+        Assertions.assertTrue(fetchedConnection.isShared());
+    }
+
+    @Test
+    void testConnectionIsNotSharedByDefault() {
+        Connection savedConnection = connectionService.create(
+            embeddedConnection("Personal Slack", Environment.PRODUCTION, false));
+
+        Assertions.assertFalse(savedConnection.isShared());
+    }
+
+    private static Connection embeddedConnection(String name, Environment environment, boolean shared) {
+        Connection connection = new Connection();
+
+        connection.setComponentName("slack");
+        connection.setConnectionVersion(1);
+        connection.setEnvironmentId(environment.ordinal());
+        connection.setName(name);
+        connection.setShared(shared);
+        connection.setType(PlatformType.EMBEDDED);
+
+        return connection;
     }
 
     private static Connection getConnection() {
