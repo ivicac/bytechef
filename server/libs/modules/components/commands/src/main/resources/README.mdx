@@ -61,9 +61,9 @@ Its own properties:
 | `pullPolicy` | `ALWAYS`, `IF_NOT_PRESENT` (default) or `NEVER`. |
 | `entrypoint` | Replaces the interpreter the source file is handed to. The source file is appended either way. |
 | `user` | The user the container runs as, as a name or a numeric `uid[:gid]`. |
-| `cpu` | How many CPUs the container may use, as a decimal fraction of one CPU. |
-| `memory` | How much memory the container may use, in bytes or with a `b`, `k`, `m` or `g` suffix. |
-| `networkMode` | `bridge` or `none`; `host` only where an operator has enabled it. Nothing else is accepted - not a named Docker network, not `container:<id>`. |
+| `cpu` | How many CPUs the container may use, as a decimal fraction of one CPU. Defaults to the operator's allowance; a request above the operator's maximum is refused. |
+| `memory` | How much memory the container may use, in bytes or with a `b`, `k`, `m` or `g` suffix. Defaults to the operator's allowance; a request above the operator's maximum is refused. |
+| `networkMode` | One of the modes the operator allows - `bridge` or `none` by default, `host` only where an operator has enabled it. Nothing else is accepted - not a named Docker network, not `container:<id>`. Left blank, it resolves to the first mode the operator allows. |
 | `extraHosts` | Additional entries for the container's hosts file, each written as `host:ip`. |
 
 Each action runs in a default image when `image` is left blank:
@@ -92,6 +92,52 @@ Matching is exact string equality - no prefixes, no wildcards, no registry norma
 including the per-action defaults above: a default saves you from typing an image, it never gets you past the
 allowlist. The image select in the editor offers exactly the allowed images, but the check that matters happens when
 the task runs, so a hand-edited workflow naming an unlisted image is refused there too.
+
+**`HOME` is the working directory under both runners.** Several interpreters write caches relative to it and fall
+over when it is unset, so the Process runner re-seeds it and the Docker runner sets it to the container's working
+directory rather than leaving it to the image - where it would be `/root`, or `/` for a numeric `user` that appears in
+no `/etc/passwd`. Without that, `pip install --user` under `user: "1000:1000"` succeeds on the Process runner and
+fails on the Docker runner with a permission error, for a reason that has nothing to do with the execution
+environment. A declared `env` entry named `HOME` still wins.
+
+**Every container is bounded, whether or not the workflow asked to be.** A PID ceiling, a CPU allowance and a memory
+allowance go on every container. The workflow's own `cpu` and `memory` are used where it names them, the operator's
+defaults where it does not, and a request above the operator's maximum is *refused* rather than quietly cut down - the
+same answer the image allowlist gives an image it does not hold, and for the same reason: an execution silently given a
+quarter of what it asked for fails much later as a timeout, in a message that names nothing. The PID ceiling has no
+workflow-facing property at all, because a fork bomb is a one-line `shell` action and a limit an attacker opts into is
+not a limit.
+
+| Operator key | Default | What it does |
+| --- | --- | --- |
+| `default-cpu` | `1` | The CPU allowance a container gets when its workflow names none. |
+| `max-cpu` | `4` | The largest CPU allowance a workflow may ask for. |
+| `default-memory` | `512m` | The memory allowance a container gets when its workflow names none. |
+| `max-memory` | `2g` | The largest memory allowance a workflow may ask for. |
+| `pids-limit` | `512` | The number of processes one container may hold open. Operator-only; zero or below is refused rather than read as "unlimited". |
+
+A malformed ceiling refuses every execution with a message naming its key, rather than quietly becoming unlimited.
+
+**An operator chooses which networks a container may reach.** `allowed-network-modes` takes the same shape as
+`allowed-images` - a comma-separated string matched by exact equality - and defaults to every mode the runner knows, so
+nothing changes for a deployment that never sets it. Because `allow-host-network` is off by default, the *effective*
+default is `bridge` and `none`; `host` still needs its own flag on top of appearing in this list.
+
+```yaml
+bytechef:
+  script:
+    runners:
+      docker:
+        enabled: true
+        properties:
+          allowed-images: python:3.12-slim,node:22-alpine,ubuntu:24.04
+          allowed-network-modes: none
+```
+
+That configuration is the isolated one: no container reaches anything, including a workflow that left `networkMode`
+blank. A blank `networkMode` resolves to the first mode the operator allows rather than being left to the daemon,
+which answers `bridge` - so before this key existed, an operator could not turn container networking off for the
+workflows that simply did not fill the field in.
 
 **There is no `volumes` property.** A host bind mount chosen by a workflow author is a container escape - `/` mounted
 read-write is the whole host - so this version offers no way to ask for one, and none is put on the container by any
