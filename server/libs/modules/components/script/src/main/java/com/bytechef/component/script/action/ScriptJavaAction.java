@@ -32,7 +32,7 @@ import static com.bytechef.platform.component.definition.ScriptComponentDefiniti
 
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.script.action.definition.ScriptActionDefinition;
-import com.bytechef.platform.component.runner.PolyglotEngine;
+import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 
 /**
  * @author Matija Petanjek
@@ -40,7 +40,7 @@ import com.bytechef.platform.component.runner.PolyglotEngine;
  */
 public class ScriptJavaAction {
 
-    public static ScriptActionDefinition of(PolyglotEngine polyglotEngine) {
+    public static ScriptActionDefinition of(TaskRunnerRegistry taskRunnerRegistry) {
         return new ScriptActionDefinition(
             action("java")
                 .title("Java")
@@ -60,7 +60,7 @@ public class ScriptJavaAction {
                             "public static Object perform(Map<String, ?> input, Context context) {\n\treturn null;\n}")
                         .required(true))
                 .output(),
-            "java", polyglotEngine);
+            "java", taskRunnerRegistry);
     }
 
     private ScriptJavaAction() {

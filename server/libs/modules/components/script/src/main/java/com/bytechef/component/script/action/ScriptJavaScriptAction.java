@@ -32,7 +32,10 @@ import static com.bytechef.platform.component.definition.ScriptComponentDefiniti
 
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.script.action.definition.ScriptActionDefinition;
-import com.bytechef.platform.component.runner.PolyglotEngine;
+import com.bytechef.platform.component.runner.TaskRunnerCapability;
+import com.bytechef.platform.component.runner.TaskRunnerPropertyFactory;
+import com.bytechef.platform.component.runner.TaskRunnerRegistry;
+import java.util.Set;
 
 /**
  * @author Matija Petanjek
@@ -40,7 +43,7 @@ import com.bytechef.platform.component.runner.PolyglotEngine;
  */
 public class ScriptJavaScriptAction {
 
-    public static ScriptActionDefinition of(PolyglotEngine polyglotEngine) {
+    public static ScriptActionDefinition of(TaskRunnerRegistry taskRunnerRegistry) {
         return new ScriptActionDefinition(
             action("javascript")
                 .title("JavaScript")
@@ -69,10 +72,12 @@ public class ScriptJavaScriptAction {
 
                                     return null;
                                 }""")
-                        .required(true))
+                        .required(true),
+                    TaskRunnerPropertyFactory.taskRunnerProperty(
+                        taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)))
                 .output()
                 .help("", "https://docs.bytechef.io/reference/components/script_v1#javascript"),
-            "js", polyglotEngine);
+            "js", taskRunnerRegistry);
     }
 
     private ScriptJavaScriptAction() {
