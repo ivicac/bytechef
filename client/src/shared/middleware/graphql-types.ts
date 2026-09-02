@@ -1558,18 +1558,6 @@ export type AssetFileVersion = {
   versionNumber: Scalars['Int']['output'];
 };
 
-export type AssignDataTableOwnerInput = {
-  dataTableId: Scalars['ID']['input'];
-  /** Omit to return the table to the vendor, making it shared with every account again. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
-};
-
-export type AssignKnowledgeBaseOwnerInput = {
-  knowledgeBaseId: Scalars['ID']['input'];
-  /** Omit to return the knowledge base to the vendor, making it shared with every account again. */
-  ownerId?: InputMaybe<Scalars['ID']['input']>;
-};
-
 export type AttachAiHubChatToolInput = {
   chatId: Scalars['ID']['input'];
   clusterElementName: Scalars['String']['input'];
@@ -1869,6 +1857,30 @@ export type ComponentPolicy = {
   title?: Maybe<Scalars['String']['output']>;
   version: Scalars['Int']['output'];
 };
+
+export type ComponentRule = {
+  __typename?: 'ComponentRule';
+  actionName?: Maybe<Scalars['String']['output']>;
+  componentIcon?: Maybe<Scalars['String']['output']>;
+  componentName: Scalars['String']['output'];
+  componentTitle?: Maybe<Scalars['String']['output']>;
+  condition: Scalars['String']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  phase: ComponentRulePhase;
+  ruleAction: ComponentRuleActionType;
+};
+
+export enum ComponentRuleActionType {
+  Block = 'BLOCK',
+  Tag = 'TAG'
+}
+
+export enum ComponentRulePhase {
+  After = 'AFTER',
+  Before = 'BEFORE'
+}
 
 export type ConnectedUser = {
   __typename?: 'ConnectedUser';
@@ -3563,6 +3575,8 @@ export type Mutation = {
   deleteAssetFile: Scalars['Boolean']['output'];
   deleteAutomationWorkflowProject: Scalars['Boolean']['output'];
   deleteAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
+  /** Deletes a rule. Admin-only. */
+  deleteComponentRule: Scalars['Boolean']['output'];
   deleteConnectedUserMcpServer?: Maybe<Scalars['Boolean']['output']>;
   deleteConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
   deleteContextStore: Scalars['Boolean']['output'];
@@ -3709,6 +3723,11 @@ export type Mutation = {
   runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
+  /**
+   * Creates a rule when id is absent, updates that rule when it is present. Rejects a BLOCK rule in the AFTER phase,
+   * and a condition that is not a valid ByteChef formula expression, as typed errors. Admin-only.
+   */
+  saveComponentRule: ComponentRule;
   saveWorkflowTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Deliver a synthetic test alert (not persisted to history) through the rule's notifications so admins can
@@ -4571,6 +4590,11 @@ export type MutationDeleteAutomationWorkflowProjectWorkflowArgs = {
 };
 
 
+export type MutationDeleteComponentRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteConnectedUserMcpServerArgs = {
   connectedUserId: Scalars['ID']['input'];
   mcpServerId: Scalars['ID']['input'];
@@ -5113,6 +5137,18 @@ export type MutationSaveClusterElementTestOutputArgs = {
   inputParameters?: InputMaybe<Scalars['Map']['input']>;
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSaveComponentRuleArgs = {
+  actionName?: InputMaybe<Scalars['String']['input']>;
+  componentName: Scalars['String']['input'];
+  condition: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  id?: InputMaybe<Scalars['ID']['input']>;
+  phase: ComponentRulePhase;
+  ruleAction: ComponentRuleActionType;
 };
 
 
@@ -6453,6 +6489,11 @@ export type Query = {
    * conditions that hold; a condition absent from the map is false.
    */
   componentPropertyDisplayConditions: Scalars['Map']['output'];
+  /**
+   * Lists configured component rules. Omit componentName to list every rule in the tenant, which is what the flat
+   * Rules list renders. Admin-only.
+   */
+  componentRules: Array<ComponentRule>;
   connectedUser?: Maybe<ConnectedUser>;
   connectedUserCodeWorkflowReferences: Array<ConnectedUserCodeWorkflowReference>;
   connectedUserMcpServers: Array<ConnectedUserMcpServer>;
@@ -7318,6 +7359,11 @@ export type QueryComponentPropertyDisplayConditionsArgs = {
   operationName: Scalars['String']['input'];
   operationType: Scalars['String']['input'];
   parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+
+export type QueryComponentRulesArgs = {
+  componentName?: InputMaybe<Scalars['String']['input']>;
 };
 
 
