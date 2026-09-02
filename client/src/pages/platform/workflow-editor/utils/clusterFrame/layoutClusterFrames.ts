@@ -47,6 +47,7 @@ export function layoutClusterFrames(
 
         const positionedElementNodes = elementNodes.map((elementNode) => ({
             ...elementNode,
+            connectable: false,
             parentId: node.id,
             position: toClusterFrameChildPosition(elementNode.position),
         }));
