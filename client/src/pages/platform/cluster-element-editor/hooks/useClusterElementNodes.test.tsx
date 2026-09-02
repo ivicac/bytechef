@@ -1,3 +1,4 @@
+import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
@@ -147,7 +148,9 @@ describe('useClusterElementNodes', () => {
         useWorkflowEditorStore.setState({
             clusterRootComponentDefinitions: {aiAgent_1: AI_AGENT_DEFINITION},
             nestedClusterRootsComponentDefinitions: {},
+            rootClusterElementNodeData: undefined,
         });
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
     });
 
     it('builds one node per declared element type, all parented to the root', async () => {
@@ -165,6 +168,53 @@ describe('useClusterElementNodes', () => {
         expect(nodeIds).toContain('model_1');
         expect(result.current.nodesByRootId.aiAgent_1.every((node) => node.parentId === 'aiAgent_1')).toBe(true);
         expect(result.current.nodesByRootId.aiAgent_1.some((node) => node.type === 'placeholder')).toBe(true);
+    });
+
+    it("adds the root's own card when in dialog view mode for it", async () => {
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useWorkflowEditorStore.setState({
+            rootClusterElementNodeData: {
+                componentName: 'aiAgent',
+                name: 'aiAgent_1',
+                type: 'aiAgent/v1/chat',
+                workflowNodeName: 'aiAgent_1',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any,
+        });
+
+        const {result} = renderHook(() => useClusterElementNodes(CLUSTER_ROOT_IDS), {wrapper});
+
+        await waitFor(() => {
+            expect(result.current.definitionsReady).toBe(true);
+        });
+
+        expect(result.current.nodesByRootId.aiAgent_1.map((node) => node.id)).toContain('aiAgent_1');
+    });
+
+    // The bug this guards against: box mode's destination handlers (the AI Agent editor / DataStream
+    // editor / Evals / playground / Copilot buttons on the box header) seed rootClusterElementNodeData
+    // too, but with the dialog never opened. Pushing the root's own card here in that case would make
+    // layoutClusterFrames parent it to clusterRootId (itself) and then filter the real frame out of
+    // outerNodes as a "member", dropping the box from the canvas.
+    it("does not add the root's own card when rootClusterElementNodeData is seeded but view mode is box", async () => {
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
+        useWorkflowEditorStore.setState({
+            rootClusterElementNodeData: {
+                componentName: 'aiAgent',
+                name: 'aiAgent_1',
+                type: 'aiAgent/v1/chat',
+                workflowNodeName: 'aiAgent_1',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any,
+        });
+
+        const {result} = renderHook(() => useClusterElementNodes(CLUSTER_ROOT_IDS), {wrapper});
+
+        await waitFor(() => {
+            expect(result.current.definitionsReady).toBe(true);
+        });
+
+        expect(result.current.nodesByRootId.aiAgent_1.map((node) => node.id)).not.toContain('aiAgent_1');
     });
 
     it('returns no nodes at all for a root whose own definition has not resolved yet', () => {
