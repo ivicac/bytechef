@@ -1,0 +1,17 @@
+query EmbeddedDataTables($environmentId: ID!) {
+    embeddedDataTables(environmentId: $environmentId) {
+        id
+        baseName
+        description
+        columns {
+            id
+            name
+            type
+        }
+        lastModifiedDate
+    }
+}
+
+mutation CreateEmbeddedDataTable($input: CreateEmbeddedDataTableInput!) {
+    createEmbeddedDataTable(input: $input)
+}

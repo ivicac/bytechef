@@ -6,11 +6,11 @@ import KnowledgeBaseInfoCard from '@/pages/automation/knowledge-base/components/
 import KnowledgeBaseLeftSidebarNav from '@/pages/automation/knowledge-base/components/KnowledgeBaseLeftSidebarNav';
 import KnowledgeBaseTabs from '@/pages/automation/knowledge-base/components/KnowledgeBaseTabs';
 import useKnowledgeBase from '@/pages/automation/knowledge-base/hooks/useKnowledgeBase';
-import CreateKnowledgeBaseDialog from '@/pages/automation/knowledge-bases/components/CreateKnowledgeBaseDialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
+import CreateKnowledgeBaseDialog from '@/shared/components/knowledge-bases/components/CreateKnowledgeBaseDialog';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
@@ -23,7 +23,6 @@ const KnowledgeBase = () => {
 
     const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const workspaceId = currentWorkspaceId == null ? undefined : String(currentWorkspaceId);
 
     const setContext = useCopilotStore((state) => state.setContext);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
@@ -79,8 +78,9 @@ const KnowledgeBase = () => {
                 <Header
                     position="sidebar"
                     right={
-                        workspaceId ? (
+                        currentWorkspaceId == null ? undefined : (
                             <CreateKnowledgeBaseDialog
+                                scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
                                 trigger={
                                     <Button
                                         aria-label="New knowledge base"
@@ -89,9 +89,8 @@ const KnowledgeBase = () => {
                                         variant="ghost"
                                     />
                                 }
-                                workspaceId={workspaceId}
                             />
-                        ) : undefined
+                        )
                     }
                     title="Knowledge Base"
                 />

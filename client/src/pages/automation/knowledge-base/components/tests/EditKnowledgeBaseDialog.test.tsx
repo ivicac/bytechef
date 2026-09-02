@@ -84,10 +84,14 @@ describe('EditKnowledgeBaseDialog', () => {
         expect(screen.getByText('Edit Knowledge Base')).toBeInTheDocument();
     });
 
-    it('renders dialog description', () => {
+    it('renders dialog description saying the chunking change reaches new documents until a re-chunk', () => {
         renderComponent();
 
-        expect(screen.getByText('Update the general settings for this knowledge base.')).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                /Update the general settings for this knowledge base\. Chunking governs documents ingested from now on; documents already embedded keep the chunks they were split into until you re-chunk the knowledge base\./
+            )
+        ).toBeInTheDocument();
     });
 
     it('renders name input with value', () => {

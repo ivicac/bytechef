@@ -4,7 +4,7 @@ import {
 } from '@/shared/middleware/graphql';
 import {useMemo} from 'react';
 
-export default function useKnowledgeBaseDocumentList({knowledgeBaseId}: {knowledgeBaseId: string}) {
+export default function useKnowledgeBaseDocumentList(knowledgeBaseId: string) {
     const {data: tagsByDocumentData} = useKnowledgeBaseDocumentTagsByDocumentQuery({knowledgeBaseId});
     const {data: allTagsData} = useKnowledgeBaseDocumentTagsQuery({knowledgeBaseId});
 

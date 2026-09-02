@@ -1,0 +1,3 @@
+mutation rechunkEmbeddedKnowledgeBase($knowledgeBaseId: ID!) {
+    rechunkEmbeddedKnowledgeBase(knowledgeBaseId: $knowledgeBaseId)
+}

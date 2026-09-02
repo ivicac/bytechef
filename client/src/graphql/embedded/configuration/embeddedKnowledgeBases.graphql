@@ -1,0 +1,20 @@
+query EmbeddedKnowledgeBases($environmentId: ID!) {
+    embeddedKnowledgeBases(environmentId: $environmentId) {
+        id
+        name
+        description
+        createdDate
+        lastModifiedDate
+        maxChunkSize
+        minChunkSizeChars
+        overlap
+    }
+}
+
+mutation CreateEmbeddedKnowledgeBase($input: CreateEmbeddedKnowledgeBaseInput!) {
+    createEmbeddedKnowledgeBase(input: $input)
+}
+
+mutation UpdateEmbeddedKnowledgeBase($input: UpdateEmbeddedKnowledgeBaseInput!) {
+    updateEmbeddedKnowledgeBase(input: $input)
+}

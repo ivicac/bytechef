@@ -1,9 +1,10 @@
 import Button from '@/components/Button/Button';
 import PageLoader from '@/components/PageLoader';
-import CreateDataTableDialog from '@/pages/automation/datatables/components/CreateDataTableDialog';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
+import CreateDataTableDialog from '@/shared/components/data-tables/components/CreateDataTableDialog';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
@@ -33,6 +34,7 @@ const DataTable = () => {
     const {selectedRows} = useSelectedRowsStore();
 
     const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
     const setContext = useCopilotStore((state) => state.setContext);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
@@ -80,6 +82,7 @@ const DataTable = () => {
                     position="sidebar"
                     right={
                         <CreateDataTableDialog
+                            scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
                             trigger={
                                 <Button
                                     aria-label="Create table"

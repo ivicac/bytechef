@@ -1,39 +1,16 @@
+import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import EmbeddedKnowledgeBaseList from '@/ee/pages/embedded/knowledge-bases/components/EmbeddedKnowledgeBaseList';
-import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
-import useEmbeddedConnectedUsers from '@/ee/pages/embedded/shared/components/useEmbeddedConnectedUsers';
+import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
+import CreateKnowledgeBaseDialog from '@/shared/components/knowledge-bases/components/CreateKnowledgeBaseDialog';
 import useKnowledgeBases from '@/shared/components/knowledge-bases/components/hooks/useKnowledgeBases';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
-import {useAssignEmbeddedKnowledgeBaseOwnerMutation} from '@/shared/middleware/graphql';
-import {useQueryClient} from '@tanstack/react-query';
 import {BookOpenIcon} from 'lucide-react';
-import {useState} from 'react';
 
 const EmbeddedKnowledgeBases = () => {
-    const [ownerId, setOwnerId] = useState<number | undefined>(undefined);
-
-    const {connectedUsers} = useEmbeddedConnectedUsers();
-
-    const queryClient = useQueryClient();
-
-    const {error, isLoading, knowledgeBases} = useKnowledgeBases({ownerId, type: 'EMBEDDED'});
-
-    const assignOwnerMutation = useAssignEmbeddedKnowledgeBaseOwnerMutation({
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['EmbeddedKnowledgeBases']});
-        },
-    });
-
-    const handleAssign = (knowledgeBaseId: string, newOwnerId: number | undefined) => {
-        assignOwnerMutation.mutate({
-            input: {
-                knowledgeBaseId,
-                ownerId: newOwnerId === undefined ? undefined : String(newOwnerId),
-            },
-        });
-    };
+    const {error, isLoading, knowledgeBases} = useKnowledgeBases({type: 'EMBEDDED'});
 
     return (
         <PageLoader errors={[error]} loading={isLoading}>
@@ -44,11 +21,11 @@ const EmbeddedKnowledgeBases = () => {
                         position="main"
                         right={
                             <div className="flex items-center gap-1">
-                                <OwnerSelect
-                                    connectedUsers={connectedUsers}
-                                    noOwnerLabel="All owners"
-                                    onChange={setOwnerId}
-                                    ownerId={ownerId}
+                                <EnvironmentSelect />
+
+                                <CreateKnowledgeBaseDialog
+                                    scope={{type: 'EMBEDDED'}}
+                                    trigger={<Button>New Knowledge Base</Button>}
                                 />
                             </div>
                         }
@@ -57,15 +34,17 @@ const EmbeddedKnowledgeBases = () => {
                 }
             >
                 {knowledgeBases.length > 0 ? (
-                    <EmbeddedKnowledgeBaseList
-                        connectedUsers={connectedUsers}
-                        knowledgeBases={knowledgeBases}
-                        onAssign={handleAssign}
-                    />
+                    <EmbeddedKnowledgeBaseList knowledgeBases={knowledgeBases} />
                 ) : (
                     <EmptyList
+                        button={
+                            <CreateKnowledgeBaseDialog
+                                scope={{type: 'EMBEDDED'}}
+                                trigger={<Button>Create Knowledge Base</Button>}
+                            />
+                        }
                         icon={<BookOpenIcon className="size-24 text-stroke-neutral-tertiary" />}
-                        message="Knowledge bases you create appear here, where you can assign them to an account."
+                        message="Knowledge bases you create appear here. Every account in this environment sees them, and each account's chunks stay its own."
                         title="No Knowledge Bases"
                     />
                 )}
