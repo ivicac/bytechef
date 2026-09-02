@@ -92,6 +92,91 @@ class DockerOperatorSettingsTest {
         assertThat(settings.getAllowedImages()).containsExactly("ubuntu:24.04", "python:3.12-slim");
     }
 
+    /**
+     * The one list whose absent state is a value rather than a closed set. It has to name {@code host} as well, or an
+     * operator who had already turned {@code allow-host-network} on and never heard of this key loses host networking
+     * on upgrade; the flag is what keeps {@code host} out of the effective set by default.
+     */
+    @Test
+    void testAnAbsentNetworkModeAllowlistPermitsEveryModeTheRunnerKnows() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(applicationProperties(Map.of()));
+
+        assertThat(settings.getAllowedNetworkModes()).containsExactlyElementsOf(
+            DockerOperatorSettings.DEFAULT_ALLOWED_NETWORK_MODES);
+        assertThat(settings.isNetworkModeAllowed("bridge")).isTrue();
+        assertThat(settings.isNetworkModeAllowed("none")).isTrue();
+        assertThat(settings.isNetworkModeAllowed("host")).isTrue();
+    }
+
+    @Test
+    void testANamedNetworkModeAllowlistReplacesTheDefaultRatherThanAddingToIt() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(
+            applicationProperties(Map.of("allowed-network-modes", " none ")));
+
+        assertThat(settings.getAllowedNetworkModes()).containsExactly("none");
+        assertThat(settings.isNetworkModeAllowed("none")).isTrue();
+        assertThat(settings.isNetworkModeAllowed("bridge")).isFalse();
+        assertThat(settings.isNetworkModeAllowed("host")).isFalse();
+    }
+
+    /**
+     * Matched by exact equality, like the image allowlist: a token naming no mode the runner knows permits nothing
+     * rather than everything.
+     */
+    @Test
+    void testANetworkModeAllowlistNamingNothingKnownPermitsNothing() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(
+            applicationProperties(Map.of("allowed-network-modes", "bytechef_default,container:bytechef")));
+
+        assertThat(settings.isNetworkModeAllowed("bridge")).isFalse();
+        assertThat(settings.isNetworkModeAllowed("none")).isFalse();
+        assertThat(settings.isNetworkModeAllowed("host")).isFalse();
+    }
+
+    /**
+     * The ceilings come back as the operator wrote them - the runner parses them with the same grammar it applies to a
+     * workflow's own {@code cpu} and {@code memory}, so a malformed one refuses executions instead of taking the editor
+     * down with it.
+     */
+    @Test
+    void testTheResourceCeilingsFallBackToTheirBuiltInDefaults() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(applicationProperties(Map.of()));
+
+        assertThat(settings.getDefaultCpu()).isEqualTo(DockerOperatorSettings.DEFAULT_CPU);
+        assertThat(settings.getMaxCpu()).isEqualTo(DockerOperatorSettings.DEFAULT_MAX_CPU);
+        assertThat(settings.getDefaultMemory()).isEqualTo(DockerOperatorSettings.DEFAULT_MEMORY);
+        assertThat(settings.getMaxMemory()).isEqualTo(DockerOperatorSettings.DEFAULT_MAX_MEMORY);
+        assertThat(settings.getPidsLimit()).isEqualTo(DockerOperatorSettings.DEFAULT_PIDS_LIMIT);
+    }
+
+    @Test
+    void testTheResourceCeilingsAreTakenFromTheOperator() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(
+            applicationProperties(
+                Map.of(
+                    "default-cpu", " 0.5 ", "max-cpu", "8", "default-memory", " 128m ", "max-memory", "16g",
+                    "pids-limit", " 64 ")));
+
+        assertThat(settings.getDefaultCpu()).isEqualTo("0.5");
+        assertThat(settings.getMaxCpu()).isEqualTo("8");
+        assertThat(settings.getDefaultMemory()).isEqualTo("128m");
+        assertThat(settings.getMaxMemory()).isEqualTo("16g");
+        assertThat(settings.getPidsLimit()).isEqualTo("64");
+    }
+
+    /**
+     * A key written with an empty body binds an empty string, and an empty ceiling is not "unlimited" - it is the
+     * built-in one.
+     */
+    @Test
+    void testABlankCeilingFallsBackToItsBuiltInDefault() {
+        DockerOperatorSettings settings = DockerOperatorSettings.of(
+            applicationProperties(Map.of("pids-limit", "   ", "max-memory", "")));
+
+        assertThat(settings.getPidsLimit()).isEqualTo(DockerOperatorSettings.DEFAULT_PIDS_LIMIT);
+        assertThat(settings.getMaxMemory()).isEqualTo(DockerOperatorSettings.DEFAULT_MAX_MEMORY);
+    }
+
     @Test
     void testHostDefaultsToEmptyMeaningTheAmbientDaemon() {
         assertThat(DockerOperatorSettings.of(applicationProperties(Map.of()))
