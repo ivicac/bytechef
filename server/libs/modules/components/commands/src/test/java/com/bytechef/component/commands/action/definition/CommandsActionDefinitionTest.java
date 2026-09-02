@@ -18,6 +18,7 @@ package com.bytechef.component.commands.action.definition;
 
 import static com.bytechef.component.commands.constant.CommandsConstants.COMMANDS;
 import static com.bytechef.component.commands.constant.CommandsConstants.WARN_ON_STD_ERR;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.DOCKER;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
@@ -75,30 +76,32 @@ class CommandsActionDefinitionTest {
     /**
      * With no {@code taskRunner.type} given, {@code perform} must resolve the first runner declaring
      * {@link TaskRunnerCapability#COMMANDS} - there is no {@code graalvm} literal to fall back to here, unlike
-     * {@code ScriptActionDefinition}. This fails if that resolution is ever replaced with a hardcoded type.
+     * {@code ScriptActionDefinition}. The stubbed runner deliberately reports a type other than {@code process}: with
+     * {@code process} stubbed here, a resolution that simply hardcoded the {@code process} literal would pass this test
+     * unnoticed.
      */
     @Test
     void testPerformResolvesTheFirstCommandsCapableRunnerWhenTheWorkflowSelectsNoRunner() throws Exception {
-        when(taskRunner.getType()).thenReturn(PROCESS);
+        when(taskRunner.getType()).thenReturn(DOCKER);
         when(taskRunnerRegistry.getTaskRunners(Set.of(TaskRunnerCapability.COMMANDS))).thenReturn(List.of(taskRunner));
-        when(taskRunnerRegistry.getTaskRunner(PROCESS)).thenReturn(taskRunner);
+        when(taskRunnerRegistry.getTaskRunner(DOCKER)).thenReturn(taskRunner);
         when(taskRunner.run(any())).thenReturn(new TaskRunnerResult(Map.of(), 0, "hi", "", Map.of()));
 
         perform(Map.of(COMMANDS, LINES));
 
-        verify(taskRunnerRegistry).getTaskRunner(PROCESS);
+        verify(taskRunnerRegistry).getTaskRunner(DOCKER);
     }
 
     @Test
     void testPerformResolvesTheFirstCommandsCapableRunnerWhenTheSelectedTypeIsBlank() throws Exception {
-        when(taskRunner.getType()).thenReturn(PROCESS);
+        when(taskRunner.getType()).thenReturn(DOCKER);
         when(taskRunnerRegistry.getTaskRunners(Set.of(TaskRunnerCapability.COMMANDS))).thenReturn(List.of(taskRunner));
-        when(taskRunnerRegistry.getTaskRunner(PROCESS)).thenReturn(taskRunner);
+        when(taskRunnerRegistry.getTaskRunner(DOCKER)).thenReturn(taskRunner);
         when(taskRunner.run(any())).thenReturn(new TaskRunnerResult(Map.of(), 0, "hi", "", Map.of()));
 
         perform(Map.of(COMMANDS, LINES, TASK_RUNNER, Map.of(TYPE, "")));
 
-        verify(taskRunnerRegistry).getTaskRunner(PROCESS);
+        verify(taskRunnerRegistry).getTaskRunner(DOCKER);
     }
 
     /**
@@ -124,20 +127,23 @@ class CommandsActionDefinitionTest {
 
     /**
      * The companion of the two "resolves no runner" tests above: with no runner anywhere declaring
-     * {@link TaskRunnerCapability#COMMANDS} - a deployment with only GraalVM enabled, say - resolution yields
-     * {@code null} and {@code getTaskRunner} is left to throw {@link TaskRunnerNotEnabledException}, exactly as it
-     * would for any other unknown or disabled type. This fails if a graalvm-style hardcoded fallback is ever added
-     * back, because then {@code getTaskRunner} would be called with {@code "graalvm"} instead of {@code null}.
+     * {@link TaskRunnerCapability#COMMANDS} - a deployment with only GraalVM enabled, say - there is no type to
+     * resolve, so the failure is raised here rather than by handing {@code null} to {@code getTaskRunner}. The
+     * assertion is on the message, not just the type: {@code getTaskRunner(null)} does throw, but its message reads
+     * {@code bytechef.script.runners.null.enabled=true}, a key no operator can set, so a test asserting only the
+     * exception type cannot tell the two apart.
      */
     @Test
-    void testPerformFailsLoudlyWhenNoRunnerDeclaresCommands() {
+    void testPerformFailsWithAnActionableMessageWhenNoRunnerDeclaresCommands() {
         when(taskRunnerRegistry.getTaskRunners(Set.of(TaskRunnerCapability.COMMANDS))).thenReturn(List.of());
-        when(taskRunnerRegistry.getTaskRunner(null)).thenThrow(new TaskRunnerNotEnabledException(null));
 
         assertThatThrownBy(() -> perform(Map.of(COMMANDS, LINES)))
-            .isInstanceOf(TaskRunnerNotEnabledException.class);
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("No enabled task runner can run commands")
+            .hasMessageContaining("bytechef.script.runners.process.enabled=true")
+            .hasMessageNotContaining("runners.null.enabled");
 
-        verify(taskRunnerRegistry).getTaskRunner(null);
+        verify(taskRunnerRegistry, never()).getTaskRunner(any());
     }
 
     @Test
