@@ -174,6 +174,13 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
             )}
             data-nodetype={data.trigger ? 'trigger' : 'task'}
             key={id}
+            // Inside a box this container would otherwise stretch to the frame and centre the card in
+            // it, while the handles below are placed from the container's LEFT edge -- so the card
+            // drifted away from its own handles as the frame grew. Sized to the card, there is nothing
+            // to centre within. In the dialog the container already IS the node, so nothing changes.
+            style={
+                isMainRootClusterElement && data.clusterFrame ? {...rest.style, width: `${nodeWidth}px`} : rest.style
+            }
         >
             {nodeMenuTrigger && (
                 <div
@@ -248,11 +255,17 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                         )}
                         onClick={handleNodeClick}
                         style={
-                            isMainRootClusterElement
-                                ? {minWidth: `${nodeWidth}px`}
-                                : isNestedClusterRoot
-                                  ? {width: `${nodeWidth}px`}
-                                  : undefined
+                            // Inside a box the card must be EXACTLY the contract width, not merely at
+                            // least it: a `minWidth` card stretches to the frame, its handles spread
+                            // over the stretched width, and every edge then converges inward to a
+                            // placeholder the cluster placer put on `calculateNodeWidth` instead.
+                            isMainRootClusterElement && data.clusterFrame
+                                ? {width: `${nodeWidth}px`}
+                                : isMainRootClusterElement
+                                  ? {minWidth: `${nodeWidth}px`}
+                                  : isNestedClusterRoot
+                                    ? {width: `${nodeWidth}px`}
+                                    : undefined
                         }
                     >
                         {testNodeState && (
@@ -1087,6 +1100,38 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                     showReplaceAction={!data.multipleClusterElementsNode}
                 >
                     <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={clusterElementMenuTrigger} />
+                </WorkflowNodeContextMenu>
+            </ClusterFrameShell>
+        );
+    }
+
+    // A cluster root drawn as a box is a task on the main canvas like any other, so it carries the
+    // same node menu -- rename, delete, copy, disable. The dialog's root card deliberately does not:
+    // there it is the subject of the dialog, whose own chrome owns those actions.
+    if (data.clusterFrame) {
+        return (
+            <ClusterFrameShell data={data} nodeId={id}>
+                <WorkflowNodeContextMenu
+                    canPaste={canPaste}
+                    data={data}
+                    hasSavedPosition={!!hasSavedNodePosition}
+                    onCopy={handleCopyNode}
+                    onCut={handleCutNode}
+                    onDelete={handleDelete}
+                    onInfo={() => setInfoCardOpen(true)}
+                    onPaste={handlePasteNode}
+                    onRename={handleStartRename}
+                    onResetPosition={handleResetPosition}
+                    onSwitch={handleSwitch}
+                    onToggleDisabled={handleToggleDisabledClick}
+                    showCopyAction
+                    showCutAction
+                    showDeleteAction
+                    showDisableAction
+                    showInfoAction
+                    showRenameAction
+                >
+                    <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={regularNodeMenuTrigger} />
                 </WorkflowNodeContextMenu>
             </ClusterFrameShell>
         );

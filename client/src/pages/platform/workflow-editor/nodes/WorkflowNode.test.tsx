@@ -1,3 +1,4 @@
+import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
@@ -120,9 +121,11 @@ function renderNode(data: NodeDataType = NESTED_CLUSTER_ROOT_DATA, id: string = 
 
     return render(
         <QueryClientProvider client={queryClient}>
-            <ReactFlowProvider>
-                <WorkflowNode data={data} id={id} />
-            </ReactFlowProvider>
+            <TooltipProvider>
+                <ReactFlowProvider>
+                    <WorkflowNode data={data} id={id} />
+                </ReactFlowProvider>
+            </TooltipProvider>
         </QueryClientProvider>
     );
 }
@@ -132,6 +135,44 @@ describe('WorkflowNode', () => {
         dataStoreState.definition = '{}';
         directionStoreState.layoutDirection = 'TB';
         editorStoreState.renamingNodeName = undefined;
+    });
+
+    // A main root cluster element falls through to the last return, which passes no node menu --
+    // right in the dialog, where the root card is the dialog's subject, and wrong on the main canvas,
+    // where a box is a task like any other. The menu came back with the dispatcher swap and this pins
+    // it, since a missing prop is invisible to every other assertion here.
+    describe('main root cluster element', () => {
+        const MAIN_ROOT_DATA = {
+            clusterRoot: true,
+            componentName: 'aiAgent',
+            label: 'AI Agent',
+            name: 'aiAgent_1',
+            operationName: 'chat',
+            version: 1,
+            workflowNodeName: 'aiAgent_1',
+        } as unknown as NodeDataType;
+
+        it('carries the node menu when drawn as a box on the main canvas', () => {
+            recordedContextMenuProps.value = undefined;
+
+            renderNode(
+                {
+                    ...MAIN_ROOT_DATA,
+                    clusterFrame: {clusterRootId: 'aiAgent_1', contentOrigin: {x: 32, y: 40}, height: 320, width: 640},
+                } as NodeDataType,
+                'aiAgent_1'
+            );
+
+            expect(recordedContextMenuProps.value).toBeDefined();
+        });
+
+        it('carries no node menu inside the dialog, whose chrome owns those actions', () => {
+            recordedContextMenuProps.value = undefined;
+
+            renderNode(MAIN_ROOT_DATA, 'aiAgent_1');
+
+            expect(recordedContextMenuProps.value).toBeUndefined();
+        });
     });
 
     it('renders a rename input for a nested cluster root that is being renamed', () => {
