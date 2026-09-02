@@ -462,13 +462,12 @@ export default function useWorkflowNodeDetailsPanel({
             return currentTaskDispatcherDefinition;
         }
 
-        if (clusterElementsCanvasOpen && currentNode?.clusterElementType) {
+        if (currentNode?.clusterElementType) {
             return currentClusterElementDefinition;
         }
 
         return currentActionDefinition;
     }, [
-        clusterElementsCanvasOpen,
         currentNode,
         currentTriggerDefinition,
         currentTaskDispatcherDefinition,
@@ -763,7 +762,7 @@ export default function useWorkflowNodeDetailsPanel({
     );
 
     const currentWorkflowNodeOperations = useMemo(() => {
-        if (clusterElementsCanvasOpen && isClusterElement) {
+        if (isClusterElement) {
             return (currentWorkflowNode as ComponentDefinition)?.clusterElements;
         }
 
@@ -771,7 +770,7 @@ export default function useWorkflowNodeDetailsPanel({
             (currentWorkflowNode as ComponentDefinition)?.actions ??
             (currentWorkflowNode as ComponentDefinition)?.triggers
         );
-    }, [clusterElementsCanvasOpen, currentWorkflowNode, isClusterElement]);
+    }, [currentWorkflowNode, isClusterElement]);
 
     const filteredClusterElementOperations = useMemo(() => {
         if (currentComponentDefinition?.clusterElement && currentNode?.clusterElementType) {
@@ -1052,7 +1051,7 @@ export default function useWorkflowNodeDetailsPanel({
 
             if (currentNode?.trigger && !isClusterElement) {
                 newOperationDefinition = await fetchTriggerDefinition(newOperationName);
-            } else if (clusterElementsCanvasOpen && !!isClusterElement) {
+            } else if (isClusterElement) {
                 newOperationDefinition = await fetchClusterElementDefinition(newOperationName);
             } else {
                 newOperationDefinition = await fetchActionDefinition(newOperationName);
@@ -1163,7 +1162,6 @@ export default function useWorkflowNodeDetailsPanel({
             currentOperationName,
             currentComponentDefinition,
             currentNode,
-            clusterElementsCanvasOpen,
             isClusterElement,
             deleteWorkflowNodeTestOutputMutation,
             workflow.id,
@@ -1434,20 +1432,14 @@ export default function useWorkflowNodeDetailsPanel({
     useEffect(() => {
         let currentWorkflowNode;
 
-        if (workflowNodes?.length && !clusterElementsCanvasOpen && !isClusterElement) {
+        if (workflowNodes?.length && !isClusterElement) {
             currentWorkflowNode = workflowNodes.find(
                 (workflowNode) => workflowNode.workflowNodeName === currentNode?.workflowNodeName
             );
-        } else if (clusterElementsCanvasOpen) {
-            if (currentNode?.clusterRoot && !currentNode.isNestedClusterRoot) {
-                currentWorkflowNode = workflowNodes?.find(
-                    (workflowNodeType) => workflowNodeType.workflowNodeName === currentNode?.workflowNodeName
-                );
-            } else if (clusterElementComponentOperations) {
-                currentWorkflowNode = clusterElementComponentOperations.find(
-                    (workflowNodeType) => workflowNodeType.workflowNodeName === currentNode?.workflowNodeName
-                );
-            }
+        } else if (isClusterElement && clusterElementComponentOperations) {
+            currentWorkflowNode = clusterElementComponentOperations.find(
+                (workflowNodeType) => workflowNodeType.workflowNodeName === currentNode?.workflowNodeName
+            );
         }
 
         // Prefer the server-synced operationName once available; otherwise fall back to the
@@ -1502,11 +1494,7 @@ export default function useWorkflowNodeDetailsPanel({
             return;
         }
 
-        if (
-            clusterElementsCanvasOpen &&
-            currentComponentDefinition?.clusterElement &&
-            currentNode?.parentClusterRootId
-        ) {
+        if (currentComponentDefinition?.clusterElement && currentNode?.parentClusterRootId) {
             if (matchingOperation) {
                 fetchClusterElementDefinition();
             } else {
@@ -1524,14 +1512,7 @@ export default function useWorkflowNodeDetailsPanel({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        currentComponentDefinition,
-        currentNodeName,
-        currentOperationName,
-        matchingOperation,
-        queryClient,
-        clusterElementsCanvasOpen,
-    ]);
+    }, [currentComponentDefinition, currentNodeName, currentOperationName, matchingOperation, queryClient]);
 
     return {
         activeDisplayConditionsQuery,
