@@ -33,8 +33,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * A second, unrelated case is a parameter whose value is not an expression at all but merely looks like one - the
  * {@code commands} component's command lines, where POSIX parameter expansion ({@code ${VAR}}, {@code ${VAR:-default}},
  * {@code ${#a[@]}}) is character-for-character the evaluator's own accessor syntax. Left evaluated, a line as
- * unremarkable as {@code echo ${HOME}} fails the task with {@code Invalid expression}, naming neither the component nor
- * the property.
+ * unremarkable as {@code echo ${GREETING:-hi}} fails the task with {@code Invalid expression}, naming neither the
+ * component nor the property, because a shell default is not a valid accessor.
+ *
+ * <p>
+ * The bare form {@code echo ${HOME}} is worse than that rather than better: it <em>is</em> a valid accessor, so it
+ * passes validation and is evaluated against the workflow context. It survives untouched only for as long as that
+ * context happens to carry no {@code HOME} key - the day one does, the line is silently rewritten before the shell ever
+ * sees it.
  *
  * <p>
  * Component prefixes are seeded by this class itself, as plain string literals, rather than registered from the
