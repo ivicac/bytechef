@@ -65,9 +65,10 @@ import org.springframework.security.core.userdetails.User;
  *
  * <p>
  * The parity is over the READ scopes, and deliberately so: the picker lists what the caller may see and use, and the
- * resolver's grant for a mutating scope is narrower on purpose -- a configuration-level connection is shared with every
- * connected user on that configuration, so it is listed but not theirs to change. That narrowing is pinned in
- * {@code ConnectedUserResourceMembershipResolverTest}; what belongs here is that listing and read authorization agree.
+ * resolver's grant for a mutating scope is narrower on purpose -- a connection a tenant admin marked {@code shared} is
+ * offered to every connected user in that environment, so it is listed but not theirs to change. That narrowing is
+ * pinned in {@code ConnectedUserResourceMembershipResolverTest}; what belongs here is that listing and read
+ * authorization agree.
  *
  * @version ee
  *
