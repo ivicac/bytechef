@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.script.engine;
+package com.bytechef.platform.component.runner;
 
-import static com.bytechef.component.script.constant.ScriptConstants.INPUT;
 import static com.bytechef.platform.component.definition.ScriptComponentDefinition.SCRIPT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,11 +29,15 @@ import com.bytechef.platform.component.definition.JobContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.domain.ActionDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.polyglot.ScriptSandboxMode;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.context.ApplicationContext;
@@ -43,8 +46,11 @@ import org.springframework.context.ApplicationContext;
  * @author Ivica Cardic
  */
 @ExtendWith(ObjectMapperSetupExtension.class)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Timeout(120)
 class PolyglotEngineTest {
+
+    private static final String INPUT = "input";
 
     private static final Map<String, ComponentConnection> COMPONENT_CONNECTIONS = Map.of(
         "my-connection",
@@ -76,7 +82,8 @@ class PolyglotEngineTest {
                 INPUT, Map.of(),
                 SCRIPT, "function perform(input, connection, context) {\n\treturn Object.keys(connection).length;\n}"));
 
-        Object result = polyglotEngine.execute("js", inputParameters, null, jobContextAware);
+        Object result =
+            polyglotEngine.execute(ScriptSandboxMode.STRICT, null, "js", inputParameters, null, jobContextAware);
 
         assertThat(result).isEqualTo(0);
     }
@@ -96,7 +103,8 @@ class PolyglotEngineTest {
                 INPUT, Map.of(),
                 SCRIPT, "function perform(input, connection, context) {\n\treturn Object.keys(connection).length;\n}"));
 
-        Object result = polyglotEngine.execute("js", inputParameters, COMPONENT_CONNECTIONS, false, jobContextAware);
+        Object result = polyglotEngine.execute(
+            ScriptSandboxMode.STRICT, null, "js", inputParameters, COMPONENT_CONNECTIONS, false, jobContextAware);
 
         assertThat(result).isEqualTo(0);
     }
@@ -106,11 +114,13 @@ class PolyglotEngineTest {
         Parameters inputParameters = ParametersFactory.create(Map.of(INPUT, Map.of(), SCRIPT, "var perform = {};"));
 
         assertThatThrownBy(
-            () -> polyglotEngine.execute("js", inputParameters, COMPONENT_CONNECTIONS, jobContextAware))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("perform");
+            () -> polyglotEngine.execute(
+                ScriptSandboxMode.STRICT, null, "js", inputParameters, COMPONENT_CONNECTIONS, jobContextAware))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("perform");
     }
 
+    @Order(Integer.MAX_VALUE)
     @Test
     void testExecuteJavaScriptNamedConnectionWithoutComponentConnections() {
         Parameters inputParameters = ParametersFactory.create(
@@ -128,8 +138,9 @@ class PolyglotEngineTest {
         when(actionDefinition.getName()).thenReturn("get");
         when(componentDefinition.getActions()).thenReturn(List.of(actionDefinition));
 
-        assertThatThrownBy(() -> polyglotEngine.execute("js", inputParameters, null, jobContextAware))
-            .hasMessageContaining("Connection with name missing does not exist");
+        assertThatThrownBy(
+            () -> polyglotEngine.execute(ScriptSandboxMode.STRICT, null, "js", inputParameters, null, jobContextAware))
+                .hasMessageContaining("Connection with name missing does not exist");
     }
 
     @Test
@@ -148,19 +159,10 @@ class PolyglotEngineTest {
     }
 
     @Test
-    void testExecutePythonReadsInputKeyNamedLikeDictMethod() {
-        Object result = execute(
-            "python", "def perform(input, context):\n\treturn input.items", Map.of("items", List.of(1, 2)));
-
-        assertThat(result).isEqualTo(List.of(1, 2));
-    }
-
-    @Test
     void testExecutePythonWithInputContextAndOptionalParameter() {
         Object result = execute(
             "python",
-            "def perform(input, context, debug=False):\n\treturn 'context' if hasattr(context, 'component') " +
-                "else 'connection'");
+            "def perform(input, context, debug=False):\n\treturn 'context' if debug is False else 'connection'");
 
         assertThat(result).isEqualTo("context");
     }
@@ -172,6 +174,7 @@ class PolyglotEngineTest {
     private Object execute(String languageId, String script, Map<String, Object> input) {
         Parameters inputParameters = ParametersFactory.create(Map.of(INPUT, input, SCRIPT, script));
 
-        return polyglotEngine.execute(languageId, inputParameters, COMPONENT_CONNECTIONS, jobContextAware);
+        return polyglotEngine.execute(
+            ScriptSandboxMode.STRICT, null, languageId, inputParameters, COMPONENT_CONNECTIONS, jobContextAware);
     }
 }

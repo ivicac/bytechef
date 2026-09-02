@@ -23,7 +23,7 @@ import static com.bytechef.platform.component.definition.datastream.ItemProcesso
 
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.script.cluster.datastream.definition.ScriptClusterElementDefinition;
-import com.bytechef.component.script.engine.PolyglotEngine;
+import com.bytechef.platform.component.runner.PolyglotEngine;
 
 /**
  * @author Ivica Cardic
@@ -46,11 +46,11 @@ public class ScriptJavaScriptItemProcessor {
                         .defaultValue(
                             """
                                 function perform(input, context) {
-                                    // input holds the values declared above under Input.
+                                    // input.item holds the item being processed.
                                     //
                                     // Reach another component's action through the context:
                                     // const response = context.component.httpClient.get(
-                                    //     {uri: "https://api.example.com/items"}, "my-connection");
+                                    //     {uri: "https://api.example.com/items"});
 
                                     return null;
                                 }""")

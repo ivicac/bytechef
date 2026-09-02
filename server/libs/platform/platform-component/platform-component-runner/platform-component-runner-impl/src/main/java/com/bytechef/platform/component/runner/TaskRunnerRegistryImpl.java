@@ -101,7 +101,7 @@ public class TaskRunnerRegistryImpl implements TaskRunnerRegistry {
                 continue;
             }
 
-            if (GRAALVM.equals(type) && isTrustedEnabled(type)) {
+            if (GRAALVM.equals(type) && TaskRunnerTrustedMode.isEnabled(applicationProperties, type)) {
                 log.warn(
                     "Trusted GraalVM task runner is enabled; scripts selecting it run inside this JVM with full " +
                         "host access. Enable it only on a single-tenant deployment you control.");
@@ -109,20 +109,6 @@ public class TaskRunnerRegistryImpl implements TaskRunnerRegistry {
                 log.warn("Task runner '{}' is enabled; workflows may execute code outside the script sandbox", type);
             }
         }
-    }
-
-    private boolean isTrustedEnabled(String type) {
-        ApplicationProperties.Script.Runner runner = applicationProperties.getScript()
-            .getRunners()
-            .get(type);
-
-        if (runner == null) {
-            return false;
-        }
-
-        return Boolean.parseBoolean(
-            runner.getProperties()
-                .getOrDefault("trusted-enabled", "false"));
     }
 
     private boolean isEnabled(String type) {

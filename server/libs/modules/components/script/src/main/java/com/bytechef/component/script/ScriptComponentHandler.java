@@ -28,9 +28,9 @@ import com.bytechef.component.script.cluster.datastream.ScriptJavaScriptItemProc
 import com.bytechef.component.script.cluster.datastream.ScriptPythonItemProcessor;
 import com.bytechef.component.script.cluster.tool.ScriptJavaScriptTool;
 import com.bytechef.component.script.cluster.tool.ScriptPythonTool;
-import com.bytechef.component.script.engine.PolyglotEngine;
 import com.bytechef.platform.component.definition.AbstractComponentDefinitionWrapper;
 import com.bytechef.platform.component.definition.ScriptComponentDefinition;
+import com.bytechef.platform.component.runner.PolyglotEngine;
 import org.springframework.stereotype.Component;
 
 /**
