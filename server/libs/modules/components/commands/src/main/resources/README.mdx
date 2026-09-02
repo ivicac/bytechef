@@ -38,6 +38,69 @@ configuration enables only `graalvm`, which Commands never offers. So this list 
 not what it has; it may also include a runner contributed by another module. If no runner declaring the Commands
 capability is enabled at all, running any of these actions fails with a message naming the configuration key to set.
 
+### Operator configuration
+
+Every key these three runners read, together, with its default:
+
+```yaml
+bytechef:
+  script:
+    runners:
+      graalvm:
+        enabled: true
+        properties:
+          trusted-enabled: false
+      process:
+        enabled: false
+        properties:
+          inherit-environment-enabled: false
+      docker:
+        enabled: false
+        properties:
+          host: ""
+          allowed-images: ""
+          allowed-network-modes: ""
+          allow-host-network: false
+          allow-volume-mounts: false
+          default-cpu: 1
+          max-cpu: 4
+          default-memory: 512m
+          max-memory: 2g
+          pids-limit: 512
+```
+
+Only `graalvm` is enabled by the shipped configuration; `process` and `docker` need their own `enabled: true` before
+anything else under them takes effect. What each key costs to turn on:
+
+- `graalvm.trusted-enabled`: lets a workflow's `script` task ask for `mode: trusted`, which drops GraalVM's guest
+  sandbox entirely and grants the guest context full host access (`HostAccess.ALL`) with no resource ceilings - the
+  same access the server process itself has. Off by default for that reason.
+- `process.inherit-environment-enabled`: hands the server process's own environment - including datasource passwords
+  and any cloud credentials it holds - to the child process, instead of the cleared environment `process` normally
+  builds from nothing.
+- `docker.host`: points the runner at a remote Docker daemon instead of the local socket. Whoever controls that
+  daemon controls every container this runner starts, so this is only as safe as the daemon it names.
+- `docker.allowed-images` / `docker.allowed-network-modes`: fail-closed allowlists - see below.
+- `docker.allow-host-network`: lets a workflow's `networkMode: host` request succeed, putting the container on the
+  host's own network stack instead of an isolated one.
+- `docker.allow-volume-mounts`: accepted but read by nothing in this version - see "There is no `volumes` property"
+  below.
+- `docker.default-cpu` / `docker.max-cpu` / `docker.default-memory` / `docker.max-memory` / `docker.pids-limit`: the
+  container's resource ceilings - see below. Raising `max-cpu` or `max-memory` widens what a workflow may ask for; a
+  request above the maximum is *refused*, not silently reduced to it, so an operator upgrading from a version that
+  read none of these keys should expect workflows that previously ran with no ceiling at all to start failing once
+  they ask for more than the new default `max-cpu` (`4`) or `max-memory` (`2g`) allows.
+
+**The published property list below is configuration-dependent, and this page's is not necessarily yours.** The
+`taskRunner` property's schema on this reference page - the JSON-derived `{type, interpreter}` shown in the
+**Properties** table above and in the JSON example - is assembled by `TaskRunnerPropertyFactory` from whichever
+runners were enabled in the registry that generated this page's snapshot, filtered to the ones declaring the
+Commands capability. That registry enables only `process`, so this page's generated table shows the `process`
+runner's own shape and never Docker's (`image`, `cpu`, `memory`, `networkMode`, ...) - not because Docker is
+unsupported, but because it was not enabled when the snapshot was captured. Your own deployment's editor renders the
+select and properties for whichever runners *you* enabled, which may add or omit entries this page shows. The
+Docker runner's actual properties are documented by hand below, not derived from the snapshot.
+
 Each action's default interpreter, when the Process runner's `interpreter` property is left blank:
 
 | Action | Default interpreter |
