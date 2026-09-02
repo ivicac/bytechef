@@ -72,7 +72,8 @@ public class ScriptPythonAction {
                             #     {"uri": "https://api.example.com/items"}, "my-connection")
 
                             return None""")
-                .required(true));
+                .required(true)
+                .expressionEnabled(false));
         properties.add(
             TaskRunnerPropertyFactory.taskRunnerProperty(
                 taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)));
