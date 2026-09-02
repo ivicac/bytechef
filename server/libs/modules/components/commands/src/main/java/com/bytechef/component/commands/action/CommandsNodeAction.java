@@ -40,9 +40,12 @@ import java.util.Set;
  * <p>
  * The {@link com.bytechef.platform.component.runner.TaskRunnerRequest} this action builds carries the language id
  * {@code javascript} rather than {@code node} - that is the id an external task runner resolves its default interpreter
- * and bootstrap from, and {@code javascript} is the id both {@code script}'s JavaScript action and the process runner's
- * own default-interpreter table use for the Node family. This is an implementation detail of the request the runner
- * reads, not something a workflow author ever sees; the action itself is titled and named "Node" throughout.
+ * and bootstrap from. {@code script}'s JavaScript action names the same language {@code js} instead, because its id
+ * must also be the Truffle language id the in-JVM GraalVM runner opens a polyglot context with. The two vocabularies
+ * meet in exactly one place, {@code ExternalLanguage} in the runner's {@code external} package, so either id resolves
+ * to the same bootstrap, the same source file name and the same default interpreter. This is an implementation detail
+ * of the request the runner reads, not something a workflow author ever sees; the action itself is titled and named
+ * "Node" throughout.
  *
  * @author Ivica Cardic
  */
