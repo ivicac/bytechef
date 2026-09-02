@@ -125,7 +125,7 @@ class AbstractAiAgentChatActionTest {
         when(clusterElementDefinitionService.<ChatMemoryFunction>getClusterElement(
             eq("testComponent"), eq(1), eq("testChatMemory"))).thenReturn(chatMemoryFunction);
         when(modelFunction.apply(any(), any(), anyBoolean())).thenAnswer(invocation -> chatModel);
-        when(chatMemoryFunction.apply(any(), any(), any(), any())).thenReturn(chatMemoryResult);
+        when(chatMemoryFunction.apply(any(), any(), any(), any(), any())).thenReturn(chatMemoryResult);
 
         ComponentConnection componentConnection = new ComponentConnection(
             "testComponent", 1, 1L, Map.of(), null);
@@ -419,7 +419,7 @@ class AbstractAiAgentChatActionTest {
             .builder(mock(ChatMemory.class))
             .build();
 
-        when(chatMemoryFunction.apply(any(), any(), any(), any()))
+        when(chatMemoryFunction.apply(any(), any(), any(), any(), any()))
             .thenReturn(new ChatMemoryFunction.Result(productionStyleChatMemoryAdvisor, null));
 
         ComponentConnection componentConnection = new ComponentConnection(
@@ -495,7 +495,7 @@ class AbstractAiAgentChatActionTest {
             .order(ChatMemoryFunction.TOOL_MESSAGE_PERSISTENCE_ADVISOR_ORDER)
             .build();
 
-        when(chatMemoryFunction.apply(any(), any(), any(), any()))
+        when(chatMemoryFunction.apply(any(), any(), any(), any(), any()))
             .thenReturn(new ChatMemoryFunction.Result(insideLoopChatMemoryAdvisor, null, true));
 
         ComponentConnection componentConnection = new ComponentConnection(
