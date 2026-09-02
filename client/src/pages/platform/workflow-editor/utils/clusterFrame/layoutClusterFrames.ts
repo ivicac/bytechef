@@ -111,6 +111,17 @@ export function layoutClusterFrames(
 
         const contentPositions = collectContentPositions(placedElementNodes, node.id);
 
+        // The root's own data does not carry its type count at this point, but the placer emits at
+        // least one direct member per filtered element type -- a placeholder for an empty or multi
+        // type, the element itself for a filled single one -- so the distinct types among the direct
+        // members ARE the count the card is drawn from.
+        const clusterElementTypesCount = new Set(
+            placedElementNodes
+                .filter((elementNode) => elementNode.parentId === node.id)
+                .map((elementNode) => (elementNode.data as {clusterElementType?: string}).clusterElementType)
+                .filter((clusterElementType): clusterElementType is string => !!clusterElementType)
+        ).size;
+
         // The root card is part of the box's contents too, so the frame has to contain it even when
         // every member sits well inside its footprint.
         const childBoxes: ClusterMemberBoxI[] = [
@@ -119,9 +130,7 @@ export function layoutClusterFrames(
             // running past the box it was supposed to sit inside.
             {
                 height: NODE_HEIGHT,
-                width: calculateNodeWidth(
-                    (nodeData as NodeDataType & {clusterElementTypesCount?: number}).clusterElementTypesCount ?? 0
-                ),
+                width: calculateNodeWidth(clusterElementTypesCount),
                 x: 0,
                 y: 0,
             },
