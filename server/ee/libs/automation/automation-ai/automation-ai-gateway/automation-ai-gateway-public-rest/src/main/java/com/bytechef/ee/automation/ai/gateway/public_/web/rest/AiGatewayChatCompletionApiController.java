@@ -64,7 +64,22 @@ class AiGatewayChatCompletionApiController implements ChatCompletionApi {
         this.aiGatewayFacade = aiGatewayFacade;
     }
 
+    /**
+     * Narrows the {@code produces} inherited from {@link ChatCompletionApi}, which declares both
+     * {@code application/json} and {@code text/event-stream} because the OpenAPI spec models one operation with two
+     * response content types. Spring, however, needs two disjoint mappings to route by {@code Accept}: it compares the
+     * {@code consumes} condition before {@code produces}, and a non-empty {@code consumes} unconditionally outranks an
+     * empty one. With the inherited {@code produces} the generated mapping therefore beat
+     * {@link #chatCompletionsStream} for every {@code Content-Type: application/json} request, whatever the
+     * {@code Accept} header, leaving the streaming handler unreachable in practice. Restricting this mapping to
+     * {@code application/json} makes the two {@code produces} conditions disjoint, so an SSE request stops being a
+     * candidate here instead of merely losing the comparison. A request with no (or a wildcard) {@code Accept} still
+     * matches both mappings and lands here, because only this one declares {@code consumes}.
+     */
     @Override
+    @PostMapping(
+        value = PATH_CHAT_COMPLETIONS, consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ChatCompletionResponseModel> chatCompletions(
         ChatCompletionRequestModel chatCompletionRequestModel) {
 
@@ -133,7 +148,7 @@ class AiGatewayChatCompletionApiController implements ChatCompletionApi {
         }
     }
 
-    @PostMapping(value = "/chat/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = PATH_CHAT_COMPLETIONS, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     Flux<ServerSentEvent<Object>> chatCompletionsStream(
         @RequestBody ChatCompletionRequestModel chatCompletionRequestModel) {
 
