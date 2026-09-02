@@ -34,7 +34,7 @@ import useGraphConnections from '../hooks/useGraphConnections';
 import useHandleDrop from '../hooks/useHandleDrop';
 import useLayout from '../hooks/useLayout';
 import useStickyNotes from '../hooks/useStickyNotes';
-import AiAgentNode from '../nodes/AiAgentNode';
+import ClusterRootNode from '../nodes/ClusterRootNode';
 import GraphFrameNode from '../nodes/GraphFrameNode';
 import GraphStartNode from '../nodes/GraphStartNode';
 import PlaceholderNode from '../nodes/PlaceholderNode';
@@ -231,7 +231,7 @@ const useWorkflowEditorCanvas = ({
 
     const nodeTypes = useMemo(
         () => ({
-            clusterRoot: AiAgentNode,
+            clusterRoot: ClusterRootNode,
             graphFrame: GraphFrameNode,
             graphStart: GraphStartNode,
             placeholder: PlaceholderNode,
