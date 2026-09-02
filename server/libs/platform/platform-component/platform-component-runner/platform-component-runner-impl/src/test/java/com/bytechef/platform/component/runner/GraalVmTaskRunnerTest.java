@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -145,6 +146,66 @@ public class GraalVmTaskRunnerTest {
 
         assertThat(capturedInputParameters.getString("script")).isEqualTo(SCRIPT);
         assertThat(capturedInputParameters.getString("mode")).isNull();
+    }
+
+    /**
+     * A strict execution already runs under the CONSTRAINED policy's CPU and heap ceilings, so it must reach the engine
+     * with no wall clock. A wall clock here would newly kill a script that spends its time blocked in a host call
+     * through the component bridge, which burns no guest CPU - behaviour that was unbounded before task runners
+     * existed.
+     */
+    @Test
+    public void testRunLeavesStrictExecutionsUnbounded() {
+        when(
+            polyglotEngine.execute(
+                eq(ScriptSandboxMode.STRICT), isNull(), eq("js"), any(), anyMap(), any())).thenReturn("done");
+
+        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of("mode", "strict"), null));
+
+        assertThat(taskRunnerResult.output()).isEqualTo("done");
+    }
+
+    @Test
+    public void testRunLeavesTheDefaultModeUnbounded() {
+        when(
+            polyglotEngine.execute(
+                eq(ScriptSandboxMode.STRICT), isNull(), eq("js"), any(), anyMap(), any())).thenReturn("done");
+
+        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of(), null));
+
+        assertThat(taskRunnerResult.output()).isEqualTo("done");
+    }
+
+    /**
+     * A trusted execution carries no resource ceiling at all - the sandbox options exist only under CONSTRAINED - so
+     * the watchdog is the only thing that can stop a runaway script, and the default applies even though the caller
+     * asked for none.
+     */
+    @Test
+    public void testRunBoundsTrustedExecutionsWithTheDefaultCeiling() {
+        GraalVmTaskRunner trustingTaskRunner = newTaskRunner(Map.of("trusted-enabled", "true"));
+
+        when(
+            polyglotEngine.execute(
+                eq(ScriptSandboxMode.TRUSTED), eq(Duration.ofMinutes(5)), eq("js"), any(), anyMap(), any()))
+                    .thenReturn("done");
+
+        TaskRunnerResult taskRunnerResult = trustingTaskRunner.run(newRequest(Map.of("mode", "trusted"), null));
+
+        assertThat(taskRunnerResult.output()).isEqualTo("done");
+    }
+
+    @Test
+    public void testRunHonoursACallerSuppliedTimeoutInStrictMode() {
+        Duration callerTimeout = Duration.ofSeconds(30);
+
+        when(
+            polyglotEngine.execute(
+                eq(ScriptSandboxMode.STRICT), eq(callerTimeout), eq("js"), any(), anyMap(), any())).thenReturn("done");
+
+        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of("mode", "strict"), callerTimeout));
+
+        assertThat(taskRunnerResult.output()).isEqualTo("done");
     }
 
     @Test
@@ -279,10 +340,14 @@ public class GraalVmTaskRunnerTest {
     }
 
     private static TaskRunnerRequest newRequest(Map<String, ?> runnerParameters) {
+        return newRequest(runnerParameters, TIMEOUT);
+    }
+
+    private static TaskRunnerRequest newRequest(Map<String, ?> runnerParameters, Duration timeout) {
         return new TaskRunnerRequest(
             "js", SCRIPT, List.of(), Map.of(), Map.of(), Map.of(), List.of(),
             ParametersFactory.create(Map.of("script", SCRIPT, "input", Map.of("factor", 3))),
-            ParametersFactory.create(runnerParameters), TIMEOUT, Map.of(), null);
+            ParametersFactory.create(runnerParameters), timeout, Map.of(), null);
     }
 
     private static Property.StringProperty getModeProperty(GraalVmTaskRunner taskRunner) {

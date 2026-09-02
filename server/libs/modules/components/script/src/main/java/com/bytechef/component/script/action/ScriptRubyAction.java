@@ -32,7 +32,7 @@ import static com.bytechef.platform.component.definition.ScriptComponentDefiniti
 
 import com.bytechef.component.definition.Property.ControlType;
 import com.bytechef.component.script.action.definition.ScriptActionDefinition;
-import com.bytechef.platform.component.runner.PolyglotEngine;
+import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 
 /**
  * @author Matija Petanjek
@@ -40,7 +40,7 @@ import com.bytechef.platform.component.runner.PolyglotEngine;
  */
 public class ScriptRubyAction {
 
-    public static ScriptActionDefinition of(PolyglotEngine polyglotEngine) {
+    public static ScriptActionDefinition of(TaskRunnerRegistry taskRunnerRegistry) {
         return new ScriptActionDefinition(
             action("ruby")
                 .title("Ruby")
@@ -71,7 +71,7 @@ public class ScriptRubyAction {
                                 end""")
                         .required(true))
                 .output(),
-            "ruby", polyglotEngine);
+            "ruby", taskRunnerRegistry);
     }
 
     private ScriptRubyAction() {

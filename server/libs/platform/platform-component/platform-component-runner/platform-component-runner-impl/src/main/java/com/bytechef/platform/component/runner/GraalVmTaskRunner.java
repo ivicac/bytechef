@@ -29,9 +29,11 @@ import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.definition.JobContextAware;
 import com.bytechef.platform.component.polyglot.ScriptSandboxMode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -51,6 +53,8 @@ import org.springframework.stereotype.Component;
 @Component
 @SuppressFBWarnings("EI")
 public class GraalVmTaskRunner implements TaskRunner {
+
+    private static final Duration DEFAULT_TRUSTED_TIMEOUT = Duration.ofMinutes(5);
 
     private final PolyglotEngine polyglotEngine;
     private final ApplicationProperties applicationProperties;
@@ -138,11 +142,38 @@ public class GraalVmTaskRunner implements TaskRunner {
     public TaskRunnerResult run(TaskRunnerRequest request) {
         validate(request);
 
+        ScriptSandboxMode scriptSandboxMode = getMode(request);
+
         Object output = polyglotEngine.execute(
-            getMode(request), request.timeout(), request.languageId(), request.inputParameters(),
-            request.componentConnections(), (JobContextAware) request.actionContext());
+            scriptSandboxMode, getTimeout(request, scriptSandboxMode), request.languageId(),
+            request.inputParameters(), request.componentConnections(), (JobContextAware) request.actionContext());
 
         return TaskRunnerResult.ofOutput(output);
+    }
+
+    /**
+     * Resolves the wall-clock ceiling, which is a per-mode decision rather than a constant.
+     *
+     * <p>
+     * A {@link ScriptSandboxMode#STRICT} execution already runs under the {@code CONSTRAINED} policy's CPU and heap
+     * ceilings, so it needs no wall clock and gets none. Imposing one would newly kill scripts that were never bounded
+     * before: {@code sandbox.MaxCPUTime} meters CPU, and a script blocked in a host call through the component bridge -
+     * an HTTP request to a slow API, a long chain of component invocations - burns wall clock while accruing almost no
+     * guest CPU.
+     *
+     * <p>
+     * A {@link ScriptSandboxMode#TRUSTED} execution has no ceiling of any kind, because {@code sandbox.*} options exist
+     * only under {@code CONSTRAINED}. There the watchdog is the only thing that can stop a runaway script, so the
+     * default applies.
+     */
+    private static @Nullable Duration getTimeout(TaskRunnerRequest request, ScriptSandboxMode scriptSandboxMode) {
+        Duration timeout = request.timeout();
+
+        if (timeout != null) {
+            return timeout;
+        }
+
+        return scriptSandboxMode == ScriptSandboxMode.TRUSTED ? DEFAULT_TRUSTED_TIMEOUT : null;
     }
 
     private ScriptSandboxMode getMode(TaskRunnerRequest request) {
