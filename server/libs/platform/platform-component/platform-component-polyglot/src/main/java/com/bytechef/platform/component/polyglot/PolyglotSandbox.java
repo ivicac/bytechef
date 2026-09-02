@@ -77,8 +77,10 @@ public final class PolyglotSandbox {
         .build();
 
     /**
-     * Engines keyed by policy and permitted languages. GraalVM requires a context and its engine to carry the SAME
-     * {@link SandboxPolicy}, so engines cannot be shared across the TRUSTED/CONSTRAINED split.
+     * Engines keyed by policy, {@link ScriptSandboxMode} and permitted languages. GraalVM requires a context and its
+     * engine to carry the SAME {@link SandboxPolicy}, so engines cannot be shared across the TRUSTED/CONSTRAINED split,
+     * and it requires every context on one engine to carry the same host access, which is why the mode is part of the
+     * key too - see {@link #getEngine}.
      */
     private static final Map<String, Engine> ENGINES = new ConcurrentHashMap<>();
 
@@ -222,14 +224,35 @@ public final class PolyglotSandbox {
             // running on this thread and the watchdog fires only if it overstays. The close itself is handed off to
             // WATCHDOG_CLOSE_EXECUTOR rather than run on WATCHDOG_SCHEDULER - see that field's javadoc for why.
             ScheduledFuture<?> watchdogFuture = WATCHDOG_SCHEDULER.schedule(
-                () -> WATCHDOG_CLOSE_EXECUTOR.execute(() -> context.close(true)), timeout.toMillis(),
-                TimeUnit.MILLISECONDS);
+                () -> submitWatchdogClose(context), timeout.toMillis(), TimeUnit.MILLISECONDS);
 
             try {
                 return guestFunction.apply(context);
             } finally {
                 watchdogFuture.cancel(false);
             }
+        }
+    }
+
+    /**
+     * Hands the blocking close to {@link #WATCHDOG_CLOSE_EXECUTOR}, turning a failure to hand it over into a log line.
+     *
+     * <p>
+     * The submit itself can fail - {@link java.util.concurrent.RejectedExecutionException} once the pool is shut down,
+     * or an {@link OutOfMemoryError} while starting the platform thread the close would run on, which is precisely the
+     * state a mass timeout drives an unbounded pool into. The throwable would otherwise land in a
+     * {@link ScheduledFuture} nobody reads, so the timeout would be lost in silence and a runaway trusted script would
+     * keep running with nothing in the log to say why. Logging cannot rescue the execution; it makes an invisible
+     * failure visible.
+     */
+    private static void submitWatchdogClose(Context context) {
+        try {
+            WATCHDOG_CLOSE_EXECUTOR.execute(() -> context.close(true));
+        } catch (RuntimeException | Error exception) {
+            log.error(
+                "Could not schedule the guest execution's timeout close; the execution is no longer bounded by its " +
+                    "wall-clock timeout",
+                exception);
         }
     }
 
@@ -251,7 +274,7 @@ public final class PolyglotSandbox {
         // hash crosses an Enumerator, and Enumerator's generator is fiber-based), and fibers require thread
         // creation - without it any guest hash argument fails with "fibers not allowed with allowCreateThread(false)".
         Context.Builder builder = Context.newBuilder(permittedLanguages)
-            .engine(getEngine(constrained, permittedLanguages))
+            .engine(getEngine(constrained, mode, permittedLanguages))
             .allowHostAccess(constrained ? CONSTRAINED_HOST_ACCESS : HostAccess.NONE)
             .allowHostClassLoading(false)
             .allowHostClassLookup(className -> false)
@@ -275,16 +298,36 @@ public final class PolyglotSandbox {
     }
 
     /**
-     * A context with every restriction lifted. This method - and {@code call(TRUSTED, ...)} above it - enforces no
-     * precondition on who may request it; this class has no notion of "the operator enabled it" or "the workflow
-     * selected it". Gating which callers may pass {@link ScriptSandboxMode#TRUSTED} at all is the responsibility of
-     * code above this one, added in a later task. Nothing here is metered: {@code sandbox.*} options exist only under
-     * {@code CONSTRAINED}, so a trusted execution is bounded by the caller's wall-clock timeout instead.
+     * A context with every restriction lifted.
+     *
+     * <p>
+     * This method - and {@code call(TRUSTED, ...)} above it - enforces nothing. This class has no notion of "the
+     * operator enabled it" or "the workflow selected it": whoever passes {@link ScriptSandboxMode#TRUSTED} gets a
+     * trusted context. The gate is
+     * {@code com.bytechef.platform.component.runner.GraalVmTaskRunner#validate(TaskRunnerRequest)}, which rejects
+     * {@code mode: trusted} unless the operator set
+     * {@code bytechef.script.runners.graalvm.properties.trusted-enabled=true}, and that runner is the sole authorised
+     * caller of this path.
+     *
+     * <p>
+     * The streams are bound explicitly rather than left to the engine. A trusted guest has full reflection and can
+     * reach every tenant's decrypted credentials, so what it printed is the only forensic trace of what it did -
+     * inheriting {@code System.in}/{@code System.out}/{@code System.err} would send that outside SLF4J: no
+     * {@code [guest]} tag, no correlation, no log-level control, and nothing for the application's appenders to
+     * capture. Context-level streams override the engine's, so binding them here cannot disturb the shared
+     * {@link Engine} or any strict path.
+     *
+     * <p>
+     * Nothing here is metered: {@code sandbox.*} options exist only under {@code CONSTRAINED}, so a trusted execution
+     * is bounded by the caller's wall-clock timeout instead.
      */
     private static Context newTrustedContext(String... permittedLanguages) {
         return Context.newBuilder(permittedLanguages)
-            .engine(getEngine(false, permittedLanguages))
+            .engine(getEngine(false, ScriptSandboxMode.TRUSTED, permittedLanguages))
             .allowAllAccess(true)
+            .in(new ByteArrayInputStream(new byte[0]))
+            .out(newGuestOutputStream(false))
+            .err(newGuestOutputStream(true))
             .build();
     }
 
@@ -373,17 +416,26 @@ public final class PolyglotSandbox {
         return true;
     }
 
-    private static Engine getEngine(boolean constrained, String... permittedLanguages) {
+    /**
+     * Engines are keyed by mode as well as by policy and languages, because GraalVM requires every context on a shared
+     * engine to carry the SAME host access configuration - a trusted context's {@code HostAccess.ALL} and a strict
+     * one's {@code HostAccess.NONE} cannot meet on one engine, and the second of them to be built fails outright with
+     * "Found different host access configuration for a context with a shared engine". Policy alone does not separate
+     * them: a strict context is also built on a {@code TRUSTED}-policy engine whenever the sandbox kill switch is off
+     * or the language is outside {@link #CONSTRAINED_LANGUAGE_IDS}, so without the mode in the key those two would
+     * collide on {@code false:<languages>}.
+     */
+    private static Engine getEngine(boolean constrained, ScriptSandboxMode mode, String... permittedLanguages) {
         return ENGINES.computeIfAbsent(
-            toEngineKey(constrained, permittedLanguages), key -> newEngine(constrained, permittedLanguages));
+            toEngineKey(constrained, mode, permittedLanguages), key -> newEngine(constrained, permittedLanguages));
     }
 
-    private static String toEngineKey(boolean constrained, String... permittedLanguages) {
+    private static String toEngineKey(boolean constrained, ScriptSandboxMode mode, String... permittedLanguages) {
         List<String> sortedLanguages = Arrays.stream(permittedLanguages)
             .sorted()
             .toList();
 
-        return constrained + ":" + String.join(",", sortedLanguages);
+        return constrained + ":" + mode + ":" + String.join(",", sortedLanguages);
     }
 
     private static Engine newEngine(boolean constrained, String... permittedLanguages) {

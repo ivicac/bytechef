@@ -47,6 +47,15 @@ public class PolyglotSandboxConfiguration {
             sandbox.getMaxConcurrentExecutions());
     }
 
+    /**
+     * The settings this configuration derived from {@link ApplicationProperties}, before they are pushed into the
+     * static {@link PolyglotSandbox}. Exposed so a test can compare them with
+     * {@link PolyglotSandboxSettings#defaults()} without the side effect of applying them process-wide.
+     */
+    PolyglotSandboxSettings getPolyglotSandboxSettings() {
+        return polyglotSandboxSettings;
+    }
+
     @PostConstruct
     public void applyPolyglotSandboxSettings() {
         PolyglotSandbox.setSettings(polyglotSandboxSettings);
