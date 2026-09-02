@@ -4,10 +4,10 @@ import './WorkflowEditorLayout.css';
 
 import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/components/WorkflowNodeDetailsPanel';
 import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
+import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
 import useWorkflowEditorLayout from '@/pages/platform/workflow-editor/hooks/useWorkflowEditorLayout';
 import {useWorkflowLayout} from '@/pages/platform/workflow-editor/hooks/useWorkflowLayout';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
-import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useRightSidebarStore from '@/pages/platform/workflow-editor/stores/useRightSidebarStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
@@ -102,7 +102,7 @@ const WorkflowEditorLayout = ({
     const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
     const workflow = useWorkflowDataStore((state) => state.workflow);
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
-    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
+    const clusterElementsViewMode = useClusterElementsViewMode();
     const {
         clusterElementsCanvasOpen,
         setShowWorkflowCodeEditorSheet,
