@@ -28,25 +28,23 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserConnectionService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
-import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.security.web.authentication.EmbeddedApiKeyAuthenticationToken;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -82,20 +80,18 @@ class ConnectedUserResourceMembershipResolverTest {
     private static final long OTHER_USERS_PROJECT_DEPLOYMENT_ID = 302L;
     private static final long CONNECTED_USER_PROJECT_ID = 1L;
     private static final long INTEGRATION_INSTANCE_CONFIGURATION_ID = 500L;
-    private static final long OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID = 501L;
-    private static final long DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID = 502L;
 
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private ConnectedUserConnectionService connectedUserConnectionService;
     private ConnectedUserProjectService connectedUserProjectService;
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private ConnectedUserService connectedUserService;
+    private ConnectionService connectionService;
     private IntegrationInstanceService integrationInstanceService;
     private JobService jobService;
     private PrincipalJobService principalJobService;
     private ProjectDeploymentService projectDeploymentService;
     private ProjectService projectService;
-    private IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService;
     private ProjectWorkflowService projectWorkflowService;
     private ConnectedUserResourceMembershipResolver resolver;
 
@@ -110,7 +106,7 @@ class ConnectedUserResourceMembershipResolverTest {
         connectedUserProjectService = mock(ConnectedUserProjectService.class);
         connectedUserProjectWorkflowService = mock(ConnectedUserProjectWorkflowService.class);
         connectedUserService = mock(ConnectedUserService.class);
-        integrationInstanceConfigurationWorkflowService = mock(IntegrationInstanceConfigurationWorkflowService.class);
+        connectionService = mock(ConnectionService.class);
         integrationInstanceService = mock(IntegrationInstanceService.class);
         jobService = mock(JobService.class);
         principalJobService = mock(PrincipalJobService.class);
@@ -121,8 +117,7 @@ class ConnectedUserResourceMembershipResolverTest {
         // Real, not mocked: a mocked union would let this resolver's tests pass while it and
         // ConnectedUserConnectionFacadeImpl -- which lists from the same class -- disagree about what is entitled.
         ConnectedUserConnectionMembership connectedUserConnectionMembership = new ConnectedUserConnectionMembership(
-            connectedUserConnectionService, integrationInstanceConfigurationWorkflowService,
-            integrationInstanceService);
+            connectedUserConnectionService, connectionService, integrationInstanceService);
 
         resolver = new ConnectedUserResourceMembershipResolver(
             automationWorkflowProjectFacade, connectedUserConnectionMembership, connectedUserProjectService,
@@ -314,6 +309,34 @@ class ConnectedUserResourceMembershipResolverTest {
             .thenReturn(Optional.empty());
 
         assertThat(resolver.resolve(OWN_PROJECT_ID, "Project", "PROJECT_DELETE")).isEqualTo(Decision.DENIED);
+    }
+
+    // -- Data tables and knowledge bases ------------------------------------------------------------------------
+
+    /**
+     * Pins a deliberate omission rather than an oversight.
+     *
+     * <p>
+     * {@code WorkspaceDataTableFacadeImpl} and {@code WorkspaceKnowledgeBaseFacadeImpl} both carry
+     * {@code hasPermission(#id, 'DataTable'|'KnowledgeBase', ...)}, so a connected user reaching them arrives here,
+     * falls to the {@code default} arm as {@code NOT_APPLICABLE}, and -- because this principal IS governed --
+     * {@code ResourceMembershipDecider} maps that to {@code DENY}.
+     *
+     * <p>
+     * That denial is correct. The per-account ownership design gives connected users data tables and knowledge bases at
+     * RUNTIME only, through the owner filter in the services; managing them is the vendor admin's job, through the
+     * embedded console. Adding cases here would be a GRANT with no surface asking for one.
+     *
+     * <p>
+     * If a connected-user-facing API is ever built, this test is the place that says what changing these two answers
+     * means.
+     */
+    @Test
+    void testResolveDeniesDataTableAndKnowledgeBaseForAConnectedUser() {
+        assertThat(resolver.resolve(1L, "DataTable", "DATA_TABLE_VIEW")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "DataTable", "DATA_TABLE_EDIT")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "KnowledgeBase", "KNOWLEDGE_BASE_VIEW")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "KnowledgeBase", "KNOWLEDGE_BASE_EDIT")).isEqualTo(Decision.NOT_APPLICABLE);
     }
 
     // -- Project -----------------------------------------------------------------------------------------------
@@ -630,50 +653,26 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * The grant this ticket restores. A connection bound at the CONFIGURATION level is inherited by every connected
-     * user whose instance derives from that configuration; it is on neither the user's own instance nor their own
-     * connections, so before this it resolved DENIED while the picker happily listed it.
+     * The grant this ticket restores. A connection a tenant admin marked {@code shared} is inherited by every connected
+     * user in the environment; it is on neither the user's own instance nor their own connections, so before this it
+     * resolved DENIED while the picker happily listed it.
      */
     @Test
-    void testResolveConnectionGrantedViaIntegrationInstanceConfiguration() {
-        when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
+    void testResolveConnectionGrantedViaSharedConnection() {
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(78L)));
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * A configuration the caller has no instance for is never consulted, so its connections are not theirs. One
-     * configuration serves many connected users; enumerating configurations rather than the caller's own instances
-     * would grant each of them the others' connections.
-     */
-    @Test
-    void testResolveConnectionDeniedForAConfigurationTheUserHasNoInstanceFor() {
-        when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
-
-        assertThat(resolver.resolve(999L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.DENIED);
-
-        verify(integrationInstanceConfigurationWorkflowService, never())
-            .getIntegrationInstanceConfigurationWorkflows(List.of(OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID));
-    }
-
-    /**
-     * The environment axis, which source 3 inherits rather than re-applies. The instance lookup is environment-scoped,
-     * so a DEVELOPMENT caller's instances carry only DEVELOPMENT configuration ids: the PRODUCTION twin's configuration
-     * is never walked and its connection is denied. Reopening this would reintroduce, through a new door, the
+     * The environment axis, which source 3 applies directly rather than inheriting from the instance lookup. A
+     * DEVELOPMENT caller's shared connections are looked up with the DEVELOPMENT ordinal, so a connection shared only
+     * in PRODUCTION is never reached and is denied. Reopening this would reintroduce, through a new door, the
      * cross-environment hole this ticket closed.
      */
     @Test
-    void testResolveConnectionDeniedForTheSameConfigurationFamilyInAnotherEnvironment() {
+    void testResolveConnectionDeniedForASharedConnectionFromAnotherEnvironment() {
         authenticateAsConnectedUser(Environment.DEVELOPMENT);
 
         when(connectedUserService.fetchConnectedUser(EXTERNAL_USER_ID, Environment.DEVELOPMENT))
@@ -681,37 +680,28 @@ class ConnectedUserResourceMembershipResolverTest {
         when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.DEVELOPMENT))
             .thenReturn(Optional.of(connectedUserProject()));
 
-        when(
-            integrationInstanceService.getConnectedUserIntegrationInstances(
-                CONNECTED_USER_ID, Environment.DEVELOPMENT))
-                    .thenReturn(
-                        List.of(integrationInstance(77L, DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(88L)));
+        when(connectionService.getSharedConnections(Environment.DEVELOPMENT.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(78L)));
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(88L)));
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(88L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.DENIED);
 
-        verify(integrationInstanceConfigurationWorkflowService, never())
-            .getIntegrationInstanceConfigurationWorkflows(List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID));
+        verify(connectionService, never())
+            .getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED);
     }
 
     /**
      * A shared connection is one you may USE, not one you may rename, retag or delete. Ticket 1051 widened this
-     * resolver's set from ownership to entitlement, which silently turned every configuration-level connection into one
-     * any attached connected user could mutate: the decider is consulted BEFORE {@code hasResourceScope}, and a GRANT
-     * here returns ahead of the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}}
-     * -- gated {@code CONNECTION_EDIT} -- would have taken it.
+     * resolver's set from ownership to entitlement, which silently turned every shared connection into one any
+     * connected user in the environment could mutate: the decider is consulted BEFORE {@code hasResourceScope}, and a
+     * GRANT here returns ahead of the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/
+     * {id}} -- gated {@code CONNECTION_EDIT} -- would have taken it.
      */
     @Test
-    void testResolveConnectionDeniedForAMutatingScopeOnAConfigurationSharedConnection() {
-        stubConfigurationSharedConnection();
+    void testResolveConnectionDeniedForAMutatingScopeOnASharedConnection() {
+        stubSharedConnection();
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_VIEW")).isEqualTo(Decision.GRANTED);
@@ -725,7 +715,7 @@ class ConnectedUserResourceMembershipResolverTest {
      */
     @Test
     void testResolveConnectionGrantedForAMutatingScopeOnAnOwnedConnection() {
-        stubConfigurationSharedConnection();
+        stubSharedConnection();
 
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_EDIT")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_DELETE")).isEqualTo(Decision.GRANTED);
@@ -738,23 +728,29 @@ class ConnectedUserResourceMembershipResolverTest {
      */
     @Test
     void testResolveConnectionDeniesAnUnrecognisedScopeOnASharedConnection() {
-        stubConfigurationSharedConnection();
+        stubSharedConnection();
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_SOME_FUTURE_VERB")).isEqualTo(Decision.DENIED);
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_SOME_FUTURE_VERB")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * Connection 77 is on the caller's own instance (OWNED); connection 78 is bound at that instance's configuration
-     * (ENTITLED but not owned).
+     * Connection 77 is on the caller's own instance (OWNED); connection 78 is marked {@code shared} (ENTITLED but not
+     * owned).
      */
-    private void stubConfigurationSharedConnection() {
+    private void stubSharedConnection() {
         when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(78L)));
+    }
+
+    private static Connection connection(long id) {
+        Connection connection = new Connection();
+
+        connection.setId(id);
+
+        return connection;
     }
 
     private static IntegrationInstance integrationInstance(
@@ -766,15 +762,6 @@ class ConnectedUserResourceMembershipResolverTest {
         integrationInstance.setIntegrationInstanceConfigurationId(integrationInstanceConfigurationId);
 
         return integrationInstance;
-    }
-
-    private static IntegrationInstanceConfigurationWorkflow integrationInstanceConfigurationWorkflow(
-        long connectionId) {
-
-        IntegrationInstanceConfigurationWorkflowConnection workflowConnection =
-            new IntegrationInstanceConfigurationWorkflowConnection(connectionId, "connection", "node");
-
-        return new IntegrationInstanceConfigurationWorkflow(List.of(workflowConnection), Map.of(), "workflow-1");
     }
 
     // -- Workflow --------------------------------------------------------------------------------------------------
