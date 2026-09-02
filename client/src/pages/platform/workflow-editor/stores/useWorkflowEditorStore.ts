@@ -15,6 +15,15 @@ export interface WorkflowEditorI {
     clusterElementsCanvasOpen: boolean;
     setClusterElementsCanvasOpen: (clusterElementsCanvasOpen: boolean) => void;
 
+    /**
+     * Per-box lock state in box mode, keyed by cluster root workflow node name. Defaults to `{}` so
+     * an absent key reads as locked, matching the dialog's `setNodesLocked(true)` on mount — locked
+     * means the automatic layout owns every position; unlocked means the user arranges by hand and
+     * positions persist to `metadata.ui.nodePosition`. Not persisted across sessions.
+     */
+    clusterFrameLockedByRootId: Record<string, boolean>;
+    setClusterFrameLocked: (clusterRootId: string, locked: boolean) => void;
+
     copiedNode: NodeDataType | undefined;
     setCopiedNode: (copiedNode: NodeDataType | undefined) => void;
 
@@ -112,6 +121,15 @@ const useWorkflowEditorStore = create<WorkflowEditorI>()(
             setClusterElementsCanvasOpen: (clusterElementsCanvasOpen) =>
                 set(() => ({
                     clusterElementsCanvasOpen,
+                })),
+
+            clusterFrameLockedByRootId: {},
+            setClusterFrameLocked: (clusterRootId, locked) =>
+                set((state) => ({
+                    clusterFrameLockedByRootId: {
+                        ...state.clusterFrameLockedByRootId,
+                        [clusterRootId]: locked,
+                    },
                 })),
 
             copiedNode: undefined,
