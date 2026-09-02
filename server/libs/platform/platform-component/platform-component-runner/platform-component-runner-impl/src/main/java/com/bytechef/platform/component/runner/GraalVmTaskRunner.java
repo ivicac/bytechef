@@ -135,7 +135,18 @@ public class GraalVmTaskRunner implements TaskRunner {
             throw new IllegalArgumentException("The GraalVM runner does not support env");
         }
 
-        getMode(request);
+        ScriptSandboxMode scriptSandboxMode = getMode(request);
+
+        // Unlike the four rejections above, a stale timeout is not obviously wrong on its face - it is a valid
+        // value for the other mode. Rejecting it here, loudly, is what stops a workflow that carried timeout: 5
+        // under the process runner from silently keeping it after an author switches to graalvm, where it would
+        // apply a wall clock strict was never meant to have.
+        if (scriptSandboxMode == ScriptSandboxMode.STRICT && request.timeout() != null) {
+            throw new IllegalArgumentException(
+                "The GraalVM runner's strict mode does not support timeout; strict already runs under CPU and " +
+                    "heap ceilings, and a wall clock would kill a script that is merely waiting on I/O, such as a " +
+                    "slow call through the component bridge");
+        }
     }
 
     @Override
@@ -168,6 +179,11 @@ public class GraalVmTaskRunner implements TaskRunner {
      * A {@link ScriptSandboxMode#TRUSTED} execution has no ceiling of any kind, because {@code sandbox.*} options exist
      * only under {@code CONSTRAINED}. There the watchdog is the only thing that can stop a runaway script, so the
      * default applies.
+     *
+     * <p>
+     * {@code request.timeout()} reaches here non-null only for {@link ScriptSandboxMode#TRUSTED} - {@link #validate}
+     * rejects a non-null timeout under {@code STRICT} before {@link #run} ever calls this method, so the first branch
+     * below is unreachable for {@code STRICT} rather than merely untested.
      */
     private static @Nullable Duration getTimeout(TaskRunnerRequest request, ScriptSandboxMode scriptSandboxMode) {
         Duration timeout = request.timeout();

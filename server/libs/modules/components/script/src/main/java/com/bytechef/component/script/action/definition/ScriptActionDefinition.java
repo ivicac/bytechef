@@ -18,8 +18,16 @@ package com.bytechef.component.script.action.definition;
 
 import static com.bytechef.component.script.constant.ScriptConstants.INPUT;
 import static com.bytechef.platform.component.definition.ScriptComponentDefinition.SCRIPT;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.GRAALVM;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_EXIT_CODE;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDERR;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDOUT;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_VARS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.TIMEOUT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
 
 import com.bytechef.component.definition.ActionContext;
@@ -30,12 +38,16 @@ import com.bytechef.platform.component.definition.AbstractActionDefinitionWrappe
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.runner.TaskRunner;
+import com.bytechef.platform.component.runner.TaskRunnerCapability;
 import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 import com.bytechef.platform.component.runner.TaskRunnerRequest;
 import com.bytechef.platform.component.runner.TaskRunnerResult;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Executes the action's source in the environment its {@code taskRunner} property selects.
@@ -55,8 +67,9 @@ import java.util.Optional;
  * producing nothing and reporting nothing.
  *
  * <p>
- * The request carries no timeout. Phase 1 gives the action no timeout property, and how long an unbounded execution may
- * run is a property of the environment it runs in, not of the action - so the selected runner decides.
+ * The action carries an optional {@code timeout}. A null one leaves the ceiling to the selected runner; GraalVM strict
+ * deliberately applies none, because {@code sandbox.MaxCPUTime} meters CPU rather than elapsed time, and a wall clock
+ * would kill a script waiting on a slow HTTP call through {@code context.component.*} while it burns almost no CPU.
  *
  * @author Matija Petanjek
  * @author Ivica Cardic
@@ -91,13 +104,32 @@ public class ScriptActionDefinition extends AbstractActionDefinitionWrapper {
 
         TaskRunner taskRunner = taskRunnerRegistry.getTaskRunner(type.isBlank() ? GRAALVM : type);
 
+        Integer timeoutSeconds = inputParameters.getInteger(TIMEOUT);
+
         TaskRunnerRequest taskRunnerRequest = new TaskRunnerRequest(
             languageId, inputParameters.getRequiredString(SCRIPT), List.of(),
-            inputParameters.getMap(INPUT, Object.class, Map.of()), Map.of(), Map.of(), List.of(), inputParameters,
-            runnerParameters, null, connectionParameters, context);
+            inputParameters.getMap(INPUT, Object.class, Map.of()),
+            inputParameters.getMap(ENV, String.class, Map.of()),
+            inputParameters.getMap(INPUT_FILES, Object.class, Map.of()),
+            inputParameters.getList(OUTPUT_FILES, String.class, List.of()), inputParameters, runnerParameters,
+            timeoutSeconds == null ? null : Duration.ofSeconds(timeoutSeconds), connectionParameters, context);
 
         TaskRunnerResult taskRunnerResult = taskRunner.run(taskRunnerRequest);
 
-        return taskRunnerResult.output();
+        Set<TaskRunnerCapability> capabilities = taskRunner.getCapabilities();
+
+        if (capabilities.contains(TaskRunnerCapability.COMPONENT_BRIDGE)) {
+            return taskRunnerResult.output();
+        }
+
+        Map<String, Object> result = new HashMap<>();
+
+        result.put(RESULT_EXIT_CODE, taskRunnerResult.exitCode());
+        result.put(RESULT_STDOUT, taskRunnerResult.stdout());
+        result.put(RESULT_STDERR, taskRunnerResult.stderr());
+        result.put(RESULT_VARS, taskRunnerResult.output());
+        result.put(OUTPUT_FILES, taskRunnerResult.outputFiles());
+
+        return result;
     }
 }
