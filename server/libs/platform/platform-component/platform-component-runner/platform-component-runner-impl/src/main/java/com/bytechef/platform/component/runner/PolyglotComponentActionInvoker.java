@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.script.engine;
+package com.bytechef.platform.component.runner;
 
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.component.ComponentConnection;
@@ -28,25 +28,25 @@ import javax.annotation.Nullable;
 import org.springframework.context.ApplicationContext;
 
 /**
- * {@link ComponentActionInvoker} adapter backing the script component's {@code context.component.<name>.<action>}
- * calls. Resolves the connection from the task's configured {@code componentConnections} (by name, or the first
- * connection matching the target component when none is given) and dispatches through
- * {@link ActionDefinitionService#executePerformForPolyglot}, matching the pre-extraction {@code PolyglotEngine}
- * behavior verbatim, including lazy bean resolution of {@link ActionDefinitionService} from the
+ * {@link ComponentActionInvoker} adapter backing the {@code context.component.<name>.<action>} calls a guest script
+ * reaches through {@link PolyglotEngine}. Resolves the connection from the task's configured
+ * {@code componentConnections} (by name, or the first connection matching the target component when none is given) and
+ * dispatches through {@link ActionDefinitionService#executePerformForPolyglot}, matching the pre-extraction
+ * {@code PolyglotEngine} behavior verbatim, including lazy bean resolution of {@link ActionDefinitionService} from the
  * {@link ApplicationContext} on every call.
  *
  * @author Ivica Cardic
  */
-class ScriptComponentActionInvoker implements ComponentActionInvoker {
+class PolyglotComponentActionInvoker implements ComponentActionInvoker {
 
     private final ApplicationContext applicationContext;
     private final Map<String, ComponentConnection> componentConnections;
     private final JobContextAware jobContextAware;
-    private final ScriptComponentCatalog componentCatalog;
+    private final PolyglotComponentCatalog componentCatalog;
 
-    ScriptComponentActionInvoker(
+    PolyglotComponentActionInvoker(
         ApplicationContext applicationContext, Map<String, ComponentConnection> componentConnections,
-        JobContextAware jobContextAware, ScriptComponentCatalog componentCatalog) {
+        JobContextAware jobContextAware, PolyglotComponentCatalog componentCatalog) {
 
         this.applicationContext = applicationContext;
         this.componentConnections = componentConnections;
