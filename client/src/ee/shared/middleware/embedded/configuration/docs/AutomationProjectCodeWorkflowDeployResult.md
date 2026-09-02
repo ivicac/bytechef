@@ -1,29 +1,23 @@
 
-# UpdateConnectionRequest
+# AutomationProjectCodeWorkflowDeployResult
 
-Contains all connection parameters that can be updated.
+The result of deploying an automation code workflow into the embedded catalog.
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`shared` | boolean
-`tags` | [Array&lt;Tag&gt;](Tag.md)
-`version` | number
+`warnings` | Array&lt;string&gt;
 
 ## Example
 
 ```typescript
-import type { UpdateConnectionRequest } from ''
+import type { AutomationProjectCodeWorkflowDeployResult } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "shared": null,
-  "tags": null,
-  "version": null,
-} satisfies UpdateConnectionRequest
+  "warnings": null,
+} satisfies AutomationProjectCodeWorkflowDeployResult
 
 console.log(example)
 
@@ -32,7 +26,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateConnectionRequest
+const exampleParsed = JSON.parse(exampleJSON) as AutomationProjectCodeWorkflowDeployResult
 console.log(exampleParsed)
 ```
 

@@ -1535,6 +1535,14 @@ export type AssetFile = {
   tags: Array<Tag>;
 };
 
+export type AssetFileSearchResult = SearchResult & {
+  __typename?: 'AssetFileSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
 export enum AssetFileSource {
   AiGenerated = 'AI_GENERATED',
   UserUpload = 'USER_UPLOAD'
@@ -1548,6 +1556,18 @@ export type AssetFileVersion = {
   mimeType: Scalars['String']['output'];
   sizeBytes: Scalars['Long']['output'];
   versionNumber: Scalars['Int']['output'];
+};
+
+export type AssignDataTableOwnerInput = {
+  dataTableId: Scalars['ID']['input'];
+  /** Omit to return the table to the vendor, making it shared with every account again. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+export type AssignKnowledgeBaseOwnerInput = {
+  knowledgeBaseId: Scalars['ID']['input'];
+  /** Omit to return the knowledge base to the vendor, making it shared with every account again. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 export type AttachAiHubChatToolInput = {
@@ -2245,6 +2265,29 @@ export type CreateDataTableInput = {
   workspaceId: Scalars['ID']['input'];
 };
 
+export type CreateEmbeddedDataTableInput = {
+  columns: Array<EmbeddedDataTableColumnInput>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  /** Omit to create the table shared with every account. Naming an account gives it a physical table of its own, which is what lets two accounts each hold a table of the same name. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+export type CreateEmbeddedKnowledgeBaseInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  /** Omit to take the platform's own default. Deliberately not defaulted in this schema: a default written here would be a second copy of the entity's, and the two would drift silently. */
+  maxChunkSize?: InputMaybe<Scalars['Int']['input']>;
+  /** Omit to take the platform's own default. */
+  minChunkSizeChars?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  /** Omit to take the platform's own default. */
+  overlap?: InputMaybe<Scalars['Int']['input']>;
+  /** Omit to create the knowledge base shared with every account. Naming an account gives it a knowledge base of its own, which is what lets two accounts each hold one of the same name. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
 export type CreateEmbeddedMcpServerInput = {
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   environmentId: Scalars['ID']['input'];
@@ -2563,6 +2606,43 @@ export type DynamicPropertiesProperty = Property & {
   type: PropertyType;
 };
 
+export type EmbeddedDataTable = {
+  __typename?: 'EmbeddedDataTable';
+  baseName: Scalars['String']['output'];
+  columns: Array<EmbeddedDataTableColumn>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  /** Null means the vendor owns it and every account can see it. */
+  ownerId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type EmbeddedDataTableColumn = {
+  __typename?: 'EmbeddedDataTableColumn';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: ColumnType;
+};
+
+export type EmbeddedDataTableColumnInput = {
+  name: Scalars['String']['input'];
+  type: ColumnType;
+};
+
+export type EmbeddedKnowledgeBase = {
+  __typename?: 'EmbeddedKnowledgeBase';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  maxChunkSize: Scalars['Int']['output'];
+  minChunkSizeChars: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  overlap: Scalars['Int']['output'];
+  /** Null means the vendor owns it and every account can see it. */
+  ownerId?: Maybe<Scalars['ID']['output']>;
+};
+
 export type EndpointDefinitionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   httpMethod: HttpMethod;
@@ -2585,6 +2665,32 @@ export enum EnvironmentEnum {
   Production = 'PRODUCTION',
   Staging = 'STAGING'
 }
+
+/**
+ * A dry-run preview of promoting one resource from its source environment to a target environment, returned before
+ * the caller commits to `promoteToEnvironment`.
+ */
+export type EnvironmentPromotionPreview = {
+  __typename?: 'EnvironmentPromotionPreview';
+  connections: Array<PromotionConnectionMapping>;
+  existingTargetId?: Maybe<Scalars['ID']['output']>;
+  existingTargetName?: Maybe<Scalars['String']['output']>;
+  projects: Array<PromotionProjectPreview>;
+  resourceType: PromotionResourceType;
+  sourceEnvironmentId: Scalars['ID']['output'];
+  sourceId: Scalars['ID']['output'];
+  targetEnvironmentId: Scalars['ID']['output'];
+  warnings: Array<Scalars['String']['output']>;
+};
+
+/** The outcome of promoting one resource to a target environment. */
+export type EnvironmentPromotionResult = {
+  __typename?: 'EnvironmentPromotionResult';
+  created: Scalars['Boolean']['output'];
+  targetId: Scalars['ID']['output'];
+  targetUrl?: Maybe<Scalars['String']['output']>;
+  unresolvedConnectionIds: Array<Scalars['ID']['output']>;
+};
 
 export enum EvaluatorFunctionCategory {
   Collection = 'COLLECTION',
@@ -3329,6 +3435,8 @@ export type Mutation = {
   addWorkspaceUser: WorkspaceUser;
   /** Appends an assistant message to the chat's chat memory — persists an approval-resolution continuation streamed outside the bridge turn model. */
   appendAiHubChatAssistantMessage: Scalars['Boolean']['output'];
+  assignEmbeddedDataTableOwner: Scalars['Boolean']['output'];
+  assignEmbeddedKnowledgeBaseOwner: Scalars['Boolean']['output'];
   /** Scope a notification to a workspace (moves it if it was scoped to another one). */
   assignNotificationToWorkspace: Scalars['Boolean']['output'];
   /**
@@ -3433,6 +3541,8 @@ export type Mutation = {
   /** Create a tenant-global custom role, assignable in every workspace. Requires tenant admin. */
   createCustomRole: CustomRole;
   createDataTable: Scalars['Boolean']['output'];
+  createEmbeddedDataTable: Scalars['Boolean']['output'];
+  createEmbeddedKnowledgeBase: Scalars['Boolean']['output'];
   createEmbeddedMcpServer?: Maybe<McpServer>;
   createEmbeddedVariable: Variable;
   createIdentityProvider: IdentityProviderType;
@@ -3613,6 +3723,8 @@ export type Mutation = {
   /** Mark all of a user's connections as pending reassignment. Returns per-row outcome so partial failures surface; a silent no-op batch does not look like an error. (admin only) */
   markConnectionsPendingReassignment: BulkReassignResult;
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
+  /** Promote a resource into another environment: creates the counterpart on first promotion, syncs it afterwards. */
+  promoteToEnvironment: EnvironmentPromotionResult;
   publishAiAgent: Scalars['Int']['output'];
   publishAutomationWorkflowProject: Scalars['Boolean']['output'];
   publishCustomComponent: CustomComponent;
@@ -3620,6 +3732,10 @@ export type Mutation = {
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
   reassignConnection: Scalars['Boolean']['output'];
+  /** Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateEmbeddedKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it. */
+  rechunkEmbeddedKnowledgeBase: Scalars['Int']['output'];
+  /** Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it. */
+  rechunkKnowledgeBase: Scalars['Int']['output'];
   reconcileAiModelCatalog?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Records a user-attached reference (file / workflow / data table / knowledge base) as a chat
@@ -3811,6 +3927,8 @@ export type Mutation = {
   updateCustomRole: CustomRole;
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
+  /** Chunking decides how a document is split before embedding, so without this a knowledge base created here would keep its create-time chunking for life -- the only escape being to delete it and re-upload and re-embed every document. */
+  updateEmbeddedKnowledgeBase: Scalars['Boolean']['output'];
   updateEmbeddedVariable: Variable;
   updateIdentityProvider: IdentityProviderType;
   updateIntegrationCodeWorkflowSource: Scalars['Boolean']['output'];
@@ -3901,6 +4019,16 @@ export type MutationAppendAiHubChatAssistantMessageArgs = {
   content: Scalars['String']['input'];
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationAssignEmbeddedDataTableOwnerArgs = {
+  input: AssignDataTableOwnerInput;
+};
+
+
+export type MutationAssignEmbeddedKnowledgeBaseOwnerArgs = {
+  input: AssignKnowledgeBaseOwnerInput;
 };
 
 
@@ -4221,6 +4349,16 @@ export type MutationCreateCustomRoleArgs = {
 
 export type MutationCreateDataTableArgs = {
   input: CreateDataTableInput;
+};
+
+
+export type MutationCreateEmbeddedDataTableArgs = {
+  input: CreateEmbeddedDataTableInput;
+};
+
+
+export type MutationCreateEmbeddedKnowledgeBaseArgs = {
+  input: CreateEmbeddedKnowledgeBaseInput;
 };
 
 
@@ -4906,6 +5044,11 @@ export type MutationPlaygroundChatCompletionArgs = {
 };
 
 
+export type MutationPromoteToEnvironmentArgs = {
+  input: PromoteToEnvironmentInput;
+};
+
+
 export type MutationPublishAiAgentArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -4933,6 +5076,16 @@ export type MutationReassignConnectionArgs = {
   connectionId: Scalars['ID']['input'];
   newOwnerLogin: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRechunkEmbeddedKnowledgeBaseArgs = {
+  knowledgeBaseId: Scalars['ID']['input'];
+};
+
+
+export type MutationRechunkKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -5608,6 +5761,11 @@ export type MutationUpdateDataTableTagsArgs = {
 };
 
 
+export type MutationUpdateEmbeddedKnowledgeBaseArgs = {
+  input: UpdateEmbeddedKnowledgeBaseInput;
+};
+
+
 export type MutationUpdateEmbeddedVariableArgs = {
   environmentId: Scalars['ID']['input'];
   id: Scalars['ID']['input'];
@@ -6045,6 +6203,7 @@ export type ProjectSearchResult = SearchResult & {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  projectWorkflowId?: Maybe<Scalars['ID']['output']>;
   type: SearchAssetType;
 };
 
@@ -6082,6 +6241,54 @@ export type ProjectWorkflow = {
   workflow: Workflow;
   workflowId: Scalars['String']['output'];
 };
+
+/** Input for promoting a resource into another environment. */
+export type PromoteToEnvironmentInput = {
+  connectionMappings: Array<PromotionConnectionMappingInput>;
+  resourceType: PromotionResourceType;
+  sourceId: Scalars['ID']['input'];
+  targetEnvironmentId: Scalars['ID']['input'];
+};
+
+/**
+ * A connection referenced by the source resource being promoted, together with a suggestion for which connection in
+ * the target environment it should be rewired to.
+ */
+export type PromotionConnectionMapping = {
+  __typename?: 'PromotionConnectionMapping';
+  componentName: Scalars['String']['output'];
+  connectionVersion: Scalars['Int']['output'];
+  sourceConnectionId: Scalars['ID']['output'];
+  sourceConnectionName: Scalars['String']['output'];
+  suggestedTargetConnectionId?: Maybe<Scalars['ID']['output']>;
+  usedBy: Array<Scalars['String']['output']>;
+};
+
+/** An explicit source-connection-to-target-connection mapping supplied by the caller for `promoteToEnvironment`. */
+export type PromotionConnectionMappingInput = {
+  sourceConnectionId: Scalars['ID']['input'];
+  targetConnectionId: Scalars['ID']['input'];
+};
+
+/**
+ * A project referenced by the source resource being promoted, together with the version already present in the
+ * target environment, if any.
+ */
+export type PromotionProjectPreview = {
+  __typename?: 'PromotionProjectPreview';
+  projectId: Scalars['ID']['output'];
+  projectName: Scalars['String']['output'];
+  sourceProjectVersion: Scalars['Int']['output'];
+  targetProjectVersion?: Maybe<Scalars['Int']['output']>;
+};
+
+/** The kinds of environment-scoped automation resources that can be promoted from one environment to another. */
+export enum PromotionResourceType {
+  A2AServer = 'A2A_SERVER',
+  ApiCollection = 'API_COLLECTION',
+  McpServer = 'MCP_SERVER',
+  ProjectDeployment = 'PROJECT_DEPLOYMENT'
+}
 
 export type PropertiesDataSource = {
   __typename?: 'PropertiesDataSource';
@@ -6400,9 +6607,18 @@ export type Query = {
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
   eligibleErrorWorkflows: Array<ProjectWorkflow>;
+  /** ownerId filters to what that connected user would see, which includes the vendor's shared tables. */
+  embeddedDataTables: Array<EmbeddedDataTable>;
+  /** ownerId filters to what that connected user would see, which includes the vendor's shared knowledge bases. */
+  embeddedKnowledgeBases: Array<EmbeddedKnowledgeBase>;
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedVariables: Array<Variable>;
+  /**
+   * Preview what promoting a resource into another environment will do (create vs. update, version moves,
+   * suggested connection re-bindings, warnings).
+   */
+  environmentPromotionPreview: EnvironmentPromotionPreview;
   environments?: Maybe<Array<Maybe<Environment>>>;
   evaluatorFunctionDefinition: EvaluatorFunctionDefinition;
   evaluatorFunctionDefinitions: Array<EvaluatorFunctionDefinition>;
@@ -6447,9 +6663,7 @@ export type Query = {
   mcpProject?: Maybe<McpProject>;
   mcpProjectWorkflow?: Maybe<McpProjectWorkflow>;
   mcpProjectWorkflowProperties?: Maybe<Array<Maybe<Property>>>;
-  mcpProjectWorkflows?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
   mcpProjectWorkflowsByMcpProjectId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
-  mcpProjectWorkflowsByProjectDeploymentWorkflowId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
   mcpProjects?: Maybe<Array<Maybe<McpProject>>>;
   mcpProjectsByServerId?: Maybe<Array<Maybe<McpProject>>>;
   mcpServer?: Maybe<McpServer>;
@@ -7078,6 +7292,7 @@ export type QueryAuditEventsArgs = {
 export type QueryAutomationSearchArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   query: Scalars['String']['input'];
+  types?: InputMaybe<Array<SearchAssetType>>;
 };
 
 
@@ -7373,8 +7588,27 @@ export type QueryEligibleErrorWorkflowsArgs = {
 };
 
 
+export type QueryEmbeddedDataTablesArgs = {
+  environmentId: Scalars['ID']['input'];
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryEmbeddedKnowledgeBasesArgs = {
+  environmentId: Scalars['ID']['input'];
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
 export type QueryEmbeddedVariablesArgs = {
   environmentId: Scalars['ID']['input'];
+};
+
+
+export type QueryEnvironmentPromotionPreviewArgs = {
+  resourceType: PromotionResourceType;
+  sourceId: Scalars['ID']['input'];
+  targetEnvironmentId: Scalars['ID']['input'];
 };
 
 
@@ -7489,6 +7723,11 @@ export type QueryKnowledgeBaseTagsArgs = {
 };
 
 
+export type QueryKnowledgeBaseTagsByKnowledgeBaseArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryKnowledgeBasesArgs = {
   environmentId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -7547,11 +7786,6 @@ export type QueryMcpProjectWorkflowPropertiesArgs = {
 
 export type QueryMcpProjectWorkflowsByMcpProjectIdArgs = {
   mcpProjectId?: InputMaybe<Scalars['ID']['input']>;
-};
-
-
-export type QueryMcpProjectWorkflowsByProjectDeploymentWorkflowIdArgs = {
-  projectDeploymentWorkflowId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -7973,6 +8207,7 @@ export type ScriptTestExecution = {
 export enum SearchAssetType {
   ApiCollection = 'API_COLLECTION',
   ApiEndpoint = 'API_ENDPOINT',
+  AssetFile = 'ASSET_FILE',
   Connection = 'CONNECTION',
   DataTable = 'DATA_TABLE',
   Deployment = 'DEPLOYMENT',
@@ -8353,6 +8588,19 @@ export type UpdateCustomRoleInput = {
 export type UpdateDataTableTagsInput = {
   tableId: Scalars['ID']['input'];
   tags?: InputMaybe<Array<TagInput>>;
+};
+
+/** The owner is deliberately absent: reassigning one is assignEmbeddedKnowledgeBaseOwner, and folding it in here would give two mutations that can both move a knowledge base between accounts. */
+export type UpdateEmbeddedKnowledgeBaseInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  knowledgeBaseId: Scalars['ID']['input'];
+  /** Omit to leave the stored value alone. */
+  maxChunkSize?: InputMaybe<Scalars['Int']['input']>;
+  /** Omit to leave the stored value alone. */
+  minChunkSizeChars?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  /** Omit to leave the stored value alone. */
+  overlap?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateKnowledgeBaseDocumentTagsInput = {

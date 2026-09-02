@@ -2896,7 +2896,9 @@ export type KnowledgeBaseTagsQueryVariables = Exact<{
 
 export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
 
-export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{ [key: string]: never; }>;
+export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type KnowledgeBaseTagsByKnowledgeBaseQuery = { knowledgeBaseTagsByKnowledgeBase: Array<{ knowledgeBaseId: string, tags: Array<{ id: string, name: string }> }> | null };
@@ -2908,6 +2910,13 @@ export type KnowledgeBasesQueryVariables = Exact<{
 
 
 export type KnowledgeBasesQuery = { knowledgeBases: Array<{ id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any } | null> | null };
+
+export type RechunkKnowledgeBaseMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type RechunkKnowledgeBaseMutation = { rechunkKnowledgeBase: number };
 
 export type RefreshKnowledgeBaseSourceMutationVariables = Exact<{
   id: string | number;
@@ -2971,21 +2980,39 @@ export type UpdateKnowledgeBaseTagsMutationVariables = Exact<{
 
 export type UpdateKnowledgeBaseTagsMutation = { updateKnowledgeBaseTags: boolean };
 
+export type EnvironmentPromotionPreviewQueryVariables = Exact<{
+  resourceType: Types.PromotionResourceType;
+  sourceId: string | number;
+  targetEnvironmentId: string | number;
+}>;
+
+
+export type EnvironmentPromotionPreviewQuery = { environmentPromotionPreview: { existingTargetId: string | null, existingTargetName: string | null, resourceType: Types.PromotionResourceType, sourceEnvironmentId: string, sourceId: string, targetEnvironmentId: string, warnings: Array<string>, connections: Array<{ componentName: string, connectionVersion: number, sourceConnectionId: string, sourceConnectionName: string, suggestedTargetConnectionId: string | null, usedBy: Array<string> }>, projects: Array<{ projectId: string, projectName: string, sourceProjectVersion: number, targetProjectVersion: number | null }> } };
+
+export type PromoteToEnvironmentMutationVariables = Exact<{
+  input: Types.PromoteToEnvironmentInput;
+}>;
+
+
+export type PromoteToEnvironmentMutation = { promoteToEnvironment: { created: boolean, targetId: string, targetUrl: string | null, unresolvedConnectionIds: Array<string> } };
+
 export type AutomationSearchQueryVariables = Exact<{
   query: string;
   limit?: number | null | undefined;
+  types?: Array<Types.SearchAssetType> | Types.SearchAssetType | null | undefined;
 }>;
 
 
 export type AutomationSearchQuery = { automationSearch: Array<
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { collectionId: string, path: string | null, id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { knowledgeBaseId: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { projectName: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { projectWorkflowId: string | null, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { projectId: string, label: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
   > };
 
@@ -3253,6 +3280,57 @@ export type DuplicateAutomationWorkflowProjectWorkflowMutationVariables = Exact<
 
 export type DuplicateAutomationWorkflowProjectWorkflowMutation = { duplicateAutomationWorkflowProjectWorkflow: string };
 
+export type EmbeddedDataTablesQueryVariables = Exact<{
+  environmentId: string | number;
+  ownerId?: string | number | null | undefined;
+}>;
+
+
+export type EmbeddedDataTablesQuery = { embeddedDataTables: Array<{ id: string, baseName: string, description: string | null, lastModifiedDate: any, ownerId: string | null, columns: Array<{ id: string, name: string, type: Types.ColumnType }> }> };
+
+export type AssignEmbeddedDataTableOwnerMutationVariables = Exact<{
+  input: Types.AssignDataTableOwnerInput;
+}>;
+
+
+export type AssignEmbeddedDataTableOwnerMutation = { assignEmbeddedDataTableOwner: boolean };
+
+export type CreateEmbeddedDataTableMutationVariables = Exact<{
+  input: Types.CreateEmbeddedDataTableInput;
+}>;
+
+
+export type CreateEmbeddedDataTableMutation = { createEmbeddedDataTable: boolean };
+
+export type EmbeddedKnowledgeBasesQueryVariables = Exact<{
+  environmentId: string | number;
+  ownerId?: string | number | null | undefined;
+}>;
+
+
+export type EmbeddedKnowledgeBasesQuery = { embeddedKnowledgeBases: Array<{ id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any, ownerId: string | null, maxChunkSize: number, minChunkSizeChars: number, overlap: number }> };
+
+export type AssignEmbeddedKnowledgeBaseOwnerMutationVariables = Exact<{
+  input: Types.AssignKnowledgeBaseOwnerInput;
+}>;
+
+
+export type AssignEmbeddedKnowledgeBaseOwnerMutation = { assignEmbeddedKnowledgeBaseOwner: boolean };
+
+export type CreateEmbeddedKnowledgeBaseMutationVariables = Exact<{
+  input: Types.CreateEmbeddedKnowledgeBaseInput;
+}>;
+
+
+export type CreateEmbeddedKnowledgeBaseMutation = { createEmbeddedKnowledgeBase: boolean };
+
+export type UpdateEmbeddedKnowledgeBaseMutationVariables = Exact<{
+  input: Types.UpdateEmbeddedKnowledgeBaseInput;
+}>;
+
+
+export type UpdateEmbeddedKnowledgeBaseMutation = { updateEmbeddedKnowledgeBase: boolean };
+
 export type EmbeddedMcpServerTagsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -3336,6 +3414,13 @@ export type McpIntegrationInstanceConfigurationsByServerIdQueryVariables = Exact
 
 
 export type McpIntegrationInstanceConfigurationsByServerIdQuery = { mcpIntegrationInstanceConfigurationsByServerId: Array<{ id: string, integrationInstanceConfigurationId: string, integrationInstanceConfigurationName: string | null, integrationVersion: number | null, lastModifiedDate: any, mcpServerId: string, integration: { componentName: string, id: string, name: string } | null, mcpIntegrationInstanceConfigurationWorkflows: Array<{ id: string, integrationInstanceConfigurationWorkflowId: any, mcpIntegrationInstanceConfigurationId: any, parameters: any, integrationInstanceConfigurationWorkflow: { id: string, enabled: boolean, inputs: any, integrationInstanceConfigurationId: string, version: number, workflowId: string, connections: Array<{ connectionId: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow: { id: string, label: string } | null } | null> | null } | null> | null };
+
+export type RechunkEmbeddedKnowledgeBaseMutationVariables = Exact<{
+  knowledgeBaseId: string | number;
+}>;
+
+
+export type RechunkEmbeddedKnowledgeBaseMutation = { rechunkEmbeddedKnowledgeBase: number };
 
 export type ToolEligibleIntegrationInstanceConfigurationWorkflowsQueryVariables = Exact<{
   integrationInstanceConfigurationId: string | number;
@@ -14671,8 +14756,8 @@ export const useKnowledgeBaseTagsQuery = <
     )};
 
 export const KnowledgeBaseTagsByKnowledgeBaseDocument = new TypedDocumentString(`
-    query knowledgeBaseTagsByKnowledgeBase {
-  knowledgeBaseTagsByKnowledgeBase {
+    query knowledgeBaseTagsByKnowledgeBase($workspaceId: ID!) {
+  knowledgeBaseTagsByKnowledgeBase(workspaceId: $workspaceId) {
     knowledgeBaseId
     tags {
       id
@@ -14686,13 +14771,13 @@ export const useKnowledgeBaseTagsByKnowledgeBaseQuery = <
       TData = KnowledgeBaseTagsByKnowledgeBaseQuery,
       TError = unknown
     >(
-      variables?: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
+      variables: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
       options?: Omit<UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['knowledgeBaseTagsByKnowledgeBase'] : ['knowledgeBaseTagsByKnowledgeBase', variables],
+    queryKey: ['knowledgeBaseTagsByKnowledgeBase', variables],
     queryFn: fetcher<KnowledgeBaseTagsByKnowledgeBaseQuery, KnowledgeBaseTagsByKnowledgeBaseQueryVariables>(KnowledgeBaseTagsByKnowledgeBaseDocument, variables),
     ...options
   }
@@ -14725,6 +14810,25 @@ export const useKnowledgeBasesQuery = <
       {
     queryKey: ['knowledgeBases', variables],
     queryFn: fetcher<KnowledgeBasesQuery, KnowledgeBasesQueryVariables>(KnowledgeBasesDocument, variables),
+    ...options
+  }
+    )};
+
+export const RechunkKnowledgeBaseDocument = new TypedDocumentString(`
+    mutation rechunkKnowledgeBase($id: ID!) {
+  rechunkKnowledgeBase(id: $id)
+}
+    `);
+
+export const useRechunkKnowledgeBaseMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RechunkKnowledgeBaseMutation, TError, RechunkKnowledgeBaseMutationVariables, TContext>) => {
+    
+    return useMutation<RechunkKnowledgeBaseMutation, TError, RechunkKnowledgeBaseMutationVariables, TContext>(
+      {
+    mutationKey: ['rechunkKnowledgeBase'],
+    mutationFn: (variables?: RechunkKnowledgeBaseMutationVariables) => fetcher<RechunkKnowledgeBaseMutation, RechunkKnowledgeBaseMutationVariables>(RechunkKnowledgeBaseDocument, variables)(),
     ...options
   }
     )};
@@ -14915,23 +15019,91 @@ export const useUpdateKnowledgeBaseTagsMutation = <
   }
     )};
 
+export const EnvironmentPromotionPreviewDocument = new TypedDocumentString(`
+    query environmentPromotionPreview($resourceType: PromotionResourceType!, $sourceId: ID!, $targetEnvironmentId: ID!) {
+  environmentPromotionPreview(
+    resourceType: $resourceType
+    sourceId: $sourceId
+    targetEnvironmentId: $targetEnvironmentId
+  ) {
+    connections {
+      componentName
+      connectionVersion
+      sourceConnectionId
+      sourceConnectionName
+      suggestedTargetConnectionId
+      usedBy
+    }
+    existingTargetId
+    existingTargetName
+    projects {
+      projectId
+      projectName
+      sourceProjectVersion
+      targetProjectVersion
+    }
+    resourceType
+    sourceEnvironmentId
+    sourceId
+    targetEnvironmentId
+    warnings
+  }
+}
+    `);
+
+export const useEnvironmentPromotionPreviewQuery = <
+      TData = EnvironmentPromotionPreviewQuery,
+      TError = unknown
+    >(
+      variables: EnvironmentPromotionPreviewQueryVariables,
+      options?: Omit<UseQueryOptions<EnvironmentPromotionPreviewQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EnvironmentPromotionPreviewQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EnvironmentPromotionPreviewQuery, TError, TData>(
+      {
+    queryKey: ['environmentPromotionPreview', variables],
+    queryFn: fetcher<EnvironmentPromotionPreviewQuery, EnvironmentPromotionPreviewQueryVariables>(EnvironmentPromotionPreviewDocument, variables),
+    ...options
+  }
+    )};
+
+export const PromoteToEnvironmentDocument = new TypedDocumentString(`
+    mutation promoteToEnvironment($input: PromoteToEnvironmentInput!) {
+  promoteToEnvironment(input: $input) {
+    created
+    targetId
+    targetUrl
+    unresolvedConnectionIds
+  }
+}
+    `);
+
+export const usePromoteToEnvironmentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PromoteToEnvironmentMutation, TError, PromoteToEnvironmentMutationVariables, TContext>) => {
+    
+    return useMutation<PromoteToEnvironmentMutation, TError, PromoteToEnvironmentMutationVariables, TContext>(
+      {
+    mutationKey: ['promoteToEnvironment'],
+    mutationFn: (variables?: PromoteToEnvironmentMutationVariables) => fetcher<PromoteToEnvironmentMutation, PromoteToEnvironmentMutationVariables>(PromoteToEnvironmentDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AutomationSearchDocument = new TypedDocumentString(`
-    query automationSearch($query: String!, $limit: Int) {
-  automationSearch(query: $query, limit: $limit) {
+    query automationSearch($query: String!, $limit: Int, $types: [SearchAssetType!]) {
+  automationSearch(query: $query, limit: $limit, types: $types) {
     id
     name
     description
     type
+    ... on ProjectSearchResult {
+      projectWorkflowId
+    }
     ... on WorkflowSearchResult {
       projectId
       label
-    }
-    ... on ProjectDeploymentSearchResult {
-      projectName
-    }
-    ... on ApiEndpointSearchResult {
-      collectionId
-      path
     }
     ... on KnowledgeBaseDocumentSearchResult {
       knowledgeBaseId
@@ -15821,6 +15993,166 @@ export const useDuplicateAutomationWorkflowProjectWorkflowMutation = <
   }
     )};
 
+export const EmbeddedDataTablesDocument = new TypedDocumentString(`
+    query EmbeddedDataTables($environmentId: ID!, $ownerId: ID) {
+  embeddedDataTables(environmentId: $environmentId, ownerId: $ownerId) {
+    id
+    baseName
+    description
+    columns {
+      id
+      name
+      type
+    }
+    lastModifiedDate
+    ownerId
+  }
+}
+    `);
+
+export const useEmbeddedDataTablesQuery = <
+      TData = EmbeddedDataTablesQuery,
+      TError = unknown
+    >(
+      variables: EmbeddedDataTablesQueryVariables,
+      options?: Omit<UseQueryOptions<EmbeddedDataTablesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EmbeddedDataTablesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EmbeddedDataTablesQuery, TError, TData>(
+      {
+    queryKey: ['EmbeddedDataTables', variables],
+    queryFn: fetcher<EmbeddedDataTablesQuery, EmbeddedDataTablesQueryVariables>(EmbeddedDataTablesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AssignEmbeddedDataTableOwnerDocument = new TypedDocumentString(`
+    mutation AssignEmbeddedDataTableOwner($input: AssignDataTableOwnerInput!) {
+  assignEmbeddedDataTableOwner(input: $input)
+}
+    `);
+
+export const useAssignEmbeddedDataTableOwnerMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AssignEmbeddedDataTableOwnerMutation, TError, AssignEmbeddedDataTableOwnerMutationVariables, TContext>) => {
+    
+    return useMutation<AssignEmbeddedDataTableOwnerMutation, TError, AssignEmbeddedDataTableOwnerMutationVariables, TContext>(
+      {
+    mutationKey: ['AssignEmbeddedDataTableOwner'],
+    mutationFn: (variables?: AssignEmbeddedDataTableOwnerMutationVariables) => fetcher<AssignEmbeddedDataTableOwnerMutation, AssignEmbeddedDataTableOwnerMutationVariables>(AssignEmbeddedDataTableOwnerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateEmbeddedDataTableDocument = new TypedDocumentString(`
+    mutation CreateEmbeddedDataTable($input: CreateEmbeddedDataTableInput!) {
+  createEmbeddedDataTable(input: $input)
+}
+    `);
+
+export const useCreateEmbeddedDataTableMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateEmbeddedDataTableMutation, TError, CreateEmbeddedDataTableMutationVariables, TContext>) => {
+    
+    return useMutation<CreateEmbeddedDataTableMutation, TError, CreateEmbeddedDataTableMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateEmbeddedDataTable'],
+    mutationFn: (variables?: CreateEmbeddedDataTableMutationVariables) => fetcher<CreateEmbeddedDataTableMutation, CreateEmbeddedDataTableMutationVariables>(CreateEmbeddedDataTableDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const EmbeddedKnowledgeBasesDocument = new TypedDocumentString(`
+    query EmbeddedKnowledgeBases($environmentId: ID!, $ownerId: ID) {
+  embeddedKnowledgeBases(environmentId: $environmentId, ownerId: $ownerId) {
+    id
+    name
+    description
+    createdDate
+    lastModifiedDate
+    ownerId
+    maxChunkSize
+    minChunkSizeChars
+    overlap
+  }
+}
+    `);
+
+export const useEmbeddedKnowledgeBasesQuery = <
+      TData = EmbeddedKnowledgeBasesQuery,
+      TError = unknown
+    >(
+      variables: EmbeddedKnowledgeBasesQueryVariables,
+      options?: Omit<UseQueryOptions<EmbeddedKnowledgeBasesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EmbeddedKnowledgeBasesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EmbeddedKnowledgeBasesQuery, TError, TData>(
+      {
+    queryKey: ['EmbeddedKnowledgeBases', variables],
+    queryFn: fetcher<EmbeddedKnowledgeBasesQuery, EmbeddedKnowledgeBasesQueryVariables>(EmbeddedKnowledgeBasesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AssignEmbeddedKnowledgeBaseOwnerDocument = new TypedDocumentString(`
+    mutation AssignEmbeddedKnowledgeBaseOwner($input: AssignKnowledgeBaseOwnerInput!) {
+  assignEmbeddedKnowledgeBaseOwner(input: $input)
+}
+    `);
+
+export const useAssignEmbeddedKnowledgeBaseOwnerMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AssignEmbeddedKnowledgeBaseOwnerMutation, TError, AssignEmbeddedKnowledgeBaseOwnerMutationVariables, TContext>) => {
+    
+    return useMutation<AssignEmbeddedKnowledgeBaseOwnerMutation, TError, AssignEmbeddedKnowledgeBaseOwnerMutationVariables, TContext>(
+      {
+    mutationKey: ['AssignEmbeddedKnowledgeBaseOwner'],
+    mutationFn: (variables?: AssignEmbeddedKnowledgeBaseOwnerMutationVariables) => fetcher<AssignEmbeddedKnowledgeBaseOwnerMutation, AssignEmbeddedKnowledgeBaseOwnerMutationVariables>(AssignEmbeddedKnowledgeBaseOwnerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateEmbeddedKnowledgeBaseDocument = new TypedDocumentString(`
+    mutation CreateEmbeddedKnowledgeBase($input: CreateEmbeddedKnowledgeBaseInput!) {
+  createEmbeddedKnowledgeBase(input: $input)
+}
+    `);
+
+export const useCreateEmbeddedKnowledgeBaseMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateEmbeddedKnowledgeBaseMutation, TError, CreateEmbeddedKnowledgeBaseMutationVariables, TContext>) => {
+    
+    return useMutation<CreateEmbeddedKnowledgeBaseMutation, TError, CreateEmbeddedKnowledgeBaseMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateEmbeddedKnowledgeBase'],
+    mutationFn: (variables?: CreateEmbeddedKnowledgeBaseMutationVariables) => fetcher<CreateEmbeddedKnowledgeBaseMutation, CreateEmbeddedKnowledgeBaseMutationVariables>(CreateEmbeddedKnowledgeBaseDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateEmbeddedKnowledgeBaseDocument = new TypedDocumentString(`
+    mutation UpdateEmbeddedKnowledgeBase($input: UpdateEmbeddedKnowledgeBaseInput!) {
+  updateEmbeddedKnowledgeBase(input: $input)
+}
+    `);
+
+export const useUpdateEmbeddedKnowledgeBaseMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateEmbeddedKnowledgeBaseMutation, TError, UpdateEmbeddedKnowledgeBaseMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateEmbeddedKnowledgeBaseMutation, TError, UpdateEmbeddedKnowledgeBaseMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateEmbeddedKnowledgeBase'],
+    mutationFn: (variables?: UpdateEmbeddedKnowledgeBaseMutationVariables) => fetcher<UpdateEmbeddedKnowledgeBaseMutation, UpdateEmbeddedKnowledgeBaseMutationVariables>(UpdateEmbeddedKnowledgeBaseDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const EmbeddedMcpServerTagsDocument = new TypedDocumentString(`
     query embeddedMcpServerTags {
   embeddedMcpServerTags {
@@ -16215,6 +16547,25 @@ export const useMcpIntegrationInstanceConfigurationsByServerIdQuery = <
       {
     queryKey: variables === undefined ? ['mcpIntegrationInstanceConfigurationsByServerId'] : ['mcpIntegrationInstanceConfigurationsByServerId', variables],
     queryFn: fetcher<McpIntegrationInstanceConfigurationsByServerIdQuery, McpIntegrationInstanceConfigurationsByServerIdQueryVariables>(McpIntegrationInstanceConfigurationsByServerIdDocument, variables),
+    ...options
+  }
+    )};
+
+export const RechunkEmbeddedKnowledgeBaseDocument = new TypedDocumentString(`
+    mutation rechunkEmbeddedKnowledgeBase($knowledgeBaseId: ID!) {
+  rechunkEmbeddedKnowledgeBase(knowledgeBaseId: $knowledgeBaseId)
+}
+    `);
+
+export const useRechunkEmbeddedKnowledgeBaseMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RechunkEmbeddedKnowledgeBaseMutation, TError, RechunkEmbeddedKnowledgeBaseMutationVariables, TContext>) => {
+    
+    return useMutation<RechunkEmbeddedKnowledgeBaseMutation, TError, RechunkEmbeddedKnowledgeBaseMutationVariables, TContext>(
+      {
+    mutationKey: ['rechunkEmbeddedKnowledgeBase'],
+    mutationFn: (variables?: RechunkEmbeddedKnowledgeBaseMutationVariables) => fetcher<RechunkEmbeddedKnowledgeBaseMutation, RechunkEmbeddedKnowledgeBaseMutationVariables>(RechunkEmbeddedKnowledgeBaseDocument, variables)(),
     ...options
   }
     )};
