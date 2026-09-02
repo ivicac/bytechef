@@ -1,16 +1,23 @@
+import {CLUSTER_ROOT_NODE_WIDTH, NODE_HEIGHT} from '@/shared/constants';
 import {NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
 import {
     CLUSTER_FRAME_HEADER_HEIGHT,
+    ClusterFrameContentOriginI,
     ClusterMemberBoxI,
+    computeClusterFrameContentOrigin,
     computeClusterFrameSize,
+    getClusterMemberSize,
     toClusterFrameChildPosition,
 } from './clusterFrameGeometry';
+import {placeClusterMembers} from './placeClusterMembers';
 
 /**
  * Members are clamped out of the header band but otherwise free to move anywhere inside the box,
- * which grows to fit them — nothing bounds the right or bottom edge, by design.
+ * which grows to fit them — nothing bounds the right or bottom edge, by design. The left bound is
+ * the box's own edge rather than the content origin, so a member the placer put left of the root
+ * card can still be dragged back to where it started.
  */
 const CLUSTER_FRAME_MEMBER_EXTENT: [[number, number], [number, number]] = [
     [0, CLUSTER_FRAME_HEADER_HEIGHT],
@@ -28,6 +35,32 @@ export interface LayoutClusterFramesResultI {
 }
 
 /**
+ * Content-space position of every member, i.e. relative to the ROOT CARD rather than to each
+ * member's own immediate parent.
+ *
+ * A member one level down is positioned against the root card, but a member of a NESTED cluster root
+ * is positioned against that nested root — `metadata.ui.nodePosition` is always relative to the
+ * immediate parent. Sizing the box needs all of them in one space, so the parent chain is summed
+ * here. `createClusterElementsNodes` emits parents before their children, which is what lets a
+ * single forward pass resolve every depth.
+ */
+function collectContentPositions(memberNodes: Node[], clusterRootId: string): Map<string, {x: number; y: number}> {
+    const contentPositions = new Map<string, {x: number; y: number}>();
+
+    for (const memberNode of memberNodes) {
+        const parentPosition =
+            memberNode.parentId === clusterRootId ? {x: 0, y: 0} : contentPositions.get(memberNode.parentId ?? '');
+
+        contentPositions.set(memberNode.id, {
+            x: (parentPosition?.x ?? 0) + memberNode.position.x,
+            y: (parentPosition?.y ?? 0) + memberNode.position.y,
+        });
+    }
+
+    return contentPositions;
+}
+
+/**
  * Sizes each cluster root to the box its elements need and partitions the elements out of the arrays
  * the layout engine sees.
  *
@@ -38,9 +71,14 @@ export interface LayoutClusterFramesResultI {
  * them here means the graph pre-pass never has to classify them at all, and the root reaches it as an
  * ordinary sized leaf.
  *
- * Positions are NOT recomputed here. Element nodes arrive already placed — either from a stored
- * `metadata.ui.nodePosition` or from the cluster placer that built them — and those positions are
- * root-relative by construction, so no coordinate translation is needed on either mode switch.
+ * Positions ARE recomputed here, by the same cluster placer the dialog runs (`placeClusterMembers`):
+ * an element arrives carrying only its stored `metadata.ui.nodePosition`, which is `{x: 0, y: 0}` for
+ * every element nobody has dragged yet.
+ *
+ * Only DIRECT members cross into frame coordinates. A nested root's own children are positioned
+ * against that nested root, which is itself a direct member already carrying the offset — adding it
+ * again would double-count the header band, and (because the same coordinates are persisted on drag)
+ * would silently rewrite stored positions the dialog then reads back in a different frame.
  */
 export function layoutClusterFrames(
     nodes: Node[],
@@ -60,6 +98,36 @@ export function layoutClusterFrames(
             return node;
         }
 
+        const nodeData = node.data as NodeDataType;
+        const rootEdges = edgesByRootId[node.id] ?? [];
+
+        const placedElementNodes = placeClusterMembers({
+            clusterRootId: node.id,
+            edges: rootEdges,
+            memberNodes: elementNodes,
+            rootClusterElements: nodeData.clusterElements,
+        });
+
+        const contentPositions = collectContentPositions(placedElementNodes, node.id);
+
+        // The root card is part of the box's contents too, so the frame has to contain it even when
+        // every member sits well inside its footprint.
+        const childBoxes: ClusterMemberBoxI[] = [
+            {height: NODE_HEIGHT, width: CLUSTER_ROOT_NODE_WIDTH, x: 0, y: 0},
+            ...placedElementNodes.map((elementNode) => {
+                const contentPosition = contentPositions.get(elementNode.id) ?? elementNode.position;
+
+                return {
+                    ...getClusterMemberSize(elementNode),
+                    x: contentPosition.x,
+                    y: contentPosition.y,
+                };
+            }),
+        ];
+
+        const contentOrigin: ClusterFrameContentOriginI = computeClusterFrameContentOrigin(childBoxes);
+        const frameSize = computeClusterFrameSize(childBoxes, contentOrigin);
+
         // Members are draggable ONLY when their root is unlocked, and independently of the canvas-wide
         // drag lock — the same per-node override graph members and sticky notes use. A placeholder
         // ("+") node is excluded: it carries no `parentClusterRootId`, so a drag on it would fall
@@ -67,32 +135,30 @@ export function layoutClusterFrames(
         // save whose position keys no real task name.
         const isLocked = lockedByRootId[node.id] !== false;
 
-        const positionedElementNodes = elementNodes.map((elementNode) => ({
+        const positionedElementNodes = placedElementNodes.map((elementNode) => ({
             ...elementNode,
             connectable: false,
             draggable: !isLocked && elementNode.type !== 'placeholder',
             extent: CLUSTER_FRAME_MEMBER_EXTENT,
-            parentId: node.id,
-            position: toClusterFrameChildPosition(elementNode.position),
+            position:
+                elementNode.parentId === node.id
+                    ? toClusterFrameChildPosition(elementNode.position, contentOrigin)
+                    : elementNode.position,
         }));
-
-        const childBoxes: ClusterMemberBoxI[] = elementNodes.map((elementNode) => ({
-            height: elementNode.measured?.height ?? elementNode.height ?? 0,
-            width: elementNode.measured?.width ?? elementNode.width ?? 0,
-            x: elementNode.position.x,
-            y: elementNode.position.y,
-        }));
-
-        const frameSize = computeClusterFrameSize(childBoxes);
 
         memberNodes.push(...positionedElementNodes);
-        memberEdges.push(...(edgesByRootId[node.id] ?? []));
+        memberEdges.push(...rootEdges);
 
         return {
             ...node,
             data: {
-                ...(node.data as NodeDataType),
-                clusterFrame: {clusterRootId: node.id, height: frameSize.height, width: frameSize.width},
+                ...nodeData,
+                clusterFrame: {
+                    clusterRootId: node.id,
+                    contentOrigin,
+                    height: frameSize.height,
+                    width: frameSize.width,
+                },
             },
             height: frameSize.height,
             width: frameSize.width,

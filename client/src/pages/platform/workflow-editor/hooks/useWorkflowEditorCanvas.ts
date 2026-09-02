@@ -23,6 +23,7 @@ import {Node, NodeChange, XYPosition, useNodesInitialized, useReactFlow} from '@
 import {DragEventHandler, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
+import LabeledClusterElementsEdge from '../../cluster-element-editor/edges/LabeledClusterElementsEdge';
 import GraphStartEdge from '../edges/GraphStartEdge';
 import GraphTransitionEdge from '../edges/GraphTransitionEdge';
 import LabeledBranchCaseEdge from '../edges/LabeledBranchCaseEdge';
@@ -251,6 +252,9 @@ const useWorkflowEditorCanvas = ({
             graphStart: GraphStartEdge,
             graphTransition: GraphTransitionEdge,
             labeledBranchCase: LabeledBranchCaseEdge,
+            // Two of the three cluster edge builders emit this type. Without it registered here,
+            // every cluster edge inside a box falls back to React Flow's default edge and warns.
+            labeledClusterElementsEdge: LabeledClusterElementsEdge,
             placeholder: PlaceholderEdge,
             smoothstep: RoundedSmoothStepEdge,
             workflow: WorkflowEdge,
@@ -686,13 +690,16 @@ const useWorkflowEditorCanvas = ({
 
             const parentClusterRootId = (draggedNode.data as NodeDataType).parentClusterRootId;
 
-            // A cluster element's position is content-origin (below the box's header band), while the
-            // live drag position React Flow hands back is parent-relative (which includes it) — the
-            // same header-band offset the graph-frame member branch above sidesteps by never crossing
-            // it. `fromClusterFrameChildPosition` is the only sanctioned crossing back; skipping it
-            // drifts every element down by the header height on each drag. This is relative to the
-            // element's own immediate box — `parentClusterRootId` — regardless of how deep that box is
-            // nested, so no resolution is needed for the conversion itself.
+            // A cluster element's position is content-origin (measured from the root card), while the
+            // live drag position React Flow hands back is parent-relative — the same header-band
+            // offset the graph-frame member branch above sidesteps by never crossing it.
+            // `fromClusterFrameChildPosition` is the only sanctioned crossing back; skipping it
+            // drifts every element down by the header height on each drag.
+            //
+            // ONLY a direct member of the box crosses. A member of a NESTED cluster root is
+            // positioned against that nested root, which is itself a direct member already carrying
+            // the offset — subtracting it a second time would write a stored position the dialog then
+            // reads back shifted, silently moving the user's own layout on the next mode switch.
             //
             // Built directly from the workflow definition rather than through the dialog's
             // `saveClusterElementNodesPosition` — that helper sources its positions from the cluster
@@ -723,12 +730,23 @@ const useWorkflowEditorCanvas = ({
                         workflowNodeName: topLevelClusterRootId,
                     });
 
+                    const clusterFrameRootNode = useWorkflowDataStore
+                        .getState()
+                        .nodes.find((node) => node.id === topLevelClusterRootId);
+
+                    const clusterFrame = (clusterFrameRootNode?.data as NodeDataType | undefined)?.clusterFrame;
+
+                    const draggedNodePosition =
+                        draggedNode.parentId === topLevelClusterRootId
+                            ? fromClusterFrameChildPosition(draggedNode.position, clusterFrame?.contentOrigin)
+                            : draggedNode.position;
+
                     if (clusterRootTask?.clusterElements) {
                         const updatedClusterElements = updateClusterElementsPositions({
                             clusterElements: clusterRootTask.clusterElements,
                             movedClusterElementId: draggedNode.id,
                             nodePositions: {
-                                [draggedNode.id]: fromClusterFrameChildPosition(draggedNode.position),
+                                [draggedNode.id]: draggedNodePosition,
                             },
                         });
 

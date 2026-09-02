@@ -1,3 +1,4 @@
+import {CLUSTER_ROOT_NODE_WIDTH} from '@/shared/constants';
 import {Edge, Node} from '@xyflow/react';
 import {describe, expect, it} from 'vitest';
 
@@ -7,6 +8,7 @@ import {
     CLUSTER_FRAME_MIN_WIDTH,
     CLUSTER_FRAME_PADDING,
     fromClusterFrameChildPosition,
+    getClusterMemberSize,
     toClusterFrameChildPosition,
 } from './clusterFrameGeometry';
 import {layoutClusterFrames} from './layoutClusterFrames';
@@ -22,12 +24,25 @@ function buildRootNode(): Node {
     };
 }
 
-function buildElementNode(id: string, position: {x: number; y: number}): Node {
+/**
+ * A member whose position the user has already set. Saved positions are the only ones the placer
+ * honours verbatim (`containsNodePosition`), so every sizing assertion below uses one — an element
+ * WITHOUT a saved position is placed by the placer, which is what
+ * `clusterFrameFromDefinition.test.tsx` covers end to end.
+ *
+ * No `measured`: production never has it, and sizing off it is what made every member 0x0.
+ */
+function buildElementNode(id: string, position: {x: number; y: number}, parentId: string = ROOT_ID): Node {
     return {
-        data: {clusterElementType: 'model', parentClusterRootId: ROOT_ID, workflowNodeName: id},
+        data: {
+            clusterElementType: 'model',
+            metadata: {ui: {nodePosition: position}},
+            parentClusterRootElementsTypeCount: 1,
+            parentClusterRootId: parentId,
+            workflowNodeName: id,
+        },
         id,
-        measured: {height: 60, width: 200},
-        parentId: ROOT_ID,
+        parentId,
         position,
         type: 'workflow',
     };
@@ -38,12 +53,13 @@ function buildPlaceholderElementNode(id: string, position: {x: number; y: number
     return {
         data: {clusterElementType: 'model', label: '+'},
         id,
-        measured: {height: 40, width: 40},
         parentId: ROOT_ID,
         position,
         type: 'placeholder',
     };
 }
+
+const ELEMENT_SIZE = getClusterMemberSize(buildElementNode('sizing_probe', {x: 0, y: 0}));
 
 describe('layoutClusterFrames', () => {
     it('sizes the root from its elements and moves them out of the outer array', () => {
@@ -63,8 +79,9 @@ describe('layoutClusterFrames', () => {
 
         expect(rootNode.data.clusterFrame).toEqual({
             clusterRootId: ROOT_ID,
-            height: 300 + 60 + CLUSTER_FRAME_PADDING + CLUSTER_FRAME_HEADER_HEIGHT,
-            width: 400 + 200 + CLUSTER_FRAME_PADDING,
+            contentOrigin: {x: 0, y: CLUSTER_FRAME_HEADER_HEIGHT},
+            height: 300 + ELEMENT_SIZE.height + CLUSTER_FRAME_HEADER_HEIGHT + CLUSTER_FRAME_PADDING,
+            width: 400 + ELEMENT_SIZE.width + CLUSTER_FRAME_PADDING,
         });
 
         expect(result.outerNodes.map((node) => node.id)).toEqual([ROOT_ID]);
@@ -84,9 +101,114 @@ describe('layoutClusterFrames', () => {
 
         expect(result.outerNodes[0].data.clusterFrame).toEqual({
             clusterRootId: ROOT_ID,
+            contentOrigin: {x: 0, y: CLUSTER_FRAME_HEADER_HEIGHT},
             height: CLUSTER_FRAME_MIN_HEIGHT,
             width: CLUSTER_FRAME_MIN_WIDTH,
         });
+    });
+
+    // The root card is part of the box's contents, so a box whose members all sit inside its
+    // footprint still has to be wide and tall enough to hold the card itself.
+    it('reserves room for the root card', () => {
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 600})]},
+            },
+            {}
+        );
+
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {height: number; width: number};
+
+        expect(clusterFrame.width).toBeGreaterThanOrEqual(CLUSTER_ROOT_NODE_WIDTH + CLUSTER_FRAME_PADDING);
+        expect(clusterFrame.height).toBeGreaterThanOrEqual(
+            600 + ELEMENT_SIZE.height + CLUSTER_FRAME_HEADER_HEIGHT + CLUSTER_FRAME_PADDING
+        );
+    });
+
+    // A saved position left of the root card is routine, not exotic — the placer computes a leftmost
+    // child's x as `handleX - CLUSTER_ELEMENT_NODE_WIDTH / 2` and `saveClusterElementNodesPosition`
+    // writes those values back. Without a content origin such a member renders outside the border,
+    // and the member drag extent then refuses to let it be dragged back.
+    it('pushes the content origin in so a member at a negative x still lands inside the box', () => {
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: -120, y: 200})]},
+            },
+            {}
+        );
+
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {
+            contentOrigin: {x: number; y: number};
+            height: number;
+            width: number;
+        };
+
+        expect(clusterFrame.contentOrigin.x).toBe(120);
+        expect(result.memberNodes[0].position.x).toBe(0);
+        expect(result.memberNodes[0].position.x + ELEMENT_SIZE.width).toBeLessThanOrEqual(clusterFrame.width);
+
+        // The stored value is unchanged by the shift: the drag-stop handler subtracts the same
+        // origin again, so a member's persisted position never drifts because a sibling moved left.
+        expect(fromClusterFrameChildPosition(result.memberNodes[0].position, clusterFrame.contentOrigin)).toEqual({
+            x: -120,
+            y: 200,
+        });
+    });
+
+    // Only DIRECT members cross into frame coordinates. A nested root's own children are positioned
+    // against that nested root, which already carries the offset.
+    it('keeps nested members parented to their nested root and out of frame coordinates', () => {
+        const nestedRootNode = buildElementNode('sub_agent_1', {x: 100, y: 200});
+        const nestedMemberNode = buildElementNode('nested_model_1', {x: 10, y: 150}, 'sub_agent_1');
+
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [nestedRootNode, nestedMemberNode]},
+            },
+            {}
+        );
+
+        const placedNestedRoot = result.memberNodes.find((node) => node.id === 'sub_agent_1')!;
+        const placedNestedMember = result.memberNodes.find((node) => node.id === 'nested_model_1')!;
+
+        expect(placedNestedRoot.parentId).toBe(ROOT_ID);
+        expect(placedNestedRoot.position).toEqual(toClusterFrameChildPosition({x: 100, y: 200}));
+
+        expect(placedNestedMember.parentId).toBe('sub_agent_1');
+        expect(placedNestedMember.position).toEqual({x: 10, y: 150});
+    });
+
+    // A nested member sits inside the box too, so the frame has to contain it even though its own
+    // position is measured from its nested root rather than from the root card.
+    it('sizes the box around a nested member', () => {
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {
+                    [ROOT_ID]: [
+                        buildElementNode('sub_agent_1', {x: 500, y: 200}),
+                        buildElementNode('nested_model_1', {x: 300, y: 150}, 'sub_agent_1'),
+                    ],
+                },
+            },
+            {}
+        );
+
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {height: number; width: number};
+
+        expect(clusterFrame.width).toBeGreaterThanOrEqual(500 + 300 + ELEMENT_SIZE.width);
+        expect(clusterFrame.height).toBeGreaterThanOrEqual(200 + 150 + ELEMENT_SIZE.height);
     });
 
     it('leaves a root with no elements untouched', () => {
@@ -189,10 +311,54 @@ describe('layoutClusterFrames', () => {
     });
 });
 
+describe('getClusterMemberSize', () => {
+    // The regression this guards: member nodes are rebuilt fresh on every layout and carry neither
+    // `measured` nor `width`/`height`, so a size read from those was 0 for every member in production
+    // and non-zero only in fixtures that hand-set it.
+    it('sizes an unmeasured member from its kind rather than to zero', () => {
+        const size = getClusterMemberSize(buildElementNode('model_1', {x: 0, y: 0}));
+
+        expect(size.height).toBeGreaterThan(0);
+        expect(size.width).toBeGreaterThan(0);
+    });
+
+    it('sizes a nested cluster root wider than a plain element, and a placeholder smaller', () => {
+        const nestedClusterRootNode = buildElementNode('sub_agent_1', {x: 0, y: 0});
+
+        nestedClusterRootNode.data.clusterElementTypesCount = 2;
+
+        expect(getClusterMemberSize(nestedClusterRootNode).width).toBeGreaterThan(ELEMENT_SIZE.width);
+        expect(getClusterMemberSize(buildPlaceholderElementNode('p', {x: 0, y: 0})).width).toBeLessThan(
+            ELEMENT_SIZE.width
+        );
+    });
+
+    it('falls back to the measured size for a shape it does not recognise', () => {
+        const unknownNode: Node = {
+            data: {},
+            id: 'unknown',
+            measured: {height: 55, width: 155},
+            position: {x: 0, y: 0},
+            type: 'workflow',
+        };
+
+        expect(getClusterMemberSize(unknownNode)).toEqual({height: 55, width: 155});
+    });
+});
+
 describe('toClusterFrameChildPosition / fromClusterFrameChildPosition', () => {
     it('are inverses of each other', () => {
         const contentPosition = {x: 123, y: 456};
 
         expect(fromClusterFrameChildPosition(toClusterFrameChildPosition(contentPosition))).toEqual(contentPosition);
+    });
+
+    it('are inverses of each other under a shifted content origin', () => {
+        const contentPosition = {x: -120, y: 456};
+        const contentOrigin = {x: 120, y: CLUSTER_FRAME_HEADER_HEIGHT};
+
+        expect(
+            fromClusterFrameChildPosition(toClusterFrameChildPosition(contentPosition, contentOrigin), contentOrigin)
+        ).toEqual(contentPosition);
     });
 });

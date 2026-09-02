@@ -17,7 +17,13 @@ import sanitize from 'sanitize-html';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
-import {extractClusterElementIcons} from '../../cluster-element-editor/utils/clusterElementsUtils';
+import {
+    calculateNodeWidth,
+    convertNameToCamelCase,
+    extractClusterElementIcons,
+    getFilteredClusterElementTypes,
+    getHandlePosition,
+} from '../../cluster-element-editor/utils/clusterElementsUtils';
 import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useNodeClickHandler from '../hooks/useNodeClick';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
@@ -57,17 +63,25 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
             workflow: state.workflow,
         }))
     );
-    const {copiedNode, copiedWorkflowId, renamingNodeName, setCopiedNode, setCopiedWorkflowId, setRenamingNodeName} =
-        useWorkflowEditorStore(
-            useShallow((state) => ({
-                copiedNode: state.copiedNode,
-                copiedWorkflowId: state.copiedWorkflowId,
-                renamingNodeName: state.renamingNodeName,
-                setCopiedNode: state.setCopiedNode,
-                setCopiedWorkflowId: state.setCopiedWorkflowId,
-                setRenamingNodeName: state.setRenamingNodeName,
-            }))
-        );
+    const {
+        clusterRootComponentDefinitions,
+        copiedNode,
+        copiedWorkflowId,
+        renamingNodeName,
+        setCopiedNode,
+        setCopiedWorkflowId,
+        setRenamingNodeName,
+    } = useWorkflowEditorStore(
+        useShallow((state) => ({
+            clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
+            copiedNode: state.copiedNode,
+            copiedWorkflowId: state.copiedWorkflowId,
+            renamingNodeName: state.renamingNodeName,
+            setCopiedNode: state.setCopiedNode,
+            setCopiedWorkflowId: state.setCopiedWorkflowId,
+            setRenamingNodeName: state.setRenamingNodeName,
+        }))
+    );
 
     const queryClient = useQueryClient();
     const {cancelWorkflowQueries, invalidateWorkflowQueries, updateWorkflowMutation} = useWorkflowEditor();
@@ -285,6 +299,44 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
             ),
         [data.clusterElements]
     );
+
+    // Every cluster edge anchors to a `<elementType>-handle` source handle on the root, and React
+    // Flow silently drops an edge whose named handle does not exist. On the main canvas a cluster
+    // root renders as this component rather than as a `WorkflowNode`, so without these the whole box
+    // shows elements and placeholders with nothing connecting them to the root. Only box mode needs
+    // them: in dialog mode the root's card inside the dialog IS a `WorkflowNode`, which renders its
+    // own set.
+    const clusterElementSourceHandles = useMemo(() => {
+        if (!data.clusterFrame) {
+            return [];
+        }
+
+        const clusterRootComponentDefinition = clusterRootComponentDefinitions[data.workflowNodeName];
+
+        if (!clusterRootComponentDefinition) {
+            return [];
+        }
+
+        const filteredClusterElementTypes = getFilteredClusterElementTypes({
+            clusterRootComponentDefinition,
+            isNestedClusterRoot: false,
+            operationName: data.operationName,
+        });
+
+        // Sized against `calculateNodeWidth`, NOT the frame: the cluster placer positions every
+        // element from `getHandlePosition` over that same width, so anchoring the handles anywhere
+        // else would leave each edge pointing at a spot its element is not.
+        const clusterRootNodeWidth = calculateNodeWidth(filteredClusterElementTypes.length);
+
+        return filteredClusterElementTypes.map((clusterElementType, index) => ({
+            id: `${convertNameToCamelCase(clusterElementType.name as string)}-handle`,
+            left: getHandlePosition({
+                handlesCount: filteredClusterElementTypes.length,
+                index,
+                nodeWidth: clusterRootNodeWidth,
+            }),
+        }));
+    }, [clusterRootComponentDefinitions, data.clusterFrame, data.operationName, data.workflowNodeName]);
 
     const isRenaming = renamingNodeName === data.name;
     const suppressHover = isRenaming;
@@ -606,6 +658,18 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                             type="source"
                         />
                     )}
+
+                    {clusterElementSourceHandles.map((clusterElementSourceHandle) => (
+                        <Handle
+                            className={styles.handle}
+                            id={clusterElementSourceHandle.id}
+                            isConnectable={false}
+                            key={clusterElementSourceHandle.id}
+                            position={Position.Bottom}
+                            style={{left: `${clusterElementSourceHandle.left}px`, transform: 'translateX(-50%)'}}
+                            type="source"
+                        />
+                    ))}
 
                     {/* `AiAgentNode` never renders in a read-only workflow — `useLayout` converts every
                     `clusterRoot` node to `readonly` there — so an agent rendered by this component
