@@ -128,6 +128,12 @@ A workflow author can ask for the server's full environment instead, through the
 
 ### Limitations
 
+**Workflow expressions are not evaluated in script source.** A `${…}` written in the **JavaScript Code** or **Python Code** field reaches the interpreter exactly as you typed it. A JavaScript template literal such as `` `Hi ${name}` `` is your code, not a workflow expression, and this holds under every runner.
+
+Previously the source was passed through the workflow expression evaluator, and that is a breaking change if you relied on it: a bare `${name}` was substituted whenever the workflow context happened to carry a matching name, and anything more involved — `` `Total: ${a + b}` ``, a ternary, a function call — failed the whole task with `Invalid expression`, naming neither the script nor the property. Such a script now runs, and a script that did rely on the substitution receives a literal `${name}` instead of a value.
+
+Workflow data reaches a script through the **Input** property, whose values *are* evaluated normally — declare the value as an input and read it from `input` inside `perform()`.
+
 Two limitations of the Process and Docker runners are deliberate trade-offs, not oversights:
 
 - **A backgrounded descendant is not reaped under the Process runner.** A script whose shell command ends in something like `sleep 600 &` outlives the task: the task itself is bounded — the wait for its output has a ceiling — but the orphaned descendant keeps running after the task ends. Reaping it would need a process group, which this runner does not implement. The Docker runner does not have this problem: removing the container takes everything running inside it with it.

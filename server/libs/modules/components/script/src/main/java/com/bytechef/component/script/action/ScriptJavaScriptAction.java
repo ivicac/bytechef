@@ -73,7 +73,8 @@ public class ScriptJavaScriptAction {
 
                             return null;
                         }""")
-                .required(true));
+                .required(true)
+                .expressionEnabled(false));
         properties.add(
             TaskRunnerPropertyFactory.taskRunnerProperty(
                 taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)));
