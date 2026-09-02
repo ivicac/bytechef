@@ -46,6 +46,7 @@ import resolveTargetTriggerName from '../utils/resolveTargetTriggerName';
 import saveClusterElementNodesPosition from '../utils/saveClusterElementNodesPosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
+import ClusterFrameShell from './ClusterFrameShell';
 import DisabledNodeBadge from './DisabledNodeBadge';
 import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
@@ -545,6 +546,8 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 </>
             ) : (
                 <>
+                    {/* In box mode the shell wraps this card and owns the chain handles instead, so
+                        the surrounding flow connects to the box rather than to the card inside it. */}
                     {!data.clusterFrame && (
                         <Handle
                             className={twMerge(
@@ -561,16 +564,20 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                         />
                     )}
 
-                    <Handle
-                        className={twMerge(
-                            styles.handleVisible,
-                            effectiveDirection === 'LR' ? 'rounded-l-none rounded-r-xs' : 'rounded-t-none rounded-b-xs'
-                        )}
-                        isConnectable={false}
-                        position={mapHandlePosition(Position.Bottom, effectiveDirection)}
-                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                        type="source"
-                    />
+                    {!data.clusterFrame && (
+                        <Handle
+                            className={twMerge(
+                                styles.handleVisible,
+                                effectiveDirection === 'LR'
+                                    ? 'rounded-l-none rounded-r-xs'
+                                    : 'rounded-t-none rounded-b-xs'
+                            )}
+                            isConnectable={false}
+                            position={mapHandlePosition(Position.Bottom, effectiveDirection)}
+                            style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
+                            type="source"
+                        />
+                    )}
 
                     {/* `WorkflowNode` never renders in a read-only workflow — `useLayout` converts
                         every task node to `readonly` there — so a member rendered by this
@@ -1076,32 +1083,34 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     if (isRegularNode) {
         return (
-            <WorkflowNodeContextMenu
-                canPaste={canPaste}
-                data={data}
-                hasSavedPosition={!!hasSavedNodePosition}
-                onCopy={handleCopyNode}
-                onCut={handleCutNode}
-                onDelete={handleDelete}
-                onInfo={() => setInfoCardOpen(true)}
-                onPaste={handlePasteNode}
-                onRename={handleStartRename}
-                onResetPosition={handleResetPosition}
-                onSwitch={handleSwitch}
-                onToggleDisabled={handleToggleDisabledClick}
-                showCopyAction={!data.trigger}
-                showCutAction={!data.trigger}
-                showDeleteAction={!data.trigger || triggerCount > 1}
-                showDisableAction={!data.trigger}
-                showInfoAction
-                showRenameAction
-            >
-                <WorkflowNodeContent
-                    {...sharedContentProps}
-                    {...(isTriggerDropzone && dropzoneHandlers)}
-                    nodeMenuTrigger={regularNodeMenuTrigger}
-                />
-            </WorkflowNodeContextMenu>
+            <ClusterFrameShell data={data} nodeId={id}>
+                <WorkflowNodeContextMenu
+                    canPaste={canPaste}
+                    data={data}
+                    hasSavedPosition={!!hasSavedNodePosition}
+                    onCopy={handleCopyNode}
+                    onCut={handleCutNode}
+                    onDelete={handleDelete}
+                    onInfo={() => setInfoCardOpen(true)}
+                    onPaste={handlePasteNode}
+                    onRename={handleStartRename}
+                    onResetPosition={handleResetPosition}
+                    onSwitch={handleSwitch}
+                    onToggleDisabled={handleToggleDisabledClick}
+                    showCopyAction={!data.trigger}
+                    showCutAction={!data.trigger}
+                    showDeleteAction={!data.trigger || triggerCount > 1}
+                    showDisableAction={!data.trigger}
+                    showInfoAction
+                    showRenameAction
+                >
+                    <WorkflowNodeContent
+                        {...sharedContentProps}
+                        {...(isTriggerDropzone && dropzoneHandlers)}
+                        nodeMenuTrigger={regularNodeMenuTrigger}
+                    />
+                </WorkflowNodeContextMenu>
+            </ClusterFrameShell>
         );
     }
 
@@ -1122,33 +1131,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                     showReplaceAction={!data.multipleClusterElementsNode}
                 >
                     <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={clusterElementMenuTrigger} />
-                </WorkflowNodeContextMenu>
-            </ClusterFrameShell>
-        );
-    }
-
-    if (data.clusterFrame) {
-        return (
-            <ClusterFrameShell data={data} nodeId={id} nodeMenu={regularNodeMenuTrigger}>
-                <WorkflowNodeContextMenu
-                    canPaste={canPaste}
-                    data={data}
-                    hasSavedPosition={!!hasSavedNodePosition}
-                    onCopy={handleCopyNode}
-                    onCut={handleCutNode}
-                    onDelete={handleDelete}
-                    onInfo={() => setInfoCardOpen(true)}
-                    onPaste={handlePasteNode}
-                    onRename={handleStartRename}
-                    onResetPosition={handleResetPosition}
-                    onSwitch={handleSwitch}
-                    showCopyAction
-                    showCutAction
-                    showDeleteAction
-                    showInfoAction
-                    showRenameAction
-                >
-                    <WorkflowNodeContent {...sharedContentProps} />
                 </WorkflowNodeContextMenu>
             </ClusterFrameShell>
         );
