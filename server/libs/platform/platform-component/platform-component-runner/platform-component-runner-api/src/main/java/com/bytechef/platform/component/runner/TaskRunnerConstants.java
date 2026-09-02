@@ -42,6 +42,24 @@ public class TaskRunnerConstants {
     public static final String INHERIT_ENVIRONMENT = "inheritEnvironment";
     public static final String INTERPRETER = "interpreter";
 
+    public static final String ENV = "env";
+    public static final String INPUT_FILES = "inputFiles";
+    public static final String OUTPUT_FILES = "outputFiles";
+    public static final String TIMEOUT = "timeout";
+
+    /**
+     * Keys of the result map an external runner's action returns - {@code {exitCode, stdout, stderr, vars,
+     * outputFiles}}, per the design spec. {@code script}'s actions produce this shape today; {@code commands}' actions
+     * (phase 2) must produce the identical shape, so both reach these constants from here rather than each declaring
+     * its own literals and drifting apart. {@link #OUTPUT_FILES} above doubles as the fifth key - the result's
+     * {@code outputFiles} and the {@code outputFiles} property both name the same concept, so there is nothing a
+     * separate constant would disambiguate.
+     */
+    public static final String RESULT_EXIT_CODE = "exitCode";
+    public static final String RESULT_STDOUT = "stdout";
+    public static final String RESULT_STDERR = "stderr";
+    public static final String RESULT_VARS = "vars";
+
     private TaskRunnerConstants() {
     }
 }
