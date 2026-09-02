@@ -176,9 +176,10 @@ class TaskRunnerWorkingDirectoryTest {
 
     /**
      * Snapshots the {@code bytechef-run-*} entries currently in the system temp directory, so a test can assert that a
-     * rejected {@link TaskRunnerWorkingDirectory#create} left none behind.
+     * rejected {@link TaskRunnerWorkingDirectory#create} left none behind. Package-private because
+     * {@code ProcessTaskRunnerTest} asserts the same thing about a run that got as far as starting a process.
      */
-    private static Set<Path> bytechefRunDirectories() throws IOException {
+    static Set<Path> bytechefRunDirectories() throws IOException {
         Path tempDirectory = Path.of(System.getProperty("java.io.tmpdir"));
 
         try (Stream<Path> paths = Files.list(tempDirectory)) {

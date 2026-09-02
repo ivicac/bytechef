@@ -59,12 +59,24 @@ import org.springframework.stereotype.Component;
  * <p>
  * {@code PATH} is re-seeded because a relative interpreter name such as {@code node} cannot be resolved without it, and
  * {@code HOME} because several interpreters write caches relative to it and fall over when it is unset; it points at
- * the working directory, so those caches die with the execution. Neither is a credential.
+ * the working directory, so those caches die with the execution. Neither is a credential. Both belong to the cleared
+ * path alone: an operator who turned {@code inheritEnvironment} on asked for the server account's own {@code HOME}, and
+ * replacing it there would take away the one thing that switch exists for.
  *
  * <p>
  * The three {@code BYTECHEF_*} names are put back <strong>last</strong>, after the declared {@code env}. They are the
  * contract the appended bootstrap reads its input and writes its output through, so a declared entry of the same name
  * would silently redirect output collection rather than configure the execution.
+ *
+ * <p>
+ * The timeout bounds the whole execution, not just the wait for the child. A child that exits normally while something
+ * it backgrounded still holds the pipe's write end leaves the drain threads at a read that cannot see EOF until that
+ * descendant is gone, so the joins are bounded by what is left of the timeout. When they expire on an execution that
+ * otherwise succeeded, the runner returns what it captured rather than failing: the child's own contract was met - it
+ * exited zero, and the appended bootstrap wrote {@code output.json} before it did - and what is missing is trailing
+ * output from a process that is no longer part of the task. Failing there would make a backgrounded {@code nohup}
+ * daemon - a legitimate thing to ask this runner to do - impossible to start successfully. The truncation is logged as
+ * a warning, so it is never silent.
  *
  * <p>
  * Inheriting the server's environment instead of clearing it is an operator's decision, not a workflow author's: the
@@ -83,6 +95,8 @@ public class ProcessTaskRunner implements TaskRunner {
     private static final Duration DEFAULT_TIMEOUT = Duration.ofMinutes(5);
     private static final int DRAIN_BUFFER_SIZE = 8 * 1024;
     private static final String INHERIT_ENVIRONMENT_ENABLED = "inherit-environment-enabled";
+
+    private static final Duration DRAIN_GRACE = Duration.ofSeconds(5);
 
     private static final Map<ExternalLanguage, String> DEFAULT_INTERPRETERS = Map.of(
         ExternalLanguage.JAVASCRIPT, "node",
@@ -238,6 +252,8 @@ public class ProcessTaskRunner implements TaskRunner {
 
         boolean exited;
 
+        long waitStartNanos = System.nanoTime();
+
         // Every abnormal exit from the wait has to take the process tree with it. waitFor throws
         // InterruptedException when the task is cancelled - which TaskWorker does on job cancellation and on its own
         // timeout - and without this the child and its descendants outlive the workflow, the deployment and the
@@ -250,8 +266,22 @@ public class ProcessTaskRunner implements TaskRunner {
             }
         }
 
-        stdoutThread.join();
-        stderrThread.join();
+        // A drain thread returns only at EOF, and EOF needs every holder of the pipe's write end to close it -
+        // including a grandchild the child backgrounded and left running. `sh -c "sleep 600 &"` exits 0 at once, so
+        // nothing above kills anything, yet the backgrounded sleep holds the write end for ten minutes: joining
+        // unbounded hung the task thread for exactly that long, with the runner's own timeout already spent on
+        // waitFor and never applied again. The wait is bounded by what is left of that timeout, plus a grace so a
+        // tree that was just destroyed still gets its tails collected for the failure message.
+        boolean drained = joinDrainThreads(stdoutThread, stderrThread, drainBudget(timeout, waitStartNanos));
+
+        if (!drained) {
+            destroyTree(process);
+
+            log.warn(
+                "The process task runner stopped waiting for the child's output streams after {}; a descendant that " +
+                    "outlived the child still holds them open, so the captured output may be incomplete",
+                timeout.plus(DRAIN_GRACE));
+        }
 
         if (!exited) {
             throw new IllegalStateException(
@@ -272,6 +302,51 @@ public class ProcessTaskRunner implements TaskRunner {
             TaskRunnerOutputs.collectOutputFiles(request, workingDirectory));
     }
 
+    /**
+     * What is left of the execution's own timeout, never less than a fixed grace.
+     *
+     * <p>
+     * The grace is what makes a timed-out execution still report its stream tails: the budget is already exhausted by
+     * the time waitFor gives up, and the tails only arrive once the destroyed tree's pipes reach EOF - milliseconds
+     * later, but strictly after the deadline.
+     */
+    // package-private: the bound is the whole point of B2's fix, and it cannot be observed through run() on a host
+    // whose JDK unblocks the drain read when the child exits.
+    static Duration drainBudget(Duration timeout, long waitStartNanos) {
+        Duration remaining = timeout.minus(Duration.ofNanos(System.nanoTime() - waitStartNanos));
+
+        return remaining.compareTo(DRAIN_GRACE) > 0 ? remaining : DRAIN_GRACE;
+    }
+
+    /**
+     * Joins both drain threads within one shared budget, reporting whether both reached the end of their stream.
+     *
+     * <p>
+     * A thread that did not is abandoned rather than unblocked. Closing the stream under it would not reliably wake a
+     * read already blocked on the pipe, and it is a virtual thread: what is abandoned is a continuation and its buffer,
+     * which are reclaimed whenever the last writer finally closes the descriptor.
+     */
+    static boolean joinDrainThreads(Thread stdoutThread, Thread stderrThread, Duration budget)
+        throws InterruptedException {
+
+        long deadlineNanos = System.nanoTime() + budget.toNanos();
+
+        boolean stdoutDrained = join(stdoutThread, deadlineNanos);
+        boolean stderrDrained = join(stderrThread, deadlineNanos);
+
+        return stdoutDrained && stderrDrained;
+    }
+
+    private static boolean join(Thread thread, long deadlineNanos) throws InterruptedException {
+        long remainingNanos = deadlineNanos - System.nanoTime();
+
+        if (remainingNanos > 0) {
+            thread.join(Duration.ofNanos(remainingNanos));
+        }
+
+        return !thread.isAlive();
+    }
+
     private static void applyEnvironment(
         ProcessBuilder processBuilder, TaskRunnerRequest request, TaskRunnerWorkingDirectory workingDirectory) {
 
@@ -279,6 +354,9 @@ public class ProcessTaskRunner implements TaskRunner {
 
         boolean inherit = isInheritEnvironmentRequested(request);
 
+        // HOME is re-seeded only on the cleared path. An operator who deliberately turned inheritance on wants the
+        // server account's real HOME - that is the one case where inheriting it is the point - so overriding it there
+        // would take away the only thing the switch was flipped for.
         if (!inherit) {
             String path = environment.get("PATH");
 
@@ -287,11 +365,12 @@ public class ProcessTaskRunner implements TaskRunner {
             if (path != null) {
                 environment.put("PATH", path);
             }
+
+            environment.put(
+                "HOME", workingDirectory.getPath()
+                    .toString());
         }
 
-        environment.put(
-            "HOME", workingDirectory.getPath()
-                .toString());
         environment.putAll(request.env());
         environment.putAll(workingDirectory.getEnvironment());
     }
