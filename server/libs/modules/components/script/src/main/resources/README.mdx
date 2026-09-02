@@ -77,6 +77,14 @@ Each action runs in the environment selected by its **Task Runner** property. Th
 | Process | `process` | Runs the script in a child process on the same host. The server's own environment is cleared before the script starts — only `PATH`, `HOME` and the runner's own `BYTECHEF_*` names are put back — so the script cannot read the server's credentials by name. Enable with `bytechef.script.runners.process.enabled=true`. |
 | Docker | `docker` | Runs the script in a single-use container, on the local daemon or on whichever daemon the operator's `host` names. Every container gets a CPU allowance, a memory allowance and a PID ceiling from the operator's settings, and a script that asks for more CPU or memory than the operator's maximum is refused rather than silently cut down. Enable with `bytechef.script.runners.docker.enabled=true`. This is the same runner the **Commands** component uses; its README documents the image allowlist, the network-mode allowlist and the resource ceilings in depth. |
 
+The `Script Task Runners Demo` sample workflow (`demo/script-runners.json` in `automation-demo-config`, seeded into
+the Demo project on a `demo` profile install) shows this authoring shape as one `javascript` action: a workflow
+input passed through **Input** and a computed value returned from `perform()`. It runs unchanged under the shipped
+configuration because it leaves **Task Runner** unset, which falls back to GraalVM - the one runner every
+installation has enabled. The same task runs unchanged under `process` or `docker` too: once an operator enables one
+of them, setting the task's `taskRunner.type` to `process` or `docker` is the only edit needed, and the only thing
+that changes about the result is the shape described next - the bare returned value becomes the five-key map.
+
 The GraalVM runner has two modes:
 
 - **Strict** (default) — no file system, no environment, no process creation, and CPU and memory ceilings. Use this unless you have a specific reason not to.
