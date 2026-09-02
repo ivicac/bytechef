@@ -90,7 +90,7 @@ import {getClusterElementRootNames} from '../../utils/getWorkflowIssueOwnerName'
 import {findGraphMembersPrecedingMember} from '../../utils/graph/graphReachability';
 import hasDataPillPanelContent from '../../utils/hasDataPillPanelContent';
 import invalidateOperationQueries from '../../utils/invalidateOperationQueries';
-import {resolveClusterRootId, resolveMainClusterRootName} from '../../utils/resolveClusterRootId';
+import {resolveClusterRootId} from '../../utils/resolveClusterRootId';
 import saveClusterElementFieldChange from '../../utils/saveClusterElementFieldChange';
 import saveTaskDispatcherSubtaskFieldChange from '../../utils/saveTaskDispatcherSubtaskFieldChange';
 import saveWorkflowDefinition from '../../utils/saveWorkflowDefinition';
@@ -1539,6 +1539,9 @@ export default function useWorkflowNodeDetailsPanel({
                 setClusterElementComponentOperations(clusterElementsWorkflowNodeTypes);
             }
         }
+        // Narrowed to the fields resolveClusterRootId actually reads, plus workflow.definition (the
+        // only part of `workflow` read above) -- the full `currentNode`/`workflow` objects churn on
+        // unrelated updates (e.g. `workflow.version`), which would re-run this JSON.parse for no reason.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         currentNode?.clusterRoot,

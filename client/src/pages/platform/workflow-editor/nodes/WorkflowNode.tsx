@@ -635,7 +635,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const {
-        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         copiedNode,
         copiedWorkflowId,
@@ -648,7 +647,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         setRootClusterElementNodeData,
     } = useWorkflowEditorStore(
         useShallow((state) => ({
-            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
             clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
             copiedNode: state.copiedNode,
             copiedWorkflowId: state.copiedWorkflowId,
