@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.graalvm.polyglot.Context;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -61,8 +62,8 @@ import org.springframework.cache.CacheManager;
  * <p>
  * The correctness gate is that each rendered starter template actually loads through the real polyglot
  * {@link ProjectHandlerLoader} into a {@link ProjectDefinition} with the substituted name and at least one workflow.
- * Python and Ruby are guarded by an availability assumption so CI without graalpy / truffleruby skips rather than
- * fails. JavaScript is always available.
+ * Python is guarded by an availability assumption so CI without graalpy skips rather than fails. JavaScript is always
+ * available.
  *
  * <p>
  * The facade tests exercise the JavaScript deploy path (services mocked, real loader) and the validation branches.
@@ -87,13 +88,6 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
     }
 
     @Test
-    void testRubyStarterLoadsThroughLoader() throws IOException {
-        assumePolyglotAvailable("ruby");
-
-        assertStarterLoads(Language.RUBY);
-    }
-
-    @Test
     void testCreateEmptyCodeWorkflowDeploysLoadableJavaScriptProject() {
         ProjectService projectService = mock(ProjectService.class);
         ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
@@ -105,7 +99,7 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
         createdProject.setId(1L);
         createdProject.setName("my-code-project");
 
-        when(projectService.fetchProject("my-code-project")).thenReturn(Optional.empty());
+        when(projectService.fetchProject(eq("my-code-project"), anyLong())).thenReturn(Optional.empty());
         when(projectService.create(any()))
             .thenReturn(createdProject);
 
@@ -140,10 +134,6 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
         verify(projectService, never()).publishProject(anyLong(), any(), anyBoolean());
     }
 
-    // RUBY-DISABLED: RUBY joins JAVA in the rejected set — org.graalvm.polyglot:ruby is published only up to 25.0.0
-    // and crashes on the Truffle 25.2.4 this repo pins, so create-empty rejects it with LANGUAGE_NOT_SUPPORTED rather
-    // than rendering a starter it cannot load. Drop RUBY from names below once a polyglot ruby jar built on Truffle
-    // 25.2+ is published (or GraalVM is downgraded). Grep RUBY-DISABLED.
     @ParameterizedTest
     @EnumSource(value = Language.class, names = {
         "JAVA", "RUBY"
@@ -179,7 +169,7 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
         existingProject.setId(2L);
         existingProject.setName("my-code-project");
 
-        when(projectService.fetchProject("my-code-project"))
+        when(projectService.fetchProject(eq("my-code-project"), anyLong()))
             .thenReturn(Optional.of(existingProject));
 
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
@@ -244,7 +234,7 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
             .isEqualTo(CodeWorkflowErrorType.INVALID_CODE_WORKFLOW_NAME.getErrorKey());
 
         verify(projectService, never()).create(any());
-        verify(projectService, never()).fetchProject(any());
+        verify(projectService, never()).fetchProject(any(), anyLong());
     }
 
     private static void assertStarterLoads(Language language) throws IOException {
@@ -271,6 +261,29 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
                 .getName()).isEqualTo("my-workflow");
         } finally {
             Files.delete(path);
+        }
+    }
+
+    /**
+     * Boots each guest language once, before any test is timed.
+     *
+     * <p>
+     * GraalPy's first context in a JVM pays a one-time initialization that costs 12-30 seconds on a loaded machine, and
+     * it used to be paid inside {@code assumePolyglotAvailable} - so a test whose own work takes under a second spent
+     * all of its budget proving the language exists, and blew the 30-second per-test default. Paying it here puts it in
+     * the 60-second {@code beforeall} budget, once per class rather than once per language test, and leaves every test
+     * body sub-second. Failures are swallowed: whether a language is actually usable stays
+     * {@code assumePolyglotAvailable}'s decision, which is now cheap because the language is already warm.
+     */
+    @BeforeAll
+    static void warmUpPolyglotLanguages() {
+        for (String languageId : List.of("python")) {
+            try (Context context = Context.create()) {
+                context.eval(languageId, "1");
+            } catch (RuntimeException e) {
+                // Unavailable languages are skipped per-test by assumePolyglotAvailable.
+                continue;
+            }
         }
     }
 
