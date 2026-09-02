@@ -102,7 +102,9 @@ describe('ClusterElementsCanvasDialog - evals reachability and cleanup', () => {
         useWorkflowEditorStore.setState({clusterElementsCanvasOpen: false, rootClusterElementNodeData: undefined});
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
         useClusterElementsCanvasDialogStore.setState({
+            aiAgentSimpleEditorPreferred: true,
             copilotPanelOpen: false,
+            dataStreamSimpleEditorPreferred: true,
             showAiAgentEditor: false,
             showDataStreamEditor: false,
             testingPanelOpen: false,

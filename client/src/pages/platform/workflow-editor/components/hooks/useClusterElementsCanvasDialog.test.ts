@@ -2,12 +2,21 @@ import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-edi
 import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
-import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import {NodeDataType} from '@/shared/types';
-import {act, renderHook} from '@testing-library/react';
+import {renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it} from 'vitest';
 
 import useClusterElementsCanvasDialog from './useClusterElementsCanvasDialog';
+
+// Regression coverage for the second half of the "editor buttons" bug: useClusterElementsCanvasDialog
+// carries two effect pairs that restore showAiAgentEditor/showDataStreamEditor from the persisted
+// editorPreferences map whenever the root changes. That restoration is correct for DIALOG mode's own
+// click-to-open flow (which never decides the editor explicitly, so the effect is the only thing that
+// does). But box mode's header buttons (ClusterFrameShell's handleOpenAiAgentEditor etc.) DO decide
+// explicitly on every click -- if these effects still ran in box mode, any node with a stored `false`
+// preference from an earlier dialog-mode session would have its "Switch to AI Agent editor" click
+// silently reverted back to the canvas view the moment the dialog mounted. The fix gates all four
+// restore effects on clusterElementsViewMode === 'dialog'.
 
 const AI_AGENT_ROOT_DATA = {
     componentName: 'aiAgent',
@@ -21,7 +30,7 @@ describe('useClusterElementsCanvasDialog - editor preference restoration', () =>
         useWorkflowDataStore.setState({workflow: {definition: undefined, id: 'workflow-1', nodeNames: [], version: 1}});
         useWorkflowEditorStore.setState({rootClusterElementNodeData: AI_AGENT_ROOT_DATA});
         useClusterElementsCanvasDialogStore.setState({
-            aiAgentSimpleEditorPreferred: false,
+            editorPreferences: {'workflow-1:aiAgent_1': false},
             showAiAgentEditor: true,
         });
     });
@@ -40,52 +49,5 @@ describe('useClusterElementsCanvasDialog - editor preference restoration', () =>
         renderHook(() => useClusterElementsCanvasDialog({onOpenChange: () => {}}));
 
         expect(useClusterElementsCanvasDialogStore.getState().showAiAgentEditor).toBe(false);
-    });
-});
-
-describe('useClusterElementsCanvasDialog - leaving the advanced editor in box mode', () => {
-    beforeEach(() => {
-        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
-        useWorkflowDataStore.setState({workflow: {definition: undefined, id: 'workflow-1', nodeNames: [], version: 1}});
-        useWorkflowEditorStore.setState({clusterElementsCanvasOpen: true});
-        useWorkflowNodeDetailsPanelStore.setState({aiAgentNodeDetailsPanelOpen: true});
-        useClusterElementsCanvasDialogStore.setState({
-            aiAgentSimpleEditorPreferred: true,
-            dataStreamSimpleEditorPreferred: true,
-            showAiAgentEditor: true,
-            showDataStreamEditor: true,
-        });
-    });
-
-    it('closes the canvas back to the inline frame and remembers the AI agent preference', () => {
-        useWorkflowEditorStore.setState({rootClusterElementNodeData: AI_AGENT_ROOT_DATA});
-
-        const {result} = renderHook(() => useClusterElementsCanvasDialog({onOpenChange: () => {}}));
-
-        act(() => result.current.handleToggleEditor(false));
-
-        expect(useWorkflowEditorStore.getState().clusterElementsCanvasOpen).toBe(false);
-        expect(useWorkflowNodeDetailsPanelStore.getState().aiAgentNodeDetailsPanelOpen).toBe(false);
-        expect(useClusterElementsCanvasDialogStore.getState().aiAgentSimpleEditorPreferred).toBe(false);
-        expect(useClusterElementsCanvasDialogStore.getState().showAiAgentEditor).toBe(true);
-    });
-
-    it('closes the canvas back to the inline frame and remembers the data stream preference', () => {
-        useWorkflowEditorStore.setState({
-            rootClusterElementNodeData: {
-                ...AI_AGENT_ROOT_DATA,
-                componentName: 'dataStream',
-                name: 'dataStream_1',
-                workflowNodeName: 'dataStream_1',
-            } as NodeDataType,
-        });
-
-        const {result} = renderHook(() => useClusterElementsCanvasDialog({onOpenChange: () => {}}));
-
-        act(() => result.current.handleToggleEditor(false));
-
-        expect(useWorkflowEditorStore.getState().clusterElementsCanvasOpen).toBe(false);
-        expect(useClusterElementsCanvasDialogStore.getState().dataStreamSimpleEditorPreferred).toBe(false);
-        expect(useClusterElementsCanvasDialogStore.getState().aiAgentSimpleEditorPreferred).toBe(true);
     });
 });

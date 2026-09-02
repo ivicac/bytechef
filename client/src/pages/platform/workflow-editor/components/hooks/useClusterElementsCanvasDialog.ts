@@ -3,7 +3,7 @@ import {useTestingModeStore} from '@/pages/platform/cluster-element-editor/ai-ag
 import {useAiAgentEvalsStore} from '@/pages/platform/cluster-element-editor/ai-agent-evals/stores/useAiAgentEvalsStore';
 import useClusterElementsDataStore from '@/pages/platform/cluster-element-editor/stores/useClusterElementsDataStore';
 import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
-import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
+import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
@@ -30,7 +30,7 @@ export default function useClusterElementsCanvasDialog({
         (state) => state.setDataStreamSimpleEditorPreferred
     );
     const setTestingPanelOpen = useClusterElementsCanvasDialogStore((state) => state.setTestingPanelOpen);
-    const clusterElementsViewMode = useClusterElementsViewMode();
+    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
 
     const rootClusterElementNodeData = useWorkflowEditorStore((state) => state.rootClusterElementNodeData);
     const setClusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.setClusterElementsCanvasOpen);
@@ -57,8 +57,63 @@ export default function useClusterElementsCanvasDialog({
         return computeIsDataStreamSimpleModeAvailable(workflow.definition, workflowNodeName);
     }, [isDataStreamClusterRoot, workflowNodeName, workflow.definition]);
 
+    const preferenceWorkflowReferenceId = workflowReferenceId ?? workflow.id;
+    const preferenceKey =
+        preferenceWorkflowReferenceId && workflowNodeName
+            ? `${preferenceWorkflowReferenceId}:${workflowNodeName}`
+            : undefined;
+
+    // Restores this root's remembered editor-vs-canvas preference. Box mode never reaches this: its
+    // box header buttons explicitly decide which surface to show on each open (see ClusterFrameShell),
+    // and this effect firing there would silently override that explicit choice with whatever was last
+    // remembered from a DIALOG-mode session -- including a stale `false`, which would answer "Switch to
+    // AI Agent editor" with the dialog's canvas view instead.
+    useEffect(() => {
+        if (clusterElementsViewMode === 'dialog' && isAiAgentClusterRoot && preferenceKey) {
+            const preference = useClusterElementsCanvasDialogStore.getState().editorPreferences[preferenceKey];
+
+            const showAiAgent = preference ?? true;
+
+            setShowAiAgentEditor(showAiAgent);
+        }
+    }, [clusterElementsViewMode, isAiAgentClusterRoot, preferenceKey, setShowAiAgentEditor]);
+
+    // Same reasoning as the AI Agent effect above, for the DataStream editor.
+    useEffect(() => {
+        if (clusterElementsViewMode === 'dialog' && isDataStreamClusterRoot && preferenceKey) {
+            if (!isDataStreamSimpleModeAvailable) {
+                setShowDataStreamEditor(false);
+
+                return;
+            }
+
+            const preference = useClusterElementsCanvasDialogStore.getState().editorPreferences[preferenceKey];
+
+            const showDataStream = preference ?? true;
+
+            setShowDataStreamEditor(showDataStream);
+        }
+    }, [
+        clusterElementsViewMode,
+        isDataStreamClusterRoot,
+        isDataStreamSimpleModeAvailable,
+        preferenceKey,
+        setShowDataStreamEditor,
+    ]);
+
     const handleToggleEditor = useCallback(
         (showSimpleEditor: boolean) => {
+            // In box mode there is no dialog canvas view to fall back to — that surface is the
+            // dialog's own ClusterElementsWorkflowEditor, which box mode never asked to see. Closing
+            // the whole destination returns the user to their box on the main canvas instead.
+            //
+            // The cleanups below still run: resetTestingMode/setAiAgentNodeDetailsPanelOpen(false)
+            // clear state that stays visible on the MAIN canvas after the dialog unmounts (the testing
+            // mode flag and the AI-agent node-details panel are not dialog-local), and the preference
+            // write keeps a later DIALOG-mode open of this same root consistent with what box mode just
+            // showed. setTestingPanelOpen(false) is deliberately NOT called here, unlike the dialog-mode
+            // branch below — the playground is an independent side panel in box mode (see
+            // ClusterFrameShell's handleOpenPlayground), not owned by this toggle.
             if (!showSimpleEditor && clusterElementsViewMode === 'box') {
                 setClusterElementsCanvasOpen(false);
 
@@ -66,10 +121,8 @@ export default function useClusterElementsCanvasDialog({
 
                 useWorkflowNodeDetailsPanelStore.getState().setAiAgentNodeDetailsPanelOpen(false);
 
-                if (isAiAgentClusterRoot) {
-                    setAiAgentSimpleEditorPreferred(showSimpleEditor);
-                } else if (isDataStreamClusterRoot) {
-                    setDataStreamSimpleEditorPreferred(showSimpleEditor);
+                if (preferenceKey) {
+                    setEditorPreference(preferenceKey, showSimpleEditor);
                 }
 
                 return;
@@ -107,12 +160,12 @@ export default function useClusterElementsCanvasDialog({
         },
         [
             clusterElementsViewMode,
+            preferenceKey,
             isAiAgentClusterRoot,
             isDataStreamClusterRoot,
             rootClusterElementNodeData,
             setClusterElementsCanvasOpen,
-            setAiAgentSimpleEditorPreferred,
-            setDataStreamSimpleEditorPreferred,
+            setEditorPreference,
             setShowAiAgentEditor,
             setShowDataStreamEditor,
             setTestingPanelOpen,
@@ -180,25 +233,46 @@ export default function useClusterElementsCanvasDialog({
         handleOpenChange(false);
     }, [handleOpenChange]);
 
+    // Duplicate of the mount-time restore effect above, guarding the same box-mode case for the same
+    // reason -- see that effect's comment.
     useEffect(() => {
         if (clusterElementsViewMode !== 'dialog') {
             return;
         }
 
-        setShowAiAgentEditor(isAiAgentClusterRoot && aiAgentSimpleEditorPreferred);
-    }, [aiAgentSimpleEditorPreferred, clusterElementsViewMode, isAiAgentClusterRoot, setShowAiAgentEditor]);
+        if (isAiAgentClusterRoot && preferenceKey) {
+            const showAiAgent = useClusterElementsCanvasDialogStore.getState().editorPreferences[preferenceKey] ?? true;
 
+            setShowAiAgentEditor(showAiAgent);
+        } else {
+            setShowAiAgentEditor(false);
+        }
+    }, [clusterElementsViewMode, preferenceKey, isAiAgentClusterRoot, setShowAiAgentEditor]);
+
+    // Duplicate of the mount-time restore effect above, guarding the same box-mode case for the same
+    // reason -- see that effect's comment.
     useEffect(() => {
         if (clusterElementsViewMode !== 'dialog') {
             return;
         }
 
-        setShowDataStreamEditor(
-            isDataStreamClusterRoot && isDataStreamSimpleModeAvailable && dataStreamSimpleEditorPreferred
-        );
+        if (isDataStreamClusterRoot && preferenceKey) {
+            if (!isDataStreamSimpleModeAvailable) {
+                setShowDataStreamEditor(false);
+
+                return;
+            }
+
+            const showDataStream =
+                useClusterElementsCanvasDialogStore.getState().editorPreferences[preferenceKey] ?? true;
+
+            setShowDataStreamEditor(showDataStream);
+        } else {
+            setShowDataStreamEditor(false);
+        }
     }, [
         clusterElementsViewMode,
-        dataStreamSimpleEditorPreferred,
+        preferenceKey,
         isDataStreamClusterRoot,
         isDataStreamSimpleModeAvailable,
         setShowDataStreamEditor,
