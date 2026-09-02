@@ -22,6 +22,8 @@ Name | Type
 `name` | string
 `permissionExpression` | string
 `category` | [Category](Category.md)
+`codeWorkflow` | boolean
+`codeWorkflowLanguage` | string
 `integrationWorkflowIds` | Array&lt;number&gt;
 `tags` | [Array&lt;Tag&gt;](Tag.md)
 `version` | number
@@ -48,6 +50,8 @@ const example = {
   "name": null,
   "permissionExpression": null,
   "category": null,
+  "codeWorkflow": null,
+  "codeWorkflowLanguage": null,
   "integrationWorkflowIds": null,
   "tags": null,
   "version": null,
