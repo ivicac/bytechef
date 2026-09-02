@@ -20,19 +20,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.security.ConnectedUserConnectionMembership;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserConnectionService;
-import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -63,7 +61,7 @@ class ConnectedUserConnectionFacadeTest {
     private ConnectionFacade connectionFacade;
 
     @Mock
-    private IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService;
+    private ConnectionService connectionService;
 
     @Mock
     private IntegrationInstanceService integrationInstanceService;
@@ -78,8 +76,7 @@ class ConnectedUserConnectionFacadeTest {
     @BeforeEach
     void setUp() {
         ConnectedUserConnectionMembership connectedUserConnectionMembership = new ConnectedUserConnectionMembership(
-            connectedUserConnectionService, integrationInstanceConfigurationWorkflowService,
-            integrationInstanceService);
+            connectedUserConnectionService, connectionService, integrationInstanceService);
 
         facade = new ConnectedUserConnectionFacadeImpl(
             connectedUserConnectionMembership, connectedUserConnectionService, connectedUserService, connectionFacade);
@@ -162,23 +159,20 @@ class ConnectedUserConnectionFacadeTest {
     }
 
     /**
-     * The case this ticket restores. A connection the tenant admin bound at the CONFIGURATION level is inherited by
-     * every connected user whose integration instance derives from that configuration -- that is what a shared
-     * connection is here -- so the picker must list it even though it is on neither the user's own instance nor their
-     * own connections.
+     * The case this ticket restores. A connection a tenant admin marked {@code shared} is entitled to every connected
+     * user in the environment -- that is what a shared connection is now -- so the picker must list it even though it
+     * is on neither the user's own instance nor their own connections.
      */
     @Test
-    void testGetConnectionsIncludesConnectionsBoundAtTheIntegrationInstanceConfiguration() {
+    void testGetConnectionsIncludesConnectionsMarkedShared() {
         ConnectedUser connectedUser = connectedUser();
 
         when(connectedUserService.getConnectedUser(1L)).thenReturn(connectedUser);
         when(integrationInstanceService.getConnectedUserIntegrationInstances(3L, Environment.PRODUCTION))
             .thenReturn(List.of(integrationInstance(10L)));
         when(connectedUserConnectionService.getConnectionIds(3L)).thenReturn(List.of(11L));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(12L)));
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(12L)));
         when(connectionFacade.getConnections(anyList(), eq(PlatformType.EMBEDDED))).thenReturn(List.of());
 
         facade.getConnections(1L, null, List.of(12L));
@@ -191,44 +185,11 @@ class ConnectedUserConnectionFacadeTest {
     }
 
     /**
-     * The other half of the rule: entitlement is derived from the configurations THIS caller's own instances derive
-     * from, never from configurations at large. A configuration is shared by every connected user attached to it, so
-     * enumerating configurations would hand each of them the others' connections.
+     * The environment axis. Source 3 applies {@code environment.ordinal()} in its own query, so a shared connection
+     * from another environment is never included -- the door this ticket must not reopen.
      */
     @Test
-    void testGetConnectionsExcludesConnectionsFromAConfigurationTheUserHasNoInstanceFor() {
-        ConnectedUser connectedUser = connectedUser();
-
-        when(connectedUserService.getConnectedUser(1L)).thenReturn(connectedUser);
-        when(integrationInstanceService.getConnectedUserIntegrationInstances(3L, Environment.PRODUCTION))
-            .thenReturn(List.of(integrationInstance(10L)));
-        when(connectedUserConnectionService.getConnectionIds(3L)).thenReturn(List.of());
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(12L)));
-        when(connectionFacade.getConnections(anyList(), eq(PlatformType.EMBEDDED))).thenReturn(List.of());
-
-        facade.getConnections(1L, null, List.of(77L));
-
-        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.captor();
-
-        verify(connectionFacade).getConnections(captor.capture(), eq(PlatformType.EMBEDDED));
-
-        assertThat(captor.getValue()).doesNotContain(77L);
-
-        verify(integrationInstanceConfigurationWorkflowService)
-            .getIntegrationInstanceConfigurationWorkflows(List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID));
-    }
-
-    /**
-     * The configuration id set is derived from the caller's ENVIRONMENT-scoped instances, so a configuration in another
-     * environment is never queried -- the door this ticket must not reopen. The instance lookup joins
-     * {@code integration_instance_configuration.environment}, so a DEVELOPMENT caller's instances carry only
-     * DEVELOPMENT configuration ids and the PRODUCTION twin's id never reaches the workflow lookup.
-     */
-    @Test
-    void testGetConnectionsNeverWalksAConfigurationFromAnotherEnvironment() {
+    void testGetConnectionsNeverIncludesASharedConnectionFromAnotherEnvironment() {
         ConnectedUser connectedUser = mock(ConnectedUser.class);
 
         when(connectedUser.getId()).thenReturn(3L);
@@ -238,10 +199,8 @@ class ConnectedUserConnectionFacadeTest {
         when(integrationInstanceService.getConnectedUserIntegrationInstances(3L, Environment.DEVELOPMENT))
             .thenReturn(List.of(integrationInstance(10L, DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)));
         when(connectedUserConnectionService.getConnectionIds(3L)).thenReturn(List.of());
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(12L)));
+        when(connectionService.getSharedConnections(Environment.DEVELOPMENT.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(12L)));
         when(connectionFacade.getConnections(anyList(), eq(PlatformType.EMBEDDED))).thenReturn(List.of());
 
         facade.getConnections(1L, null, List.of());
@@ -253,27 +212,25 @@ class ConnectedUserConnectionFacadeTest {
         assertThat(captor.getValue()).containsExactlyInAnyOrder(10L, 12L);
 
         verify(integrationInstanceService).getConnectedUserIntegrationInstances(3L, Environment.DEVELOPMENT);
-        verify(integrationInstanceConfigurationWorkflowService, never())
-            .getIntegrationInstanceConfigurationWorkflows(List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID));
+        verify(connectionService, never())
+            .getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED);
     }
 
     /**
-     * Entitlement is not ownership. A configuration-level connection is listed, but it belongs to the tenant admin who
-     * bound it and is shared with every connected user on that configuration, so an end user must not be able to delete
-     * or reauthorize it out from under the others.
+     * Entitlement is not ownership. A shared connection is listed, but it belongs to the tenant admin who marked it
+     * shared and is entitled to every connected user in the environment, so an end user must not be able to delete or
+     * reauthorize it out from under the others.
      */
     @Test
-    void testConfigurationLevelSharedConnectionIsListedButNotMutable() {
+    void testSharedConnectionIsListedButNotMutable() {
         ConnectedUser connectedUser = connectedUser(7L);
 
         when(connectedUserService.getConnectedUser(7L)).thenReturn(connectedUser);
         when(integrationInstanceService.getConnectedUserIntegrationInstances(7L, Environment.PRODUCTION))
             .thenReturn(List.of(integrationInstance(10L)));
         when(connectedUserConnectionService.getConnectionIds(7L)).thenReturn(List.of());
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(12L)));
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(12L)));
 
         // Echoes back only the ids it is asked for: requireOwned narrows the lookup to the OWNED subset, and a stub
         // that answered the same list regardless would hide exactly the narrowing this test is about.
@@ -303,7 +260,7 @@ class ConnectedUserConnectionFacadeTest {
      * The two filters are on different columns ({@code integration.component_name} vs the connection's own component),
      * and the argument that the change is output-preserving rests on the removed one being strictly looser, so this
      * exercises the case that would expose it: a second instance belonging to a DIFFERENT integration, whose connection
-     * must not appear in a component-scoped listing even though its configuration is walked for sharing.
+     * must not appear in a component-scoped listing even though a shared connection is present too.
      */
     @Test
     void testGetConnectionsFiltersOutAnotherIntegrationsConnectionByComponentName() {
@@ -316,10 +273,8 @@ class ConnectedUserConnectionFacadeTest {
                     integrationInstance(10L),
                     integrationInstance(20L, OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID)));
         when(connectedUserConnectionService.getConnectionIds(3L)).thenReturn(List.of());
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID, OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(30L)));
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(30L)));
 
         ConnectionDTO slackConnectionDTO = ConnectionDTO.builder()
             .id(10L)
@@ -374,16 +329,12 @@ class ConnectedUserConnectionFacadeTest {
         return integrationInstance;
     }
 
-    private static IntegrationInstanceConfigurationWorkflow integrationInstanceConfigurationWorkflow(
-        long... connectionIds) {
+    private static Connection connection(long id) {
+        Connection connection = new Connection();
 
-        List<IntegrationInstanceConfigurationWorkflowConnection> workflowConnections = Arrays.stream(connectionIds)
-            .mapToObj(
-                connectionId -> new IntegrationInstanceConfigurationWorkflowConnection(
-                    connectionId, "connection", "node"))
-            .toList();
+        connection.setId(id);
 
-        return new IntegrationInstanceConfigurationWorkflow(workflowConnections, Map.of(), "workflow-1");
+        return connection;
     }
 
     @Test
@@ -398,6 +349,32 @@ class ConnectedUserConnectionFacadeTest {
         assertThat(connectionId).isEqualTo(5L);
 
         verify(connectedUserConnectionService).create(1L, 5L);
+    }
+
+    /**
+     * The security boundary this facade owns. A connected user who could mark their own connection shared would hand
+     * their credentials to every other connected user in the environment, so {@code shared} is forced off regardless of
+     * what the request body carries.
+     */
+    @Test
+    void testCreateConnectedUserConnectionForcesSharedFalse() {
+        ConnectionDTO connectionDTO = ConnectionDTO.builder()
+            .componentName("slack")
+            .name("My Slack")
+            .shared(true)
+            .build();
+
+        when(connectionFacade.create(any(ConnectionDTO.class), eq(PlatformType.EMBEDDED))).thenReturn(42L);
+
+        facade.createConnectedUserConnection(1L, connectionDTO);
+
+        ArgumentCaptor<ConnectionDTO> connectionDTOArgumentCaptor = ArgumentCaptor.forClass(ConnectionDTO.class);
+
+        verify(connectionFacade).create(connectionDTOArgumentCaptor.capture(), eq(PlatformType.EMBEDDED));
+
+        ConnectionDTO capturedConnectionDTO = connectionDTOArgumentCaptor.getValue();
+
+        assertThat(capturedConnectionDTO.shared()).isFalse();
     }
 
     @Test
@@ -498,6 +475,69 @@ class ConnectedUserConnectionFacadeTest {
             NoSuchElementException.class, () -> facade.reauthorizeConnectedUserConnection(7L, 9L, parameters));
 
         verify(connectionFacade, never()).replaceAuthorizationParameters(anyLong(), any());
+    }
+
+    /**
+     * A shared connection is entitled -- {@code getConnections} must list it -- but never owned, since
+     * {@link ConnectedUserConnectionMembership#getOwnedConnectionIds} structurally excludes source 3. The listing
+     * assertion lives in this same test deliberately: {@code connectionService} is a strict mock, so stubbing
+     * {@code getSharedConnections} without anything that consumes it fails the test as UnnecessaryStubbing. That
+     * failure mode is itself the proof that id 50 genuinely went through source 3 rather than merely resembling the
+     * pre-existing foreign-id case.
+     */
+    @Test
+    void testDeleteConnectedUserConnectionRefusesSharedConnection() {
+        stubConnectedUserOwnership(List.of(), List.of());
+        stubSharedConnection(50L);
+
+        assertThat(facade.getConnections(7L, null, List.of()))
+            .extracting(ConnectionDTO::id)
+            .contains(50L);
+
+        assertThrows(NoSuchElementException.class, () -> facade.deleteConnectedUserConnection(7L, 50L));
+
+        verify(connectionFacade, never()).delete(any());
+    }
+
+    /**
+     * The reauthorize counterpart of {@link #testDeleteConnectedUserConnectionRefusesSharedConnection}: the same
+     * shared, entitled-but-unowned connection must be refused here too.
+     */
+    @Test
+    void testReauthorizeConnectedUserConnectionRefusesSharedConnection() {
+        stubConnectedUserOwnership(List.of(), List.of());
+        stubSharedConnection(50L);
+
+        assertThat(facade.getConnections(7L, null, List.of()))
+            .extracting(ConnectionDTO::id)
+            .contains(50L);
+
+        assertThrows(
+            NoSuchElementException.class, () -> facade.reauthorizeConnectedUserConnection(7L, 50L, Map.of()));
+
+        verify(connectionFacade, never()).replaceAuthorizationParameters(anyLong(), any());
+    }
+
+    /**
+     * Marks connection {@code connectionId} shared for connected user id 7's environment (source 3 of
+     * {@link ConnectedUserConnectionMembership}), and makes {@code connectionFacade.getConnections} echo back one
+     * {@link ConnectionDTO} per requested id -- so both the entitled-ids lookup in {@code getConnections} and the
+     * owned-ids lookup in {@code requireOwned} resolve against the ids they were actually called with, rather than a
+     * fixed canned list.
+     */
+    private void stubSharedConnection(long connectionId) {
+        when(connectionService.getSharedConnections(Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED))
+            .thenReturn(List.of(connection(connectionId)));
+        when(connectionFacade.getConnections(any(), eq(PlatformType.EMBEDDED)))
+            .thenAnswer(invocation -> {
+                List<Long> requestedConnectionIds = invocation.getArgument(0);
+
+                return requestedConnectionIds.stream()
+                    .map(requestedConnectionId -> ConnectionDTO.builder()
+                        .id(requestedConnectionId)
+                        .build())
+                    .toList();
+            });
     }
 
     /**

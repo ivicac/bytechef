@@ -93,11 +93,48 @@ public record ConnectionDTO(
         return new Builder();
     }
 
+    /**
+     * Seeds a new {@link Builder} from every component of {@code connectionDTO}. Prefer this over open-coding the
+     * canonical constructor when only a subset of fields needs to change on an existing {@link ConnectionDTO} — a
+     * positional record construction rots the moment a new component is added.
+     */
+    public static Builder builder(ConnectionDTO connectionDTO) {
+        Builder builder = new Builder();
+
+        builder.active = connectionDTO.active();
+        builder.authorizationParameters = connectionDTO.authorizationParameters();
+        builder.authorizationType = connectionDTO.authorizationType();
+        builder.baseUri = connectionDTO.baseUri();
+        builder.componentName = connectionDTO.componentName();
+        builder.connectionParameters = connectionDTO.connectionParameters();
+        builder.connectionVersion = connectionDTO.connectionVersion();
+        builder.createdBy = connectionDTO.createdBy();
+        builder.createdDate = connectionDTO.createdDate();
+        builder.credentialStatus = connectionDTO.credentialStatus();
+        builder.credentialStoreType = connectionDTO.credentialStoreType();
+        builder.environmentId = connectionDTO.environmentId();
+        builder.id = connectionDTO.id();
+        builder.lastModifiedBy = connectionDTO.lastModifiedBy();
+        builder.lastModifiedDate = connectionDTO.lastModifiedDate();
+        builder.managed = connectionDTO.managed();
+        builder.name = connectionDTO.name();
+        builder.parameters = connectionDTO.parameters();
+        builder.shared = connectionDTO.shared();
+        builder.status = connectionDTO.status();
+        builder.tags = connectionDTO.tags();
+        builder.version = connectionDTO.version();
+        builder.visibility = connectionDTO.visibility();
+
+        return builder;
+    }
+
     public static final class Builder {
         private boolean active;
+        private Map<String, ?> authorizationParameters = Map.of();
         private AuthorizationType authorizationType;
         private String baseUri;
         private String componentName;
+        private Map<String, ?> connectionParameters = Map.of();
         private int connectionVersion;
         private String createdBy;
         private Instant createdDate;
@@ -107,8 +144,9 @@ public record ConnectionDTO(
         private Long id;
         private String lastModifiedBy;
         private Instant lastModifiedDate;
+        private boolean managed;
         private String name;
-        private Map<String, Object> parameters;
+        private Map<String, ?> parameters;
         private boolean shared;
         private ConnectionStatus status = ConnectionStatus.ACTIVE;
         private List<Tag> tags;
@@ -120,6 +158,12 @@ public record ConnectionDTO(
 
         public Builder active(boolean active) {
             this.active = active;
+
+            return this;
+        }
+
+        public Builder authorizationParameters(Map<String, ?> authorizationParameters) {
+            this.authorizationParameters = authorizationParameters;
 
             return this;
         }
@@ -138,6 +182,12 @@ public record ConnectionDTO(
 
         public Builder componentName(String componentName) {
             this.componentName = componentName;
+
+            return this;
+        }
+
+        public Builder connectionParameters(Map<String, ?> connectionParameters) {
+            this.connectionParameters = connectionParameters;
 
             return this;
         }
@@ -196,13 +246,19 @@ public record ConnectionDTO(
             return this;
         }
 
+        public Builder managed(boolean managed) {
+            this.managed = managed;
+
+            return this;
+        }
+
         public Builder name(String name) {
             this.name = name;
 
             return this;
         }
 
-        public Builder parameters(Map<String, Object> parameters) {
+        public Builder parameters(Map<String, ?> parameters) {
             this.parameters = parameters;
 
             return this;
@@ -240,9 +296,9 @@ public record ConnectionDTO(
 
         public ConnectionDTO build() {
             return new ConnectionDTO(
-                active, authorizationType, Map.of(), baseUri, componentName, Map.of(), connectionVersion, createdBy,
-                createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate,
-                name, parameters, status, tags, version, visibility, shared, false);
+                active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters,
+                connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id,
+                lastModifiedBy, lastModifiedDate, name, parameters, status, tags, version, visibility, shared, managed);
         }
     }
 }
