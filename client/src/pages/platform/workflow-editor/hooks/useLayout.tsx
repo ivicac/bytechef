@@ -28,7 +28,6 @@ import {useStoreWithEqualityFn} from 'zustand/traditional';
 
 import useClusterElementNodes from '../../cluster-element-editor/hooks/useClusterElementNodes';
 import {getNestedClusterElements, isPlainObject} from '../../cluster-element-editor/utils/clusterElementsUtils';
-import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useLayoutEngineStore from '../stores/useLayoutEngineStore';
 import useRightSidebarStore from '../stores/useRightSidebarStore';
@@ -36,6 +35,7 @@ import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import animateNodePositions from '../utils/animateNodePositions';
 import {layoutClusterFrames} from '../utils/clusterFrame/layoutClusterFrames';
+import collectClusterElementsSignature from '../utils/collectClusterElementsSignature';
 import createBranchEdges from '../utils/createBranchEdges';
 import createBranchNode from '../utils/createBranchNode';
 import createConditionEdges, {hasTaskInConditionBranches} from '../utils/createConditionEdges';
@@ -73,6 +73,7 @@ import {containsNodePosition} from '../utils/postDagreConstraints';
 import removeTrailingBranchPlaceholders from '../utils/removeTrailingBranchPlaceholders';
 import {buildStickyNoteNodes} from '../utils/stickyNoteUtils';
 import {forEachNestedTaskGroup} from '../utils/taskTraversalUtils';
+import useClusterElementsViewMode from './useClusterElementsViewMode';
 
 function getClusterElementsFingerprint(clusterElements: unknown): string {
     if (!clusterElements || typeof clusterElements !== 'object') {
@@ -202,50 +203,6 @@ function collectGraphLayoutSignature(value: unknown, sink: string[]): void {
 }
 
 /**
- * Builds a structural signature for one cluster root's attached elements: each element's identity
- * (`name`, `type`) and where it sits (`metadata.ui.nodePosition`), recursing into nested cluster
- * roots. Sibling of `collectGraphLayoutSignature` above, for the same reason: a box is sized from
- * where its elements sit, so an element's identity or position is what should trigger the outer
- * canvas to relayout.
- *
- * Deliberately excludes `parameters` and `connections` (both present on `ClusterElementItemType`):
- * those are exactly what changes on every keystroke in a cluster element's own property form, and
- * folding them in here would fire the fingerprint on every debounced property save -- the opposite
- * of what `getTasksStructuralFingerprint` exists for. See the two guarded fixtures in
- * `getTasksStructuralFingerprint.test.ts` ("should produce the same fingerprint for tasks differing
- * only in parameter values" and its cluster-element counterpart added alongside this comment).
- */
-function collectClusterElementsSignature(value: unknown): string {
-    if (Array.isArray(value)) {
-        return value.map((item) => collectClusterElementsSignature(item)).join(',');
-    }
-
-    if (!value || typeof value !== 'object') {
-        return '';
-    }
-
-    const record = value as Record<string, unknown>;
-
-    // A single element (carries its own name/type) vs. a slot map (slot key -> element/array/null). The workflow
-    // definition names an element `name` and nests under `clusterElements`; a workflow task names it
-    // `workflowNodeName` and nests under `extensions.clusterElements` -- both shapes must sign the same.
-    const elementName = typeof record.name === 'string' ? record.name : record.workflowNodeName;
-
-    if (typeof elementName === 'string' && typeof record.type === 'string') {
-        const nodePosition = (record.metadata as NodeDataType['metadata'])?.ui?.nodePosition;
-        const positionSignature = nodePosition ? `${nodePosition.x},${nodePosition.y}` : '';
-        const nestedSignature = collectClusterElementsSignature(getNestedClusterElements(record));
-
-        return `${elementName}:${record.type}@${positionSignature}${nestedSignature ? `[${nestedSignature}]` : ''}`;
-    }
-
-    return Object.keys(record)
-        .sort()
-        .map((key) => `${key}=${collectClusterElementsSignature(record[key])}`)
-        .join('|');
-}
-
-/**
  * Moves the canvas sideways by `shift` when a side panel opens or closes.
  *
  * A parented node is positioned RELATIVE to its parent, so a graph frame's members ride along with
@@ -265,7 +222,7 @@ export function shiftCanvasNodes(nodes: Node[], shift: number): Node[] {
  * relayout (plus `animateNodePositions`) on every debounced property save while the user is typing.
  *
  * A cluster root's `clusterElements` contributes only the STRUCTURAL subset built by
- * `collectClusterElementsSignature` above -- element identity and position, deliberately excluding
+ * `collectClusterElementsSignature` (its own module) -- element identity and position, deliberately excluding
  * `parameters`/`connections`. Pinned in `hooks/tests/getTasksStructuralFingerprint.test.ts` and
  * `hooks/tests/useLayout.clusterFrame.test.ts`.
  */
@@ -448,7 +405,7 @@ export default function useLayout({
     );
     const layoutResetCounter = useWorkflowDataStore((state) => state.layoutResetCounter);
 
-    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
+    const clusterElementsViewMode = useClusterElementsViewMode();
 
     // `layoutNodes` (the canvas node array) exists only inside the layout effect below, built fresh
     // from `tasks` on every run -- so this reads `tasks` directly instead, rather than duplicating
@@ -1204,8 +1161,18 @@ export default function useLayout({
         // Immediately remove nodes that are no longer part of the layout so that
         // deleted task dispatcher children disappear at the same time as the parent,
         // rather than lingering until the async layout calculation resolves.
+        // Cluster members are in NEITHER `layoutNodes` nor `stickyNoteNodes` — the pre-pass strips
+        // them out of the outer array and they only reappear once the async layout resolves — so
+        // without them here the prune fires on every box-mode relayout, tearing every element and
+        // its edges out of the store for a frame before they flicker back. Graph members escape this
+        // because they ARE in `layoutNodes`.
         const newNodeIds = new Set(
-            [...layoutNodes, ...hiddenTrailingBranchPlaceholderNodes, ...stickyNoteNodes].map((node) => node.id)
+            [
+                ...layoutNodes,
+                ...hiddenTrailingBranchPlaceholderNodes,
+                ...stickyNoteNodes,
+                ...Object.values(nodesByRootId).flat(),
+            ].map((node) => node.id)
         );
         const prunedNodes = frozenNodes.filter((node) => newNodeIds.has(node.id));
 
