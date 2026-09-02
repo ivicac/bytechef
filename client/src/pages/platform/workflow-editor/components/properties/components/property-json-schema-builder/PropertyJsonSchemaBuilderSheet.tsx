@@ -14,6 +14,7 @@ import {VisuallyHidden} from 'radix-ui';
 import {Suspense, lazy, useCallback, useEffect, useRef, useState} from 'react';
 import {twMerge} from 'tailwind-merge';
 
+import PropertyJsonSchemaBuilderSampleDataTab from './PropertyJsonSchemaBuilderSampleDataTab';
 import {usePropertyJsonSchemaBuilderCopilot} from './hooks/usePropertyJsonSchemaBuilderCopilot';
 
 import type {StandaloneCodeEditorType} from '@/shared/components/MonacoTypes';
@@ -41,6 +42,7 @@ const PropertyJsonSchemaBuilderSheet = ({
     workflowId,
     workflowNodeName,
 }: PropertyJsonSchemaBuilderSheetProps) => {
+    const [activeTab, setActiveTab] = useState('designer');
     const [localSchema, setLocalSchema] = useState<SchemaRecordType | undefined>(schema);
 
     const editorRef = useRef<StandaloneCodeEditorType | null>(null);
@@ -64,7 +66,18 @@ const PropertyJsonSchemaBuilderSheet = ({
         [onChange]
     );
 
+    const handleSampleGenerate = useCallback(
+        (newSchema: SchemaRecordType) => {
+            handleSchemaChange(newSchema);
+
+            setActiveTab('designer');
+        },
+        [handleSchemaChange]
+    );
+
     const handleTabChange = useCallback((value: string) => {
+        setActiveTab(value);
+
         if (value === 'editor' && editorRef.current) {
             requestAnimationFrame(() => {
                 editorRef.current?.layout();
@@ -117,11 +130,7 @@ const PropertyJsonSchemaBuilderSheet = ({
                 onPointerDownOutside={(event) => event.preventDefault()}
             >
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <Tabs
-                        className="flex size-full flex-col gap-0"
-                        defaultValue="designer"
-                        onValueChange={handleTabChange}
-                    >
+                    <Tabs className="flex size-full flex-col gap-0" onValueChange={handleTabChange} value={activeTab}>
                         <header className="flex w-full shrink-0 items-center justify-between gap-x-3 rounded-t-md border-b border-stroke-neutral-primary bg-surface-neutral-primary p-3">
                             <div className="flex flex-col">
                                 <span className="text-lg font-semibold">
@@ -136,6 +145,8 @@ const PropertyJsonSchemaBuilderSheet = ({
                                     <TabsTrigger value="designer">Designer</TabsTrigger>
 
                                     <TabsTrigger value="editor">Code Editor</TabsTrigger>
+
+                                    <TabsTrigger value="sample">From Sample</TabsTrigger>
                                 </TabsList>
 
                                 {copilotAvailable && (
@@ -165,6 +176,16 @@ const PropertyJsonSchemaBuilderSheet = ({
                                 value="designer"
                             >
                                 <JsonSchemaBuilder onChange={handleSchemaChange} schema={localSchema} />
+                            </TabsContent>
+
+                            <TabsContent
+                                className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-surface-neutral-primary p-3"
+                                value="sample"
+                            >
+                                <PropertyJsonSchemaBuilderSampleDataTab
+                                    onGenerate={handleSampleGenerate}
+                                    schema={localSchema}
+                                />
                             </TabsContent>
 
                             <TabsContent

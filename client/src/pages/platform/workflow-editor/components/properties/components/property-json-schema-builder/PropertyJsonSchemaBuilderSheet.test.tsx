@@ -1,11 +1,14 @@
 import {i18n} from '@lingui/core';
 import {I18nProvider} from '@lingui/react';
-import {render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
 import {describe, expect, it, vi} from 'vitest';
 
-const {handleCopilotOpen} = vi.hoisted(() => ({handleCopilotOpen: vi.fn()}));
+const {generateSchemaFromSampleMock, handleCopilotOpen} = vi.hoisted(() => ({
+    generateSchemaFromSampleMock: vi.fn(),
+    handleCopilotOpen: vi.fn(),
+}));
 
 vi.mock('./hooks/usePropertyJsonSchemaBuilderCopilot', () => ({
     usePropertyJsonSchemaBuilderCopilot: () => ({
@@ -14,7 +17,15 @@ vi.mock('./hooks/usePropertyJsonSchemaBuilderCopilot', () => ({
         handleCopilotOpen,
     }),
 }));
+vi.mock('./utils/generateSchemaFromSample', () => ({
+    generateSchemaFromSample: generateSchemaFromSampleMock,
+}));
 vi.mock('@/shared/components/copilot/CopilotPanel', () => ({default: () => <div data-testid="copilot-panel" />}));
+vi.mock('@/shared/components/MonacoEditorWrapper', () => ({
+    default: ({onChange, value}: {onChange: (value: string | undefined) => void; value: string}) => (
+        <textarea data-testid="mock-monaco-editor" onChange={(event) => onChange(event.target.value)} value={value} />
+    ),
+}));
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
     useApplicationInfoStore: (selector: (s: unknown) => unknown) => selector({ai: {copilot: {enabled: true}}}),
 }));
@@ -32,6 +43,11 @@ i18n.load('en', {});
 i18n.activate('en');
 
 const wrapper = ({children}: {children: ReactNode}) => <I18nProvider i18n={i18n}>{children}</I18nProvider>;
+
+const generatedSchema = {
+    properties: {name: {type: 'string'}},
+    type: 'object',
+};
 
 describe('PropertyJsonSchemaBuilderSheet copilot toggle', () => {
     it('opens the copilot when the toggle is clicked', async () => {
@@ -51,5 +67,36 @@ describe('PropertyJsonSchemaBuilderSheet copilot toggle', () => {
         await user.click(screen.getByRole('button', {name: /copilot/i}));
 
         expect(handleCopilotOpen).toHaveBeenCalled();
+    });
+});
+
+describe('PropertyJsonSchemaBuilderSheet sample generation', () => {
+    it('offers a From Sample tab', () => {
+        render(<PropertyJsonSchemaBuilderSheet title="Response Schema" />, {wrapper});
+
+        expect(screen.getByRole('tab', {name: /from sample/i})).toBeInTheDocument();
+    });
+
+    it('applies the generated schema and returns to the Designer tab', async () => {
+        const user = userEvent.setup();
+        const onChange = vi.fn();
+
+        generateSchemaFromSampleMock.mockResolvedValue(generatedSchema);
+
+        render(<PropertyJsonSchemaBuilderSheet onChange={onChange} title="Response Schema" />, {wrapper});
+
+        await user.click(screen.getByRole('tab', {name: /from sample/i}));
+
+        const samplePanel = screen.getByRole('tabpanel', {name: /from sample/i});
+
+        fireEvent.change(await within(samplePanel).findByTestId('mock-monaco-editor'), {
+            target: {value: '{"name": "Ana"}'},
+        });
+
+        await user.click(within(samplePanel).getByRole('button', {name: /generate/i}));
+
+        await waitFor(() => expect(onChange).toHaveBeenCalledWith(generatedSchema));
+
+        expect(screen.getByRole('tab', {name: /designer/i})).toHaveAttribute('aria-selected', 'true');
     });
 });
