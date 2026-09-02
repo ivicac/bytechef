@@ -86,4 +86,18 @@ class DeferredEvaluationParameterKeysTest {
 
         assertEquals(Set.of("commands"), DeferredEvaluationParameterKeys.forTaskType("commands/v1"));
     }
+
+    /**
+     * The same, for the {@code script} component's source. Registering from the component's own module would leave the
+     * coordinator - which carries no component module - evaluating a JavaScript template literal as an accessor, so the
+     * first assertion is not decoration: it proves the key is present in a JVM that has never seen the component.
+     */
+    @Test
+    void testScriptIsSeededWithoutLoadingTheScriptComponent() {
+        assertThrows(
+            ClassNotFoundException.class,
+            () -> Class.forName("com.bytechef.component.script.ScriptComponentHandler"));
+
+        assertEquals(Set.of("script"), DeferredEvaluationParameterKeys.forTaskType("script/v1"));
+    }
 }
