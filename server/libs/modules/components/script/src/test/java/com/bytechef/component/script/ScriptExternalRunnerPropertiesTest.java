@@ -34,12 +34,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code ScriptComponentHandlerTest} builds its registry with only {@link GraalVmTaskRunner} enabled, so
- * {@code TaskRunnerPropertyFactory.externalProperties} returns an empty list there and the definition snapshot never
- * moves. That leaves nothing in the module proving the four external properties are actually wired into the actions - a
- * registry that can never produce them cannot fail if the wiring is missing. This test builds a second registry with
- * {@link ProcessTaskRunner} also enabled, where the properties must appear, and keeps the GraalVM-only case alongside
- * it so the two together show the properties track the enabled runner set rather than appearing unconditionally.
+ * {@code ScriptComponentHandlerTest} now enables every built-in runner, so the four external properties do appear in
+ * its snapshot and their presence is pinned there. What that test cannot show is the other half: it has no registry in
+ * which the properties must be <em>absent</em>, so a factory that emitted them unconditionally would satisfy it. This
+ * test supplies the missing case - a GraalVM-only registry, where {@code TaskRunnerPropertyFactory.externalProperties}
+ * must return an empty list - and keeps the enabled case beside it, so the two together show the properties track the
+ * enabled runner set rather than appearing whatever the configuration.
  *
  * <p>
  * Every case runs against both {@code javascript} and {@code python} - {@code ScriptJavaScriptAction} and
