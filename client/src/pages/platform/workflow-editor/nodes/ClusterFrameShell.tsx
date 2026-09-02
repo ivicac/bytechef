@@ -26,7 +26,10 @@ import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import {clearClusterElementPositions} from '../utils/clearAllClusterElementPositions';
-import {CLUSTER_FRAME_HEADER_HEIGHT} from '../utils/clusterFrame/clusterFrameGeometry';
+import {
+    CLUSTER_FRAME_HEADER_HEIGHT,
+    DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN,
+} from '../utils/clusterFrame/clusterFrameGeometry';
 import {mapHandlePosition} from '../utils/directionUtils';
 import {getTask} from '../utils/getTask';
 import {isDataStreamSimpleModeAvailable as computeIsDataStreamSimpleModeAvailable} from '../utils/isDataStreamSimpleModeAvailable';
@@ -184,6 +187,8 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
         return <>{children}</>;
     }
 
+    const contentOrigin = clusterFrame.contentOrigin ?? DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN;
+
     return (
         <div
             className="rounded-lg border-2 border-dashed border-stroke-neutral-secondary bg-surface-neutral-secondary/40"
@@ -325,7 +330,18 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
                 )}
             </div>
 
-            {children}
+            {/* The card sits at the content origin, which is the origin every member position is
+            measured from. It is pushed in from the box's top-left corner only when a member reaches
+            left of, or above, the card — see computeClusterFrameContentOrigin. */}
+
+            <div
+                style={{
+                    marginLeft: contentOrigin.x,
+                    marginTop: contentOrigin.y - CLUSTER_FRAME_HEADER_HEIGHT,
+                }}
+            >
+                {children}
+            </div>
 
             <Handle
                 className={styles.handle}
