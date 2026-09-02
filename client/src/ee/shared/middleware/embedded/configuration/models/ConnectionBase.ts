@@ -47,8 +47,6 @@ export interface ConnectionBase {
     readonly active?: boolean;
     /**
      * True when this connection is system-managed (e.g. an enabled AI provider) and cannot be edited or deleted.
-     * @type {boolean}
-     * @memberof ConnectionBase
      */
     readonly managed?: boolean;
     /**
@@ -89,8 +87,6 @@ export interface ConnectionBase {
     credentialStatus?: CredentialStatus;
     /**
      * Backend that stores the credential payload. Defaults to DATABASE.
-     * @type {ConnectionBaseCredentialStoreTypeEnum}
-     * @memberof ConnectionBase
      */
     credentialStoreType?: ConnectionBaseCredentialStoreTypeEnum;
     /**
@@ -118,19 +114,19 @@ export interface ConnectionBase {
      */
     parameters: { [key: string]: any; };
     /**
+     * Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.
+     */
+    shared?: boolean;
+    /**
      * 
      */
     tags?: Array<Tag>;
     /**
      * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
-     * @type {ConnectionBaseStatusEnum}
-     * @memberof ConnectionBase
      */
     readonly status?: ConnectionBaseStatusEnum;
     /**
      * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is assigned by organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
-     * @type {ConnectionBaseVisibilityEnum}
-     * @memberof ConnectionBase
      */
     visibility?: ConnectionBaseVisibilityEnum;
     /**
@@ -146,7 +142,7 @@ export interface ConnectionBase {
 export const ConnectionBaseCredentialStoreTypeEnum = {
     Database: 'DATABASE',
     AwsSecretsManager: 'AWS_SECRETS_MANAGER',
-    HashicorpVault: 'HASHICORP_VAULT'
+    HashicorpVault: 'HASHICORP_VAULT',
 } as const;
 export type ConnectionBaseCredentialStoreTypeEnum = typeof ConnectionBaseCredentialStoreTypeEnum[keyof typeof ConnectionBaseCredentialStoreTypeEnum];
 
@@ -156,7 +152,7 @@ export type ConnectionBaseCredentialStoreTypeEnum = typeof ConnectionBaseCredent
 export const ConnectionBaseStatusEnum = {
     Active: 'ACTIVE',
     PendingReassignment: 'PENDING_REASSIGNMENT',
-    Revoked: 'REVOKED'
+    Revoked: 'REVOKED',
 } as const;
 export type ConnectionBaseStatusEnum = typeof ConnectionBaseStatusEnum[keyof typeof ConnectionBaseStatusEnum];
 
@@ -166,7 +162,7 @@ export type ConnectionBaseStatusEnum = typeof ConnectionBaseStatusEnum[keyof typ
 export const ConnectionBaseVisibilityEnum = {
     Private: 'PRIVATE',
     Workspace: 'WORKSPACE',
-    Organization: 'ORGANIZATION'
+    Organization: 'ORGANIZATION',
 } as const;
 export type ConnectionBaseVisibilityEnum = typeof ConnectionBaseVisibilityEnum[keyof typeof ConnectionBaseVisibilityEnum];
 
@@ -210,6 +206,7 @@ export function ConnectionBaseFromJSONTyped(json: any, ignoreDiscriminator: bool
         'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (parseDateTime(json['lastModifiedDate'])),
         'name': json['name'],
         'parameters': json['parameters'],
+        'shared': json['shared'] == null ? undefined : json['shared'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
         'status': json['status'] == null ? undefined : json['status'],
         'visibility': json['visibility'] == null ? undefined : json['visibility'],
@@ -237,6 +234,7 @@ export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|
         'environmentId': value['environmentId'],
         'name': value['name'],
         'parameters': value['parameters'],
+        'shared': value['shared'],
         'tags': value['tags'] == null ? undefined : ((value['tags'] as Array<any>).map(TagToJSON)),
         'visibility': value['visibility'],
         '__version': value['version'],
