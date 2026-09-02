@@ -3,7 +3,6 @@ import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/st
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
-import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {renderHook, waitFor} from '@testing-library/react';
 import {Node} from '@xyflow/react';
@@ -121,8 +120,6 @@ describe('cluster frame, from a workflow definition', () => {
 
     beforeEach(() => {
         queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
-
-        applicationInfoStore.setState({featureFlags: {'ff-5470': true}});
 
         useWorkflowDataStore.setState({
             workflow: {definition: WORKFLOW_DEFINITION, id: 'workflow_1'},

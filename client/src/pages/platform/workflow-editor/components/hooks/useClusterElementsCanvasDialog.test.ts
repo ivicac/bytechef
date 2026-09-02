@@ -2,21 +2,11 @@ import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-edi
 import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
-import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {NodeDataType} from '@/shared/types';
 import {renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it} from 'vitest';
 
 import useClusterElementsCanvasDialog from './useClusterElementsCanvasDialog';
-
-// The view-mode toggle is behind ff-5470, and `useClusterElementsViewMode` reports 'dialog'
-// regardless of the stored mode while the flag is off -- that is the kill switch. Box-mode tests
-// therefore have to turn the flag on as well as set the store.
-function enableClusterElementsBoxModeFlag() {
-    applicationInfoStore.setState((state) => ({
-        featureFlags: {...state.featureFlags, 'ff-5470': true},
-    }));
-}
 
 // Regression coverage for the second half of the "editor buttons" bug: useClusterElementsCanvasDialog
 // carries two effect pairs that restore showAiAgentEditor/showDataStreamEditor from the persisted
@@ -46,7 +36,6 @@ describe('useClusterElementsCanvasDialog - editor preference restoration', () =>
     });
 
     it('does not revert an explicitly-set showAiAgentEditor back to the stored preference in box mode', () => {
-        enableClusterElementsBoxModeFlag();
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
 
         renderHook(() => useClusterElementsCanvasDialog({onOpenChange: () => {}}));
