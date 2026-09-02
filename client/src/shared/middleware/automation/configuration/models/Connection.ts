@@ -150,6 +150,12 @@ export interface Connection {
      */
     parameters: { [key: string]: any; };
     /**
+     * Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.
+     * @type {boolean}
+     * @memberof Connection
+     */
+    shared?: boolean;
+    /**
      * 
      * @type {Array<Tag>}
      * @memberof Connection
@@ -252,6 +258,7 @@ export function ConnectionFromJSONTyped(json: any, ignoreDiscriminator: boolean)
         'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (new Date(json['lastModifiedDate'])),
         'name': json['name'],
         'parameters': json['parameters'],
+        'shared': json['shared'] == null ? undefined : json['shared'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
         'status': json['status'] == null ? undefined : json['status'],
         'visibility': json['visibility'] == null ? undefined : json['visibility'],
@@ -280,6 +287,7 @@ export function ConnectionToJSONTyped(value?: Omit<Connection, 'active'|'managed
         'environmentId': value['environmentId'],
         'name': value['name'],
         'parameters': value['parameters'],
+        'shared': value['shared'],
         'tags': value['tags'] == null ? undefined : ((value['tags'] as Array<any>).map(TagToJSON)),
         'visibility': value['visibility'],
         '__version': value['version'],
