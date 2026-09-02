@@ -71,13 +71,13 @@ describe('PropertyJsonSchemaBuilderSheet copilot toggle', () => {
 });
 
 describe('PropertyJsonSchemaBuilderSheet sample generation', () => {
-    it('offers a From Sample tab', () => {
+    it('offers a From Sample button', () => {
         render(<PropertyJsonSchemaBuilderSheet title="Response Schema" />, {wrapper});
 
-        expect(screen.getByRole('tab', {name: /from sample/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: /from sample/i})).toBeInTheDocument();
     });
 
-    it('applies the generated schema and returns to the Designer tab', async () => {
+    it('applies the generated schema and closes the dialog', async () => {
         const user = userEvent.setup();
         const onChange = vi.fn();
 
@@ -85,18 +85,34 @@ describe('PropertyJsonSchemaBuilderSheet sample generation', () => {
 
         render(<PropertyJsonSchemaBuilderSheet onChange={onChange} title="Response Schema" />, {wrapper});
 
-        await user.click(screen.getByRole('tab', {name: /from sample/i}));
+        await user.click(screen.getByRole('button', {name: /from sample/i}));
 
-        const samplePanel = screen.getByRole('tabpanel', {name: /from sample/i});
+        const dialog = await screen.findByRole('dialog', {name: /generate schema from sample/i});
 
-        fireEvent.change(await within(samplePanel).findByTestId('mock-monaco-editor'), {
+        fireEvent.change(await within(dialog).findByTestId('mock-monaco-editor'), {
             target: {value: '{"name": "Ana"}'},
         });
 
-        await user.click(within(samplePanel).getByRole('button', {name: /generate/i}));
+        await user.click(within(dialog).getByRole('button', {name: /generate/i}));
 
         await waitFor(() => expect(onChange).toHaveBeenCalledWith(generatedSchema));
 
-        expect(screen.getByRole('tab', {name: /designer/i})).toHaveAttribute('aria-selected', 'true');
+        await waitFor(() =>
+            expect(screen.queryByRole('dialog', {name: /generate schema from sample/i})).not.toBeInTheDocument()
+        );
+    });
+});
+
+describe('PropertyJsonSchemaBuilderSheet note', () => {
+    it('hides the response schema note once it is dismissed', async () => {
+        const user = userEvent.setup();
+
+        render(<PropertyJsonSchemaBuilderSheet title="Response Schema" />, {wrapper});
+
+        const note = screen.getByText(/essentially a template for its output/i);
+
+        await user.click(screen.getByRole('button', {name: /dismiss/i}));
+
+        expect(note).not.toBeInTheDocument();
     });
 });
