@@ -13,6 +13,13 @@ interface CreateClusterElementNodesProps {
     nestedClusterRootElementType?: string;
     nestedClusterRootsDefinitions: Record<string, NestedClusterRootComponentDefinitionType>;
     operationName?: string;
+    /**
+     * The OUTERMOST root's workflow node name -- the one addressable via `getTask`/`workflowTasks`.
+     * Defaults to `clusterRootId` when omitted (the top-level call), and is threaded UNCHANGED through
+     * every recursive call below, unlike `clusterRootId` itself, which is rebound to the immediate
+     * parent's name at each nesting level. Callers never need to pass this explicitly.
+     */
+    topLevelClusterRootId?: string;
 }
 
 export default function createClusterElementNodes({
@@ -22,6 +29,7 @@ export default function createClusterElementNodes({
     nestedClusterRootElementType,
     nestedClusterRootsDefinitions,
     operationName = '',
+    topLevelClusterRootId = clusterRootId,
 }: CreateClusterElementNodesProps) {
     if (!currentRootComponentDefinition || !currentRootComponentDefinition.clusterElementTypes || !clusterElements) {
         return [];
@@ -81,6 +89,7 @@ export default function createClusterElementNodes({
 
                     // Set root parent/child relationship
                     multipleElementsNode.data.parentClusterRootId = clusterRootId;
+                    multipleElementsNode.data.topLevelClusterRootId = topLevelClusterRootId;
                     multipleElementsNode.data.isNestedClusterRoot = isNestedClusterRoot;
 
                     createdNodes.push(multipleElementsNode);
@@ -98,6 +107,7 @@ export default function createClusterElementNodes({
                                 currentRootComponentDefinition: nestedClusterRootDefinition,
                                 nestedClusterRootElementType: element.type?.split('/')[2] || clusterElementTypeName,
                                 nestedClusterRootsDefinitions,
+                                topLevelClusterRootId,
                             });
 
                             createdNodes.push(...nestedClusterElementNodes);
@@ -143,6 +153,7 @@ export default function createClusterElementNodes({
 
                 // Set root parent/child relationship
                 singleElementNode.data.parentClusterRootId = clusterRootId;
+                singleElementNode.data.topLevelClusterRootId = topLevelClusterRootId;
                 singleElementNode.data.isNestedClusterRoot = isNestedClusterRoot;
 
                 createdNodes.push(singleElementNode);
@@ -161,6 +172,7 @@ export default function createClusterElementNodes({
                             nestedClusterRootElementType:
                                 clusterElementValue.type?.split('/')[2] || clusterElementTypeName,
                             nestedClusterRootsDefinitions,
+                            topLevelClusterRootId,
                         });
 
                         createdNodes.push(...nestedClusterElementNodes);
