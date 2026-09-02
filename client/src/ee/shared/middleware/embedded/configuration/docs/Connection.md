@@ -25,6 +25,7 @@ Name | Type
 `lastModifiedDate` | Date
 `name` | string
 `parameters` | { [key: string]: any; }
+`shared` | boolean
 `tags` | [Array&lt;Tag&gt;](Tag.md)
 `status` | string
 `visibility` | string
@@ -55,6 +56,7 @@ const example = {
   "lastModifiedDate": null,
   "name": null,
   "parameters": null,
+  "shared": null,
   "tags": null,
   "status": null,
   "visibility": null,

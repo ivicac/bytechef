@@ -1535,6 +1535,14 @@ export type AssetFile = {
   tags: Array<Tag>;
 };
 
+export type AssetFileSearchResult = SearchResult & {
+  __typename?: 'AssetFileSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
 export enum AssetFileSource {
   AiGenerated = 'AI_GENERATED',
   UserUpload = 'USER_UPLOAD'
@@ -1548,6 +1556,18 @@ export type AssetFileVersion = {
   mimeType: Scalars['String']['output'];
   sizeBytes: Scalars['Long']['output'];
   versionNumber: Scalars['Int']['output'];
+};
+
+export type AssignDataTableOwnerInput = {
+  dataTableId: Scalars['ID']['input'];
+  /** Omit to return the table to the vendor, making it shared with every account again. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+export type AssignKnowledgeBaseOwnerInput = {
+  knowledgeBaseId: Scalars['ID']['input'];
+  /** Omit to return the knowledge base to the vendor, making it shared with every account again. */
+  ownerId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 export type AttachAiHubChatToolInput = {
@@ -2586,6 +2606,32 @@ export enum EnvironmentEnum {
   Staging = 'STAGING'
 }
 
+/**
+ * A dry-run preview of promoting one resource from its source environment to a target environment, returned before
+ * the caller commits to `promoteToEnvironment`.
+ */
+export type EnvironmentPromotionPreview = {
+  __typename?: 'EnvironmentPromotionPreview';
+  connections: Array<PromotionConnectionMapping>;
+  existingTargetId?: Maybe<Scalars['ID']['output']>;
+  existingTargetName?: Maybe<Scalars['String']['output']>;
+  projects: Array<PromotionProjectPreview>;
+  resourceType: PromotionResourceType;
+  sourceEnvironmentId: Scalars['ID']['output'];
+  sourceId: Scalars['ID']['output'];
+  targetEnvironmentId: Scalars['ID']['output'];
+  warnings: Array<Scalars['String']['output']>;
+};
+
+/** The outcome of promoting one resource to a target environment. */
+export type EnvironmentPromotionResult = {
+  __typename?: 'EnvironmentPromotionResult';
+  created: Scalars['Boolean']['output'];
+  targetId: Scalars['ID']['output'];
+  targetUrl?: Maybe<Scalars['String']['output']>;
+  unresolvedConnectionIds: Array<Scalars['ID']['output']>;
+};
+
 export enum EvaluatorFunctionCategory {
   Collection = 'COLLECTION',
   DateTime = 'DATE_TIME',
@@ -3614,6 +3660,8 @@ export type Mutation = {
   /** Mark all of a user's connections as pending reassignment. Returns per-row outcome so partial failures surface; a silent no-op batch does not look like an error. (admin only) */
   markConnectionsPendingReassignment: BulkReassignResult;
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
+  /** Promote a resource into another environment: creates the counterpart on first promotion, syncs it afterwards. */
+  promoteToEnvironment: EnvironmentPromotionResult;
   publishAiAgent: Scalars['Int']['output'];
   publishAutomationWorkflowProject: Scalars['Boolean']['output'];
   publishCustomComponent: CustomComponent;
@@ -4907,6 +4955,11 @@ export type MutationPlaygroundChatCompletionArgs = {
 };
 
 
+export type MutationPromoteToEnvironmentArgs = {
+  input: PromoteToEnvironmentInput;
+};
+
+
 export type MutationPublishAiAgentArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -6055,6 +6108,7 @@ export type ProjectSearchResult = SearchResult & {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  projectWorkflowId?: Maybe<Scalars['ID']['output']>;
   type: SearchAssetType;
 };
 
@@ -6092,6 +6146,54 @@ export type ProjectWorkflow = {
   workflow: Workflow;
   workflowId: Scalars['String']['output'];
 };
+
+/** Input for promoting a resource into another environment. */
+export type PromoteToEnvironmentInput = {
+  connectionMappings: Array<PromotionConnectionMappingInput>;
+  resourceType: PromotionResourceType;
+  sourceId: Scalars['ID']['input'];
+  targetEnvironmentId: Scalars['ID']['input'];
+};
+
+/**
+ * A connection referenced by the source resource being promoted, together with a suggestion for which connection in
+ * the target environment it should be rewired to.
+ */
+export type PromotionConnectionMapping = {
+  __typename?: 'PromotionConnectionMapping';
+  componentName: Scalars['String']['output'];
+  connectionVersion: Scalars['Int']['output'];
+  sourceConnectionId: Scalars['ID']['output'];
+  sourceConnectionName: Scalars['String']['output'];
+  suggestedTargetConnectionId?: Maybe<Scalars['ID']['output']>;
+  usedBy: Array<Scalars['String']['output']>;
+};
+
+/** An explicit source-connection-to-target-connection mapping supplied by the caller for `promoteToEnvironment`. */
+export type PromotionConnectionMappingInput = {
+  sourceConnectionId: Scalars['ID']['input'];
+  targetConnectionId: Scalars['ID']['input'];
+};
+
+/**
+ * A project referenced by the source resource being promoted, together with the version already present in the
+ * target environment, if any.
+ */
+export type PromotionProjectPreview = {
+  __typename?: 'PromotionProjectPreview';
+  projectId: Scalars['ID']['output'];
+  projectName: Scalars['String']['output'];
+  sourceProjectVersion: Scalars['Int']['output'];
+  targetProjectVersion?: Maybe<Scalars['Int']['output']>;
+};
+
+/** The kinds of environment-scoped automation resources that can be promoted from one environment to another. */
+export enum PromotionResourceType {
+  A2AServer = 'A2A_SERVER',
+  ApiCollection = 'API_COLLECTION',
+  McpServer = 'MCP_SERVER',
+  ProjectDeployment = 'PROJECT_DEPLOYMENT'
+}
 
 export type PropertiesDataSource = {
   __typename?: 'PropertiesDataSource';
@@ -6413,6 +6515,11 @@ export type Query = {
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedVariables: Array<Variable>;
+  /**
+   * Preview what promoting a resource into another environment will do (create vs. update, version moves,
+   * suggested connection re-bindings, warnings).
+   */
+  environmentPromotionPreview: EnvironmentPromotionPreview;
   environments?: Maybe<Array<Maybe<Environment>>>;
   evaluatorFunctionDefinition: EvaluatorFunctionDefinition;
   evaluatorFunctionDefinitions: Array<EvaluatorFunctionDefinition>;
@@ -6457,9 +6564,7 @@ export type Query = {
   mcpProject?: Maybe<McpProject>;
   mcpProjectWorkflow?: Maybe<McpProjectWorkflow>;
   mcpProjectWorkflowProperties?: Maybe<Array<Maybe<Property>>>;
-  mcpProjectWorkflows?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
   mcpProjectWorkflowsByMcpProjectId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
-  mcpProjectWorkflowsByProjectDeploymentWorkflowId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
   mcpProjects?: Maybe<Array<Maybe<McpProject>>>;
   mcpProjectsByServerId?: Maybe<Array<Maybe<McpProject>>>;
   mcpServer?: Maybe<McpServer>;
@@ -7090,6 +7195,7 @@ export type QueryAuditEventsArgs = {
 export type QueryAutomationSearchArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   query: Scalars['String']['input'];
+  types?: InputMaybe<Array<SearchAssetType>>;
 };
 
 
@@ -7390,6 +7496,13 @@ export type QueryEmbeddedVariablesArgs = {
 };
 
 
+export type QueryEnvironmentPromotionPreviewArgs = {
+  resourceType: PromotionResourceType;
+  sourceId: Scalars['ID']['input'];
+  targetEnvironmentId: Scalars['ID']['input'];
+};
+
+
 export type QueryEvaluatorFunctionDefinitionArgs = {
   name: Scalars['String']['input'];
 };
@@ -7501,6 +7614,11 @@ export type QueryKnowledgeBaseTagsArgs = {
 };
 
 
+export type QueryKnowledgeBaseTagsByKnowledgeBaseArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryKnowledgeBasesArgs = {
   environmentId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -7559,11 +7677,6 @@ export type QueryMcpProjectWorkflowPropertiesArgs = {
 
 export type QueryMcpProjectWorkflowsByMcpProjectIdArgs = {
   mcpProjectId?: InputMaybe<Scalars['ID']['input']>;
-};
-
-
-export type QueryMcpProjectWorkflowsByProjectDeploymentWorkflowIdArgs = {
-  projectDeploymentWorkflowId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -8001,6 +8114,7 @@ export type ScriptTestExecution = {
 export enum SearchAssetType {
   ApiCollection = 'API_COLLECTION',
   ApiEndpoint = 'API_ENDPOINT',
+  AssetFile = 'ASSET_FILE',
   Connection = 'CONNECTION',
   DataTable = 'DATA_TABLE',
   Deployment = 'DEPLOYMENT',
