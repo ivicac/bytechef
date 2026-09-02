@@ -331,6 +331,25 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
                 )}
             </div>
 
+            {/* Rendered BEFORE the card, because React Flow binds an edge that names no handle to the
+            FIRST handle of that type in DOM order. The card inside carries a source handle per cluster
+            element type, so with these last the chain's own edge left the box from `model-handle`
+            instead of from the box's bottom edge. */}
+
+            <Handle
+                className={styles.handle}
+                id={`${nodeId}-top`}
+                position={mapHandlePosition(Position.Top, layoutDirection)}
+                type="target"
+            />
+
+            <Handle
+                className={styles.handle}
+                id={`${nodeId}-bottom`}
+                position={mapHandlePosition(Position.Bottom, layoutDirection)}
+                type="source"
+            />
+
             {/* The card sits at the content origin, which is the origin every member position is
             measured from. It is pushed in from the box's top-left corner only when a member reaches
             left of, or above, the card — see computeClusterFrameContentOrigin. */}
@@ -346,20 +365,6 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
             >
                 {children}
             </div>
-
-            <Handle
-                className={styles.handle}
-                id={`${nodeId}-top`}
-                position={mapHandlePosition(Position.Top, layoutDirection)}
-                type="target"
-            />
-
-            <Handle
-                className={styles.handle}
-                id={`${nodeId}-bottom`}
-                position={mapHandlePosition(Position.Bottom, layoutDirection)}
-                type="source"
-            />
         </div>
     );
 };
