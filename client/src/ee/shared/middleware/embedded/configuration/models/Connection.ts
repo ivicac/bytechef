@@ -47,8 +47,6 @@ export interface Connection {
     readonly active?: boolean;
     /**
      * True when this connection is system-managed (e.g. an enabled AI provider) and cannot be edited or deleted.
-     * @type {boolean}
-     * @memberof Connection
      */
     readonly managed?: boolean;
     /**
@@ -89,8 +87,6 @@ export interface Connection {
     credentialStatus?: CredentialStatus;
     /**
      * Backend that stores the credential payload. Defaults to DATABASE.
-     * @type {ConnectionCredentialStoreTypeEnum}
-     * @memberof Connection
      */
     credentialStoreType?: ConnectionCredentialStoreTypeEnum;
     /**
@@ -118,33 +114,25 @@ export interface Connection {
      */
     parameters: { [key: string]: any; };
     /**
+     * When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.
+     */
+    shared?: boolean;
+    /**
      * 
      */
     tags?: Array<Tag>;
     /**
-     * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
-     * @type {ConnectionStatusEnum}
-     * @memberof Connection
+     * Lifecycle state of the connection. ACTIVE is the normal operating state.
      */
     readonly status?: ConnectionStatusEnum;
     /**
      * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is assigned by organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
-     * @type {ConnectionVisibilityEnum}
-     * @memberof Connection
      */
     visibility?: ConnectionVisibilityEnum;
     /**
      * 
      */
     version?: number;
-    /**
-     * When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.
-     */
-    shared?: boolean;
-    /**
-     * Lifecycle state of the connection. ACTIVE is the normal operating state.
-     */
-    readonly status?: ConnectionStatusEnum;
 }
 
 
@@ -154,7 +142,7 @@ export interface Connection {
 export const ConnectionCredentialStoreTypeEnum = {
     Database: 'DATABASE',
     AwsSecretsManager: 'AWS_SECRETS_MANAGER',
-    HashicorpVault: 'HASHICORP_VAULT'
+    HashicorpVault: 'HASHICORP_VAULT',
 } as const;
 export type ConnectionCredentialStoreTypeEnum = typeof ConnectionCredentialStoreTypeEnum[keyof typeof ConnectionCredentialStoreTypeEnum];
 
@@ -174,7 +162,7 @@ export type ConnectionStatusEnum = typeof ConnectionStatusEnum[keyof typeof Conn
 export const ConnectionVisibilityEnum = {
     Private: 'PRIVATE',
     Workspace: 'WORKSPACE',
-    Organization: 'ORGANIZATION'
+    Organization: 'ORGANIZATION',
 } as const;
 export type ConnectionVisibilityEnum = typeof ConnectionVisibilityEnum[keyof typeof ConnectionVisibilityEnum];
 
@@ -218,11 +206,11 @@ export function ConnectionFromJSONTyped(json: any, ignoreDiscriminator: boolean)
         'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (parseDateTime(json['lastModifiedDate'])),
         'name': json['name'],
         'parameters': json['parameters'],
+        'shared': json['shared'] == null ? undefined : json['shared'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
         'status': json['status'] == null ? undefined : json['status'],
         'visibility': json['visibility'] == null ? undefined : json['visibility'],
         'version': json['__version'] == null ? undefined : json['__version'],
-        'shared': json['shared'] == null ? undefined : json['shared'],
     };
 }
 
@@ -246,10 +234,10 @@ export function ConnectionToJSONTyped(value?: Omit<Connection, 'active'|'managed
         'environmentId': value['environmentId'],
         'name': value['name'],
         'parameters': value['parameters'],
+        'shared': value['shared'],
         'tags': value['tags'] == null ? undefined : ((value['tags'] as Array<any>).map(TagToJSON)),
         'visibility': value['visibility'],
         '__version': value['version'],
-        'shared': value['shared'],
     };
 }
 

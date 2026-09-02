@@ -796,6 +796,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1595,6 +1596,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask (stream)",
     "workflowNodeDescription": null
   } ],
@@ -1886,7 +1888,32 @@
       "regex": null,
       "required": false,
       "type": "STRING"
+    }, {
+      "advancedOption": true,
+      "controlType": "SELECT",
+      "defaultValue": false,
+      "description": "Let the model search the web itself, using the provider's own search tool.",
+      "displayCondition": null,
+      "exampleValue": null,
+      "expressionEnabled": true,
+      "hidden": false,
+      "label": "Web Search",
+      "metadata": { },
+      "name": "webSearch",
+      "options": [ {
+        "description": null,
+        "label": "True",
+        "value": true
+      }, {
+        "description": null,
+        "label": "False",
+        "value": false
+      } ],
+      "placeholder": null,
+      "required": false,
+      "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Anthropic Model",
     "type": {
       "name": "MODEL",
