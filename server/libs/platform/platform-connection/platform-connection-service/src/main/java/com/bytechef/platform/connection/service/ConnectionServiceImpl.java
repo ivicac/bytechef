@@ -329,6 +329,17 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection update(long id, String name, List<Long> tagIds, int version) {
+        return updateNameTagsAndShared(id, name, tagIds, null, version);
+    }
+
+    @Override
+    public Connection update(long id, String name, List<Long> tagIds, boolean shared, int version) {
+        return updateNameTagsAndShared(id, name, tagIds, shared, version);
+    }
+
+    private Connection updateNameTagsAndShared(
+        long id, String name, List<Long> tagIds, @Nullable Boolean shared, int version) {
+
         rejectIfAiProviderConnection(id);
 
         Connection curConnection = getConnection(id);
@@ -341,6 +352,10 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         if (tagIds != null) {
             curConnection.setTagIds(tagIds);
+        }
+
+        if (shared != null) {
+            curConnection.setShared(shared);
         }
 
         curConnection.setVersion(version);

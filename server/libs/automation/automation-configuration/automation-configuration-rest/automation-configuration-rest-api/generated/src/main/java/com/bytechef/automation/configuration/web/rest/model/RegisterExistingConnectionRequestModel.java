@@ -3,6 +3,7 @@ package com.bytechef.automation.configuration.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.automation.configuration.web.rest.model.TagModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -27,7 +28,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "RegisterExistingConnectionRequest", description = "Contains all required information to register a connection backed by an externally-provisioned credential.")
 @JsonTypeName("RegisterExistingConnectionRequest")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-06-20T17:20:22.562695+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-31T17:46:43.695798+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class RegisterExistingConnectionRequestModel {
 
   private String componentName;
@@ -77,7 +78,6 @@ public class RegisterExistingConnectionRequestModel {
 
   private String name;
 
-  @Valid
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   private Long workspaceId;

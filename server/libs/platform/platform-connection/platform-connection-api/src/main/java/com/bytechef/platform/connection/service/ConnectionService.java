@@ -84,6 +84,8 @@ public interface ConnectionService {
 
     Connection update(long id, String name, List<Long> tagIds, int version);
 
+    Connection update(long id, String name, List<Long> tagIds, boolean shared, int version);
+
     /**
      * Register a connection whose credential payload already exists in an external store. Used in read-only deployments
      * where the operator provisioned the secret out-of-band. The credential payload is NOT written via the credential
