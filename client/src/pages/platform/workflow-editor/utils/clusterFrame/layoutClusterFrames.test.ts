@@ -133,6 +133,34 @@ describe('layoutClusterFrames', () => {
         );
     });
 
+    // The card widens with its element types (calculateNodeWidth), and the root's data does not say
+    // how many there are when the pre-pass runs -- so the count is read off the members, one per
+    // type. Reserving the card any narrower left a five-type agent's card past the box's right border.
+    it('reserves the card at the width its element types give it', () => {
+        const typeNames = ['model', 'memory', 'rag', 'guardrails', 'tools'];
+        const placeholderNodes: Node[] = typeNames.map((typeName, index) => ({
+            data: {clusterElementType: typeName, label: '+'},
+            id: `${ROOT_ID}-${typeName}-placeholder-0`,
+            parentId: ROOT_ID,
+            position: {x: 40 * index, y: 140},
+            type: 'placeholder',
+        }));
+
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: placeholderNodes},
+            },
+            {}
+        );
+
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {width: number};
+
+        expect(clusterFrame.width).toBe(calculateNodeWidth(typeNames.length) + 2 * CLUSTER_FRAME_PADDING);
+    });
+
     // A saved position left of the root card is routine, not exotic — the placer computes a leftmost
     // child's x as `handleX - CLUSTER_ELEMENT_NODE_WIDTH / 2` and `saveClusterElementNodesPosition`
     // writes those values back. Without a content origin such a member renders outside the border,
