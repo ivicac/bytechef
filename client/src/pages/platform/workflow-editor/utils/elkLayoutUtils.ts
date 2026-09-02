@@ -510,6 +510,22 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
         return {height: graphFrame.height, width: frameMainFootprint(graphFrame.width)};
     }
 
+    const clusterFrame = (node.data as NodeDataType).clusterFrame;
+
+    // A cluster root in box mode arrives pre-sized from the layout pre-pass, the same way a graph
+    // frame does. It would otherwise fall through to the `clusterRoot` branch below, which measures
+    // the DOM instead of reading this box — the same trap `getDagreNodeSize` has to dodge, and for
+    // the same reason: the small card the root painted before the box was sized is not the box.
+    if (clusterFrame) {
+        const frameSlack = ANCHOR_MAIN_FOOTPRINT - NODE_ANCHOR_SIZE;
+
+        if (direction === 'TB') {
+            return {height: clusterFrame.height + frameSlack, width: clusterFrame.width};
+        }
+
+        return {height: clusterFrame.height, width: clusterFrame.width + frameSlack};
+    }
+
     const {height, width} = getDagreNodeSize(
         isReadOnlyPlaceholder(node) ? {...node, type: 'placeholder'} : node,
         direction
