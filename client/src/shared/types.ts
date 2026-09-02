@@ -285,6 +285,16 @@ export type NodeDataType = {
     terminateData?: TerminateDataType;
     terminateId?: string;
     title?: string;
+    /**
+     * Present only on a cluster ELEMENT's node data (never on the root's own). Set once, at the
+     * outermost `createClusterElementNodes` call, and threaded UNCHANGED through every recursion --
+     * unlike `parentClusterRootId`, which is rebound to the immediate parent at each nesting level.
+     * An element nested two or more levels deep (a tool that is itself a cluster root, containing its
+     * own cluster-root element) needs this to resolve back to a real `WorkflowTask` entry: only the
+     * outermost root is addressable via `getTask`/`workflowTasks` -- a nested root lives inside its
+     * parent's `clusterElements`, not in `workflowTasks`.
+     */
+    topLevelClusterRootId?: string;
     trigger?: boolean;
     type?: string;
     triggerType?: TriggerType;
