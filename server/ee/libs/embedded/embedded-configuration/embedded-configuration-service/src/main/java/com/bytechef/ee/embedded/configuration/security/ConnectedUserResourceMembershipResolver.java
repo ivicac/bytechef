@@ -49,9 +49,9 @@ import org.springframework.stereotype.Component;
  * published catalog {@link AutomationWorkflowProjectFacade} would show the same caller.
  *
  * <p>
- * Three of those are ENTITLEMENT rather than ownership -- a configuration-level shared connection, an admin-owned
- * catalog template, and the admin-owned catalog PROJECT a reference is provisioned against -- and all three are
- * therefore answered per-scope: usable, readable and referencable, not mutable. See
+ * Three of those are ENTITLEMENT rather than ownership -- a connection a tenant admin marked {@code shared} in this
+ * environment, an admin-owned catalog template, and the admin-owned catalog PROJECT a reference is provisioned against
+ * -- and all three are therefore answered per-scope: usable, readable and referencable, not mutable. See
  * {@link #resolve(Serializable, String, String)}.
  *
  * <p>
@@ -136,9 +136,9 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
     private static final String JOB = "Job";
 
     /**
-     * The {@code Connection} scopes a CONFIGURATION-LEVEL shared connection may satisfy. Deliberately an ALLOWLIST: a
-     * scope token added to {@code ConnectionPermissionScope} later must fall back to the owned set until somebody
-     * decides otherwise, rather than silently inheriting the wider one because nobody remembered to block-list it.
+     * The {@code Connection} scopes a connection flagged {@code shared} may satisfy. Deliberately an ALLOWLIST: a scope
+     * token added to {@code ConnectionPermissionScope} later must fall back to the owned set until somebody decides
+     * otherwise, rather than silently inheriting the wider one because nobody remembered to block-list it.
      */
     private static final Set<String> SHAREABLE_CONNECTION_SCOPES = Set.of("CONNECTION_VIEW", "CONNECTION_USE");
 
@@ -660,12 +660,12 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      *
      * <p>
      * Which of the two sets applies depends on the scope, because they answer different questions. The wider one is
-     * ENTITLEMENT and includes the connections bound at the caller's integration instance configurations -- shared with
-     * every connected user on that configuration, and therefore usable but not theirs to change. The narrower one is
+     * ENTITLEMENT and includes every connection a tenant admin marked {@code shared} in the caller's environment --
+     * offered to every connected user there, and therefore usable but not theirs to change. The narrower one is
      * OWNERSHIP. Granting a mutating scope from the wider set would let one connected user rename, retag or delete the
-     * tenant admin's connection out from under every other user of that configuration, and it is live rather than
-     * theoretical: this decider is consulted BEFORE {@code hasResourceScope}, and a GRANT here returns ahead of the
-     * tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}} would have taken it.
+     * tenant admin's connection out from under every other connected user in that environment, and it is live rather
+     * than theoretical: this decider is consulted BEFORE {@code hasResourceScope}, and a GRANT here returns ahead of
+     * the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}} would have taken it.
      */
     private Decision resolveConnection(
         Serializable id, ConnectedUserProject connectedUserProject, Environment environment, String scope) {
