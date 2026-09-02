@@ -18,10 +18,12 @@ package com.bytechef.platform.component.runner;
 
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableObjectProperty;
+import com.bytechef.component.definition.ComponentDsl.ModifiableStringProperty;
 import com.bytechef.component.definition.Option;
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.definition.Property.ValueProperty;
@@ -88,6 +90,32 @@ public class TaskRunnerPropertyFactoryTest {
 
         assertThat(imageProperty.getDisplayCondition()).contains("taskRunner.type == 'docker'");
         assertThat(modeProperty.getDisplayCondition()).contains("taskRunner.type == 'graalvm'");
+    }
+
+    /**
+     * The factory stamps the {@code displayCondition} onto the runner's own property objects, so a runner returning a
+     * cached list hands the same mutable instance to every component that offers it. Nothing downstream can notice
+     * that, and phase 2 is exactly the case the spec named - a runner included by both {@code script} and
+     * {@code commands}. Only the one shipped runner is known to honour the contract, so the factory checks it rather
+     * than trusting implementations it does not control.
+     */
+    @Test
+    public void testRejectsARunnerReturningCachedProperties() {
+        TaskRunner cachingTaskRunner = mock(TaskRunner.class);
+
+        List<ModifiableStringProperty> cachedProperties = List.of(string("mode").label("Mode"));
+
+        when(cachingTaskRunner.getType()).thenReturn("caching");
+        when(cachingTaskRunner.getTitle()).thenReturn("Caching");
+        when(cachingTaskRunner.getCapabilities()).thenReturn(INLINE_SCRIPT);
+        when(cachingTaskRunner.getProperties()).thenAnswer(invocation -> cachedProperties);
+
+        TaskRunnerRegistry taskRunnerRegistry = newRegistry(cachingTaskRunner);
+
+        assertThatThrownBy(() -> TaskRunnerPropertyFactory.taskRunnerProperty(taskRunnerRegistry, INLINE_SCRIPT))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("caching")
+            .hasMessageContaining("freshly constructed");
     }
 
     @Test

@@ -66,9 +66,7 @@ public class TaskRunnerPropertyFactory {
 
             options.add(option(taskRunner.getTitle(), type));
 
-            // getProperties() is contracted to return fresh instances, so stamping in place cannot leak a condition
-            // onto a list another action also holds.
-            for (ModifiableValueProperty<?, ?> property : taskRunner.getProperties()) {
+            for (ModifiableValueProperty<?, ?> property : getFreshProperties(taskRunner)) {
                 property.displayCondition("%s.%s == '%s'".formatted(TASK_RUNNER, TYPE, type));
 
                 properties.add(property);
@@ -99,11 +97,50 @@ public class TaskRunnerPropertyFactory {
     }
 
     /**
+     * Reads a runner's properties, rejecting a runner that hands out instances it also keeps.
+     *
+     * <p>
+     * {@link TaskRunner#getProperties()} is contracted to return freshly constructed properties on every call, because
+     * the caller stamps a {@code displayCondition} onto each in place. A runner that returns a cached list instead
+     * would have that list shared by every component offering it - {@code script} and, from phase 2, {@code commands} -
+     * and the sharing is invisible in both definitions, which is what makes the failure worth catching rather than
+     * documenting.
+     *
+     * <p>
+     * The factory cannot defend itself by copying: the DSL's {@code Modifiable*} property types have private
+     * constructors and no copy API, so a defensive copy would mean a copy constructor on every property type in the
+     * SDK. So the contract is verified instead - a second call must yield different instances - and a runner breaking
+     * it fails loudly while the definition is assembled, rather than silently at whatever later point the shared
+     * instance matters.
+     */
+    private static List<? extends ModifiableValueProperty<?, ?>> getFreshProperties(TaskRunner taskRunner) {
+        List<? extends ModifiableValueProperty<?, ?>> properties = taskRunner.getProperties();
+        List<? extends ModifiableValueProperty<?, ?>> otherProperties = taskRunner.getProperties();
+
+        for (ModifiableValueProperty<?, ?> property : properties) {
+            for (ModifiableValueProperty<?, ?> otherProperty : otherProperties) {
+                if (property == otherProperty) {
+                    throw new IllegalStateException(
+                        "Task runner '%s' returned a cached property from getProperties(); it must return freshly constructed properties on every call, because a displayCondition is stamped onto them"
+                            .formatted(taskRunner.getType()));
+                }
+            }
+        }
+
+        return properties;
+    }
+
+    /**
      * Prefers {@link TaskRunnerConstants#GRAALVM} when it is among the enabled runners, so the editor's default matches
-     * the runner a workflow falls back to at runtime when it carries no {@code taskRunner} configuration at all -
-     * otherwise the same workflow would resolve to a different runner depending on whether it was built in the editor
-     * or hand-edited. Falls back to the first enabled runner when GraalVM itself is disabled, and to no default once no
-     * runner is enabled.
+     * the runner a workflow falls back to at runtime when it carries no {@code taskRunner} configuration at all.
+     *
+     * <p>
+     * The two agree whenever GraalVM is enabled, which is the shipped default. They cannot agree when it is not: the
+     * runtime fallback in {@code ScriptActionDefinition} is the literal {@code graalvm}, while this default is
+     * whichever runner the operator did enable. A workflow built in the editor then carries that runner explicitly and
+     * runs, and a hand-written workflow with no {@code taskRunner} at all resolves {@code graalvm} and fails with
+     * {@link TaskRunnerNotEnabledException}, whose message names the configuration key to set. That is a loud failure
+     * on a deliberately unusual configuration, not a silent divergence.
      */
     private static String defaultTaskRunnerType(List<TaskRunner> taskRunners) {
         if (taskRunners.isEmpty()) {

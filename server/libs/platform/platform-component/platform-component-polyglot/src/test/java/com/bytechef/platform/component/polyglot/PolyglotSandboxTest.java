@@ -19,17 +19,26 @@ package com.bytechef.platform.component.polyglot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.micrometer.context.ContextRegistry;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Value;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Ivica Cardic
@@ -244,6 +253,99 @@ public class PolyglotSandboxTest {
                     .matches(throwable -> ((PolyglotException) throwable).isCancelled(), "isCancelled");
     }
 
+    /**
+     * A trusted guest is the one that can reach every tenant's decrypted credentials, so what it printed is the only
+     * forensic trace of what it did. It reaches the log only because the trusted context binds its own streams; without
+     * them the output goes to the inherited {@code System.out} and carries no {@code [guest]} tag, no correlation and
+     * no log-level control, and no appender of this application ever sees it.
+     */
+    @Test
+    public void testTrustedModeRoutesGuestOutputThroughTheGuestLogger() {
+        ch.qos.logback.classic.Logger polyglotSandboxLogger =
+            (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(PolyglotSandbox.class);
+
+        Level previousLevel = polyglotSandboxLogger.getLevel();
+        ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
+
+        logAppender.start();
+        polyglotSandboxLogger.addAppender(logAppender);
+        polyglotSandboxLogger.setLevel(Level.INFO);
+
+        try {
+            PolyglotSandbox.call(
+                ScriptSandboxMode.TRUSTED, "js", null,
+                context -> context.eval("js", "print('trusted-guest-line')"));
+
+            assertThat(getFormattedMessages(logAppender)).contains("[guest] trusted-guest-line");
+        } finally {
+            polyglotSandboxLogger.setLevel(previousLevel);
+            polyglotSandboxLogger.detachAppender(logAppender);
+        }
+    }
+
+    /**
+     * The claim binding those streams rests on: a context-level stream overrides the engine's for that context alone
+     * and does not mutate the engine, so a later context that overrides nothing still writes to the engine's stream.
+     * Asserted against the polyglot API directly rather than through {@link PolyglotSandbox}, because it is a property
+     * of GraalVM, not of this class - and if a future polyglot release changed it, the trusted context would start
+     * redirecting output for every context sharing its engine.
+     */
+    @Test
+    public void testContextStreamsOverrideTheEngineWithoutMutatingIt() {
+        ByteArrayOutputStream engineOutputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream contextOutputStream = new ByteArrayOutputStream();
+
+        try (Engine engine = Engine.newBuilder("js")
+            .out(engineOutputStream)
+            .build()) {
+
+            try (Context overridingContext = Context.newBuilder("js")
+                .engine(engine)
+                .out(contextOutputStream)
+                .build()) {
+
+                overridingContext.eval("js", "print('overridden-line')");
+            }
+
+            try (Context inheritingContext = Context.newBuilder("js")
+                .engine(engine)
+                .build()) {
+
+                inheritingContext.eval("js", "print('inherited-line')");
+            }
+        }
+
+        assertThat(contextOutputStream.toString(StandardCharsets.UTF_8))
+            .contains("overridden-line")
+            .doesNotContain("inherited-line");
+        assertThat(engineOutputStream.toString(StandardCharsets.UTF_8))
+            .contains("inherited-line")
+            .doesNotContain("overridden-line");
+    }
+
+    /**
+     * A trusted context carries {@code HostAccess.ALL} and a strict one {@code HostAccess.NONE}, and GraalVM refuses to
+     * build a context whose host access differs from that of another context on the same engine. Policy alone does not
+     * keep them apart: with the sandbox kill switch off, a strict {@code js} context is built on a TRUSTED-policy
+     * engine too, so both modes would land on one cached engine and whichever ran second would fail with "Found
+     * different host access configuration for a context with a shared engine" - trusted mode broken outright for any
+     * operator who also disabled the sandbox. The engine cache key carries the mode to keep them separate.
+     */
+    @Test
+    public void testTrustedAndStrictContextsDoNotShareAnEngine() {
+        PolyglotSandbox.setSettings(PolyglotSandboxSettings.disabled());
+
+        Value trustedValue = PolyglotSandbox.call(
+            ScriptSandboxMode.TRUSTED, "js", null, context -> context.eval("js", "1 + 1"));
+
+        assertThat(trustedValue.asInt()).isEqualTo(2);
+
+        Value strictValue =
+            PolyglotSandbox.call(ScriptSandboxMode.STRICT, "js", context -> context.eval("js", "2 + 2"));
+
+        assertThat(strictValue.asInt()).isEqualTo(4);
+    }
+
     @Test
     public void testTrustedModeIgnoresResourceCeilings() {
         PolyglotSandbox.setSettings(
@@ -268,6 +370,12 @@ public class PolyglotSandboxTest {
             ScriptSandboxMode.TRUSTED, "js", null, context -> context.eval("js", loopScript));
 
         assertThat(value.asDouble()).isEqualTo(199999990000000.0);
+    }
+
+    private static List<String> getFormattedMessages(ListAppender<ILoggingEvent> logAppender) {
+        return logAppender.list.stream()
+            .map(ILoggingEvent::getFormattedMessage)
+            .toList();
     }
 
     /**
