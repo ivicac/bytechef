@@ -1,4 +1,5 @@
-import {CLUSTER_ROOT_NODE_WIDTH, NODE_HEIGHT} from '@/shared/constants';
+import {calculateNodeWidth} from '@/pages/platform/cluster-element-editor/utils/clusterElementsUtils';
+import {NODE_HEIGHT} from '@/shared/constants';
 import {NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
@@ -113,7 +114,17 @@ export function layoutClusterFrames(
         // The root card is part of the box's contents too, so the frame has to contain it even when
         // every member sits well inside its footprint.
         const childBoxes: ClusterMemberBoxI[] = [
-            {height: NODE_HEIGHT, width: CLUSTER_ROOT_NODE_WIDTH, x: 0, y: 0},
+            // At the card's REAL width: calculateNodeWidth grows it with the number of element types,
+            // and reserving the fixed CLUSTER_ROOT_NODE_WIDTH instead left a five-type agent's card
+            // running past the box it was supposed to sit inside.
+            {
+                height: NODE_HEIGHT,
+                width: calculateNodeWidth(
+                    (nodeData as NodeDataType & {clusterElementTypesCount?: number}).clusterElementTypesCount ?? 0
+                ),
+                x: 0,
+                y: 0,
+            },
             ...placedElementNodes.map((elementNode) => {
                 const contentPosition = contentPositions.get(elementNode.id) ?? elementNode.position;
 
@@ -125,8 +136,8 @@ export function layoutClusterFrames(
             }),
         ];
 
-        const contentOrigin: ClusterFrameContentOriginI = computeClusterFrameContentOrigin(childBoxes);
-        const frameSize = computeClusterFrameSize(childBoxes, contentOrigin);
+        const frameSize = computeClusterFrameSize(childBoxes);
+        const contentOrigin: ClusterFrameContentOriginI = computeClusterFrameContentOrigin(childBoxes, frameSize.width);
 
         // Members are draggable ONLY when their root is unlocked, and independently of the canvas-wide
         // drag lock — the same per-node override graph members and sticky notes use. A placeholder

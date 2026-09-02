@@ -62,7 +62,7 @@ export interface ClusterFrameContentOriginI {
  * common case, and the identity the geometry degrades to.
  */
 export const DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN: ClusterFrameContentOriginI = {
-    x: 0,
+    x: CLUSTER_FRAME_PADDING,
     y: CLUSTER_FRAME_HEADER_HEIGHT,
 };
 
@@ -137,36 +137,62 @@ export function getClusterMemberSize(memberNode: Node): {height: number; width: 
  * outside the box, and the member drag extent (which clamps at the box's own edge) would refuse to
  * let them back in.
  */
-export function computeClusterFrameContentOrigin(childBoxes: ClusterMemberBoxI[]): ClusterFrameContentOriginI {
-    if (childBoxes.length === 0) {
-        return DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN;
-    }
-
+/**
+ * The rectangle the card and every member together occupy, in content coordinates. The card is
+ * always one of the boxes at (0, 0), so `left` and `top` are never positive: they are the push-in
+ * a member reaching left of, or above, the card requires.
+ */
+function computeClusterContentExtent(childBoxes: ClusterMemberBoxI[]): {
+    height: number;
+    left: number;
+    top: number;
+    width: number;
+} {
     const left = Math.min(0, ...childBoxes.map((childBox) => childBox.x));
     const top = Math.min(0, ...childBoxes.map((childBox) => childBox.y));
+    const right = Math.max(...childBoxes.map((childBox) => childBox.x + childBox.width));
+    const bottom = Math.max(...childBoxes.map((childBox) => childBox.y + childBox.height));
 
-    // Math.max rather than plain negation: `-0` is not `0` to Object.is, and this value is compared
-    // and serialised.
-    return {x: Math.max(0, -left), y: CLUSTER_FRAME_HEADER_HEIGHT + Math.max(0, -top)};
+    return {height: bottom - top, left, top, width: right - left};
 }
 
-/**
- * The box a set of members needs, measured in content coordinates and then offset by the content
- * origin, so a member at x=0 still gets padding on its right and the header is accounted for once.
- */
-export function computeClusterFrameSize(
-    childBoxes: ClusterMemberBoxI[],
-    contentOrigin: ClusterFrameContentOriginI = DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN
-): {height: number; width: number} {
+export function computeClusterFrameSize(childBoxes: ClusterMemberBoxI[]): {height: number; width: number} {
     if (childBoxes.length === 0) {
         return {height: CLUSTER_FRAME_MIN_HEIGHT, width: CLUSTER_FRAME_MIN_WIDTH};
     }
 
-    const right = Math.max(...childBoxes.map((childBox) => childBox.x + childBox.width)) + contentOrigin.x;
-    const bottom = Math.max(...childBoxes.map((childBox) => childBox.y + childBox.height)) + contentOrigin.y;
+    const extent = computeClusterContentExtent(childBoxes);
 
     return {
-        height: Math.max(CLUSTER_FRAME_MIN_HEIGHT, bottom + CLUSTER_FRAME_PADDING),
-        width: Math.max(CLUSTER_FRAME_MIN_WIDTH, right + CLUSTER_FRAME_PADDING),
+        height: Math.max(CLUSTER_FRAME_MIN_HEIGHT, CLUSTER_FRAME_HEADER_HEIGHT + extent.height + CLUSTER_FRAME_PADDING),
+        width: Math.max(CLUSTER_FRAME_MIN_WIDTH, extent.width + 2 * CLUSTER_FRAME_PADDING),
+    };
+}
+
+/**
+ * Where content coordinate (0, 0) -- the card's top-left corner -- sits inside a frame of the given
+ * width.
+ *
+ * Horizontally the contents are centred: whatever the frame is wider than the contents by is split
+ * evenly, which is exactly CLUSTER_FRAME_PADDING a side whenever the width was set by the contents,
+ * and more when CLUSTER_FRAME_MIN_WIDTH floored it -- a narrow card used to sit against the left
+ * border of a floored box with all the slack on its right. Vertically the contents hang from the
+ * header. A member reaching left of, or above, the card pushes the origin in by that much on top.
+ */
+export function computeClusterFrameContentOrigin(
+    childBoxes: ClusterMemberBoxI[],
+    frameWidth: number
+): ClusterFrameContentOriginI {
+    if (childBoxes.length === 0) {
+        return DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN;
+    }
+
+    const extent = computeClusterContentExtent(childBoxes);
+
+    // Math.max rather than plain negation for `top`: `-0` is not `0` to Object.is, and this value is
+    // compared and serialised.
+    return {
+        x: (frameWidth - extent.width) / 2 - extent.left,
+        y: CLUSTER_FRAME_HEADER_HEIGHT + Math.max(0, -extent.top),
     };
 }
