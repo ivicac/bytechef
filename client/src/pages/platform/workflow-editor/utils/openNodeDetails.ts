@@ -4,7 +4,7 @@ import useWorkflowIssuesStore from '@/pages/platform/workflow-editor/stores/useW
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import {NodeDataType, TabNameType} from '@/shared/types';
 
-import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
+import {getClusterElementsViewMode} from '../hooks/useClusterElementsViewMode';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
@@ -45,11 +45,7 @@ export default function openNodeDetails(data: NodeDataType, activeTab: TabNameTy
 
         // In box mode the elements are already on the canvas, so a click means "show me this
         // node's details", not "take me to another editor".
-        if (
-            !!data.clusterRoot &&
-            !clusterElementsCanvasOpen &&
-            useClusterElementsViewModeStore.getState().clusterElementsViewMode === 'dialog'
-        ) {
+        if (!!data.clusterRoot && !clusterElementsCanvasOpen && getClusterElementsViewMode() === 'dialog') {
             setClusterElementsCanvasOpen(true);
         }
     }
