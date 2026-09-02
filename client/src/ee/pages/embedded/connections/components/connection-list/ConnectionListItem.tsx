@@ -151,6 +151,15 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
                                         />
                                     )}
 
+                                    {connection.shared && (
+                                        <Badge
+                                            className="uppercase"
+                                            label="Shared"
+                                            styleType="secondary-outline"
+                                            weight="semibold"
+                                        />
+                                    )}
+
                                     {connection.credentialStoreType &&
                                         connection.credentialStoreType !== 'DATABASE' && (
                                             <Tooltip>
@@ -242,6 +251,7 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
                         connectionTagsQueryKey={ConnectionKeys.connectionTags}
                         connectionsQueryKey={ConnectionKeys.connections}
                         onClose={() => setShowEditDialog(false)}
+                        showSharedOption
                         useGetConnectionTagsQuery={useGetConnectionTagsQuery}
                         useUpdateConnectionMutation={useUpdateConnectionMutation}
                     />

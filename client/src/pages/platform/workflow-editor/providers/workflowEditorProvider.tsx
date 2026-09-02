@@ -42,6 +42,8 @@ export interface ConnectionI {
     name: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters: {[key: string]: any};
+    /** Embedded only; forced to false everywhere else. See `Connection.shared` on the generated models. */
+    shared?: boolean;
     tags?: Array<Tag>;
     version?: number;
     visibility?: 'ORGANIZATION' | 'PRIVATE' | 'WORKSPACE';
