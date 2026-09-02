@@ -1,4 +1,3 @@
-import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {NodeDataType} from '@/shared/types';
 import {act, renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
@@ -8,15 +7,6 @@ import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../../stores/useWorkflowNodeDetailsPanelStore';
 import useNodeClick from '../useNodeClick';
-
-// The view-mode toggle is behind ff-5470, and `useClusterElementsViewMode` reports 'dialog'
-// regardless of the stored mode while the flag is off -- that is the kill switch. Box-mode tests
-// therefore have to turn the flag on as well as set the store.
-function enableClusterElementsBoxModeFlag() {
-    applicationInfoStore.setState((state) => ({
-        featureFlags: {...state.featureFlags, 'ff-5470': true},
-    }));
-}
 
 vi.mock('../../../cluster-element-editor/stores/useClusterElementsDataStore', () => ({
     default: Object.assign(() => ({nodes: []}), {
@@ -112,7 +102,6 @@ describe('useNodeClick in box mode', () => {
     });
 
     it('leaves the dialog closed in box mode', () => {
-        enableClusterElementsBoxModeFlag();
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
 
         const {result} = renderHook(() => useNodeClick(CLUSTER_ROOT_DATA, 'aiAgent_1'));

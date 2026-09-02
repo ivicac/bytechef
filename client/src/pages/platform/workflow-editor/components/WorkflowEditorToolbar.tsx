@@ -3,7 +3,6 @@ import {ButtonGroup} from '@/components/ui/button-group';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {NodeDataType} from '@/shared/types';
 import {Panel, useReactFlow} from '@xyflow/react';
 import {
@@ -68,8 +67,6 @@ const WorkflowEditorToolbar = ({
     );
 
     const {clusterElementsViewMode, setClusterElementsViewMode} = useClusterElementsViewModeStore();
-
-    const ff_5470 = useFeatureFlagsStore()('ff-5470');
 
     const {fitView, zoomIn, zoomOut} = useReactFlow();
     const {canRedo, canUndo, handleRedo, handleUndo} = useWorkflowUndoRedo();
@@ -146,35 +143,31 @@ const WorkflowEditorToolbar = ({
                         </TooltipContent>
                     </Tooltip>
 
-                    {ff_5470 && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    aria-label={
-                                        clusterElementsViewMode === 'box'
-                                            ? 'Show cluster elements in the editor dialog'
-                                            : 'Show cluster elements inline'
-                                    }
-                                    className={twMerge(
-                                        clusterElementsViewMode === 'box' && 'text-content-brand-primary'
-                                    )}
-                                    icon={clusterElementsViewMode === 'box' ? <BoxIcon /> : <SquareDashedIcon />}
-                                    onClick={handleToggleClusterElementsViewMode}
-                                    size="icon"
-                                    variant="outline"
-                                />
-                            </TooltipTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                aria-label={
+                                    clusterElementsViewMode === 'box'
+                                        ? 'Show cluster elements in the editor dialog'
+                                        : 'Show cluster elements inline'
+                                }
+                                className={twMerge(clusterElementsViewMode === 'box' && 'text-content-brand-primary')}
+                                icon={clusterElementsViewMode === 'box' ? <BoxIcon /> : <SquareDashedIcon />}
+                                onClick={handleToggleClusterElementsViewMode}
+                                size="icon"
+                                variant="outline"
+                            />
+                        </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="bottom"
-                            >
-                                {clusterElementsViewMode === 'box'
-                                    ? 'Show cluster elements in the editor dialog'
-                                    : 'Show cluster elements inline'}
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
+                        <TooltipContent
+                            className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                            side="bottom"
+                        >
+                            {clusterElementsViewMode === 'box'
+                                ? 'Show cluster elements in the editor dialog'
+                                : 'Show cluster elements inline'}
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             </Panel>
 
