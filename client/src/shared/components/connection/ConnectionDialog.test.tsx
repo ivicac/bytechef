@@ -19,6 +19,7 @@ const hoisted = vi.hoisted(() => ({
         data: {connectionCredentialStores: [{readOnly: false, type: 'DATABASE'}]},
         isLoading: false,
     } as Record<string, unknown>,
+    updateMutate: vi.fn(),
     useIsVisibilityEditionEnabled: vi.fn(() => false),
 }));
 
@@ -510,5 +511,139 @@ describe('ConnectionDialog credential replacement', () => {
 
         expect(screen.getByText('Edit Connection')).toBeInTheDocument();
         expect(screen.queryByRole('button', {name: /update credentials/i})).not.toBeInTheDocument();
+    });
+});
+
+describe('ConnectionDialog shared connection', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        hoisted.useIsVisibilityEditionEnabled.mockReturnValue(false);
+
+        hoisted.storesQueryResult = {
+            data: {connectionCredentialStores: [{readOnly: false, type: 'DATABASE'}]},
+            isLoading: false,
+        };
+
+        Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    it('does not render the shared switch by default', () => {
+        renderDialog({});
+
+        expect(screen.queryByLabelText('Shared Connection')).not.toBeInTheDocument();
+    });
+
+    it('renders the shared switch when showSharedOption is set', () => {
+        renderDialog({showSharedOption: true});
+
+        expect(screen.getByLabelText('Shared Connection')).toBeInTheDocument();
+    });
+
+    it('renders the shared switch when editing an existing connection', () => {
+        renderDialog({
+            connection: {
+                componentName: 'acme',
+                connectionVersion: 1,
+                environmentId: 0,
+                id: 5,
+                name: 'House Slack',
+                parameters: {},
+                version: 1,
+            } as never,
+            showSharedOption: true,
+        });
+
+        expect(screen.getByLabelText('Shared Connection')).toBeInTheDocument();
+    });
+
+    it('sends the shared value to the update mutation when editing an existing connection', async () => {
+        const user = userEvent.setup();
+
+        renderDialog({
+            connection: {
+                componentName: 'acme',
+                connectionVersion: 1,
+                environmentId: 0,
+                id: 5,
+                name: 'House Slack',
+                parameters: {},
+                version: 1,
+            } as never,
+            showSharedOption: true,
+            useUpdateConnectionMutation: (() => ({
+                error: null,
+                isPending: false,
+                mutate: hoisted.updateMutate,
+                mutateAsync: hoisted.updateMutate,
+                reset: vi.fn(),
+            })) as never,
+        });
+
+        await user.click(screen.getByLabelText('Shared Connection'));
+
+        await user.click(screen.getByRole('button', {name: /^save$/i}));
+
+        await waitFor(() => {
+            expect(hoisted.updateMutate).toHaveBeenCalled();
+        });
+
+        const payload = hoisted.updateMutate.mock.calls[0][0];
+
+        expect(payload.id).toBe(5);
+        expect(payload.shared).toBe(true);
+    });
+
+    it('omits shared from the update mutation payload when showSharedOption is not set', async () => {
+        const user = userEvent.setup();
+
+        renderDialog({
+            connection: {
+                componentName: 'acme',
+                connectionVersion: 1,
+                environmentId: 0,
+                id: 5,
+                name: 'House Slack',
+                parameters: {},
+                version: 1,
+            } as never,
+            useUpdateConnectionMutation: (() => ({
+                error: null,
+                isPending: false,
+                mutate: hoisted.updateMutate,
+                mutateAsync: hoisted.updateMutate,
+                reset: vi.fn(),
+            })) as never,
+        });
+
+        await user.click(screen.getByRole('button', {name: /^save$/i}));
+
+        await waitFor(() => {
+            expect(hoisted.updateMutate).toHaveBeenCalled();
+        });
+
+        const payload = hoisted.updateMutate.mock.calls[0][0];
+
+        // Absent, not false: a caller that never opted in must not be able to silently un-share a
+        // connection just by renaming it.
+        expect(payload).not.toHaveProperty('shared');
+    });
+
+    it('sends the shared value to the create mutation when creating a connection', async () => {
+        const user = userEvent.setup();
+
+        renderDialog({showSharedOption: true});
+
+        await user.click(screen.getByLabelText('Shared Connection'));
+
+        await user.click(screen.getByRole('button', {name: /^save$/i}));
+
+        await waitFor(() => {
+            expect(hoisted.createMutate).toHaveBeenCalled();
+        });
+
+        const payload = hoisted.createMutate.mock.calls[0][0];
+
+        expect(payload.shared).toBe(true);
     });
 });

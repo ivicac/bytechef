@@ -71,6 +71,7 @@ export interface ConnectionDialogFormProps {
     parameters: {[key: string]: object};
     registeringExisting?: boolean;
     selectedScopes?: {[key: string]: boolean};
+    shared: boolean;
     tags: Array<Tag | {label: string; value: string}>;
     visibility: 'PRIVATE' | 'WORKSPACE' | 'ORGANIZATION';
 }
@@ -103,6 +104,14 @@ interface ConnectionDialogProps {
      * writes an organization connection may show it.
      */
     showOrganizationOption?: boolean;
+    /**
+     * Offers the "Shared Connection" switch. Opt-in because the obvious gate does not work:
+     * `usePlatformTypeStore` is persisted to localStorage and the builder iframe is same-origin with
+     * the admin app, so the connected-user builder also reads EMBEDDED. Only the `/embedded/connections`
+     * admin page may pass this -- a connected user marking their own connection shared would hand
+     * their credentials to every other connected user in the environment.
+     */
+    showSharedOption?: boolean;
     /**
      * Opens the dialog directly in credential-replacement mode instead of the rename-only edit body. For surfaces
      * whose entire purpose is reconnecting an account -- the embedded hub's Reconnect action -- where making the user
@@ -150,6 +159,7 @@ const ConnectionDialog = ({
     onClose,
     onConnectionCreate,
     showOrganizationOption,
+    showSharedOption,
     startInCredentialsMode,
     title,
     triggerNode,
@@ -194,6 +204,7 @@ const ConnectionDialog = ({
             id: connection?.id,
             name: connection?.name || componentDefinition?.title || '',
             registeringExisting: false,
+            shared: connection?.shared ?? false,
             tags:
                 connection?.tags?.map((tag) => ({
                     ...tag,
@@ -409,7 +420,7 @@ const ConnectionDialog = ({
     }
 
     function getNewConnection(additionalParameters?: object) {
-        const {componentName, name, parameters, tags, visibility} = getValues();
+        const {componentName, name, parameters, shared, tags, visibility} = getValues();
 
         return {
             authorizationType,
@@ -422,6 +433,7 @@ const ConnectionDialog = ({
                 ...additionalParameters,
             },
             tags: tags,
+            ...(showSharedOption ? {shared} : {}),
             ...(visibilityFeatureEnabled ? {visibility} : {}),
         } as ConnectionI;
     }
@@ -486,13 +498,14 @@ const ConnectionDialog = ({
         }
 
         if (connection?.id) {
-            const {name, tags} = getValues();
+            const {name, shared, tags} = getValues();
 
             connectionMutation.mutate({
                 id: connection?.id,
                 name,
                 tags,
                 version: connection.version,
+                ...(showSharedOption ? {shared} : {}),
             } as ConnectionI);
         } else {
             const {componentName, credentialRef, credentialStoreType, registeringExisting} = getValues();
@@ -906,6 +919,25 @@ const ConnectionDialog = ({
                                                     Change visibility and sharing from the connection list.
                                                 </p>
                                             </FormItem>
+                                        )}
+
+                                        {showSharedOption && !isUpdatingCredentials && (
+                                            <FormField
+                                                control={control}
+                                                name="shared"
+                                                render={({field}) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                            <Switch
+                                                                checked={field.value}
+                                                                description="Every connected user in this environment will be able to use this connection."
+                                                                label="Shared Connection"
+                                                                onCheckedChange={field.onChange}
+                                                            />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
                                         )}
 
                                         {!connection?.id &&
