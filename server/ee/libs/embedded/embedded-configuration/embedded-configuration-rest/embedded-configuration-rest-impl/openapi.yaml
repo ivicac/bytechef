@@ -1506,6 +1506,9 @@ components:
         name:
           description: "The name of a connection."
           type: "string"
+        shared:
+          description: "Whether every connected user in the same environment may use this connection."
+          type: "boolean"
         tags:
           type: "array"
           items:

@@ -137,6 +137,11 @@ public class RemoteConnectionServiceClient implements ConnectionService {
     }
 
     @Override
+    public Connection update(long id, String name, List<Long> tagIds, boolean shared, int version) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Connection updateConnectionCredentialStatus(long connectionId, Connection.CredentialStatus status) {
         throw new UnsupportedOperationException();
     }
