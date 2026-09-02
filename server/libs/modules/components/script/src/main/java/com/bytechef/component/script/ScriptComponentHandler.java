@@ -31,6 +31,7 @@ import com.bytechef.component.script.cluster.tool.ScriptPythonTool;
 import com.bytechef.platform.component.definition.AbstractComponentDefinitionWrapper;
 import com.bytechef.platform.component.definition.ScriptComponentDefinition;
 import com.bytechef.platform.component.runner.PolyglotEngine;
+import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 import org.springframework.stereotype.Component;
 
 /**
@@ -47,8 +48,8 @@ public class ScriptComponentHandler implements ComponentHandler {
 
     private final ScriptComponentDefinition componentDefinition;
 
-    public ScriptComponentHandler(PolyglotEngine polyglotEngine) {
-        this.componentDefinition = new ScriptComponentDefinitionImpl(polyglotEngine);
+    public ScriptComponentHandler(PolyglotEngine polyglotEngine, TaskRunnerRegistry taskRunnerRegistry) {
+        this.componentDefinition = new ScriptComponentDefinitionImpl(polyglotEngine, taskRunnerRegistry);
     }
 
     @Override
@@ -59,7 +60,7 @@ public class ScriptComponentHandler implements ComponentHandler {
     private static class ScriptComponentDefinitionImpl extends AbstractComponentDefinitionWrapper
         implements ScriptComponentDefinition {
 
-        private ScriptComponentDefinitionImpl(PolyglotEngine polyglotEngine) {
+        private ScriptComponentDefinitionImpl(PolyglotEngine polyglotEngine, TaskRunnerRegistry taskRunnerRegistry) {
             super(
                 component(SCRIPT)
                     .title("Script")
@@ -68,11 +69,11 @@ public class ScriptComponentHandler implements ComponentHandler {
                     .icon("path:assets/script.svg")
                     .categories(ComponentCategory.HELPERS, ComponentCategory.DEVELOPER_TOOLS)
                     .actions(
-                        ScriptJavaScriptAction.of(polyglotEngine),
-                        ScriptPythonAction.of(polyglotEngine))
-//                        ScriptRAction.of(polyglotEngine),
-//                        ScriptJavaAction.of(polyglotEngine),
-//                        ScriptRubyAction.of(polyglotEngine))
+                        ScriptJavaScriptAction.of(taskRunnerRegistry),
+                        ScriptPythonAction.of(taskRunnerRegistry))
+//                        ScriptRAction.of(taskRunnerRegistry),
+//                        ScriptJavaAction.of(taskRunnerRegistry),
+//                        ScriptRubyAction.of(taskRunnerRegistry))
                     .clusterElements(
                         ScriptJavaScriptTool.of(polyglotEngine),
                         ScriptPythonTool.of(polyglotEngine),

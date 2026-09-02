@@ -42,7 +42,8 @@ import org.jspecify.annotations.Nullable;
  * @param outputFilePatterns   glob patterns matched against the output directory after the execution
  * @param inputParameters      the action's own parameters, which an in-process runner reads the source from
  * @param runnerParameters     the selected runner's own configuration, from the taskRunner property
- * @param timeout              the wall-clock ceiling for the execution
+ * @param timeout              the wall-clock ceiling for the execution, or null to let the selected runner decide - a
+ *                             runner that already bounds its executions some other way applies no ceiling of its own
  * @param componentConnections connections the script may reach through the component bridge
  * @param actionContext        the action context, used for file storage and logging
  * @author Ivica Cardic
@@ -51,7 +52,8 @@ import org.jspecify.annotations.Nullable;
 public record TaskRunnerRequest(
     String languageId, @Nullable String script, List<String> commands, Map<String, ?> input, Map<String, String> env,
     Map<String, ?> inputFiles, List<String> outputFilePatterns, Parameters inputParameters,
-    Parameters runnerParameters, Duration timeout, Map<String, ComponentConnection> componentConnections,
+    Parameters runnerParameters, @Nullable Duration timeout,
+    Map<String, ComponentConnection> componentConnections,
     ActionContext actionContext) {
 
     public TaskRunnerRequest {

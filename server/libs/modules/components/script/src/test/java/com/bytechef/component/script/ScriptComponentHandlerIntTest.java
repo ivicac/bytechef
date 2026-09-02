@@ -45,7 +45,12 @@ import org.springframework.context.annotation.ComponentScan;
         ComponentTestIntConfiguration.class,
         ScriptComponentHandlerIntTest.ScriptComponentHandlerIntTestConfiguration.class
     },
-    properties = "bytechef.workflow.repository.classpath.enabled=true")
+    properties = {
+        "bytechef.workflow.repository.classpath.enabled=true",
+        // Both actions resolve their runner through the registry, which rejects every type the operator has not
+        // allowlisted - without this the two perform tests fail with TaskRunnerNotEnabledException.
+        "bytechef.script.runners.graalvm.enabled=true"
+    })
 public class ScriptComponentHandlerIntTest {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
@@ -81,6 +86,7 @@ public class ScriptComponentHandlerIntTest {
     }
 
     @Test
+    @Timeout(120)
     public void testPerformJavaScript() {
         Job job = componentJobTestExecutor.execute(
             ENCODER.encodeToString("script_v1_javascript".getBytes(StandardCharsets.UTF_8)),
