@@ -20,32 +20,85 @@ JavaScript statements. They are never mixed: a `Python` action does not accept s
   setting.
 
 Depending on which task runner is selected, additional properties may appear: `env` (environment variables),
-`inputFiles`, `outputFiles` (glob patterns matched after the run), `timeout` (seconds), and the runner's own
-`interpreter` override.
+`inputFiles`, `outputFiles` (glob patterns matched after the run), `timeout` (seconds), and the selected runner's own
+properties - the Process runner's `interpreter` override, or the Docker runner's `image` and container settings.
 
 ## Task runners
 
 Commands only offers runners that declare the **Commands** capability - that excludes GraalVM entirely, since
-GraalVM's in-process component bridge cannot run a list of shell commands. In a default deployment that leaves one
-built-in runner:
+GraalVM's in-process component bridge cannot run a list of shell commands. Two built-in runners declare it:
 
 | Runner | Type | What it does |
 | --- | --- | --- |
 | Process | `process` | Runs the commands in a child process on the same host, with the server's own environment cleared. |
+| Docker | `docker` | Runs the commands in a single-use container, on the local daemon or on whichever daemon the operator's `host` names. |
 
-The runners available in a given deployment depend on what the operator has enabled with
-`bytechef.script.runners.<type>.enabled`, so this list may be shorter, or include a runner contributed by another
-module, in your installation. If no runner declaring the Commands capability is enabled at all, running any of these
-actions fails with a message naming the configuration key to set - `bytechef.script.runners.process.enabled=true` for
-the built-in runner above.
+Both are **off** until an operator turns them on with `bytechef.script.runners.<type>.enabled=true` - the shipped
+configuration enables only `graalvm`, which Commands never offers. So this list is what your installation *may* have,
+not what it has; it may also include a runner contributed by another module. If no runner declaring the Commands
+capability is enabled at all, running any of these actions fails with a message naming the configuration key to set.
 
-Each action's default interpreter, when the runner's own `interpreter` property is left blank:
+Each action's default interpreter, when the Process runner's `interpreter` property is left blank:
 
 | Action | Default interpreter |
 | --- | --- |
 | Shell | `/bin/sh` |
 | Python | `python3` |
 | Node | `node` |
+
+### The Docker runner
+
+The Docker runner is the Process runner's sibling: the same working directory, the same `env`, `inputFiles`,
+`outputFiles` and `timeout` handling, the same five-key result. What differs is that the interpreter is reached
+through a container image instead of the host's `PATH`, so the commands run with the host filesystem, the host's
+installed packages and the host's users all out of reach.
+
+Its own properties:
+
+| Property | What it does |
+| --- | --- |
+| `image` | The container image the task runs in. Optional - see the defaults below. |
+| `pullPolicy` | `ALWAYS`, `IF_NOT_PRESENT` (default) or `NEVER`. |
+| `entrypoint` | Replaces the interpreter the source file is handed to. The source file is appended either way. |
+| `user` | The user the container runs as, as a name or a numeric `uid[:gid]`. |
+| `cpu` | How many CPUs the container may use, as a decimal fraction of one CPU. |
+| `memory` | How much memory the container may use, in bytes or with a `b`, `k`, `m` or `g` suffix. |
+| `networkMode` | `bridge` or `none`; `host` only where an operator has enabled it. Nothing else is accepted - not a named Docker network, not `container:<id>`. |
+| `extraHosts` | Additional entries for the container's hosts file, each written as `host:ip`. |
+
+Each action runs in a default image when `image` is left blank:
+
+| Action | Default image |
+| --- | --- |
+| Shell | `ubuntu:24.04` |
+| Python | `python:3.12-slim` |
+| Node | `node:22-alpine` |
+
+**The image allowlist is fail-closed, and an empty allowlist runs nothing.** An operator lists the images that may be
+run, as a comma-separated string:
+
+```yaml
+bytechef:
+  script:
+    runners:
+      docker:
+        enabled: true
+        properties:
+          allowed-images: python:3.12-slim,node:22-alpine,ubuntu:24.04
+```
+
+Matching is exact string equality - no prefixes, no wildcards, no registry normalisation, so `python:3.12` is not
+`python:3.12-slim` and two tags means two entries. Until at least one image is listed, *every* image is refused,
+including the per-action defaults above: a default saves you from typing an image, it never gets you past the
+allowlist. The image select in the editor offers exactly the allowed images, but the check that matters happens when
+the task runs, so a hand-edited workflow naming an unlisted image is refused there too.
+
+**There is no `volumes` property.** A host bind mount chosen by a workflow author is a container escape - `/` mounted
+read-write is the whole host - so this version offers no way to ask for one, and none is put on the container by any
+other route. Files cross the boundary as archives instead: `inputFiles` are copied into the container before it
+starts, and the output directory is copied back out after it exits. That also works unchanged when ByteChef itself
+runs in a container talking to a mounted Docker socket, where a host path a bind mount named would mean nothing to the
+daemon.
 
 ## Workflow data reaches commands through `env`, not `${…}`
 
