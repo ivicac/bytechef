@@ -4,6 +4,7 @@ import {SchemaRecordType} from '@/components/JsonSchemaBuilder/utils/types';
 import {Note} from '@/components/Note';
 import {Sheet, SheetCloseButton, SheetContent, SheetTitle} from '@/components/ui/sheet';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {useResponseSchemaNoteStore} from '@/pages/platform/workflow-editor/stores/useResponseSchemaNoteStore';
 import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
 import CopilotPanel from '@/shared/components/copilot/CopilotPanel';
 import {SPACE} from '@/shared/constants';
@@ -14,7 +15,7 @@ import {VisuallyHidden} from 'radix-ui';
 import {Suspense, lazy, useCallback, useEffect, useRef, useState} from 'react';
 import {twMerge} from 'tailwind-merge';
 
-import PropertyJsonSchemaBuilderSampleDataTab from './PropertyJsonSchemaBuilderSampleDataTab';
+import PropertyJsonSchemaBuilderSampleDataDialog from './PropertyJsonSchemaBuilderSampleDataDialog';
 import {usePropertyJsonSchemaBuilderCopilot} from './hooks/usePropertyJsonSchemaBuilderCopilot';
 
 import type {StandaloneCodeEditorType} from '@/shared/components/MonacoTypes';
@@ -42,8 +43,8 @@ const PropertyJsonSchemaBuilderSheet = ({
     workflowId,
     workflowNodeName,
 }: PropertyJsonSchemaBuilderSheetProps) => {
-    const [activeTab, setActiveTab] = useState('designer');
     const [localSchema, setLocalSchema] = useState<SchemaRecordType | undefined>(schema);
+    const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
 
     const editorRef = useRef<StandaloneCodeEditorType | null>(null);
     const schemaRef = useRef(localSchema);
@@ -51,6 +52,8 @@ const PropertyJsonSchemaBuilderSheet = ({
     schemaRef.current = localSchema;
 
     const ai = useApplicationInfoStore((state) => state.ai);
+    const responseSchemaNoteDismissed = useResponseSchemaNoteStore((state) => state.responseSchemaNoteDismissed);
+    const setResponseSchemaNoteDismissed = useResponseSchemaNoteStore((state) => state.setResponseSchemaNoteDismissed);
     const ff1570 = useFeatureFlagsStore()('ff-1570');
 
     const copilotAvailable = Boolean(
@@ -66,18 +69,15 @@ const PropertyJsonSchemaBuilderSheet = ({
         [onChange]
     );
 
-    const handleSampleGenerate = useCallback(
-        (newSchema: SchemaRecordType) => {
-            handleSchemaChange(newSchema);
+    const handleSampleDialogOpen = useCallback(() => {
+        setSampleDialogOpen(true);
+    }, []);
 
-            setActiveTab('designer');
-        },
-        [handleSchemaChange]
-    );
+    const handleNoteDismiss = useCallback(() => {
+        setResponseSchemaNoteDismissed(true);
+    }, [setResponseSchemaNoteDismissed]);
 
     const handleTabChange = useCallback((value: string) => {
-        setActiveTab(value);
-
         if (value === 'editor' && editorRef.current) {
             requestAnimationFrame(() => {
                 editorRef.current?.layout();
@@ -123,14 +123,14 @@ const PropertyJsonSchemaBuilderSheet = ({
 
             <SheetContent
                 className={twMerge(
-                    'top-3 right-4 bottom-4 flex h-auto w-11/12 flex-row gap-0 rounded-md bg-surface-neutral-secondary p-0',
+                    'top-3 right-4 bottom-4 flex h-auto w-11/12 flex-row gap-0 rounded-md bg-surface-neutral-secondary p-0 transition-[max-width] duration-300 ease-in-out',
                     copilotPanelOpen ? 'sm:max-w-(--breakpoint-xl)' : 'sm:max-w-(--breakpoint-lg)'
                 )}
                 onFocusOutside={(event) => event.preventDefault()}
                 onPointerDownOutside={(event) => event.preventDefault()}
             >
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <Tabs className="flex size-full flex-col gap-0" onValueChange={handleTabChange} value={activeTab}>
+                    <Tabs className="flex size-full flex-col gap-0" defaultValue="designer" onValueChange={handleTabChange}>
                         <header className="flex w-full shrink-0 items-center justify-between gap-x-3 rounded-t-md border-b border-stroke-neutral-primary bg-surface-neutral-primary p-3">
                             <div className="flex flex-col">
                                 <span className="text-lg font-semibold">
@@ -141,12 +141,12 @@ const PropertyJsonSchemaBuilderSheet = ({
                             </div>
 
                             <div className="flex items-center gap-1">
+                                <Button label="From Sample" onClick={handleSampleDialogOpen} size="sm" />
+
                                 <TabsList>
                                     <TabsTrigger value="designer">Designer</TabsTrigger>
 
                                     <TabsTrigger value="editor">Code Editor</TabsTrigger>
-
-                                    <TabsTrigger value="sample">From Sample</TabsTrigger>
                                 </TabsList>
 
                                 {copilotAvailable && (
@@ -164,10 +164,11 @@ const PropertyJsonSchemaBuilderSheet = ({
                         </header>
 
                         <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-                            {title === 'Response Schema' && (
+                            {title === 'Response Schema' && !responseSchemaNoteDismissed && (
                                 <Note
                                     content="Define how you'd like the LLM to structure its responses — essentially a template for its output."
                                     icon={<MessageCircleQuestionIcon />}
+                                    onDismiss={handleNoteDismiss}
                                 />
                             )}
 
@@ -176,16 +177,6 @@ const PropertyJsonSchemaBuilderSheet = ({
                                 value="designer"
                             >
                                 <JsonSchemaBuilder onChange={handleSchemaChange} schema={localSchema} />
-                            </TabsContent>
-
-                            <TabsContent
-                                className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-surface-neutral-primary p-3"
-                                value="sample"
-                            >
-                                <PropertyJsonSchemaBuilderSampleDataTab
-                                    onGenerate={handleSampleGenerate}
-                                    schema={localSchema}
-                                />
                             </TabsContent>
 
                             <TabsContent
@@ -216,6 +207,13 @@ const PropertyJsonSchemaBuilderSheet = ({
                         </div>
                     </Tabs>
                 </div>
+
+                <PropertyJsonSchemaBuilderSampleDataDialog
+                    onGenerate={handleSchemaChange}
+                    onOpenChange={setSampleDialogOpen}
+                    open={sampleDialogOpen}
+                    schema={localSchema}
+                />
 
                 {copilotAvailable && (
                     <CopilotPanel
