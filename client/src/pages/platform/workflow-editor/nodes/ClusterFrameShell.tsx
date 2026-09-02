@@ -27,6 +27,7 @@ import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import {clearClusterElementPositions} from '../utils/clearAllClusterElementPositions';
 import {
+    CLUSTER_FRAME_BORDER_WIDTH,
     CLUSTER_FRAME_HEADER_HEIGHT,
     DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN,
 } from '../utils/clusterFrame/clusterFrameGeometry';
@@ -336,8 +337,11 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
 
             <div
                 style={{
-                    marginLeft: contentOrigin.x,
-                    marginTop: contentOrigin.y - CLUSTER_FRAME_HEADER_HEIGHT,
+                    // Both offsets discount the frame's own border: the placeholders this card's
+                    // handles connect to are positioned from the frame node's origin, which sits
+                    // outside that border. See CLUSTER_FRAME_BORDER_WIDTH.
+                    marginLeft: contentOrigin.x - CLUSTER_FRAME_BORDER_WIDTH,
+                    marginTop: contentOrigin.y - CLUSTER_FRAME_HEADER_HEIGHT - CLUSTER_FRAME_BORDER_WIDTH,
                 }}
             >
                 {children}
