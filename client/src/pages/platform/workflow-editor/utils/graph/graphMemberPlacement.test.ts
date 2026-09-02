@@ -220,3 +220,49 @@ describe('placeGraphMembers', () => {
         expect(members).toEqual([previousMembers[0]]);
     });
 });
+
+describe('getMemberSize via collectGraphMemberSizes', () => {
+    it('prefers a cluster root box over its measured card size', () => {
+        // `clusterRoot: true` is what a cluster root's own node data always carries alongside
+        // `clusterFrame` (`convertTaskToNode` derives both `data.clusterRoot` and `node.type` from
+        // the same `task.clusterRoot`) — it is what keeps `getGraphMemberPlacementWidth` from
+        // treating this member as a plain task and capping its painted width to
+        // `GRAPH_MEMBER_BOX_WIDTH`, so the box's own width survives.
+        const nodes: Node[] = [
+            {
+                data: {
+                    clusterFrame: {clusterRootId: 'aiAgent_1', height: 320, width: 640},
+                    clusterRoot: true,
+                    graphData: {graphId: 'graph_1', index: 0},
+                    workflowNodeName: 'aiAgent_1',
+                },
+                id: 'aiAgent_1',
+                measured: {height: 80, width: 240},
+                parentId: 'graph_1-graph-frame',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+        ];
+
+        expect(collectGraphMemberSizes('graph_1', nodes)).toEqual([
+            {height: 320, labelOverhang: 0, name: 'aiAgent_1', width: 640},
+        ]);
+    });
+
+    it('falls back to the measured size when no pre-pass box is present', () => {
+        const nodes: Node[] = [
+            {
+                data: {graphData: {graphId: 'graph_1', index: 0}, workflowNodeName: 'task_1'},
+                id: 'task_1',
+                measured: {height: 80, width: 240},
+                parentId: 'graph_1-graph-frame',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+        ];
+
+        expect(collectGraphMemberSizes('graph_1', nodes)).toEqual([
+            {height: 80, labelOverhang: 240 - GRAPH_MEMBER_BOX_WIDTH, name: 'task_1', width: GRAPH_MEMBER_BOX_WIDTH},
+        ]);
+    });
+});
