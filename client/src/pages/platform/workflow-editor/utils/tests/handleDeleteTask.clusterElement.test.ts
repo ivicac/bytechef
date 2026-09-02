@@ -27,6 +27,7 @@ vi.mock('../../stores/useWorkflowDataStore', () => ({
 vi.mock('../../stores/useWorkflowNodeDetailsPanelStore', () => ({
     default: {
         getState: () => ({
+            removePendingSaveNodeName: vi.fn(),
             reset: vi.fn(),
             setWorkflowNodeDetailsPanelOpen: vi.fn(),
         }),
