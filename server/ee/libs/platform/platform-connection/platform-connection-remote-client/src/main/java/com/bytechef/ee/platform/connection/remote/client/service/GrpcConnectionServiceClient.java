@@ -167,6 +167,11 @@ public final class GrpcConnectionServiceClient implements ConnectionService {
     }
 
     @Override
+    public List<Connection> getSharedConnections(int environmentId, PlatformType type) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<Connection> getConnections(String componentName, int version, PlatformType type) {
         throw new UnsupportedOperationException();
     }
