@@ -1,3 +1,4 @@
+import {calculateNodeWidth} from '@/pages/platform/cluster-element-editor/utils/clusterElementsUtils';
 import {CLUSTER_ROOT_NODE_WIDTH} from '@/shared/constants';
 import {Edge, Node} from '@xyflow/react';
 import {describe, expect, it} from 'vitest';
@@ -79,16 +80,18 @@ describe('layoutClusterFrames', () => {
 
         expect(rootNode.data.clusterFrame).toEqual({
             clusterRootId: ROOT_ID,
-            contentOrigin: {x: 0, y: CLUSTER_FRAME_HEADER_HEIGHT},
+            contentOrigin: {x: CLUSTER_FRAME_PADDING, y: CLUSTER_FRAME_HEADER_HEIGHT},
             height: 300 + ELEMENT_SIZE.height + CLUSTER_FRAME_HEADER_HEIGHT + CLUSTER_FRAME_PADDING,
-            width: 400 + ELEMENT_SIZE.width + CLUSTER_FRAME_PADDING,
+            width: CLUSTER_FRAME_PADDING + 400 + ELEMENT_SIZE.width + CLUSTER_FRAME_PADDING,
         });
 
         expect(result.outerNodes.map((node) => node.id)).toEqual([ROOT_ID]);
         expect(result.memberNodes.map((node) => node.id)).toEqual(['model_1']);
     });
 
-    it('floors the box at its minimum size', () => {
+    // When the floor sets the width, the slack is split evenly so the card stays centred -- it used
+    // to sit at the padding with the whole surplus on its right.
+    it('floors the box at its minimum size and centres the contents in the slack', () => {
         const result = layoutClusterFrames(
             [buildRootNode()],
             [],
@@ -99,9 +102,11 @@ describe('layoutClusterFrames', () => {
             {}
         );
 
+        const contentWidth = Math.max(calculateNodeWidth(0), ELEMENT_SIZE.width);
+
         expect(result.outerNodes[0].data.clusterFrame).toEqual({
             clusterRootId: ROOT_ID,
-            contentOrigin: {x: 0, y: CLUSTER_FRAME_HEADER_HEIGHT},
+            contentOrigin: {x: (CLUSTER_FRAME_MIN_WIDTH - contentWidth) / 2, y: CLUSTER_FRAME_HEADER_HEIGHT},
             height: CLUSTER_FRAME_MIN_HEIGHT,
             width: CLUSTER_FRAME_MIN_WIDTH,
         });
@@ -149,8 +154,8 @@ describe('layoutClusterFrames', () => {
             width: number;
         };
 
-        expect(clusterFrame.contentOrigin.x).toBe(120);
-        expect(result.memberNodes[0].position.x).toBe(0);
+        expect(clusterFrame.contentOrigin.x).toBe(CLUSTER_FRAME_PADDING + 120);
+        expect(result.memberNodes[0].position.x).toBe(CLUSTER_FRAME_PADDING);
         expect(result.memberNodes[0].position.x + ELEMENT_SIZE.width).toBeLessThanOrEqual(clusterFrame.width);
 
         // The stored value is unchanged by the shift: the drag-stop handler subtracts the same
@@ -179,9 +184,14 @@ describe('layoutClusterFrames', () => {
 
         const placedNestedRoot = result.memberNodes.find((node) => node.id === 'sub_agent_1')!;
         const placedNestedMember = result.memberNodes.find((node) => node.id === 'nested_model_1')!;
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {contentOrigin: {x: number; y: number}};
 
         expect(placedNestedRoot.parentId).toBe(ROOT_ID);
-        expect(placedNestedRoot.position).toEqual(toClusterFrameChildPosition({x: 100, y: 200}));
+        // Against the frame's OWN origin, not the default: a floored box centres its contents, so the
+        // origin is only the default padding when the contents set the width themselves.
+        expect(placedNestedRoot.position).toEqual(
+            toClusterFrameChildPosition({x: 100, y: 200}, clusterFrame.contentOrigin)
+        );
 
         expect(placedNestedMember.parentId).toBe('sub_agent_1');
         expect(placedNestedMember.position).toEqual({x: 10, y: 150});
