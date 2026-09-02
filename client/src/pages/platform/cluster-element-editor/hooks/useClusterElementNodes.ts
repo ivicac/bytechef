@@ -7,6 +7,7 @@ import {Edge, Node} from '@xyflow/react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
+import useClusterElementsViewModeStore from '../../workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../workflow-editor/stores/useWorkflowEditorStore';
 import {getTask} from '../../workflow-editor/utils/getTask';
@@ -75,6 +76,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
             setNestedClusterRootsComponentDefinitions: state.setNestedClusterRootsComponentDefinitions,
         }))
     );
+    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
 
     const {workflow} = useWorkflowDataStore(
         useShallow((state) => ({
@@ -237,9 +239,28 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
 
             const rootNodes: Node[] = [];
 
-            // Only the root whose surface is open gets its own card here -- every other requested root
-            // is assumed to already have its own node elsewhere (the main canvas's own workflow node).
-            if (rootClusterElementNodeData && rootClusterElementNodeData.workflowNodeName === clusterRootId) {
+            // Only the root whose DIALOG surface is open gets its own card here -- every other
+            // requested root is assumed to already have its own node elsewhere (the main canvas's own
+            // workflow node). Box mode also seeds rootClusterElementNodeData now (so its destination
+            // handlers know which root they were opened on), but a box root's card already exists on
+            // the outer canvas -- it IS the box -- so this must additionally require view mode to be
+            // 'dialog', or a box root would become a member of its own frame: layoutClusterFrames would
+            // parent this pushed card to clusterRootId (i.e. to itself) and then filter the real frame
+            // out of outerNodes as a "member", dropping the box from the canvas entirely.
+            //
+            // Gated on view mode rather than the dialog's own clusterElementsCanvasOpen: this hook's
+            // only other consumer, useClusterElementsLayout, is reachable exclusively from inside
+            // ClusterElementsCanvasDialog -- which is to say, exclusively while clusterElementsViewMode
+            // is 'dialog' -- so the two conditions coincide for every genuine dialog-mode call. Using
+            // clusterElementsCanvasOpen instead would ALSO be correct in production, but is a strictly
+            // narrower condition that box mode's own destination handlers never touch, so either serves
+            // this guard equally well; view mode was chosen as the more direct statement of the actual
+            // invariant ("never draw the duplicate card outside dialog mode").
+            if (
+                clusterElementsViewMode === 'dialog' &&
+                rootClusterElementNodeData &&
+                rootClusterElementNodeData.workflowNodeName === clusterRootId
+            ) {
                 const rootFilteredTypes = getFilteredClusterElementTypes({
                     clusterRootComponentDefinition: currentRootComponentDefinition,
                     isNestedClusterRoot: false,
@@ -281,6 +302,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         clusterElementsByRootId,
+        clusterElementsViewMode,
         clusterRootComponentDefinitions,
         clusterRootIdsKey,
         nestedClusterRootsComponentDefinitions,
