@@ -28,8 +28,10 @@ import java.util.Map;
  * never disagree, so the parse lives here rather than in both.
  *
  * <p>
- * The parse is fail-closed. An absent runner entry, an absent property, an empty value and a malformed one such as
- * {@code yes} all read as not trusted; only a literal {@code true} opens the gate.
+ * The parse is fail-closed. An absent runner entry, an absent or null properties map, an absent property, an empty
+ * value and a malformed one such as {@code yes} all read as not trusted. What opens the gate is
+ * {@link Boolean#parseBoolean}, which is case-insensitive: {@code true}, {@code TRUE} and {@code True} all enable
+ * trusted mode, and nothing else does.
  *
  * @author Ivica Cardic
  */
@@ -50,6 +52,13 @@ final class TaskRunnerTrustedMode {
         }
 
         Map<String, String> properties = runner.getProperties();
+
+        // A YAML "properties:" key with an empty body binds null, so the map is not guaranteed present even when the
+        // runner entry is. Failing closed here rather than throwing keeps a half-written configuration from being the
+        // one way trusted mode turns itself on.
+        if (properties == null) {
+            return false;
+        }
 
         return Boolean.parseBoolean(properties.get(TRUSTED_ENABLED));
     }
