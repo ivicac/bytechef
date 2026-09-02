@@ -23,11 +23,13 @@ import static com.bytechef.platform.component.runner.TaskRunnerConstants.MODE;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.STRICT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TRUSTED;
 
+import com.bytechef.component.definition.ComponentDsl.ModifiableOption;
 import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.definition.JobContextAware;
 import com.bytechef.platform.component.polyglot.ScriptSandboxMode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -70,15 +72,30 @@ public class GraalVmTaskRunner implements TaskRunner {
 
     @Override
     public List<? extends ModifiableValueProperty<?, ?>> getProperties() {
+        boolean trustedEnabled = TaskRunnerTrustedMode.isEnabled(applicationProperties, GRAALVM);
+
+        List<ModifiableOption<String>> options = new ArrayList<>();
+
+        options.add(option("Strict", STRICT));
+
+        if (trustedEnabled) {
+            options.add(option("Trusted", TRUSTED));
+        }
+
+        // The description must match what the options list actually offers - an operator without the flag should
+        // not read about a Trusted mode the select does not let them pick.
+        String description = trustedEnabled
+            ? "Strict runs the script with no access to the host: no file system, no environment, no process " +
+                "creation, and CPU and memory ceilings. Trusted lifts every restriction and runs the script inside " +
+                "the server process with full reflection; use it only on a single-tenant deployment you control."
+            : "Strict runs the script with no access to the host: no file system, no environment, no process " +
+                "creation, and CPU and memory ceilings.";
+
         return List.of(
             string(MODE)
                 .label("Mode")
-                .description(
-                    "Strict runs the script with no access to the host: no file system, no environment, no process " +
-                        "creation, and CPU and memory ceilings. Trusted lifts every restriction and runs the script " +
-                        "inside the server process with full reflection; use it only on a single-tenant deployment " +
-                        "you control.")
-                .options(option("Strict", STRICT), option("Trusted", TRUSTED))
+                .description(description)
+                .options(options)
                 .defaultValue(STRICT)
                 .required(false));
     }
