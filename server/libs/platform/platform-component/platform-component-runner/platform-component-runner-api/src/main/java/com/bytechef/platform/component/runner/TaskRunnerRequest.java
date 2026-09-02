@@ -33,10 +33,20 @@ import org.jspecify.annotations.Nullable;
  * what it cannot honour. That is deliberate: one request type keeps one registry, one dispatch point for the allowlist,
  * and an explicit error instead of a silently ignored setting.
  *
+ * <p>
+ * Two record components carry the same data by two routes, deliberately. {@code input} is the input map on its own, in
+ * the shape an external runner serialises to {@code input.json}; {@code inputParameters} is the action's whole
+ * parameter map, which still contains that same input map under its {@code input} key. {@code GraalVmTaskRunner}
+ * forwards {@code inputParameters} to the polyglot engine and so reads the input through it, never through
+ * {@code input}; phase 2's external runners read {@code input} because they have no use for the rest. Both copies are
+ * therefore live, and neither is redundant - but they are copies, so a runner must not write through one and read the
+ * other.
+ *
  * @param languageId           the language the script is written in, or the interpreter for commands
  * @param script               inline source, or null when commands are given
  * @param commands             the commands to run, or an empty list when a script is given
- * @param input                values the script reads as its input argument
+ * @param input                values the script reads as its input argument; the same map also reaches a runner inside
+ *                             {@code inputParameters}, under its {@code input} key
  * @param env                  environment variables the execution should see
  * @param inputFiles           files to materialise into the working directory, keyed by file name
  * @param outputFilePatterns   glob patterns matched against the output directory after the execution
@@ -45,7 +55,12 @@ import org.jspecify.annotations.Nullable;
  * @param timeout              the wall-clock ceiling for the execution, or null to let the selected runner decide - a
  *                             runner that already bounds its executions some other way applies no ceiling of its own
  * @param componentConnections connections the script may reach through the component bridge
- * @param actionContext        the action context, used for file storage and logging
+ * @param actionContext        the action context, used for file storage and logging. A runner offering
+ *                             {@link TaskRunnerCapability#COMPONENT_BRIDGE} additionally requires it to implement
+ *                             {@code com.bytechef.platform.component.definition.JobContextAware}, which the contexts
+ *                             the components build always do - the bridge resolves connections and component actions
+ *                             through the job context, so a plain {@link ActionContext} would fail the cast at
+ *                             execution time
  * @author Ivica Cardic
  */
 @SuppressFBWarnings("EI")
