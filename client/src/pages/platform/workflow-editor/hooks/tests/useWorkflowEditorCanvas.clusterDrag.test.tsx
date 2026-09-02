@@ -90,6 +90,7 @@ function findNode(id: string): Node {
     return useWorkflowDataStore.getState().nodes.find((node) => node.id === id)!;
 }
 
+/** Reads the element's persisted content-origin position back out of the definition the last save sent. */
 function getSavedElementPosition(): {x: number; y: number} | undefined {
     const [[mutationVariables]] = updateWorkflowMutationMock.mutate.mock.calls.slice(-1);
 
@@ -105,6 +106,9 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
         editorContext.updateWorkflowMutation = updateWorkflowMutationMock;
         updateWorkflowMutationMock.mutate.mockClear();
 
+        // `saveWorkflowDefinition` drops a save that arrives while a previous one is still in
+        // flight, and the mock mutation never settles — without this reset every save after the
+        // first in a test would be silently dropped instead of fired.
         clearAllWorkflowMutations();
 
         useWorkflowDataStore.setState({
@@ -115,6 +119,11 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
                 definition: buildDefinition({x: 0, y: 0}),
                 id: 'workflow-1',
                 nodeNames: [],
+                // The flattened DTO copy of the definition's tasks, kept in sync alongside it in the
+                // live app. `saveWorkflowDefinition` matches an existing task through THIS array (not
+                // the parsed definition) to decide whether to update the root in place or insert a
+                // new one — an empty array here would make every save look like a brand new task and
+                // duplicate the root instead of updating it.
                 tasks: [{clusterRoot: true, name: ROOT_ID, type: 'aiAgent/v1'}],
                 version: 3,
             },
@@ -124,6 +133,9 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
     it('converts a dropped element back through the header offset before persisting it', () => {
         const {result} = renderCanvas();
 
+        // The live drag position is parent-relative (it includes the header band); dropped at what
+        // reads on screen as content-origin (220, 140), React Flow's own position is offset by the
+        // header height.
         act(() => {
             result.current.handleNodeDragStop({} as MouseEvent, {
                 ...findNode('model_1'),
@@ -134,6 +146,9 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
         expect(getSavedElementPosition()).toEqual({x: 220, y: 140});
     });
 
+    // Pins the conversion direction itself: persisting the raw, un-converted parent-relative
+    // position (skipping fromClusterFrameChildPosition) is exactly the header-height drift the
+    // brief warns about, and this assertion fails the moment that conversion is dropped.
     it('does not persist the raw parent-relative position unconverted', () => {
         const {result} = renderCanvas();
 
@@ -188,6 +203,11 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
     });
 });
 
+// A cluster root can itself contain a nested cluster root (e.g. an agentic tool with its own model),
+// and an element inside THAT nested box carries `parentClusterRootId` naming the nested root — not
+// the outermost one `getTask`/`workflowTasks` can actually address. `topLevelClusterRootId` is what
+// resolves back to a real task entry, threaded unchanged through the nesting by
+// `createClusterElementNodes`.
 describe('useWorkflowEditorCanvas cluster element dragging, nested a level deeper', () => {
     const NESTED_ROOT_ID = 'agenticTool_1';
     const NESTED_ELEMENT_ID = 'nestedModel_1';
@@ -231,7 +251,7 @@ describe('useWorkflowEditorCanvas cluster element dragging, nested a level deepe
             id: NESTED_ELEMENT_ID,
             measured: {height: 60, width: 200},
             parentId: NESTED_ROOT_ID,
-            position: elementContentPosition,
+            position: toClusterFrameChildPosition(elementContentPosition),
             type: 'workflow',
         };
     }
@@ -273,12 +293,13 @@ describe('useWorkflowEditorCanvas cluster element dragging, nested a level deepe
         act(() => {
             result.current.handleNodeDragStop({} as MouseEvent, {
                 ...findNode(NESTED_ELEMENT_ID),
-                position: {x: 220, y: 180},
+                position: toClusterFrameChildPosition({x: 220, y: 140}),
             });
         });
 
+        // A save keyed on the immediate parent (`agenticTool_1`) would have found no such task at the
+        // top level of the definition and saved nothing at all.
         expect(updateWorkflowMutationMock.mutate).toHaveBeenCalledTimes(1);
-
-        expect(getSavedNestedElementPosition()).toEqual({x: 220, y: 180});
+        expect(getSavedNestedElementPosition()).toEqual({x: 220, y: 140});
     });
 });

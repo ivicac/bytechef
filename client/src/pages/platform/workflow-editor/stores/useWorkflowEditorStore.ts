@@ -11,10 +11,21 @@ export interface WorkflowTestNodeStateI {
     status: 'RUNNING' | 'COMPLETED' | 'FAILED';
 }
 
+export interface PendingClusterElementDropI {
+    componentDefinition: ComponentDefinition;
+    placeholderId: string;
+}
+
 export interface WorkflowEditorI {
     clusterElementsCanvasOpen: boolean;
     setClusterElementsCanvasOpen: (clusterElementsCanvasOpen: boolean) => void;
 
+    /**
+     * Per-box lock state in box mode, keyed by cluster root workflow node name. Defaults to `{}` so
+     * an absent key reads as locked, matching the dialog's `setNodesLocked(true)` on mount — locked
+     * means the automatic layout owns every position; unlocked means the user arranges by hand and
+     * positions persist to `metadata.ui.nodePosition`. Not persisted across sessions.
+     */
     clusterFrameLockedByRootId: Record<string, boolean>;
     setClusterFrameLocked: (clusterRootId: string, locked: boolean) => void;
 

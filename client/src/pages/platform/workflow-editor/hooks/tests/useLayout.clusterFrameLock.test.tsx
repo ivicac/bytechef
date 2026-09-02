@@ -3,6 +3,7 @@ import {Node} from '@xyflow/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useClusterElementsViewModeStore from '../../stores/useClusterElementsViewModeStore';
+import useLayoutEngineStore from '../../stores/useLayoutEngineStore';
 import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../stores/useWorkflowEditorStore';
 import useLayout from '../useLayout';
@@ -39,6 +40,7 @@ function findElementNode(): Node {
 
 describe('useLayout reacts to a cluster box lock toggle', () => {
     beforeEach(() => {
+        useLayoutEngineStore.getState().setLayoutEngine('dagre');
         useClusterElementsViewModeStore.getState().setClusterElementsViewMode('box');
         useWorkflowEditorStore.setState({clusterFrameLockedByRootId: {}});
 
