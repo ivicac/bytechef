@@ -28,6 +28,7 @@ import com.bytechef.platform.component.runner.TaskRunnerRequest;
 import com.bytechef.platform.component.runner.TaskRunnerResult;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -38,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -259,6 +261,78 @@ class ProcessTaskRunnerTest {
         assertThat(failure.get()).isInstanceOf(IllegalStateException.class);
     }
 
+    /**
+     * The bootstrap's whole purpose: a {@code perform} return value has to come back as the execution's output. The
+     * generated text is asserted on elsewhere, which says nothing about whether an interpreter can run it.
+     */
+    @Test
+    void testTheJavaScriptBootstrapCarriesThePerformReturnValueToTheOutput() {
+        assumeTrue(isOnPath("node"));
+
+        TaskRunnerResult result = processTaskRunner.run(
+            scriptRequest(
+                "javascript", "function perform(input, context) { return {doubled: input.value * 2}; }",
+                Map.of("value", 21)));
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.output()).isEqualTo(Map.of("doubled", 42));
+    }
+
+    /**
+     * The same script under the Truffle id {@code script}'s JavaScript action actually passes. Selecting the process
+     * runner on that action failed 100% of the time while this identical run under {@code javascript} succeeded.
+     */
+    @Test
+    void testTheTruffleJavaScriptIdReachesTheSameBootstrap() {
+        assumeTrue(isOnPath("node"));
+
+        TaskRunnerResult result = processTaskRunner.run(
+            scriptRequest(
+                "js", "function perform(input, context) { return {doubled: input.value * 2}; }",
+                Map.of("value", 21)));
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.output()).isEqualTo(Map.of("doubled", 42));
+    }
+
+    @Test
+    void testTheJavaScriptBootstrapRaisesAFriendlyErrorForTheComponentBridge() {
+        assumeTrue(isOnPath("node"));
+
+        assertThatThrownBy(
+            () -> processTaskRunner.run(
+                scriptRequest(
+                    "javascript", "function perform(input, context) { return context.component.example(); }",
+                    Map.of())))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessageContaining("context.component is not available under the process runner");
+    }
+
+    @Test
+    void testThePythonBootstrapCarriesThePerformReturnValueToTheOutput() {
+        assumeTrue(isOnPath("python3"));
+
+        TaskRunnerResult result = processTaskRunner.run(
+            scriptRequest(
+                "python", "def perform(input, context):\n    return {\"doubled\": input[\"value\"] * 2}\n",
+                Map.of("value", 21)));
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.output()).isEqualTo(Map.of("doubled", 42));
+    }
+
+    @Test
+    void testThePythonBootstrapRaisesAFriendlyErrorForTheComponentBridge() {
+        assumeTrue(isOnPath("python3"));
+
+        assertThatThrownBy(
+            () -> processTaskRunner.run(
+                scriptRequest(
+                    "python", "def perform(input, context):\n    return context.component.example()\n", Map.of())))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessageContaining("context.component is not available under the process runner");
+    }
+
     @Test
     void testValidateRejectsAnEmptyInterpreterOverride() {
         TaskRunnerRequest request = new TaskRunnerRequest(
@@ -422,6 +496,24 @@ class ProcessTaskRunnerTest {
             Duration.ofSeconds(5), Map.of(), mock(ActionContext.class));
     }
 
+    /**
+     * Whether the command is resolvable through the same {@code PATH} the child process is handed, which is the only
+     * {@code PATH} that decides whether the interpreter these tests need can be started at all.
+     */
+    private static boolean isOnPath(String command) {
+        String path = System.getenv("PATH");
+
+        if (path == null) {
+            return false;
+        }
+
+        return Stream.of(path.split(File.pathSeparator))
+            .filter(entry -> !entry.isBlank())
+            .map(entry -> Path.of(entry)
+                .resolve(command))
+            .anyMatch(Files::isExecutable);
+    }
+
     private static boolean isExecutable(String path) {
         return Files.isExecutable(Path.of(path));
     }
@@ -446,6 +538,12 @@ class ProcessTaskRunnerTest {
             "shell", null, List.of("sleep " + marker + " &", "sleep " + marker), Map.of(), Map.of(), Map.of(),
             List.of(), ParametersFactory.create(Map.of()), ParametersFactory.create(Map.of()), timeout, Map.of(),
             mock(ActionContext.class));
+    }
+
+    private static TaskRunnerRequest scriptRequest(String languageId, String script, Map<String, ?> input) {
+        return new TaskRunnerRequest(
+            languageId, script, List.of(), input, Map.of(), Map.of(), List.of(), ParametersFactory.create(Map.of()),
+            ParametersFactory.create(Map.of()), Duration.ofSeconds(30), Map.of(), mock(ActionContext.class));
     }
 
     /**
