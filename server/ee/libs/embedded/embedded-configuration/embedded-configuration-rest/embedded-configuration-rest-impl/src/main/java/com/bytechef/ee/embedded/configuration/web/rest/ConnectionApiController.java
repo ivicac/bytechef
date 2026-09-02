@@ -113,7 +113,7 @@ public class ConnectionApiController implements ConnectionApi {
             .toList();
 
         connectionFacade.update(
-            id, updateConnectionRequestModel.getName(), list,
+            id, updateConnectionRequestModel.getName(), list, updateConnectionRequestModel.getShared(),
             Objects.requireNonNull(updateConnectionRequestModel.getVersion()));
 
         return ResponseEntity.noContent()

@@ -81,6 +81,12 @@ properties:
     type: "object"
     additionalProperties: true
     writeOnly: true
+  shared:
+    description: "Embedded only. When true, every connected user in the same environment may use\
+            \ this connection. Stored but never read on the automation surface, and always forced to\
+            \ false when a connected user creates a connection for themselves."
+    type: "boolean"
+    default: false
   tags:
     type: "array"
     items:

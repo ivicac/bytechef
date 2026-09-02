@@ -6,6 +6,7 @@ import com.bytechef.ee.embedded.configuration.web.rest.model.AuthorizationTypeMo
 import com.bytechef.ee.embedded.configuration.web.rest.model.IntegrationBasicModel;
 import com.bytechef.ee.embedded.configuration.web.rest.model.IntegrationInstanceConfigurationWorkflowModel;
 import com.bytechef.ee.embedded.configuration.web.rest.model.TagModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -34,7 +35,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "IntegrationInstanceConfiguration", description = "Contains configurations and connections required for the execution of integration workflows.")
 @JsonTypeName("IntegrationInstanceConfiguration")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T23:40:49.562437+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-31T17:46:26.627594+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class IntegrationInstanceConfigurationModel {
 
   private @Nullable String createdBy;
@@ -63,21 +64,16 @@ public class IntegrationInstanceConfigurationModel {
 
   private @Nullable AuthorizationTypeModel authorizationType;
 
-  @Valid
   private Map<String, Object> connectionAuthorizationParameters = new HashMap<>();
 
-  @Valid
   private Map<String, Object> connectionConnectionParameters = new HashMap<>();
 
-  @Valid
   private Map<String, Object> connectionParameters = new HashMap<>();
 
   private @Nullable IntegrationBasicModel integration;
 
-  @Valid
   private List<@Valid IntegrationInstanceConfigurationWorkflowModel> integrationInstanceConfigurationWorkflows = new ArrayList<>();
 
-  @Valid
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   private @Nullable Integer version;
