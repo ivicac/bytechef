@@ -1,7 +1,13 @@
+import {TooltipProvider} from '@/components/ui/tooltip';
+import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
+import {Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
+import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {NodeDataType} from '@/shared/types';
 import {act, render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {useClusterElementsCanvasDialogStore} from '../components/stores/useClusterElementsCanvasDialogStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import ClusterFrameShell from './ClusterFrameShell';
@@ -31,6 +37,12 @@ const CLUSTER_ROOT_DATA = {
     clusterFrame: {clusterRootId: 'aiAgent_1', height: 320, width: 640},
     label: 'AI Agent',
     workflowNodeName: 'aiAgent_1',
+} as unknown as NodeDataType;
+
+const AI_AGENT_ROOT_DATA = {
+    ...CLUSTER_ROOT_DATA,
+    componentName: 'aiAgent',
+    name: 'aiAgent_1',
 } as unknown as NodeDataType;
 
 function buildWorkflowWithClusterRoot(): void {
@@ -67,8 +79,25 @@ describe('ClusterFrameShell', () => {
         editorContext.updateWorkflowMutation = updateWorkflowMutationMock;
         saveWorkflowDefinitionMock.mockReset();
 
-        useWorkflowEditorStore.setState({clusterFrameLockedByRootId: {}});
+        useWorkflowEditorStore.setState({
+            clusterElementsCanvasOpen: false,
+            clusterFrameLockedByRootId: {},
+            rootClusterElementNodeData: undefined,
+        });
         useWorkflowDataStore.setState({workflow: {definition: undefined, id: 'workflow-1', nodeNames: [], version: 1}});
+        useClusterElementsCanvasDialogStore.setState({
+            showAiAgentEditor: false,
+            showDataStreamEditor: false,
+            testingPanelOpen: false,
+        });
+        applicationInfoStore.setState((state) => ({
+            ai: {...state.ai, copilot: {enabled: false}},
+            featureFlags: {},
+        }));
+        useCopilotPanelStore.setState({copilotPanelOpen: false});
+        useCopilotStore.setState({
+            context: {mode: useCopilotStore.getState().context.mode, parameters: {}, source: Source.WORKFLOW_EDITOR},
+        });
     });
 
     it('paints the box at the size the pre-pass computed', () => {
@@ -178,5 +207,69 @@ describe('ClusterFrameShell', () => {
         });
 
         expect(saveWorkflowDefinitionMock).not.toHaveBeenCalled();
+    });
+
+    it('opens the AI Agent editor preset, not the canvas view', async () => {
+        const user = userEvent.setup();
+
+        render(
+            <TooltipProvider>
+                <ClusterFrameShell data={AI_AGENT_ROOT_DATA} nodeId="aiAgent_1">
+                    <div>root card</div>
+                </ClusterFrameShell>
+            </TooltipProvider>
+        );
+
+        await user.click(screen.getByLabelText('Switch to AI Agent editor'));
+
+        expect(useClusterElementsCanvasDialogStore.getState().showAiAgentEditor).toBe(true);
+        expect(useWorkflowEditorStore.getState().clusterElementsCanvasOpen).toBe(true);
+        expect(useWorkflowEditorStore.getState().rootClusterElementNodeData?.workflowNodeName).toBe('aiAgent_1');
+    });
+
+    it('opens the playground without opening the dialog', async () => {
+        const user = userEvent.setup();
+
+        render(
+            <TooltipProvider>
+                <ClusterFrameShell data={AI_AGENT_ROOT_DATA} nodeId="aiAgent_1">
+                    <div>root card</div>
+                </ClusterFrameShell>
+            </TooltipProvider>
+        );
+
+        await user.click(screen.getByLabelText('Test agent'));
+
+        expect(useClusterElementsCanvasDialogStore.getState().testingPanelOpen).toBe(true);
+        expect(useWorkflowEditorStore.getState().clusterElementsCanvasOpen).toBe(false);
+        expect(useWorkflowEditorStore.getState().rootClusterElementNodeData?.workflowNodeName).toBe('aiAgent_1');
+    });
+
+    // Regression coverage: the Copilot button used to call useCopilotPanelStore's setCopilotPanelOpen
+    // directly, which opens the panel but leaves whatever conversation/context the PREVIOUS surface
+    // installed in place -- the agent this button was clicked on would never actually be addressed.
+    // Going through useOpenCopilot is what installs a fresh, source-tagged context for this click.
+    it('opens Copilot through the fresh-context contract, tagging the agent this button was clicked on', async () => {
+        applicationInfoStore.setState((state) => ({
+            ai: {...state.ai, copilot: {enabled: true}},
+            featureFlags: {...state.featureFlags, 'ff-1570': true, 'ff-4070': true},
+        }));
+
+        const user = userEvent.setup();
+
+        render(
+            <TooltipProvider>
+                <ClusterFrameShell data={AI_AGENT_ROOT_DATA} nodeId="aiAgent_1">
+                    <div>root card</div>
+                </ClusterFrameShell>
+            </TooltipProvider>
+        );
+
+        await user.click(screen.getByLabelText('Open Copilot panel'));
+
+        expect(useCopilotPanelStore.getState().copilotPanelOpen).toBe(true);
+        expect(useCopilotStore.getState().context.source).toBe(Source.CLUSTER_ELEMENT);
+        expect(useCopilotStore.getState().context.parameters.taskName).toBe('aiAgent_1');
+        expect(useWorkflowEditorStore.getState().rootClusterElementNodeData?.workflowNodeName).toBe('aiAgent_1');
     });
 });

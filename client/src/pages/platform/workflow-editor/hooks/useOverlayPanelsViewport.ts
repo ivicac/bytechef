@@ -1,3 +1,5 @@
+import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
+import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
 import useDataPillPanelStore from '@/pages/platform/workflow-editor/stores/useDataPillPanelStore';
 import useRightSidebarStore from '@/pages/platform/workflow-editor/stores/useRightSidebarStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
@@ -22,6 +24,8 @@ export default function useOverlayPanelsViewport({enabled}: UseOverlayPanelsView
     const pendingTimeoutRef = useRef<number | undefined>(undefined);
 
     const clusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.clusterElementsCanvasOpen);
+    const clusterElementsViewMode = useClusterElementsViewMode();
+    const testingPanelOpen = useClusterElementsCanvasDialogStore((state) => state.testingPanelOpen);
     const dataPillPanelOpen = useDataPillPanelStore((state) => state.dataPillPanelOpen);
     const issuesSidebarOpen = useWorkflowIssuesStore((state) => state.issuesSidebarOpen);
     const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
@@ -43,6 +47,7 @@ export default function useOverlayPanelsViewport({enabled}: UseOverlayPanelsView
         const [currentX, currentY, zoom] = storeApi.getState().transform;
 
         const offset = computeOverlayViewportOffset({
+            agentPlaygroundOpen: clusterElementsViewMode === 'box' && testingPanelOpen,
             dataPillPanelOpen,
             issuesSidebarOpen,
             rightSidebarOpen,
@@ -77,12 +82,14 @@ export default function useOverlayPanelsViewport({enabled}: UseOverlayPanelsView
         setViewport(viewport, {duration: OVERLAY_PAN_DURATION, ease: easeOutCubic, interpolate: 'linear'});
     }, [
         clusterElementsCanvasOpen,
+        clusterElementsViewMode,
         dataPillPanelOpen,
         enabled,
         issuesSidebarOpen,
         rightSidebarOpen,
         setViewport,
         storeApi,
+        testingPanelOpen,
         workflowNodeDetailsPanelOpen,
         workflowTestChatPanelOpen,
     ]);
