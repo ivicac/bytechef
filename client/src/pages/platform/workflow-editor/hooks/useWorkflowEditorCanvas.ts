@@ -1,5 +1,9 @@
+import useDataPillPanelStore from '@/pages/platform/workflow-editor/stores/useDataPillPanelStore';
+import useRightSidebarStore from '@/pages/platform/workflow-editor/stores/useRightSidebarStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
+import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import {
     CANVAS_TOP_OFFSET,
@@ -107,7 +111,13 @@ const useWorkflowEditorCanvas = ({
             }))
         );
     const copilotPanelOpen = useCopilotPanelStore((state) => state.copilotPanelOpen);
+    const dataPillPanelOpen = useDataPillPanelStore((state) => state.dataPillPanelOpen);
+    const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
     const resetWorkflowLayout = useWorkflowEditorStore((state) => state.resetWorkflowLayout);
+    const workflowNodeDetailsPanelOpen = useWorkflowNodeDetailsPanelStore(
+        (state) => state.workflowNodeDetailsPanelOpen
+    );
+    const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
 
     const {fitView, getInternalNode, screenToFlowPosition, setViewport} = useReactFlow();
 
