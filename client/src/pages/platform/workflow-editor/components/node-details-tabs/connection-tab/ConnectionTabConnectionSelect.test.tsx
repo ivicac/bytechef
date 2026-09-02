@@ -330,6 +330,45 @@ describe('ConnectionTabConnectionSelect', () => {
     });
 
     describe('onConnectionCreate callback', () => {
+        // A cluster element's test connection is keyed by its ROOT task. The dialog supplies that root
+        // through rootClusterElementNodeData; on the main canvas that store field is empty unless a
+        // box header destination was opened first, and the save used to fall through to the member's
+        // own name -- rejected server-side as a null workflowNodeName. The root must come from the node.
+        it('keys a cluster element on its root resolved from the node when no root is in the store', async () => {
+            mockUseWorkflowNodeDetailsPanelStore.mockReturnValue({
+                connectionDialogAllowed: true,
+                currentComponent: {id: 'comp1'},
+                currentNode: {
+                    clusterElementType: 'tools',
+                    id: 'activeCampaign_2',
+                    parentClusterRootId: 'aiAgent_1',
+                    workflowNodeName: 'activeCampaign_2',
+                },
+                setCurrentComponent: mockSetCurrentComponent,
+                setCurrentNode: mockSetCurrentNode,
+            });
+
+            render(
+                <ConnectionTabConnectionSelect
+                    componentConnection={mockComponentConnection}
+                    componentConnectionsCount={1}
+                    componentDefinition={mockComponentDefinition}
+                    workflowId="workflow-1"
+                    workflowNodeName="activeCampaign_2"
+                />
+            );
+
+            fireEvent.click(screen.getByTitle('Create a new connection'));
+            fireEvent.click(screen.getByTestId('create-connection'));
+
+            await waitFor(() => {
+                expect(mockSaveWorkflowTestConfigurationConnectionMutation).toHaveBeenCalledWith(
+                    expect.objectContaining({workflowNodeName: 'aiAgent_1'}),
+                    expect.anything()
+                );
+            });
+        });
+
         it('should invalidate queries before setting connection ID', async () => {
             const callOrder: string[] = [];
 
