@@ -266,6 +266,7 @@ public class ConnectionFacadeIntTest {
 
         connection2.setComponentName("componentName2");
         connection2.setName("name");
+        connection2.setShared(true);
         connection2.setType(PlatformType.AUTOMATION);
 
         connection2 = connectionRepository.save(connection2);
@@ -298,7 +299,8 @@ public class ConnectionFacadeIntTest {
             .hasFieldOrPropertyWithValue("active", false)
             .hasFieldOrPropertyWithValue("componentName", "componentName2")
             .hasFieldOrPropertyWithValue("id", connection2.getId())
-            .hasFieldOrPropertyWithValue("name", "name [unavailable: IllegalArgumentException]");
+            .hasFieldOrPropertyWithValue("name", "name [unavailable: IllegalArgumentException]")
+            .hasFieldOrPropertyWithValue("shared", true);
     }
 
     @Test
