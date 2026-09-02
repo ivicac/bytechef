@@ -144,6 +144,9 @@ public class GraalVmTaskRunner implements TaskRunner {
 
         ScriptSandboxMode scriptSandboxMode = getMode(request);
 
+        // The component bridge resolves connections and other components' actions through the job context, so this
+        // runner requires the request's action context to be JobContextAware - a requirement the record documents,
+        // since the type alone does not carry it.
         Object output = polyglotEngine.execute(
             scriptSandboxMode, getTimeout(request, scriptSandboxMode), request.languageId(),
             request.inputParameters(), request.componentConnections(), (JobContextAware) request.actionContext());

@@ -38,11 +38,6 @@ import org.springframework.stereotype.Component;
  * @author Matija Petanjek
  * @author Ivica Cardic
  */
-// RUBY-DISABLED: the Ruby action, tool and item processor registrations below are commented out because
-// org.graalvm.polyglot:ruby is published only up to 25.0.0 and crashes on the Truffle 25.2.4 this repo pins
-// ("Invalid inline context node ... TryNodeGen expected but is RescueClassesNode"). Re-enable them, their
-// imports, ScriptRubyTaskHandler, the gradle dependency and the Ruby entries in the script_v1.json test
-// snapshot once a polyglot ruby jar built on Truffle 25.2+ is published (or GraalVM is downgraded).
 @Component(SCRIPT + "_v1_ComponentHandler")
 public class ScriptComponentHandler implements ComponentHandler {
 
@@ -73,16 +68,13 @@ public class ScriptComponentHandler implements ComponentHandler {
                         ScriptPythonAction.of(taskRunnerRegistry))
 //                        ScriptRAction.of(taskRunnerRegistry),
 //                        ScriptJavaAction.of(taskRunnerRegistry),
-//                        ScriptRubyAction.of(taskRunnerRegistry))
                     .clusterElements(
                         ScriptJavaScriptTool.of(polyglotEngine),
                         ScriptPythonTool.of(polyglotEngine),
-//                        ScriptRubyTool.of(polyglotEngine),
 //                        ScriptJavaItemProcessor.of(polyglotEngine),
 //                        ScriptRAction.of(polyglotEngine),
                         ScriptJavaScriptItemProcessor.of(polyglotEngine),
                         ScriptPythonItemProcessor.of(polyglotEngine)));
-//                        ScriptRubyItemProcessor.of(polyglotEngine)));
         }
     }
 }

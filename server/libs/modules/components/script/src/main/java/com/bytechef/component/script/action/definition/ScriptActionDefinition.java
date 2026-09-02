@@ -42,8 +42,17 @@ import java.util.Optional;
  *
  * <p>
  * A workflow carrying no {@code taskRunner} map at all, or one whose type was left empty, falls back to
- * {@code graalvm}, which is the same default the editor stamps onto a newly added action. The two must agree, or the
- * same workflow would run differently depending on whether it was built in the editor or written by hand.
+ * {@code graalvm}. That is the same default the editor stamps onto a newly added action whenever GraalVM is enabled,
+ * which is the shipped configuration, so the two agree there. They diverge on one configuration and only one: with
+ * GraalVM disabled and another runner enabled, {@code TaskRunnerPropertyFactory} defaults the editor to that other
+ * runner, while this fallback still resolves {@code graalvm}. A hand-written workflow with no {@code taskRunner} then
+ * fails with {@link com.bytechef.platform.component.runner.TaskRunnerNotEnabledException}, whose message names the
+ * configuration key an operator must set. Loud, and confined to a deliberately unusual configuration.
+ *
+ * <p>
+ * The source is read with {@code getRequiredString}, so a task with no {@code script} parameter fails with a message
+ * naming the parameter. It used to fall through to a per-language stub that returned null - a malformed workflow
+ * producing nothing and reporting nothing.
  *
  * <p>
  * The request carries no timeout. Phase 1 gives the action no timeout property, and how long an unbounded execution may
