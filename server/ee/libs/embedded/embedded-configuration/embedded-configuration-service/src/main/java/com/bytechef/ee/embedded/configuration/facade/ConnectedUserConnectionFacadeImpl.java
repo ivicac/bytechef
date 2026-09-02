@@ -64,8 +64,14 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
 
     /**
      * Forces {@code shared} off regardless of the request body. A connected user who could mark their own connection
-     * shared would hand their credentials to every other connected user in the environment; the flag is settable only
-     * from the tenant admin surface.
+     * shared would hand their credentials to every other connected user in the environment.
+     * <p>
+     * This method is one of the two halves of that guarantee, not the whole of it. It closes the connected user's own
+     * create path; the tenant's admin create and update paths are closed separately, by the
+     * {@code @PreAuthorize("isTenantAdmin()")} gates on {@code ConnectionApiController}, which is what makes
+     * {@code shared} settable only from the tenant admin surface. Neither this facade nor the shared
+     * {@link ConnectionFacade} beneath it enforces that -- the shared facade must stay ungated for its other callers --
+     * so removing either half reopens the hole on its own.
      */
     @Override
     public long createConnectedUserConnection(long connectedUserId, ConnectionDTO connectionDTO) {
