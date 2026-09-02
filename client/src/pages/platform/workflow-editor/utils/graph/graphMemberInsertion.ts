@@ -1,3 +1,4 @@
+import {LayoutDirectionType} from '@/shared/constants';
 import {WorkflowTask} from '@/shared/middleware/platform/configuration';
 import {GraphPendingConnectionType, GraphTransitionType} from '@/shared/types';
 import {Node} from '@xyflow/react';
@@ -7,6 +8,8 @@ import {placeGraphMembers, readGraphMemberCanvasState} from './graphMemberPlacem
 import {addTransition} from './graphTransitionMutations';
 
 interface ApplyGraphMemberInsertionPropsI {
+    /** The canvas flow direction, which decides which way a member added from the header is placed. */
+    direction?: LayoutDirectionType;
     /** The graph task as it was before the member was appended. */
     previousGraphTask: WorkflowTask;
     /** The graph task with the member already appended to `parameters.nodes`. */
@@ -19,7 +22,7 @@ interface ApplyGraphMemberInsertionPropsI {
 
 /**
  * Finishes a graph member insertion: the new task gets a concrete position — where it was dropped,
- * or a free spot beside its siblings — the graph's pending auto-placed positions are flushed
+ * or one layer on from its siblings along the flow — the graph's pending auto-placed positions are flushed
  * alongside it, and, when the insertion came from a transition released over empty frame space, the
  * transition that leads to it.
  *
@@ -29,6 +32,7 @@ interface ApplyGraphMemberInsertionPropsI {
  * import there closes an initialisation cycle.
  */
 export function applyGraphMemberInsertion({
+    direction,
     nodes,
     pendingConnection,
     previousGraphTask,
@@ -39,6 +43,7 @@ export function applyGraphMemberInsertion({
     const {addedMemberName, members} = placeGraphMembers({
         autoPlacedPositions: takeAutoPlacedGraphPositions(graphId),
         canvasState: readGraphMemberCanvasState(graphId, nodes),
+        direction,
         dropPosition: pendingConnection?.dropPosition,
         previousMembers: (previousGraphTask.parameters?.nodes ?? []) as Array<WorkflowTask>,
         updatedMembers: (updatedGraphTask.parameters?.nodes ?? []) as Array<WorkflowTask>,

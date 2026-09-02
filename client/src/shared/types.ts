@@ -230,6 +230,12 @@ export type NodeDataType = {
     graphData?: GraphDataType;
     /** Present only on the `graphFrame` container node; carries its auto-computed size. */
     graphFrame?: {graphId: string; height: number; width: number};
+    /**
+     * Present on a cluster ROOT node in box mode; carries the auto-computed size of the box its
+     * elements are drawn inside. Unlike `graphFrame` this does not mark a separate container node —
+     * the root is its elements' React Flow parent already, so the root itself is the box.
+     */
+    clusterFrame?: {clusterRootId: string; height: number; width: number};
     graphId?: string;
     /** Present only on the `graphStart` pill node. */
     graphStart?: {graphId: string};

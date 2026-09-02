@@ -446,7 +446,11 @@ const getChildAlignmentOptions = (direction: LayoutDirectionType): Record<string
  * depth: node→node edges of ELK_LAYER_SPACING + 2×slack, box-adjacent edges of
  * ELK_LAYER_SPACING + 1×slack — the consistency guarantee of the ELK engine.
  */
-function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: number; width: number} {
+function getElkNodeSize(
+    node: Node,
+    direction: LayoutDirectionType,
+    populatedDispatcherIds: Set<string> = new Set()
+): {height: number; width: number} {
     const graphFrame = (node.data as NodeDataType).graphFrame;
 
     // A graph frame arrives pre-sized from the layout pre-pass. Its box IS its rendered size; on the
@@ -461,6 +465,22 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
         }
 
         return {height: graphFrame.height, width: frameMainFootprint(graphFrame.width)};
+    }
+
+    const clusterFrame = (node.data as NodeDataType).clusterFrame;
+
+    // A cluster root in box mode arrives pre-sized from the layout pre-pass, the same way a graph
+    // frame does. It would otherwise fall through to the `clusterRoot` branch below, which measures
+    // the DOM instead of reading this box — the same trap `getDagreNodeSize` has to dodge, and for
+    // the same reason: the small card the root painted before the box was sized is not the box.
+    if (clusterFrame) {
+        const frameSlack = ANCHOR_MAIN_FOOTPRINT - NODE_ANCHOR_SIZE;
+
+        if (direction === 'TB') {
+            return {height: clusterFrame.height + frameSlack, width: clusterFrame.width};
+        }
+
+        return {height: clusterFrame.height, width: clusterFrame.width + frameSlack};
     }
 
     const {height, width} = getDagreNodeSize(
@@ -929,6 +949,17 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
     // the same `data.graphFrame` — so there is no anchor box to center inside its footprint.
     if (graphFrame) {
         return {height: graphFrame.height, width: graphFrame.width};
+    }
+
+    const clusterFrame = (node.data as NodeDataType).clusterFrame;
+
+    // A cluster box is the same shape of thing: ClusterFrameShell paints `data.clusterFrame`
+    // exactly and carries the chain handles on the box's own edges, centered. Falling through to
+    // the configured-cluster-root branch below would center a phantom CLUSTER_ROOT_RENDERED_MAIN_SIZE
+    // anchor inside the box's footprint and put the chain axis through THAT — which is what left the
+    // incoming edge left of the box's centre and the successor placeholder across its bottom border.
+    if (clusterFrame) {
+        return {height: clusterFrame.height, width: clusterFrame.width};
     }
 
     const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
