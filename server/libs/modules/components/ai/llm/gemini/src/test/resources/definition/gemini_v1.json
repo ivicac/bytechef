@@ -57,8 +57,20 @@
         "value": "gemini-2.5-pro"
       }, {
         "description": null,
+        "label": "gemini-3-flash-preview",
+        "value": "gemini-3-flash-preview"
+      }, {
+        "description": null,
+        "label": "gemini-3-pro-preview",
+        "value": "gemini-3-pro-preview"
+      }, {
+        "description": null,
         "label": "gemini-3.1-flash-lite",
         "value": "gemini-3.1-flash-lite"
+      }, {
+        "description": null,
+        "label": "gemini-3.1-flash-lite-image",
+        "value": "gemini-3.1-flash-lite-image"
       }, {
         "description": null,
         "label": "gemini-3.1-pro-preview",
@@ -67,6 +79,14 @@
         "description": null,
         "label": "gemini-3.5-flash",
         "value": "gemini-3.5-flash"
+      }, {
+        "description": null,
+        "label": "gemini-3.5-flash-lite",
+        "value": "gemini-3.5-flash-lite"
+      }, {
+        "description": null,
+        "label": "gemini-3.6-flash",
+        "value": "gemini-3.6-flash"
       } ],
       "optionsDataSource": null,
       "optionsLoadedDynamically": false,
@@ -718,8 +738,8 @@
       "description": "Let the model reason before responding.",
       "displayCondition": null,
       "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
+      "expressionEnabled": true,
+      "hidden": false,
       "label": "Thinking",
       "metadata": { },
       "name": "thinking",
@@ -742,8 +762,8 @@
       "description": "How much the model reasons before responding. Higher effort costs more tokens and takes longer.",
       "displayCondition": null,
       "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
+      "expressionEnabled": true,
+      "hidden": false,
       "label": "Reasoning effort",
       "languageId": null,
       "maxLength": null,
@@ -764,7 +784,7 @@
         "value": "high"
       } ],
       "optionsDataSource": null,
-      "optionsLoadedDynamically": null,
+      "optionsLoadedDynamically": false,
       "placeholder": null,
       "regex": null,
       "required": false,
@@ -818,8 +838,20 @@
         "value": "gemini-2.5-pro"
       }, {
         "description": null,
+        "label": "gemini-3-flash-preview",
+        "value": "gemini-3-flash-preview"
+      }, {
+        "description": null,
+        "label": "gemini-3-pro-preview",
+        "value": "gemini-3-pro-preview"
+      }, {
+        "description": null,
         "label": "gemini-3.1-flash-lite",
         "value": "gemini-3.1-flash-lite"
+      }, {
+        "description": null,
+        "label": "gemini-3.1-flash-lite-image",
+        "value": "gemini-3.1-flash-lite-image"
       }, {
         "description": null,
         "label": "gemini-3.1-pro-preview",
@@ -828,6 +860,14 @@
         "description": null,
         "label": "gemini-3.5-flash",
         "value": "gemini-3.5-flash"
+      }, {
+        "description": null,
+        "label": "gemini-3.5-flash-lite",
+        "value": "gemini-3.5-flash-lite"
+      }, {
+        "description": null,
+        "label": "gemini-3.6-flash",
+        "value": "gemini-3.6-flash"
       } ],
       "optionsDataSource": null,
       "optionsLoadedDynamically": false,
@@ -986,8 +1026,8 @@
       "description": "Let the model reason before responding.",
       "displayCondition": null,
       "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
+      "expressionEnabled": true,
+      "hidden": false,
       "label": "Thinking",
       "metadata": { },
       "name": "thinking",
@@ -1010,8 +1050,8 @@
       "description": "How much the model reasons before responding. Higher effort costs more tokens and takes longer.",
       "displayCondition": null,
       "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
+      "expressionEnabled": true,
+      "hidden": false,
       "label": "Reasoning effort",
       "languageId": null,
       "maxLength": null,
@@ -1032,7 +1072,7 @@
         "value": "high"
       } ],
       "optionsDataSource": null,
-      "optionsLoadedDynamically": null,
+      "optionsLoadedDynamically": false,
       "placeholder": null,
       "regex": null,
       "required": false,

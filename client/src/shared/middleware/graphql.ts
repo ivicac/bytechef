@@ -2896,7 +2896,9 @@ export type KnowledgeBaseTagsQueryVariables = Exact<{
 
 export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
 
-export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{ [key: string]: never; }>;
+export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type KnowledgeBaseTagsByKnowledgeBaseQuery = { knowledgeBaseTagsByKnowledgeBase: Array<{ knowledgeBaseId: string, tags: Array<{ id: string, name: string }> }> | null };
@@ -2971,21 +2973,39 @@ export type UpdateKnowledgeBaseTagsMutationVariables = Exact<{
 
 export type UpdateKnowledgeBaseTagsMutation = { updateKnowledgeBaseTags: boolean };
 
+export type EnvironmentPromotionPreviewQueryVariables = Exact<{
+  resourceType: Types.PromotionResourceType;
+  sourceId: string | number;
+  targetEnvironmentId: string | number;
+}>;
+
+
+export type EnvironmentPromotionPreviewQuery = { environmentPromotionPreview: { existingTargetId: string | null, existingTargetName: string | null, resourceType: Types.PromotionResourceType, sourceEnvironmentId: string, sourceId: string, targetEnvironmentId: string, warnings: Array<string>, connections: Array<{ componentName: string, connectionVersion: number, sourceConnectionId: string, sourceConnectionName: string, suggestedTargetConnectionId: string | null, usedBy: Array<string> }>, projects: Array<{ projectId: string, projectName: string, sourceProjectVersion: number, targetProjectVersion: number | null }> } };
+
+export type PromoteToEnvironmentMutationVariables = Exact<{
+  input: Types.PromoteToEnvironmentInput;
+}>;
+
+
+export type PromoteToEnvironmentMutation = { promoteToEnvironment: { created: boolean, targetId: string, targetUrl: string | null, unresolvedConnectionIds: Array<string> } };
+
 export type AutomationSearchQueryVariables = Exact<{
   query: string;
   limit?: number | null | undefined;
+  types?: Array<Types.SearchAssetType> | Types.SearchAssetType | null | undefined;
 }>;
 
 
 export type AutomationSearchQuery = { automationSearch: Array<
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { collectionId: string, path: string | null, id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { knowledgeBaseId: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { projectName: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
+    | { projectWorkflowId: string | null, id: string, name: string, description: string | null, type: Types.SearchAssetType }
     | { projectId: string, label: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
   > };
 
@@ -14713,8 +14733,8 @@ export const useKnowledgeBaseTagsQuery = <
     )};
 
 export const KnowledgeBaseTagsByKnowledgeBaseDocument = new TypedDocumentString(`
-    query knowledgeBaseTagsByKnowledgeBase {
-  knowledgeBaseTagsByKnowledgeBase {
+    query knowledgeBaseTagsByKnowledgeBase($workspaceId: ID!) {
+  knowledgeBaseTagsByKnowledgeBase(workspaceId: $workspaceId) {
     knowledgeBaseId
     tags {
       id
@@ -14728,13 +14748,13 @@ export const useKnowledgeBaseTagsByKnowledgeBaseQuery = <
       TData = KnowledgeBaseTagsByKnowledgeBaseQuery,
       TError = unknown
     >(
-      variables?: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
+      variables: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
       options?: Omit<UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['knowledgeBaseTagsByKnowledgeBase'] : ['knowledgeBaseTagsByKnowledgeBase', variables],
+    queryKey: ['knowledgeBaseTagsByKnowledgeBase', variables],
     queryFn: fetcher<KnowledgeBaseTagsByKnowledgeBaseQuery, KnowledgeBaseTagsByKnowledgeBaseQueryVariables>(KnowledgeBaseTagsByKnowledgeBaseDocument, variables),
     ...options
   }
@@ -14957,23 +14977,91 @@ export const useUpdateKnowledgeBaseTagsMutation = <
   }
     )};
 
+export const EnvironmentPromotionPreviewDocument = new TypedDocumentString(`
+    query environmentPromotionPreview($resourceType: PromotionResourceType!, $sourceId: ID!, $targetEnvironmentId: ID!) {
+  environmentPromotionPreview(
+    resourceType: $resourceType
+    sourceId: $sourceId
+    targetEnvironmentId: $targetEnvironmentId
+  ) {
+    connections {
+      componentName
+      connectionVersion
+      sourceConnectionId
+      sourceConnectionName
+      suggestedTargetConnectionId
+      usedBy
+    }
+    existingTargetId
+    existingTargetName
+    projects {
+      projectId
+      projectName
+      sourceProjectVersion
+      targetProjectVersion
+    }
+    resourceType
+    sourceEnvironmentId
+    sourceId
+    targetEnvironmentId
+    warnings
+  }
+}
+    `);
+
+export const useEnvironmentPromotionPreviewQuery = <
+      TData = EnvironmentPromotionPreviewQuery,
+      TError = unknown
+    >(
+      variables: EnvironmentPromotionPreviewQueryVariables,
+      options?: Omit<UseQueryOptions<EnvironmentPromotionPreviewQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EnvironmentPromotionPreviewQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EnvironmentPromotionPreviewQuery, TError, TData>(
+      {
+    queryKey: ['environmentPromotionPreview', variables],
+    queryFn: fetcher<EnvironmentPromotionPreviewQuery, EnvironmentPromotionPreviewQueryVariables>(EnvironmentPromotionPreviewDocument, variables),
+    ...options
+  }
+    )};
+
+export const PromoteToEnvironmentDocument = new TypedDocumentString(`
+    mutation promoteToEnvironment($input: PromoteToEnvironmentInput!) {
+  promoteToEnvironment(input: $input) {
+    created
+    targetId
+    targetUrl
+    unresolvedConnectionIds
+  }
+}
+    `);
+
+export const usePromoteToEnvironmentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PromoteToEnvironmentMutation, TError, PromoteToEnvironmentMutationVariables, TContext>) => {
+    
+    return useMutation<PromoteToEnvironmentMutation, TError, PromoteToEnvironmentMutationVariables, TContext>(
+      {
+    mutationKey: ['promoteToEnvironment'],
+    mutationFn: (variables?: PromoteToEnvironmentMutationVariables) => fetcher<PromoteToEnvironmentMutation, PromoteToEnvironmentMutationVariables>(PromoteToEnvironmentDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AutomationSearchDocument = new TypedDocumentString(`
-    query automationSearch($query: String!, $limit: Int) {
-  automationSearch(query: $query, limit: $limit) {
+    query automationSearch($query: String!, $limit: Int, $types: [SearchAssetType!]) {
+  automationSearch(query: $query, limit: $limit, types: $types) {
     id
     name
     description
     type
+    ... on ProjectSearchResult {
+      projectWorkflowId
+    }
     ... on WorkflowSearchResult {
       projectId
       label
-    }
-    ... on ProjectDeploymentSearchResult {
-      projectName
-    }
-    ... on ApiEndpointSearchResult {
-      collectionId
-      path
     }
     ... on KnowledgeBaseDocumentSearchResult {
       knowledgeBaseId
