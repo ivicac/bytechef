@@ -31,14 +31,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
-
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 /**
@@ -105,6 +104,7 @@ public class DataTableServiceImpl implements DataTableService {
      * pattern {@code [a-z_][a-z0-9_]*}, preventing SQL injection.
      */
     @Override
+    @Transactional
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void createTable(
         String baseName, String description, List<ColumnSpec> columnSpecs, long environmentId) {
@@ -181,6 +181,7 @@ public class DataTableServiceImpl implements DataTableService {
      * pattern {@code [a-z_][a-z0-9_]*}, preventing SQL injection.
      */
     @Override
+    @Transactional
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void duplicateTable(String fromBaseName, String toBaseName, long environmentId) {
         String normalizedFromBaseName = normalizeBaseName(fromBaseName);
@@ -199,9 +200,14 @@ public class DataTableServiceImpl implements DataTableService {
             .collect(Collectors.joining(", "));
 
         String createSql = "CREATE TABLE " + escapeIdentifier(toPhysicalName) +
-            " (\"id\" BIGSERIAL PRIMARY KEY" + (userColumnsSql.isEmpty() ? "" : ", " + userColumnsSql) + ")";
+            " (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, \"owner_type\" INT" +
+            (userColumnsSql.isEmpty() ? "" : ", " + userColumnsSql) + ")";
 
         jdbcTemplate.execute(createSql);
+
+        jdbcTemplate.execute(
+            "CREATE INDEX " + escapeIdentifier("idx_" + toPhysicalName + "_owner") + " ON " +
+                escapeIdentifier(toPhysicalName) + " (\"owner_type\", \"owner_id\")");
 
         if (!columnSpecs.isEmpty()) {
             String columnList = columnSpecs.stream()
