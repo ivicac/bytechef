@@ -1,7 +1,12 @@
 import {Node} from '@xyflow/react';
 import {describe, expect, it} from 'vitest';
 
-import {GRAPH_MEMBER_BOX_WIDTH, GRAPH_MEMBER_NOMINAL_SIZE, toFrameChildPosition} from './graphFrameGeometry';
+import {
+    GRAPH_MEMBER_BOX_WIDTH,
+    GRAPH_MEMBER_LAYER_SPACING,
+    GRAPH_MEMBER_NOMINAL_SIZE,
+    toFrameChildPosition,
+} from './graphFrameGeometry';
 import {collectGraphMemberSizes, placeGraphMembers, readGraphMemberCanvasState} from './graphMemberPlacement';
 
 import type {WorkflowTask} from '@/shared/middleware/platform/configuration';
@@ -59,8 +64,8 @@ describe('readGraphMemberCanvasState', () => {
 
         expect(canvasState.positions).toEqual({task_1: {x: 24, y: 0}, task_2: {x: 300, y: 120}});
         expect(canvasState.sizes).toEqual({
-            task_1: {height: 72, width: 240},
-            task_2: GRAPH_MEMBER_NOMINAL_SIZE,
+            task_1: {height: 72, paintedWidth: GRAPH_MEMBER_BOX_WIDTH, width: 240},
+            task_2: {...GRAPH_MEMBER_NOMINAL_SIZE, paintedWidth: GRAPH_MEMBER_BOX_WIDTH},
         });
     });
 });
@@ -107,7 +112,10 @@ describe('collectGraphMemberSizes', () => {
 describe('placeGraphMembers', () => {
     const CANVAS_STATE = {
         positions: {task_1: {x: 24, y: 0}, task_2: {x: 300, y: 0}},
-        sizes: {task_1: {height: 72, width: 240}, task_2: {height: 72, width: 240}},
+        sizes: {
+            task_1: {height: 72, paintedWidth: GRAPH_MEMBER_BOX_WIDTH, width: 240},
+            task_2: {height: 72, paintedWidth: GRAPH_MEMBER_BOX_WIDTH, width: 240},
+        },
     };
 
     it('pins a newly appended member at the drop position', () => {
@@ -122,9 +130,10 @@ describe('placeGraphMembers', () => {
         expect(members[1].metadata?.ui?.nodePosition).toEqual({x: 410, y: 220});
     });
 
-    it('gives a newly appended member a free spot when there is no drop position', () => {
+    it('puts a member added from the header one layer below the last one in TB', () => {
         const {members} = placeGraphMembers({
             canvasState: CANVAS_STATE,
+            direction: 'TB',
             previousMembers: [buildMemberTask('task_1', {x: 24, y: 0}), buildMemberTask('task_2', {x: 300, y: 0})],
             updatedMembers: [
                 buildMemberTask('task_1', {x: 24, y: 0}),
@@ -133,8 +142,41 @@ describe('placeGraphMembers', () => {
             ],
         });
 
-        // `findFreeSpot` goes right of the rightmost top-row box: 300 + 240 + a 60 gap.
-        expect(members[2].metadata?.ui?.nodePosition).toEqual({x: 600, y: 0});
+        // Both share the bottom row; the leftmost is the main column, so the newcomer extends it.
+        expect(members[2].metadata?.ui?.nodePosition).toEqual({x: 24, y: 72 + GRAPH_MEMBER_LAYER_SPACING});
+    });
+
+    it('puts a member added from the header one layer right of the last one in LR', () => {
+        const {members} = placeGraphMembers({
+            canvasState: CANVAS_STATE,
+            direction: 'LR',
+            previousMembers: [buildMemberTask('task_1', {x: 24, y: 0}), buildMemberTask('task_2', {x: 300, y: 0})],
+            updatedMembers: [
+                buildMemberTask('task_1', {x: 24, y: 0}),
+                buildMemberTask('task_2', {x: 300, y: 0}),
+                buildMemberTask('task_3'),
+            ],
+        });
+
+        // Spaced from the painted box, not the label measured with it — in LR that hangs below.
+        expect(members[2].metadata?.ui?.nodePosition).toEqual({
+            x: 300 + GRAPH_MEMBER_BOX_WIDTH + GRAPH_MEMBER_LAYER_SPACING,
+            y: 0,
+        });
+    });
+
+    // The layout pre-pass centres a lone member on the chain entering the frame; any spot picked
+    // here would only pin it somewhere else.
+    it('leaves the first member of an empty graph to auto-placement', () => {
+        const {addedMemberName, members} = placeGraphMembers({
+            canvasState: {positions: {}, sizes: {}},
+            direction: 'LR',
+            previousMembers: [],
+            updatedMembers: [buildMemberTask('task_1')],
+        });
+
+        expect(addedMemberName).toBe('task_1');
+        expect(members[0].metadata?.ui?.nodePosition).toBeUndefined();
     });
 
     it('flushes the pending auto-placed position of a member that carries none', () => {
@@ -171,7 +213,7 @@ describe('placeGraphMembers', () => {
             updatedMembers: [buildMemberTask('task_1'), buildMemberTask('task_2'), buildMemberTask('task_3')],
         });
 
-        expect(members[2].metadata?.ui?.nodePosition).toEqual({x: 600, y: 0});
+        expect(members[2].metadata?.ui?.nodePosition).toEqual({x: 24, y: 72 + GRAPH_MEMBER_LAYER_SPACING});
     });
 
     // The same under-measurement auto-arrange had: a dispatcher member is one node on the canvas
@@ -184,15 +226,18 @@ describe('placeGraphMembers', () => {
             buildMemberChildNode('task_2', 'condition_1', {x: 300, y: 140}, {height: 80, width: 200}),
         ]);
 
-        const {members} = placeGraphMembers({
-            canvasState,
-            previousMembers: [buildMemberTask('condition_1', {x: 0, y: 0})],
-            updatedMembers: [buildMemberTask('condition_1', {x: 0, y: 0}), buildMemberTask('task_3')],
-        });
+        const placeIn = (direction: 'LR' | 'TB') =>
+            placeGraphMembers({
+                canvasState,
+                direction,
+                previousMembers: [buildMemberTask('condition_1', {x: 0, y: 0})],
+                updatedMembers: [buildMemberTask('condition_1', {x: 0, y: 0}), buildMemberTask('task_3')],
+            }).members[1].metadata?.ui?.nodePosition;
 
-        // The subtree reaches x = 500, so the free spot is 500 + the 60 gap — not 240 + 60, which
-        // would drop the newcomer straight onto the right-hand child.
-        expect(members[1].metadata?.ui?.nodePosition).toEqual({x: 560, y: 0});
+        // The subtree reaches y = 220 and x = 500, so the next layer starts past THOSE — not past the
+        // dispatcher's own 100-tall, 240-wide box, which would drop the newcomer onto a child.
+        expect(placeIn('TB')).toEqual({x: 0, y: 220 + GRAPH_MEMBER_LAYER_SPACING});
+        expect(placeIn('LR')).toEqual({x: 500 + GRAPH_MEMBER_LAYER_SPACING, y: 0});
     });
 
     it('leaves an already positioned member untouched', () => {
@@ -218,5 +263,51 @@ describe('placeGraphMembers', () => {
 
         expect(addedMemberName).toBeUndefined();
         expect(members).toEqual([previousMembers[0]]);
+    });
+});
+
+describe('getMemberSize via collectGraphMemberSizes', () => {
+    it('prefers a cluster root box over its measured card size', () => {
+        // `clusterRoot: true` is what a cluster root's own node data always carries alongside
+        // `clusterFrame` (`convertTaskToNode` derives both `data.clusterRoot` and `node.type` from
+        // the same `task.clusterRoot`) — it is what keeps `getGraphMemberPlacementWidth` from
+        // treating this member as a plain task and capping its painted width to
+        // `GRAPH_MEMBER_BOX_WIDTH`, so the box's own width survives.
+        const nodes: Node[] = [
+            {
+                data: {
+                    clusterFrame: {clusterRootId: 'aiAgent_1', height: 320, width: 640},
+                    clusterRoot: true,
+                    graphData: {graphId: 'graph_1', index: 0},
+                    workflowNodeName: 'aiAgent_1',
+                },
+                id: 'aiAgent_1',
+                measured: {height: 80, width: 240},
+                parentId: 'graph_1-graph-frame',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+        ];
+
+        expect(collectGraphMemberSizes('graph_1', nodes)).toEqual([
+            {height: 320, labelOverhang: 0, name: 'aiAgent_1', width: 640},
+        ]);
+    });
+
+    it('falls back to the measured size when no pre-pass box is present', () => {
+        const nodes: Node[] = [
+            {
+                data: {graphData: {graphId: 'graph_1', index: 0}, workflowNodeName: 'task_1'},
+                id: 'task_1',
+                measured: {height: 80, width: 240},
+                parentId: 'graph_1-graph-frame',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+        ];
+
+        expect(collectGraphMemberSizes('graph_1', nodes)).toEqual([
+            {height: 80, labelOverhang: 240 - GRAPH_MEMBER_BOX_WIDTH, name: 'task_1', width: GRAPH_MEMBER_BOX_WIDTH},
+        ]);
     });
 });
