@@ -339,6 +339,12 @@ export default function useLayout({
     const storeDirection = useLayoutDirectionStore((state) => state.layoutDirection);
     const layoutDirection = directionProp || storeDirection;
     const layoutEngine = useLayoutEngineStore((state) => state.layoutEngine);
+    // Read reactively, not via getState() at the point of use below: the layout effect only re-runs
+    // when something in its dependency array changes, and a toggle of this map is the ONLY thing that
+    // needs to re-stamp every member's `draggable` flag. A getState() read there would see the map's
+    // latest value on whatever unrelated render happens to trigger next, leaving every element
+    // undraggable until something else coincidentally re-runs the layout.
+    const clusterFrameLockedByRootId = useWorkflowEditorStore((state) => state.clusterFrameLockedByRootId);
 
     // Selective subscriptions with structural equality — prevents re-renders on parameter-only
     // changes (typing). Only re-renders when task graph structure changes (add/delete node).
@@ -1206,7 +1212,12 @@ export default function useLayout({
         // graph pre-pass never has to classify a cluster element (getOwningDispatcherId walks
         // dispatcher-nesting fields and does not follow parentId) and sees each cluster root as an
         // ordinary sized leaf.
-        const framedClusters = layoutClusterFrames(layoutNodes, edges, {edgesByRootId, nodesByRootId});
+        const framedClusters = layoutClusterFrames(
+            layoutNodes,
+            edges,
+            {edgesByRootId, nodesByRootId},
+            clusterFrameLockedByRootId
+        );
 
         // Graph frames are laid out first and handed to the engine as single sized leaf nodes;
         // their members carry frame-relative positions, so they are re-appended afterwards and
@@ -1343,6 +1354,7 @@ export default function useLayout({
         definitionsReady,
         edgesByRootId,
         nodesByRootId,
+        clusterFrameLockedByRootId,
     ]);
 
     useEffect(() => {
