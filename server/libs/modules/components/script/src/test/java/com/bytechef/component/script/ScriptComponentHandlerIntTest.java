@@ -27,8 +27,11 @@ import com.bytechef.platform.component.test.ComponentJobTestExecutor;
 import com.bytechef.platform.component.test.config.ComponentTestIntConfiguration;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import org.graalvm.polyglot.Context;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -54,6 +57,30 @@ import org.springframework.context.annotation.ComponentScan;
 public class ScriptComponentHandlerIntTest {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
+
+    /**
+     * Boots each guest language once before any test runs.
+     *
+     * <p>
+     * GraalPy's first context in a JVM costs 12-30 seconds and the cost varies with machine load; every context after
+     * it is sub-second. Paid inside a test method, that lands on whichever test happens to run first and reads as a job
+     * that never reached COMPLETED - which is exactly how this surfaced, as
+     * {@code expected: COMPLETED but was: STARTED} on {@code testPerformPython} during a loaded full-repository check,
+     * while passing in isolation. Paying it in {@code @BeforeAll} moves it outside every method's budget.
+     *
+     * <p>
+     * A language that cannot boot is skipped rather than failing here; the tests that need it fail on their own terms.
+     */
+    @BeforeAll
+    static void warmUpPolyglotLanguages() {
+        for (String languageId : List.of("js", "python")) {
+            try (Context context = Context.create()) {
+                context.eval(languageId, "1");
+            } catch (RuntimeException exception) {
+                continue;
+            }
+        }
+    }
 
     private final TaskHandler<Object> taskHandler = taskExecution -> {
         Map<String, ?> parameters = taskExecution.getParameters();
