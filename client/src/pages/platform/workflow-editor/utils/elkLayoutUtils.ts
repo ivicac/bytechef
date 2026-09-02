@@ -191,7 +191,11 @@ function centerClusterRootsOnChain(allNodes: Node[], direction: LayoutDirectionT
     }
 
     allNodes.forEach((node) => {
-        if (node.type !== 'clusterRoot') {
+        // A box is exempt: ClusterFrameShell centres the chain handles on the frame, and
+        // getRenderedNodeSize already hands ELK the frame itself to centre on the chain -- there is no
+        // icon band at the top to pull onto the line. Shifting it as if there were put the chain a
+        // half-row below the box's centre.
+        if (node.type !== 'clusterRoot' || (node.data as NodeDataType).clusterFrame) {
             return;
         }
 
