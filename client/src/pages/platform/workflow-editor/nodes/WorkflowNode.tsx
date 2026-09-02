@@ -601,9 +601,9 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     const {
         clusterElementsCanvasOpen,
+        clusterRootComponentDefinitions,
         copiedNode,
         copiedWorkflowId,
-        mainClusterRootComponentDefinition,
         nestedClusterRootsComponentDefinitions,
         renamingNodeName,
         rootClusterElementNodeData,
@@ -614,9 +614,9 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     } = useWorkflowEditorStore(
         useShallow((state) => ({
             clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
+            clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
             copiedNode: state.copiedNode,
             copiedWorkflowId: state.copiedWorkflowId,
-            mainClusterRootComponentDefinition: state.mainClusterRootComponentDefinition,
             nestedClusterRootsComponentDefinitions: state.nestedClusterRootsComponentDefinitions,
             renamingNodeName: state.renamingNodeName,
             rootClusterElementNodeData: state.rootClusterElementNodeData,
@@ -689,33 +689,41 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const filteredClusterElementTypes = useMemo(() => {
-        const clusterRootRequirementMet =
-            clusterElementsCanvasOpen &&
-            (isMainRootClusterElement || isNestedClusterRoot) &&
-            mainClusterRootComponentDefinition;
-
-        if (!clusterRootRequirementMet) {
+        if (!clusterElementsCanvasOpen || !(isMainRootClusterElement || isNestedClusterRoot)) {
             return [];
         }
 
-        const nestedClusterRootDefinition = nestedClusterRootsComponentDefinitions[data.componentName];
+        // A cluster root nested two levels down (a tool that is itself a cluster root, containing
+        // its own cluster-root element) recurses with clusterRootId: element.name in
+        // createClusterElementsNodes, so it is never a key in clusterRootComponentDefinitions --
+        // only the dialog's own open root and top-level roots are. nestedClusterRootsComponentDefinitions
+        // is keyed by component name instead and covers every depth, so it is checked first.
+        const rootDefinition =
+            nestedClusterRootsComponentDefinitions[data.componentName] ??
+            clusterRootComponentDefinitions[(data.parentClusterRootId as string) ?? data.workflowNodeName];
+
+        if (!rootDefinition) {
+            return [];
+        }
 
         return getFilteredClusterElementTypes({
-            clusterRootComponentDefinition: nestedClusterRootDefinition || mainClusterRootComponentDefinition,
+            clusterRootComponentDefinition: rootDefinition,
             currentClusterElementsType: (data.clusterElementName as string) || data.clusterElementType,
             isNestedClusterRoot,
             operationName: data.operationName,
         });
     }, [
         clusterElementsCanvasOpen,
+        clusterRootComponentDefinitions,
         isMainRootClusterElement,
         isNestedClusterRoot,
-        mainClusterRootComponentDefinition,
         nestedClusterRootsComponentDefinitions,
         data.componentName,
         data.clusterElementName,
         data.clusterElementType,
         data.operationName,
+        data.parentClusterRootId,
+        data.workflowNodeName,
     ]);
 
     const clusterElementTypesCount = filteredClusterElementTypes.length;

@@ -89,9 +89,9 @@ vi.mock('../stores/useWorkflowEditorStore', () => ({
     default: (selector: (state: Record<string, unknown>) => unknown) =>
         selector({
             clusterElementsCanvasOpen: true,
+            clusterRootComponentDefinitions: {},
             copiedNode: undefined,
             copiedWorkflowId: undefined,
-            mainClusterRootComponentDefinition: undefined,
             nestedClusterRootsComponentDefinitions: {},
             renamingNodeName: editorStoreState.renamingNodeName,
             rootClusterElementNodeData: undefined,

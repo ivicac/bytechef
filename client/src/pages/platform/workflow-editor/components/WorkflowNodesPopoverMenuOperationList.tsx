@@ -88,7 +88,8 @@ const WorkflowNodesPopoverMenuOperationList = ({
     } = useWorkflowEditorStore(
         useShallow((state) => ({
             clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
-            mainClusterRootComponentDefinition: state.mainClusterRootComponentDefinition,
+            mainClusterRootComponentDefinition:
+                state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
             rootClusterElementNodeData: state.rootClusterElementNodeData,
             setRootClusterElementNodeData: state.setRootClusterElementNodeData,
         }))

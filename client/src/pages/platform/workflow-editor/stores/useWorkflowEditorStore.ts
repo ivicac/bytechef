@@ -41,10 +41,13 @@ export interface WorkflowEditorI {
     graphTransitionLabelPositions: Record<string, {labelX: number; labelY: number}>;
     setGraphTransitionLabelPosition: (edgeId: string, position: {labelX: number; labelY: number}) => void;
 
-    mainClusterRootComponentDefinition: ComponentDefinition | undefined;
-    setMainClusterRootComponentDefinition: (
-        mainClusterRootComponentDefinition: ComponentDefinition | undefined
-    ) => void;
+    /**
+     * Component definitions of the cluster roots currently rendered, keyed by root workflow node
+     * name. A map rather than a single slot because box mode can show several roots at once; the
+     * dialog only ever populates one key.
+     */
+    clusterRootComponentDefinitions: Record<string, ComponentDefinition>;
+    setClusterRootComponentDefinition: (clusterRootId: string, definition: ComponentDefinition) => void;
 
     nodesLocked: boolean;
     setNodesLocked: (nodesLocked: boolean) => void;
@@ -149,10 +152,14 @@ const useWorkflowEditorStore = create<WorkflowEditorI>()(
                     };
                 }),
 
-            mainClusterRootComponentDefinition: undefined,
-            setMainClusterRootComponentDefinition: (mainClusterRootComponentDefinition) =>
-                set(() => ({
-                    mainClusterRootComponentDefinition,
+            clusterRootComponentDefinitions: {},
+
+            setClusterRootComponentDefinition: (clusterRootId, definition) =>
+                set((state) => ({
+                    clusterRootComponentDefinitions: {
+                        ...state.clusterRootComponentDefinitions,
+                        [clusterRootId]: definition,
+                    },
                 })),
 
             nodesLocked: true,
