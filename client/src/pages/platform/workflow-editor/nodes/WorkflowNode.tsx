@@ -709,7 +709,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const filteredClusterElementTypes = useMemo(() => {
-        if (!clusterElementsCanvasOpen || !(isMainRootClusterElement || isNestedClusterRoot)) {
+        if (!(isMainRootClusterElement || isNestedClusterRoot)) {
             return [];
         }
 
@@ -733,7 +733,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             operationName: data.operationName,
         });
     }, [
-        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         isMainRootClusterElement,
         isNestedClusterRoot,
@@ -750,10 +749,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     const nodeWidth = useMemo(
         () =>
-            clusterElementsCanvasOpen && (isMainRootClusterElement || isNestedClusterRoot)
-                ? calculateNodeWidth(clusterElementTypesCount)
-                : NODE_WIDTH,
-        [clusterElementsCanvasOpen, isMainRootClusterElement, isNestedClusterRoot, clusterElementTypesCount]
+            isMainRootClusterElement || isNestedClusterRoot ? calculateNodeWidth(clusterElementTypesCount) : NODE_WIDTH,
+        [isMainRootClusterElement, isNestedClusterRoot, clusterElementTypesCount]
     );
 
     const referencedDisabledNames = useMemo(
