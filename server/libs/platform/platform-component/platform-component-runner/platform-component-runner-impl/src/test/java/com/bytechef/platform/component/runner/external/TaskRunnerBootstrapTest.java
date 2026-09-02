@@ -71,11 +71,35 @@ class TaskRunnerBootstrapTest {
         assertThat(appended).startsWith("function perform() {}\n");
     }
 
+    /**
+     * {@code script}'s JavaScript action passes the Truffle id {@code js}, because the same id has to open the in-JVM
+     * GraalVM runner's polyglot context. Every entry point here has to treat it as the language it is - it did not, and
+     * selecting the process runner on that action failed for every JavaScript script ever written.
+     */
+    @Test
+    void testTheTruffleJavaScriptIdIsTheSameLanguageAsJavascript() {
+        assertThat(TaskRunnerBootstrap.isSupported("js")).isTrue();
+        assertThat(TaskRunnerBootstrap.sourceFileName("js")).isEqualTo("script.js");
+        assertThat(TaskRunnerBootstrap.append("js", "function perform() {}\n", "process"))
+            .isEqualTo(TaskRunnerBootstrap.append("javascript", "function perform() {}\n", "process"));
+    }
+
     @Test
     void testSourceFileNamePerLanguage() {
         assertThat(TaskRunnerBootstrap.sourceFileName("javascript")).isEqualTo("script.js");
         assertThat(TaskRunnerBootstrap.sourceFileName("python")).isEqualTo("script.py");
         assertThat(TaskRunnerBootstrap.sourceFileName("shell")).isEqualTo("commands.sh");
+    }
+
+    /**
+     * The in-process-only languages. {@code isSupported} answering true for one of them would let validate accept a
+     * request whose source file no interpreter can read.
+     */
+    @Test
+    void testTheInProcessOnlyLanguagesAreNotSupported() {
+        assertThat(TaskRunnerBootstrap.isSupported("ruby")).isFalse();
+        assertThat(TaskRunnerBootstrap.isSupported("java")).isFalse();
+        assertThat(TaskRunnerBootstrap.isSupported("R")).isFalse();
     }
 
     @Test
