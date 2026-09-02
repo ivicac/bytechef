@@ -22,10 +22,6 @@ import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.PROCESS;
-import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_EXIT_CODE;
-import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDERR;
-import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDOUT;
-import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_VARS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TIMEOUT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
@@ -43,7 +39,6 @@ import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 import com.bytechef.platform.component.runner.TaskRunnerRequest;
 import com.bytechef.platform.component.runner.TaskRunnerResult;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,15 +121,7 @@ public class CommandsActionDefinition extends AbstractActionDefinitionWrapper {
             context.log(log -> log.warn(taskRunnerResult.stderr()));
         }
 
-        Map<String, Object> result = new HashMap<>();
-
-        result.put(RESULT_EXIT_CODE, taskRunnerResult.exitCode());
-        result.put(RESULT_STDOUT, taskRunnerResult.stdout());
-        result.put(RESULT_STDERR, taskRunnerResult.stderr());
-        result.put(RESULT_VARS, taskRunnerResult.output());
-        result.put(OUTPUT_FILES, taskRunnerResult.outputFiles());
-
-        return result;
+        return taskRunnerResult.toExternalMap();
     }
 
     /**
