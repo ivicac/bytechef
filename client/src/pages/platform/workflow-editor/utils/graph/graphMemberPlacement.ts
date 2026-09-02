@@ -1,3 +1,4 @@
+import {LayoutDirectionType} from '@/shared/constants';
 import {WorkflowTask} from '@/shared/middleware/platform/configuration';
 import {NodeDataType} from '@/shared/types';
 import {Node, XYPosition} from '@xyflow/react';
@@ -17,12 +18,22 @@ export interface GraphMemberCanvasStateI {
     /** Where each member currently sits, in the frame's CONTENT coordinates. */
     positions: Record<string, XYPosition>;
     /** How large each member currently renders — a dispatcher member over its whole subtree. */
-    sizes: Record<string, {height: number; width: number}>;
+    sizes: Record<string, {height: number; paintedWidth?: number; width: number}>;
 }
 
 function getMemberSize(node: Node): {height: number; width: number} {
-    // `measured` is what React Flow reports once the node is on screen; `width`/`height` cover the
-    // nodes the layout sizes itself, and the nominal size is the last resort for one with neither.
+    // A pre-pass box outranks the DOM. `measured` is what React Flow reports once the node is on
+    // screen, which for a cluster root in box mode is the small card it painted before the box was
+    // sized — measuring that would size the graph frame to the card and only correct itself on some
+    // later layout. The DOM fallback is for nodes nobody has sized, not an override for ones that
+    // have been.
+    const nodeData = node.data as NodeDataType;
+    const preComputedBox = nodeData.clusterFrame ?? nodeData.graphFrame;
+
+    if (preComputedBox) {
+        return {height: preComputedBox.height, width: preComputedBox.width};
+    }
+
     return {
         height: node.measured?.height ?? node.height ?? GRAPH_MEMBER_NOMINAL_SIZE.height,
         width: node.measured?.width ?? node.width ?? GRAPH_MEMBER_NOMINAL_SIZE.width,
@@ -44,11 +55,15 @@ function getMemberSize(node: Node): {height: number; width: number} {
  */
 export function readGraphMemberCanvasState(graphId: string, nodes: Node[]): GraphMemberCanvasStateI {
     const positions: Record<string, XYPosition> = {};
-    const sizes: Record<string, {height: number; width: number}> = {};
+    const sizes: GraphMemberCanvasStateI['sizes'] = {};
 
     for (const memberBox of collectGraphMemberBoxes(graphId, nodes)) {
         positions[memberBox.name] = {x: memberBox.x, y: memberBox.y};
-        sizes[memberBox.name] = {height: memberBox.height, width: memberBox.width};
+        sizes[memberBox.name] = {
+            height: memberBox.height,
+            paintedWidth: memberBox.paintedWidth,
+            width: memberBox.width,
+        };
     }
 
     return {positions, sizes};
@@ -196,6 +211,8 @@ interface PlaceGraphMembersPropsI {
     autoPlacedPositions?: Record<string, XYPosition>;
     /** Where the members currently sit and how large they render, for the free-spot search. */
     canvasState: GraphMemberCanvasStateI;
+    /** The canvas flow direction, which decides which way a newly added member is placed. */
+    direction?: LayoutDirectionType;
     /** Content-origin position a newly added member was dropped at, when there was one. */
     dropPosition?: XYPosition;
     previousMembers: WorkflowTask[];
@@ -207,13 +224,15 @@ interface PlaceGraphMembersPropsI {
  * had to invent for its siblings.
  *
  * A new member goes exactly where it was dropped, or — added from the frame header, where there is
- * no drop point — at the free spot beside the existing ones. Adding a node is a first interaction
+ * no drop point — one layer on from the last member along the flow. The first member of an empty
+ * graph gets no position at all, leaving the layout to centre it on the chain entering the frame. Adding a node is a first interaction
  * with the graph, so the pending auto-placed siblings are persisted in the same write and the graph
  * does not rearrange itself around the newcomer on the next layout.
  */
 export function placeGraphMembers({
     autoPlacedPositions,
     canvasState,
+    direction,
     dropPosition,
     previousMembers,
     updatedMembers,
@@ -224,7 +243,7 @@ export function placeGraphMembers({
 
     const resolvePosition = (member: WorkflowTask): XYPosition | undefined => {
         if (member.name === addedMemberName) {
-            return dropPosition ?? findFreeSpot(buildOccupiedBoxes(previousMembers, canvasState));
+            return dropPosition ?? findFreeSpot(buildOccupiedBoxes(previousMembers, canvasState), direction);
         }
 
         if (member.metadata?.ui?.nodePosition) {
