@@ -56,6 +56,14 @@ public interface ConnectionService {
 
     List<Connection> getConnectionsByVisibility(ResourceVisibility visibility, PlatformType type);
 
+    /**
+     * Returns the connections marked {@code shared} for the given environment and platform type. {@code environmentId}
+     * is the ordinal of {@code com.bytechef.platform.configuration.domain.Environment}; this module cannot depend on
+     * {@code platform-configuration-api} (that module already depends on this one), so callers resolve the enum to its
+     * ordinal.
+     */
+    List<Connection> getSharedConnections(int environmentId, PlatformType type);
+
     List<Connection> getConnections(String componentName, int version, PlatformType type);
 
     List<Connection> getConnections(

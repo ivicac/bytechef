@@ -280,6 +280,36 @@ public class ConnectionServiceIntTest {
         Assertions.assertFalse(savedConnection.isShared());
     }
 
+    @Test
+    void testGetSharedConnectionsIsScopedByEnvironmentAndType() {
+        connectionService.create(embeddedConnection("Shared production", Environment.PRODUCTION, true));
+        connectionService.create(embeddedConnection("Shared development", Environment.DEVELOPMENT, true));
+        connectionService.create(embeddedConnection("Not shared", Environment.PRODUCTION, false));
+        connectionService.create(automationConnection("Shared automation", Environment.PRODUCTION, true));
+
+        List<Connection> sharedConnections = connectionService.getSharedConnections(
+            Environment.PRODUCTION.ordinal(), PlatformType.EMBEDDED);
+
+        Assertions.assertEquals(1, sharedConnections.size());
+
+        Connection sharedConnection = sharedConnections.getFirst();
+
+        Assertions.assertEquals("Shared production", sharedConnection.getName());
+    }
+
+    private static Connection automationConnection(String name, Environment environment, boolean shared) {
+        Connection connection = new Connection();
+
+        connection.setComponentName("slack");
+        connection.setConnectionVersion(1);
+        connection.setEnvironmentId(environment.ordinal());
+        connection.setName(name);
+        connection.setShared(shared);
+        connection.setType(PlatformType.AUTOMATION);
+
+        return connection;
+    }
+
     private static Connection embeddedConnection(String name, Environment environment, boolean shared) {
         Connection connection = new Connection();
 
