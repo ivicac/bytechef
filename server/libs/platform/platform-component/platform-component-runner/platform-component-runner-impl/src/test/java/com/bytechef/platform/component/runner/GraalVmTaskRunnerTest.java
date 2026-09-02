@@ -27,7 +27,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
+import com.bytechef.component.definition.Option;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.component.definition.Property;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.polyglot.ScriptSandboxMode;
@@ -68,6 +70,44 @@ public class GraalVmTaskRunnerTest {
         assertThat(firstProperties).hasSize(1);
         assertThat(secondProperties).hasSize(1);
         assertThat(firstProperties.getFirst()).isNotSameAs(secondProperties.getFirst());
+    }
+
+    @Test
+    public void testGetPropertiesOffersBothOptionsWhenTrustedEnabled() {
+        GraalVmTaskRunner trustingTaskRunner = newTaskRunner(Map.of("trusted-enabled", "true"));
+
+        Property.StringProperty modeProperty = getModeProperty(trustingTaskRunner);
+
+        assertThat(modeProperty.getOptions())
+            .extracting(Option::getValue)
+            .containsExactly("strict", "trusted");
+        assertThat(modeProperty.getDefaultValue()).contains("strict");
+        assertThat(modeProperty.getDescription()
+            .orElseThrow()).contains("Trusted lifts every restriction");
+    }
+
+    @Test
+    public void testGetPropertiesOffersOnlyStrictWhenTrustedDisabled() {
+        Property.StringProperty modeProperty = getModeProperty(graalVmTaskRunner);
+
+        assertThat(modeProperty.getOptions())
+            .extracting(Option::getValue)
+            .containsExactly("strict");
+        assertThat(modeProperty.getDefaultValue()).contains("strict");
+        assertThat(modeProperty.getDescription()
+            .orElseThrow()).doesNotContain("Trusted");
+    }
+
+    @Test
+    public void testGetPropertiesOffersOnlyStrictWhenTrustedPropertyMalformed() {
+        GraalVmTaskRunner malformedTaskRunner = newTaskRunner(Map.of("trusted-enabled", "yes"));
+
+        Property.StringProperty modeProperty = getModeProperty(malformedTaskRunner);
+
+        assertThat(modeProperty.getOptions())
+            .extracting(Option::getValue)
+            .containsExactly("strict");
+        assertThat(modeProperty.getDefaultValue()).contains("strict");
     }
 
     @Test
@@ -243,5 +283,11 @@ public class GraalVmTaskRunnerTest {
             "js", SCRIPT, List.of(), Map.of(), Map.of(), Map.of(), List.of(),
             ParametersFactory.create(Map.of("script", SCRIPT, "input", Map.of("factor", 3))),
             ParametersFactory.create(runnerParameters), TIMEOUT, Map.of(), null);
+    }
+
+    private static Property.StringProperty getModeProperty(GraalVmTaskRunner taskRunner) {
+        List<? extends ModifiableValueProperty<?, ?>> properties = taskRunner.getProperties();
+
+        return (Property.StringProperty) properties.getFirst();
     }
 }
