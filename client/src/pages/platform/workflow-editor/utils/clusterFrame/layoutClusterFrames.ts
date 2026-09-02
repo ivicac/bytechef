@@ -1,7 +1,21 @@
 import {NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
-import {ClusterMemberBoxI, computeClusterFrameSize, toClusterFrameChildPosition} from './clusterFrameGeometry';
+import {
+    CLUSTER_FRAME_HEADER_HEIGHT,
+    ClusterMemberBoxI,
+    computeClusterFrameSize,
+    toClusterFrameChildPosition,
+} from './clusterFrameGeometry';
+
+/**
+ * Members are clamped out of the header band but otherwise free to move anywhere inside the box,
+ * which grows to fit them — nothing bounds the right or bottom edge, by design.
+ */
+const CLUSTER_FRAME_MEMBER_EXTENT: [[number, number], [number, number]] = [
+    [0, CLUSTER_FRAME_HEADER_HEIGHT],
+    [Infinity, Infinity],
+];
 
 export interface LayoutClusterFramesResultI {
     /** Edges living entirely inside a box, to append after the outer layout returns. */
@@ -31,7 +45,8 @@ export interface LayoutClusterFramesResultI {
 export function layoutClusterFrames(
     nodes: Node[],
     edges: Edge[],
-    elementsByRootId: {edgesByRootId: Record<string, Edge[]>; nodesByRootId: Record<string, Node[]>}
+    elementsByRootId: {edgesByRootId: Record<string, Edge[]>; nodesByRootId: Record<string, Node[]>},
+    lockedByRootId: Record<string, boolean>
 ): LayoutClusterFramesResultI {
     const {edgesByRootId, nodesByRootId} = elementsByRootId;
 
@@ -45,9 +60,18 @@ export function layoutClusterFrames(
             return node;
         }
 
+        // Members are draggable ONLY when their root is unlocked, and independently of the canvas-wide
+        // drag lock — the same per-node override graph members and sticky notes use. A placeholder
+        // ("+") node is excluded: it carries no `parentClusterRootId`, so a drag on it would fall
+        // through the drag-stop handler's cluster branch into the generic outer-flow one and fire a
+        // save whose position keys no real task name.
+        const isLocked = lockedByRootId[node.id] !== false;
+
         const positionedElementNodes = elementNodes.map((elementNode) => ({
             ...elementNode,
             connectable: false,
+            draggable: !isLocked && elementNode.type !== 'placeholder',
+            extent: CLUSTER_FRAME_MEMBER_EXTENT,
             parentId: node.id,
             position: toClusterFrameChildPosition(elementNode.position),
         }));
