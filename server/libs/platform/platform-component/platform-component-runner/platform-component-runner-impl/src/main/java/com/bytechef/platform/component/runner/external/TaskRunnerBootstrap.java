@@ -61,6 +61,20 @@ public final class TaskRunnerBootstrap {
     }
 
     /**
+     * Whether an external runner can execute the language at all.
+     *
+     * <p>
+     * A runner's {@code validate} asks this so it rejects an unrunnable language before it creates anything, rather
+     * than letting {@link #append} throw once the working directory already exists.
+     */
+    public static boolean isSupported(String languageId) {
+        return switch (languageId) {
+            case JAVASCRIPT, PYTHON, SHELL -> true;
+            default -> false;
+        };
+    }
+
+    /**
      * The name the source is written under inside the working directory.
      */
     public static String sourceFileName(String languageId) {
