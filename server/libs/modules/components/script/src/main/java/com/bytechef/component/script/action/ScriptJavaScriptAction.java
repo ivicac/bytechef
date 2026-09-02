@@ -32,7 +32,7 @@ import static com.bytechef.platform.component.definition.ScriptComponentDefiniti
 
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.script.action.definition.ScriptActionDefinition;
-import com.bytechef.component.script.engine.PolyglotEngine;
+import com.bytechef.platform.component.runner.PolyglotEngine;
 
 /**
  * @author Matija Petanjek
