@@ -36,12 +36,14 @@ export const useGetConnectionsQuery = () =>
     });
 
 /**
- * The vendor's `sharedConnectionIds` are unioned onto the connected user's own connections
- * server-side and then filtered by component (`ConnectedUserConnectionFacadeImpl#getConnections`),
- * so they are the only way a vendor-shared connection ever reaches an account select — which is
- * what the SDK's `sharedConnectionIds` prop documents. They are read from the store here rather
- * than threaded through every caller so the wizard's account select and its "Connected accounts"
- * summary agree on what exists.
+ * The vendor's `sharedConnectionIds` are still sent here as a query parameter for backward
+ * compatibility, but the server ignores `connectionIds` entirely
+ * (`ConnectedUserConnectionFacadeImpl#getConnections`). A shared connection now reaches every
+ * connected user in the environment automatically, via the `shared` flag a tenant admin sets on
+ * the connection itself at '/embedded/connections' — not via this id list. The SDK's
+ * `sharedConnectionIds` prop is `@deprecated` and documents its own inertness, not this mechanism.
+ * They are read from the store here rather than threaded through every caller so the wizard's
+ * account select and its "Connected accounts" summary agree on what exists.
  *
  * Deliberately NOT part of the query key: the ids arrive once with the EMBED_INIT handshake, which
  * `AutomationHubLayout` completes before any view renders, and never change afterwards. Keeping the
