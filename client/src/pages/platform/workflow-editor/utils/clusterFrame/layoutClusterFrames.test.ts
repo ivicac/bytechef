@@ -33,14 +33,31 @@ function buildElementNode(id: string, position: {x: number; y: number}): Node {
     };
 }
 
+// A "+" placeholder, as `createPlaceholderNode` builds it: no `parentClusterRootId`, `type: 'placeholder'`.
+function buildPlaceholderElementNode(id: string, position: {x: number; y: number}): Node {
+    return {
+        data: {clusterElementType: 'model', label: '+'},
+        id,
+        measured: {height: 40, width: 40},
+        parentId: ROOT_ID,
+        position,
+        type: 'placeholder',
+    };
+}
+
 describe('layoutClusterFrames', () => {
     it('sizes the root from its elements and moves them out of the outer array', () => {
         const elementNode = buildElementNode('model_1', {x: 400, y: 300});
 
-        const result = layoutClusterFrames([buildRootNode()], [], {
-            edgesByRootId: {[ROOT_ID]: []},
-            nodesByRootId: {[ROOT_ID]: [elementNode]},
-        });
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [elementNode]},
+            },
+            {}
+        );
 
         const rootNode = result.outerNodes.find((node) => node.id === ROOT_ID)!;
 
@@ -55,10 +72,15 @@ describe('layoutClusterFrames', () => {
     });
 
     it('floors the box at its minimum size', () => {
-        const result = layoutClusterFrames([buildRootNode()], [], {
-            edgesByRootId: {[ROOT_ID]: []},
-            nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 0})]},
-        });
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 0})]},
+            },
+            {}
+        );
 
         expect(result.outerNodes[0].data.clusterFrame).toEqual({
             clusterRootId: ROOT_ID,
@@ -68,7 +90,7 @@ describe('layoutClusterFrames', () => {
     });
 
     it('leaves a root with no elements untouched', () => {
-        const result = layoutClusterFrames([buildRootNode()], [], {edgesByRootId: {}, nodesByRootId: {}});
+        const result = layoutClusterFrames([buildRootNode()], [], {edgesByRootId: {}, nodesByRootId: {}}, {});
 
         expect(result.outerNodes[0].data.clusterFrame).toBeUndefined();
         expect(result.memberNodes).toEqual([]);
@@ -82,10 +104,15 @@ describe('layoutClusterFrames', () => {
             type: 'workflow',
         };
 
-        const result = layoutClusterFrames([rootInGraph], [], {
-            edgesByRootId: {[ROOT_ID]: []},
-            nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 400, y: 300})]},
-        });
+        const result = layoutClusterFrames(
+            [rootInGraph],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 400, y: 300})]},
+            },
+            {}
+        );
 
         // The elements must not reach layoutGraphFrames: findGraphMemberOwner walks dispatcher
         // nesting fields and does not follow parentId, so it cannot classify them as frame members
@@ -102,10 +129,15 @@ describe('layoutClusterFrames', () => {
         const edgeTouchingMember: Edge = {id: 'edge_model_other', source: 'model_1', target: 'other_node'};
         const chainEdge: Edge = {id: 'edge_chain', source: 'task_1', target: 'task_2'};
 
-        const result = layoutClusterFrames([buildRootNode()], [edgeTouchingMember, chainEdge], {
-            edgesByRootId: {[ROOT_ID]: [memberEdge]},
-            nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 0})]},
-        });
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [edgeTouchingMember, chainEdge],
+            {
+                edgesByRootId: {[ROOT_ID]: [memberEdge]},
+                nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 0})]},
+            },
+            {}
+        );
 
         // An edge recorded against the root in edgesByRootId lands in memberEdges.
         expect(result.memberEdges.map((edge) => edge.id)).toEqual(['edge_root_model']);
@@ -114,6 +146,46 @@ describe('layoutClusterFrames', () => {
         // too (the id-based filter this task exists to guarantee), while an edge touching neither
         // member survives untouched.
         expect(result.outerEdges.map((edge) => edge.id)).toEqual(['edge_chain']);
+    });
+
+    it('marks elements draggable only when their root is unlocked', () => {
+        const elements = {
+            edgesByRootId: {[ROOT_ID]: []},
+            nodesByRootId: {[ROOT_ID]: [buildElementNode('model_1', {x: 0, y: 0})]},
+        };
+
+        expect(layoutClusterFrames([buildRootNode()], [], elements, {}).memberNodes[0].draggable).toBe(false);
+
+        expect(layoutClusterFrames([buildRootNode()], [], elements, {[ROOT_ID]: false}).memberNodes[0].draggable).toBe(
+            true
+        );
+    });
+
+    // A placeholder carries no `parentClusterRootId`, so the drag-stop handler's cluster branch would
+    // never recognise a drag on one — it would fall through to the generic outer-flow branch and fire
+    // a save whose position key matches no real task name. Never making it draggable in the first
+    // place avoids that dead-end drag entirely, unlocked root or not.
+    it('never marks a placeholder element draggable, even on an unlocked root', () => {
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {
+                    [ROOT_ID]: [
+                        buildElementNode('model_1', {x: 0, y: 0}),
+                        buildPlaceholderElementNode('model-placeholder-0', {x: 260, y: 0}),
+                    ],
+                },
+            },
+            {[ROOT_ID]: false}
+        );
+
+        const placeholderNode = result.memberNodes.find((node) => node.id === 'model-placeholder-0')!;
+        const elementNode = result.memberNodes.find((node) => node.id === 'model_1')!;
+
+        expect(placeholderNode.draggable).toBe(false);
+        expect(elementNode.draggable).toBe(true);
     });
 });
 
