@@ -17,6 +17,7 @@
 package com.bytechef.platform.component.runner.external;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Optional;
 
 /**
  * Bridges the {@code perform(input, context)} authoring shape to the file-based contract an external interpreter can
@@ -29,6 +30,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * time from a definition that appears above.
  *
  * <p>
+ * Every id this class switches on has already been resolved through {@link ExternalLanguage}, which is the one place
+ * that knows {@code js} and {@code javascript} are the same language. The switches are therefore exhaustive over the
+ * enum and carry no {@code default} branch: a language added there without a bootstrap fails to compile here.
+ *
+ * <p>
  * {@code context} is a stub rather than {@code null}. Passing null would surface as
  * {@code TypeError: Cannot read properties of null}, which says nothing about why; the stub raises a sentence naming
  * the runner and the fact that the component bridge is in-process only.
@@ -36,10 +42,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @author Ivica Cardic
  */
 public final class TaskRunnerBootstrap {
-
-    private static final String JAVASCRIPT = "javascript";
-    private static final String PYTHON = "python";
-    private static final String SHELL = "shell";
 
     private TaskRunnerBootstrap() {
     }
@@ -51,12 +53,10 @@ public final class TaskRunnerBootstrap {
     public static String append(String languageId, String source, String runnerType) {
         String separated = source.endsWith("\n") ? source : source + "\n";
 
-        return switch (languageId) {
+        return switch (ExternalLanguage.of(languageId)) {
             case JAVASCRIPT -> separated + javaScriptBootstrap(runnerType);
             case PYTHON -> separated + pythonBootstrap(runnerType);
             case SHELL -> separated;
-            default -> throw new IllegalArgumentException(
-                "Language '%s' cannot be executed by an external task runner".formatted(languageId));
         };
     }
 
@@ -68,22 +68,19 @@ public final class TaskRunnerBootstrap {
      * than letting {@link #append} throw once the working directory already exists.
      */
     public static boolean isSupported(String languageId) {
-        return switch (languageId) {
-            case JAVASCRIPT, PYTHON, SHELL -> true;
-            default -> false;
-        };
+        Optional<ExternalLanguage> externalLanguage = ExternalLanguage.find(languageId);
+
+        return externalLanguage.isPresent();
     }
 
     /**
      * The name the source is written under inside the working directory.
      */
     public static String sourceFileName(String languageId) {
-        return switch (languageId) {
+        return switch (ExternalLanguage.of(languageId)) {
             case JAVASCRIPT -> "script.js";
             case PYTHON -> "script.py";
             case SHELL -> "commands.sh";
-            default -> throw new IllegalArgumentException(
-                "Language '%s' cannot be executed by an external task runner".formatted(languageId));
         };
     }
 
