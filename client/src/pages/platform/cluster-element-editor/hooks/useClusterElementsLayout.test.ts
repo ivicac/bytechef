@@ -1,11 +1,44 @@
-import {act, renderHook} from '@testing-library/react';
-import {Node} from '@xyflow/react';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
+import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
+import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {act, renderHook, waitFor} from '@testing-library/react';
+import {ReactNode, createElement} from 'react';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
-import useWorkflowEditorStore, {WorkflowEditorI} from '../../workflow-editor/stores/useWorkflowEditorStore';
-import useClusterElementsDataStore from '../stores/useClusterElementsDataStore';
-import useClusterElementsLayout from './useClusterElementsLayout';
+import useClusterElementsViewModeStore from '../../workflow-editor/stores/useClusterElementsViewModeStore';
+
+const {componentDefinitionsByName} = vi.hoisted(() => {
+    const aiAgentDefinition = {
+        actionClusterElementTypes: {},
+        clusterElementClusterElementTypes: {},
+        clusterElementTypes: [
+            {key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'},
+            {key: 'chatMemory', label: 'Memory', multipleElements: false, name: 'CHAT_MEMORY'},
+        ],
+        name: 'aiAgent',
+        version: 1,
+    };
+
+    return {
+        componentDefinitionsByName: {
+            aiAgent: aiAgentDefinition,
+            awsChatMemory: {
+                clusterElementTypes: [{key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'}],
+                name: 'awsChatMemory',
+                version: 2,
+            },
+            jdbcChatMemory: {
+                clusterElementTypes: [
+                    {key: 'dataSource', label: 'Data Source', multipleElements: false, name: 'DATA_SOURCE'},
+                    {key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'},
+                ],
+                name: 'jdbcChatMemory',
+                version: 2,
+            },
+        } as Record<string, object>,
+    };
+});
 
 vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
     ComponentDefinitionKeys: {
@@ -85,25 +118,18 @@ describe('useClusterElementsLayout', () => {
         } as never);
 
         useWorkflowEditorStore.setState({
-            clusterRootComponentDefinitions: {
-                [ROOT_NODE_NAME]: {
-                    clusterElement: false,
-                    clusterRoot: true,
-                    connectionRequired: false,
-                    name: 'aiAgent',
-                    version: 1,
-                },
-            },
+            clusterRootComponentDefinitions: {},
             nestedClusterRootsComponentDefinitions: {},
             rootClusterElementNodeData: {
                 clusterRoot: true,
                 componentName: 'aiAgent',
-                name: ROOT_NODE_NAME,
+                label: 'AI Agent',
+                name: 'aiAgent_1',
                 operationName: 'chat',
                 type: 'aiAgent/v1/chat',
                 workflowNodeName: 'aiAgent_1',
             },
-        } as Partial<WorkflowEditorI>);
+        } as never);
 
         useWorkflowNodeDetailsPanelStore.setState({workflowNodeDetailsPanelOpen: true} as never);
     });

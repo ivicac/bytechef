@@ -3,6 +3,7 @@ import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/st
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
+import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {renderHook, waitFor} from '@testing-library/react';
 import {Node} from '@xyflow/react';
@@ -11,6 +12,17 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {CLUSTER_FRAME_HEADER_HEIGHT, getClusterMemberSize} from './clusterFrameGeometry';
 import {layoutClusterFrames} from './layoutClusterFrames';
+
+/**
+ * The join nothing else covers: a workflow DEFINITION, through the production node builder, through
+ * the layout pre-pass, to a box.
+ *
+ * Every other pre-pass fixture hand-supplies the two things production never does — positions and
+ * `measured` sizes — which is how four rendering blockers survived twelve task-scoped reviews. This
+ * test supplies neither: the definition below carries no `metadata` at all, so every element arrives
+ * at `DEFAULT_NODE_POSITION` and every member node arrives unmeasured, exactly as it does on a
+ * freshly built agent and immediately after the box header's Reset layout button.
+ */
 
 const {AI_AGENT_DEFINITION, SUB_AGENT_DEFINITION} = vi.hoisted(() => {
     const AI_AGENT_DEFINITION: ComponentDefinition = {
@@ -26,6 +38,8 @@ const {AI_AGENT_DEFINITION, SUB_AGENT_DEFINITION} = vi.hoisted(() => {
         version: 1,
     };
 
+    // A tool that is itself a cluster root, so the fixture exercises nesting through the real
+    // recursion in createClusterElementsNodes rather than a hand-built parent chain.
     const SUB_AGENT_DEFINITION = {
         clusterElementTypes: [{label: 'Model', multipleElements: false, name: 'MODEL'}],
         name: 'subAgent',
@@ -52,6 +66,7 @@ vi.mock('@/shared/middleware/platform/configuration', async (importOriginal) => 
     },
 }));
 
+// No `metadata` anywhere: nothing here has ever been dragged.
 const WORKFLOW_DEFINITION = JSON.stringify({
     tasks: [
         {
@@ -107,6 +122,8 @@ describe('cluster frame, from a workflow definition', () => {
     beforeEach(() => {
         queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
 
+        applicationInfoStore.setState({featureFlags: {'ff-5470': true}});
+
         useWorkflowDataStore.setState({
             workflow: {definition: WORKFLOW_DEFINITION, id: 'workflow_1'},
         } as Parameters<typeof useWorkflowDataStore.setState>[0]);
@@ -146,6 +163,8 @@ describe('cluster frame, from a workflow definition', () => {
 
         const elementMembers = framed.memberNodes.filter((node) => node.type !== 'placeholder');
 
+        // The regression this exists for: createClusterElementsNodes hands every element
+        // DEFAULT_NODE_POSITION, so without the placer each of these is {x: 0, y: 40}.
         expect(elementMembers.length).toBeGreaterThan(3);
 
         const positionKeys = elementMembers.map((node) => `${node.position.x},${node.position.y}`);
@@ -185,6 +204,9 @@ describe('cluster frame, from a workflow definition', () => {
         }
     });
 
+    // Critical 4: a nested member's stored position is relative to the NESTED root, and box mode must
+    // keep it that way. Re-parenting it to the top root drew it in the wrong place and, because the
+    // same coordinates are persisted on drag, silently rewrote the user's stored layout.
     it('leaves nested members parented to their nested root, not to the box root', async () => {
         const {framed} = await buildBox();
 
@@ -193,6 +215,8 @@ describe('cluster frame, from a workflow definition', () => {
         expect(nestedMember).toBeDefined();
         expect(nestedMember.parentId).toBe('sub_agent_1');
 
+        // Only DIRECT members cross into frame coordinates, so a nested member must not carry the
+        // header band on top of its nested root's own offset.
         expect(nestedMember.position.y).toBeLessThan(
             framed.memberNodes.find((node) => node.id === 'sub_agent_1')!.position.y
         );
