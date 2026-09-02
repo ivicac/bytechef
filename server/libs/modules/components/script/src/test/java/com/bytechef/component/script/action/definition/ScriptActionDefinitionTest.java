@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -148,6 +149,21 @@ public class ScriptActionDefinitionTest {
         assertThatThrownBy(() -> perform(Map.of(SCRIPT, SOURCE)))
             .isInstanceOf(TaskRunnerNotEnabledException.class)
             .hasMessageContaining(GRAALVM);
+    }
+
+    /**
+     * A task with no source used to reach a per-language stub returning null, so a malformed workflow produced nothing
+     * and reported nothing. The source is required now, and the failure names the parameter.
+     */
+    @Test
+    public void testPerformRejectsAMissingScript() {
+        when(taskRunnerRegistry.getTaskRunner(GRAALVM)).thenReturn(taskRunner);
+
+        assertThatThrownBy(() -> perform(Map.of("input", Map.of("factor", 3))))
+            .isInstanceOf(NullPointerException.class)
+            .hasMessageContaining(SCRIPT);
+
+        verify(taskRunner, never()).run(any());
     }
 
     private Object perform(Map<String, ?> inputParameters) throws Exception {
