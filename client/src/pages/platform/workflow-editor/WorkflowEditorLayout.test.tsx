@@ -2,7 +2,10 @@ import {render, screen} from '@/shared/util/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import WorkflowEditorLayout from './WorkflowEditorLayout';
+import {useClusterElementsCanvasDialogStore} from './components/stores/useClusterElementsCanvasDialogStore';
 import {useWorkflowEditor} from './providers/workflowEditorProvider';
+import useClusterElementsViewModeStore from './stores/useClusterElementsViewModeStore';
+import useWorkflowEditorStore from './stores/useWorkflowEditorStore';
 
 // WorkflowEditorLayout branches between the React Flow canvas and the Monaco source editor based on
 // the codeWorkflow/codeWorkflowLanguage flags threaded onto the shared WorkflowEditorStateI context
@@ -89,6 +92,13 @@ vi.mock('@/pages/platform/workflow-editor/components/workflow-test-chat/Workflow
     default: () => null,
 }));
 
+vi.mock(
+    '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-testing-panel/AiAgentTestingPanel',
+    () => ({
+        default: () => <div data-testid="playground-panel" />,
+    })
+);
+
 vi.mock('./components/ErrorsBanner', () => ({default: () => null}));
 vi.mock('./components/SubflowBanner', () => ({default: () => null}));
 vi.mock('./components/WorkflowCodeEditorSheet', () => ({default: () => null}));
@@ -117,6 +127,13 @@ describe('WorkflowEditorLayout - code-backed project branching', () => {
         vi.clearAllMocks();
 
         useParamsMock.mockReturnValue({projectId: '123', projectWorkflowId: '456'});
+
+        // Reset the playground-guard state the later describe block below sets, so this block's
+        // outcome does not depend on running before that one -- each describe block owns its own
+        // starting state rather than relying on file declaration order.
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterElementsCanvasDialogStore.setState({testingPanelOpen: false});
+        useWorkflowEditorStore.setState({clusterElementsCanvasOpen: false});
     });
 
     it('renders ProjectCodeWorkflowDetail when codeWorkflow is true and the language is polyglot', async () => {
@@ -160,5 +177,37 @@ describe('WorkflowEditorLayout - code-backed project branching', () => {
         expect(screen.queryByTestId('workflow-editor')).not.toBeInTheDocument();
         expect(screen.queryByTestId('code-workflow-detail')).not.toBeInTheDocument();
         expect(screen.queryByTestId('integration-code-workflow-detail')).not.toBeInTheDocument();
+    });
+});
+
+// Regression coverage: a box-mode destination button (an editor toggle, or Evals) can open
+// ClusterElementsCanvasDialog while the playground is already open beside the canvas. The dialog
+// mounts its OWN AiAgentTestingPanel instance, sharing useAiAgentTestingChatStore with this one — two
+// instances answering the same conversation state. The fix adds `!clusterElementsCanvasOpen` to this
+// panel's mount condition so the two are never mounted at the same time.
+describe('WorkflowEditorLayout - playground panel single-instance guard', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        useParamsMock.mockReturnValue({projectId: '123', projectWorkflowId: '456'});
+        mockUseWorkflowEditor(undefined, undefined);
+
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
+        useClusterElementsCanvasDialogStore.setState({testingPanelOpen: true});
+        useWorkflowEditorStore.setState({clusterElementsCanvasOpen: false});
+    });
+
+    it('mounts the playground panel in box mode when the dialog is closed', async () => {
+        renderLayout();
+
+        expect(await screen.findByTestId('playground-panel')).toBeInTheDocument();
+    });
+
+    it('does not mount the playground panel while the dialog is also open', () => {
+        useWorkflowEditorStore.setState({clusterElementsCanvasOpen: true});
+
+        renderLayout();
+
+        expect(screen.queryByTestId('playground-panel')).not.toBeInTheDocument();
     });
 });
