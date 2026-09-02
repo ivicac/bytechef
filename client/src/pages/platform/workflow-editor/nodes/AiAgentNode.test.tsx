@@ -1,3 +1,4 @@
+import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
@@ -8,8 +9,11 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import AiAgentNode from './AiAgentNode';
 
 // Mutable slice of the workflow data store so each test can supply its own definition.
-const {workflowDataStoreState} = vi.hoisted(() => ({
+const {workflowDataStoreState, workflowEditorStoreState} = vi.hoisted(() => ({
     workflowDataStoreState: {definition: '{"tasks": []}'},
+    workflowEditorStoreState: {
+        clusterRootComponentDefinitions: {} as Record<string, unknown>,
+    },
 }));
 
 // Render the context menu as a passthrough so the node content is asserted directly.
@@ -46,7 +50,10 @@ vi.mock('../hooks/useNodeClick', () => ({
     default: () => vi.fn(),
 }));
 
-vi.mock('../../cluster-element-editor/utils/clusterElementsUtils', () => ({
+// Only the icon extractor is stubbed: the handle geometry helpers are the thing under test in the
+// box-mode block below, so they have to be the real ones.
+vi.mock('../../cluster-element-editor/utils/clusterElementsUtils', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../cluster-element-editor/utils/clusterElementsUtils')>()),
     extractClusterElementIcons: () => [],
 }));
 
@@ -75,12 +82,16 @@ vi.mock('../stores/useWorkflowDataStore', () => ({
 vi.mock('../stores/useWorkflowEditorStore', () => ({
     default: (selector: (state: Record<string, unknown>) => unknown) =>
         selector({
+            clusterRootComponentDefinitions: workflowEditorStoreState.clusterRootComponentDefinitions,
             copiedNode: undefined,
             copiedWorkflowId: undefined,
             renamingNodeName: undefined,
+            setClusterElementsCanvasOpen: vi.fn(),
+            setClusterFrameLocked: vi.fn(),
             setCopiedNode: vi.fn(),
             setCopiedWorkflowId: vi.fn(),
             setRenamingNodeName: vi.fn(),
+            setRootClusterElementNodeData: vi.fn(),
         }),
 }));
 
@@ -112,9 +123,11 @@ function renderNode(data: NodeDataType = AI_AGENT_DATA) {
 
     return render(
         <QueryClientProvider client={queryClient}>
-            <ReactFlowProvider>
-                <AiAgentNode data={data} id="aiAgent_1" />
-            </ReactFlowProvider>
+            <TooltipProvider>
+                <ReactFlowProvider>
+                    <AiAgentNode data={data} id="aiAgent_1" />
+                </ReactFlowProvider>
+            </TooltipProvider>
         </QueryClientProvider>
     );
 }
@@ -126,6 +139,7 @@ function nodeClassName(container: HTMLElement) {
 describe('AiAgentNode', () => {
     beforeEach(() => {
         workflowDataStoreState.definition = '{"tasks": []}';
+        workflowEditorStoreState.clusterRootComponentDefinitions = {};
     });
 
     it('renders muted when the agent task carries its own disabled flag', () => {
@@ -156,5 +170,51 @@ describe('AiAgentNode', () => {
         expect(nodeClassName(container)).toContain('opacity-50');
         expect(nodeClassName(container)).toContain('grayscale');
         expect(screen.queryByTitle(DISABLED_BADGE_TITLE)).not.toBeInTheDocument();
+    });
+});
+
+// Every cluster edge anchors to `<elementType>-handle` on the root, and React Flow drops an edge
+// whose named handle does not exist. On the main canvas a cluster root is an AiAgentNode, not a
+// WorkflowNode, so without these the box painted its elements and placeholders with nothing joining
+// them to the root.
+describe('AiAgentNode cluster element handles in box mode', () => {
+    beforeEach(() => {
+        workflowDataStoreState.definition = '{"tasks": []}';
+        workflowEditorStoreState.clusterRootComponentDefinitions = {
+            aiAgent_1: {
+                clusterElementTypes: [
+                    {label: 'Model', multipleElements: false, name: 'MODEL'},
+                    {label: 'Tools', multipleElements: true, name: 'TOOLS'},
+                ],
+                name: 'aiAgent',
+                version: 1,
+            },
+        };
+    });
+
+    function handleIds(container: HTMLElement) {
+        return Array.from(container.querySelectorAll('[data-handleid]')).map((handle) =>
+            handle.getAttribute('data-handleid')
+        );
+    }
+
+    it('renders one source handle per declared cluster element type when the node is a box', () => {
+        const {container} = renderNode({
+            ...AI_AGENT_DATA,
+            clusterFrame: {
+                clusterRootId: 'aiAgent_1',
+                contentOrigin: {x: 0, y: 40},
+                height: 320,
+                width: 640,
+            },
+        } as unknown as NodeDataType);
+
+        expect(handleIds(container)).toEqual(expect.arrayContaining(['model-handle', 'tools-handle']));
+    });
+
+    it('renders no cluster element handles when the node is not a box', () => {
+        const {container} = renderNode();
+
+        expect(handleIds(container)).not.toEqual(expect.arrayContaining(['model-handle']));
     });
 });

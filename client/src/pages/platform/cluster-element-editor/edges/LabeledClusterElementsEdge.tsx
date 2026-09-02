@@ -25,6 +25,10 @@ export default function LabeledClusterElementsEdge({
         }))
     );
 
+    // This edge type is registered on BOTH canvases now: the dialog's, whose nodes live in
+    // useClusterElementsDataStore, and the main one in box mode, whose nodes live in
+    // useWorkflowDataStore. Only one of the two ever holds the target, so looking in both is what
+    // lets the same component label an edge on either.
     const nodes = useMemo(
         () => [...clusterElementsCanvasNodes, ...workflowCanvasNodes],
         [clusterElementsCanvasNodes, workflowCanvasNodes]
