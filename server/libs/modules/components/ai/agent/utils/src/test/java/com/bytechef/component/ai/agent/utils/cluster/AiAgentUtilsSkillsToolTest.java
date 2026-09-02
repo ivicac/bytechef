@@ -25,9 +25,9 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.utils.test.util.AiAgentUtilsTestUtils;
 import com.bytechef.component.definition.Parameters;
-import com.bytechef.component.script.engine.PolyglotEngine;
 import com.bytechef.platform.ai.skill.facade.AiSkillFacade;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
+import com.bytechef.platform.component.runner.PolyglotEngine;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
