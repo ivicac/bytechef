@@ -77,46 +77,20 @@ const WorkflowNodesPopoverMenuOperationList = ({
         }))
     );
 
-    const {clusterRootComponentDefinitions, rootClusterElementNodeData, setRootClusterElementNodeData} =
-        useWorkflowEditorStore(
-            useShallow((state) => ({
-                clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
-                rootClusterElementNodeData: state.rootClusterElementNodeData,
-                setRootClusterElementNodeData: state.setRootClusterElementNodeData,
-            }))
-        );
-
-    const mainClusterRootNodeData = useMemo(() => {
-        const sourceNode = nodes.find((node) => node.id === sourceNodeId);
-
-        if (!sourceNode) {
-            return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
-                ? rootClusterElementNodeData
-                : undefined;
-        }
-
-        const sourceNodeData = sourceNode.data as NodeDataType;
-        const mainClusterRootId = resolveClusterRootId(sourceNodeData);
-
-        if (!mainClusterRootId) {
-            return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
-                ? rootClusterElementNodeData
-                : undefined;
-        }
-
-        const mainClusterRootNode = nodes.find((node) => node.id === mainClusterRootId);
-
-        if (mainClusterRootNode) {
-            return mainClusterRootNode.data as NodeDataType;
-        }
-
-        return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
-            ? rootClusterElementNodeData
-            : undefined;
-    }, [nodes, rootClusterElementNodeData, sourceNodeId]);
-
-    const mainClusterRootComponentDefinition =
-        clusterRootComponentDefinitions[mainClusterRootNodeData?.workflowNodeName ?? ''];
+    const {
+        clusterElementsCanvasOpen,
+        mainClusterRootComponentDefinition,
+        rootClusterElementNodeData,
+        setRootClusterElementNodeData,
+    } = useWorkflowEditorStore(
+        useShallow((state) => ({
+            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
+            mainClusterRootComponentDefinition:
+                state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
+            rootClusterElementNodeData: state.rootClusterElementNodeData,
+            setRootClusterElementNodeData: state.setRootClusterElementNodeData,
+        }))
+    );
     const {currentNode, setCurrentNode, setWorkflowNodeDetailsPanelOpen, workflowNodeDetailsPanelOpen} =
         useWorkflowNodeDetailsPanelStore(
             useShallow((state) => ({

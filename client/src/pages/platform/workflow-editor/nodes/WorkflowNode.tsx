@@ -628,6 +628,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const {
+        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         copiedNode,
         copiedWorkflowId,
@@ -640,6 +641,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         setRootClusterElementNodeData,
     } = useWorkflowEditorStore(
         useShallow((state) => ({
+            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
             clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
             copiedNode: state.copiedNode,
             copiedWorkflowId: state.copiedWorkflowId,
@@ -718,10 +720,15 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const filteredClusterElementTypes = useMemo(() => {
-        if (!(isMainRootClusterElement || isNestedClusterRoot)) {
+        if (!clusterElementsCanvasOpen || !(isMainRootClusterElement || isNestedClusterRoot)) {
             return [];
         }
 
+        // A cluster root nested two levels down (a tool that is itself a cluster root, containing
+        // its own cluster-root element) recurses with clusterRootId: element.name in
+        // createClusterElementsNodes, so it is never a key in clusterRootComponentDefinitions --
+        // only the dialog's own open root and top-level roots are. nestedClusterRootsComponentDefinitions
+        // is keyed by component name instead and covers every depth, so it is checked first.
         const rootDefinition =
             nestedClusterRootsComponentDefinitions[data.componentName] ??
             clusterRootComponentDefinitions[(data.parentClusterRootId as string) ?? data.workflowNodeName];
@@ -737,6 +744,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             operationName: data.operationName,
         });
     }, [
+        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         isMainRootClusterElement,
         isNestedClusterRoot,

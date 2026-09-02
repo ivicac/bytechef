@@ -34,6 +34,7 @@ export default function useAiAgentEditor({
         }))
     );
 
+    // Seed the root's entry in clusterRootComponentDefinitions so saveClusterElementToWorkflow does
     // not early-return when a tool or model is added from the simple AI Agent
     // editor, where useClusterElementsLayout (the canvas hook that otherwise sets
     // this) does not run.

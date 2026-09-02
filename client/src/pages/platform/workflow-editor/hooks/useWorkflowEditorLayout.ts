@@ -32,6 +32,11 @@ const useWorkflowEditorLayout = () => {
                 seededRootNodeNameRef.current = undefined;
 
                 setRootClusterElementNodeData(undefined);
+
+                // clusterRootComponentDefinitions is not reset here: it is keyed by root workflow node
+                // name now, so a stale entry from one root can never bleed into another the way the old
+                // singular slot could -- reopening the same root just reuses its already-fetched
+                // definition instead of re-fetching it.
                 setNestedClusterRootsComponentDefinitions({});
             }
         },
