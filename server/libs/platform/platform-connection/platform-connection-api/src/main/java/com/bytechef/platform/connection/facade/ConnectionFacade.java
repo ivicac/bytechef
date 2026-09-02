@@ -66,6 +66,8 @@ public interface ConnectionFacade {
 
     void update(long id, String name, List<Tag> tags, int version);
 
+    void update(long id, String name, List<Tag> tags, @Nullable Boolean shared, int version);
+
     /**
      * Replaces a connection's authorization parameters <strong>wholesale</strong> and marks its credentials
      * {@link Connection.CredentialStatus#VALID} again, keeping the connection's id — and therefore every wiring that
