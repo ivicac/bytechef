@@ -133,6 +133,34 @@ describe('layoutClusterFrames', () => {
         );
     });
 
+    // The card widens with its element types (calculateNodeWidth), and the root's data does not say
+    // how many there are when the pre-pass runs -- so the count is read off the members, one per
+    // type. Reserving the card any narrower left a five-type agent's card past the box's right border.
+    it('reserves the card at the width its element types give it', () => {
+        const typeNames = ['model', 'memory', 'rag', 'guardrails', 'tools'];
+        const placeholderNodes: Node[] = typeNames.map((typeName, index) => ({
+            data: {clusterElementType: typeName, label: '+'},
+            id: `${ROOT_ID}-${typeName}-placeholder-0`,
+            parentId: ROOT_ID,
+            position: {x: 40 * index, y: 140},
+            type: 'placeholder',
+        }));
+
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {[ROOT_ID]: placeholderNodes},
+            },
+            {}
+        );
+
+        const clusterFrame = result.outerNodes[0].data.clusterFrame as {width: number};
+
+        expect(clusterFrame.width).toBe(calculateNodeWidth(typeNames.length) + 2 * CLUSTER_FRAME_PADDING);
+    });
+
     // A saved position left of the root card is routine, not exotic — the placer computes a leftmost
     // child's x as `handleX - CLUSTER_ELEMENT_NODE_WIDTH / 2` and `saveClusterElementNodesPosition`
     // writes those values back. Without a content origin such a member renders outside the border,
@@ -195,6 +223,32 @@ describe('layoutClusterFrames', () => {
 
         expect(placedNestedMember.parentId).toBe('sub_agent_1');
         expect(placedNestedMember.position).toEqual({x: 10, y: 150});
+    });
+
+    it('keeps only direct members inside the frame, leaving nested members free of the frame extent', () => {
+        const result = layoutClusterFrames(
+            [buildRootNode()],
+            [],
+            {
+                edgesByRootId: {[ROOT_ID]: []},
+                nodesByRootId: {
+                    [ROOT_ID]: [
+                        buildElementNode('sub_agent_1', {x: 100, y: 200}),
+                        buildElementNode('nested_model_1', {x: -8, y: 150}, 'sub_agent_1'),
+                    ],
+                },
+            },
+            {}
+        );
+
+        const placedNestedRoot = result.memberNodes.find((node) => node.id === 'sub_agent_1')!;
+        const placedNestedMember = result.memberNodes.find((node) => node.id === 'nested_model_1')!;
+
+        expect(placedNestedRoot.extent).toEqual([
+            [0, CLUSTER_FRAME_HEADER_HEIGHT],
+            [Infinity, Infinity],
+        ]);
+        expect(placedNestedMember.extent).toBeUndefined();
     });
 
     // A nested member sits inside the box too, so the frame has to contain it even though its own
