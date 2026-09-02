@@ -354,6 +354,10 @@ public abstract class AbstractAiAgentChatAction {
             clusterElement.getClusterElementName());
 
         try {
+            // The FIVE-argument form, deliberately. ChatMemoryFunction is widened by a default method rather than by
+            // changing its SAM, and Java resolves overloads by arity — a four-argument call here would bind to the
+            // abstract method and never reach an override of the context-carrying form, leaving a vector-store-backed
+            // memory with no owner to resolve.
             return chatMemoryFunction.apply(
                 ParametersFactory.create(clusterElement.getParameters()),
                 getConnectionParameters(componentConnections, clusterElement),
@@ -1184,7 +1188,7 @@ public abstract class AbstractAiAgentChatAction {
             return ragFunction.apply(
                 ParametersFactory.create(clusterElement.getParameters()),
                 getConnectionParameters(componentConnections, clusterElement),
-                ParametersFactory.create(clusterElement.getExtensions()), componentConnections);
+                ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context);
         } catch (Exception e) {
             throw clusterElementInitializationException(clusterElement, "RAG", e, context);
         }
