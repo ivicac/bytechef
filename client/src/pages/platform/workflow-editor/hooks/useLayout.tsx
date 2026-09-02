@@ -387,10 +387,14 @@ export default function useLayout({
     // that construction here just to get ids the effect could derive on its own. A task counts as a
     // box candidate once it carries a clusterElements object; layoutClusterFrames is what actually
     // decides whether a candidate has any elements to box up.
+    // Keyed on the server-computed `clusterRoot` flag -- the same one that types the node below --
+    // and NOT on `clusterElements` being present: a task dispatcher's DTO carries that field too
+    // (an empty object is truthy), so a Condition added after a box was treated as a root and had
+    // its component definition fetched, which no task dispatcher has.
     const boxModeClusterRootIds = useMemo(
         () =>
             clusterElementsViewMode === 'box'
-                ? (tasks ?? []).filter((task) => task.clusterElements).map((task) => task.name)
+                ? (tasks ?? []).filter((task) => task.clusterRoot).map((task) => task.name)
                 : [],
         [clusterElementsViewMode, tasks]
     );
