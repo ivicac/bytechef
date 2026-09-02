@@ -168,7 +168,7 @@ public class DataTableServiceImpl implements DataTableService {
         long dataTableId = register(baseName, description, platformType, owner.orElse(null));
 
         dataTableAuditPublisher.publish(
-            DataTableAuditEvent.DATA_TABLE_CREATED, dataTableId, Map.of("name", baseName));
+            DataTableAuditEvent.DATA_TABLE_CREATED, dataTableId, Map.of("name", dataTableRef.baseName()));
     }
 
     /**
@@ -318,17 +318,20 @@ public class DataTableServiceImpl implements DataTableService {
     @Override
     @Transactional(readOnly = true)
     public Optional<DataTable> fetchDataTable(String baseName, PlatformType platformType, Optional<Owner> owner) {
+        String normalizedBaseName = normalizeBaseName(baseName);
+
         if (owner.isPresent()) {
             Owner curOwner = owner.get();
 
-            Optional<DataTable> ownedDataTable = findOwnedDataTable(baseName, platformType, curOwner);
+            Optional<DataTable> ownedDataTable = findOwnedDataTable(normalizedBaseName, platformType, curOwner);
 
             if (ownedDataTable.isPresent()) {
                 return ownedDataTable;
             }
         }
 
-        return dataTableRepository.findByNameAndPlatformTypeAndOwnerIdIsNull(baseName, platformType.ordinal());
+        return dataTableRepository.findByNameAndPlatformTypeAndOwnerIdIsNull(
+            normalizedBaseName, platformType.ordinal());
     }
 
     /**
@@ -817,7 +820,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         jdbcTemplate.execute(sql);
 
-        dataTable.setName(toBaseName);
+        dataTable.setName(toDataTableRef.baseName());
 
         dataTableRepository.save(dataTable);
     }
@@ -908,18 +911,21 @@ public class DataTableServiceImpl implements DataTableService {
 
         Assert.hasText(baseName, "baseName required");
 
+        String normalizedBaseName = normalizeBaseName(baseName);
+
         // Exact, never the owned-wins-shared-fallback lookup: registering an account's "orders" must not find the
         // vendor's row of that name and conclude the table is already registered.
         Optional<DataTable> existingDataTable = owner == null
-            ? dataTableRepository.findByNameAndPlatformTypeAndOwnerIdIsNull(baseName, platformType.ordinal())
-            : findOwnedDataTable(baseName, platformType, owner);
+            ? dataTableRepository.findByNameAndPlatformTypeAndOwnerIdIsNull(
+                normalizedBaseName, platformType.ordinal())
+            : findOwnedDataTable(normalizedBaseName, platformType, owner);
 
         return existingDataTable
             .map(DataTable::getId)
             .orElseGet(() -> {
                 DataTable dataTable = new DataTable();
 
-                dataTable.setName(baseName);
+                dataTable.setName(normalizedBaseName);
                 dataTable.setDescription(description);
                 dataTable.setPlatformType(platformType);
 
@@ -1046,6 +1052,10 @@ public class DataTableServiceImpl implements DataTableService {
      * coupling between this rule and the physical-naming scheme: a base name can never start with a digit, which is the
      * only reason an owned physical name cannot collide with a shared one.
      */
+    private static String normalizeBaseName(String baseName) {
+        return baseName.toLowerCase(Locale.ROOT);
+    }
+
     static void validateBaseName(String baseName) {
         Assert.hasText(baseName, "baseName must not be empty");
 
