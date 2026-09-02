@@ -21,8 +21,18 @@ export interface GraphMemberCanvasStateI {
 }
 
 function getMemberSize(node: Node): {height: number; width: number} {
-    // `measured` is what React Flow reports once the node is on screen; `width`/`height` cover the
-    // nodes the layout sizes itself, and the nominal size is the last resort for one with neither.
+    // A pre-pass box outranks the DOM. `measured` is what React Flow reports once the node is on
+    // screen, which for a cluster root in box mode is the small card it painted before the box was
+    // sized — measuring that would size the graph frame to the card and only correct itself on some
+    // later layout. The DOM fallback is for nodes nobody has sized, not an override for ones that
+    // have been.
+    const nodeData = node.data as NodeDataType;
+    const preComputedBox = nodeData.clusterFrame ?? nodeData.graphFrame;
+
+    if (preComputedBox) {
+        return {height: preComputedBox.height, width: preComputedBox.width};
+    }
+
     return {
         height: node.measured?.height ?? node.height ?? GRAPH_MEMBER_NOMINAL_SIZE.height,
         width: node.measured?.width ?? node.width ?? GRAPH_MEMBER_NOMINAL_SIZE.width,

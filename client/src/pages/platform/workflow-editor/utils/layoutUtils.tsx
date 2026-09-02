@@ -211,6 +211,15 @@ export function getDagreNodeSize(node: Node, direction: LayoutDirectionType): {h
         return {height: graphFrame.height, width: graphFrame.width};
     }
 
+    // A cluster root in box mode is handed to the engine as a sized leaf for the same reason a graph
+    // frame is: the pre-pass has already placed its elements and computed the box they need, and the
+    // elements themselves are stripped from the arrays the engine sees.
+    const clusterFrame = (node.data as NodeDataType)?.clusterFrame;
+
+    if (clusterFrame) {
+        return {height: clusterFrame.height, width: clusterFrame.width};
+    }
+
     const height = calculateNodeHeight(node);
 
     // Triggers render as a ~72px icon box; reserving the full task footprint
