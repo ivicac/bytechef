@@ -64,8 +64,12 @@ public class ScriptJavaScriptAction {
                 .languageId("javascript")
                 .defaultValue(
                     """
-                        function perform(input, context) {
-                            // input holds the values declared above under Input.
+                        function perform(input, connection, context) {
+                            // input holds the values defined in the Input panel (top right of this editor).
+                            //
+                            // connection holds the parameters of each connection defined in the
+                            // Connections panel (bottom right of this editor), keyed by its name:
+                            // const token = connection["my-connection"].token;
                             //
                             // Reach another component's action through the context:
                             // const response = context.component.httpClient.get(
@@ -73,7 +77,8 @@ public class ScriptJavaScriptAction {
 
                             return null;
                         }""")
-                .required(true));
+                .required(true)
+                .expressionEnabled(false));
         properties.add(
             TaskRunnerPropertyFactory.taskRunnerProperty(
                 taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)));

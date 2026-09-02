@@ -1192,8 +1192,74 @@ class SpelEvaluatorTest {
     void testRootFormulaYieldsTheWholeContext() {
         Map<String, ?> context = Map.of("my-task1", Map.of("value", 3), "input", Map.of("a", 1));
 
+        // Code workflow tasks are handed the whole job context through this formula: a task name is free-form there,
+        // and a hyphen makes it unreachable as a ${...} accessor, so there is no per-name expression to generate.
         Map<String, ?> result = EVALUATOR.evaluate(Map.of("input", "=#root"), context);
 
         assertEquals(context, result.get("input"));
+    }
+
+    /**
+     * The three rows of the script-source bug table, pinned here rather than with the component: this is the
+     * evaluator's behaviour, not the component's, and it is reached by any parameter whose value is source text rather
+     * than an expression - a JavaScript template literal, a POSIX shell parameter expansion, any future template
+     * language.
+     *
+     * <p>
+     * Nothing here is a bug in this class, and none of it is fixed here. {@code ${...}} is the accessor syntax by
+     * design, and the evaluator cannot tell source text from an expression - it never sees the property. These tests
+     * exist so the failure modes are recorded at their origin, and so a change to {@code INVALID_ACCESSOR_PATTERN} or
+     * to the strictness of the execution path shows up as a change to them. The fix lives in
+     * {@code DeferredEvaluationParameterKeys}, which keeps such a parameter away from this class entirely.
+     */
+    @Test
+    public void testTemplateLiteralWithABarePathIsSilentlySubstituted() {
+        Map<String, Object> map = EVALUATOR.evaluate(
+            Map.of("script", "return `Hi ${name}`;"), Map.of("name", "Ada"));
+
+        assertEquals("return `Hi Ada`;", MapUtils.get(map, "script"));
+    }
+
+    @Test
+    public void testTemplateLiteralWithABarePathSurvivesWhenTheContextHasNoSuchName() {
+        Map<String, Object> map = EVALUATOR.evaluate(
+            Map.of("script", "return `Hi ${name}`;"), Collections.emptyMap());
+
+        assertEquals(
+            "return `Hi ${name}`;", MapUtils.get(map, "script"),
+            "the substitution is data dependent, which is what makes it silent");
+    }
+
+    @Test
+    public void testTemplateLiteralWithArithmeticFailsTheWholeMap() {
+        ExpressionEvaluationException exception = assertThrowsExactly(
+            ExpressionEvaluationException.class,
+            () -> EVALUATOR.evaluate(Map.of("script", "return `Total: ${a + b}`;"), Map.of("a", 1, "b", 2)));
+
+        String message = exception.getMessage();
+
+        assertTrue(message.startsWith("Invalid expression:"));
+        assertFalse(message.contains("script"), "the message names neither the property nor the component");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "return `${x ? y : z}`;", "return `${fn()}`;", "return `${obj.m()}`;"
+    })
+    public void testTemplateLiteralWithAnExpressionFailsTheWholeMap(String script) {
+        assertThrowsExactly(
+            ExpressionEvaluationException.class,
+            () -> EVALUATOR.evaluate(Map.of("script", script), Map.of("x", true)));
+    }
+
+    @Test
+    void testRemoveFromMapLeavesTheSourceMapUnchanged() {
+        Map<String, Object> sourceMap = new HashMap<>(Map.of("amount", 10, "currency", "EUR"));
+
+        Map<String, Object> map = EVALUATOR.evaluate(
+            Map.of("result", "=remove(${action_1}, 'amount')"), Map.of("action_1", sourceMap));
+
+        assertEquals(Map.of("currency", "EUR"), map.get("result"));
+        assertEquals(Map.of("amount", 10, "currency", "EUR"), sourceMap);
     }
 }
