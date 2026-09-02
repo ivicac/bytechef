@@ -14,6 +14,10 @@
         below is therefore guarded and marks itself ran rather than failing on what is already there. One changeset per
         object, not one guard over three: a half-applied earlier run must be able to finish, and a single guard reading
         only the first column would skip the other two.
+
+        Each one therefore also declares an empty <rollback/>. A changeset marked ran without having applied its
+        change must never have its inverse run: with no rollback declared Liquibase generates one (dropColumn,
+        dropIndex) and a rollback would drop an object this changeset never created.
     -->
     <changeSet id="20260901000002-1" author="Ivica Cardic">
         <preConditions onFail="MARK_RAN">
@@ -25,6 +29,8 @@
         <addColumn tableName="data_table_webhook">
             <column name="owner_id" type="BIGINT"/>
         </addColumn>
+
+        <rollback/>
     </changeSet>
 
     <changeSet id="20260901000002-2" author="Ivica Cardic">
@@ -37,6 +43,8 @@
         <addColumn tableName="data_table_webhook">
             <column name="owner_type" type="INT"/>
         </addColumn>
+
+        <rollback/>
     </changeSet>
 
     <changeSet id="20260901000002-3" author="Ivica Cardic">
@@ -50,5 +58,7 @@
             <column name="owner_type"/>
             <column name="owner_id"/>
         </createIndex>
+
+        <rollback/>
     </changeSet>
 </databaseChangeLog>
