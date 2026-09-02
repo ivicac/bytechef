@@ -251,7 +251,7 @@ describe('useWorkflowEditorCanvas cluster element dragging, nested a level deepe
             id: NESTED_ELEMENT_ID,
             measured: {height: 60, width: 200},
             parentId: NESTED_ROOT_ID,
-            position: toClusterFrameChildPosition(elementContentPosition),
+            position: elementContentPosition,
             type: 'workflow',
         };
     }
@@ -293,13 +293,19 @@ describe('useWorkflowEditorCanvas cluster element dragging, nested a level deepe
         act(() => {
             result.current.handleNodeDragStop({} as MouseEvent, {
                 ...findNode(NESTED_ELEMENT_ID),
-                position: toClusterFrameChildPosition({x: 220, y: 140}),
+                position: {x: 220, y: 180},
             });
         });
 
         // A save keyed on the immediate parent (`agenticTool_1`) would have found no such task at the
         // top level of the definition and saved nothing at all.
         expect(updateWorkflowMutationMock.mutate).toHaveBeenCalledTimes(1);
-        expect(getSavedNestedElementPosition()).toEqual({x: 220, y: 140});
+
+        // Persisted RAW. A nested element's React Flow parent is the nested root, not the box, so its
+        // live position is already measured from the same origin `metadata.ui.nodePosition` stores it
+        // in. Subtracting the box's content origin here — as this drag branch used to do for every
+        // element regardless of depth — writes back a position shifted by the header band, which the
+        // dialog then reads as the user's own layout.
+        expect(getSavedNestedElementPosition()).toEqual({x: 220, y: 180});
     });
 });
