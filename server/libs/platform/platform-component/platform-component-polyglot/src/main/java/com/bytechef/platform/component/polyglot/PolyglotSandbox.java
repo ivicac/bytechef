@@ -24,6 +24,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
@@ -77,6 +84,36 @@ public final class PolyglotSandbox {
 
     private static final Object GUEST_EXECUTOR_LOCK = new Object();
 
+    /**
+     * Schedules the cancellation of guest executions that outlive their wall-clock timeout.
+     *
+     * <p>
+     * Built as a {@link ScheduledThreadPoolExecutor} directly rather than through {@link Executors}, because only the
+     * concrete type exposes {@link ScheduledThreadPoolExecutor#setRemoveOnCancelPolicy}. Without it, a task cancelled
+     * before it runs - the common case, since most timed executions finish well inside their timeout - stays queued for
+     * the remainder of the delay anyway, pinning its already-closed {@link Context} (captured by the cancelled lambda)
+     * in memory for no reason; retention would then scale with throughput times timeout, entirely from executions that
+     * succeeded promptly. One thread: scheduling is cheap, and the actual cancellation work runs on
+     * {@link #WATCHDOG_CLOSE_EXECUTOR} instead of here.
+     */
+    private static final ScheduledExecutorService WATCHDOG_SCHEDULER = newWatchdogScheduler();
+
+    /**
+     * Performs the blocking {@link Context#close(boolean)} call a scheduled watchdog task requests.
+     *
+     * <p>
+     * {@code close(true)}'s javadoc warns a thread may not be interruptible if it "executes non-interruptible host
+     * code" - and {@link ScriptSandboxMode#TRUSTED} is exactly the mode where guest code can block in host code (a JDBC
+     * round-trip, a socket read, {@code Thread.sleep}), because {@code allowAllAccess(true)} grants IO, native access
+     * and process creation. If the close ran on {@link #WATCHDOG_SCHEDULER} itself, one such blocked close would stall
+     * every other pending watchdog task process-wide - disabling the timeout, TRUSTED's only safety net, for every
+     * other concurrent trusted execution, which typically run inline on the caller's virtual thread (see
+     * {@link #requiresGuestThread}) and so can be many at once. An unbounded cached pool keeps one blocked close from
+     * blocking any other.
+     */
+    private static final ExecutorService WATCHDOG_CLOSE_EXECUTOR = Executors.newCachedThreadPool(
+        newDaemonThreadFactory("polyglot-sandbox-watchdog-close"));
+
     private static volatile PolyglotSandboxSettings settings = PolyglotSandboxSettings.defaults();
 
     @Nullable
@@ -108,8 +145,34 @@ public final class PolyglotSandbox {
     }
 
     /**
-     * Runs the given function against a strictly sandboxed {@link Context}, on a thread the sandbox's resource ceilings
-     * can be measured on, and closes the context before returning.
+     * Runs the given function against a strictly sandboxed {@link Context}. Equivalent to
+     * {@link #call(ScriptSandboxMode, String, Function)} with {@link ScriptSandboxMode#STRICT}.
+     *
+     * @param languageId    the language id the context is permitted to evaluate
+     * @param guestFunction the guest execution
+     * @return whatever the function returned
+     */
+    public static <V> V call(String languageId, Function<Context, V> guestFunction) {
+        return call(ScriptSandboxMode.STRICT, languageId, guestFunction);
+    }
+
+    /**
+     * Runs the given function against a {@link Context} built for the given mode, with no wall-clock timeout.
+     * Equivalent to {@link #call(ScriptSandboxMode, String, Duration, Function)} with a null timeout.
+     *
+     * @param mode          how much the guest may reach outside itself
+     * @param languageId    the language id the context is permitted to evaluate
+     * @param guestFunction the guest execution
+     * @return whatever the function returned
+     */
+    public static <V> V call(ScriptSandboxMode mode, String languageId, Function<Context, V> guestFunction) {
+        return call(mode, languageId, null, guestFunction);
+    }
+
+    /**
+     * Runs the given function against a {@link Context} built for the given mode, on a thread the sandbox's resource
+     * ceilings can be measured on, cancelling the execution if it outlives the timeout, and closes the context before
+     * returning.
      *
      * <p>
      * This is the only way to reach a guest context: the ceilings GraalVM applies are metered per thread, so a context
@@ -120,32 +183,64 @@ public final class PolyglotSandbox {
      * The value the function returns must not be backed by the guest context - convert guest values to host values (see
      * {@link PolyglotValues}) before returning them, or they are read after their context is closed.
      *
+     * <p>
+     * The timeout matters most under {@link ScriptSandboxMode#TRUSTED}, which carries no resource ceilings at all -
+     * {@code sandbox.*} options exist only under {@code CONSTRAINED} - so it is the only thing that can stop a runaway
+     * trusted script.
+     *
+     * @param mode          how much the guest may reach outside itself
      * @param languageId    the language id the context is permitted to evaluate
+     * @param timeout       the wall-clock ceiling, or null for none
      * @param guestFunction the guest execution
      * @return whatever the function returned
      */
-    public static <V> V call(String languageId, Function<Context, V> guestFunction) {
+    public static <V> V call(
+        ScriptSandboxMode mode, String languageId, @Nullable Duration timeout, Function<Context, V> guestFunction) {
+
         PolyglotSandboxSettings currentSettings = settings;
 
-        if (requiresGuestThread(currentSettings, languageId)) {
+        if (requiresGuestThread(currentSettings, mode, languageId)) {
             PolyglotGuestExecutor polyglotGuestExecutor = getGuestExecutor(currentSettings);
 
-            return polyglotGuestExecutor.call(() -> callInline(currentSettings, guestFunction, languageId));
+            return polyglotGuestExecutor.call(
+                () -> callInline(currentSettings, mode, timeout, guestFunction, languageId));
         }
 
-        return callInline(currentSettings, guestFunction, languageId);
+        return callInline(currentSettings, mode, timeout, guestFunction, languageId);
     }
 
     private static <V> V callInline(
-        PolyglotSandboxSettings currentSettings, Function<Context, V> guestFunction, String... permittedLanguages) {
+        PolyglotSandboxSettings currentSettings, ScriptSandboxMode mode, @Nullable Duration timeout,
+        Function<Context, V> guestFunction, String... permittedLanguages) {
 
-        try (Context context = newContext(currentSettings, permittedLanguages)) {
-            return guestFunction.apply(context);
+        try (Context context = newContext(currentSettings, mode, permittedLanguages)) {
+            if (timeout == null) {
+                return guestFunction.apply(context);
+            }
+
+            // close(true) cancels whatever the context is executing. Scheduled rather than joined, so the guest keeps
+            // running on this thread and the watchdog fires only if it overstays. The close itself is handed off to
+            // WATCHDOG_CLOSE_EXECUTOR rather than run on WATCHDOG_SCHEDULER - see that field's javadoc for why.
+            ScheduledFuture<?> watchdogFuture = WATCHDOG_SCHEDULER.schedule(
+                () -> WATCHDOG_CLOSE_EXECUTOR.execute(() -> context.close(true)), timeout.toMillis(),
+                TimeUnit.MILLISECONDS);
+
+            try {
+                return guestFunction.apply(context);
+            } finally {
+                watchdogFuture.cancel(false);
+            }
         }
     }
 
-    private static Context newContext(PolyglotSandboxSettings currentSettings, String... permittedLanguages) {
-        boolean constrained = isConstrained(currentSettings, permittedLanguages);
+    private static Context newContext(
+        PolyglotSandboxSettings currentSettings, ScriptSandboxMode mode, String... permittedLanguages) {
+
+        if (mode == ScriptSandboxMode.TRUSTED) {
+            return newTrustedContext(permittedLanguages);
+        }
+
+        boolean constrained = isConstrained(currentSettings, mode, permittedLanguages);
 
         // User-supplied scripts (Script component, Script Tool, and SkillsTool scripts) are evaluated here, so the
         // guest context is pinned to a no-host, no-IO sandbox. The script still interacts with the platform solely
@@ -179,6 +274,20 @@ public final class PolyglotSandbox {
         return builder.build();
     }
 
+    /**
+     * A context with every restriction lifted. This method - and {@code call(TRUSTED, ...)} above it - enforces no
+     * precondition on who may request it; this class has no notion of "the operator enabled it" or "the workflow
+     * selected it". Gating which callers may pass {@link ScriptSandboxMode#TRUSTED} at all is the responsibility of
+     * code above this one, added in a later task. Nothing here is metered: {@code sandbox.*} options exist only under
+     * {@code CONSTRAINED}, so a trusted execution is bounded by the caller's wall-clock timeout instead.
+     */
+    private static Context newTrustedContext(String... permittedLanguages) {
+        return Context.newBuilder(permittedLanguages)
+            .engine(getEngine(false, permittedLanguages))
+            .allowAllAccess(true)
+            .build();
+    }
+
     private static void applySandboxPolicy(Context.Builder builder, PolyglotSandboxSettings currentSettings) {
         builder.sandbox(SandboxPolicy.CONSTRAINED)
             .in(new ByteArrayInputStream(new byte[0]))
@@ -207,7 +316,7 @@ public final class PolyglotSandbox {
      * invokes a polyglot custom component from queueing behind itself on a saturated pool.
      */
     private static boolean requiresGuestThread(
-        PolyglotSandboxSettings currentSettings, String... permittedLanguages) {
+        PolyglotSandboxSettings currentSettings, ScriptSandboxMode mode, String... permittedLanguages) {
 
         Thread currentThread = Thread.currentThread();
 
@@ -215,7 +324,7 @@ public final class PolyglotSandbox {
             return false;
         }
 
-        return isConstrained(currentSettings, permittedLanguages) && isThreadMetered(currentSettings);
+        return isConstrained(currentSettings, mode, permittedLanguages) && isThreadMetered(currentSettings);
     }
 
     private static boolean isThreadMetered(PolyglotSandboxSettings currentSettings) {
@@ -242,7 +351,15 @@ public final class PolyglotSandbox {
         }
     }
 
-    private static boolean isConstrained(PolyglotSandboxSettings currentSettings, String... permittedLanguages) {
+    private static boolean isConstrained(
+        PolyglotSandboxSettings currentSettings, ScriptSandboxMode mode, String... permittedLanguages) {
+
+        // A trusted context carries HostAccess.ALL, which the CONSTRAINED policy rejects outright, so the mode
+        // decides this before the settings get a say.
+        if (mode == ScriptSandboxMode.TRUSTED) {
+            return false;
+        }
+
         if (!currentSettings.enabled() || permittedLanguages.length == 0) {
             return false;
         }
@@ -290,6 +407,27 @@ public final class PolyglotSandbox {
                 log.info("[guest] {}", line);
             }
         });
+    }
+
+    private static ScheduledThreadPoolExecutor newWatchdogScheduler() {
+        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(
+            1, newDaemonThreadFactory("polyglot-sandbox-watchdog"));
+
+        // Without this, a cancelled-before-run task stays in the delay queue for the rest of its timeout instead
+        // of being dropped immediately - see the WATCHDOG_SCHEDULER javadoc.
+        scheduledThreadPoolExecutor.setRemoveOnCancelPolicy(true);
+
+        return scheduledThreadPoolExecutor;
+    }
+
+    private static ThreadFactory newDaemonThreadFactory(String threadName) {
+        return runnable -> {
+            Thread thread = new Thread(runnable, threadName);
+
+            thread.setDaemon(true);
+
+            return thread;
+        };
     }
 
     // RUBY-DISABLED: unused while Ruby is disabled; see the allowCreateThread call above.

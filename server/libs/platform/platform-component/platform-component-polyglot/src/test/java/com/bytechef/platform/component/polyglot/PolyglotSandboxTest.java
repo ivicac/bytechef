@@ -205,6 +205,71 @@ public class PolyglotSandboxTest {
         });
     }
 
+    @Test
+    public void testStrictModeDeniesHostClassLookup() {
+        assertThatThrownBy(
+            () -> PolyglotSandbox.call(
+                ScriptSandboxMode.STRICT, "js", context -> context.eval("js", "Java.type('java.lang.System')")))
+                    .isInstanceOf(PolyglotException.class);
+    }
+
+    @Test
+    public void testTrustedModeAllowsHostClassLookup() {
+        Value value = PolyglotSandbox.call(
+            ScriptSandboxMode.TRUSTED, "js", null,
+            context -> context.eval("js", "Java.type('java.lang.System').getProperty('java.version')"));
+
+        assertThat(value.asString()).isNotBlank();
+    }
+
+    @Test
+    public void testLegacyCallDefaultsToStrictMode() {
+        assertThatThrownBy(
+            () -> PolyglotSandbox.call("js", context -> context.eval("js", "Java.type('java.lang.System')")))
+                .isInstanceOf(PolyglotException.class);
+    }
+
+    @Test
+    public void testTrustedModeTimeoutCancelsRunawayScript() {
+        // Trusted contexts carry no resource ceiling at all - the CONSTRAINED policy is what provides one - so the
+        // wall-clock timeout is the ONLY thing that can stop a runaway trusted script. Without it an infinite loop
+        // pins a platform thread until the JVM dies.
+        assertThatThrownBy(
+            () -> PolyglotSandbox.call(
+                ScriptSandboxMode.TRUSTED, "js", Duration.ofSeconds(2),
+                context -> context.eval("js", "while (true) {}")))
+                    .isInstanceOf(PolyglotException.class)
+                    // The watchdog reaches the runaway execution through Context.close(true), so the exception
+                    // that surfaces must be the cancellation itself, not merely some PolyglotException.
+                    .matches(throwable -> ((PolyglotException) throwable).isCancelled(), "isCancelled");
+    }
+
+    @Test
+    public void testTrustedModeIgnoresResourceCeilings() {
+        PolyglotSandbox.setSettings(
+            new PolyglotSandboxSettings(
+                true, Duration.ofSeconds(1), PolyglotSandboxSettings.DEFAULT_MAX_HEAP_MEMORY,
+                PolyglotSandboxSettings.DEFAULT_MAX_CONCURRENT_EXECUTIONS));
+
+        String loopScript = "let total = 0; for (let i = 0; i < 20000000; i++) { total += i; } total";
+
+        // Graal.js OSR-compiles this loop after a few thousand iterations, so post-compile it runs in tens of
+        // milliseconds - fast enough that a trusted run finishing under the 1-second ceiling would be equally
+        // consistent with the ceiling having been silently applied and simply not reached. This STRICT control
+        // run of the identical script proves the ceiling is real: under CONSTRAINED it trips.
+        assertThatThrownBy(
+            () -> PolyglotSandbox.call(ScriptSandboxMode.STRICT, "js", context -> context.eval("js", loopScript)))
+                .isInstanceOf(PolyglotException.class)
+                .hasMessageContaining("CPU time limit");
+
+        // The CONSTRAINED policy is what carries sandbox.MaxCPUTime, so a trusted context has no ceiling at all.
+        // The sum is deterministic, so assert the exact value rather than merely that it ran to completion.
+        Value value = PolyglotSandbox.call(
+            ScriptSandboxMode.TRUSTED, "js", null, context -> context.eval("js", loopScript));
+
+        assertThat(value.asDouble()).isEqualTo(199999990000000.0);
+    }
+
     /**
      * Runs the supplier on a virtual thread and replays its outcome on the calling thread, so the assertions above read
      * the same either way.
