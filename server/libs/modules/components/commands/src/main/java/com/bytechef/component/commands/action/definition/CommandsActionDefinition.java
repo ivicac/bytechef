@@ -21,6 +21,7 @@ import static com.bytechef.component.commands.constant.CommandsConstants.WARN_ON
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.PROCESS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_EXIT_CODE;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDERR;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.RESULT_STDOUT;
@@ -56,9 +57,11 @@ import java.util.Set;
  * {@code graalvm}-shaped fallback to reach for. A workflow carrying no {@code taskRunner} map at all, or one whose type
  * was left empty, resolves the first enabled runner that declares {@link TaskRunnerCapability#COMMANDS} - the same rule
  * {@code TaskRunnerPropertyFactory} uses to pick the editor's default, so the two agree whenever at least one such
- * runner is enabled. When none is, that resolution yields {@code null} and {@link TaskRunnerRegistry#getTaskRunner}
- * throws {@link com.bytechef.platform.component.runner.TaskRunnerNotEnabledException}, whose message names the
- * configuration key an operator must set.
+ * runner is enabled. When none is, there is no type to name, so this definition fails with its own message naming a
+ * configuration key an operator can actually set, rather than handing {@code null} to
+ * {@link TaskRunnerRegistry#getTaskRunner} and getting a
+ * {@link com.bytechef.platform.component.runner.TaskRunnerNotEnabledException} that names
+ * {@code bytechef.script.runners.null.enabled}.
  *
  * <p>
  * The commands are read with {@code getRequiredList}, so a task with no {@code commands} parameter fails with a message
@@ -138,12 +141,20 @@ public class CommandsActionDefinition extends AbstractActionDefinitionWrapper {
      * Mirrors {@code TaskRunnerPropertyFactory}'s own default-selection rule so the runtime fallback and the editor's
      * default agree, without a {@code graalvm} literal to fall back to - GraalVM never declares
      * {@link TaskRunnerCapability#COMMANDS}, so it is never a candidate here by derivation rather than by exclusion.
+     *
+     * <p>
+     * With nothing to select, the failure has to be raised here: {@code null} is not a runner type, so
+     * {@code getTaskRunner(null)} would report {@code bytechef.script.runners.null.enabled=true} - a key that cannot be
+     * set. The message names the built-in commands-capable runner instead, which is a key an operator can act on.
      */
     private String defaultTaskRunnerType() {
         List<TaskRunner> taskRunners = taskRunnerRegistry.getTaskRunners(Set.of(TaskRunnerCapability.COMMANDS));
 
         if (taskRunners.isEmpty()) {
-            return null;
+            throw new IllegalStateException(
+                ("No enabled task runner can run commands. An operator must enable one with " +
+                    "bytechef.script.runners.<type>.enabled=true - for the built-in '%s' runner that is " +
+                    "bytechef.script.runners.%s.enabled=true.").formatted(PROCESS, PROCESS));
         }
 
         return taskRunners.getFirst()
