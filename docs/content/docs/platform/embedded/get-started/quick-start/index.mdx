@@ -181,10 +181,9 @@ See **[App Events](/platform/embedded/build/app-events)** for how to declare eve
 'use client';
 import {EmbeddedWorkflowBuilder} from '@bytechef/embedded';
 
-export function WorkflowEditor({jwtToken, workflowUuid, sharedConnectionIds}: {
+export function WorkflowEditor({jwtToken, workflowUuid}: {
     jwtToken: string;
     workflowUuid: string;
-    sharedConnectionIds: number[];
 }) {
     return (
         <div style={{height: '100vh', position: 'relative', width: '100%'}}>
@@ -193,7 +192,6 @@ export function WorkflowEditor({jwtToken, workflowUuid, sharedConnectionIds}: {
                 connectionDialogAllowed
                 environment="DEVELOPMENT"
                 jwtToken={jwtToken}
-                sharedConnectionIds={sharedConnectionIds}
                 workflowUuid={workflowUuid}
             />
         </div>
@@ -202,6 +200,8 @@ export function WorkflowEditor({jwtToken, workflowUuid, sharedConnectionIds}: {
 ```
 
 Pass `includeComponents={['slack', 'gmail', ...]}` to restrict the component palette to a specific set (omit it to allow all). The parent container must be positioned (`position: relative`) with a defined height because the builder fills it.
+
+To let every connected user reach a connection you own — a shared Slack app, a house API key — create it on the **Connections** page of your ByteChef embedded workspace and turn on **Shared Connection**. Sharing is per environment.
 
 You can also generate a starter workflow for a user from a natural-language prompt *(coming soon - depends on the AI Copilot, which is on the upcoming release track)* - `POST /api/embedded/v1/automation/workflows/generate` with `{ "prompt": "..." }` returns a new workflow UUID built by AI Copilot, which you can then open in the builder.
 
