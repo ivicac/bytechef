@@ -297,6 +297,33 @@ public class ConnectionServiceIntTest {
         Assertions.assertEquals("Shared production", sharedConnection.getName());
     }
 
+    @Test
+    void testUpdateTogglesShared() {
+        Connection savedConnection = connectionService.create(
+            embeddedConnection("House Slack", Environment.PRODUCTION, false));
+
+        Connection sharedConnection = connectionService.update(
+            savedConnection.getId(), "House Slack", List.of(), true, savedConnection.getVersion());
+
+        Assertions.assertTrue(sharedConnection.isShared());
+
+        Connection unsharedConnection = connectionService.update(
+            sharedConnection.getId(), "House Slack", List.of(), false, sharedConnection.getVersion());
+
+        Assertions.assertFalse(unsharedConnection.isShared());
+    }
+
+    @Test
+    void testFourArgUpdateLeavesSharedUnchanged() {
+        Connection savedConnection = connectionService.create(
+            embeddedConnection("House Slack", Environment.PRODUCTION, true));
+
+        Connection updatedConnection = connectionService.update(
+            savedConnection.getId(), "House Slack", List.of(), savedConnection.getVersion());
+
+        Assertions.assertTrue(updatedConnection.isShared());
+    }
+
     private static Connection automationConnection(String name, Environment environment, boolean shared) {
         Connection connection = new Connection();
 

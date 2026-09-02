@@ -5,6 +5,7 @@ import java.util.Objects;
 import com.bytechef.automation.configuration.web.rest.model.CategoryModel;
 import com.bytechef.automation.configuration.web.rest.model.ProjectStatusModel;
 import com.bytechef.automation.configuration.web.rest.model.TagModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -31,7 +32,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "Project", description = "A group of workflows that make one logical project.")
 @JsonTypeName("Project")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-17T21:39:45.646261+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-31T17:46:43.695798+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class ProjectModel {
 
   private @Nullable String createdBy;
@@ -102,10 +103,8 @@ public class ProjectModel {
 
   private @Nullable String codeWorkflowLanguage;
 
-  @Valid
   private List<Long> projectWorkflowIds = new ArrayList<>();
 
-  @Valid
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   private Long workspaceId;
