@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Application configuration properties. Contains all configurable properties for the platform, including AI, messaging,
@@ -216,6 +217,11 @@ public class ApplicationProperties {
      * Static resources configuration
      */
     private Resources resources = new Resources();
+
+    /**
+     * Script execution configuration: the guest polyglot sandbox and the task runner allowlist.
+     */
+    private Script script = new Script();
 
     /**
      * Security configuration
@@ -418,6 +424,10 @@ public class ApplicationProperties {
         return resources;
     }
 
+    public Script getScript() {
+        return script;
+    }
+
     public Security getSecurity() {
         return security;
     }
@@ -608,6 +618,10 @@ public class ApplicationProperties {
 
     public void setResources(Resources resources) {
         this.resources = resources;
+    }
+
+    public void setScript(Script script) {
+        this.script = script;
     }
 
     public void setSecurity(Security security) {
@@ -3832,6 +3846,72 @@ public class ApplicationProperties {
         }
     }
 
+    public static class Approval {
+
+        private SignedToken signedToken = new SignedToken();
+
+        public SignedToken getSignedToken() {
+            return signedToken;
+        }
+
+        public void setSignedToken(SignedToken signedToken) {
+            this.signedToken = signedToken;
+        }
+
+        public static class SignedToken {
+
+            private Duration clockSkew;
+
+            private Duration defaultTtl;
+
+            private List<String> previousSecrets = new ArrayList<>();
+
+            private boolean required;
+
+            private String secret;
+
+            public Duration getClockSkew() {
+                return clockSkew;
+            }
+
+            public Duration getDefaultTtl() {
+                return defaultTtl;
+            }
+
+            public List<String> getPreviousSecrets() {
+                return previousSecrets;
+            }
+
+            public String getSecret() {
+                return secret;
+            }
+
+            public boolean isRequired() {
+                return required;
+            }
+
+            public void setClockSkew(Duration clockSkew) {
+                this.clockSkew = clockSkew;
+            }
+
+            public void setDefaultTtl(Duration defaultTtl) {
+                this.defaultTtl = defaultTtl;
+            }
+
+            public void setPreviousSecrets(List<String> previousSecrets) {
+                this.previousSecrets = previousSecrets;
+            }
+
+            public void setRequired(boolean required) {
+                this.required = required;
+            }
+
+            public void setSecret(String secret) {
+                this.secret = secret;
+            }
+        }
+    }
+
     /**
      * Configuration of the default {@code @Async} executor, which carries mail, notifications and other background
      * work. Workflow task and trigger execution are bounded separately by the worker task properties.
@@ -6134,6 +6214,132 @@ public class ApplicationProperties {
 
         public void setWeb(String web) {
             this.web = web;
+        }
+    }
+
+    /**
+     * Script execution configuration.
+     */
+    public static class Script {
+
+        /**
+         * Guest polyglot sandbox configuration
+         */
+        private Sandbox sandbox = new Sandbox();
+
+        /**
+         * Task runner allowlist, keyed by runner type. A runner absent from this map is disabled.
+         */
+        private Map<String, Runner> runners = new HashMap<>();
+
+        public Map<String, Runner> getRunners() {
+            return runners;
+        }
+
+        public Sandbox getSandbox() {
+            return sandbox;
+        }
+
+        public void setRunners(Map<String, Runner> runners) {
+            this.runners = runners;
+        }
+
+        public void setSandbox(Sandbox sandbox) {
+            this.sandbox = sandbox;
+        }
+
+        /**
+         * Guest polyglot sandbox configuration. A null ceiling means unlimited and is left off the context builder
+         * entirely, rather than passed as zero, which GraalVM reads as "deny everything".
+         */
+        public static class Sandbox {
+
+            /**
+             * Whether guest contexts are built under a sandbox policy above TRUSTED at all; the kill switch
+             */
+            private boolean enabled = true;
+
+            /**
+             * The CPU time a single guest execution may consume, or null for unlimited
+             */
+            private Duration maxCpuTime = Duration.ofMinutes(5);
+
+            /**
+             * The heap a single guest execution may allocate, or null for unlimited
+             */
+            private DataSize maxHeapMemory = DataSize.ofBytes(512L * 1024 * 1024);
+
+            /**
+             * How many guest executions may hold a platform thread at once; further executions queue
+             */
+            private int maxConcurrentExecutions = Math.max(
+                16, Runtime.getRuntime()
+                    .availableProcessors() * 4);
+
+            public int getMaxConcurrentExecutions() {
+                return maxConcurrentExecutions;
+            }
+
+            public Duration getMaxCpuTime() {
+                return maxCpuTime;
+            }
+
+            public DataSize getMaxHeapMemory() {
+                return maxHeapMemory;
+            }
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public void setMaxConcurrentExecutions(int maxConcurrentExecutions) {
+                this.maxConcurrentExecutions = maxConcurrentExecutions;
+            }
+
+            public void setMaxCpuTime(Duration maxCpuTime) {
+                this.maxCpuTime = maxCpuTime;
+            }
+
+            public void setMaxHeapMemory(DataSize maxHeapMemory) {
+                this.maxHeapMemory = maxHeapMemory;
+            }
+        }
+
+        /**
+         * One task runner's operator configuration. Runner-specific settings live in the free-form properties map, so a
+         * runner defined outside this module needs no change here.
+         */
+        public static class Runner {
+
+            /**
+             * Whether workflows may select this runner
+             */
+            private boolean enabled;
+
+            /**
+             * Runner-specific operator settings, interpreted by that runner
+             */
+            private Map<String, String> properties = new HashMap<>();
+
+            public Map<String, String> getProperties() {
+                return properties;
+            }
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public void setProperties(Map<String, String> properties) {
+                this.properties = properties;
+            }
         }
     }
 
