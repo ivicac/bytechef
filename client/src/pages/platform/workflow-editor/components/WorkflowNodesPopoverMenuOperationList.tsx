@@ -77,20 +77,15 @@ const WorkflowNodesPopoverMenuOperationList = ({
         }))
     );
 
-    const {
-        clusterElementsCanvasOpen,
-        mainClusterRootComponentDefinition,
-        rootClusterElementNodeData,
-        setRootClusterElementNodeData,
-    } = useWorkflowEditorStore(
-        useShallow((state) => ({
-            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
-            mainClusterRootComponentDefinition:
-                state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
-            rootClusterElementNodeData: state.rootClusterElementNodeData,
-            setRootClusterElementNodeData: state.setRootClusterElementNodeData,
-        }))
-    );
+    const {mainClusterRootComponentDefinition, rootClusterElementNodeData, setRootClusterElementNodeData} =
+        useWorkflowEditorStore(
+            useShallow((state) => ({
+                mainClusterRootComponentDefinition:
+                    state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
+                rootClusterElementNodeData: state.rootClusterElementNodeData,
+                setRootClusterElementNodeData: state.setRootClusterElementNodeData,
+            }))
+        );
     const {currentNode, setCurrentNode, setWorkflowNodeDetailsPanelOpen, workflowNodeDetailsPanelOpen} =
         useWorkflowNodeDetailsPanelStore(
             useShallow((state) => ({
@@ -125,29 +120,10 @@ const WorkflowNodesPopoverMenuOperationList = ({
         return matchingOperations?.filter((clusterElement) => !hiddenClusterElementNames.includes(clusterElement.name));
     }, [clusterElementType, clusterElements, hiddenClusterElementNames]);
 
-    const operations = useMemo(() => {
-        if (trigger) {
-            return triggers;
-        }
-
-        if (clusterElementType) {
-            return clusterElementOperations;
-        }
-
-        return actions;
-    }, [trigger, triggers, clusterElementType, clusterElementOperations, actions]);
-
-    const operationsHeading = useMemo(() => {
-        if (trigger) {
-            return 'Triggers';
-        }
-
-        if (clusterElementType) {
-            return getClusterElementsLabel(clusterElementType);
-        }
-
-        return 'Actions';
-    }, [trigger, clusterElementType]);
+    const operations = useMemo(
+        () => (trigger ? triggers : clusterElementType ? clusterElementOperations : actions),
+        [trigger, triggers, clusterElementType, clusterElementOperations, actions]
+    );
 
     const getNodeData = useCallback(
         (operation: ClickedOperationType, definition: ActionDefinition | TriggerDefinition) => {
@@ -470,7 +446,13 @@ const WorkflowNodesPopoverMenuOperationList = ({
                 <div className="flex w-full flex-col">
                     <h2 className="text-lg font-semibold">{title}</h2>
 
-                    <h3 className="text-sm text-muted-foreground">{operationsHeading}</h3>
+                    <h3 className="text-sm text-muted-foreground">
+                        {trigger
+                            ? 'Triggers'
+                            : clusterElementType
+                              ? getClusterElementsLabel(clusterElementType as string)
+                              : 'Actions'}
+                    </h3>
                 </div>
             </header>
 

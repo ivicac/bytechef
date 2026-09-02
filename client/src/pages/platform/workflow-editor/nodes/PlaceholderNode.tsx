@@ -54,6 +54,10 @@ const PlaceholderNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const rootClusterElementId = id.split('-')[0];
     const effectiveDirection = isClusterElement ? 'TB' : layoutDirection;
 
+    // A cluster element placeholder is not a task slot, so a copied task cannot go in it. Keyed on
+    // the node rather than on a canvas-wide flag: in box mode ordinary placeholders and edges sit on
+    // the same canvas as cluster ones, and a canvas-wide test would disable paste across the whole
+    // workflow whenever it contains an agent.
     const canPaste = useMemo(
         () => !isClusterElement && !!copiedNode && copiedWorkflowId === workflow.id,
         [isClusterElement, copiedNode, copiedWorkflowId, workflow.id]

@@ -1,10 +1,8 @@
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
-import {ClusterElementDefinitionKeys} from '@/shared/queries/platform/clusterElementDefinitions.queries';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {render, screen, waitFor} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import {render, screen} from '@testing-library/react';
 import {ReactNode} from 'react';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 
 import WorkflowNodesPopoverMenuOperationList from './WorkflowNodesPopoverMenuOperationList';
 
@@ -16,50 +14,23 @@ vi.mock('../providers/workflowEditorProvider', () => ({
     useWorkflowEditor: () => ({updateWorkflowMutation: {mutate: vi.fn()}}),
 }));
 
-const {editorStoreState, saveWorkflowDefinitionMock, workflowDataStoreState} = vi.hoisted(() => ({
-    editorStoreState: {
-        clusterRootComponentDefinitions: {} as Record<string, unknown>,
-        rootClusterElementNodeData: undefined as Record<string, unknown> | undefined,
-    },
-    saveWorkflowDefinitionMock: vi.fn(),
-    workflowDataStoreState: {
-        definition: '{"tasks":[]}',
-        nodes: [] as Array<{data: Record<string, unknown>; id: string}>,
-    },
+vi.mock('../stores/useWorkflowDataStore', () => ({
+    default: (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+            edges: [],
+            nodes: [],
+            setLatestComponentDefinition: vi.fn(),
+            workflow: {definition: '{"tasks":[]}', id: 'workflow-1'},
+        }),
 }));
 
-vi.mock('../stores/useWorkflowDataStore', () => {
-    const getState = () => ({
-        edges: [],
-        nodes: workflowDataStoreState.nodes,
-        setLatestComponentDefinition: vi.fn(),
-        setWorkflow: vi.fn(),
-        workflow: {definition: workflowDataStoreState.definition, id: 'workflow-1'},
-    });
-
-    return {
-        default: Object.assign((selector: (state: Record<string, unknown>) => unknown) => selector(getState()), {
-            getState,
+vi.mock('../stores/useWorkflowEditorStore', () => ({
+    default: (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+            clusterRootComponentDefinitions: {},
+            rootClusterElementNodeData: undefined,
+            setRootClusterElementNodeData: vi.fn(),
         }),
-    };
-});
-
-vi.mock('../stores/useWorkflowEditorStore', () => {
-    const getState = () => ({
-        clusterRootComponentDefinitions: editorStoreState.clusterRootComponentDefinitions,
-        rootClusterElementNodeData: editorStoreState.rootClusterElementNodeData,
-        setRootClusterElementNodeData: vi.fn(),
-    });
-
-    return {
-        default: Object.assign((selector: (state: Record<string, unknown>) => unknown) => selector(getState()), {
-            getState,
-        }),
-    };
-});
-
-vi.mock('../utils/saveWorkflowDefinition', () => ({
-    default: saveWorkflowDefinitionMock,
 }));
 
 vi.mock('../stores/useWorkflowNodeDetailsPanelStore', () => ({
@@ -72,6 +43,11 @@ vi.mock('../stores/useWorkflowNodeDetailsPanelStore', () => ({
         }),
 }));
 
+// A component that both offers cluster elements (componentDefinition.clusterElement) AND has
+// ordinary actions -- e.g. OpenAI -- is the case that regressed: componentDefinition.clusterElement
+// is a per-COMPONENT capability flag ("this component provides cluster elements somewhere"), not a
+// per-instance signal that THIS popover is showing a cluster-element picker. That signal is the
+// clusterElementType prop instead.
 const componentDefinitionWithBothActionsAndClusterElements = {
     actions: [
         {description: 'Sends a chat completion request', name: 'createChatCompletion', title: 'Create Chat Completion'},
@@ -86,7 +62,9 @@ const componentDefinitionWithBothActionsAndClusterElements = {
     version: 1,
 } as unknown as ComponentDefinition;
 
-function renderOperationList(clusterElementType?: string, queryClient: QueryClient = new QueryClient()) {
+function renderOperationList(clusterElementType?: string) {
+    const queryClient = new QueryClient();
+
     return render(
         (
             <QueryClientProvider client={queryClient}>
@@ -102,61 +80,6 @@ function renderOperationList(clusterElementType?: string, queryClient: QueryClie
 }
 
 describe('WorkflowNodesPopoverMenuOperationList', () => {
-    beforeEach(() => {
-        editorStoreState.clusterRootComponentDefinitions = {};
-        editorStoreState.rootClusterElementNodeData = undefined;
-        workflowDataStoreState.definition = '{"tasks":[]}';
-        workflowDataStoreState.nodes = [];
-        saveWorkflowDefinitionMock.mockReset();
-    });
-
-    it('adds a cluster element with no canvas store seeded, resolving the root from the node', async () => {
-        editorStoreState.clusterRootComponentDefinitions = {
-            aiAgent_1: {
-                clusterElementTypes: [{label: 'Model', multipleElements: false, name: 'MODEL'}],
-                name: 'aiAgent',
-                version: 1,
-            },
-        };
-        workflowDataStoreState.definition = JSON.stringify({
-            tasks: [{clusterElements: {}, name: 'aiAgent_1', type: 'aiAgent/v1/chat'}],
-        });
-        workflowDataStoreState.nodes = [
-            {
-                data: {clusterRoot: true, componentName: 'aiAgent', workflowNodeName: 'aiAgent_1'},
-                id: 'aiAgent_1',
-            },
-            {
-                data: {clusterElementType: 'model', parentClusterRootId: 'aiAgent_1'},
-                id: 'placeholder-1',
-            },
-        ];
-
-        const queryClient = new QueryClient();
-
-        queryClient.setQueryData(
-            ClusterElementDefinitionKeys.clusterElementDefinition({
-                clusterElementName: 'gpt4',
-                clusterElementType: 'MODEL',
-                componentName: 'openAi',
-                componentVersion: 1,
-            }),
-            {properties: []}
-        );
-
-        const user = userEvent.setup();
-
-        renderOperationList('model', queryClient);
-
-        await user.click(screen.getByText('GPT-4'));
-
-        await waitFor(() => {
-            expect(saveWorkflowDefinitionMock).toHaveBeenCalledTimes(1);
-        });
-
-        expect(saveWorkflowDefinitionMock.mock.calls[0][0].nodeData.workflowNodeName).toBe('aiAgent_1');
-    });
-
     it('lists the component actions, not its cluster elements, when clusterElementType is undefined', () => {
         renderOperationList(undefined);
 

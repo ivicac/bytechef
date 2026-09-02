@@ -727,7 +727,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const filteredClusterElementTypes = useMemo(() => {
-        if (!clusterElementsCanvasOpen || !(isMainRootClusterElement || isNestedClusterRoot)) {
+        if (!(isMainRootClusterElement || isNestedClusterRoot)) {
             return [];
         }
 
@@ -751,7 +751,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             operationName: data.operationName,
         });
     }, [
-        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         isMainRootClusterElement,
         isNestedClusterRoot,
