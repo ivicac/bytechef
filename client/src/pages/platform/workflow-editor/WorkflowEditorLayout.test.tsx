@@ -1,4 +1,3 @@
-import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {render, screen} from '@/shared/util/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -7,15 +6,6 @@ import {useClusterElementsCanvasDialogStore} from './components/stores/useCluste
 import {useWorkflowEditor} from './providers/workflowEditorProvider';
 import useClusterElementsViewModeStore from './stores/useClusterElementsViewModeStore';
 import useWorkflowEditorStore from './stores/useWorkflowEditorStore';
-
-// The view-mode toggle is behind ff-5470, and `useClusterElementsViewMode` reports 'dialog'
-// regardless of the stored mode while the flag is off -- that is the kill switch. Box-mode tests
-// therefore have to turn the flag on as well as set the store.
-function enableClusterElementsBoxModeFlag() {
-    applicationInfoStore.setState((state) => ({
-        featureFlags: {...state.featureFlags, 'ff-5470': true},
-    }));
-}
 
 // WorkflowEditorLayout branches between the React Flow canvas and the Monaco source editor based on
 // the codeWorkflow/codeWorkflowLanguage flags threaded onto the shared WorkflowEditorStateI context
@@ -202,7 +192,6 @@ describe('WorkflowEditorLayout - playground panel single-instance guard', () => 
         useParamsMock.mockReturnValue({projectId: '123', projectWorkflowId: '456'});
         mockUseWorkflowEditor(undefined, undefined);
 
-        enableClusterElementsBoxModeFlag();
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
         useClusterElementsCanvasDialogStore.setState({testingPanelOpen: true});
         useWorkflowEditorStore.setState({clusterElementsCanvasOpen: false});
