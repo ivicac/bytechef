@@ -7,9 +7,10 @@ import {Edge, Node} from '@xyflow/react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
-import useClusterElementsViewModeStore from '../../workflow-editor/stores/useClusterElementsViewModeStore';
+import useClusterElementsViewMode from '../../workflow-editor/hooks/useClusterElementsViewMode';
 import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../workflow-editor/stores/useWorkflowEditorStore';
+import collectClusterElementsSignature from '../../workflow-editor/utils/collectClusterElementsSignature';
 import {getTask} from '../../workflow-editor/utils/getTask';
 import {getFilteredClusterElementTypes, isPlainObject} from '../utils/clusterElementsUtils';
 import createClusterElementsEdges from '../utils/createClusterElementsEdges';
@@ -76,7 +77,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
             setNestedClusterRootsComponentDefinitions: state.setNestedClusterRootsComponentDefinitions,
         }))
     );
-    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
+    const clusterElementsViewMode = useClusterElementsViewMode();
 
     const {workflow} = useWorkflowDataStore(
         useShallow((state) => ({
@@ -113,18 +114,46 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
         return JSON.parse(workflow.definition).tasks || [];
     }, [workflow.definition]);
 
+    // The one dependency every derived memo below keys off, instead of `workflow.definition` or
+    // `workflowDefinitionTasks`: those change identity on EVERY debounced property save, and
+    // `nodesByRootId`/`edgesByRootId`/`definitionsReady` are dependencies of useLayout's own layout
+    // effect -- so keying off them re-ran the whole canvas layout, plus `animateNodePositions`, every
+    // time the user typed a character in any property form. That is exactly the churn
+    // `getTasksStructuralFingerprint` exists to prevent one level up.
+    //
+    // `absent` rather than an empty signature for a root with no task, so a root that vanishes from
+    // the definition is distinguishable from a root with no elements attached.
+    const clusterElementsSignature = useMemo(() => {
+        if (!workflow.definition) {
+            return '';
+        }
+
+        return clusterRootIds
+            .map((clusterRootId) => {
+                const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
+
+                return task
+                    ? `${clusterRootId}:${task.type}:${collectClusterElementsSignature(task.clusterElements)}`
+                    : `${clusterRootId}:absent`;
+            })
+            .join('|');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [clusterRootIdsKey, workflow.definition, workflowDefinitionTasks]);
+
+    // `undefined` marks a requested root with no task in the definition, which the node builder below
+    // has to tell apart from a root whose `clusterElements` is simply empty.
     const clusterElementsByRootId = useMemo(() => {
-        const clusterElementsMap: Record<string, ClusterElementsType> = {};
+        const clusterElementsMap: Record<string, ClusterElementsType | undefined> = {};
 
         for (const clusterRootId of clusterRootIds) {
             const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
 
-            clusterElementsMap[clusterRootId] = task?.clusterElements || {};
+            clusterElementsMap[clusterRootId] = task ? task.clusterElements || {} : undefined;
         }
 
         return clusterElementsMap;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clusterRootIdsKey, workflowDefinitionTasks]);
+    }, [clusterElementsSignature]);
 
     // Definitions are collected for EVERY element, not only those already carrying a clusterElements object.
     // That object is seeded once, when the element is added, so an element added before its component declared
@@ -225,17 +254,15 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
         const nodes: Record<string, Node[]> = {};
 
         for (const clusterRootId of clusterRootIds) {
-            const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
+            const clusterElements = clusterElementsByRootId[clusterRootId];
             const currentRootComponentDefinition = clusterRootComponentDefinitions[clusterRootId];
 
             nodes[clusterRootId] = [];
             edges[clusterRootId] = [];
 
-            if (!task || !currentRootComponentDefinition || !workflow.definition) {
+            if (!clusterElements || !currentRootComponentDefinition) {
                 continue;
             }
-
-            const clusterElements = clusterElementsByRootId[clusterRootId] ?? {};
 
             const rootNodes: Node[] = [];
 
@@ -307,8 +334,6 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
         clusterRootIdsKey,
         nestedClusterRootsComponentDefinitions,
         rootClusterElementNodeData,
-        workflow.definition,
-        workflowDefinitionTasks,
     ]);
 
     // Per-root, not "is the shared map non-empty": nestedClusterRootsComponentDefinitions is one map
