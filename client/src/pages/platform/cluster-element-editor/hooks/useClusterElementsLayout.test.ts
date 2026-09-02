@@ -36,7 +36,7 @@ vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-    useQueryClient: () => ({fetchQuery: vi.fn()}),
+    useQueryClient: () => ({fetchQuery: vi.fn().mockResolvedValue({clusterElementTypes: []})}),
 }));
 
 const ROOT_NODE_NAME = 'aiAgent_1';
@@ -49,14 +49,20 @@ const clusterElementNode = (name: string, label: string): Node => ({
     type: 'workflow',
 });
 
-const buildWorkflowDefinition = (revision: number) =>
+// `revision` stands in for the parameter churn a debounced property save produces: it changes the
+// definition without changing anything structural, which is exactly what `useClusterElementNodes`
+// keys its node builder on. `clusterElements` is what a genuine element addition changes.
+const MODEL_ELEMENT = {name: 'anthropic_1', type: 'anthropic/v1/model'};
+const ADDED_ELEMENT = {name: 'activeCampaign_2', type: 'anthropic/v1/memory'};
+
+const buildWorkflowDefinition = (revision: number, clusterElements: Record<string, unknown> = {model: MODEL_ELEMENT}) =>
     JSON.stringify({
-        tasks: [{clusterElements: {}, name: ROOT_NODE_NAME, revision}],
+        tasks: [{clusterElements, name: ROOT_NODE_NAME, revision}],
     });
 
-const setWorkflowDefinition = (revision: number) => {
+const setWorkflowDefinition = (revision: number, clusterElements?: Record<string, unknown>) => {
     useWorkflowDataStore.setState({
-        workflow: {definition: buildWorkflowDefinition(revision), id: 'workflow-1'},
+        workflow: {definition: buildWorkflowDefinition(revision, clusterElements), id: 'workflow-1'},
     } as Parameters<typeof useWorkflowDataStore.setState>[0]);
 };
 
@@ -90,7 +96,13 @@ describe('useClusterElementsLayout', () => {
                     version: 1,
                 },
             },
-            nestedClusterRootsComponentDefinitions: {},
+            nestedClusterRootsComponentDefinitions: {
+                anthropic: {
+                    actionClusterElementTypes: {},
+                    clusterElementClusterElementTypes: {},
+                    clusterElementTypes: [],
+                },
+            },
             rootClusterElementNodeData: {
                 componentName: 'aiAgent',
                 name: ROOT_NODE_NAME,
@@ -145,7 +157,7 @@ describe('useClusterElementsLayout', () => {
             clusterElementNode('activeCampaign_2', 'added'),
         ]);
 
-        act(() => setWorkflowDefinition(2));
+        act(() => setWorkflowDefinition(2, {memory: ADDED_ELEMENT, model: MODEL_ELEMENT}));
         rerender();
 
         expect(getClusterElementsLayoutElementsMock).toHaveBeenCalled();
