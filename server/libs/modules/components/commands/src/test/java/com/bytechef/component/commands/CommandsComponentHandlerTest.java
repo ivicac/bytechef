@@ -108,7 +108,11 @@ class CommandsComponentHandlerTest {
                 .toList();
 
             assertThat(optionValues).containsExactly(DOCKER, PROCESS);
-            assertThat(typeProperty.getDefaultValue()).contains(DOCKER);
+
+            // The registry sorts by type, so Docker arrives first. The default is Process regardless, because
+            // TaskRunnerPropertyFactory resolves it by a declared preference rather than by iteration order -
+            // Docker's allowlist is fail-closed, so defaulting to it would give a new action a rejection, not a run.
+            assertThat(typeProperty.getDefaultValue()).contains(PROCESS);
         }
     }
 
