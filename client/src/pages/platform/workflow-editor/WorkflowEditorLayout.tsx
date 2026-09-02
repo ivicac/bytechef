@@ -6,6 +6,7 @@ import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/component
 import useWorkflowEditorLayout from '@/pages/platform/workflow-editor/hooks/useWorkflowEditorLayout';
 import {useWorkflowLayout} from '@/pages/platform/workflow-editor/hooks/useWorkflowLayout';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
+import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useRightSidebarStore from '@/pages/platform/workflow-editor/stores/useRightSidebarStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
@@ -96,6 +97,7 @@ const WorkflowEditorLayout = ({
     const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
     const workflow = useWorkflowDataStore((state) => state.workflow);
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
+    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
     const {
         clusterElementsCanvasOpen,
         setShowWorkflowCodeEditorSheet,
@@ -242,6 +244,13 @@ const WorkflowEditorLayout = ({
         };
     }, []);
 
+    // The dialog renders its own details panel, so the root-level one stands down while it is open.
+    // In box mode there is no dialog, so cluster roots and elements get this panel like anything else.
+    const showRootLevelDetailsPanel =
+        !!currentNode?.type &&
+        !clusterElementsCanvasOpen &&
+        (clusterElementsViewMode === 'box' || !isMainRootClusterElement);
+
     return (
         <ReactFlowProvider>
             <div
@@ -344,7 +353,7 @@ const WorkflowEditorLayout = ({
                 )}
             </div>
 
-            {currentNode?.type && !isMainRootClusterElement && !clusterElementsCanvasOpen && (
+            {showRootLevelDetailsPanel && (
                 <WorkflowNodeDetailsPanel
                     previousComponentDefinitions={previousComponentDefinitions}
                     updateWorkflowMutation={updateWorkflowMutation!}
@@ -371,7 +380,7 @@ const WorkflowEditorLayout = ({
                 </Suspense>
             )}
 
-            {currentNode?.type && !isMainRootClusterElement && !clusterElementsCanvasOpen && dataPillPanelOpen && (
+            {showRootLevelDetailsPanel && dataPillPanelOpen && (
                 <Suspense fallback={<DataPillPanelSkeleton />}>
                     <DataPillPanel
                         loading={isWorkflowNodeOutputsPending}
