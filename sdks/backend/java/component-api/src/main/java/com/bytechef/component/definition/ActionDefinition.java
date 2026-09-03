@@ -187,6 +187,15 @@ public interface ActionDefinition {
     }
 
     /**
+     * Returns the declared risk of one call of this action.
+     *
+     * @return an {@code Optional} containing the risk level if declared, or an empty {@code Optional} otherwise
+     */
+    default Optional<RiskLevel> getRiskLevel() {
+        return Optional.empty();
+    }
+
+    /**
      * Returns the optional function invoked to resume the action after it has been suspended.
      *
      * @return an {@code Optional} containing the resume-perform function if defined, or an empty {@code Optional}
