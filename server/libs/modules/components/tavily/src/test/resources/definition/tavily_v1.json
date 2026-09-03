@@ -656,6 +656,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract",
     "workflowNodeDescription": null
   }, {
@@ -1413,6 +1414,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search",
     "workflowNodeDescription": null
   } ],
@@ -2058,6 +2060,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Extract",
     "type": {
       "name": "TOOLS",
@@ -2807,6 +2810,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Search",
     "type": {
       "name": "TOOLS",

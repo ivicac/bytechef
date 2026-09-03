@@ -400,6 +400,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Issue",
     "workflowNodeDescription": null
   }, {
@@ -828,6 +829,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Issue",
     "workflowNodeDescription": null
   }, {
@@ -1223,6 +1225,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -1618,6 +1621,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Project",
     "workflowNodeDescription": null
   }, {
@@ -2019,6 +2023,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Comment",
     "workflowNodeDescription": null
   }, {
@@ -2172,6 +2177,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Raw Graphql Query",
     "workflowNodeDescription": null
   } ],
@@ -2566,6 +2572,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Issue",
     "type": {
       "name": "TOOLS",
@@ -2991,6 +2998,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Issue",
     "type": {
       "name": "TOOLS",
@@ -3383,6 +3391,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Project",
     "type": {
       "name": "TOOLS",
@@ -3775,6 +3784,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Project",
     "type": {
       "name": "TOOLS",
@@ -4173,6 +4183,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Comment",
     "type": {
       "name": "TOOLS",
@@ -4323,6 +4334,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Raw Graphql Query",
     "type": {
       "name": "TOOLS",

@@ -1025,6 +1025,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   }, {
@@ -2060,6 +2061,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Channel Message",
     "workflowNodeDescription": null
   }, {
@@ -3029,6 +3031,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Channel",
     "workflowNodeDescription": null
   } ],
@@ -3074,6 +3077,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Rocket.Chat",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -4099,6 +4103,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",
@@ -5124,6 +5129,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Channel Message",
     "type": {
       "name": "TOOLS",
@@ -6090,6 +6096,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Channel",
     "type": {
       "name": "TOOLS",

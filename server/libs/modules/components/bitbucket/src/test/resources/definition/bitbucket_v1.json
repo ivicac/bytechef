@@ -284,6 +284,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -2864,6 +2865,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Repository",
     "workflowNodeDescription": null
   }, {
@@ -3764,6 +3766,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Projects",
     "workflowNodeDescription": null
   }, {
@@ -6136,6 +6139,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Repositories",
     "workflowNodeDescription": null
   } ],
@@ -7027,6 +7031,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Projects",
     "type": {
       "name": "TOOLS",
@@ -9396,6 +9401,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Repositories",
     "type": {
       "name": "TOOLS",

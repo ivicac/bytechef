@@ -149,6 +149,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Query",
     "workflowNodeDescription": null
   }, {
@@ -354,6 +355,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert",
     "workflowNodeDescription": null
   }, {
@@ -581,6 +583,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update",
     "workflowNodeDescription": null
   }, {
@@ -672,6 +675,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete",
     "workflowNodeDescription": null
   }, {
@@ -1059,6 +1063,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Execute",
     "workflowNodeDescription": null
   } ],
@@ -1235,6 +1240,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Write table rows",
     "type": {
       "name": "DESTINATION",
@@ -1252,6 +1258,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Data Source",
     "type": {
       "name": "DATA_SOURCE",

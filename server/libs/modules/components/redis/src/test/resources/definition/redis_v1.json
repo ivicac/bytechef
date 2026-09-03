@@ -96,6 +96,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete",
     "workflowNodeDescription": null
   }, {
@@ -191,6 +192,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get",
     "workflowNodeDescription": null
   }, {
@@ -323,6 +325,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Increment",
     "workflowNodeDescription": null
   }, {
@@ -436,6 +439,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Info",
     "workflowNodeDescription": null
   }, {
@@ -573,6 +577,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Keys",
     "workflowNodeDescription": null
   }, {
@@ -662,6 +667,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Length",
     "workflowNodeDescription": null
   }, {
@@ -781,6 +787,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Pop",
     "workflowNodeDescription": null
   }, {
@@ -892,6 +899,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Publish",
     "workflowNodeDescription": null
   }, {
@@ -1027,6 +1035,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Push",
     "workflowNodeDescription": null
   }, {
@@ -1191,6 +1200,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Set",
     "workflowNodeDescription": null
   } ],
@@ -1281,6 +1291,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete",
     "type": {
       "name": "TOOLS",
@@ -1373,6 +1384,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get",
     "type": {
       "name": "TOOLS",
@@ -1502,6 +1514,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Increment",
     "type": {
       "name": "TOOLS",
@@ -1612,6 +1625,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Info",
     "type": {
       "name": "TOOLS",
@@ -1746,6 +1760,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Keys",
     "type": {
       "name": "TOOLS",
@@ -1832,6 +1847,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Length",
     "type": {
       "name": "TOOLS",
@@ -1948,6 +1964,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Pop",
     "type": {
       "name": "TOOLS",
@@ -2056,6 +2073,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Publish",
     "type": {
       "name": "TOOLS",
@@ -2188,6 +2206,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Push",
     "type": {
       "name": "TOOLS",
@@ -2349,6 +2368,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Set",
     "type": {
       "name": "TOOLS",

@@ -399,6 +399,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send",
     "workflowNodeDescription": null
   }, {
@@ -871,6 +872,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Mail",
     "workflowNodeDescription": null
   } ],
@@ -988,6 +990,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Email",
     "type": {
       "name": "APPROVAL_CHANNELS",

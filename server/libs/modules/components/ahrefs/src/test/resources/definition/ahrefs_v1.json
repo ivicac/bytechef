@@ -619,6 +619,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Metrics",
     "workflowNodeDescription": null
   }, {
@@ -1008,6 +1009,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Page Content",
     "workflowNodeDescription": null
   }, {
@@ -1414,6 +1416,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Subscription Information",
     "workflowNodeDescription": null
   } ],
@@ -2024,6 +2027,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Metrics",
     "type": {
       "name": "TOOLS",
@@ -2407,6 +2411,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Page Content",
     "type": {
       "name": "TOOLS",
@@ -2807,6 +2812,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Get Subscription Information",
     "type": {
       "name": "TOOLS",

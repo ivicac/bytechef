@@ -2524,6 +2524,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Comment to Ticket",
     "workflowNodeDescription": null
   }, {
@@ -3394,6 +3395,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Organization",
     "workflowNodeDescription": null
   }, {
@@ -6043,6 +6045,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Ticket",
     "workflowNodeDescription": null
   }, {
@@ -8016,6 +8019,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create User",
     "workflowNodeDescription": null
   } ],
@@ -10534,6 +10538,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Add Comment to Ticket",
     "type": {
       "name": "TOOLS",
@@ -11401,6 +11406,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Organization",
     "type": {
       "name": "TOOLS",
@@ -14047,6 +14053,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Ticket",
     "type": {
       "name": "TOOLS",
@@ -16017,6 +16024,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create User",
     "type": {
       "name": "TOOLS",

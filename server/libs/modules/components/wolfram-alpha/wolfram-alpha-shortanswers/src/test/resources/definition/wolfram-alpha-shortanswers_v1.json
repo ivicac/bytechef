@@ -139,6 +139,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Short Answer",
     "workflowNodeDescription": null
   } ],
@@ -269,6 +270,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Short Answer",
     "type": {
       "name": "TOOLS",

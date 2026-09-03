@@ -288,6 +288,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Labels",
     "workflowNodeDescription": null
   }, {
@@ -623,6 +624,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -1100,6 +1102,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Status",
     "workflowNodeDescription": null
   }, {
@@ -1513,6 +1516,7 @@
       "type": "DATE_TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   }, {
@@ -1798,6 +1802,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Task",
     "workflowNodeDescription": null
   }, {
@@ -2431,6 +2436,7 @@
       "type": "DATE_TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Tracked Time Report",
     "workflowNodeDescription": null
   } ],

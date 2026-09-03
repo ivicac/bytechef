@@ -111,6 +111,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append Row",
     "workflowNodeDescription": null
   }, {
@@ -205,6 +206,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Clear Worksheet",
     "workflowNodeDescription": null
   }, {
@@ -579,6 +581,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Worksheet",
     "workflowNodeDescription": null
   }, {
@@ -668,6 +671,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Row",
     "workflowNodeDescription": null
   }, {
@@ -786,6 +790,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find Row by Number",
     "workflowNodeDescription": null
   }, {
@@ -1094,6 +1099,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Worksheets",
     "workflowNodeDescription": null
   }, {
@@ -1251,6 +1257,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Row",
     "workflowNodeDescription": null
   } ],
@@ -1356,6 +1363,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Append Row",
     "type": {
       "name": "TOOLS",
@@ -1447,6 +1455,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Clear Worksheet",
     "type": {
       "name": "TOOLS",
@@ -1818,6 +1827,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Worksheet",
     "type": {
       "name": "TOOLS",
@@ -1904,6 +1914,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete Row",
     "type": {
       "name": "TOOLS",
@@ -2019,6 +2030,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Find Row by Number",
     "type": {
       "name": "TOOLS",
@@ -2324,6 +2336,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Worksheets",
     "type": {
       "name": "TOOLS",
@@ -2478,6 +2491,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Row",
     "type": {
       "name": "TOOLS",

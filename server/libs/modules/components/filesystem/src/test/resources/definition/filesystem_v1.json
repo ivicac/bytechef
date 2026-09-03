@@ -70,6 +70,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Temp Directory",
     "workflowNodeDescription": null
   }, {
@@ -165,6 +166,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create",
     "workflowNodeDescription": null
   }, {
@@ -260,6 +262,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Parent Folder",
     "workflowNodeDescription": null
   }, {
@@ -543,6 +546,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List",
     "workflowNodeDescription": null
   }, {
@@ -802,6 +806,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read File",
     "workflowNodeDescription": null
   }, {
@@ -901,6 +906,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove",
     "workflowNodeDescription": null
   }, {
@@ -1138,6 +1144,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Write to File",
     "workflowNodeDescription": null
   } ],
@@ -1202,6 +1209,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Create Temp Directory",
     "type": {
       "name": "TOOLS",
@@ -1294,6 +1302,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create",
     "type": {
       "name": "TOOLS",
@@ -1386,6 +1395,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Parent Folder",
     "type": {
       "name": "TOOLS",
@@ -1666,6 +1676,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "List",
     "type": {
       "name": "TOOLS",
@@ -1922,6 +1933,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Read File",
     "type": {
       "name": "TOOLS",
@@ -2018,6 +2030,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove",
     "type": {
       "name": "TOOLS",
@@ -2252,6 +2265,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Write to File",
     "type": {
       "name": "TOOLS",

@@ -61,6 +61,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Job",
     "workflowNodeDescription": null
   } ],
@@ -116,6 +117,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Job",
     "type": {
       "name": "TOOLS",

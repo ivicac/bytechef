@@ -340,6 +340,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Make Outbound Call",
     "workflowNodeDescription": null
   }, {
@@ -1767,6 +1768,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send SMS",
     "workflowNodeDescription": null
   }, {
@@ -3296,6 +3298,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send WhatsApp Message",
     "workflowNodeDescription": null
   } ],
@@ -3360,6 +3363,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "SMS",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -3421,6 +3425,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "WhatsApp",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -3761,6 +3766,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Make Outbound Call",
     "type": {
       "name": "TOOLS",
@@ -5185,6 +5191,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send SMS",
     "type": {
       "name": "TOOLS",
@@ -6700,6 +6707,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send WhatsApp Message",
     "type": {
       "name": "TOOLS",

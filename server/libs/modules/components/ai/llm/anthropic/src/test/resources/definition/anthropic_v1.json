@@ -796,6 +796,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1595,6 +1596,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask (stream)",
     "workflowNodeDescription": null
   } ],
@@ -1911,6 +1913,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Antropic Model",
     "type": {
       "name": "MODEL",

@@ -353,6 +353,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Reaction",
     "workflowNodeDescription": null
   }, {
@@ -1079,6 +1080,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Approval Message",
     "workflowNodeDescription": null
   }, {
@@ -1829,6 +1831,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Channel Message",
     "workflowNodeDescription": null
   }, {
@@ -2572,6 +2575,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   } ],
@@ -2617,6 +2621,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Slack",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -2970,6 +2975,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Add Reaction",
     "type": {
       "name": "TOOLS",
@@ -3693,6 +3699,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Approval Message",
     "type": {
       "name": "TOOLS",
@@ -4433,6 +4440,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Channel Message",
     "type": {
       "name": "TOOLS",
@@ -5173,6 +5181,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",

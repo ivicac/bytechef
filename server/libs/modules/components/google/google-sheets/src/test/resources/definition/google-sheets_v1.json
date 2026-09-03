@@ -88,6 +88,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Clear Sheet",
     "workflowNodeDescription": null
   }, {
@@ -403,6 +404,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Column",
     "workflowNodeDescription": null
   }, {
@@ -736,6 +738,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Sheet",
     "workflowNodeDescription": null
   }, {
@@ -808,6 +811,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Spreadsheet",
     "workflowNodeDescription": null
   }, {
@@ -897,6 +901,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Column",
     "workflowNodeDescription": null
   }, {
@@ -983,6 +988,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Row",
     "workflowNodeDescription": null
   }, {
@@ -1050,6 +1056,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Sheet",
     "workflowNodeDescription": null
   }, {
@@ -1168,6 +1175,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find Row by Number",
     "workflowNodeDescription": null
   }, {
@@ -1267,6 +1275,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Rows",
     "workflowNodeDescription": null
   }, {
@@ -1411,6 +1420,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert Multiple Rows",
     "workflowNodeDescription": null
   }, {
@@ -1555,6 +1565,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert Row",
     "workflowNodeDescription": null
   }, {
@@ -1865,6 +1876,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Sheets",
     "workflowNodeDescription": null
   }, {
@@ -2022,6 +2034,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Row",
     "workflowNodeDescription": null
   } ],
@@ -2104,6 +2117,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Clear Sheet",
     "type": {
       "name": "TOOLS",
@@ -2416,6 +2430,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Column",
     "type": {
       "name": "TOOLS",
@@ -2746,6 +2761,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Sheet",
     "type": {
       "name": "TOOLS",
@@ -2815,6 +2831,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Spreadsheet",
     "type": {
       "name": "TOOLS",
@@ -2901,6 +2918,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Column",
     "type": {
       "name": "TOOLS",
@@ -2984,6 +3002,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete Row",
     "type": {
       "name": "TOOLS",
@@ -3048,6 +3067,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete Sheet",
     "type": {
       "name": "TOOLS",
@@ -3163,6 +3183,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Find Row by Number",
     "type": {
       "name": "TOOLS",
@@ -3259,6 +3280,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Get Rows",
     "type": {
       "name": "TOOLS",
@@ -3400,6 +3422,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Insert Multiple Rows",
     "type": {
       "name": "TOOLS",
@@ -3541,6 +3564,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Insert Row",
     "type": {
       "name": "TOOLS",
@@ -3848,6 +3872,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Sheets",
     "type": {
       "name": "TOOLS",
@@ -4002,6 +4027,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Row",
     "type": {
       "name": "TOOLS",

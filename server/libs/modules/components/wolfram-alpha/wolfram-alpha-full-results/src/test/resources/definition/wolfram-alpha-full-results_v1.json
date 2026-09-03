@@ -2586,6 +2586,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Full Result",
     "workflowNodeDescription": null
   } ],
@@ -5163,6 +5164,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Full Result",
     "type": {
       "name": "TOOLS",

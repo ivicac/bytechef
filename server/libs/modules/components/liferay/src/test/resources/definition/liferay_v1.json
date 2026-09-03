@@ -87,6 +87,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Headless Request",
     "workflowNodeDescription": null
   }, {
@@ -343,6 +344,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "JSON WS Services",
     "workflowNodeDescription": null
   } ],
