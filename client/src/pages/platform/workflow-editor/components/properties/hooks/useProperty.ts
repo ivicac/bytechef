@@ -460,6 +460,10 @@ export const useProperty = ({
             return undefined;
         }
 
+        // The root comes from the node first: on the main canvas rootClusterElementNodeData is
+        // seeded only by a box header destination and never cleared, so it is empty or names another
+        // box -- and with no element found here a field re-resolved to nothing after every save while
+        // the definition held the value.
         const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
 
         if (!mainClusterRootName) {
@@ -476,6 +480,8 @@ export const useProperty = ({
         if (mainClusterRootTask?.clusterElements) {
             return getClusterElementByName(mainClusterRootTask.clusterElements, currentNodeName);
         }
+        // `currentNode` is read only through resolveMainClusterRootName, which depends on the three
+        // fields below; the whole object churns on every save and would re-parse the definition for nothing.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         currentNodeClusterElementType,
