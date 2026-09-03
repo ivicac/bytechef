@@ -1,16 +1,9 @@
 dependencies {
-    testImplementation("com.openai:openai-java-client-okhttp")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("tools.jackson.core:jackson-databind")
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-service"))
-    testImplementation(rootProject.libs.org.apache.opennlp.opennlp.tools)
-    testImplementation("org.springframework.ai:spring-ai-openai")
-    testImplementation("org.springframework.ai:spring-ai-transformers") {
-        exclude(group = "ai.djl.pytorch", module = "pytorch-engine")
-        exclude(group = "ai.djl", module = "model-zoo")
-    }
 }
 
 tasks.test {

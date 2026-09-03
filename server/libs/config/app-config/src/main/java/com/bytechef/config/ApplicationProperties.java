@@ -1342,6 +1342,14 @@ public class ApplicationProperties {
 
             private ExternalScores externalScores = new ExternalScores();
 
+            /**
+             * Selects the {@code PromptComplexityScorer} implementation the intelligent routing strategies use.
+             * {@code deterministic} (the default) is the heuristic, model-free scorer; {@code opennlp} trains a
+             * maximum-entropy categoriser over a labelled exemplar corpus at startup. Changing the default would
+             * silently change customers' model spend, so it stays opt-in.
+             */
+            private String promptComplexityScorer = "deterministic";
+
             public boolean isEnabled() {
                 return enabled;
             }
@@ -1372,6 +1380,14 @@ public class ApplicationProperties {
 
             public void setExternalScores(ExternalScores externalScores) {
                 this.externalScores = externalScores;
+            }
+
+            public String getPromptComplexityScorer() {
+                return promptComplexityScorer;
+            }
+
+            public void setPromptComplexityScorer(String promptComplexityScorer) {
+                this.promptComplexityScorer = promptComplexityScorer;
             }
 
             public static class Otlp {

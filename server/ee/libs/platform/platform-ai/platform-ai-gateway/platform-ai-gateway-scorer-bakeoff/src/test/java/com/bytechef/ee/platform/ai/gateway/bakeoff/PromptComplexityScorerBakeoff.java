@@ -11,9 +11,8 @@ import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayModelTier;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayRoutingStrategyType;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.routing.DeterministicPromptComplexityScorer;
+import com.bytechef.ee.platform.ai.gateway.routing.OpenNlpPromptComplexityScorer;
 import com.bytechef.ee.platform.ai.gateway.routing.PromptComplexityScorer;
-import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,14 +21,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiEmbeddingModel;
-import org.springframework.ai.transformers.TransformersEmbeddingModel;
 
 /**
  * The bake-off runner. Excluded from the default test task by the module build file and invoked through the
  * {@code bakeoff} Gradle task; it is a measurement instrument, not a test, and asserts nothing about which scorer wins.
  * Its output is {@code build/bakeoff/report.md} and {@code build/bakeoff/scores.csv}.
+ *
+ * <p>
+ * Runs the two shipped scorers, both loaded from {@code platform-ai-gateway-service} rather than reimplemented here, so
+ * the harness measures production behaviour rather than a stand-in. Candidates B
+ * ({@code EmbeddingCentroidPromptComplexityScorer}, in-process embeddings) and D (the same class over a remote
+ * embedding model) were deleted after losing the 2026-09-03 run recorded in the design spec's outcome section (§13);
+ * this module, its corpus and this runner are retained as the regression harness for any future candidate.
  *
  * @version ee
  */
@@ -43,38 +46,12 @@ class PromptComplexityScorerBakeoff {
 
     @Test
     void testRunBakeoff() throws Exception {
-        List<BakeoffPrompt> exemplars = BakeoffCorpus.load("exemplars.jsonl");
         List<BakeoffPrompt> adversarial = BakeoffCorpus.load("adversarial.jsonl");
-
-        TransformersEmbeddingModel localEmbeddingModel = new TransformersEmbeddingModel();
-
-        localEmbeddingModel.afterPropertiesSet();
 
         Map<String, PromptComplexityScorer> scorers = new LinkedHashMap<>();
 
         scorers.put("baseline", new DeterministicPromptComplexityScorer());
-        scorers.put("opennlp", new OpenNlpPromptComplexityScorer(exemplars));
-        scorers.put(
-            "embedding-local", new EmbeddingCentroidPromptComplexityScorer(localEmbeddingModel, exemplars));
-
-        String apiKey = remoteApiKey();
-
-        if (apiKey == null) {
-            System.out.println(
-                "SKIPPED candidate D (embedding-remote): no bakeoff.embedding.apiKey system property and no "
-                    + "BAKEOFF_EMBEDDING_API_KEY environment variable. The report below covers the baseline, "
-                    + "candidate B and candidate C only.");
-        } else {
-            OpenAIClient openAiClient = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .build();
-
-            EmbeddingModel remoteEmbeddingModel = new OpenAiEmbeddingModel(openAiClient);
-
-            scorers.put(
-                "embedding-remote",
-                new EmbeddingCentroidPromptComplexityScorer(remoteEmbeddingModel, exemplars));
-        }
+        scorers.put("opennlp", new OpenNlpPromptComplexityScorer());
 
         List<AiGatewayChatCompletionRequest> requests = new ArrayList<>();
 
@@ -131,25 +108,5 @@ class PromptComplexityScorerBakeoff {
             StandardCharsets.UTF_8);
 
         System.out.println(markdown);
-    }
-
-    /**
-     * Candidate D's key, from a system property or the environment. Absent, candidate D is skipped and said so in the
-     * run output — never silently omitted.
-     */
-    private static String remoteApiKey() {
-        String property = System.getProperty("bakeoff.embedding.apiKey");
-
-        if (property != null && !property.isBlank()) {
-            return property;
-        }
-
-        String environment = System.getenv("BAKEOFF_EMBEDDING_API_KEY");
-
-        if (environment != null && !environment.isBlank()) {
-            return environment;
-        }
-
-        return null;
     }
 }
