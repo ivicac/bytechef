@@ -25,6 +25,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.constant.WorkflowConstants;
+import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
@@ -41,6 +43,7 @@ import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,11 +88,88 @@ class ApprovalFormFacadeTest {
     private final TaskStateService taskStateService = mock(TaskStateService.class);
 
     private ApprovalFormFacade approvalFormFacade;
+    private JobResumeId jobResumeId;
 
     @BeforeEach
     void setUp() {
         approvalFormFacade = new ApprovalFormFacadeImpl(
             approvalTokensProvider(), jobService, taskExecutionService, taskStateService, transactionOperations);
+
+        jobResumeId = JobResumeId.of(JOB_ID);
+    }
+
+    @Test
+    void testTheSuspendContinueParametersOverrideTheTaskExecutionParameters() {
+        // An agent suspend's task execution is the agent node, whose parameters describe the prompt, not the tool
+        // awaiting approval. The suspend carries the right title and description, so it wins.
+        stubStoppedJobWithTaskExecutionParameters(
+            Map.of("formTitle", "AI Agent", "formDescription", "Answer the user"));
+        stubStoredSuspend(
+            Map.of("formTitle", "Approve tool call: SLACK_SEND_MESSAGE", "formDescription", "channel: #general"));
+
+        Map<String, Object> approvalForm = new HashMap<>(approvalFormFacade.getApprovalForm(jobResumeId.toString()));
+
+        assertThat(approvalForm)
+            .containsEntry("formTitle", "Approve tool call: SLACK_SEND_MESSAGE")
+            .containsEntry("formDescription", "channel: #general");
+    }
+
+    @Test
+    void testTaskExecutionParametersAreKeptWhenTheSuspendCarriesNoOverride() {
+        stubStoppedJobWithTaskExecutionParameters(
+            Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
+        stubStoredSuspend(Map.of("formUrl", "https://example.com/resume/abc"));
+
+        Map<String, Object> approvalForm = new HashMap<>(approvalFormFacade.getApprovalForm(jobResumeId.toString()));
+
+        assertThat(approvalForm).containsEntry("formTitle", "Approve the refund");
+    }
+
+    @Test
+    void testTaskExecutionParametersAreKeptWhenNoSuspendStateIsStored() {
+        // The state is deleted on resume; a standalone Approval action's own suspend also never carries these keys.
+        stubStoppedJobWithTaskExecutionParameters(
+            Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
+
+        when(taskStateService.<Suspend>fetchValue(jobResumeId))
+            .thenReturn(Optional.empty());
+
+        Map<String, Object> approvalForm = new HashMap<>(approvalFormFacade.getApprovalForm(jobResumeId.toString()));
+
+        assertThat(approvalForm)
+            .containsEntry("formTitle", "Approve the refund")
+            .containsEntry("formDescription", "over 1000");
+    }
+
+    private void stubStoppedJobWithTaskExecutionParameters(Map<String, ?> taskExecutionParameters) {
+        Job job = new Job(JOB_ID);
+
+        job.setStatus(Job.Status.STOPPED);
+
+        Map<String, Object> jobMetadata = new HashMap<>();
+
+        jobMetadata.put(MetadataConstants.JOB_RESUME_ID, jobResumeId.toString());
+        jobMetadata.put(MetadataConstants.TASK_EXECUTION_RESUME_ID, TASK_EXECUTION_ID);
+
+        job.setMetadata(jobMetadata);
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        WorkflowTask workflowTask = new WorkflowTask(Map.of(
+            WorkflowConstants.NAME, "agent",
+            WorkflowConstants.TYPE, "aiAgent/v1/chat",
+            WorkflowConstants.PARAMETERS, taskExecutionParameters));
+
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.setWorkflowTask(workflowTask);
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+    }
+
+    private void stubStoredSuspend(Map<String, ?> continueParameters) {
+        when(taskStateService.<Suspend>fetchValue(jobResumeId))
+            .thenReturn(Optional.of(new Suspend(continueParameters, null)));
     }
 
     @Test

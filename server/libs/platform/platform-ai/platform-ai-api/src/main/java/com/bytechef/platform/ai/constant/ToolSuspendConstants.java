@@ -46,6 +46,18 @@ public final class ToolSuspendConstants {
     /** {@code continueParameters} key holding the gated tool call's original JSON arguments (a {@code String}). */
     public static final String GATED_TOOL_INPUT = "__bytechef_gated_tool_input__";
 
+    /**
+     * {@code continueParameters} key holding the ids of the component rules that required this approval, as a
+     * {@code List<Long>}. Present only when an administrative rule raised the request; the gate does not set it.
+     */
+    public static final String RULE_IDS = "__bytechef_rule_ids__";
+
+    /** {@code continueParameters} key holding the component of the tool a rule required approval for. */
+    public static final String RULE_COMPONENT_NAME = "__bytechef_rule_component_name__";
+
+    /** {@code continueParameters} key holding the cluster element name of that tool. */
+    public static final String RULE_TOOL_NAME = "__bytechef_rule_tool_name__";
+
     private ToolSuspendConstants() {
     }
 }

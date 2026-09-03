@@ -1,26 +1,25 @@
 package com.bytechef.platform.configuration.web.rest.model;
 
-import java.net.URI;
-import java.util.Objects;
 import com.bytechef.platform.configuration.web.rest.model.HelpModel;
 import com.bytechef.platform.configuration.web.rest.model.PropertyModel;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.Generated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.net.URI;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.springframework.lang.Nullable;
+import java.util.Objects;
 import org.openapitools.jackson.nullable.JsonNullable;
-import java.time.OffsetDateTime;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-
-
-import java.util.*;
-import jakarta.annotation.Generated;
+import org.springframework.lang.Nullable;
 
 /**
  * A cluster element definition.
@@ -48,6 +47,47 @@ public class ClusterElementDefinitionModel {
   private @Nullable Boolean outputFunctionDefined;
 
   private @Nullable Boolean outputSchemaDefined;
+
+  /**
+   * How much damage one call of this tool can do.
+   */
+  public enum RiskLevelEnum {
+    LOW("LOW"),
+    
+    MEDIUM("MEDIUM"),
+    
+    HIGH("HIGH"),
+    
+    CRITICAL("CRITICAL");
+
+    private final String value;
+
+    RiskLevelEnum(String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static RiskLevelEnum fromValue(String value) {
+      for (RiskLevelEnum b : RiskLevelEnum.values()) {
+        if (b.value.equals(value)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    }
+  }
+
+  private @Nullable RiskLevelEnum riskLevel;
 
   private @Nullable String title;
 
@@ -261,6 +301,27 @@ public class ClusterElementDefinitionModel {
     this.outputSchemaDefined = outputSchemaDefined;
   }
 
+  public ClusterElementDefinitionModel riskLevel(@Nullable RiskLevelEnum riskLevel) {
+    this.riskLevel = riskLevel;
+    return this;
+  }
+
+  /**
+   * How much damage one call of this tool can do.
+   * @return riskLevel
+   */
+  
+  @Schema(name = "riskLevel", description = "How much damage one call of this tool can do.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("riskLevel")
+  public @Nullable RiskLevelEnum getRiskLevel() {
+    return riskLevel;
+  }
+
+  @JsonProperty("riskLevel")
+  public void setRiskLevel(@Nullable RiskLevelEnum riskLevel) {
+    this.riskLevel = riskLevel;
+  }
+
   public ClusterElementDefinitionModel title(@Nullable String title) {
     this.title = title;
     return this;
@@ -371,6 +432,7 @@ public class ClusterElementDefinitionModel {
         Objects.equals(this.outputDefined, clusterElementDefinition.outputDefined) &&
         Objects.equals(this.outputFunctionDefined, clusterElementDefinition.outputFunctionDefined) &&
         Objects.equals(this.outputSchemaDefined, clusterElementDefinition.outputSchemaDefined) &&
+        Objects.equals(this.riskLevel, clusterElementDefinition.riskLevel) &&
         Objects.equals(this.title, clusterElementDefinition.title) &&
         Objects.equals(this.type, clusterElementDefinition.type) &&
         Objects.equals(this.properties, clusterElementDefinition.properties) &&
@@ -395,6 +457,7 @@ public class ClusterElementDefinitionModel {
     sb.append("    outputDefined: ").append(toIndentedString(outputDefined)).append("\n");
     sb.append("    outputFunctionDefined: ").append(toIndentedString(outputFunctionDefined)).append("\n");
     sb.append("    outputSchemaDefined: ").append(toIndentedString(outputSchemaDefined)).append("\n");
+    sb.append("    riskLevel: ").append(toIndentedString(riskLevel)).append("\n");
     sb.append("    title: ").append(toIndentedString(title)).append("\n");
     sb.append("    type: ").append(toIndentedString(type)).append("\n");
     sb.append("    properties: ").append(toIndentedString(properties)).append("\n");
