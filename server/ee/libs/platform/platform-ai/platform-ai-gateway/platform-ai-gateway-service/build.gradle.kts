@@ -1,6 +1,7 @@
 dependencies {
     implementation("io.micrometer:micrometer-core")
     implementation("org.apache.commons:commons-lang3")
+    implementation(libs.org.apache.opennlp.opennlp.tools)
     implementation("org.springframework:spring-context")
     implementation("org.springframework:spring-tx")
     implementation("org.springframework:spring-web")
