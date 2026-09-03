@@ -1289,6 +1289,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Article",
     "workflowNodeDescription": null
   }, {
@@ -2491,6 +2492,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Article",
     "workflowNodeDescription": null
   }, {
@@ -3807,6 +3809,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Article",
     "workflowNodeDescription": null
   } ],

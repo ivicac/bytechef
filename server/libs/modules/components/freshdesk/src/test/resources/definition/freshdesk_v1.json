@@ -673,6 +673,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Company",
     "workflowNodeDescription": null
   }, {
@@ -2163,6 +2164,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -3829,6 +3831,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Ticket",
     "workflowNodeDescription": null
   }, {
@@ -5522,6 +5525,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Ticket",
     "workflowNodeDescription": null
   } ],
@@ -6184,6 +6188,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Company",
     "type": {
       "name": "TOOLS",
@@ -7666,6 +7671,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -9324,6 +9330,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Ticket",
     "type": {
       "name": "TOOLS",
@@ -11009,6 +11016,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Update Ticket",
     "type": {
       "name": "TOOLS",

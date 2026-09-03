@@ -577,6 +577,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Cancel Order",
     "workflowNodeDescription": null
   }, {
@@ -1181,6 +1182,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Close Order",
     "workflowNodeDescription": null
   }, {
@@ -1921,6 +1923,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Order",
     "workflowNodeDescription": null
   }, {
@@ -2842,6 +2845,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Product",
     "workflowNodeDescription": null
   }, {
@@ -3150,6 +3154,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Order",
     "workflowNodeDescription": null
   }, {
@@ -3609,6 +3614,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Abandoned Carts",
     "workflowNodeDescription": null
   }, {
@@ -4297,6 +4303,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Order",
     "workflowNodeDescription": null
   }, {
@@ -4906,6 +4913,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Order",
     "workflowNodeDescription": null
   } ],
@@ -5477,6 +5485,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Cancel Order",
     "type": {
       "name": "TOOLS",
@@ -6078,6 +6087,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Close Order",
     "type": {
       "name": "TOOLS",
@@ -6815,6 +6825,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Order",
     "type": {
       "name": "TOOLS",
@@ -7733,6 +7744,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Product",
     "type": {
       "name": "TOOLS",
@@ -8038,6 +8050,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Order",
     "type": {
       "name": "TOOLS",
@@ -8494,6 +8507,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Get Abandoned Carts",
     "type": {
       "name": "TOOLS",
@@ -9179,6 +9193,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Order",
     "type": {
       "name": "TOOLS",
@@ -9785,6 +9800,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Update Order",
     "type": {
       "name": "TOOLS",

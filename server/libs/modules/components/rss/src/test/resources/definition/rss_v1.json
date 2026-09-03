@@ -757,6 +757,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Feed",
     "workflowNodeDescription": null
   } ],
@@ -1503,6 +1504,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Feed",
     "type": {
       "name": "TOOLS",

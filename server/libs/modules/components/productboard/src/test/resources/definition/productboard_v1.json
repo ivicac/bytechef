@@ -297,6 +297,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Note",
     "workflowNodeDescription": null
   }, {
@@ -347,6 +348,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Note",
     "workflowNodeDescription": null
   }, {
@@ -1586,6 +1588,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Feature",
     "workflowNodeDescription": null
   }, {
@@ -3217,6 +3220,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Note",
     "workflowNodeDescription": null
   }, {
@@ -3669,6 +3673,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Note",
     "workflowNodeDescription": null
   }, {
@@ -5262,6 +5267,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List All Notes",
     "workflowNodeDescription": null
   } ],

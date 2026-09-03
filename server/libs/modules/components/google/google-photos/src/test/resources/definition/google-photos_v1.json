@@ -808,6 +808,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Album",
     "workflowNodeDescription": null
   }, {
@@ -1622,6 +1623,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Album",
     "workflowNodeDescription": null
   }, {
@@ -3331,6 +3333,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload Media",
     "workflowNodeDescription": null
   } ],
@@ -4133,6 +4136,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Album",
     "type": {
       "name": "TOOLS",
@@ -4944,6 +4948,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Album",
     "type": {
       "name": "TOOLS",
@@ -6650,6 +6655,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Upload Media",
     "type": {
       "name": "TOOLS",

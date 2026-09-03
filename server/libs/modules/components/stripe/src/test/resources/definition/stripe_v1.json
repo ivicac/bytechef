@@ -855,6 +855,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Customer",
     "workflowNodeDescription": null
   }, {
@@ -1190,6 +1191,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Invoice",
     "workflowNodeDescription": null
   }, {
@@ -1957,6 +1959,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Payout",
     "workflowNodeDescription": null
   }, {
@@ -2545,6 +2548,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Refund",
     "workflowNodeDescription": null
   }, {
@@ -3821,6 +3825,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Subscription",
     "workflowNodeDescription": null
   }, {
@@ -4510,6 +4515,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Payment Intent",
     "workflowNodeDescription": null
   }, {
@@ -5262,6 +5268,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Refunds",
     "workflowNodeDescription": null
   }, {
@@ -6563,6 +6570,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Subscription",
     "workflowNodeDescription": null
   } ],
@@ -7407,6 +7415,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Customer",
     "type": {
       "name": "TOOLS",
@@ -7734,6 +7743,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Invoice",
     "type": {
       "name": "TOOLS",
@@ -8493,6 +8503,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Payout",
     "type": {
       "name": "TOOLS",
@@ -9078,6 +9089,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Refund",
     "type": {
       "name": "TOOLS",
@@ -10351,6 +10363,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Subscription",
     "type": {
       "name": "TOOLS",
@@ -11037,6 +11050,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Payment Intent",
     "type": {
       "name": "TOOLS",
@@ -11786,6 +11800,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "List Refunds",
     "type": {
       "name": "TOOLS",
@@ -13084,6 +13099,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Update Subscription",
     "type": {
       "name": "TOOLS",

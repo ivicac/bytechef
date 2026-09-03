@@ -266,6 +266,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Messages",
     "workflowNodeDescription": null
   }, {
@@ -574,6 +575,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Messages",
     "workflowNodeDescription": null
   }, {
@@ -760,6 +762,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Conversation",
     "workflowNodeDescription": null
   }, {
@@ -953,12 +956,13 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Conversations",
     "workflowNodeDescription": null
   } ],
   "clusterElements": [ {
     "name": "chatMemory",
-    "description": "Memory is retrieved from the application's session store and added as prior messages in the conversation, including prior tool calls and their results.",
+    "description": "Memory is retrieved from the application database and added as prior messages in the conversation.",
     "element": { },
     "help": null,
     "outputDefinition": null,
@@ -989,6 +993,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

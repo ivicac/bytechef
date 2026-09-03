@@ -97,6 +97,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Project",
     "workflowNodeDescription": null
   } ],

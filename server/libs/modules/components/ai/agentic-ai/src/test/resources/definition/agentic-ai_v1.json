@@ -188,6 +188,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Run",
     "workflowNodeDescription": null
   } ],
@@ -482,6 +483,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Action",
     "type": {
       "name": "ACTION",
@@ -659,6 +661,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Agentic AI",
     "type": {
       "name": "TOOLS",

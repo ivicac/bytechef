@@ -1,5 +1,12 @@
 {
   "actions": [ {
+    "agentReplyDefinition": {
+      "attachmentsProperty": "attachments",
+      "channelParameters": { },
+      "conversationIdProperty": null,
+      "fixedParameters": { },
+      "messageProperty": "message"
+    },
     "batch": false,
     "beforeResume": null,
     "beforeSuspend": null,
@@ -169,8 +176,20 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Response to Chat Request",
     "workflowNodeDescription": null
+  } ],
+  "agentChannels": [ {
+    "approvalChannelName": "chat",
+    "description": null,
+    "name": "chat",
+    "replyActionName": "responseToRequest",
+    "title": "Chat",
+    "triggerName": "newChatRequest",
+    "triggerParameters": {
+      "mode": 1
+    }
   } ],
   "clusterElements": [ {
     "name": "chat",
@@ -180,6 +199,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Chat",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -206,6 +226,11 @@
   "tags": [ ],
   "title": "Chat",
   "triggers": [ {
+    "agentRequestDefinition": {
+      "attachmentsPath": "attachments",
+      "conversationIdPath": "conversationId",
+      "messagePath": "message"
+    },
     "batch": false,
     "deduplicate": null,
     "deprecated": false,
@@ -242,7 +267,7 @@
             "advancedOption": false,
             "controlType": "TEXT",
             "defaultValue": null,
-            "description": null,
+            "description": "Identifier of the conversation the message was posted to.",
             "displayCondition": null,
             "exampleValue": null,
             "expressionEnabled": true,
@@ -264,7 +289,7 @@
             "advancedOption": false,
             "controlType": "TEXT",
             "defaultValue": null,
-            "description": null,
+            "description": "Text of the message.",
             "displayCondition": null,
             "exampleValue": null,
             "expressionEnabled": true,
@@ -286,7 +311,7 @@
             "advancedOption": false,
             "controlType": "ARRAY_BUILDER",
             "defaultValue": null,
-            "description": null,
+            "description": "Files that arrived with the message.",
             "displayCondition": null,
             "exampleValue": null,
             "expressionEnabled": true,
@@ -435,7 +460,7 @@
           "advancedOption": false,
           "controlType": "TEXT",
           "defaultValue": null,
-          "description": null,
+          "description": "Identifier of the conversation the message was posted to.",
           "displayCondition": null,
           "exampleValue": null,
           "expressionEnabled": true,
@@ -457,7 +482,7 @@
           "advancedOption": false,
           "controlType": "TEXT",
           "defaultValue": null,
-          "description": null,
+          "description": "Text of the message.",
           "displayCondition": null,
           "exampleValue": null,
           "expressionEnabled": true,
@@ -479,7 +504,7 @@
           "advancedOption": false,
           "controlType": "ARRAY_BUILDER",
           "defaultValue": null,
-          "description": null,
+          "description": "Files that arrived with the message.",
           "displayCondition": null,
           "exampleValue": null,
           "expressionEnabled": true,

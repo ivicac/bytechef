@@ -382,6 +382,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Compress Image",
     "workflowNodeDescription": null
   }, {
@@ -821,6 +822,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Crop Image",
     "workflowNodeDescription": null
   }, {
@@ -972,6 +974,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Image Metadata",
     "workflowNodeDescription": null
   }, {
@@ -1149,6 +1152,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Image to Base64",
     "workflowNodeDescription": null
   }, {
@@ -1550,6 +1554,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Resize Image",
     "workflowNodeDescription": null
   }, {
@@ -1944,6 +1949,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Rotate Image",
     "workflowNodeDescription": null
   } ],
@@ -2320,6 +2326,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Compress Image",
     "type": {
       "name": "TOOLS",
@@ -2756,6 +2763,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Crop Image",
     "type": {
       "name": "TOOLS",
@@ -2904,6 +2912,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Image Metadata",
     "type": {
       "name": "TOOLS",
@@ -3078,6 +3087,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Image to Base64",
     "type": {
       "name": "TOOLS",
@@ -3476,6 +3486,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Resize Image",
     "type": {
       "name": "TOOLS",
@@ -3867,6 +3878,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Rotate Image",
     "type": {
       "name": "TOOLS",

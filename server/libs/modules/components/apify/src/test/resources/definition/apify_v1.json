@@ -3502,6 +3502,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Last Run",
     "workflowNodeDescription": null
   }, {
@@ -7994,6 +7995,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Start Actor",
     "workflowNodeDescription": null
   } ],
@@ -11487,6 +11489,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Last Run",
     "type": {
       "name": "TOOLS",
@@ -15976,6 +15979,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Start Actor",
     "type": {
       "name": "TOOLS",

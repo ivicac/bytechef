@@ -276,6 +276,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "PII",
     "type": {
       "name": "CHECK_FOR_VIOLATIONS",
@@ -558,6 +559,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "PII",
     "type": {
       "name": "SANITIZE_TEXT",

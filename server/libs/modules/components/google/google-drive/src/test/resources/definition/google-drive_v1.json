@@ -314,6 +314,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Copy File",
     "workflowNodeDescription": null
   }, {
@@ -443,9 +444,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -558,9 +559,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "perform": { },
@@ -614,6 +615,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create New Folder",
     "workflowNodeDescription": null
   }, {
@@ -743,9 +745,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -858,9 +860,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "perform": { },
@@ -970,6 +972,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create New Text File",
     "workflowNodeDescription": null
   }, {
@@ -1015,6 +1018,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete File",
     "workflowNodeDescription": null
   }, {
@@ -1277,6 +1281,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download File",
     "workflowNodeDescription": null
   }, {
@@ -1577,6 +1582,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find or Create Folder",
     "workflowNodeDescription": null
   }, {
@@ -1847,6 +1853,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get File",
     "workflowNodeDescription": null
   }, {
@@ -2159,6 +2166,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Files",
     "workflowNodeDescription": null
   }, {
@@ -2471,6 +2479,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Folders",
     "workflowNodeDescription": null
   }, {
@@ -2569,6 +2578,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Share File",
     "workflowNodeDescription": null
   }, {
@@ -2667,6 +2677,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Share Folder",
     "workflowNodeDescription": null
   }, {
@@ -2796,9 +2807,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -2911,9 +2922,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "perform": { },
@@ -3049,6 +3060,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -3357,6 +3369,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Copy File",
     "type": {
       "name": "TOOLS",
@@ -3485,9 +3498,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -3600,9 +3613,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "processErrorResponse": null,
@@ -3654,6 +3667,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create New Folder",
     "type": {
       "name": "TOOLS",
@@ -3782,9 +3796,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -3897,9 +3911,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "processErrorResponse": null,
@@ -4007,6 +4021,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create New Text File",
     "type": {
       "name": "TOOLS",
@@ -4049,6 +4064,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete File",
     "type": {
       "name": "TOOLS",
@@ -4308,6 +4324,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Download File",
     "type": {
       "name": "TOOLS",
@@ -4605,6 +4622,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Find or Create Folder",
     "type": {
       "name": "TOOLS",
@@ -4872,6 +4890,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get File",
     "type": {
       "name": "TOOLS",
@@ -5181,6 +5200,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Files",
     "type": {
       "name": "TOOLS",
@@ -5490,6 +5510,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Folders",
     "type": {
       "name": "TOOLS",
@@ -5585,6 +5606,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Share File",
     "type": {
       "name": "TOOLS",
@@ -5680,6 +5702,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Share Folder",
     "type": {
       "name": "TOOLS",
@@ -5808,9 +5831,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-file.txt",
           "mimeType": "plain/text",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-file.txt"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -5923,9 +5946,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-file.txt",
         "mimeType": "plain/text",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-file.txt"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "processErrorResponse": null,
@@ -6059,6 +6082,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",

@@ -1111,6 +1111,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Meeting Registrant",
     "workflowNodeDescription": null
   }, {
@@ -3662,6 +3663,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Meeting",
     "workflowNodeDescription": null
   } ],
@@ -4762,6 +4764,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Add Meeting Registrant",
     "type": {
       "name": "TOOLS",
@@ -7305,6 +7308,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Meeting",
     "type": {
       "name": "TOOLS",

@@ -8,6 +8,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Contextual Query Augmenter",
     "type": {
       "name": "QUERY_AUGMENTER",

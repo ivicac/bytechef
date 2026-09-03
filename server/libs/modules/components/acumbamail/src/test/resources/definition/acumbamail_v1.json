@@ -86,6 +86,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Subscriber",
     "workflowNodeDescription": null
   }, {
@@ -153,6 +154,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Subscriber",
     "workflowNodeDescription": null
   }, {
@@ -374,6 +376,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Subscriber List",
     "workflowNodeDescription": null
   }, {
@@ -416,6 +419,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Subscriber List",
     "workflowNodeDescription": null
   } ],

@@ -3308,9 +3308,17 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Media",
     "workflowNodeDescription": null
   }, {
+    "agentReplyDefinition": {
+      "attachmentsProperty": null,
+      "channelParameters": { },
+      "conversationIdProperty": "chat_id",
+      "fixedParameters": { },
+      "messageProperty": "text"
+    },
     "batch": false,
     "beforeResume": null,
     "beforeSuspend": null,
@@ -6295,8 +6303,18 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Message",
     "workflowNodeDescription": null
+  } ],
+  "agentChannels": [ {
+    "approvalChannelName": "telegram",
+    "description": null,
+    "name": "telegram",
+    "replyActionName": "sendMessage",
+    "title": "Telegram",
+    "triggerName": "newMessage",
+    "triggerParameters": { }
   } ],
   "clusterElements": [ {
     "name": "telegram",
@@ -6328,6 +6346,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Telegram",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -9636,6 +9655,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Media",
     "type": {
       "name": "TOOLS",
@@ -12620,6 +12640,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Message",
     "type": {
       "name": "TOOLS",
@@ -12726,6 +12747,11 @@
   "tags": [ ],
   "title": "Telegram",
   "triggers": [ {
+    "agentRequestDefinition": {
+      "attachmentsPath": null,
+      "conversationIdPath": "message.chat.id",
+      "messagePath": "message.text"
+    },
     "batch": false,
     "deduplicate": null,
     "deprecated": false,

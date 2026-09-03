@@ -687,6 +687,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   } ],
@@ -953,6 +954,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "DeepSeek Model",
     "type": {
       "name": "MODEL",

@@ -305,6 +305,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -604,6 +605,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",

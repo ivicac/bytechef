@@ -122,6 +122,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Base64 Encode/Decode",
     "workflowNodeDescription": null
   }, {
@@ -217,6 +218,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert to Number",
     "workflowNodeDescription": null
   }, {
@@ -355,6 +357,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Concatenate",
     "workflowNodeDescription": null
   }, {
@@ -476,6 +479,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Contains",
     "workflowNodeDescription": null
   }, {
@@ -614,6 +618,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Escape Characters",
     "workflowNodeDescription": null
   }, {
@@ -773,6 +778,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract All by Regular Expression",
     "workflowNodeDescription": null
   }, {
@@ -922,6 +928,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract Content from HTML",
     "workflowNodeDescription": null
   }, {
@@ -1079,6 +1086,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract Key by Regular Expression",
     "workflowNodeDescription": null
   }, {
@@ -1196,6 +1204,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract by Regular Expression",
     "workflowNodeDescription": null
   }, {
@@ -1333,6 +1342,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract URLs",
     "workflowNodeDescription": null
   }, {
@@ -2445,6 +2455,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Format Currency",
     "workflowNodeDescription": null
   }, {
@@ -2540,6 +2551,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Domain From Email Address",
     "workflowNodeDescription": null
   }, {
@@ -2635,6 +2647,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Domain From URL",
     "workflowNodeDescription": null
   }, {
@@ -2882,6 +2895,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get First Middle and Last Name",
     "workflowNodeDescription": null
   }, {
@@ -3018,6 +3032,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Text After",
     "workflowNodeDescription": null
   }, {
@@ -3154,6 +3169,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Text Before",
     "workflowNodeDescription": null
   }, {
@@ -3293,6 +3309,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Text Between",
     "workflowNodeDescription": null
   }, {
@@ -3382,6 +3399,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Text Length",
     "workflowNodeDescription": null
   }, {
@@ -3507,6 +3525,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Hex Encode/Decode",
     "workflowNodeDescription": null
   }, {
@@ -3602,6 +3621,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "HTML to Markdown",
     "workflowNodeDescription": null
   }, {
@@ -3701,6 +3721,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Is Domain?",
     "workflowNodeDescription": null
   }, {
@@ -3800,6 +3821,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Is Email?",
     "workflowNodeDescription": null
   }, {
@@ -3899,6 +3921,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Is Numeric?",
     "workflowNodeDescription": null
   }, {
@@ -4094,6 +4117,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Is URL?",
     "workflowNodeDescription": null
   }, {
@@ -4189,6 +4213,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Lower Case",
     "workflowNodeDescription": null
   }, {
@@ -4284,6 +4309,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Markdown to HTML",
     "workflowNodeDescription": null
   }, {
@@ -4443,6 +4469,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Match",
     "workflowNodeDescription": null
   }, {
@@ -4710,6 +4737,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Parse Email",
     "workflowNodeDescription": null
   }, {
@@ -5040,6 +5068,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Parse Email List",
     "workflowNodeDescription": null
   }, {
@@ -5743,6 +5772,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Parse URL",
     "workflowNodeDescription": null
   }, {
@@ -5838,6 +5868,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Proper Case",
     "workflowNodeDescription": null
   }, {
@@ -6031,6 +6062,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Regular Expression Match Test",
     "workflowNodeDescription": null
   }, {
@@ -6148,6 +6180,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove Characters",
     "workflowNodeDescription": null
   }, {
@@ -6243,6 +6276,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove Special Characters",
     "workflowNodeDescription": null
   }, {
@@ -6406,6 +6440,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Replace",
     "workflowNodeDescription": null
   }, {
@@ -6520,6 +6555,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Select First N Characters",
     "workflowNodeDescription": null
   }, {
@@ -6634,6 +6670,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Select Last N Characters",
     "workflowNodeDescription": null
   }, {
@@ -6729,6 +6766,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Sentence Case",
     "workflowNodeDescription": null
   }, {
@@ -6843,6 +6881,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Shorten",
     "workflowNodeDescription": null
   }, {
@@ -7002,6 +7041,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Split",
     "workflowNodeDescription": null
   }, {
@@ -7097,6 +7137,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Strip HTML Tags",
     "workflowNodeDescription": null
   }, {
@@ -7192,6 +7233,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Trim Whitespace",
     "workflowNodeDescription": null
   }, {
@@ -7287,6 +7329,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Underscore",
     "workflowNodeDescription": null
   }, {
@@ -7382,6 +7425,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upper Case",
     "workflowNodeDescription": null
   }, {
@@ -7507,6 +7551,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "URL Encode/Decode",
     "workflowNodeDescription": null
   }, {
@@ -7695,6 +7740,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "URL Encode/Decode Key/Value Pair",
     "workflowNodeDescription": null
   } ],
@@ -7811,6 +7857,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Base64 Encode/Decode",
     "type": {
       "name": "TOOLS",
@@ -7903,6 +7950,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Convert to Number",
     "type": {
       "name": "TOOLS",
@@ -8038,6 +8086,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Concatenate",
     "type": {
       "name": "TOOLS",
@@ -8156,6 +8205,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Contains",
     "type": {
       "name": "TOOLS",
@@ -8291,6 +8341,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Escape Characters",
     "type": {
       "name": "TOOLS",
@@ -8447,6 +8498,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Extract All by Regular Expression",
     "type": {
       "name": "TOOLS",
@@ -8593,6 +8645,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Extract Content from HTML",
     "type": {
       "name": "TOOLS",
@@ -8747,6 +8800,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Extract Key by Regular Expression",
     "type": {
       "name": "TOOLS",
@@ -8861,6 +8915,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Extract by Regular Expression",
     "type": {
       "name": "TOOLS",
@@ -8995,6 +9050,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Extract URLs",
     "type": {
       "name": "TOOLS",
@@ -10104,6 +10160,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Format Currency",
     "type": {
       "name": "TOOLS",
@@ -10196,6 +10253,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Domain From Email Address",
     "type": {
       "name": "TOOLS",
@@ -10288,6 +10346,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Domain From URL",
     "type": {
       "name": "TOOLS",
@@ -10532,6 +10591,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Get First Middle and Last Name",
     "type": {
       "name": "TOOLS",
@@ -10665,6 +10725,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Get Text After",
     "type": {
       "name": "TOOLS",
@@ -10798,6 +10859,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Get Text Before",
     "type": {
       "name": "TOOLS",
@@ -10934,6 +10996,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Text Between",
     "type": {
       "name": "TOOLS",
@@ -11020,6 +11083,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Text Length",
     "type": {
       "name": "TOOLS",
@@ -11142,6 +11206,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Hex Encode/Decode",
     "type": {
       "name": "TOOLS",
@@ -11234,6 +11299,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "HTML to Markdown",
     "type": {
       "name": "TOOLS",
@@ -11330,6 +11396,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Is Domain?",
     "type": {
       "name": "TOOLS",
@@ -11426,6 +11493,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Is Email?",
     "type": {
       "name": "TOOLS",
@@ -11522,6 +11590,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Is Numeric?",
     "type": {
       "name": "TOOLS",
@@ -11714,6 +11783,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Is URL?",
     "type": {
       "name": "TOOLS",
@@ -11806,6 +11876,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Lower Case",
     "type": {
       "name": "TOOLS",
@@ -11898,6 +11969,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Markdown to HTML",
     "type": {
       "name": "TOOLS",
@@ -12054,6 +12126,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Match",
     "type": {
       "name": "TOOLS",
@@ -12318,6 +12391,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Parse Email",
     "type": {
       "name": "TOOLS",
@@ -12645,6 +12719,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Parse Email List",
     "type": {
       "name": "TOOLS",
@@ -13345,6 +13420,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Parse URL",
     "type": {
       "name": "TOOLS",
@@ -13437,6 +13513,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Proper Case",
     "type": {
       "name": "TOOLS",
@@ -13627,6 +13704,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Regular Expression Match Test",
     "type": {
       "name": "TOOLS",
@@ -13741,6 +13819,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove Characters",
     "type": {
       "name": "TOOLS",
@@ -13833,6 +13912,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove Special Characters",
     "type": {
       "name": "TOOLS",
@@ -13993,6 +14073,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Replace",
     "type": {
       "name": "TOOLS",
@@ -14104,6 +14185,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Select First N Characters",
     "type": {
       "name": "TOOLS",
@@ -14215,6 +14297,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Select Last N Characters",
     "type": {
       "name": "TOOLS",
@@ -14307,6 +14390,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Sentence Case",
     "type": {
       "name": "TOOLS",
@@ -14418,6 +14502,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Shorten",
     "type": {
       "name": "TOOLS",
@@ -14574,6 +14659,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Split",
     "type": {
       "name": "TOOLS",
@@ -14666,6 +14752,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Strip HTML Tags",
     "type": {
       "name": "TOOLS",
@@ -14758,6 +14845,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Trim Whitespace",
     "type": {
       "name": "TOOLS",
@@ -14850,6 +14938,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Underscore",
     "type": {
       "name": "TOOLS",
@@ -14942,6 +15031,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Upper Case",
     "type": {
       "name": "TOOLS",
@@ -15064,6 +15154,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "URL Encode/Decode",
     "type": {
       "name": "TOOLS",
@@ -15249,6 +15340,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "URL Encode/Decode Key/Value Pair",
     "type": {
       "name": "TOOLS",

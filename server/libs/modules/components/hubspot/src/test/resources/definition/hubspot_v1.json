@@ -583,6 +583,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -1163,6 +1164,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Deal",
     "workflowNodeDescription": null
   }, {
@@ -2343,6 +2345,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create List",
     "workflowNodeDescription": null
   }, {
@@ -2393,6 +2396,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Contact",
     "workflowNodeDescription": null
   }, {
@@ -2850,6 +2854,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Contact",
     "workflowNodeDescription": null
   }, {
@@ -3362,6 +3367,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Contacts",
     "workflowNodeDescription": null
   }, {
@@ -3819,6 +3825,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Ticket",
     "workflowNodeDescription": null
   }, {
@@ -4432,6 +4439,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Contact",
     "workflowNodeDescription": null
   } ],
@@ -5004,6 +5012,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -5576,6 +5585,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Deal",
     "type": {
       "name": "TOOLS",
@@ -6748,6 +6758,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create List",
     "type": {
       "name": "TOOLS",
@@ -6792,6 +6803,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Contact",
     "type": {
       "name": "TOOLS",
@@ -7243,6 +7255,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Contact",
     "type": {
       "name": "TOOLS",
@@ -7749,6 +7762,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Get Contacts",
     "type": {
       "name": "TOOLS",
@@ -8200,6 +8214,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Ticket",
     "type": {
       "name": "TOOLS",
@@ -8805,6 +8820,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Update Contact",
     "type": {
       "name": "TOOLS",

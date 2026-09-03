@@ -140,6 +140,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Scrape URL",
     "workflowNodeDescription": null
   }, {
@@ -283,6 +284,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Scrape URL Autoparse",
     "workflowNodeDescription": null
   }, {
@@ -463,6 +465,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Scrape URL With CSS Selectors",
     "workflowNodeDescription": null
   } ],
@@ -597,6 +600,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Scrape URL",
     "type": {
       "name": "TOOLS",
@@ -737,6 +741,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Scrape URL Autoparse",
     "type": {
       "name": "TOOLS",
@@ -914,6 +919,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Scrape URL With CSS Selectors",
     "type": {
       "name": "TOOLS",

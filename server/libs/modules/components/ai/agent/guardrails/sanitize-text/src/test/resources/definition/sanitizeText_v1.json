@@ -23,6 +23,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Sanitize Text",
     "type": {
       "name": "GUARDRAILS",

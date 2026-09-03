@@ -827,6 +827,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   }, {
@@ -1234,6 +1235,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task List",
     "workflowNodeDescription": null
   }, {
@@ -1304,6 +1306,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Task",
     "workflowNodeDescription": null
   }, {
@@ -2079,6 +2082,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Task",
     "workflowNodeDescription": null
   } ],
@@ -2900,6 +2904,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",
@@ -3304,6 +3309,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Task List",
     "type": {
       "name": "TOOLS",
@@ -3371,6 +3377,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Task",
     "type": {
       "name": "TOOLS",
@@ -4143,6 +4150,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Task",
     "type": {
       "name": "TOOLS",

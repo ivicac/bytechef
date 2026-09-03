@@ -881,6 +881,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Channel",
     "workflowNodeDescription": null
   }, {
@@ -2441,6 +2442,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Channel Message",
     "workflowNodeDescription": null
   }, {
@@ -3980,6 +3982,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   } ],
@@ -4850,6 +4853,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Channel",
     "type": {
       "name": "TOOLS",
@@ -6402,6 +6406,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Send Channel Message",
     "type": {
       "name": "TOOLS",
@@ -6469,6 +6474,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Discord",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -8005,6 +8011,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",

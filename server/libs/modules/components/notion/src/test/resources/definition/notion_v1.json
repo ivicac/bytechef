@@ -986,6 +986,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Block to Page",
     "workflowNodeDescription": null
   }, {
@@ -1073,6 +1074,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Database Item",
     "workflowNodeDescription": null
   }, {
@@ -2679,6 +2681,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Page",
     "workflowNodeDescription": null
   }, {
@@ -3839,6 +3842,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Database",
     "workflowNodeDescription": null
   }, {
@@ -5423,6 +5427,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Page",
     "workflowNodeDescription": null
   }, {
@@ -5470,6 +5475,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Page or Block Children",
     "workflowNodeDescription": null
   }, {
@@ -5575,6 +5581,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Database Items",
     "workflowNodeDescription": null
   }, {
@@ -5662,6 +5669,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Database Item",
     "workflowNodeDescription": null
   } ],
@@ -6642,6 +6650,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Block to Page",
     "type": {
       "name": "TOOLS",
@@ -6726,6 +6735,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Database Item",
     "type": {
       "name": "TOOLS",
@@ -8329,6 +8339,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Page",
     "type": {
       "name": "TOOLS",
@@ -9486,6 +9497,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Database",
     "type": {
       "name": "TOOLS",
@@ -11067,6 +11079,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Page",
     "type": {
       "name": "TOOLS",
@@ -11151,6 +11164,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Database Item",
     "type": {
       "name": "TOOLS",

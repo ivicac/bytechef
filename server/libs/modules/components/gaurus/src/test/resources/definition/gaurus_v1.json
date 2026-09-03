@@ -41,6 +41,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Deletes an external user.",
     "workflowNodeDescription": null
   }, {
@@ -391,6 +392,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets accounts for provided client id.",
     "workflowNodeDescription": null
   }, {
@@ -834,6 +836,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets transactions for provided IBAN and query parameters.",
     "workflowNodeDescription": null
   }, {
@@ -1194,6 +1197,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets external users for provided client id.",
     "workflowNodeDescription": null
   }, {
@@ -1779,6 +1783,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Creates external users with bank consent jobs.",
     "workflowNodeDescription": null
   }, {
@@ -1823,6 +1828,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Updates an external user.",
     "workflowNodeDescription": null
   } ],

@@ -553,6 +553,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Email",
     "workflowNodeDescription": null
   }, {
@@ -1019,6 +1020,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send SMS",
     "workflowNodeDescription": null
   } ],
@@ -1561,6 +1563,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Email",
     "type": {
       "name": "TOOLS",
@@ -2019,6 +2022,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send SMS",
     "type": {
       "name": "TOOLS",

@@ -289,6 +289,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Messages",
     "workflowNodeDescription": null
   }, {
@@ -621,6 +622,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Messages",
     "workflowNodeDescription": null
   }, {
@@ -807,6 +809,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Conversation",
     "workflowNodeDescription": null
   }, {
@@ -1022,6 +1025,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Conversations",
     "workflowNodeDescription": null
   } ],
@@ -1265,6 +1269,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "In Memory Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

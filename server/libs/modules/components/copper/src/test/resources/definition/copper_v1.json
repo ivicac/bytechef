@@ -520,6 +520,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Activity",
     "workflowNodeDescription": null
   }, {
@@ -2316,6 +2317,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Company",
     "workflowNodeDescription": null
   }, {
@@ -4492,6 +4494,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Person",
     "workflowNodeDescription": null
   }, {
@@ -5388,6 +5391,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   } ],

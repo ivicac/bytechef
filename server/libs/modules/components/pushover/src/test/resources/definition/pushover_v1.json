@@ -420,6 +420,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Notification",
     "workflowNodeDescription": null
   } ],
@@ -834,6 +835,7 @@
       "required": false,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Send Notification",
     "type": {
       "name": "TOOLS",

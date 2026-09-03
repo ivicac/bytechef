@@ -80,12 +80,13 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Question Answer RAG",
     "type": {
       "name": "RAG",
       "key": "rag",
       "label": "RAG",
-      "multipleElements": false,
+      "multipleElements": true,
       "required": false
     },
     "workflowNodeDescription": null

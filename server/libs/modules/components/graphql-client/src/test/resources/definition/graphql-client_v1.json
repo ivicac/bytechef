@@ -280,6 +280,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Raw Query",
     "workflowNodeDescription": null
   } ],

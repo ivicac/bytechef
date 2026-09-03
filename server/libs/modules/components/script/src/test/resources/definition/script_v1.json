@@ -848,6 +848,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "JavaScript",
     "workflowNodeDescription": null
   }, {
@@ -1699,6 +1700,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Python",
     "workflowNodeDescription": null
   }, {
@@ -2206,6 +2208,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "JavaScript",
     "type": {
       "name": "TOOLS",
@@ -2458,7 +2461,8 @@
       "required": true,
       "type": "STRING"
     } ],
-    "title": "JavaScript",
+    "riskLevel": null,
+    "title": "Python",
     "type": {
       "name": "TOOLS",
       "key": "tools",
@@ -2748,6 +2752,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "JavaScript",
     "type": {
       "name": "PROCESSOR",
@@ -2786,6 +2791,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Python",
     "type": {
       "name": "PROCESSOR",

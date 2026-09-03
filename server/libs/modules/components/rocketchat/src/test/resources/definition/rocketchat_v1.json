@@ -1025,9 +1025,17 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   }, {
+    "agentReplyDefinition": {
+      "attachmentsProperty": null,
+      "channelParameters": { },
+      "conversationIdProperty": "roomId",
+      "fixedParameters": { },
+      "messageProperty": "text"
+    },
     "batch": false,
     "beforeResume": null,
     "beforeSuspend": null,
@@ -2053,6 +2061,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Channel Message",
     "workflowNodeDescription": null
   }, {
@@ -3022,8 +3031,18 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Channel",
     "workflowNodeDescription": null
+  } ],
+  "agentChannels": [ {
+    "approvalChannelName": "rocketchat",
+    "description": null,
+    "name": "rocketchat",
+    "replyActionName": "sendChannelMessage",
+    "title": "Rocket.Chat",
+    "triggerName": "newMessage",
+    "triggerParameters": { }
   } ],
   "clusterElements": [ {
     "name": "rocketchat",
@@ -3058,6 +3077,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Rocket.Chat",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -4083,6 +4103,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",
@@ -5108,6 +5129,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Channel Message",
     "type": {
       "name": "TOOLS",
@@ -6074,6 +6096,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Channel",
     "type": {
       "name": "TOOLS",
@@ -6202,6 +6225,11 @@
   "tags": [ ],
   "title": "Rocket.Chat",
   "triggers": [ {
+    "agentRequestDefinition": {
+      "attachmentsPath": null,
+      "conversationIdPath": "channel_id",
+      "messagePath": "text"
+    },
     "batch": false,
     "deduplicate": null,
     "deprecated": false,

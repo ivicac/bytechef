@@ -828,6 +828,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1243,6 +1244,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Image",
     "workflowNodeDescription": null
   }, {
@@ -1730,6 +1732,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Transcriptions",
     "workflowNodeDescription": null
   } ],
@@ -2054,6 +2057,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Azure OpenAI Model",
     "type": {
       "name": "MODEL",

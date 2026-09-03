@@ -186,6 +186,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Realtime Speech",
     "workflowNodeDescription": null
   }, {
@@ -331,6 +332,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Realtime Transcript",
     "workflowNodeDescription": null
   }, {
@@ -590,6 +592,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Sound Effect",
     "workflowNodeDescription": null
   }, {
@@ -874,6 +877,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Speech",
     "workflowNodeDescription": null
   }, {
@@ -1630,6 +1634,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Speech With Timing",
     "workflowNodeDescription": null
   }, {
@@ -2215,6 +2220,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Transcript",
     "workflowNodeDescription": null
   } ],
@@ -2465,6 +2471,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Sound Effect",
     "type": {
       "name": "TOOLS",
@@ -2746,6 +2753,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Speech",
     "type": {
       "name": "TOOLS",
@@ -3499,6 +3507,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Speech With Timing",
     "type": {
       "name": "TOOLS",
@@ -4081,6 +4090,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Create Transcript",
     "type": {
       "name": "TOOLS",

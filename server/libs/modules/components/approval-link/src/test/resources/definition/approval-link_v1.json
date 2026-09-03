@@ -4,8 +4,8 @@
     "beforeResume": null,
     "beforeSuspend": null,
     "beforeTimeoutResume": null,
-    "deprecated": false,
-    "description": "Creates approval/disapproval links.",
+    "deprecated": true,
+    "description": "Deprecated: use the Request Approval action of the Approval component instead. Creates approval/disapproval links.",
     "help": {
       "body": "",
       "learnMoreUrl": "https://docs.bytechef.io/reference/components/approval-link_v1#create-approval-links"
@@ -22,6 +22,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Approval Links",
     "workflowNodeDescription": null
   } ],

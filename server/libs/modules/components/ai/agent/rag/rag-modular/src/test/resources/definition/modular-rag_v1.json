@@ -41,12 +41,13 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Moduler RAG",
     "type": {
       "name": "RAG",
       "key": "rag",
       "label": "RAG",
-      "multipleElements": false,
+      "multipleElements": true,
       "required": false
     },
     "workflowNodeDescription": null

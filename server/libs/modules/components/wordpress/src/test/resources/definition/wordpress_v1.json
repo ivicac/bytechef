@@ -3733,6 +3733,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Page",
     "workflowNodeDescription": null
   }, {
@@ -7698,6 +7699,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Post",
     "workflowNodeDescription": null
   }, {
@@ -11160,6 +11162,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Post",
     "workflowNodeDescription": null
   }, {
@@ -16161,6 +16164,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Post",
     "workflowNodeDescription": null
   } ],
@@ -19883,6 +19887,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Page",
     "type": {
       "name": "TOOLS",
@@ -23840,6 +23845,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Post",
     "type": {
       "name": "TOOLS",
@@ -27296,6 +27302,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Post",
     "type": {
       "name": "TOOLS",
@@ -32289,6 +32296,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Post",
     "type": {
       "name": "TOOLS",
