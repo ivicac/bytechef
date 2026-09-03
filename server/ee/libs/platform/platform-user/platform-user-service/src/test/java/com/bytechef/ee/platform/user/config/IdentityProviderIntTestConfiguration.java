@@ -7,10 +7,13 @@
 
 package com.bytechef.ee.platform.user.config;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.jdbc.config.AuditingJdbcConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -39,8 +42,18 @@ import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration
 @Configuration
 public class IdentityProviderIntTestConfiguration extends AbstractJdbcConfiguration {
 
+    /**
+     * The component scan below reaches {@code AuthorityFacadeImpl}, whose only collaborator is a CE service living
+     * outside the scanned packages. These tests never exercise it, so a mock is enough to let the context start.
+     */
+    @Bean
+    AuthorityService authorityService() {
+        return mock(AuthorityService.class);
+    }
+
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
     }
+
 }
