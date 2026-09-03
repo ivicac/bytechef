@@ -27,6 +27,7 @@ import {twMerge} from 'tailwind-merge';
 import {getClusterElementsLabel} from '../../cluster-element-editor/utils/clusterElementsUtils';
 import getAvailableComponentVersions from '../utils/getAvailableComponentVersions';
 import getNodeOperationDescription from '../utils/getNodeOperationDescription';
+import {resolveMainClusterRootName} from '../utils/resolveClusterRootId';
 import {DescriptionTabSkeleton, FieldsetSkeleton, PropertiesTabSkeleton} from './WorkflowEditorSkeletons';
 import useWorkflowNodeDetailsPanel from './hooks/useWorkflowNodeDetailsPanel';
 
@@ -225,8 +226,10 @@ const WorkflowNodeDetailsPanel = ({
                                         clusterElementOperations: filteredClusterElementOperations,
                                         currentNode,
                                         currentOperationName,
-                                        rootClusterElementWorkflowNodeName:
-                                            rootClusterElementNodeData?.workflowNodeName,
+                                        rootClusterElementWorkflowNodeName: resolveMainClusterRootName(
+                                            currentNode,
+                                            rootClusterElementNodeData
+                                        ),
                                         triggerDescription: currentTriggerDefinition?.description,
                                     })}
                                     handleValueChange={handleOperationSelectChange}
@@ -235,7 +238,7 @@ const WorkflowNodeDetailsPanel = ({
                                             ? currentComponentDefinition?.triggers
                                             : !!currentNode?.clusterElementType &&
                                                 currentNode?.workflowNodeName !==
-                                                    rootClusterElementNodeData?.workflowNodeName
+                                                    resolveMainClusterRootName(currentNode, rootClusterElementNodeData)
                                               ? filteredClusterElementOperations
                                               : currentComponentDefinition?.actions)!
                                     }
@@ -388,7 +391,10 @@ const WorkflowNodeDetailsPanel = ({
                                             key={`${currentNode?.componentName}-${currentNode?.type}_output`}
                                             outputDefined={outputDefined}
                                             outputFunctionDefined={outputFunctionDefined}
-                                            parentWorkflowNodeName={rootClusterElementNodeData?.workflowNodeName}
+                                            parentWorkflowNodeName={resolveMainClusterRootName(
+                                                currentNode,
+                                                rootClusterElementNodeData
+                                            )}
                                             resumePerformFunctionDefined={
                                                 (currentActionDefinition as ActionDefinition)
                                                     ?.resumePerformFunctionDefined
