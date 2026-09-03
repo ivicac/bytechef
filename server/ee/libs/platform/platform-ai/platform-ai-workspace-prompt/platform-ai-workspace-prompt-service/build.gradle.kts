@@ -7,7 +7,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-api"))
     implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
     // Resolves a job principal id (project deployment id) to its workspace for WorkspaceSystemPromptAdvisorProviderImpl.
-    implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
+    implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-workspace"))
     // Implements the CE SPI seam (WorkspaceSystemPromptAdvisorProvider) so non-EE components can obtain this advisor.
     api(project(":server:libs:platform:platform-ai:platform-ai-api"))
     // WorkspaceSystemPromptAdvisor implements Spring AI's CallAdvisor/StreamAdvisor and takes
@@ -17,6 +17,9 @@ dependencies {
 
     api(project(":server:ee:libs:platform:platform-ai:platform-ai-workspace-prompt:platform-ai-workspace-prompt-api"))
 
+    // ProjectDeploymentService/ProjectService are named only by the advisor tests, which build a real
+    // JobPrincipalWorkspaceResolver from mocked providers.
+    testImplementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
