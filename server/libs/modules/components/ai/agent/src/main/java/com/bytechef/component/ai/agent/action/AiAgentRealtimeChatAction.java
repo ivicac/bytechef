@@ -33,9 +33,11 @@ import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProv
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
 import com.bytechef.platform.component.definition.MultipleConnectionsWebSocketPerformFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -104,6 +106,20 @@ public class AiAgentRealtimeChatAction extends AbstractAiAgentChatAction {
             workspaceSystemPromptAdvisorProviderObjectProvider).build();
     }
 
+    public static ActionDefinition of(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
+        return new AiAgentRealtimeChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, componentRuleEnforcers).build();
+    }
+
     private AiAgentRealtimeChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         AgentToolCallingManagers agentToolCallingManagers,
@@ -115,6 +131,20 @@ public class AiAgentRealtimeChatAction extends AbstractAiAgentChatAction {
             aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
             workspaceSystemPromptAdvisorProviderObjectProvider);
+    }
+
+    private AiAgentRealtimeChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
+        super(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, null, componentRuleEnforcers);
     }
 
     private RealtimeChatActionDefinitionWrapper build() {

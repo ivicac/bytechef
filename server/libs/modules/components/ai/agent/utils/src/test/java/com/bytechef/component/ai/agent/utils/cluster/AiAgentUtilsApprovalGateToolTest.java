@@ -95,7 +95,7 @@ class AiAgentUtilsApprovalGateToolTest {
      */
     @Test
     void testWrapsEveryCallbackOfEveryGatedElementExactlyOnce() {
-        when(clusterElementToolCallbacks.build(any(), any(), any()))
+        when(clusterElementToolCallbacks.build(any(), any(), any(), any()))
             .thenReturn(List.of(mock(ToolCallback.class), mock(ToolCallback.class)));
 
         List<ToolCallback> toolCallbacks = approvalGateTool.buildGatedToolCallbacks(
