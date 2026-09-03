@@ -1,4 +1,5 @@
 import {Thread} from '@/components/assistant-ui/thread';
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {WorkflowTestChatRuntimeProvider} from '@/pages/platform/workflow-editor/components/workflow-test-chat/runtime-providers/WorkflowTestChatRuntimeProvider';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
@@ -8,7 +9,7 @@ import {useWorkflowTestVoiceSession} from '@/shared/hooks/useWorkflowTestVoiceSe
 import {checkVoiceSupport} from '@/shared/lib/browser-voice/BrowserVoiceSession';
 import {createWebhookVoiceAdapter} from '@/shared/lib/voice/ByteChefRealtimeVoiceAdapter';
 import {VoiceModeLayout} from '@/shared/lib/voice/VoiceModeLayout';
-import {AudioLinesIcon, SquareIcon, XIcon} from 'lucide-react';
+import {AudioLinesIcon, MessageSquareXIcon, SquareIcon, XIcon} from 'lucide-react';
 import {useCallback, useEffect, useMemo} from 'react';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -44,6 +45,7 @@ const WorkflowTestChatPanel = () => {
     const {
         appendToLastAssistantMessage,
         generateConversationId,
+        resetMessages,
         setMessage,
         setWorkflowTestChatPanelOpen,
         workflowTestChatPanelOpen,
@@ -51,6 +53,7 @@ const WorkflowTestChatPanel = () => {
         useShallow((state) => ({
             appendToLastAssistantMessage: state.appendToLastAssistantMessage,
             generateConversationId: state.generateConversationId,
+            resetMessages: state.resetMessages,
             setMessage: state.setMessage,
             setWorkflowTestChatPanelOpen: state.setWorkflowTestChatPanelOpen,
             workflowTestChatPanelOpen: state.workflowTestChatPanelOpen,
@@ -165,6 +168,14 @@ const WorkflowTestChatPanel = () => {
         }
     }, [generateConversationId, workflowTestChatPanelOpen]);
 
+    // The same pair the agent playground's reset uses: the runtime provider reads both `messages`
+    // and `conversationId` off the store, so clearing one and rotating the other starts a fresh
+    // thread in place.
+    const handleReset = useCallback(() => {
+        resetMessages();
+        generateConversationId();
+    }, [generateConversationId, resetMessages]);
+
     if (!workflowTestChatPanelOpen) {
         return <></>;
     }
@@ -180,14 +191,21 @@ const WorkflowTestChatPanel = () => {
                 <header className="flex items-center gap-2 p-4 text-lg font-medium">
                     <span>Playground</span>
 
-                    <button
-                        aria-label="Close the node details dialog"
-                        className="ml-auto pr-0"
-                        onClick={handlePanelClose}
-                        type="button"
-                    >
-                        <XIcon aria-hidden="true" className="size-4 cursor-pointer" />
-                    </button>
+                    <div className="ml-auto flex items-center gap-3">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button aria-label="Reset conversation" onClick={handleReset} type="button">
+                                    <MessageSquareXIcon aria-hidden="true" className="size-4 cursor-pointer" />
+                                </button>
+                            </TooltipTrigger>
+
+                            <TooltipContent>Reset conversation</TooltipContent>
+                        </Tooltip>
+
+                        <button aria-label="Close the node details dialog" onClick={handlePanelClose} type="button">
+                            <XIcon aria-hidden="true" className="size-4 cursor-pointer" />
+                        </button>
+                    </div>
                 </header>
 
                 {error && <div className="bg-red-50 px-4 py-2 text-xs text-red-900">{error}</div>}
