@@ -35,12 +35,62 @@ bytechef automation project deploy --workspace-id 1 --project-file ./project.zip
 
 # Pull a project from its git repository
 bytechef automation project pull --id 5
+
+# Data tables and columns
+bytechef automation data-table list --workspace-id 1 --tag hot
+bytechef automation data-table get --name orders
+bytechef automation data-table create --workspace-id 1 --name orders \
+  --column total:NUMBER --column sku:STRING --tag hot
+bytechef automation data-table update --name orders --description "New description" --tag hot --tag cold
+bytechef automation data-table delete --name orders
+bytechef automation data-table column add --name orders --column sku:STRING
+bytechef automation data-table column remove --name orders --column sku
+bytechef automation data-table column rename --name orders --column sku --new-name productSku
+
+# Data table rows
+bytechef automation data-table row list --name orders --filter total:GTE:5 --filter sku:IN:a,b \
+  --sort total:DESC --page-size 20
+bytechef automation data-table row get --name orders --id 7
+bytechef automation data-table row get --name orders --external-id ext-1
+bytechef automation data-table row insert --name orders --values '{"total":5,"sku":"a"}' --external-id ext-2
+bytechef automation data-table row update --name orders --id 7 --values '{"total":9}'
+bytechef automation data-table row upsert --name orders --external-id ext-2 --values '{"total":9}'
+bytechef automation data-table row delete --name orders --id 7
+bytechef automation data-table row delete --name orders --ids 1,2,3
+bytechef automation data-table row delete --name orders --external-id ext-2
+bytechef automation data-table row batch --name orders --file ./rows.json --strategy upsert
+bytechef automation data-table row clear --name orders --yes true
+bytechef automation data-table row import --name orders --file ./rows.csv
+bytechef automation data-table row export --name orders --file ./export.csv
 ```
 
 Output is JSON by default; add `--output table` on `execution list` for a compact summary.
 
 Requests are sent to `<host>/api/automation/v1` with `Authorization: Bearer <token>` and
 `X-Environment: <environment>` headers.
+
+### Data table notes
+
+- `--column` on `data-table create` and `column add` is `name:TYPE` (`STRING`, `NUMBER`, `INTEGER`, `DATE`,
+  `DATE_TIME`, `BOOLEAN`). A malformed spec or unknown type fails locally before any request is sent.
+- `--filter`/`--sort` on `row list` and `--column`/`--tag` on `data-table create`/`update` are repeatable
+  (`--filter a --filter b`); they are forwarded to the API verbatim — the CLI does not parse or re-encode
+  the filter/sort grammar itself, so consult the API docs for the `column:OPERATOR:value` syntax.
+- `row delete` accepts exactly one of `--id`, `--ids` (comma-separated) or `--external-id`; zero or more than
+  one is rejected before any request is sent.
+- `row clear` refuses to run unless `--yes true` is given (bare `--yes` is not recognized as a flag by the
+  underlying shell framework for multi-word commands — the value is required).
+- **`row update --external-id` can set an external id but cannot clear one.** The generated CLI client
+  serializes `externalId` as a plain, non-nullable-wrapped string, so omitting the flag leaves the row's
+  external id untouched, and there is no way to send an explicit "clear this field" signal from the CLI.
+  This is a known, accepted limitation, not a bug — clear an external id from the UI or a direct API call
+  with a nullable-aware client instead.
+- **`data-table update --tag` can replace a table's tags but cannot clear them.** The same
+  `openApiNullable=false` client generation applies: `tags` is serialized as a plain list, and the command
+  sends `null` when no `--tag` is given, which the API reads as "leave the tags alone". Omitting `--tag`
+  therefore keeps the existing tags rather than removing them, and there is no way to send the explicit
+  null that clears them. Clear tags from the UI or a nullable-aware client instead.
+- `row export` streams the table as CSV to `--file`, or to stdout when `--file` is omitted.
 
 ## Embedded commands
 
