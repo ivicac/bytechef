@@ -699,6 +699,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload Asset File",
     "workflowNodeDescription": null
   }, {
@@ -952,6 +953,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download Asset File",
     "workflowNodeDescription": null
   }, {
@@ -1525,6 +1527,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Asset File",
     "workflowNodeDescription": null
   }, {
@@ -2161,6 +2164,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find Asset Files",
     "workflowNodeDescription": null
   }, {
@@ -2860,6 +2864,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Asset File Content",
     "workflowNodeDescription": null
   }, {
@@ -3455,6 +3460,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Rename Asset File",
     "workflowNodeDescription": null
   }, {
@@ -3626,6 +3632,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Asset File",
     "workflowNodeDescription": null
   } ],
@@ -4322,6 +4329,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Upload Asset File",
     "type": {
       "name": "TOOLS",
@@ -4575,6 +4583,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Download Asset File",
     "type": {
       "name": "TOOLS",
@@ -5148,6 +5157,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Get Asset File",
     "type": {
       "name": "TOOLS",
@@ -5784,6 +5794,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Find Asset Files",
     "type": {
       "name": "TOOLS",
@@ -6483,6 +6494,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Asset File Content",
     "type": {
       "name": "TOOLS",
@@ -7078,6 +7090,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Rename Asset File",
     "type": {
       "name": "TOOLS",
@@ -7249,6 +7262,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete Asset File",
     "type": {
       "name": "TOOLS",

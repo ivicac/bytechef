@@ -126,6 +126,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Hash",
     "workflowNodeDescription": null
   }, {
@@ -277,6 +278,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Hmac",
     "workflowNodeDescription": null
   }, {
@@ -662,6 +664,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "PGP Decrypt",
     "workflowNodeDescription": null
   }, {
@@ -1025,6 +1028,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "PGP Encrypt",
     "workflowNodeDescription": null
   }, {
@@ -1388,6 +1392,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "RSA Decrypt",
     "workflowNodeDescription": null
   }, {
@@ -1751,6 +1756,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "RSA Encrypt",
     "workflowNodeDescription": null
   }, {
@@ -2114,6 +2120,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Sign",
     "workflowNodeDescription": null
   }, {
@@ -2421,6 +2428,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Verify",
     "workflowNodeDescription": null
   } ],
@@ -2541,6 +2549,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Hash",
     "type": {
       "name": "TOOLS",
@@ -2689,6 +2698,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Hmac",
     "type": {
       "name": "TOOLS",
@@ -3071,6 +3081,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "PGP Decrypt",
     "type": {
       "name": "TOOLS",
@@ -3431,6 +3442,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "PGP Encrypt",
     "type": {
       "name": "TOOLS",
@@ -3791,6 +3803,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "RSA Decrypt",
     "type": {
       "name": "TOOLS",
@@ -4151,6 +4164,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "RSA Encrypt",
     "type": {
       "name": "TOOLS",
@@ -4511,6 +4525,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Sign",
     "type": {
       "name": "TOOLS",
@@ -4815,6 +4830,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Verify",
     "type": {
       "name": "TOOLS",

@@ -132,6 +132,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Messages",
     "workflowNodeDescription": null
   }, {
@@ -437,6 +438,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Messages",
     "workflowNodeDescription": null
   }, {
@@ -620,6 +622,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Conversation",
     "workflowNodeDescription": null
   }, {
@@ -810,6 +813,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Conversations",
     "workflowNodeDescription": null
   } ],
@@ -846,6 +850,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Cassandra Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

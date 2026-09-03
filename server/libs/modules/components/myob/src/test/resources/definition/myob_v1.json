@@ -370,6 +370,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Customer",
     "workflowNodeDescription": null
   }, {
@@ -489,6 +490,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Customer Payment",
     "workflowNodeDescription": null
   }, {
@@ -862,6 +864,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Supplier",
     "workflowNodeDescription": null
   }, {
@@ -981,6 +984,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Supplier Payment",
     "workflowNodeDescription": null
   } ],

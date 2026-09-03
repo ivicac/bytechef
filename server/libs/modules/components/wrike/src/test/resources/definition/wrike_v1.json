@@ -596,6 +596,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Comment",
     "workflowNodeDescription": null
   }, {
@@ -1707,6 +1708,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Folder",
     "workflowNodeDescription": null
   }, {
@@ -3315,6 +3317,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -5254,6 +5257,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   } ],
@@ -5847,6 +5851,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Comment",
     "type": {
       "name": "TOOLS",
@@ -6958,6 +6963,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Folder",
     "type": {
       "name": "TOOLS",
@@ -8566,6 +8572,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Project",
     "type": {
       "name": "TOOLS",
@@ -10505,6 +10512,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",

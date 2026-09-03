@@ -1739,6 +1739,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Lists",
     "workflowNodeDescription": null
   }, {
@@ -1856,6 +1857,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Subscribe Profiles",
     "workflowNodeDescription": null
   }, {
@@ -6642,6 +6644,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Profile",
     "workflowNodeDescription": null
   } ],
@@ -8375,6 +8378,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Get Lists",
     "type": {
       "name": "TOOLS",
@@ -8489,6 +8493,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Subscribe Profiles",
     "type": {
       "name": "TOOLS",
@@ -13272,6 +13277,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Profile",
     "type": {
       "name": "TOOLS",

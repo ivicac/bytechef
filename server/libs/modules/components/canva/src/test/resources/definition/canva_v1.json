@@ -828,6 +828,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Design",
     "workflowNodeDescription": null
   }, {
@@ -1438,6 +1439,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Export Design",
     "workflowNodeDescription": null
   }, {
@@ -2404,6 +2406,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload Asset",
     "workflowNodeDescription": null
   } ],
@@ -3226,6 +3229,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Design",
     "type": {
       "name": "TOOLS",
@@ -3833,6 +3837,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Export Design",
     "type": {
       "name": "TOOLS",
@@ -4799,6 +4804,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Upload Asset",
     "type": {
       "name": "TOOLS",

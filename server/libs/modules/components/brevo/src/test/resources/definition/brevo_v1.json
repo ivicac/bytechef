@@ -170,6 +170,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -259,6 +260,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Contact",
     "workflowNodeDescription": null
   }, {
@@ -631,6 +633,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Transactional Email",
     "workflowNodeDescription": null
   } ],
@@ -795,6 +798,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -881,6 +885,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Contact",
     "type": {
       "name": "TOOLS",
@@ -1250,6 +1255,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Transactional Email",
     "type": {
       "name": "TOOLS",

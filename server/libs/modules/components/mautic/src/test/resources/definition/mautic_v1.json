@@ -502,6 +502,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Company",
     "workflowNodeDescription": null
   }, {
@@ -1382,6 +1383,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -1839,6 +1841,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Company",
     "workflowNodeDescription": null
   }, {
@@ -2654,6 +2657,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Contact",
     "workflowNodeDescription": null
   } ],
@@ -3153,6 +3157,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Company",
     "type": {
       "name": "TOOLS",
@@ -4033,6 +4038,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -4490,6 +4496,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Company",
     "type": {
       "name": "TOOLS",
@@ -5305,6 +5312,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Contact",
     "type": {
       "name": "TOOLS",

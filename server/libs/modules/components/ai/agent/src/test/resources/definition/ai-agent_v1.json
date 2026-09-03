@@ -532,6 +532,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "Chat",
     "workflowNodeDescription": null
   }, {
@@ -994,6 +995,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "Chat (stream)",
     "workflowNodeDescription": null
   }, {
@@ -1118,6 +1120,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Realtime Chat",
     "workflowNodeDescription": null
   } ],
@@ -1705,6 +1708,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "AI Agent",
     "type": {
       "name": "TOOLS",

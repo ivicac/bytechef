@@ -47,6 +47,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get All Responses",
     "workflowNodeDescription": null
   }, {
@@ -97,6 +98,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Form",
     "workflowNodeDescription": null
   }, {
@@ -172,6 +174,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Response",
     "workflowNodeDescription": null
   } ],

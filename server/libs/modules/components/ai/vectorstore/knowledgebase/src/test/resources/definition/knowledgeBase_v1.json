@@ -1,9 +1,9 @@
 {
   "actionClusterElementTypes": {
-    "update": [ "DOCUMENT_READER", "DOCUMENT_TRANSFORMER" ],
-    "search": [ ],
+    "delete": [ ],
     "load": [ "DOCUMENT_READER", "DOCUMENT_TRANSFORMER" ],
-    "delete": [ ]
+    "search": [ ],
+    "update": [ "DOCUMENT_READER", "DOCUMENT_TRANSFORMER" ]
   },
   "actions": [ {
     "batch": false,
@@ -221,6 +221,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Documents",
     "workflowNodeDescription": null
   }, {
@@ -418,6 +419,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Load Data",
     "workflowNodeDescription": null
   }, {
@@ -750,6 +752,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Data",
     "workflowNodeDescription": null
   }, {
@@ -1216,12 +1219,13 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Documents",
     "workflowNodeDescription": null
   } ],
   "clusterElementClusterElementTypes": {
-    "search": [ ],
-    "vectorStore": [ ]
+    "vectorStore": [ ],
+    "search": [ ]
   },
   "clusterElementTypes": [ {
     "name": "DOCUMENT_READER",
@@ -1375,6 +1379,7 @@
       "required": false,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Knowledge Base Search",
     "type": {
       "name": "TOOLS",
@@ -1841,6 +1846,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Knowledge Base Documents",
     "type": {
       "name": "TOOLS",
@@ -1926,6 +1932,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Knowledge Base VectorStore",
     "type": {
       "name": "VECTOR_STORE",
@@ -1992,6 +1999,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Write as Knowledge Base Document",
     "type": {
       "name": "DESTINATION",

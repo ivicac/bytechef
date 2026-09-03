@@ -61,6 +61,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Board",
     "workflowNodeDescription": null
   }, {
@@ -444,6 +445,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Card",
     "workflowNodeDescription": null
   }, {
@@ -783,6 +785,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Card",
     "workflowNodeDescription": null
   } ],
@@ -838,6 +841,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Board",
     "type": {
       "name": "TOOLS",
@@ -1218,6 +1222,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Card",
     "type": {
       "name": "TOOLS",
@@ -1554,6 +1559,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Card",
     "type": {
       "name": "TOOLS",

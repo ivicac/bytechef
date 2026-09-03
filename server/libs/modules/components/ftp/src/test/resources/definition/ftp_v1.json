@@ -311,6 +311,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   }, {
@@ -567,6 +568,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download File",
     "workflowNodeDescription": null
   }, {
@@ -935,6 +937,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Directory",
     "workflowNodeDescription": null
   }, {
@@ -1019,8 +1022,8 @@
         },
         "placeholder": null,
         "sampleOutput": {
-          "deletedPath": "/uploads/old-file.pdf",
-          "success": true
+          "success": true,
+          "deletedPath": "/uploads/old-file.pdf"
         }
       },
       "outputSchema": {
@@ -1091,8 +1094,8 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
-        "deletedPath": "/uploads/old-file.pdf",
-        "success": true
+        "success": true,
+        "deletedPath": "/uploads/old-file.pdf"
       }
     },
     "perform": { },
@@ -1145,6 +1148,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete",
     "workflowNodeDescription": null
   }, {
@@ -1423,6 +1427,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Rename/Move",
     "workflowNodeDescription": null
   } ],
@@ -1731,6 +1736,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",
@@ -1987,6 +1993,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Download File",
     "type": {
       "name": "TOOLS",
@@ -2355,6 +2362,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "List Directory",
     "type": {
       "name": "TOOLS",
@@ -2441,8 +2449,8 @@
         },
         "placeholder": null,
         "sampleOutput": {
-          "deletedPath": "/uploads/old-file.pdf",
-          "success": true
+          "success": true,
+          "deletedPath": "/uploads/old-file.pdf"
         }
       },
       "outputSchema": {
@@ -2513,8 +2521,8 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
-        "deletedPath": "/uploads/old-file.pdf",
-        "success": true
+        "success": true,
+        "deletedPath": "/uploads/old-file.pdf"
       }
     },
     "processErrorResponse": null,
@@ -2565,6 +2573,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Delete",
     "type": {
       "name": "TOOLS",
@@ -2843,6 +2852,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Rename/Move",
     "type": {
       "name": "TOOLS",

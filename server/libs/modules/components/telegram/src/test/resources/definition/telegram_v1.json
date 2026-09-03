@@ -3308,6 +3308,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Media",
     "workflowNodeDescription": null
   }, {
@@ -6302,6 +6303,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Message",
     "workflowNodeDescription": null
   } ],
@@ -6344,6 +6346,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Telegram",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -9652,6 +9655,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Media",
     "type": {
       "name": "TOOLS",
@@ -12636,6 +12640,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Message",
     "type": {
       "name": "TOOLS",

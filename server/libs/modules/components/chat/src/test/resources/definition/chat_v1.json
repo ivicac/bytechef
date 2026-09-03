@@ -173,6 +173,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Response to Chat Request",
     "workflowNodeDescription": null
   } ],
@@ -195,6 +196,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Chat",
     "type": {
       "name": "APPROVAL_CHANNELS",

@@ -246,6 +246,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "LLM PII",
     "type": {
       "name": "CHECK_FOR_VIOLATIONS",
@@ -498,6 +499,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "LLM PII",
     "type": {
       "name": "SANITIZE_TEXT",

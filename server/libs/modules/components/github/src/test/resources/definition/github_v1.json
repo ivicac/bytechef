@@ -936,6 +936,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Assignees to Issue",
     "workflowNodeDescription": null
   }, {
@@ -1319,6 +1320,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Labels to Issue",
     "workflowNodeDescription": null
   }, {
@@ -2253,6 +2255,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Comment on Issue",
     "workflowNodeDescription": null
   }, {
@@ -3226,6 +3229,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Fork",
     "workflowNodeDescription": null
   }, {
@@ -4157,6 +4161,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Issue",
     "workflowNodeDescription": null
   }, {
@@ -5825,6 +5830,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Pull Request",
     "workflowNodeDescription": null
   }, {
@@ -6737,6 +6743,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Issue",
     "workflowNodeDescription": null
   }, {
@@ -6876,6 +6883,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Repository Content",
     "workflowNodeDescription": null
   }, {
@@ -7841,6 +7849,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Issues",
     "workflowNodeDescription": null
   }, {
@@ -8770,6 +8779,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Repository Issues",
     "workflowNodeDescription": null
   }, {
@@ -9773,6 +9783,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Code",
     "workflowNodeDescription": null
   }, {
@@ -9837,6 +9848,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Star Repository",
     "workflowNodeDescription": null
   }, {
@@ -10937,6 +10949,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Issue",
     "workflowNodeDescription": null
   } ],
@@ -11867,6 +11880,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Assignees to Issue",
     "type": {
       "name": "TOOLS",
@@ -12247,6 +12261,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Labels to Issue",
     "type": {
       "name": "TOOLS",
@@ -13178,6 +13193,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Comment on Issue",
     "type": {
       "name": "TOOLS",
@@ -14148,6 +14164,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Fork",
     "type": {
       "name": "TOOLS",
@@ -15076,6 +15093,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Issue",
     "type": {
       "name": "TOOLS",
@@ -16741,6 +16759,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Pull Request",
     "type": {
       "name": "TOOLS",
@@ -17650,6 +17669,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Issue",
     "type": {
       "name": "TOOLS",
@@ -17786,6 +17806,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Repository Content",
     "type": {
       "name": "TOOLS",
@@ -18748,6 +18769,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Issues",
     "type": {
       "name": "TOOLS",
@@ -19674,6 +19696,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Repository Issues",
     "type": {
       "name": "TOOLS",
@@ -20674,6 +20697,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Search Code",
     "type": {
       "name": "TOOLS",
@@ -20735,6 +20759,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Star Repository",
     "type": {
       "name": "TOOLS",
@@ -21832,6 +21857,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Update Issue",
     "type": {
       "name": "TOOLS",

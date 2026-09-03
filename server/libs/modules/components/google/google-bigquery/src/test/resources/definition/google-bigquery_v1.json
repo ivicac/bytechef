@@ -2573,6 +2573,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Query",
     "workflowNodeDescription": null
   } ],
@@ -5140,6 +5141,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Query",
     "type": {
       "name": "TOOLS",

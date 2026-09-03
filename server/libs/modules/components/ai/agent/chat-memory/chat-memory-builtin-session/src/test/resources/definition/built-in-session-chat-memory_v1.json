@@ -8,6 +8,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Built-in Session Repository",
     "type": {
       "name": "SESSION_REPOSITORY",

@@ -60,6 +60,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Multi Query Expander",
     "type": {
       "name": "QUERY_EXPANDER",

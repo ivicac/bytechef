@@ -221,6 +221,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "URLs",
     "type": {
       "name": "CHECK_FOR_VIOLATIONS",
@@ -448,6 +449,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "URLs",
     "type": {
       "name": "SANITIZE_TEXT",

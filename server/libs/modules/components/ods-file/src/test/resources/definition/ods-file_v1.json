@@ -255,6 +255,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read from File",
     "workflowNodeDescription": null
   }, {
@@ -727,6 +728,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Write to File",
     "workflowNodeDescription": null
   } ],

@@ -177,6 +177,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Sign",
     "workflowNodeDescription": null
   }, {
@@ -246,6 +247,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Verify",
     "workflowNodeDescription": null
   } ],
@@ -417,6 +419,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Sign",
     "type": {
       "name": "TOOLS",
@@ -483,6 +486,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Verify",
     "type": {
       "name": "TOOLS",

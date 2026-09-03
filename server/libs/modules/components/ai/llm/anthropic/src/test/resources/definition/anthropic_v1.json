@@ -730,6 +730,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1463,6 +1464,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask (stream)",
     "workflowNodeDescription": null
   } ],
@@ -1771,6 +1773,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Antropic Model",
     "type": {
       "name": "MODEL",

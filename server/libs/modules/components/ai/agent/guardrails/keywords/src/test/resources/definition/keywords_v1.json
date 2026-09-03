@@ -126,6 +126,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Keywords",
     "type": {
       "name": "CHECK_FOR_VIOLATIONS",
@@ -258,6 +259,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Keywords",
     "type": {
       "name": "SANITIZE_TEXT",

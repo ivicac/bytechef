@@ -944,6 +944,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -1211,6 +1212,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Group",
     "workflowNodeDescription": null
   }, {
@@ -2183,6 +2185,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Contact",
     "workflowNodeDescription": null
   }, {
@@ -2408,6 +2411,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Contacts",
     "workflowNodeDescription": null
   } ],
@@ -3346,6 +3350,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -3610,6 +3615,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Group",
     "type": {
       "name": "TOOLS",
@@ -4579,6 +4585,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Contact",
     "type": {
       "name": "TOOLS",
@@ -4801,6 +4808,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Search Contacts",
     "type": {
       "name": "TOOLS",

@@ -308,6 +308,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Labels",
     "workflowNodeDescription": null
   }, {
@@ -573,6 +574,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Archive Email",
     "workflowNodeDescription": null
   }, {
@@ -840,6 +842,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Label",
     "workflowNodeDescription": null
   }, {
@@ -882,6 +885,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Email",
     "workflowNodeDescription": null
   }, {
@@ -1014,6 +1018,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Email",
     "workflowNodeDescription": null
   }, {
@@ -1146,6 +1151,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Thread",
     "workflowNodeDescription": null
   }, {
@@ -1477,6 +1483,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Labels",
     "workflowNodeDescription": null
   }, {
@@ -1788,6 +1795,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove Labels",
     "workflowNodeDescription": null
   }, {
@@ -2381,6 +2389,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Reply to Email",
     "workflowNodeDescription": null
   }, {
@@ -2938,6 +2947,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Email",
     "workflowNodeDescription": null
   }, {
@@ -3574,6 +3584,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Email",
     "workflowNodeDescription": null
   } ],
@@ -3650,6 +3661,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Gmail",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -3958,6 +3970,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Labels",
     "type": {
       "name": "TOOLS",
@@ -4220,6 +4233,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Archive Email",
     "type": {
       "name": "TOOLS",
@@ -4484,6 +4498,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Label",
     "type": {
       "name": "TOOLS",
@@ -4523,6 +4538,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Email",
     "type": {
       "name": "TOOLS",
@@ -4652,6 +4668,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Get Email",
     "type": {
       "name": "TOOLS",
@@ -4781,6 +4798,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Get Thread",
     "type": {
       "name": "TOOLS",
@@ -5109,6 +5127,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "List Labels",
     "type": {
       "name": "TOOLS",
@@ -5417,6 +5436,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Remove Labels",
     "type": {
       "name": "TOOLS",
@@ -6007,6 +6027,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Reply to Email",
     "type": {
       "name": "TOOLS",
@@ -6561,6 +6582,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Search Email",
     "type": {
       "name": "TOOLS",
@@ -7194,6 +7216,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Email",
     "type": {
       "name": "TOOLS",

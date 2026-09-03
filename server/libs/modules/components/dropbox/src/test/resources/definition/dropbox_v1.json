@@ -350,6 +350,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Copy File",
     "workflowNodeDescription": null
   }, {
@@ -703,6 +704,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Copy Folder",
     "workflowNodeDescription": null
   }, {
@@ -1010,6 +1012,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Folder",
     "workflowNodeDescription": null
   }, {
@@ -1523,6 +1526,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create New Paper File",
     "workflowNodeDescription": null
   }, {
@@ -1830,6 +1834,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete File",
     "workflowNodeDescription": null
   }, {
@@ -2137,6 +2142,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Folder",
     "workflowNodeDescription": null
   }, {
@@ -2396,6 +2402,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download File",
     "workflowNodeDescription": null
   }, {
@@ -2747,6 +2754,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get File Link",
     "workflowNodeDescription": null
   }, {
@@ -3096,6 +3104,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Folder",
     "workflowNodeDescription": null
   }, {
@@ -3449,6 +3458,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Move File",
     "workflowNodeDescription": null
   }, {
@@ -3802,6 +3812,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Move Folder",
     "workflowNodeDescription": null
   }, {
@@ -4191,6 +4202,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search",
     "workflowNodeDescription": null
   }, {
@@ -4786,6 +4798,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -5130,6 +5143,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Copy File",
     "type": {
       "name": "TOOLS",
@@ -5480,6 +5494,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Copy Folder",
     "type": {
       "name": "TOOLS",
@@ -5784,6 +5799,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Folder",
     "type": {
       "name": "TOOLS",
@@ -6294,6 +6310,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create New Paper File",
     "type": {
       "name": "TOOLS",
@@ -6598,6 +6615,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete File",
     "type": {
       "name": "TOOLS",
@@ -6902,6 +6920,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Folder",
     "type": {
       "name": "TOOLS",
@@ -7158,6 +7177,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Download File",
     "type": {
       "name": "TOOLS",
@@ -7506,6 +7526,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get File Link",
     "type": {
       "name": "TOOLS",
@@ -7852,6 +7873,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Folder",
     "type": {
       "name": "TOOLS",
@@ -8202,6 +8224,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Move File",
     "type": {
       "name": "TOOLS",
@@ -8552,6 +8575,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Move Folder",
     "type": {
       "name": "TOOLS",
@@ -8938,6 +8962,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Search",
     "type": {
       "name": "TOOLS",
@@ -9530,6 +9555,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",

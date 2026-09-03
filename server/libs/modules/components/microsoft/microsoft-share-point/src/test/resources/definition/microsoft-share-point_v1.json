@@ -1090,6 +1090,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Folder",
     "workflowNodeDescription": null
   }, {
@@ -1908,6 +1909,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create List",
     "workflowNodeDescription": null
   }, {
@@ -1998,6 +2000,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create List Item",
     "workflowNodeDescription": null
   }, {
@@ -2068,6 +2071,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete File or Folder",
     "workflowNodeDescription": null
   }, {
@@ -2355,6 +2359,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download File",
     "workflowNodeDescription": null
   }, {
@@ -3426,6 +3431,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get File or Folder by ID",
     "workflowNodeDescription": null
   }, {
@@ -4647,6 +4653,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Folder Contents",
     "workflowNodeDescription": null
   }, {
@@ -5744,6 +5751,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Replace File",
     "workflowNodeDescription": null
   }, {
@@ -6841,6 +6849,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -7925,6 +7934,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Folder",
     "type": {
       "name": "TOOLS",
@@ -8740,6 +8750,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create List",
     "type": {
       "name": "TOOLS",
@@ -8827,6 +8838,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create List Item",
     "type": {
       "name": "TOOLS",
@@ -8894,6 +8906,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete File or Folder",
     "type": {
       "name": "TOOLS",
@@ -9178,6 +9191,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Download File",
     "type": {
       "name": "TOOLS",
@@ -10246,6 +10260,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get File or Folder by ID",
     "type": {
       "name": "TOOLS",
@@ -11464,6 +11479,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Get Folder Contents",
     "type": {
       "name": "TOOLS",
@@ -12558,6 +12574,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Replace File",
     "type": {
       "name": "TOOLS",
@@ -13652,6 +13669,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",

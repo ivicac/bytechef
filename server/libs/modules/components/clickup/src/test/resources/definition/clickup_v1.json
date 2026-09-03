@@ -370,6 +370,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Folder",
     "workflowNodeDescription": null
   }, {
@@ -896,6 +897,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create List",
     "workflowNodeDescription": null
   }, {
@@ -1643,6 +1645,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   } ],
@@ -2005,6 +2008,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Folder",
     "type": {
       "name": "TOOLS",
@@ -2526,6 +2530,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create List",
     "type": {
       "name": "TOOLS",
@@ -3268,6 +3273,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",

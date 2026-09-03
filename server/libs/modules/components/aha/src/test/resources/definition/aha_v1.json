@@ -1303,6 +1303,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Feature",
     "workflowNodeDescription": null
   }, {
@@ -3420,6 +3421,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Idea",
     "workflowNodeDescription": null
   } ],

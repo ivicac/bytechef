@@ -979,6 +979,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Bill",
     "workflowNodeDescription": null
   }, {
@@ -2559,6 +2560,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -3535,6 +3537,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Invoice",
     "workflowNodeDescription": null
   }, {
@@ -4970,6 +4973,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Quote",
     "workflowNodeDescription": null
   } ],

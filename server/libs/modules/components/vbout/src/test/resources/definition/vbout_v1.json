@@ -88,6 +88,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Contact To List",
     "workflowNodeDescription": null
   }, {
@@ -207,6 +208,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Contact",
     "workflowNodeDescription": null
   }, {
@@ -497,6 +499,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Email Marketing Campaign",
     "workflowNodeDescription": null
   }, {
@@ -579,6 +582,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Tag To Contact",
     "workflowNodeDescription": null
   }, {
@@ -838,6 +842,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Email List",
     "workflowNodeDescription": null
   }, {
@@ -936,6 +941,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Social Media Message",
     "workflowNodeDescription": null
   } ],
@@ -1021,6 +1027,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Add Contact To List",
     "type": {
       "name": "TOOLS",
@@ -1140,6 +1147,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Contact",
     "type": {
       "name": "TOOLS",
@@ -1430,6 +1438,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Email Marketing Campaign",
     "type": {
       "name": "TOOLS",
@@ -1512,6 +1521,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Tag To Contact",
     "type": {
       "name": "TOOLS",
@@ -1771,6 +1781,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Email List",
     "type": {
       "name": "TOOLS",
@@ -1869,6 +1880,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Social Media Message",
     "type": {
       "name": "TOOLS",

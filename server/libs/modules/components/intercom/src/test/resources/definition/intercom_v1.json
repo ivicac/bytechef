@@ -445,6 +445,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -800,6 +801,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Contact",
     "workflowNodeDescription": null
   }, {
@@ -1259,6 +1261,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Message",
     "workflowNodeDescription": null
   } ],
@@ -1701,6 +1704,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -2056,6 +2060,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Contact",
     "type": {
       "name": "TOOLS",
@@ -2515,6 +2520,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Send Message",
     "type": {
       "name": "TOOLS",

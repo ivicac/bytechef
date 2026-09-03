@@ -424,6 +424,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Post",
     "workflowNodeDescription": null
   }, {
@@ -600,6 +601,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Post",
     "workflowNodeDescription": null
   }, {
@@ -776,6 +778,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Like Post",
     "workflowNodeDescription": null
   }, {
@@ -996,6 +999,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Repost Post",
     "workflowNodeDescription": null
   }, {
@@ -1359,6 +1363,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   } ],
@@ -1780,6 +1785,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Post",
     "type": {
       "name": "TOOLS",
@@ -1956,6 +1962,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Post",
     "type": {
       "name": "TOOLS",
@@ -2132,6 +2139,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Like Post",
     "type": {
       "name": "TOOLS",
@@ -2352,6 +2360,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Repost Post",
     "type": {
       "name": "TOOLS",
@@ -2715,6 +2724,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",

@@ -87,6 +87,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Record",
     "workflowNodeDescription": null
   }, {
@@ -251,6 +252,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find Records",
     "workflowNodeDescription": null
   }, {
@@ -363,6 +365,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Record",
     "workflowNodeDescription": null
   } ],

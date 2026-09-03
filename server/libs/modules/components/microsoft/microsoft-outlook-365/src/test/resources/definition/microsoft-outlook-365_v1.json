@@ -717,6 +717,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Event",
     "workflowNodeDescription": null
   }, {
@@ -787,6 +788,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Event",
     "workflowNodeDescription": null
   }, {
@@ -949,6 +951,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Forward Email",
     "workflowNodeDescription": null
   }, {
@@ -1029,6 +1032,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Email",
     "workflowNodeDescription": null
   }, {
@@ -1645,6 +1649,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Events",
     "workflowNodeDescription": null
   }, {
@@ -1903,6 +1908,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Free Time Slots",
     "workflowNodeDescription": null
   }, {
@@ -1978,6 +1984,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Move Email",
     "workflowNodeDescription": null
   }, {
@@ -2330,6 +2337,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Reply to Email",
     "workflowNodeDescription": null
   }, {
@@ -2476,6 +2484,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Email",
     "workflowNodeDescription": null
   }, {
@@ -2931,6 +2940,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Email",
     "workflowNodeDescription": null
   } ],
@@ -3029,6 +3039,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Microsoft Outlook 365",
     "type": {
       "name": "APPROVAL_CHANNELS",
@@ -3746,6 +3757,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Event",
     "type": {
       "name": "TOOLS",
@@ -3813,6 +3825,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Event",
     "type": {
       "name": "TOOLS",
@@ -3972,6 +3985,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Forward Email",
     "type": {
       "name": "TOOLS",
@@ -4049,6 +4063,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Email",
     "type": {
       "name": "TOOLS",
@@ -4662,6 +4677,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Get Events",
     "type": {
       "name": "TOOLS",
@@ -4917,6 +4933,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Get Free Time Slots",
     "type": {
       "name": "TOOLS",
@@ -4989,6 +5006,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Move Email",
     "type": {
       "name": "TOOLS",
@@ -5338,6 +5356,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Reply to Email",
     "type": {
       "name": "TOOLS",
@@ -5481,6 +5500,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Search Email",
     "type": {
       "name": "TOOLS",
@@ -5933,6 +5953,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Email",
     "type": {
       "name": "TOOLS",

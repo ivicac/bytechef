@@ -275,6 +275,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Object",
     "workflowNodeDescription": null
   }, {
@@ -367,6 +368,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get URL",
     "workflowNodeDescription": null
   }, {
@@ -629,6 +631,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Objects",
     "workflowNodeDescription": null
   }, {
@@ -743,6 +746,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Pre-signed Object",
     "workflowNodeDescription": null
   }, {
@@ -936,6 +940,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Put Object",
     "workflowNodeDescription": null
   } ],

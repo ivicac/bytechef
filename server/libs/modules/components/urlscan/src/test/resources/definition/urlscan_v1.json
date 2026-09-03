@@ -18069,6 +18069,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Result",
     "workflowNodeDescription": null
   }, {
@@ -18436,6 +18437,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Scan",
     "workflowNodeDescription": null
   }, {
@@ -18710,6 +18712,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Screenshot",
     "workflowNodeDescription": null
   } ],
@@ -36770,6 +36773,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Result",
     "type": {
       "name": "TOOLS",
@@ -37129,6 +37133,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Scan",
     "type": {
       "name": "TOOLS",
@@ -37397,6 +37402,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Screenshot",
     "type": {
       "name": "TOOLS",

@@ -1217,6 +1217,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -2485,6 +2486,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask (stream)",
     "workflowNodeDescription": null
   }, {
@@ -2954,6 +2956,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Image",
     "workflowNodeDescription": null
   }, {
@@ -3385,6 +3388,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Text-To-Speech",
     "workflowNodeDescription": null
   }, {
@@ -3896,6 +3900,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Transcriptions",
     "workflowNodeDescription": null
   } ],
@@ -3941,6 +3946,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "OpenAI Embedding",
     "type": {
       "name": "EMBEDDING",
@@ -4614,6 +4620,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "OpenAI Model",
     "type": {
       "name": "MODEL",
