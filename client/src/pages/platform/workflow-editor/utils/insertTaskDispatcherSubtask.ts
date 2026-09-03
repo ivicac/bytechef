@@ -1,11 +1,11 @@
 import {WorkflowTask} from '@/shared/middleware/platform/configuration';
 import {TaskDispatcherContextType} from '@/shared/types';
 
-import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {applyGraphMemberInsertion} from './graph/graphMemberInsertion';
+import placeInsertedTaskBetweenPinnedNeighbours from './placeInsertedTaskBetweenPinnedNeighbours';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 
 interface InsertTaskDispatcherSubtaskProps {
@@ -100,14 +100,10 @@ export default function insertTaskDispatcherSubtask({
 
         updatedSubtasks.splice(context.index, 0, newTask);
 
-        // A graph member is a free-form frame child, placed in both dimensions by the user and
-        // never laid out by dagre, so it has no main axis to give up. Clearing one would leave a
-        // half-defined `{[crossAxis]: n, [mainAxis]: undefined}` that still reads as a pinned
-        // position downstream (`containsNodePosition`), crosses into frame-child coordinates as
-        // NaN, and is no longer repairable by `placeGraphMembers` — whose "unplaced" test is the
-        // presence of `nodePosition`, which the half-cleared object satisfies.
+        // A graph member's position is the model rather than a pin, and graphMemberInsertion below
+        // already places a new member; only chain dispatchers lay their subtasks out along a line.
         if (componentName !== 'graph') {
-            clearMainAxisAfterInsertionPoint(updatedSubtasks, context.index);
+            updatedSubtasks = placeInsertedTaskBetweenPinnedNeighbours(updatedSubtasks, context.index);
         }
     }
 
@@ -123,39 +119,6 @@ export default function insertTaskDispatcherSubtask({
     }
 
     return getRecursivelyUpdatedTasks(tasks, updatedTaskDispatcherTask);
-}
-
-/**
- * Clears the main-axis of the saved positions of the subtasks after the insertion point, in place,
- * so dagre can shift them along the chain to make room — while preserving the cross-axis the user
- * customized. Only meaningful for dispatchers whose subtasks dagre actually lays out along a chain.
- */
-function clearMainAxisAfterInsertionPoint(subtasks: Array<WorkflowTask>, insertionIndex: number): void {
-    const direction = useLayoutDirectionStore.getState().layoutDirection;
-    const mainAxis = direction === 'TB' ? 'y' : 'x';
-    const crossAxis = direction === 'TB' ? 'x' : 'y';
-
-    for (let subtaskIndex = insertionIndex + 1; subtaskIndex < subtasks.length; subtaskIndex++) {
-        const subtask = subtasks[subtaskIndex];
-
-        if (subtask.metadata?.ui?.nodePosition) {
-            const savedCrossValue = subtask.metadata.ui.nodePosition[crossAxis];
-
-            subtasks[subtaskIndex] = {
-                ...subtask,
-                metadata: {
-                    ...subtask.metadata,
-                    ui: {
-                        ...subtask.metadata.ui,
-                        nodePosition: {
-                            [crossAxis]: savedCrossValue,
-                            [mainAxis]: undefined,
-                        } as {x: number; y: number},
-                    },
-                },
-            };
-        }
-    }
 }
 
 /**

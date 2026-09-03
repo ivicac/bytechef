@@ -13,6 +13,8 @@ import {flattenDefinitionTasks} from './flattenDefinitionTasks';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {getTask} from './getTask';
 import insertTaskDispatcherSubtask from './insertTaskDispatcherSubtask';
+import placeAppendedTaskAfterPinnedPredecessor from './placeAppendedTaskAfterPinnedPredecessor';
+import placeInsertedTaskBetweenPinnedNeighbours from './placeInsertedTaskBetweenPinnedNeighbours';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import upsertTrigger from './upsertTrigger';
 import {isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
@@ -244,35 +246,21 @@ export default async function saveWorkflowDefinition({
 
                 updatedWorkflowDefinitionTasks.splice(nodeIndex, 0, newTask);
 
-                // Clear main-axis of saved positions for tasks after the insertion
-                // point so dagre can shift them, but preserve cross-axis customization.
-                const direction = useLayoutDirectionStore.getState().layoutDirection;
-                const mainAxis = direction === 'TB' ? 'y' : 'x';
-                const crossAxis = direction === 'TB' ? 'x' : 'y';
-
-                for (let taskIndex = nodeIndex + 1; taskIndex < updatedWorkflowDefinitionTasks.length; taskIndex++) {
-                    const task = updatedWorkflowDefinitionTasks[taskIndex];
-
-                    if (task.metadata?.ui?.nodePosition) {
-                        const savedCrossValue = task.metadata.ui.nodePosition[crossAxis];
-
-                        updatedWorkflowDefinitionTasks[taskIndex] = {
-                            ...task,
-                            metadata: {
-                                ...task.metadata,
-                                ui: {
-                                    ...task.metadata.ui,
-                                    nodePosition: {
-                                        [crossAxis]: savedCrossValue,
-                                        [mainAxis]: undefined,
-                                    } as {x: number; y: number},
-                                },
-                            },
-                        };
-                    }
-                }
+                updatedWorkflowDefinitionTasks = placeInsertedTaskBetweenPinnedNeighbours(
+                    updatedWorkflowDefinitionTasks,
+                    nodeIndex
+                );
             } else {
                 updatedWorkflowDefinitionTasks.push(newTask);
+
+                const {nodes: canvasNodes, savedPositionCrossAxisShift} = useWorkflowDataStore.getState();
+
+                updatedWorkflowDefinitionTasks = placeAppendedTaskAfterPinnedPredecessor({
+                    canvasNodes: canvasNodes ?? [],
+                    crossAxisShift: savedPositionCrossAxisShift ?? 0,
+                    direction: useLayoutDirectionStore.getState().layoutDirection,
+                    tasks: updatedWorkflowDefinitionTasks,
+                });
             }
         }
     }
