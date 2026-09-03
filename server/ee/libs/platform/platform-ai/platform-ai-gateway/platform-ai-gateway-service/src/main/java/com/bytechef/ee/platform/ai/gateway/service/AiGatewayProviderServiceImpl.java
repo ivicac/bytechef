@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.ai.gateway.service;
 
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderType;
 import com.bytechef.ee.platform.ai.gateway.domain.ApiKey;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayEmbeddingModelFactory;
@@ -18,6 +19,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -75,6 +77,14 @@ class AiGatewayProviderServiceImpl implements AiGatewayProviderService {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<AiGatewayProvider> fetchProviderByConnectedUserIdAndType(
+        long connectedUserId, AiGatewayProviderType type) {
+
+        return aiGatewayProviderRepository.findByConnectedUserIdAndType(connectedUserId, type.ordinal());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AiGatewayProvider getProvider(long id) {
         return aiGatewayProviderRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + id));
@@ -127,6 +137,27 @@ class AiGatewayProviderServiceImpl implements AiGatewayProviderService {
         aiGatewayEmbeddingModelFactory.evict(existingProvider.getId());
 
         return savedProvider;
+    }
+
+    @Override
+    public void updateConnectedUserId(long id, @Nullable Long connectedUserId) {
+        AiGatewayProvider provider = getProvider(id);
+
+        // ck_ai_gateway_provider_workspace_connected_user_not_both forbids both columns at once. A workspace-scoped
+        // provider is not this method's to touch, so this is rejected here as a clear domain error rather than left
+        // to surface as an unmapped DataIntegrityViolationException out of the save below. Mirrors the guard
+        // AiGatewayRoutingPolicyService's connected-user binding facade already applies for its own workspace check
+        // constraint -- placed here at the service method rather than only in a caller's facade, so whatever admin
+        // surface is eventually built to bind BYOK providers to connected users inherits it rather than
+        // reproducing it.
+        if (connectedUserId != null && provider.getWorkspaceId() != null) {
+            throw new IllegalArgumentException(
+                "Provider " + id + " is bound to a workspace and cannot be bound to a connected user");
+        }
+
+        provider.setConnectedUserId(connectedUserId);
+
+        aiGatewayProviderRepository.save(provider);
     }
 
     @Override

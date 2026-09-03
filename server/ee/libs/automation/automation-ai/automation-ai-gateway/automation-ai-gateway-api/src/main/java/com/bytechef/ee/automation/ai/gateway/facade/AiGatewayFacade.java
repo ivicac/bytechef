@@ -34,6 +34,17 @@ public interface AiGatewayFacade {
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
         @Nullable AiPromptHeaders promptHeaders);
 
+    /**
+     * Overload that carries an already-resolved connected user id through to routing precedence (see
+     * {@code AiGatewayFacadeImpl.applyRoutingPolicyPrecedence}), so an embedded connected user's default routing policy
+     * can be resolved. The caller is responsible for resolving the id (e.g. from authentication at an embedded
+     * controller) before calling this method. Pass {@code null} when the caller has no connected user (e.g. automation
+     * traffic); that reproduces the 3-argument overload's behavior exactly.
+     */
+    AiGatewayChatCompletionResponse chatCompletion(
+        AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
+        @Nullable AiPromptHeaders promptHeaders, @Nullable Long connectedUserId);
+
     Flux<AiGatewayChatCompletionResponse> chatCompletionStream(
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders);
 
@@ -51,6 +62,16 @@ public interface AiGatewayFacade {
     Flux<AiGatewayChatCompletionResponse> chatCompletionStream(
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
         @Nullable AiPromptHeaders promptHeaders, @Nullable AtomicLong traceIdHolder);
+
+    /**
+     * Streaming counterpart of the 4-argument {@link #chatCompletion} overload: carries an already-resolved connected
+     * user id through to routing precedence. Pass {@code null} when the caller has no connected user; that reproduces
+     * the 4-argument overload above byte-for-byte.
+     */
+    Flux<AiGatewayChatCompletionResponse> chatCompletionStream(
+        AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
+        @Nullable AiPromptHeaders promptHeaders, @Nullable Long connectedUserId,
+        @Nullable AtomicLong traceIdHolder);
 
     AiGatewayEmbeddingResponse embedding(
         AiGatewayEmbeddingRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders);

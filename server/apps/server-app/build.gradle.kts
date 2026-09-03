@@ -368,6 +368,7 @@ dependencies {
     implementation(project(":server:ee:libs:embedded:embedded-execution:embedded-execution-public-rest"))
     implementation(project(":server:ee:libs:embedded:embedded-execution:embedded-execution-service"))
     implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-copilot"))
+    implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-gateway-public-rest"))
     implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-mcp-graphql"))
     implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-mcp-service"))
     implementation(project(":server:ee:libs:embedded:embedded-openapi"))

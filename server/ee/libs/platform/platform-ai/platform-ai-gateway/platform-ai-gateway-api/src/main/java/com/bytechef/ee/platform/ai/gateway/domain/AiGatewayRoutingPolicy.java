@@ -20,6 +20,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
 
 /**
@@ -30,6 +31,15 @@ public final class AiGatewayRoutingPolicy {
 
     @Column
     private String config;
+
+    // A routing policy belongs to at most one connected user. Null means no connected user applies — a boxed Long
+    // is required so that "no connected user" cannot collapse into connected user 0, which is a real id. Mutually
+    // exclusive with workspaceId (enforced by ck_ai_gateway_routing_policy_workspace_connected_user_not_both); at
+    // most one connected-user-scoped policy exists per connected user (enforced by the partial unique index
+    // uk_ai_gateway_routing_policy_connected_user_id). No environment field: ConnectedUser already carries
+    // environment, so the same external id in two environments is two connected user rows with two ids.
+    @Column("connected_user_id")
+    private @Nullable Long connectedUserId;
 
     @Column("created_date")
     @CreatedDate
@@ -54,6 +64,11 @@ public final class AiGatewayRoutingPolicy {
     @Column
     private int strategy;
 
+    // Without an explicit idColumn, Spring Data JDBC's default naming strategy derives the reverse-reference column
+    // from this entity's @Table name ("ai_gateway_routing_policy") rather than the real FK column
+    // ("ai_gateway_routing_policy_id") the Liquibase init changeset actually creates on ai_gateway_routing_policy_tag
+    // — mirrors Project.projectTags's @MappedCollection(idColumn = "project_id") for the same relation shape.
+    @MappedCollection(idColumn = "ai_gateway_routing_policy_id")
     private Set<AiGatewayRoutingPolicyTag> tags = new HashSet<>();
 
     @Version
@@ -96,6 +111,10 @@ public final class AiGatewayRoutingPolicy {
 
     public String getConfig() {
         return config;
+    }
+
+    public @Nullable Long getConnectedUserId() {
+        return connectedUserId;
     }
 
     public Instant getCreatedDate() {
@@ -200,6 +219,10 @@ public final class AiGatewayRoutingPolicy {
         this.config = config;
     }
 
+    public void setConnectedUserId(@Nullable Long connectedUserId) {
+        this.connectedUserId = connectedUserId;
+    }
+
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
@@ -239,6 +262,7 @@ public final class AiGatewayRoutingPolicy {
             ", lastModifiedDate=" + lastModifiedDate +
             ", version=" + version +
             ", workspaceId=" + workspaceId +
+            ", connectedUserId=" + connectedUserId +
             '}';
     }
 }

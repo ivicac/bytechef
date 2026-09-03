@@ -50,6 +50,12 @@
             </column>
             <column name="config" type="TEXT"/>
             <column name="workspace_id" type="BIGINT"/>
+            <!-- A provider belongs to at most one workspace or one connected user (see the check constraint just
+                 below), never both. Schema is branch-only/unreleased, so this column is added to the init
+                 changelog in place rather than as a new changeset — same convention this changelog already
+                 follows. No environment column: ConnectedUser already carries environment, so the same external
+                 id in two environments is two connected user rows with two ids. -->
+            <column name="connected_user_id" type="BIGINT"/>
             <column name="created_by" type="VARCHAR(50)">
                 <constraints nullable="false"/>
             </column>
@@ -66,6 +72,20 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <sql>
+            ALTER TABLE ai_gateway_provider
+            ADD CONSTRAINT ck_ai_gateway_provider_workspace_connected_user_not_both
+            CHECK (workspace_id IS NULL OR connected_user_id IS NULL)
+        </sql>
+
+        <!-- At most one provider per (connected_user_id, type): a customer may legitimately hold one BYOK provider
+             per provider type (unlike routing policy, which is single-column because a connected user has at most
+             one policy at all). Without this, AiGatewayProviderService#fetchProviderByConnectedUserIdAndType has no
+             way to pick a winner deterministically if two rows for the same connected user and type exist — and
+             "which of a customer's API keys gets used, and billed" is not a place non-determinism belongs. Partial
+             so rows with a null connected_user_id (workspace-scoped or unscoped providers) are unconstrained by it. -->
+        <sql>CREATE UNIQUE INDEX uk_ai_gateway_provider_connected_user_id_type ON ai_gateway_provider (connected_user_id, type) WHERE connected_user_id IS NOT NULL;</sql>
 
         <createTable tableName="ai_gateway_budget">
             <column name="id" type="BIGINT" autoIncrement="true" startWith="1050">
@@ -115,6 +135,12 @@
             <column name="fallback_model" type="VARCHAR(256)"/>
             <column name="config" type="TEXT"/>
             <column name="workspace_id" type="BIGINT"/>
+            <!-- A routing policy belongs to at most one workspace or one connected user (see the check constraint
+                 just below), never both. Schema is branch-only/unreleased, so this column is added to the init
+                 changelog in place rather than as a new changeset — same convention this changelog already
+                 follows. No environment column: ConnectedUser already carries environment, so the same external
+                 id in two environments is two connected user rows with two ids. -->
+            <column name="connected_user_id" type="BIGINT"/>
             <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
                 <constraints nullable="false"/>
             </column>
@@ -128,6 +154,17 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <sql>
+            ALTER TABLE ai_gateway_routing_policy
+            ADD CONSTRAINT ck_ai_gateway_routing_policy_workspace_connected_user_not_both
+            CHECK (workspace_id IS NULL OR connected_user_id IS NULL)
+        </sql>
+
+        <!-- One default routing policy per connected user: a second policy scoped to a connected user who already
+             has one is rejected. Partial so rows with a null connected_user_id (workspace-scoped or unscoped
+             policies) are unconstrained by it. -->
+        <sql>CREATE UNIQUE INDEX uk_ai_gateway_routing_policy_connected_user_id ON ai_gateway_routing_policy (connected_user_id) WHERE connected_user_id IS NOT NULL;</sql>
 
         <createTable tableName="ai_gateway_model_deployment">
             <column name="id" type="BIGINT" autoIncrement="true" startWith="1050">
@@ -148,6 +185,15 @@
             <column name="max_rpm" type="INT"/>
             <column name="max_tpm" type="INT"/>
             <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <!-- AiGatewayModelDeployment declares @Version private int version, but this table never carried a
+                 version column: every real INSERT through Spring Data JDBC's repository failed with "column
+                 version does not exist" (surfaced by the phase-2 end-to-end test, the first test to persist a
+                 deployment against a real database rather than a mock). Schema is branch-only/unreleased (same
+                 file Task 1 already re-verified against the latest release tag), so the column is added to the
+                 init changelog in place rather than as a new changeset, matching every other in-place edit here. -->
+            <column name="version" type="INT" defaultValueNumeric="0">
                 <constraints nullable="false"/>
             </column>
         </createTable>
@@ -182,6 +228,16 @@
                 <constraints nullable="false"/>
             </column>
             <column name="workspace_id" type="BIGINT"/>
+            <!-- Unlike ai_gateway_provider/ai_gateway_routing_policy above, workspace_id and connected_user_id are
+                 NOT mutually exclusive here and there is deliberately no check constraint enforcing it either way:
+                 AiGatewaySpendRollupJob writes one row per workspace for every rollup period, so workspace_id is
+                 always set on a rollup row; connected_user_id narrows that same row to one customer within the
+                 workspace — an intersection (workspace, connected user, period), not an alternative to it. Schema
+                 is branch-only/unreleased, so this column is added to the init changelog in place rather than as a
+                 new changeset — same convention this changelog already follows. No environment column:
+                 ConnectedUser already carries environment, so the same external id in two environments is two
+                 connected user rows with two ids. -->
+            <column name="connected_user_id" type="BIGINT"/>
             <column name="created_date" type="TIMESTAMP">
                 <constraints nullable="false"/>
             </column>
@@ -189,6 +245,9 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <!-- Supports the connected-user analogue of AiGatewaySpendSummaryRepository#findAllByWorkspaceIdAndPeriodStartBetween. -->
+        <sql>CREATE INDEX idx_ai_gateway_spend_summary_connected_user_period ON ai_gateway_spend_summary (connected_user_id, period_start);</sql>
         <rollback/>
     </changeSet>
 
