@@ -258,6 +258,7 @@ const ProjectWorkflowList = ({
                                                     <TooltipTrigger asChild>
                                                         <span className="block">
                                                             <DropdownMenuItem
+                                                                className="dropdown-menu-item"
                                                                 disabled={importN8nWorkflowDisabled}
                                                                 onClick={(event) => {
                                                                     event.stopPropagation();
