@@ -89,6 +89,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Execute",
     "workflowNodeDescription": null
   } ],

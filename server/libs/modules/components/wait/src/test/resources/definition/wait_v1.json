@@ -76,6 +76,7 @@
       "type": "STRING"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "After Time Interval",
     "workflowNodeDescription": null
   }, {
@@ -289,6 +290,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "At Specified Time",
     "workflowNodeDescription": null
   }, {
@@ -415,6 +417,7 @@
       "type": "STRING"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "On Webhook Call",
     "workflowNodeDescription": null
   } ],

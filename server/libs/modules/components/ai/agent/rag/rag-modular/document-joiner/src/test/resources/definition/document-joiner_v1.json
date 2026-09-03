@@ -8,6 +8,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Concatenation Document Joiner",
     "type": {
       "name": "DOCUMENT_JOINER",

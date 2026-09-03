@@ -269,6 +269,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Session Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

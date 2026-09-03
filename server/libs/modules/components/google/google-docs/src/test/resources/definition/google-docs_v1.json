@@ -940,6 +940,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Document",
     "workflowNodeDescription": null
   }, {
@@ -1983,6 +1984,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Document From Template",
     "workflowNodeDescription": null
   }, {
@@ -2907,6 +2909,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Document",
     "workflowNodeDescription": null
   } ],
@@ -3841,6 +3844,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Document",
     "type": {
       "name": "TOOLS",
@@ -4881,6 +4885,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Document From Template",
     "type": {
       "name": "TOOLS",
@@ -5802,6 +5807,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Document",
     "type": {
       "name": "TOOLS",

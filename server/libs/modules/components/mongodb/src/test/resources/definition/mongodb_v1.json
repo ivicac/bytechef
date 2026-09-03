@@ -244,6 +244,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find",
     "workflowNodeDescription": null
   }, {
@@ -396,6 +397,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert One",
     "workflowNodeDescription": null
   }, {
@@ -649,6 +651,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert Many",
     "workflowNodeDescription": null
   }, {
@@ -921,6 +924,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update One",
     "workflowNodeDescription": null
   }, {
@@ -1193,6 +1197,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Many",
     "workflowNodeDescription": null
   }, {
@@ -1339,6 +1344,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete One",
     "workflowNodeDescription": null
   }, {
@@ -1485,6 +1491,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Many",
     "workflowNodeDescription": null
   }, {
@@ -1656,6 +1663,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Aggregate",
     "workflowNodeDescription": null
   } ],
@@ -1897,6 +1905,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Find",
     "type": {
       "name": "TOOLS",
@@ -2049,6 +2058,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Insert One",
     "type": {
       "name": "TOOLS",
@@ -2302,6 +2312,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Insert Many",
     "type": {
       "name": "TOOLS",
@@ -2574,6 +2585,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Update One",
     "type": {
       "name": "TOOLS",
@@ -2846,6 +2858,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Update Many",
     "type": {
       "name": "TOOLS",
@@ -2992,6 +3005,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Delete One",
     "type": {
       "name": "TOOLS",
@@ -3138,6 +3152,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Delete Many",
     "type": {
       "name": "TOOLS",
@@ -3309,6 +3324,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Aggregate",
     "type": {
       "name": "TOOLS",

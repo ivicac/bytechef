@@ -256,6 +256,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Row",
     "workflowNodeDescription": null
   }, {
@@ -1226,6 +1227,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Insert Row",
     "workflowNodeDescription": null
   }, {
@@ -1481,6 +1483,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Row",
     "workflowNodeDescription": null
   } ],
@@ -1734,6 +1737,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Delete Row",
     "type": {
       "name": "TOOLS",
@@ -2704,6 +2708,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Insert Row",
     "type": {
       "name": "TOOLS",
@@ -2959,6 +2964,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Row",
     "type": {
       "name": "TOOLS",

@@ -19,6 +19,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Approval Links",
     "workflowNodeDescription": null
   } ],

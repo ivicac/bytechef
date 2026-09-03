@@ -1218,6 +1218,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Feature Request",
     "workflowNodeDescription": null
   }, {
@@ -2183,6 +2184,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Post",
     "workflowNodeDescription": null
   }, {
@@ -2296,6 +2298,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Feed",
     "workflowNodeDescription": null
   }, {
@@ -2896,6 +2899,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "New Comment",
     "workflowNodeDescription": null
   }, {
@@ -3430,6 +3434,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "New Vote",
     "workflowNodeDescription": null
   } ],
@@ -4642,6 +4647,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Feature Request",
     "type": {
       "name": "TOOLS",
@@ -5604,6 +5610,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Post",
     "type": {
       "name": "TOOLS",
@@ -5714,6 +5721,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Get Feed",
     "type": {
       "name": "TOOLS",
@@ -6311,6 +6319,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "New Comment",
     "type": {
       "name": "TOOLS",
@@ -6842,6 +6851,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "New Vote",
     "type": {
       "name": "TOOLS",

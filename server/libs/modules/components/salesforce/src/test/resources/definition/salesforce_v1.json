@@ -254,6 +254,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Record",
     "workflowNodeDescription": null
   }, {
@@ -321,6 +322,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Record",
     "workflowNodeDescription": null
   }, {
@@ -365,6 +367,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "SOQL Query",
     "workflowNodeDescription": null
   }, {
@@ -554,6 +557,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Record",
     "workflowNodeDescription": null
   } ],
@@ -805,6 +809,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Record",
     "type": {
       "name": "TOOLS",
@@ -872,6 +877,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Record",
     "type": {
       "name": "TOOLS",
@@ -916,6 +922,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "SOQL Query",
     "type": {
       "name": "TOOLS",
@@ -1105,6 +1112,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Update Record",
     "type": {
       "name": "TOOLS",

@@ -245,6 +245,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Make Phone Call",
     "workflowNodeDescription": null
   } ],
@@ -487,6 +488,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Make Phone Call",
     "type": {
       "name": "TOOLS",

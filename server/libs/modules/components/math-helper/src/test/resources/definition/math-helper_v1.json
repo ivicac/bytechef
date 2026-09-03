@@ -114,6 +114,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Addition",
     "workflowNodeDescription": null
   }, {
@@ -231,6 +232,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Division",
     "workflowNodeDescription": null
   }, {
@@ -348,6 +350,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Modulo",
     "workflowNodeDescription": null
   }, {
@@ -465,6 +468,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Multiplication",
     "workflowNodeDescription": null
   }, {
@@ -582,6 +586,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Subtraction",
     "workflowNodeDescription": null
   } ],
@@ -690,6 +695,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Addition",
     "type": {
       "name": "TOOLS",
@@ -804,6 +810,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Division",
     "type": {
       "name": "TOOLS",
@@ -918,6 +925,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Modulo",
     "type": {
       "name": "TOOLS",
@@ -1032,6 +1040,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Multiplication",
     "type": {
       "name": "TOOLS",
@@ -1146,6 +1155,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Subtraction",
     "type": {
       "name": "TOOLS",

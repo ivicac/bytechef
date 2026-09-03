@@ -139,6 +139,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Presentation From Template",
     "workflowNodeDescription": null
   }, {
@@ -189,6 +190,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Presentation",
     "workflowNodeDescription": null
   } ],
@@ -322,6 +324,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create Presentation From Template",
     "type": {
       "name": "TOOLS",
@@ -369,6 +372,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Presentation",
     "type": {
       "name": "TOOLS",

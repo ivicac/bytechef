@@ -629,6 +629,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Post",
     "workflowNodeDescription": null
   }, {
@@ -671,6 +672,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Post",
     "workflowNodeDescription": null
   } ],
@@ -1294,6 +1296,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Post",
     "type": {
       "name": "TOOLS",
@@ -1333,6 +1336,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Post",
     "type": {
       "name": "TOOLS",

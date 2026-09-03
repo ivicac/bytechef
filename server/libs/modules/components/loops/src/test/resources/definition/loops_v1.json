@@ -314,6 +314,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   } ],

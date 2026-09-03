@@ -205,6 +205,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Generate Video From Template",
     "workflowNodeDescription": null
   }, {
@@ -408,6 +409,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Translate Video",
     "workflowNodeDescription": null
   }, {
@@ -924,6 +926,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload Asset",
     "workflowNodeDescription": null
   } ],
@@ -1126,6 +1129,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Generate Video From Template",
     "type": {
       "name": "TOOLS",
@@ -1329,6 +1333,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Translate Video",
     "type": {
       "name": "TOOLS",
@@ -1845,6 +1850,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Upload Asset",
     "type": {
       "name": "TOOLS",

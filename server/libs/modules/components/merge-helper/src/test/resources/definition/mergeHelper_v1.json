@@ -43,6 +43,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append",
     "workflowNodeDescription": null
   }, {
@@ -166,6 +167,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Combine",
     "workflowNodeDescription": null
   }, {
@@ -296,6 +298,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "SQL Query",
     "workflowNodeDescription": null
   } ],

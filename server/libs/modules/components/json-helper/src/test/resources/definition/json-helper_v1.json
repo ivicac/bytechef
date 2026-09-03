@@ -41,6 +41,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert from JSON String",
     "workflowNodeDescription": null
   }, {
@@ -134,6 +135,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert to JSON String",
     "workflowNodeDescription": null
   } ],
@@ -172,6 +174,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Convert from JSON String",
     "type": {
       "name": "TOOLS",
@@ -265,6 +268,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Convert to JSON String",
     "type": {
       "name": "TOOLS",

@@ -179,6 +179,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Fetch Pair Price",
     "workflowNodeDescription": null
   } ],

@@ -533,6 +533,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Comments",
     "workflowNodeDescription": null
   }, {
@@ -841,6 +842,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Post Comment",
     "workflowNodeDescription": null
   } ],
@@ -1365,6 +1367,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Comments",
     "type": {
       "name": "TOOLS",
@@ -1665,6 +1668,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Post Comment",
     "type": {
       "name": "TOOLS",

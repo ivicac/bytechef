@@ -1044,6 +1044,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Testing",
     "workflowNodeDescription": null
   } ],

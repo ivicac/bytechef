@@ -218,6 +218,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Items to a Playlist",
     "workflowNodeDescription": null
   }, {
@@ -362,6 +363,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Play/Resume Playback",
     "workflowNodeDescription": null
   }, {
@@ -1183,6 +1185,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Playlist",
     "workflowNodeDescription": null
   } ],
@@ -1390,6 +1393,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Add Items to a Playlist",
     "type": {
       "name": "TOOLS",
@@ -1526,6 +1530,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Play/Resume Playback",
     "type": {
       "name": "TOOLS",
@@ -2344,6 +2349,7 @@
       "required": true,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Playlist",
     "type": {
       "name": "TOOLS",
