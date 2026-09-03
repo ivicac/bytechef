@@ -2,6 +2,7 @@ import Button from '@/components/Button/Button';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import AiAgentTestRuntimeProvider from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-testing-panel/runtime-providers/AiAgentTestRuntimeProvider';
 import {MessageSquareXIcon, PlayIcon, SparklesIcon, WorkflowIcon, XIcon} from 'lucide-react';
+import {useEffect} from 'react';
 import {twMerge} from 'tailwind-merge';
 
 import {Thread} from './AiAgentTestingPanelThread';
@@ -11,12 +12,35 @@ interface AiAgentTestingPanelProps {
     contentClassName?: string;
     headerClassName?: string;
     onClose?: () => void;
+    /**
+     * Open straight into the conversation instead of the "Test this Agent" landing. Entering testing
+     * resets the conversation the way the landing's button does, but only when testing is not
+     * already on -- so re-opening the panel keeps the conversation it had.
+     */
+    skipIntro?: boolean;
 }
 
-export default function AiAgentTestingPanel({contentClassName, headerClassName, onClose}: AiAgentTestingPanelProps) {
+export default function AiAgentTestingPanel({
+    contentClassName,
+    headerClassName,
+    onClose,
+    skipIntro = false,
+}: AiAgentTestingPanelProps) {
     const {conversationId, handleReset, handleTestAgent, isTestingAgent} = useAiAgentTestingPanel();
 
+    useEffect(() => {
+        if (skipIntro && !isTestingAgent) {
+            handleTestAgent();
+        }
+    }, [handleTestAgent, isTestingAgent, skipIntro]);
+
     if (!isTestingAgent) {
+        // The effect above flips this on the next tick; painting the landing for that one frame
+        // would be a flash of the very screen skipIntro exists to avoid.
+        if (skipIntro) {
+            return null;
+        }
+
         return (
             <div className="flex size-full flex-col gap-4">
                 <div className={headerClassName}>
