@@ -460,6 +460,11 @@ public interface Context {
             public Type getType() {
                 return type;
             }
+
+            @Override
+            public String toString() {
+                return type + " (" + contentType + ")";
+            }
         }
 
         /**
