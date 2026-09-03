@@ -20,6 +20,7 @@ import static com.bytechef.component.ai.agent.constant.AiAgentConstants.MAX_TOOL
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_FORMAT;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_SCHEMA;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.RESPONSE_PROMPT;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.SIMULATION_MODEL;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.TOOL_SIMULATIONS;
@@ -63,6 +64,7 @@ import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
 import com.bytechef.platform.component.definition.ai.agent.GuardrailsFunction;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.RagFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
 import com.bytechef.platform.configuration.domain.ClusterElement;
@@ -181,6 +183,7 @@ public abstract class AbstractAiAgentChatAction {
             workspaceSystemPromptAdvisorProviderObjectProvider, null);
     }
 
+    @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         AgentToolCallingManagers agentToolCallingManagers,
@@ -189,9 +192,33 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
 
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            List.of());
+    }
+
+    /**
+     * {@code CT_CONSTRUCTOR_THROW} is suppressed on this constructor and on the one that delegates to it. The only call
+     * here that can throw is Spring's {@code ObjectProvider.getIfAvailable()}, and a container failure resolving the
+     * audit recorder must surface at bean creation rather than be swallowed into an unaudited agent. The pattern's own
+     * remedy — making the class final — is not available: this class is abstract precisely so the three chat actions
+     * can extend it, and none of them is a subclass an attacker controls.
+     */
+    @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
         this.clusterElementDefinitionService = clusterElementDefinitionService;
-        this.clusterElementToolCallbacks =
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
+        this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers,
+            toolExecutionRecorderObjectProvider == null ? null : toolExecutionRecorderObjectProvider.getIfAvailable());
         this.agentToolCallingManagers = agentToolCallingManagers;
         this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
         this.aiGuardrailsAdvisorProviderObjectProvider = aiGuardrailsAdvisorProviderObjectProvider;
@@ -304,8 +331,8 @@ public abstract class AbstractAiAgentChatAction {
                 concatToolCallbacks(
                     getToolCallbacks(
                         clusterElementMap.getClusterElements(BaseToolFunction.TOOLS),
-                        connectionParameters, context.isEditorEnvironment(), toolExecutionListener, toolSimulations,
-                        chatModel, context),
+                        clusterElementMap.getClusterElements(APPROVAL_CHANNELS), connectionParameters,
+                        context.isEditorEnvironment(), toolExecutionListener, toolSimulations, chatModel, context),
                     chatMemoryResult)
                         .toArray());
 
@@ -489,9 +516,23 @@ public abstract class AbstractAiAgentChatAction {
         boolean hasApprovedBy = approvedBy != null && !approvedBy.isBlank();
         ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
 
+        // Present only when a component rule (rather than the approval gate) raised this request. The continue
+        // parameters carry only the Spring AI tool name, not the component and cluster-element names a rule needs to
+        // re-check, so the rule wrapper adds these two alongside RULE_IDS when it raises the request.
+        List<Long> ruleIds = continueParameters.getList(ToolSuspendConstants.RULE_IDS, Long.class, List.of());
+        String ruleComponentName = continueParameters.getString(ToolSuspendConstants.RULE_COMPONENT_NAME, "");
+        String ruleToolName = continueParameters.getString(ToolSuspendConstants.RULE_TOOL_NAME, "");
+
         if (!approved) {
             recordGateResolution(
                 toolExecutionRecorder, continueParameters, context, ToolExecutionOutcome.APPROVAL_DENIED);
+
+            if (!ruleIds.isEmpty()) {
+                clusterElementToolCallbacks.recordRuleApprovalResolution(
+                    ruleIds, ruleComponentName, ruleToolName,
+                    continueParameters.getRequiredString(ToolSuspendConstants.GATED_TOOL_NAME), false, approvedBy,
+                    ((ActionContextAware) context).getJobId());
+            }
 
             Map<String, Object> denial = new HashMap<>();
 
@@ -509,13 +550,22 @@ public abstract class AbstractAiAgentChatAction {
         String gatedToolInput = continueParameters.getRequiredString(ToolSuspendConstants.GATED_TOOL_INPUT);
         boolean editorEnvironment = ((ActionContextAware) context).isEditorEnvironment();
 
+        // The hosted approval form is reached anonymously, with no verified reviewer, yet the call IS approved and
+        // is about to re-execute. "anonymous" is a true statement about how it was approved, not a placeholder — and
+        // it is the only signal ComponentRuleEnforcerImpl has that this exact call was already approved. Leaving this
+        // null on a re-execution would make a rule re-raise the same approval and suspend again forever.
+        String resolvedApprovedBy = hasApprovedBy ? approvedBy : "anonymous";
+
         ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+        List<ClusterElement> approvalChannelClusterElements = clusterElementMap.getClusterElements(
+            APPROVAL_CHANNELS);
 
         ToolCallback gatedToolCallback = clusterElementMap.getClusterElements(BaseToolFunction.TOOLS)
             .stream()
             .flatMap(
                 clusterElement -> buildElementToolCallbacks(
-                    clusterElement, connectionParameters, editorEnvironment, context).stream())
+                    clusterElement, connectionParameters, editorEnvironment, context,
+                    approvalChannelClusterElements).stream())
             .filter(toolCallback -> {
                 ToolDefinition toolDefinition = toolCallback.getToolDefinition();
 
@@ -528,6 +578,12 @@ public abstract class AbstractAiAgentChatAction {
             .orElseThrow(() -> new IllegalStateException(
                 "The approved tool '" + gatedToolName + "' is no longer configured on the agent node; the " +
                     "approval cannot be applied."));
+
+        if (!ruleIds.isEmpty()) {
+            clusterElementToolCallbacks.recordRuleApprovalResolution(
+                ruleIds, ruleComponentName, ruleToolName, gatedToolName, true, resolvedApprovedBy,
+                ((ActionContextAware) context).getJobId());
+        }
 
         // Re-apply the tool-simulation wrapper the live loop would have applied: without it, approving a gated tool
         // in a simulated (editor/test) run would execute the REAL tool with real side effects — exactly what
@@ -553,7 +609,12 @@ public abstract class AbstractAiAgentChatAction {
             approvedResult.put("reviewer", approvedBy);
         }
 
-        ToolContext toolContext = new ToolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));
+        Map<String, Object> toolContextMap = new HashMap<>();
+
+        toolContextMap.put(AiAgentToolContextKey.ACTION_CONTEXT, context);
+        toolContextMap.put(AiAgentToolContextKey.APPROVED_BY, resolvedApprovedBy);
+
+        ToolContext toolContext = new ToolContext(toolContextMap);
 
         try {
             // The recorder wraps the approved execution so the audit trail carries the post-approval outcome
@@ -1190,8 +1251,9 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     private List<ToolCallback> getToolCallbacks(
-        List<ClusterElement> toolClusterElements, Map<String, ComponentConnection> connectionParameters,
-        boolean editorEnvironment, @Nullable ToolExecutionListener toolExecutionListener,
+        List<ClusterElement> toolClusterElements, List<ClusterElement> approvalChannelClusterElements,
+        Map<String, ComponentConnection> connectionParameters, boolean editorEnvironment,
+        @Nullable ToolExecutionListener toolExecutionListener,
         @Nullable Map<String, Map<String, String>> toolSimulations, ChatModel chatModel, ActionContext context) {
 
         List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -1201,7 +1263,9 @@ public abstract class AbstractAiAgentChatAction {
         // INSIDE the observable wrapper and the audit listener records the gate outcome like any other tool result.
         for (ClusterElement clusterElement : toolClusterElements) {
             toolCallbacks.addAll(
-                buildElementToolCallbacks(clusterElement, connectionParameters, editorEnvironment, context));
+                buildElementToolCallbacks(
+                    clusterElement, connectionParameters, editorEnvironment, context,
+                    approvalChannelClusterElements));
         }
 
         if (toolSimulations != null && !toolSimulations.isEmpty()) {
@@ -1246,9 +1310,10 @@ public abstract class AbstractAiAgentChatAction {
      */
     private List<ToolCallback> buildElementToolCallbacks(
         ClusterElement clusterElement, Map<String, ComponentConnection> connectionParameters,
-        boolean editorEnvironment, ActionContext context) {
+        boolean editorEnvironment, ActionContext context, List<ClusterElement> approvalChannelClusterElements) {
 
-        return clusterElementToolCallbacks.build(clusterElement, connectionParameters, editorEnvironment, context);
+        return clusterElementToolCallbacks.build(
+            clusterElement, connectionParameters, editorEnvironment, context, approvalChannelClusterElements);
     }
 
     private List<Message> loadConversationHistory(

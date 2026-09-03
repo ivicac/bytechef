@@ -35,9 +35,11 @@ import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolCallbackProviderFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,11 +79,13 @@ public class AiAgentUtilsTaskTool {
 
     @SuppressFBWarnings("EI")
     public AiAgentUtilsTaskTool(
-        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService) {
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        List<ComponentRuleEnforcer> componentRuleEnforcers,
+        @Nullable ToolExecutionRecorder toolExecutionRecorder) {
 
         this.clusterElementDefinitionService = clusterElementDefinitionService;
-        this.clusterElementToolCallbacks =
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
+        this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers, toolExecutionRecorder);
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement("taskTool")
@@ -158,9 +162,13 @@ public class AiAgentUtilsTaskTool {
                         "Attach the gate to the agent instead.");
             }
 
+            // A subagent structurally cannot carry an APPROVAL_CHANNELS child (see
+            // AiAgentUtilsComponentHandler.buildClusterElementClusterElementTypes), so a rule-required approval on one
+            // of its tools always falls back to ToolApprovalRequests' default chat channel.
             toolCallbacks.addAll(
                 clusterElementToolCallbacks.build(
-                    toolClusterElement, componentConnections, editorEnvironment, (ActionContext) context));
+                    toolClusterElement, componentConnections, editorEnvironment, (ActionContext) context,
+                    List.of()));
         }
 
         return toolCallbacks;

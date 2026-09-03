@@ -16,16 +16,9 @@
 
 package com.bytechef.component.ai.agent.utils.cluster;
 
-import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
-import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
-import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
-
 import com.bytechef.component.ai.llm.tool.DelegatingToolCallback;
+import com.bytechef.component.ai.llm.tool.ToolApprovalRequests;
 import com.bytechef.component.definition.ActionContext;
-import com.bytechef.component.definition.ActionDefinition;
-import com.bytechef.platform.ai.constant.AiAgentSseEventType;
-import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
-import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -37,15 +30,9 @@ import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -61,11 +48,6 @@ import org.springframework.ai.tool.definition.ToolDefinition;
  * @author Ivica Cardic
  */
 public class ApprovalGateToolCallback implements DelegatingToolCallback {
-
-    private static final Logger log = LoggerFactory.getLogger(ApprovalGateToolCallback.class);
-
-    private static final String CHAT_APPROVAL_CHANNEL_COMPONENT = "chat";
-    private static final String CHAT_APPROVAL_CHANNEL_NAME = "chat";
 
     private final ToolCallback delegate;
     private static final Duration DEFAULT_APPROVAL_EXPIRY = Duration.ofDays(60);
@@ -146,39 +128,19 @@ public class ApprovalGateToolCallback implements DelegatingToolCallback {
                 "call after the pending approval is resolved.\"}";
         }
 
-        String resumeUrl = actionContext.getResumeUrl();
-
-        if (resumeUrl == null) {
-            throw new IllegalStateException(
-                "Cannot raise an approval request for tool '" + getName() + "'. Ensure the server's public URL is " +
-                    "configured and the workflow is running in a proper execution context.");
-        }
-
-        String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
-
         Instant expiresAt = Instant.now()
             .plus(approvalExpiry != null ? approvalExpiry : DEFAULT_APPROVAL_EXPIRY);
 
-        if (actionContext.isEditorEnvironment()) {
-            // Editor test runs have no channel listeners (channels are production transports), but the agent's
-            // SSE stream IS connected — send the approval card event through the ToolContext's emitter, the same
-            // path ask_user_question uses, so the canvas test chat renders the card.
-            sendEditorApprovalRequestEvent(toolContext, formUrl, toolInput, expiresAt);
-        } else {
-            deliverApprovalRequest(formUrl, toolInput, expiresAt);
-        }
-
-        Map<String, Object> continueParameters = new HashMap<>();
-
-        continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, getName());
-        continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, toolInput);
-        continueParameters.put("formUrl", formUrl);
-
-        actionContext.suspend(new ActionContext.Suspend(continueParameters, expiresAt));
+        String result = ToolApprovalRequests.raise(
+            new ToolApprovalRequests.Request(
+                getName(), toolInput, "Approve tool call: " + getName(),
+                "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput,
+                expiresAt, approvalChannelClusterElements, componentConnections, Map.of(),
+                clusterElementDefinitionService, actionContext, toolContext));
 
         recordGateRaised();
 
-        return ToolSuspendConstants.SUSPENDED_SENTINEL;
+        return result;
     }
 
     /**
@@ -196,120 +158,6 @@ public class ApprovalGateToolCallback implements DelegatingToolCallback {
                 .jobId(actionContext.getJobId())
                 .outcome(ToolExecutionOutcome.APPROVAL_REQUIRED)
                 .build());
-    }
-
-    @SuppressWarnings("unchecked")
-    private void sendEditorApprovalRequestEvent(
-        @Nullable ToolContext toolContext, String formUrl, String toolInput, Instant expiresAt) {
-
-        if (toolContext == null) {
-            return;
-        }
-
-        Map<String, Object> eventData = new LinkedHashMap<>();
-
-        eventData.put(AiAgentSseEventType.EVENT_TYPE, AiAgentSseEventType.APPROVAL_REQUEST);
-        eventData.put("resumeId", formUrl.substring(formUrl.lastIndexOf('/') + 1));
-        eventData.put("formUrl", formUrl);
-        eventData.put(FORM_TITLE, "Approve tool call: " + getName());
-        eventData.put(
-            FORM_DESCRIPTION,
-            "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput);
-        eventData.put(EXPIRES_AT, expiresAt.toString());
-        eventData.put("inputs", List.of());
-
-        Map<String, Object> toolContextMap = toolContext.getContext();
-
-        Object emitterReferenceObject = toolContextMap.get(AiAgentToolContextKey.SSE_EMITTER_REFERENCE);
-
-        if (emitterReferenceObject instanceof AtomicReference<?> emitterReference
-            && emitterReference.get() instanceof ActionDefinition.SseEmitterHandler.SseEmitter sseEmitter) {
-
-            try {
-                sseEmitter.send(eventData);
-
-                return;
-            } catch (Exception exception) {
-                log.warn("SSE send of approval_request failed, falling back to buffering: {}", exception.getMessage());
-            }
-        }
-
-        Object bufferedEventsObject = toolContextMap.get(AiAgentToolContextKey.SSE_BUFFERED_EVENTS);
-
-        if (bufferedEventsObject instanceof Queue<?> queue) {
-            ((Queue<Map<String, Object>>) queue).add(eventData);
-
-            return;
-        }
-
-        // Neither an SSE emitter nor a buffered-events queue is present — only the streaming Chat action wires these
-        // into the ToolContext, so an editor test run of the non-streaming Chat action reaches here and the approval
-        // card is silently dropped (the run still suspends and is resolvable via the hosted form). Warn so a hung
-        // test run is diagnosable instead of failing silently.
-        log.warn(
-            "No SSE emitter or buffered-events queue in the tool context; the editor approval card for tool '{}' was " +
-                "not delivered. The run is still suspended and resolvable via the hosted approval form.",
-            getName());
-    }
-
-    private void deliverApprovalRequest(String formUrl, String toolInput, Instant expiresAt) {
-        Map<String, Object> channelInputParameters = new HashMap<>();
-
-        channelInputParameters.put(FORM_TITLE, "Approve tool call: " + getName());
-        channelInputParameters.put(
-            FORM_DESCRIPTION,
-            "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput);
-        channelInputParameters.put(EXPIRES_AT, expiresAt.toString());
-
-        if (approvalChannelClusterElements.isEmpty()) {
-            // No channels configured on the agent node — default to the chat channel targeting the run's
-            // originating conversation. The chat channel throws when the run has no jobId (in-process runs);
-            // a webhook/schedule run has a jobId but no chat listener, so the request is only reachable via the
-            // pending-approvals inbox — workflow validation warns about that configuration at design time.
-            clusterElementDefinitionService.executeApprovalChannel(
-                CHAT_APPROVAL_CHANNEL_COMPONENT, 1, CHAT_APPROVAL_CHANNEL_NAME, channelInputParameters, formUrl,
-                null, actionContext);
-
-            return;
-        }
-
-        // Best-effort per channel: a failing channel is logged and skipped so the remaining channels still deliver
-        // and the gate still suspends. Only when every configured channel fails is the call failed — then nobody
-        // was notified and suspending would be a silent no-op.
-        int deliveredCount = 0;
-        Exception lastException = null;
-
-        for (ClusterElement approvalChannel : approvalChannelClusterElements) {
-            ComponentConnection componentConnection = componentConnections.get(
-                approvalChannel.getWorkflowNodeName());
-
-            Map<String, Object> mergedInputParameters = new HashMap<>(channelInputParameters);
-
-            mergedInputParameters.putAll(approvalChannel.getParameters());
-
-            try {
-                clusterElementDefinitionService.executeApprovalChannel(
-                    approvalChannel.getComponentName(), approvalChannel.getComponentVersion(),
-                    approvalChannel.getClusterElementName(), mergedInputParameters, formUrl, componentConnection,
-                    actionContext);
-
-                deliveredCount++;
-            } catch (Exception exception) {
-                lastException = exception;
-
-                log.warn(
-                    "Approval channel {}/{} failed to deliver the tool-gate approval request: {}",
-                    approvalChannel.getComponentName(), approvalChannel.getClusterElementName(),
-                    exception.getMessage());
-            }
-        }
-
-        if (deliveredCount == 0) {
-            throw new IllegalStateException(
-                "None of the " + approvalChannelClusterElements.size() + " configured approval channels could " +
-                    "deliver the approval request for tool '" + getName() + "'.",
-                lastException);
-        }
     }
 
     private String getName() {
