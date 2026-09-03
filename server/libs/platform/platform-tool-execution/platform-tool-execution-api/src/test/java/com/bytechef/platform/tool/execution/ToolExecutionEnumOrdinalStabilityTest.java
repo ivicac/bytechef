@@ -53,6 +53,7 @@ class ToolExecutionEnumOrdinalStabilityTest {
             .map(Enum::name)
             .toList())
                 .containsExactly(
-                    "SUCCESS", "ERROR", "TIMEOUT", "APPROVAL_DENIED", "APPROVAL_REQUIRED", "CONNECTION_REQUIRED");
+                    "SUCCESS", "ERROR", "TIMEOUT", "APPROVAL_DENIED", "APPROVAL_REQUIRED", "CONNECTION_REQUIRED",
+                    "RULE_BLOCKED");
     }
 }
