@@ -10,21 +10,20 @@ package com.bytechef.ee.platform.ai.gateway.routing;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayTool;
-import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.List;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 /**
  * Deterministic, model-free prompt complexity scorer. Combines prompt size, tool count, structured (code/JSON) content,
  * conversation turns, and requested output size into a 0.0–1.0 score. No LLM or embedding call is made, keeping the
  * routing hot path cheap.
  *
+ * <p>
+ * The default {@code PromptComplexityScorer}, selected by {@link PromptComplexityScorerConfiguration} unless
+ * {@code bytechef.ai.gateway.prompt-complexity-scorer} is set to {@code opennlp}. Bean wiring lives on that
+ * configuration class, not here, so this class carries no Spring annotations of its own.
+ *
  * @version ee
  */
-@Component
-@ConditionalOnEEVersion
-@ConditionalOnProperty(prefix = "bytechef.ai.gateway", name = "enabled", havingValue = "true")
 public class DeterministicPromptComplexityScorer implements PromptComplexityScorer {
 
     // Signal weights; must sum to 1.0. SIZE/STRUCTURED were tuned to 0.40/0.15 (from an initial 0.35/0.20) so that a
