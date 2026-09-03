@@ -157,6 +157,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Map Objects to Array",
     "workflowNodeDescription": null
   }, {
@@ -454,6 +455,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Map Objects to Object",
     "workflowNodeDescription": null
   }, {
@@ -564,6 +566,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Merge and Pivot Properties by Key",
     "workflowNodeDescription": null
   }, {
@@ -694,6 +697,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Rename Keys",
     "workflowNodeDescription": null
   }, {
@@ -1595,6 +1599,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Replace All Specified Values",
     "workflowNodeDescription": null
   }, {
@@ -1745,6 +1750,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Replace Multiple Values by Key",
     "workflowNodeDescription": null
   }, {
@@ -3122,6 +3128,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Replace Value",
     "workflowNodeDescription": null
   } ],
@@ -3273,6 +3280,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Map Objects to Array",
     "type": {
       "name": "TOOLS",
@@ -3567,6 +3575,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Map Objects to Object",
     "type": {
       "name": "TOOLS",
@@ -3674,6 +3683,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Merge and Pivot Properties by Key",
     "type": {
       "name": "TOOLS",
@@ -3801,6 +3811,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Rename Keys",
     "type": {
       "name": "TOOLS",
@@ -4699,6 +4710,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Replace All Specified Values",
     "type": {
       "name": "TOOLS",
@@ -4846,6 +4858,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Replace Multiple Values by Key",
     "type": {
       "name": "TOOLS",
@@ -6220,6 +6233,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Replace Value",
     "type": {
       "name": "TOOLS",

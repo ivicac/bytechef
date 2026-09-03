@@ -44,6 +44,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert from XML String",
     "workflowNodeDescription": null
   }, {
@@ -188,6 +189,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert to XML String",
     "workflowNodeDescription": null
   } ],

@@ -202,6 +202,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Documents",
     "workflowNodeDescription": null
   }, {
@@ -401,6 +402,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Load Documents",
     "workflowNodeDescription": null
   }, {
@@ -668,6 +670,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Documents",
     "workflowNodeDescription": null
   }, {
@@ -867,6 +870,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Documents",
     "workflowNodeDescription": null
   } ],
@@ -964,6 +968,7 @@
       "required": false,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Milvus Search",
     "type": {
       "name": "TOOLS",
@@ -981,6 +986,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Milvus VectorStore",
     "type": {
       "name": "VECTOR_STORE",

@@ -176,6 +176,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Event",
     "workflowNodeDescription": null
   }, {
@@ -2876,6 +2877,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   } ],
@@ -3046,6 +3048,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Event",
     "type": {
       "name": "TOOLS",
@@ -5743,6 +5746,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Project",
     "type": {
       "name": "TOOLS",

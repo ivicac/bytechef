@@ -791,6 +791,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask Gemini",
     "workflowNodeDescription": null
   } ],
@@ -1078,6 +1079,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Gemini Model",
     "type": {
       "name": "MODEL",

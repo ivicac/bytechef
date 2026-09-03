@@ -848,6 +848,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Subscriber to Group",
     "workflowNodeDescription": null
   }, {
@@ -1586,6 +1587,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create or Update Subscriber",
     "workflowNodeDescription": null
   }, {
@@ -1656,6 +1658,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove Subscriber from Group",
     "workflowNodeDescription": null
   } ],
@@ -2498,6 +2501,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Add Subscriber to Group",
     "type": {
       "name": "TOOLS",
@@ -3233,6 +3237,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create or Update Subscriber",
     "type": {
       "name": "TOOLS",
@@ -3300,6 +3305,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove Subscriber from Group",
     "type": {
       "name": "TOOLS",

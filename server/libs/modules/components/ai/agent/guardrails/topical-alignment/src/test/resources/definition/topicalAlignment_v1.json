@@ -127,6 +127,7 @@
       "required": false,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Topical Alignment",
     "type": {
       "name": "CHECK_FOR_VIOLATIONS",

@@ -1194,6 +1194,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Record",
     "workflowNodeDescription": null
   }, {
@@ -2279,6 +2280,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   }, {
@@ -3501,6 +3503,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Record",
     "workflowNodeDescription": null
   } ],
@@ -4689,6 +4692,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Record",
     "type": {
       "name": "TOOLS",
@@ -5771,6 +5775,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",
@@ -6990,6 +6995,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Update Record",
     "type": {
       "name": "TOOLS",

@@ -41,6 +41,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Moduler RAG",
     "type": {
       "name": "RAG",

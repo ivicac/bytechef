@@ -324,6 +324,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Email",
     "workflowNodeDescription": null
   }, {
@@ -622,6 +623,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Dynamic Template",
     "workflowNodeDescription": null
   } ],
@@ -940,6 +942,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Email",
     "type": {
       "name": "TOOLS",
@@ -1235,6 +1238,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Dynamic Template",
     "type": {
       "name": "TOOLS",

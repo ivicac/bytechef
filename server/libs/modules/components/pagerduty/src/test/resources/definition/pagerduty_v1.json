@@ -4022,6 +4022,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Incident",
     "workflowNodeDescription": null
   }, {
@@ -4852,6 +4853,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Incident Note",
     "workflowNodeDescription": null
   }, {
@@ -8885,6 +8887,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Incident",
     "workflowNodeDescription": null
   } ],
@@ -12901,6 +12904,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Incident",
     "type": {
       "name": "TOOLS",
@@ -13728,6 +13732,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Incident Note",
     "type": {
       "name": "TOOLS",
@@ -17758,6 +17763,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Incident",
     "type": {
       "name": "TOOLS",

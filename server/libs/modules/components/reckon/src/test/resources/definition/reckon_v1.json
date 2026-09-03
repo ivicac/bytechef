@@ -176,6 +176,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -475,6 +476,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Invoice",
     "workflowNodeDescription": null
   }, {
@@ -700,6 +702,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Payment",
     "workflowNodeDescription": null
   } ],

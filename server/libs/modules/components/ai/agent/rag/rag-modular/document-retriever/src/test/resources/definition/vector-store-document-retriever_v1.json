@@ -80,6 +80,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Document Retriever",
     "type": {
       "name": "DOCUMENT_RETRIEVER",

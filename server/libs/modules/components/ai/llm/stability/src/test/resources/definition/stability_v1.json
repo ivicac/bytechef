@@ -545,6 +545,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Image",
     "workflowNodeDescription": null
   } ],

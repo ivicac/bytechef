@@ -221,6 +221,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Fulfill Order",
     "workflowNodeDescription": null
   }, {
@@ -554,6 +555,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Collection Item",
     "workflowNodeDescription": null
   } ],
@@ -766,6 +768,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Fulfill Order",
     "type": {
       "name": "TOOLS",
@@ -1093,6 +1096,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Collection Item",
     "type": {
       "name": "TOOLS",

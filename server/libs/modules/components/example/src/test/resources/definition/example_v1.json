@@ -70,6 +70,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Title",
     "workflowNodeDescription": null
   } ],

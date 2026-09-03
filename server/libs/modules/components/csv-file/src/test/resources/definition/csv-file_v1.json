@@ -280,6 +280,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read from File",
     "workflowNodeDescription": null
   }, {
@@ -665,6 +666,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Write to CSV File",
     "workflowNodeDescription": null
   }, {
@@ -1132,6 +1134,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append to CSV File",
     "workflowNodeDescription": null
   } ],
@@ -1401,6 +1404,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Read CSV file row",
     "type": {
       "name": "SOURCE",
@@ -1522,6 +1526,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Write CSV file rows",
     "type": {
       "name": "DESTINATION",

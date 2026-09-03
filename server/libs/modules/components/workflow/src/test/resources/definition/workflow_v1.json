@@ -68,6 +68,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Response to Workflow Call",
     "workflowNodeDescription": null
   } ],
@@ -135,6 +136,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Call Workflow",
     "type": {
       "name": "TOOLS",
@@ -265,6 +267,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Call AI Agent",
     "type": {
       "name": "TOOLS",

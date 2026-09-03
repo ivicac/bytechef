@@ -240,6 +240,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read from File",
     "workflowNodeDescription": null
   }, {
@@ -600,6 +601,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Write to File",
     "workflowNodeDescription": null
   } ],
@@ -834,6 +836,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Read from File",
     "type": {
       "name": "TOOLS",
@@ -1191,6 +1194,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Write to File",
     "type": {
       "name": "TOOLS",
@@ -1364,6 +1368,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Read JSON file row",
     "type": {
       "name": "SOURCE",
@@ -1537,6 +1542,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Write JSON file rows",
     "type": {
       "name": "DESTINATION",

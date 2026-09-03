@@ -551,6 +551,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Screenshot",
     "workflowNodeDescription": null
   }, {
@@ -2186,6 +2187,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Currency Converter",
     "workflowNodeDescription": null
   }, {
@@ -2497,6 +2499,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "URL Shortener",
     "workflowNodeDescription": null
   }, {
@@ -3192,6 +3195,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Web Page Information",
     "workflowNodeDescription": null
   } ],
@@ -3737,6 +3741,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Add Screenshot",
     "type": {
       "name": "TOOLS",
@@ -5369,6 +5374,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Currency Converter",
     "type": {
       "name": "TOOLS",
@@ -5677,6 +5683,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "URL Shortener",
     "type": {
       "name": "TOOLS",
@@ -6369,6 +6376,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Web Page Information",
     "type": {
       "name": "TOOLS",

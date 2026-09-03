@@ -413,6 +413,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "GET",
     "workflowNodeDescription": null
   }, {
@@ -1491,6 +1492,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "POST",
     "workflowNodeDescription": null
   }, {
@@ -2569,6 +2571,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "PUT",
     "workflowNodeDescription": null
   }, {
@@ -3647,6 +3650,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "PATCH",
     "workflowNodeDescription": null
   }, {
@@ -4063,6 +4067,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "DELETE",
     "workflowNodeDescription": null
   }, {
@@ -4479,6 +4484,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "HEAD",
     "workflowNodeDescription": null
   } ],
@@ -4886,6 +4892,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "DELETE",
     "type": {
       "name": "TOOLS",
@@ -5299,6 +5306,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "GET",
     "type": {
       "name": "TOOLS",
@@ -5712,6 +5720,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "HEAD",
     "type": {
       "name": "TOOLS",
@@ -6787,6 +6796,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "PATCH",
     "type": {
       "name": "TOOLS",
@@ -7862,6 +7872,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "POST",
     "type": {
       "name": "TOOLS",
@@ -8937,6 +8948,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "PUT",
     "type": {
       "name": "TOOLS",

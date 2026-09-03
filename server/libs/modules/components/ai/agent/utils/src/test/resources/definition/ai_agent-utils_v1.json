@@ -300,6 +300,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append Files to AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -646,6 +647,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -688,6 +690,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -927,6 +930,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove File from AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -1276,29 +1280,30 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update AI Skill",
     "workflowNodeDescription": null
   } ],
   "clusterElementClusterElementTypes": {
-    "approvalGateTool": [ "TOOLS", "APPROVAL_CHANNELS" ],
-    "appendFilesToAiSkill": [ ],
-    "braveWebSearchTool": [ ],
-    "fileSystemTools": [ ],
-    "updateAiSkill": [ ],
-    "grepTool": [ ],
-    "smartWebFetchTool": [ "MODEL" ],
-    "createAiSkill": [ ],
-    "autoMemoryTool": [ ],
     "shellTools": [ ],
-    "listDirectoryTool": [ ],
-    "removeFileFromAiSkill": [ ],
-    "agentClientTool": [ ],
-    "globTool": [ ],
-    "taskTool": [ "MODEL", "SUBAGENT" ],
-    "deleteAiSkill": [ ],
-    "todoWriteTool": [ ],
+    "autoMemoryTool": [ ],
+    "createAiSkill": [ ],
+    "smartWebFetchTool": [ "MODEL" ],
+    "grepTool": [ ],
+    "updateAiSkill": [ ],
+    "fileSystemTools": [ ],
+    "braveWebSearchTool": [ ],
+    "appendFilesToAiSkill": [ ],
+    "approvalGateTool": [ "TOOLS", "APPROVAL_CHANNELS" ],
+    "subagentTool": [ "MODEL", "TOOLS" ],
     "askUserQuestionTool": [ ],
-    "subagentTool": [ "MODEL", "TOOLS" ]
+    "todoWriteTool": [ ],
+    "deleteAiSkill": [ ],
+    "taskTool": [ "MODEL", "SUBAGENT" ],
+    "globTool": [ ],
+    "agentClientTool": [ ],
+    "removeFileFromAiSkill": [ ],
+    "listDirectoryTool": [ ]
   },
   "clusterElementTypes": [ {
     "name": "MODEL",
@@ -1355,6 +1360,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Agent Client Tool",
     "type": {
       "name": "TOOLS",
@@ -1443,6 +1449,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Approval Gate Tool",
     "type": {
       "name": "TOOLS",
@@ -1460,6 +1467,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Ask User Question Tool",
     "type": {
       "name": "TOOLS",
@@ -1477,6 +1485,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "File System Tools",
     "type": {
       "name": "TOOLS",
@@ -1494,6 +1503,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Shell Tools",
     "type": {
       "name": "TOOLS",
@@ -1511,6 +1521,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Grep Tool",
     "type": {
       "name": "TOOLS",
@@ -1528,6 +1539,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Glob Tool",
     "type": {
       "name": "TOOLS",
@@ -1545,6 +1557,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "List Directory Tool",
     "type": {
       "name": "TOOLS",
@@ -1562,6 +1575,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Smart Web Fetch Tool",
     "type": {
       "name": "TOOLS",
@@ -1579,6 +1593,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Brave Web Search Tool",
     "type": {
       "name": "TOOLS",
@@ -1596,6 +1611,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Auto Memory Tool",
     "type": {
       "name": "TOOLS",
@@ -1613,6 +1629,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Todo Write Tool",
     "type": {
       "name": "TOOLS",
@@ -1630,6 +1647,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Task Tool",
     "type": {
       "name": "TOOLS",
@@ -1713,6 +1731,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Subagent",
     "type": {
       "name": "SUBAGENT",
@@ -2012,6 +2031,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Append Files to AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2355,6 +2375,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2394,6 +2415,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2630,6 +2652,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove File from AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2976,6 +2999,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Update AI Skill",
     "type": {
       "name": "TOOLS",

@@ -995,6 +995,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   } ],
@@ -1329,6 +1330,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "LiteLLM Model",
     "type": {
       "name": "MODEL",
@@ -1399,6 +1401,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "LiteLLM Embedding",
     "type": {
       "name": "EMBEDDING",

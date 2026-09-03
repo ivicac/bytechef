@@ -1610,6 +1610,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Asteroid",
     "workflowNodeDescription": null
   }, {
@@ -2516,6 +2517,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Astronomy Picture of the Day",
     "workflowNodeDescription": null
   } ],

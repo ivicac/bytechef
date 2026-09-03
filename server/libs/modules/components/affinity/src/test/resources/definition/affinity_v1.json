@@ -193,6 +193,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Opportunity",
     "workflowNodeDescription": null
   }, {
@@ -457,6 +458,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Organization",
     "workflowNodeDescription": null
   }, {
@@ -854,6 +856,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Person",
     "workflowNodeDescription": null
   } ],
@@ -1036,6 +1039,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Opportunity",
     "type": {
       "name": "TOOLS",
@@ -1292,6 +1296,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Organization",
     "type": {
       "name": "TOOLS",
@@ -1681,6 +1686,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Person",
     "type": {
       "name": "TOOLS",

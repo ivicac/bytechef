@@ -1709,6 +1709,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Attendees to Event",
     "workflowNodeDescription": null
   }, {
@@ -3899,6 +3900,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Event",
     "workflowNodeDescription": null
   }, {
@@ -5599,6 +5601,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Quick Event",
     "workflowNodeDescription": null
   }, {
@@ -5669,6 +5672,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Event",
     "workflowNodeDescription": null
   }, {
@@ -7505,6 +7509,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Events",
     "workflowNodeDescription": null
   }, {
@@ -7763,6 +7768,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Free Time Slots",
     "workflowNodeDescription": null
   }, {
@@ -9611,6 +9617,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Event",
     "workflowNodeDescription": null
   } ],
@@ -11314,6 +11321,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Add Attendees to Event",
     "type": {
       "name": "TOOLS",
@@ -13501,6 +13509,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Event",
     "type": {
       "name": "TOOLS",
@@ -15198,6 +15207,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Quick Event",
     "type": {
       "name": "TOOLS",
@@ -15265,6 +15275,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Event",
     "type": {
       "name": "TOOLS",
@@ -17098,6 +17109,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Get Events",
     "type": {
       "name": "TOOLS",
@@ -17353,6 +17365,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Get Free Time Slots",
     "type": {
       "name": "TOOLS",
@@ -19198,6 +19211,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Update Event",
     "type": {
       "name": "TOOLS",
