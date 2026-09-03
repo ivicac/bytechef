@@ -437,6 +437,22 @@ variables as their own **Variables** section in the Data Pill Panel (`DataPillPa
 
 Spec: `docs/superpowers/specs/2026-08-17-custom-variables-design.md`.
 
+### Component Rules (EE)
+
+`server/ee/libs/platform/platform-component-rule/`, sibling to `platform-component-policy`. Governs **AI agent tool
+calls**, not workflow action executions — a rule is keyed on `(componentName, toolName, workspaceId)` of a TOOLS
+cluster element, enforced by wrapping every tool callback an agent can call, not by hooking
+`ActionDefinitionServiceImpl`. The condition is a ByteChef formula body, not free SpEL (`SpelEvaluator` parses full
+SpEL only behind a `=` prefix, prepended at both save-time validation and evaluation; `T(`, `.method(` calls, and
+`new` are rejected, so conditions use whitelisted evaluator functions like `contains`/`equalsIgnoreCase`/`size`). A
+non-strict rule fails open on an unevaluable condition by design — a mis-authored rule must not take a tenant's
+agents offline; `strict` inverts that per rule. The enforcement cache is keyed by **(tenantId, componentName,
+workspaceId)**, not componentName alone, since component names are global.
+Rules are workspace-scoped: `workspace_id` is a nullable column, null meaning every workspace in the tenant; the
+page lives under Settings → AI → Agents → Rules, not Components. See `.agents/component-rules.md` for the wrapper
+contract, the approval protocol, observe mode, strict evaluation, risk levels, workspace resolution and its
+fail-narrow-to-tenant-wide invariant, and the worker-app distributed-deployment gap.
+
 ### Environment promotion (EE)
 
 `server/ee/libs/automation/automation-promotion` promotes an API collection, MCP server, A2A server or
@@ -539,6 +555,7 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/resource-visibility.md` | Workspace scoping, visibility/sharing, per-environment roles |
 | `.agents/execution-reliability.md` | Plan limits, crash recovery, notifications, error workflow, URL signing |
 | `.agents/component-wrappers.md` | Component wrapper patterns |
+| `.agents/component-rules.md` | Component Rules: agent tool governance, approval, observe mode, strict, risk levels |
 
 Design rationale for most of the above lives in `docs/superpowers/specs/`.
 
