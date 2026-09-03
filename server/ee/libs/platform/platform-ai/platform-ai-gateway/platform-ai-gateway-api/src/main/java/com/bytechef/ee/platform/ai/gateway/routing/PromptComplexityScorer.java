@@ -11,8 +11,12 @@ import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 
 /**
  * Produces a 0.0 (simple) to 1.0 (complex) complexity score for a chat completion request, used by the intelligent
- * routing strategies to map a request onto a model cost tier. The default implementation is deterministic and
- * model-free; this interface is the seam for a future embedding-based scorer.
+ * routing strategies to map a request onto a model cost tier. Exactly one implementation is on the context at a time,
+ * chosen by {@code PromptComplexityScorerConfiguration} in {@code platform-ai-gateway-service}: a deterministic,
+ * model-free scorer (the default) or an OpenNLP-trained one, selected by
+ * {@code bytechef.ai.gateway.prompt-complexity-scorer}. See the bake-off recorded in
+ * {@code docs/superpowers/specs/2026-08-24-prompt-complexity-scorer-bakeoff-design.md} for how the OpenNLP scorer was
+ * chosen over embedding-based alternatives.
  *
  * @version ee
  */
