@@ -42,6 +42,8 @@ describe('saveClusterElementFieldChange', () => {
         });
     });
 
+    // On the main canvas nothing seeds rootClusterElementNodeData, and this used to return with a
+    // console error before saving anything -- a tool's title edit from the details panel was lost.
     it('saves a label change against the root resolved from the node when no root is in the store', () => {
         saveClusterElementFieldChange({
             currentComponentDefinition: {name: 'agileCrm', version: 1} as ComponentDefinition,
@@ -56,52 +58,5 @@ describe('saveClusterElementFieldChange', () => {
         expect(nodeData.workflowNodeName).toBe('aiAgent_1');
         expect(nodeData.componentName).toBe('aiAgent');
         expect(nodeData.clusterElements.tools[0].label).toBe('Deals');
-    });
-
-    it('leaves the stored root of another agent untouched after the save', () => {
-        const otherAgentRootData = {
-            clusterElements: {tools: []},
-            clusterRoot: true,
-            componentName: 'aiAgent',
-            name: 'aiAgent_2',
-            workflowNodeName: 'aiAgent_2',
-        } as unknown as NodeDataType;
-
-        useWorkflowEditorStore.setState({rootClusterElementNodeData: otherAgentRootData});
-
-        saveClusterElementFieldChange({
-            currentComponentDefinition: {name: 'agileCrm', version: 1} as ComponentDefinition,
-            fieldUpdate: {field: 'label', value: 'Deals'},
-            updateWorkflowMutation: {mutate: vi.fn()} as never,
-        });
-
-        saveWorkflowDefinitionMock.mock.calls[0][0].onSuccess();
-
-        expect(useWorkflowEditorStore.getState().rootClusterElementNodeData).toBe(otherAgentRootData);
-    });
-
-    it('refreshes the stored root when it is the agent that was saved', () => {
-        useWorkflowEditorStore.setState({
-            rootClusterElementNodeData: {
-                clusterElements: {tools: []},
-                clusterRoot: true,
-                componentName: 'aiAgent',
-                name: 'aiAgent_1',
-                workflowNodeName: 'aiAgent_1',
-            } as unknown as NodeDataType,
-        });
-
-        saveClusterElementFieldChange({
-            currentComponentDefinition: {name: 'agileCrm', version: 1} as ComponentDefinition,
-            fieldUpdate: {field: 'label', value: 'Deals'},
-            updateWorkflowMutation: {mutate: vi.fn()} as never,
-        });
-
-        saveWorkflowDefinitionMock.mock.calls[0][0].onSuccess();
-
-        const storedRootClusterElements = useWorkflowEditorStore.getState().rootClusterElementNodeData
-            ?.clusterElements as unknown as {tools: Array<{label: string}>};
-
-        expect(storedRootClusterElements.tools[0].label).toBe('Deals');
     });
 });

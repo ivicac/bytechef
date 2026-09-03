@@ -40,6 +40,8 @@ export default function saveClusterElementFieldChange({
 
     const {componentName, name, workflowNodeName} = currentNode;
 
+    // The root comes from the node first: on the main canvas rootClusterElementNodeData is seeded
+    // only by the box header's destinations and never cleared, so it is empty or names another box.
     const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
 
     if (!mainClusterRootName) {
@@ -59,6 +61,8 @@ export default function saveClusterElementFieldChange({
         return;
     }
 
+    // The root's component name is the first segment of its task type; the store carries the same
+    // value for the dialog and is kept only as the fallback.
     const mainClusterRootComponentName =
         mainClusterRootTask.type?.split('/')[0] || rootClusterElementNodeData?.componentName;
 
