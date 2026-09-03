@@ -17,26 +17,30 @@
 package com.bytechef.platform.data.table.configuration.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
 import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.data.table.domain.ReservedColumns;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.BadSqlGrammarException;
 
 /**
  * @author Ivica Cardic
@@ -77,9 +81,11 @@ class DataTableServiceIntTest {
             listedIn(DEV_ENVIRONMENT_ID, "registered"),
             "A created table must be visible to listTables, which skips unregistered physical tables");
 
-        assertThrowsExactly(
-            BadSqlGrammarException.class, () -> createTable("registered", "a description", DEV_ENVIRONMENT_ID),
-            "The same name twice in one environment is the physical table colliding, not a registry decision");
+        DataTableException dataTableException = assertThrowsExactly(
+            DataTableException.class, () -> createTable("registered", "a description", DEV_ENVIRONMENT_ID),
+            "The same name twice in one environment is now a registry decision, not the physical table colliding");
+
+        assertEquals(DataTableErrorType.DATA_TABLE_ALREADY_EXISTS.getErrorKey(), dataTableException.getErrorKey());
     }
 
     /**
@@ -144,6 +150,70 @@ class DataTableServiceIntTest {
             dataTableRowService
                 .listRows(dataTableRef("duplicate", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0)
                 .size());
+    }
+
+    @Test
+    void testCreateTwiceInOneEnvironmentIsATypedConflict() {
+        createTable("registered", "a description", DEV_ENVIRONMENT_ID);
+
+        DataTableException dataTableException = assertThrows(
+            DataTableException.class, () -> createTable("registered", "a description", DEV_ENVIRONMENT_ID));
+
+        assertEquals(DataTableErrorType.DATA_TABLE_ALREADY_EXISTS.getErrorKey(), dataTableException.getErrorKey());
+    }
+
+    @Test
+    void testFetchDataTableInfoIsPerEnvironment() {
+        createTable("registered", "a description", DEV_ENVIRONMENT_ID);
+
+        Optional<DataTableInfo> dev = dataTableService.fetchDataTableInfo(
+            "registered", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
+        Optional<DataTableInfo> stage = dataTableService.fetchDataTableInfo(
+            "registered", STAGE_ENVIRONMENT_ID, PlatformType.AUTOMATION);
+
+        assertTrue(dev.isPresent());
+        assertEquals("a description", dev.get()
+            .description());
+        assertTrue(dev.get()
+            .columns()
+            .stream()
+            .noneMatch(columnSpec -> ReservedColumns.isReserved(columnSpec.name())));
+        assertTrue(stage.isEmpty());
+    }
+
+    @Test
+    void testUpdateDescriptionWritesTheRegistry() {
+        createTable("registered", "before", DEV_ENVIRONMENT_ID);
+
+        dataTableService.updateDescription("registered", "after", PlatformType.AUTOMATION);
+
+        assertEquals(
+            "after",
+            dataTableService.fetchDataTableInfo("registered", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION)
+                .orElseThrow()
+                .description());
+    }
+
+    @Test
+    void testColumnErrorsAreTyped() {
+        createTable("registered", null, DEV_ENVIRONMENT_ID);
+
+        assertEquals(
+            DataTableErrorType.COLUMN_ALREADY_EXISTS.getErrorKey(),
+            assertThrows(DataTableException.class, () -> dataTableService.addColumn(
+                "registered", new ColumnSpec("title", ColumnType.STRING), DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION))
+                    .getErrorKey());
+        assertEquals(
+            DataTableErrorType.COLUMN_NAME_INVALID.getErrorKey(),
+            assertThrows(DataTableException.class, () -> dataTableService.addColumn(
+                "registered", new ColumnSpec("external_id", ColumnType.STRING), DEV_ENVIRONMENT_ID,
+                PlatformType.AUTOMATION))
+                    .getErrorKey());
+        assertEquals(
+            DataTableErrorType.COLUMN_NOT_FOUND.getErrorKey(),
+            assertThrows(DataTableException.class, () -> dataTableService.removeColumn(
+                "registered", "nosuch", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION))
+                    .getErrorKey());
     }
 
     private void createTable(String baseName, @Nullable String description, long environmentId) {

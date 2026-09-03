@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -131,7 +132,7 @@ class DataTableRowOwnerScopingIntTest {
         assertThatThrownBy(
             () -> dataTableRowService.updateRow(
                 refFor(baseName, ACCOUNT_A), accountBRow.id(), Map.of("title", "hijacked")))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(DataTableException.class);
 
         assertThat(titleOf(baseName, accountBRow.id())).isEqualTo("b");
     }
@@ -154,7 +155,7 @@ class DataTableRowOwnerScopingIntTest {
         assertThatThrownBy(
             () -> dataTableRowService.updateRow(
                 refFor(baseName, ACCOUNT_A), vendorRow.id(), Map.of("title", "hijacked")))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(DataTableException.class);
 
         assertThat(dataTableRowService.deleteRow(refFor(baseName, ACCOUNT_A), vendorRow.id()))
             .as("an account must not delete the reference data every other account reads")
@@ -188,7 +189,7 @@ class DataTableRowOwnerScopingIntTest {
         assertThatThrownBy(
             () -> dataTableRowService.updateRow(
                 refFor(baseName, null), accountRow.id(), Map.of("title", "hijacked")))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(DataTableException.class);
 
         assertThat(dataTableRowService.deleteRow(refFor(baseName, null), accountRow.id()))
             .as("the vendor must not delete an account's row either")
@@ -333,6 +334,133 @@ class DataTableRowOwnerScopingIntTest {
             .isEmpty();
     }
 
+    /**
+     * The bulk counterpart to {@link #testAnAccountCannotDeleteAnotherAccountsRow}. {@code deleteRows} carries the
+     * writable predicate exactly the single-row {@code deleteRow} does, but it is a separate SQL statement built by
+     * hand -- nothing stops a future edit from swapping in the readable predicate on this method alone, leaving
+     * {@code deleteRow} untouched and the suite still green.
+     */
+    @Test
+    void testDeleteRowsCannotDeleteAnotherAccountsRow() {
+        String baseName = createSharedTable("ro_scopedbulkdelete");
+
+        DataTableRow accountARow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+        DataTableRow accountBRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+
+        List<Long> deletedIds = dataTableRowService.deleteRows(
+            refFor(baseName, ACCOUNT_A), List.of(accountARow.id(), accountBRow.id()));
+
+        assertThat(deletedIds)
+            .as("a bulk delete must only report the caller's own row as deleted")
+            .containsExactly(accountARow.id());
+        assertThat(countAllRows(baseName))
+            .as("another account's row must survive a bulk delete that named it")
+            .isEqualTo(1);
+        assertThat(titleOf(baseName, accountBRow.id())).isEqualTo("b");
+    }
+
+    /**
+     * The same risk as {@link #testDeleteRowsCannotDeleteAnotherAccountsRow}, for the table-wide form: a run that
+     * clears "its" rows must not touch another account's, even though {@code clearRows} takes no ids to check at all.
+     */
+    @Test
+    void testClearRowsCannotClearAnotherAccountsRows() {
+        String baseName = createSharedTable("ro_scopedclear");
+
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+        DataTableRow accountBRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+
+        long clearedCount = dataTableRowService.clearRows(refFor(baseName, ACCOUNT_A));
+
+        assertThat(clearedCount)
+            .as("clearRows must only count the caller's own rows")
+            .isEqualTo(1);
+        assertThat(countAllRows(baseName))
+            .as("another account's row must survive a clear it did not ask for")
+            .isEqualTo(1);
+        assertThat(titleOf(baseName, accountBRow.id())).isEqualTo("b");
+    }
+
+    /**
+     * The case that actually distinguishes {@code writableOwnerPredicate} from {@code readableOwnerPredicate}: an
+     * unowned row. Both predicates reject another account's owned row alike, so
+     * {@link #testDeleteRowsCannotDeleteAnotherAccountsRow} cannot tell a {@code deleteRows} that was accidentally
+     * built on the readable predicate from one built on the writable one -- only an unowned row can, because the
+     * readable predicate admits it and the writable one does not. Mirrors the single-row template,
+     * {@link #testAnAccountsWriteDoesNotTouchAnUnownedRow}.
+     */
+    @Test
+    void testDeleteRowsCannotDeleteAnUnownedRow() {
+        String baseName = createSharedTable("ro_scopedbulkdeleteunowned");
+
+        DataTableRow vendorRow = dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
+
+        assertThat(titlesRead(baseName, ACCOUNT_A))
+            .as("the unowned row is readable by the account, which is what makes the refusal below meaningful")
+            .containsExactly("vendor");
+
+        List<Long> deletedIds = dataTableRowService.deleteRows(refFor(baseName, ACCOUNT_A), List.of(vendorRow.id()));
+
+        assertThat(deletedIds)
+            .as("an account must not delete the reference data every other account reads")
+            .isEmpty();
+        assertThat(titleOf(baseName, vendorRow.id())).isEqualTo("vendor");
+    }
+
+    /**
+     * The table-wide counterpart to {@link #testDeleteRowsCannotDeleteAnUnownedRow}, for the same reason
+     * {@link #testClearRowsCannotClearAnotherAccountsRows} alone cannot tell the two predicates apart.
+     */
+    @Test
+    void testClearRowsCannotClearUnownedRows() {
+        String baseName = createSharedTable("ro_scopedclearunowned");
+
+        DataTableRow vendorRow = dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
+
+        assertThat(titlesRead(baseName, ACCOUNT_A))
+            .as("the unowned row is readable by the account, which is what makes the refusal below meaningful")
+            .containsExactly("vendor");
+
+        long clearedCount = dataTableRowService.clearRows(refFor(baseName, ACCOUNT_A));
+
+        assertThat(clearedCount)
+            .as("clearRows must not count the reference data every other account reads")
+            .isZero();
+        assertThat(titleOf(baseName, vendorRow.id())).isEqualTo("vendor");
+    }
+
+    /**
+     * The ownership index makes the row owner part of the conflict key, so two accounts upserting the same
+     * {@code external_id} against the same shared table must land on two separate rows rather than one account's upsert
+     * merging onto the other's.
+     */
+    @Test
+    void testUpsertCannotLandOnAnotherAccountsRow() {
+        String baseName = createSharedTable("ro_upsertscoped");
+
+        DataTableRef accountOneRef = refFor(baseName, ACCOUNT_A);
+        DataTableRef accountTwoRef = refFor(baseName, ACCOUNT_B);
+
+        dataTableRowService.upsertRow(accountOneRef, "ORD-1", Map.of("title", "one"));
+        dataTableRowService.upsertRow(accountTwoRef, "ORD-1", Map.of("title", "two"));
+
+        assertThat(dataTableRowService.fetchRowByExternalId(accountOneRef, "ORD-1"))
+            .isPresent()
+            .get()
+            .extracting(dataTableRow -> dataTableRow.values()
+                .get("title"))
+            .isEqualTo("one");
+        assertThat(dataTableRowService.fetchRowByExternalId(accountTwoRef, "ORD-1"))
+            .isPresent()
+            .get()
+            .extracting(dataTableRow -> dataTableRow.values()
+                .get("title"))
+            .isEqualTo("two");
+        assertThat(countAllRows(baseName))
+            .as("each account's upsert must create its own row, not merge onto the other account's")
+            .isEqualTo(2);
+    }
+
     private String createSharedTable(String baseName) {
         dataTableService.createTable(
             baseName, null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
@@ -384,6 +512,10 @@ class DataTableRowOwnerScopingIntTest {
     private Integer ownerTypeOf(String baseName, long id) {
         return jdbcTemplate.queryForObject(
             "SELECT \"owner_type\" FROM " + physicalName(baseName) + " WHERE \"id\" = ?", Integer.class, id);
+    }
+
+    private Integer countAllRows(String baseName) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + physicalName(baseName), Integer.class);
     }
 
     private static String physicalName(String baseName) {

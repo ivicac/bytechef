@@ -20,6 +20,7 @@ import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
 import com.bytechef.platform.data.table.domain.DataTableRef;
@@ -175,7 +176,7 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                         .name()))
                     .toList(),
                 inserted));
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | DataTableException exception) {
             return ToolErrors.toolError(jsonMapper, exception.getMessage());
         } catch (JacksonException exception) {
             return ToolErrors.toolError(jsonMapper, "Invalid tool input: " + exception.getMessage());

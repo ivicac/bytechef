@@ -25,6 +25,7 @@ import com.bytechef.platform.data.table.domain.DataTableResolution;
 import com.bytechef.platform.owner.Owner;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Unified service for managing dynamic data tables and querying their metadata.
@@ -167,6 +168,18 @@ public interface DataTableService {
         String baseName, long environmentId, PlatformType platformType, Optional<Owner> owner);
 
     /**
+     * The table as it exists in one environment: registry metadata plus the physical table's user columns. Empty when
+     * either half is missing -- a registry row alone is a table that lives in some other environment.
+     *
+     * @param baseName      the logical base name to resolve
+     * @param environmentId the environment whose physical table must exist for a result to be returned
+     * @param platformType  the pool to resolve within
+     * @return the table's registry metadata and columns, or empty when the registry row or this environment's physical
+     *         table is missing
+     */
+    Optional<DataTableInfo> fetchDataTableInfo(String baseName, long environmentId, PlatformType platformType);
+
+    /**
      * Every data table in one environment and pool, with its columns.
      *
      * <p>
@@ -217,4 +230,14 @@ public interface DataTableService {
      * @param platformType  The pool the table belongs to.
      */
     void renameTable(String fromBaseName, String toBaseName, long environmentId, PlatformType platformType);
+
+    /**
+     * Writes the registry description. Environment-independent -- the registry row is the logical table across every
+     * environment, so there is nothing here for an environment to select between.
+     *
+     * @param baseName     The logical base name of the table whose description is being updated.
+     * @param description  The new description, or {@code null} to clear it.
+     * @param platformType The pool the table belongs to.
+     */
+    void updateDescription(String baseName, @Nullable String description, PlatformType platformType);
 }

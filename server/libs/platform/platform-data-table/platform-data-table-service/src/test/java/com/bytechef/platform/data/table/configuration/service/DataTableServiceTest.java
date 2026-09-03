@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.data.table.configuration.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +32,8 @@ import static org.mockito.Mockito.when;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.audit.DataTableAuditPublisher;
 import com.bytechef.platform.data.table.configuration.domain.DataTable;
+import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.repository.DataTableRepository;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -100,11 +103,13 @@ class DataTableServiceTest {
 
     @Test
     void testCreateTableRejectsAReservedColumnName() {
-        assertThrows(
-            IllegalArgumentException.class,
+        DataTableException dataTableException = assertThrows(
+            DataTableException.class,
             () -> dataTableService.createTable(
                 "conversations", null, List.of(new ColumnSpec("owner_id", ColumnType.STRING)), 0,
                 PlatformType.AUTOMATION));
+
+        assertEquals(DataTableErrorType.COLUMN_NAME_INVALID.getErrorKey(), dataTableException.getErrorKey());
     }
 
     @Test

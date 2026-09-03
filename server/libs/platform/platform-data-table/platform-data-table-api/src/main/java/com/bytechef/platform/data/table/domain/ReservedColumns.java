@@ -36,6 +36,10 @@ import org.jspecify.annotations.Nullable;
  * The two always move together. An {@code owner_id} written beside a null {@code owner_type} belongs to nobody: it
  * matches no predicate, so it reads as written and behaves as though it were not.
  *
+ * <p>
+ * {@code external_id} is reserved but not hidden -- it is the caller's own key, returned on every row and usable in
+ * filters and sorts.
+ *
  * @author Ivica Cardic
  */
 public final class ReservedColumns {
@@ -43,8 +47,9 @@ public final class ReservedColumns {
     public static final String ID = "id";
     public static final String OWNER_ID = "owner_id";
     public static final String OWNER_TYPE = "owner_type";
+    public static final String EXTERNAL_ID = "external_id";
 
-    private static final Set<String> ALL = Set.of(ID, OWNER_ID, OWNER_TYPE);
+    private static final Set<String> ALL = Set.of(ID, OWNER_ID, OWNER_TYPE, EXTERNAL_ID);
     private static final Set<String> HIDDEN = Set.of(OWNER_ID, OWNER_TYPE);
 
     private ReservedColumns() {

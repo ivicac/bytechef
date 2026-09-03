@@ -23,6 +23,7 @@ import com.bytechef.platform.data.table.configuration.audit.DataTableAuditPublis
 import com.bytechef.platform.data.table.configuration.domain.DataTable;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.repository.DataTableRepository;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -95,10 +96,17 @@ public class DataTableServiceImpl implements DataTableService {
     public void addColumn(String baseName, ColumnSpec columnSpec, long environmentId, PlatformType platformType) {
         validateBaseName(baseName);
         Assert.notNull(columnSpec, "column must not be null");
+        validateColumnName(columnSpec.name());
 
         DataTable dataTable = getDataTable(baseName, platformType);
 
         DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
+
+        if (hasColumn(dataTableRef.physicalName(), columnSpec.name())) {
+            throw new DataTableException(
+                "Column '" + columnSpec.name() + "' already exists on table '" + baseName + "'",
+                DataTableErrorType.COLUMN_ALREADY_EXISTS);
+        }
 
         String sql = "ALTER TABLE " + escapeIdentifier(dataTableRef.physicalName()) + " ADD COLUMN " +
             escapeIdentifier(columnSpec.name()) + " " + sqlType(columnSpec.type());
@@ -128,12 +136,17 @@ public class DataTableServiceImpl implements DataTableService {
 
         Assert.notEmpty(columnSpecs, "columns must not be empty");
 
-        boolean hasReservedColumn = columnSpecs.stream()
-            .anyMatch(columnSpec -> ReservedColumns.isReserved(columnSpec.name()));
-
-        Assert.isTrue(!hasReservedColumn, "Column names " + ReservedColumns.all() + " are reserved");
+        for (ColumnSpec columnSpec : columnSpecs) {
+            validateColumnName(columnSpec.name());
+        }
 
         DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
+
+        if (physicalTableExists(dataTableRef.physicalName())) {
+            throw new DataTableException(
+                "Data table '" + baseName + "' already exists in this environment",
+                DataTableErrorType.DATA_TABLE_ALREADY_EXISTS);
+        }
 
         createPhysicalTable(dataTableRef.physicalName(), columnSpecs);
 
@@ -214,10 +227,13 @@ public class DataTableServiceImpl implements DataTableService {
         // The owner columns are copied along with the user ones, so a duplicate is the source table's rows AND whose
         // each of them is. Dropping them would leave every copied row unowned: readable by every account, since the
         // read predicate admits unowned rows, and writable by none, since the write predicate matches on the owner.
+        // external_id is copied too: a duplicate that dropped it would turn every keyed row into an unkeyed one and
+        // make the next upsert insert a twin.
         List<String> copiedColumnNames = new ArrayList<>();
 
         copiedColumnNames.add(ReservedColumns.OWNER_ID);
         copiedColumnNames.add(ReservedColumns.OWNER_TYPE);
+        copiedColumnNames.add(ReservedColumns.EXTERNAL_ID);
         copiedColumnNames.addAll(columnSpecs.stream()
             .map(ColumnSpec::name)
             .toList());
@@ -282,6 +298,56 @@ public class DataTableServiceImpl implements DataTableService {
                 dataTable -> new DataTableResolution(
                     dataTable.getId(),
                     new DataTableRef(baseName, environmentId, platformType, owner.orElse(null))));
+    }
+
+    /**
+     * A registry row alone is a table that lives in some other environment, so both halves -- the registry row and this
+     * environment's physical table -- must exist for a result to come back.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<DataTableInfo> fetchDataTableInfo(
+        String baseName, long environmentId, PlatformType platformType) {
+
+        validateBaseName(baseName);
+
+        Optional<DataTable> dataTableOptional = fetchDataTable(baseName, platformType);
+
+        if (dataTableOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        DataTable dataTable = dataTableOptional.get();
+
+        DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
+        String physicalName = dataTableRef.physicalName();
+
+        if (!physicalTableExists(physicalName)) {
+            return Optional.empty();
+        }
+
+        List<ColumnSpec> columnSpecs = listColumns(physicalName).stream()
+            .filter(columnSpec -> !ReservedColumns.isReserved(columnSpec.name()))
+            .toList();
+
+        return Optional.of(
+            new DataTableInfo(
+                dataTable.getId(), dataTable.getName(), dataTable.getDescription(), columnSpecs,
+                dataTable.getLastModifiedDate()));
+    }
+
+    /**
+     * Writes the registry description. Environment-independent -- the registry row is the logical table across every
+     * environment, so there is no environment for this write to select between.
+     */
+    @Override
+    @Transactional
+    public void updateDescription(String baseName, @Nullable String description, PlatformType platformType) {
+        DataTable dataTable = getDataTable(baseName, platformType);
+
+        dataTable.setDescription(description);
+
+        dataTableRepository.save(dataTable);
     }
 
     private DataTable getDataTable(String baseName, PlatformType platformType) {
@@ -363,9 +429,15 @@ public class DataTableServiceImpl implements DataTableService {
         String baseName, String columnName, long environmentId, PlatformType platformType) {
 
         validateBaseName(baseName);
-        Assert.hasText(columnName, "columnName must not be empty");
+        validateColumnName(columnName);
 
         DataTableRef dataTableRef = getDataTableRef(baseName, environmentId, platformType);
+
+        if (!hasColumn(dataTableRef.physicalName(), columnName)) {
+            throw new DataTableException(
+                "Column '" + columnName + "' not found on table '" + baseName + "'",
+                DataTableErrorType.COLUMN_NOT_FOUND);
+        }
 
         String sql = "ALTER TABLE " + escapeIdentifier(dataTableRef.physicalName()) + " DROP COLUMN " +
             escapeIdentifier(columnName);
@@ -388,12 +460,22 @@ public class DataTableServiceImpl implements DataTableService {
         PlatformType platformType) {
 
         validateBaseName(baseName);
-        Assert.hasText(fromColumnName, "fromColumnName must not be empty");
-        Assert.hasText(toColumnName, "toColumnName must not be empty");
-        Assert.isTrue(!ReservedColumns.isReserved(fromColumnName), "Reserved columns cannot be renamed");
-        Assert.isTrue(!ReservedColumns.isReserved(toColumnName), "Cannot rename to a reserved name");
+        validateColumnName(fromColumnName);
+        validateColumnName(toColumnName);
 
         DataTableRef dataTableRef = getDataTableRef(baseName, environmentId, platformType);
+
+        if (!hasColumn(dataTableRef.physicalName(), fromColumnName)) {
+            throw new DataTableException(
+                "Column '" + fromColumnName + "' not found on table '" + baseName + "'",
+                DataTableErrorType.COLUMN_NOT_FOUND);
+        }
+
+        if (hasColumn(dataTableRef.physicalName(), toColumnName)) {
+            throw new DataTableException(
+                "Column '" + toColumnName + "' already exists on table '" + baseName + "'",
+                DataTableErrorType.COLUMN_ALREADY_EXISTS);
+        }
 
         String sql = "ALTER TABLE " + escapeIdentifier(dataTableRef.physicalName()) + " RENAME COLUMN " +
             escapeIdentifier(fromColumnName) + " TO " + escapeIdentifier(toColumnName);
@@ -528,6 +610,7 @@ public class DataTableServiceImpl implements DataTableService {
     private void createPhysicalTable(String physicalName, List<ColumnSpec> columnSpecs) {
         jdbcTemplate.execute(buildCreateTableSql(physicalName, columnSpecs));
         jdbcTemplate.execute(buildOwnerIndexSql(physicalName));
+        jdbcTemplate.execute(buildExternalIdIndexSql(physicalName));
     }
 
     /**
@@ -545,7 +628,8 @@ public class DataTableServiceImpl implements DataTableService {
 
         return "CREATE TABLE " + escapeIdentifier(physicalName) + " (\"id\" BIGSERIAL PRIMARY KEY, " +
             escapeIdentifier(ReservedColumns.OWNER_ID) + " BIGINT, " +
-            escapeIdentifier(ReservedColumns.OWNER_TYPE) + " INT" +
+            escapeIdentifier(ReservedColumns.OWNER_TYPE) + " INT, " +
+            escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " VARCHAR(255)" +
             (userColumnsSql.isEmpty() ? "" : ", " + userColumnsSql) + ")";
     }
 
@@ -560,6 +644,18 @@ public class DataTableServiceImpl implements DataTableService {
     static String buildOwnerIndexSql(String physicalName) {
         return "CREATE INDEX ON " + escapeIdentifier(physicalName) + " (" +
             escapeIdentifier(ReservedColumns.OWNER_ID) + ")";
+    }
+
+    /**
+     * The upsert key. {@code NULLS NOT DISTINCT} is for {@code owner_id}: without it every automation-pool row, whose
+     * owner is NULL, would be a distinct key and the pool would get no uniqueness at all. The predicate is for
+     * {@code external_id}: with {@code NULLS NOT DISTINCT} and no predicate every row without a key would collapse into
+     * one. Unnamed for the same 63-byte reason as the owner index.
+     */
+    static String buildExternalIdIndexSql(String physicalName) {
+        return "CREATE UNIQUE INDEX ON " + escapeIdentifier(physicalName) + " (" +
+            escapeIdentifier(ReservedColumns.OWNER_ID) + ", " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) +
+            ") NULLS NOT DISTINCT WHERE " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " IS NOT NULL";
     }
 
     private static String escapeIdentifier(String identifier) {
@@ -626,12 +722,60 @@ public class DataTableServiceImpl implements DataTableService {
         return baseName.toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Whether a physical table by this name already exists. Checked before every CREATE so that a name collision in
+     * this environment surfaces as a typed registry decision rather than as a raw {@code BadSqlGrammarException} from
+     * Postgres refusing a duplicate CREATE TABLE.
+     */
+    private boolean physicalTableExists(String physicalName) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?",
+            Integer.class, physicalName);
+
+        return count != null && count > 0;
+    }
+
+    /**
+     * Whether a physical table already carries a column by this name, case-insensitively -- Postgres itself folds
+     * unquoted identifiers to lower case, so a caller asking about "Title" and one asking about "title" must get the
+     * same answer.
+     */
+    private boolean hasColumn(String physicalName, String columnName) {
+        return listColumns(physicalName).stream()
+            .anyMatch(columnSpec -> columnSpec.name()
+                .equalsIgnoreCase(columnName));
+    }
+
     static void validateBaseName(String baseName) {
-        Assert.hasText(baseName, "baseName must not be empty");
+        if (baseName == null || baseName.isBlank()) {
+            throw new DataTableException("baseName must not be empty", DataTableErrorType.DATA_TABLE_NAME_INVALID);
+        }
 
         String normalized = baseName.toLowerCase(Locale.ROOT);
 
-        Assert.isTrue(!normalized.startsWith("dt_"), "baseName must not start with 'dt_'");
-        Assert.isTrue(normalized.matches("[a-z_][a-z0-9_]*"), "Invalid base name: " + baseName);
+        if (normalized.startsWith("dt_") || !normalized.matches("[a-z_][a-z0-9_]*")) {
+            throw new DataTableException(
+                "Invalid base name: " + baseName, DataTableErrorType.DATA_TABLE_NAME_INVALID);
+        }
+    }
+
+    /**
+     * A column name must be a valid identifier and must not be one of the platform's own reserved columns -- reserved
+     * names are neither addable, removable, nor a valid rename target, and this is the one gate every column mutation
+     * runs through.
+     */
+    private static void validateColumnName(String columnName) {
+        if (columnName == null || columnName.isBlank() ||
+            !columnName.toLowerCase(Locale.ROOT)
+                .matches("[a-z_][a-z0-9_]*")) {
+
+            throw new DataTableException(
+                "Invalid column name: " + columnName, DataTableErrorType.COLUMN_NAME_INVALID);
+        }
+
+        if (ReservedColumns.isReserved(columnName)) {
+            throw new DataTableException(
+                "Column name '" + columnName + "' is reserved", DataTableErrorType.COLUMN_NAME_INVALID);
+        }
     }
 }

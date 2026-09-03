@@ -18,6 +18,7 @@ import com.bytechef.platform.data.table.domain.DataTableResolution;
 import com.bytechef.platform.owner.Owner;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -99,6 +100,17 @@ public class RemoteDataTableServiceClient implements DataTableService {
     @Override
     public void duplicateTable(
         String fromBaseName, String toBaseName, long environmentId, PlatformType platformType) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<DataTableInfo> fetchDataTableInfo(
+        String baseName, long environmentId, PlatformType platformType) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateDescription(String baseName, @Nullable String description, PlatformType platformType) {
         throw new UnsupportedOperationException();
     }
 }

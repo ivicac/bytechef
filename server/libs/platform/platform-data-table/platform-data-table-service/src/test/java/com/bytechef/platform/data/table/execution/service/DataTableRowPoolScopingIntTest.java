@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -144,11 +145,11 @@ class DataTableRowPoolScopingIntTest {
         assertThatThrownBy(
             () -> dataTableRowService.updateRow(resolve("ps_noop_update", ACCOUNT_BOB), row.id(), Map.of()))
                 .as("another account's row is not found rather than returned")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(DataTableException.class)
                 .hasMessageContaining("Row not found");
 
         assertThatThrownBy(() -> dataTableRowService.updateRow(dataTableRef, row.id() + 1000, Map.of()))
-            .isInstanceOf(IllegalArgumentException.class)
+            .isInstanceOf(DataTableException.class)
             .hasMessageContaining("Row not found");
     }
 

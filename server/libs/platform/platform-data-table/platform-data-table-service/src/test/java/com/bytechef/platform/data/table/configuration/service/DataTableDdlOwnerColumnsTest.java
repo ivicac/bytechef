@@ -17,6 +17,8 @@
 package com.bytechef.platform.data.table.configuration.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -83,7 +85,14 @@ class DataTableDdlOwnerColumnsTest {
         assertThat(DataTableServiceImpl.buildCreateTableSql("edt_0_orders", List.of()))
             .isEqualTo(
                 "CREATE TABLE \"edt_0_orders\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, " +
-                    "\"owner_type\" INT)");
+                    "\"owner_type\" INT, \"external_id\" VARCHAR(255))");
+    }
+
+    @Test
+    void testCreateTableCarriesTheExternalIdColumn() {
+        String sql = DataTableServiceImpl.buildCreateTableSql("dt_0_orders", List.of());
+
+        assertTrue(sql.contains("\"external_id\" VARCHAR(255)"), sql);
     }
 
     /**
@@ -94,5 +103,15 @@ class DataTableDdlOwnerColumnsTest {
     void testTheOwnerIndexIsCreatedUnnamed() {
         assertThat(DataTableServiceImpl.buildOwnerIndexSql("edt_0_orders"))
             .isEqualTo("CREATE INDEX ON \"edt_0_orders\" (\"owner_id\")");
+    }
+
+    @Test
+    void testExternalIdIndexIsPartialAndNullsNotDistinct() {
+        String sql = DataTableServiceImpl.buildExternalIdIndexSql("dt_0_orders");
+
+        assertEquals(
+            "CREATE UNIQUE INDEX ON \"dt_0_orders\" (\"owner_id\", \"external_id\") NULLS NOT DISTINCT " +
+                "WHERE \"external_id\" IS NOT NULL",
+            sql);
     }
 }

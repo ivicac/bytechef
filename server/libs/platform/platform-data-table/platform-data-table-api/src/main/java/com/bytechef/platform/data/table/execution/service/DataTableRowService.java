@@ -19,9 +19,15 @@ package com.bytechef.platform.data.table.execution.service;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.RowFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
+import com.bytechef.platform.data.table.execution.domain.CreateStrategy;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
+import com.bytechef.platform.data.table.execution.domain.ExternalIdPatch;
+import com.bytechef.platform.data.table.execution.domain.NewRow;
+import com.bytechef.platform.data.table.execution.domain.UpsertResult;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Service for managing data table row operations (CRUD and CSV import/export).
@@ -70,6 +76,15 @@ public interface DataTableRowService {
     DataTableRow getRow(DataTableRef dataTableRef, long id);
 
     /**
+     * Gets a single row by its external id.
+     *
+     * @param dataTableRef the resolved physical table
+     * @param externalId   the caller-supplied external id
+     * @return the row if found, empty otherwise
+     */
+    Optional<DataTableRow> fetchRowByExternalId(DataTableRef dataTableRef, String externalId);
+
+    /**
      * Inserts a row with provided values. Returns the created row including generated id.
      *
      * @param dataTableRef the resolved physical table
@@ -77,6 +92,16 @@ public interface DataTableRowService {
      * @return the created row with generated id
      */
     DataTableRow insertRow(DataTableRef dataTableRef, Map<String, Object> values);
+
+    /**
+     * Inserts a row with provided values and an optional external id. Returns the created row including generated id.
+     *
+     * @param dataTableRef the resolved physical table
+     * @param values       column name to value map
+     * @param externalId   the caller-supplied external id, or null to leave it unset
+     * @return the created row with generated id
+     */
+    DataTableRow insertRow(DataTableRef dataTableRef, Map<String, Object> values, @Nullable String externalId);
 
     /**
      * Lists rows of a dynamic table with pagination.
@@ -107,12 +132,17 @@ public interface DataTableRowService {
 
     /**
      * Imports CSV text into the table. The CSV must contain a header row with column names matching existing columns
-     * (case-insensitive). Unknown columns are ignored. The 'id' column, if present, is ignored.
+     * (case-insensitive). The reserved columns 'id', 'owner_id' and 'owner_type' are ignored if present; a header
+     * naming 'external_id' sets each row's external id rather than a column value. Any other header that names no
+     * column of the table is rejected, throwing {@code DataTableException} with error type
+     * {@link com.bytechef.platform.data.table.configuration.exception.DataTableErrorType#CSV_INVALID}.
      *
      * @param dataTableRef the resolved physical table
      * @param csv          CSV text with header row
+     * @return the number of rows inserted
+     * @throws DataTableException when a header names no column of the table
      */
-    void importCsv(DataTableRef dataTableRef, String csv);
+    int importCsv(DataTableRef dataTableRef, String csv);
 
     /**
      * Updates a row by its stable id. Returns the updated row.
@@ -123,4 +153,70 @@ public interface DataTableRowService {
      * @return the updated row
      */
     DataTableRow updateRow(DataTableRef dataTableRef, long id, Map<String, Object> values);
+
+    /**
+     * Updates a row by its stable id, optionally patching its external id. Returns the updated row.
+     *
+     * @param dataTableRef    the resolved physical table
+     * @param id              the row id
+     * @param values          column name to value map (only provided columns will be updated)
+     * @param externalIdPatch the requested change to the row's external id, or null to leave it untouched
+     * @return the updated row
+     */
+    DataTableRow updateRow(
+        DataTableRef dataTableRef, long id, Map<String, Object> values, @Nullable ExternalIdPatch externalIdPatch);
+
+    /**
+     * Inserts the row keyed by {@code externalId} or merges {@code values} into the row that already carries it, in one
+     * statement. The conflict target is the ownership index, so the owner the ref carries is part of the key: an
+     * account can never upsert onto another account's row. Only the supplied columns are written on the update path.
+     *
+     * @param dataTableRef the resolved physical table
+     * @param externalId   the caller-supplied external id to key the upsert on
+     * @param values       column name to value map (only provided columns will be written)
+     * @return the row the upsert left behind and whether it had to create it
+     */
+    UpsertResult upsertRow(DataTableRef dataTableRef, String externalId, Map<String, Object> values);
+
+    /**
+     * Counts the rows a run may read that also satisfy {@code rowFilters}, using the same filter fragment as the
+     * filtered {@link #listRows}, so a page's {@code totalElements} agrees with its content.
+     *
+     * @param dataTableRef the resolved physical table
+     * @param rowFilters   the filters to apply, ANDed onto the row owner predicate
+     * @return the matching row count
+     */
+    long countRows(DataTableRef dataTableRef, List<RowFilter> rowFilters);
+
+    /**
+     * Deletes the rows among {@code ids} the ref may write; returns the ids that were actually deleted.
+     *
+     * @param dataTableRef the resolved physical table
+     * @param ids          the candidate row ids
+     * @return the ids that were actually deleted
+     */
+    List<Long> deleteRows(DataTableRef dataTableRef, List<Long> ids);
+
+    /**
+     * Deletes every row the ref may write; returns the count.
+     *
+     * @param dataTableRef the resolved physical table
+     * @return the number of rows deleted
+     */
+    long clearRows(DataTableRef dataTableRef);
+
+    /**
+     * Inserts (or, under {@link CreateStrategy#UPSERT}, upserts) every row in one transaction: one failure rolls back
+     * all of them. UPSERT requires an external id on every row, throwing {@code DataTableException} with error type
+     * {@link com.bytechef.platform.data.table.configuration.exception.DataTableErrorType#ROW_EXTERNAL_ID_REQUIRED} when
+     * a row is missing one.
+     *
+     * @param dataTableRef   the resolved physical table
+     * @param newRows        the rows to create
+     * @param createStrategy whether to plainly insert or upsert on external id
+     * @return the created (or upserted) rows
+     * @throws DataTableException when {@code createStrategy} is {@link CreateStrategy#UPSERT} and a row has no external
+     *                            id
+     */
+    List<DataTableRow> insertRows(DataTableRef dataTableRef, List<NewRow> newRows, CreateStrategy createStrategy);
 }

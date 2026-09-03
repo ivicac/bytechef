@@ -18,6 +18,7 @@ package com.bytechef.platform.data.table.configuration.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,6 +37,6 @@ class DataTableServiceImplBaseNameTest {
     @Test
     void testABaseNameCannotStartWithADigit() {
         assertThatThrownBy(() -> DataTableServiceImpl.validateBaseName("5_orders"))
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(DataTableException.class);
     }
 }
