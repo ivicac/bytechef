@@ -10,6 +10,8 @@ package com.bytechef.ee.automation.ai.gateway.guardrail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayProjectSettingsService;
@@ -28,6 +30,7 @@ import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSetti
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import com.bytechef.platform.constant.PlatformType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -155,6 +158,44 @@ class AiGatewayGuardrailsTest {
         assertThat(result.messages()
             .getFirst()
             .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
+    }
+
+    /**
+     * Embedded traffic has no workspace, so an embedded request reads the embedded deployment's settings row -- the one
+     * the embedded guardrails settings page writes -- and never a workspace row, even when a workspace id is passed.
+     * Before the platform type was threaded through, it read the automation tenant default instead.
+     */
+    @Test
+    void testApplyReadsTheEmbeddedSettingsForAnEmbeddedRequest() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(settingsService.fetchEmbeddedSettings())
+            .thenReturn(Optional.of(settings(true, null, null, null, null, null)));
+
+        AiGatewayChatCompletionRequest result =
+            guardrails.apply(requestOf("Contact bob@acme.io"), PlatformType.EMBEDDED, 7L, null, null);
+
+        assertThat(result.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
+
+        verify(settingsService, never()).fetchSettings(7L);
+    }
+
+    @Test
+    void testApplyIgnoresTheTenantDefaultForAnEmbeddedRequest() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(settingsService.fetchSettings(null))
+            .thenReturn(Optional.of(settings(true, null, null, null, null, null)));
+        when(settingsService.fetchEmbeddedSettings()).thenReturn(Optional.empty());
+
+        AiGatewayChatCompletionRequest result =
+            guardrails.apply(requestOf("Contact bob@acme.io"), PlatformType.EMBEDDED, null, null, null);
+
+        assertThat(result.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact bob@acme.io");
     }
 
     @Test

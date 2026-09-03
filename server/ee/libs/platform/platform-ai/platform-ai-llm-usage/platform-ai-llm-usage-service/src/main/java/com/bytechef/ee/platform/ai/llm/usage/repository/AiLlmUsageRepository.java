@@ -38,11 +38,15 @@ public interface AiLlmUsageRepository extends ListCrudRepository<AiLlmUsage, Lon
 
     List<AiLlmUsage> findAllByWorkspaceIdAndCreatedDateBetween(Long workspaceId, Instant start, Instant end);
 
+    List<AiLlmUsage> findAllByWorkspaceIdIsNullAndUserIdIsNotNullAndCreatedDateBetween(Instant start, Instant end);
+
     List<AiLlmUsage> findAllByStatusAndCreatedDateAfter(Integer status, Instant after);
 
     void deleteAllByCreatedDateBefore(Instant date);
 
     void deleteAllByWorkspaceIdAndCreatedDateBefore(Long workspaceId, Instant date);
+
+    void deleteAllByWorkspaceIdIsNullAndCreatedDateBefore(Instant date);
 
     @Query("SELECT DISTINCT workspace_id FROM ai_llm_usage WHERE workspace_id IS NOT NULL")
     List<Long> findDistinctWorkspaceIds();

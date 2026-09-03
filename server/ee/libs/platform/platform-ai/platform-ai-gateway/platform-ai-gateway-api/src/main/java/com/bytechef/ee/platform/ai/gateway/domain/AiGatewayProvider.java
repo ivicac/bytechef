@@ -36,6 +36,14 @@ public final class AiGatewayProvider {
     @Column
     private String config;
 
+    // A provider belongs to at most one connected user. Null means no connected user applies — a boxed Long is
+    // required so that "no connected user" cannot collapse into connected user 0, which is a real id. Mutually
+    // exclusive with workspaceId (enforced by ck_ai_gateway_provider_workspace_connected_user_not_both). No
+    // environment field: ConnectedUser already carries environment, so the same external id in two environments is
+    // two connected user rows with two ids.
+    @Column("connected_user_id")
+    private @Nullable Long connectedUserId;
+
     @CreatedBy
     @Column("created_by")
     private String createdBy;
@@ -132,6 +140,10 @@ public final class AiGatewayProvider {
         return config;
     }
 
+    public @Nullable Long getConnectedUserId() {
+        return connectedUserId;
+    }
+
     public String getCreatedBy() {
         return createdBy;
     }
@@ -216,6 +228,10 @@ public final class AiGatewayProvider {
         this.config = config;
     }
 
+    public void setConnectedUserId(@Nullable Long connectedUserId) {
+        this.connectedUserId = connectedUserId;
+    }
+
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
@@ -243,6 +259,7 @@ public final class AiGatewayProvider {
             ", lastModifiedDate=" + lastModifiedDate +
             ", version=" + version +
             ", workspaceId=" + workspaceId +
+            ", connectedUserId=" + connectedUserId +
             '}';
     }
 }

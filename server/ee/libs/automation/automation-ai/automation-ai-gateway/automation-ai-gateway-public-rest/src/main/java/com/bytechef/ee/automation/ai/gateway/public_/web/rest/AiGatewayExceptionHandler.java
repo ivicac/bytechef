@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.automation.ai.gateway.public_.web.rest;
 
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderScopeViolationException;
 import com.bytechef.ee.platform.ai.gateway.domain.BudgetExceededException;
 import com.bytechef.ee.platform.ai.gateway.domain.RateLimitExceededException;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
@@ -39,7 +40,8 @@ import org.springframework.web.client.ResourceAccessException;
  */
 @RestControllerAdvice(basePackages = {
     "com.bytechef.ee.automation.ai.gateway",
-    "com.bytechef.ee.automation.ai.eval"
+    "com.bytechef.ee.automation.ai.eval",
+    "com.bytechef.ee.embedded.ai.gateway"
 })
 public class AiGatewayExceptionHandler {
 
@@ -265,6 +267,38 @@ public class AiGatewayExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
             .body(toErrorBody("service_unavailable", "Service temporarily unavailable"));
+    }
+
+    /**
+     * Mapped to HTTP 500, deliberately NOT 400 and NOT 503, and deliberately given its own handler rather than falling
+     * through to {@link #handleGenericException}.
+     *
+     * <p>
+     * Not 400: the caller did nothing wrong and can do nothing about it by changing the request — a vendor operator
+     * pointed a routing policy's model deployment at a different customer's own BYOK provider. Do not "fix" this to 400
+     * for symmetry with the sibling "no enabled provider of this type" case ({@link IllegalArgumentException}, handled
+     * above) — that case IS a caller-fixable request problem (bad model identifier); this one is not.
+     *
+     * <p>
+     * Not 503: 503 means "wait and retry", which is why {@code AiGatewayRetryHandlerImpl} (in
+     * {@code platform-ai-gateway-service}) explicitly excludes this exception type from its retry-eligible set — this
+     * failure never resolves on its own, so treating it as transient would only add guaranteed-futile latency (see that
+     * class's {@code isNonRetryable}).
+     *
+     * <p>
+     * 500 is both the honest answer (a server-side misconfiguration, not a client error and not a transient outage) and
+     * the status most likely to page an operator — this has security implications (one customer's traffic reaching
+     * another customer's provider) and needs a human to fix the routing policy, not a client retry loop.
+     */
+    @ExceptionHandler(AiGatewayProviderScopeViolationException.class)
+    ResponseEntity<Map<String, Object>>
+        handleProviderScopeViolation(AiGatewayProviderScopeViolationException exception) {
+        log.error("Provider scope violation: providerId={} connectedUserId={} providerConnectedUserId={}",
+            exception.getProviderId(), exception.getConnectedUserId(), exception.getProviderConnectedUserId(),
+            exception);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(toErrorBody("internal_error", "An internal error occurred"));
     }
 
     /**

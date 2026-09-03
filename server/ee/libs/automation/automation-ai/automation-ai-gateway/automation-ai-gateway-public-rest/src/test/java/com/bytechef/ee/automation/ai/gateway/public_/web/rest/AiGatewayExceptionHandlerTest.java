@@ -10,6 +10,7 @@ package com.bytechef.ee.automation.ai.gateway.public_.web.rest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderScopeViolationException;
 import com.bytechef.ee.platform.ai.gateway.domain.BudgetExceededException;
 import com.bytechef.ee.platform.ai.gateway.exception.BadRequestException;
 import com.bytechef.ee.platform.ai.gateway.exception.SafeMessage;
@@ -99,6 +100,24 @@ class AiGatewayExceptionHandlerTest {
         // trace-race rethrow embeds the column-pair "(workspace_id, external_trace_id)" in its message,
         // which is schema-shape information a probing caller could use. Test pins the fixed-shape body.
         assertErrorBody(response.getBody(), "service_unavailable", "Service temporarily unavailable");
+    }
+
+    /**
+     * Fix round 3: {@link AiGatewayProviderScopeViolationException} is mapped to 500, not 503 like the neighboring
+     * {@link IllegalStateException} test above and not 400 like the sibling "no enabled provider" case — the caller did
+     * nothing wrong and cannot fix this by retrying or by changing the request; a vendor operator must fix the routing
+     * policy. The wire body must not echo the exception message either, for the same reason as
+     * {@code handleIllegalState}: it names a provider id and two connected user ids, which is internal/cross-tenant
+     * detail that must stay server-side (available to operators via the error log, not the response body).
+     */
+    @Test
+    void testProviderScopeViolationExceptionReturnsInternalServerError() {
+        ResponseEntity<Map<String, Object>> response = exceptionHandler.handleProviderScopeViolation(
+            new AiGatewayProviderScopeViolationException(
+                "Provider 3 is scoped to a different connected user", 3L, 5L, 99L));
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertErrorBody(response.getBody(), "internal_error", "An internal error occurred");
     }
 
     @Test

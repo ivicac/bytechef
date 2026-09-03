@@ -43,6 +43,8 @@ dependencies {
 
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.springframework.boot:spring-boot-starter-cache")
+    testImplementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-api"))
+    testImplementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-service"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-service"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-workspace"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-llm-usage:platform-ai-llm-usage-service"))

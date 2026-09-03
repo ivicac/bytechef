@@ -29,13 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressFBWarnings("EI")
 class AiGatewayRoutingPolicyServiceImpl implements AiGatewayRoutingPolicyService {
 
+    private final AiGatewayConnectedUserSettingsService aiGatewayConnectedUserSettingsService;
     private final AiGatewayModelDeploymentService aiGatewayModelDeploymentService;
     private final AiGatewayRoutingPolicyRepository aiGatewayRoutingPolicyRepository;
 
     public AiGatewayRoutingPolicyServiceImpl(
+        AiGatewayConnectedUserSettingsService aiGatewayConnectedUserSettingsService,
         AiGatewayModelDeploymentService aiGatewayModelDeploymentService,
         AiGatewayRoutingPolicyRepository aiGatewayRoutingPolicyRepository) {
 
+        this.aiGatewayConnectedUserSettingsService = aiGatewayConnectedUserSettingsService;
         this.aiGatewayModelDeploymentService = aiGatewayModelDeploymentService;
         this.aiGatewayRoutingPolicyRepository = aiGatewayRoutingPolicyRepository;
     }
@@ -50,9 +53,23 @@ class AiGatewayRoutingPolicyServiceImpl implements AiGatewayRoutingPolicyService
 
     @Override
     public void delete(long id) {
+        long assignedConnectedUserCount = aiGatewayConnectedUserSettingsService.countByRoutingPolicyId(id);
+
+        if (assignedConnectedUserCount > 0) {
+            throw new IllegalArgumentException(
+                "Routing policy " + id + " is assigned to " + assignedConnectedUserCount +
+                    " connected users; reassign them first");
+        }
+
         aiGatewayModelDeploymentService.deleteByRoutingPolicyId(id);
 
         aiGatewayRoutingPolicyRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiGatewayRoutingPolicy> getDefaultRoutingPolicies() {
+        return aiGatewayRoutingPolicyRepository.findAllByWorkspaceIdIsNull();
     }
 
     @Override
@@ -104,6 +121,16 @@ class AiGatewayRoutingPolicyServiceImpl implements AiGatewayRoutingPolicyService
 
     @Override
     public void updateWorkspaceId(long id, @Nullable Long workspaceId) {
+        if (workspaceId != null) {
+            long assignedConnectedUserCount = aiGatewayConnectedUserSettingsService.countByRoutingPolicyId(id);
+
+            if (assignedConnectedUserCount > 0) {
+                throw new IllegalArgumentException(
+                    "Routing policy " + id + " is assigned to " + assignedConnectedUserCount +
+                        " connected users; reassign them first");
+            }
+        }
+
         AiGatewayRoutingPolicy policy = getRoutingPolicy(id);
 
         policy.setWorkspaceId(workspaceId);

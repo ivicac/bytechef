@@ -24,6 +24,13 @@ public interface AiGatewayRoutingPolicyService {
 
     void delete(long id);
 
+    /**
+     * Returns the default-tier policies — those bound to no workspace. Deliberately a separate method rather than a
+     * nullable parameter on {@link #getRoutingPoliciesByWorkspaceId(long)}: overloading null onto a scope lookup would
+     * make the automation path's primitive signature dishonest.
+     */
+    List<AiGatewayRoutingPolicy> getDefaultRoutingPolicies();
+
     AiGatewayRoutingPolicy getRoutingPolicy(long id);
 
     AiGatewayRoutingPolicy getRoutingPolicyByName(String name);
