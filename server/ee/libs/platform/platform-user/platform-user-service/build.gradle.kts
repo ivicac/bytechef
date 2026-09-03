@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-api"))
     implementation(project(":server:ee:libs:platform:platform-user:platform-user-api"))
 
+    testImplementation("org.mockito:mockito-core")
     testImplementation("org.springframework.boot:spring-boot-starter-cache-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jdbc-test")
     testImplementation(project(":server:libs:config:app-config"))
