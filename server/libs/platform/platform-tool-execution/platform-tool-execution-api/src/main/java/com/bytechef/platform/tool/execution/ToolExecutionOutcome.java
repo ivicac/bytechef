@@ -29,5 +29,6 @@ public enum ToolExecutionOutcome {
     CONNECTION_REQUIRED,
     TIMEOUT,
     APPROVAL_REQUIRED,
-    APPROVAL_DENIED
+    APPROVAL_DENIED,
+    RULE_BLOCKED
 }
