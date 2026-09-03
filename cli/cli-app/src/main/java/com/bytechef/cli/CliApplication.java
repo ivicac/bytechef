@@ -16,6 +16,8 @@
 
 package com.bytechef.cli;
 
+import com.bytechef.cli.command.automation.AutomationDataTableCommand;
+import com.bytechef.cli.command.automation.AutomationDataTableRowCommand;
 import com.bytechef.cli.command.automation.AutomationExecutionCommand;
 import com.bytechef.cli.command.automation.AutomationProjectCommand;
 import com.bytechef.cli.command.component.ComponentCommand;
@@ -43,8 +45,9 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
 @SpringBootApplication
 @EnableCommand({
     ComponentCommand.class, ConfigureCommand.class, AutomationExecutionCommand.class, AutomationProjectCommand.class,
-    EmbeddedIntegrationCommand.class, EmbeddedWorkflowCommand.class, EmbeddedExecutionCommand.class,
-    EmbeddedUserCommand.class, EmbeddedCodeWorkflowCommand.class
+    AutomationDataTableCommand.class, AutomationDataTableRowCommand.class, EmbeddedIntegrationCommand.class,
+    EmbeddedWorkflowCommand.class, EmbeddedExecutionCommand.class, EmbeddedUserCommand.class,
+    EmbeddedCodeWorkflowCommand.class
 })
 public class CliApplication {
 
