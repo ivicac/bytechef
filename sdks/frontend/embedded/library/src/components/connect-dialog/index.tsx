@@ -687,6 +687,7 @@ export default function useConnectDialog({
     );
 
     const debouncedFetchesRef = useRef<Record<string, (...args: unknown[]) => void>>({});
+    const wasOpenRef = useRef(false);
 
     const currentIntegrationInstanceIdRef = useRef(currentIntegrationInstanceId);
     const inputOverridesRef = useRef(inputOverrides);
@@ -993,6 +994,20 @@ export default function useConnectDialog({
             setIsOAuth2(true);
         }
     }, [isOAuth2AuthorizationType]);
+
+    useEffect(() => {
+        if (isOpen) {
+            wasOpenRef.current = true;
+
+            return;
+        }
+
+        if (wasOpenRef.current) {
+            wasOpenRef.current = false;
+
+            onClose?.();
+        }
+    }, [isOpen, onClose]);
 
     return {
         openDialog,
