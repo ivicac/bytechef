@@ -1,6 +1,7 @@
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import {resolveMainClusterRootName} from '@/pages/platform/workflow-editor/utils/resolveClusterRootId';
 import {
     useSaveClusterElementTestConfigurationConnectionMutation,
     useSaveWorkflowTestConfigurationConnectionMutation,
@@ -32,7 +33,8 @@ const usePropertyCodeEditorDialogRightPanelConnectionsSelect = ({
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
     const rootClusterElementNodeData = useWorkflowEditorStore(useShallow((state) => state.rootClusterElementNodeData));
 
-    const isClusterElement = currentNode?.clusterElementType && rootClusterElementNodeData?.workflowNodeName;
+    const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+    const isClusterElement = currentNode?.clusterElementType && mainClusterRootName;
 
     const {
         ConnectionKeys,
@@ -82,7 +84,7 @@ const usePropertyCodeEditorDialogRightPanelConnectionsSelect = ({
                     environmentId: currentEnvironmentId!,
                     workflowConnectionKey,
                     workflowId,
-                    workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                    workflowNodeName: mainClusterRootName as string,
                 },
                 {
                     onSuccess: () => {
