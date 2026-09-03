@@ -97,6 +97,15 @@ public interface ClusterElementDefinition<T> {
     }
 
     /**
+     * Returns the declared risk of one call of this cluster element.
+     *
+     * @return an {@code Optional} containing the risk level if declared, or an empty {@code Optional} otherwise
+     */
+    default Optional<RiskLevel> getRiskLevel() {
+        return Optional.empty();
+    }
+
+    /**
      * Returns the human-readable title of the cluster element displayed in the user interface.
      *
      * @return an {@code Optional} containing the title if defined, or an empty {@code Optional} otherwise
