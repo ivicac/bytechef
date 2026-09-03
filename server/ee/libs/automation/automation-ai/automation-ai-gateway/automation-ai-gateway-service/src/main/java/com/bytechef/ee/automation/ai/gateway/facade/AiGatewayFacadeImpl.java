@@ -20,9 +20,13 @@ import com.bytechef.ee.automation.ai.prompt.service.WorkspaceAiPromptService;
 import com.bytechef.ee.platform.ai.gateway.cache.AiGatewayResponseCache;
 import com.bytechef.ee.platform.ai.gateway.compression.AiGatewayContextCompressor;
 import com.bytechef.ee.platform.ai.gateway.cost.AiGatewayCostCalculator;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayConnectedUserSettings;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayEmbeddedSettings;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayModelDeployment;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProject;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderScopeViolationException;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderType;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayRoutingPolicy;
 import com.bytechef.ee.platform.ai.gateway.domain.BudgetExceededException;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
@@ -38,13 +42,17 @@ import com.bytechef.ee.platform.ai.gateway.event.AiGatewayTraceCompletedEvent;
 import com.bytechef.ee.platform.ai.gateway.metrics.AiGatewayMetrics;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayEmbeddingModelFactory;
+import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayProviderResolver;
 import com.bytechef.ee.platform.ai.gateway.reliability.AiGatewayRetryHandler;
 import com.bytechef.ee.platform.ai.gateway.routing.AiGatewayRouter;
 import com.bytechef.ee.platform.ai.gateway.routing.AiGatewayRoutingContext;
 import com.bytechef.ee.platform.ai.gateway.routing.PromptComplexityScorer;
+import com.bytechef.ee.platform.ai.gateway.service.AiGatewayConnectedUserSettingsService;
+import com.bytechef.ee.platform.ai.gateway.service.AiGatewayEmbeddedSettingsService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayModelDeploymentService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayRoutingPolicyService;
+import com.bytechef.ee.platform.ai.gateway.service.AiGatewaySpendService;
 import com.bytechef.ee.platform.ai.gateway.util.AiGatewayConstraintMatchers;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
@@ -70,10 +78,15 @@ import com.bytechef.ee.platform.ai.prompt.AiPromptVersionService;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -125,7 +138,7 @@ import reactor.core.publisher.Flux;
  * <p>
  * Request lifecycle:
  * <ol>
- * <li>Pre-request budget check</li>
+ * <li>Pre-request budget check (workspace, then — for embedded traffic — the per-connected-user cap, spec §7)</li>
  * <li>Cache lookup (direct path only)</li>
  * <li>Model resolution (provider/name parsing)</li>
  * <li>Context compression (if messages exceed 85% of context window)</li>
@@ -165,6 +178,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     private final AiGatewayBudgetChecker aiGatewayBudgetChecker;
     private final AiGatewayRateLimitChecker aiGatewayRateLimitChecker;
     private final AiGatewayChatModelFactory aiGatewayChatModelFactory;
+    private final AiGatewayConnectedUserSettingsService aiGatewayConnectedUserSettingsService;
     private final AiGatewayContextCompressor aiGatewayContextCompressor;
     private final AiGatewayCostCalculator aiGatewayCostCalculator;
     private final AiGatewayGuardrails aiGatewayGuardrails;
@@ -173,11 +187,13 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     private final AiModelService aiModelService;
     private final WorkspaceAiGatewayProjectService workspaceAiGatewayProjectService;
     private final AiGatewayProviderService aiGatewayProviderService;
+    private final AiGatewayProviderResolver aiGatewayProviderResolver;
     private final AiLlmUsageService aiGatewayRequestLogService;
     private final AiGatewayResponseCache aiGatewayResponseCache;
     private final AiGatewayRetryHandler aiGatewayRetryHandler;
     private final AiGatewayRouter aiGatewayRouter;
     private final AiGatewayRoutingPolicyService aiGatewayRoutingPolicyService;
+    private final AiGatewaySpendService aiGatewaySpendService;
     private final PromptComplexityScorer promptComplexityScorer;
     private final WorkspaceAiPromptService workspaceAiPromptService;
     private final AiPromptVersionService aiPromptVersionService;
@@ -192,6 +208,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     // Optional so lightweight app variants without actuator (no MeterRegistry bean) still start. Resolved via
     // ObjectProvider rather than @Nullable injection so tests can supply a real provider without wiring Spring.
     private final ObjectProvider<AiGatewayMetrics> aiGatewayMetricsProvider;
+    // Optional collaborator for the embedded-default routing policy step (applyRoutingPolicyPrecedence): an
+    // automation-only deployment has no embedded module on its classpath, so this resolves to no bean via
+    // ObjectProvider#getIfAvailable() rather than failing to start.
+    private final ObjectProvider<AiGatewayEmbeddedSettingsService> embeddedSettingsServiceProvider;
     private final ApplicationEventPublisher applicationEventPublisher;
     @Nullable
     private final PermissionService permissionService;
@@ -202,6 +222,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayBudgetChecker aiGatewayBudgetChecker,
         @Nullable AiGatewayRateLimitChecker aiGatewayRateLimitChecker,
         AiGatewayChatModelFactory aiGatewayChatModelFactory,
+        AiGatewayConnectedUserSettingsService aiGatewayConnectedUserSettingsService,
         AiGatewayContextCompressor aiGatewayContextCompressor,
         AiGatewayCostCalculator aiGatewayCostCalculator,
         AiGatewayGuardrails aiGatewayGuardrails,
@@ -210,11 +231,13 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiModelService aiModelService,
         WorkspaceAiGatewayProjectService workspaceAiGatewayProjectService,
         AiGatewayProviderService aiGatewayProviderService,
+        AiGatewayProviderResolver aiGatewayProviderResolver,
         AiLlmUsageService aiGatewayRequestLogService,
         AiGatewayResponseCache aiGatewayResponseCache,
         AiGatewayRetryHandler aiGatewayRetryHandler,
         AiGatewayRouter aiGatewayRouter,
         AiGatewayRoutingPolicyService aiGatewayRoutingPolicyService,
+        AiGatewaySpendService aiGatewaySpendService,
         PromptComplexityScorer promptComplexityScorer,
         WorkspaceAiPromptService workspaceAiPromptService,
         AiPromptVersionService aiPromptVersionService,
@@ -227,6 +250,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService,
         com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
         ObjectProvider<AiGatewayMetrics> aiGatewayMetricsProvider,
+        ObjectProvider<AiGatewayEmbeddedSettingsService> embeddedSettingsServiceProvider,
         ApplicationEventPublisher applicationEventPublisher,
         @Nullable PermissionService permissionService,
         PlatformTransactionManager transactionManager) {
@@ -235,6 +259,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         this.aiGatewayBudgetChecker = aiGatewayBudgetChecker;
         this.aiGatewayRateLimitChecker = aiGatewayRateLimitChecker;
         this.aiGatewayChatModelFactory = aiGatewayChatModelFactory;
+        this.aiGatewayConnectedUserSettingsService = aiGatewayConnectedUserSettingsService;
         this.aiGatewayContextCompressor = aiGatewayContextCompressor;
         this.aiGatewayCostCalculator = aiGatewayCostCalculator;
         this.aiGatewayGuardrails = aiGatewayGuardrails;
@@ -243,11 +268,13 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         this.aiModelService = aiModelService;
         this.workspaceAiGatewayProjectService = workspaceAiGatewayProjectService;
         this.aiGatewayProviderService = aiGatewayProviderService;
+        this.aiGatewayProviderResolver = aiGatewayProviderResolver;
         this.aiGatewayRequestLogService = aiGatewayRequestLogService;
         this.aiGatewayResponseCache = aiGatewayResponseCache;
         this.aiGatewayRetryHandler = aiGatewayRetryHandler;
         this.aiGatewayRouter = aiGatewayRouter;
         this.aiGatewayRoutingPolicyService = aiGatewayRoutingPolicyService;
+        this.aiGatewaySpendService = aiGatewaySpendService;
         this.promptComplexityScorer = promptComplexityScorer;
         this.workspaceAiPromptService = workspaceAiPromptService;
         this.aiPromptVersionService = aiPromptVersionService;
@@ -260,6 +287,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
         this.aiGatewayMetricsProvider = aiGatewayMetricsProvider;
+        this.embeddedSettingsServiceProvider = embeddedSettingsServiceProvider;
         this.applicationEventPublisher = applicationEventPublisher;
         this.permissionService = permissionService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -336,12 +364,27 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
         @Nullable AiPromptHeaders promptHeaders) {
 
+        return chatCompletion(request, tracingHeaders, promptHeaders, null);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AiGatewayChatCompletionResponse chatCompletion(
+        AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
+        @Nullable AiPromptHeaders promptHeaders, @Nullable Long connectedUserId) {
+
         if (tracingHeaders == null) {
             tracingHeaders = new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of());
         }
 
-        checkBudget(request.tags(), request.model());
-        checkRateLimits(request.tags());
+        // connectedUserId arrives already resolved by the caller (e.g. from authentication at an embedded
+        // controller): routing precedence below AND spend/observability attribution both consume this same value,
+        // rather than each resolving it independently.
+        long environmentId = resolveConnectedUserEnvironmentId(connectedUserId);
+
+        checkRequestScope(request.tags(), request.model(), connectedUserId);
+
+        EmbeddedRequestSettings requestSettings = resolveEmbeddedSettingsAndCheckBudget(connectedUserId, environmentId);
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
         Long projectId = resolveProjectId(request.tags());
@@ -361,26 +404,27 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         PiiTokenSession session = aiGatewayGuardrails.newTokenSession();
 
         try {
-            request = aiGatewayGuardrails.apply(request, workspaceId, projectId, session);
+            request = aiGatewayGuardrails.apply(
+                request, resolvePlatformType(connectedUserId), workspaceId, projectId, session);
 
             long startTime = System.currentTimeMillis();
 
             AiGatewayChatCompletionResponse response;
             boolean success = true;
 
-            request = applyRoutingPolicyPrecedence(request);
+            request = applyRoutingPolicyPrecedence(request, connectedUserId, requestSettings);
 
             try {
                 if (request.routingPolicy() != null) {
-                    response = chatCompletionWithRouting(request);
+                    response = chatCompletionWithRouting(request, connectedUserId);
                 } else {
-                    response = chatCompletionDirect(request);
+                    response = chatCompletionDirect(request, connectedUserId);
                 }
             } catch (Exception exception) {
                 success = false;
 
                 processTracingHeaders(
-                    tracingHeaders, workspaceId, request, null, startTime, false, resolvedPrompt);
+                    tracingHeaders, workspaceId, request, null, startTime, false, resolvedPrompt, connectedUserId);
 
                 throw exception;
             }
@@ -398,10 +442,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             // (the real values still come back) while keeping what gets persisted for observability exactly what the
             // provider actually produced.
             AiGatewayChatCompletionResponse scannedResponse =
-                aiGatewayGuardrails.scanResponse(response, workspaceId, projectId);
+                aiGatewayGuardrails.scanResponse(
+                    response, resolvePlatformType(connectedUserId), workspaceId, projectId);
 
             processTracingHeaders(
-                tracingHeaders, workspaceId, request, scannedResponse, startTime, success, resolvedPrompt);
+                tracingHeaders, workspaceId, request, scannedResponse, startTime, success, resolvedPrompt,
+                connectedUserId);
 
             response = aiGatewayGuardrails.restoreResponse(scannedResponse, session);
 
@@ -413,41 +459,246 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     }
 
     /**
-     * Resolves the effective routing policy with precedence: request-specified → model default. Workspace and project
-     * defaults would extend this chain once their resolution paths are wired; for now, model-level default is the
-     * single fallback.
+     * Resolves the effective routing policy with precedence: request-specified → connected-user → model default →
+     * embedded default. Workspace and project defaults would extend this chain once their resolution paths are wired;
+     * for now, the embedded default (see {@link #resolveEmbeddedDefaultRoutingPolicyId}) is the last fallback before
+     * direct routing. {@code connectedUserId} arrives already resolved by the caller — {@code null} for automation
+     * traffic, or an embedded request whose caller found no connected user.
+     *
+     * <p>
+     * The connected-user level outranks the model default. A model default is an operator statement about a *model*; a
+     * connected-user policy is a statement about *whose request this is* — spec §1 makes the connected user the unit of
+     * gateway configuration. The connected user's assigned plan being silently overridden by a model-level default
+     * would defeat the feature, so it is resolved first and, when it resolves, the model-default and embedded-default
+     * levels below are never consulted at all.
+     *
+     * <p>
+     * Both {@code chatCompletion} and {@code chatCompletionStream} run this same chain. Streaming used to run a
+     * narrower one that resolved only the embedded default, so a model's {@code defaultRoutingPolicyId} applied to a
+     * sync request and was ignored on the streaming request beside it.
+     *
+     * <p>
+     * {@code requestSettings} arrives already resolved by the caller (see {@link #resolveEmbeddedSettingsOnce}) — this
+     * method never fetches the settings rows itself, so it never re-triggers the read+decrypt
+     * {@code AiGatewayEmbeddedSettingsServiceImpl#find} performs, on top of the fetch {@code checkConnectedUserBudget}
+     * already made against the same rows for the same request.
      */
-    private AiGatewayChatCompletionRequest applyRoutingPolicyPrecedence(AiGatewayChatCompletionRequest request) {
-        if (request.routingPolicy() != null) {
+    private AiGatewayChatCompletionRequest applyRoutingPolicyPrecedence(
+        AiGatewayChatCompletionRequest request, @Nullable Long connectedUserId,
+        EmbeddedRequestSettings requestSettings) {
+
+        String requestedRoutingPolicy = request.routingPolicy();
+
+        if (requestedRoutingPolicy != null) {
+            requireRequestedRoutingPolicyIsAssignedPlan(requestedRoutingPolicy, connectedUserId, requestSettings);
+
             return request;
         }
 
-        Long modelDefaultPolicyId = resolveModelDefaultRoutingPolicyId(request.model());
+        Long routingPolicyId = resolveAssignedRoutingPolicyId(requestSettings);
 
-        if (modelDefaultPolicyId == null) {
+        if (routingPolicyId == null) {
+            routingPolicyId = resolveModelDefaultRoutingPolicyId(request.model());
+        }
+
+        if (routingPolicyId == null) {
+            routingPolicyId =
+                resolveEmbeddedDefaultRoutingPolicyId(connectedUserId, requestSettings.embeddedSettings());
+        }
+
+        return applyResolvedRoutingPolicy(request, routingPolicyId, connectedUserId);
+    }
+
+    /**
+     * The connected user's assigned plan, or {@code null} when none is assigned or the plan is disabled -- a disabled
+     * plan falls through to the next level rather than routing through a policy an operator turned off.
+     */
+    private @Nullable Long resolveAssignedRoutingPolicyId(EmbeddedRequestSettings requestSettings) {
+        Long assignedRoutingPolicyId = requestSettings.connectedUserSettings()
+            .map(AiGatewayConnectedUserSettings::getRoutingPolicyId)
+            .orElse(null);
+
+        if (assignedRoutingPolicyId == null) {
+            return null;
+        }
+
+        try {
+            AiGatewayRoutingPolicy assignedPolicy =
+                aiGatewayRoutingPolicyService.getRoutingPolicy(assignedRoutingPolicyId);
+
+            return assignedPolicy.isEnabled() ? assignedRoutingPolicyId : null;
+        } catch (IllegalArgumentException missingPolicy) {
+            return null;
+        }
+    }
+
+    /**
+     * An embedded caller may name only its own assigned plan. The embedded endpoint accepts end-user JWTs as well as
+     * the vendor's secret key, and the principal does not record which, so any other rule lets an end user route onto a
+     * plan they were never given. Every failure carries the same message a missing policy does, so plans cannot be
+     * enumerated. Automation traffic is not checked.
+     */
+    private void requireRequestedRoutingPolicyIsAssignedPlan(
+        String requestedRoutingPolicy, @Nullable Long connectedUserId, EmbeddedRequestSettings requestSettings) {
+
+        if (connectedUserId == null) {
+            return;
+        }
+
+        Long assignedRoutingPolicyId = requestSettings.connectedUserSettings()
+            .map(AiGatewayConnectedUserSettings::getRoutingPolicyId)
+            .orElse(null);
+
+        if (assignedRoutingPolicyId == null) {
+            throw new IllegalArgumentException("Routing policy not found: " + requestedRoutingPolicy);
+        }
+
+        AiGatewayRoutingPolicy assignedPolicy = aiGatewayRoutingPolicyService.getRoutingPolicy(assignedRoutingPolicyId);
+
+        if (!requestedRoutingPolicy.equals(assignedPolicy.getName())) {
+            throw new IllegalArgumentException("Routing policy not found: " + requestedRoutingPolicy);
+        }
+
+        // Defence in depth: AiGatewayRoutingPolicyServiceImpl.updateWorkspaceId refuses moving an assigned plan into
+        // a workspace, but a plan already carrying a workspaceId before it was assigned must not route embedded
+        // traffic either.
+        if (assignedPolicy.getWorkspaceId() != null) {
+            throw new IllegalArgumentException("Routing policy not found: " + requestedRoutingPolicy);
+        }
+    }
+
+    /**
+     * Tail of {@link #applyRoutingPolicyPrecedence}. Also the scope gate for policies this class resolved rather than
+     * the caller naming them: a model or embedded default may point at a workspace-scoped policy, which embedded
+     * traffic must never route through. Such a default falls back to direct routing exactly as a deleted one does,
+     * rather than throwing — an operator's misconfiguration must not take every other customer's traffic on that model
+     * down, and the failing name is one they never supplied. The WARN carries the ids; the caller is told nothing.
+     * Automation ({@code connectedUserId == null}) is deliberately not scope-checked here, keeping its behaviour
+     * byte-for-byte unchanged.
+     *
+     * <p>
+     * Rebuilds {@code request} with the resolved policy's name, or returns {@code request} unchanged when
+     * {@code routingPolicyId} is {@code null} or no longer resolves to a real policy (e.g. deleted after being set as a
+     * default — falls through to direct routing rather than 500).
+     */
+    private AiGatewayChatCompletionRequest applyResolvedRoutingPolicy(
+        AiGatewayChatCompletionRequest request, @Nullable Long routingPolicyId,
+        @Nullable Long connectedUserId) {
+
+        if (routingPolicyId == null) {
             return request;
         }
 
         try {
-            AiGatewayRoutingPolicy policy = aiGatewayRoutingPolicyService.getRoutingPolicy(modelDefaultPolicyId);
+            AiGatewayRoutingPolicy policy = aiGatewayRoutingPolicyService.getRoutingPolicy(routingPolicyId);
+
+            if (connectedUserId != null && policy.getWorkspaceId() != null) {
+                log.warn(
+                    "Resolved routing_policy_id={} for model '{}' belongs to workspace {}, which embedded traffic " +
+                        "cannot route through; falling back to direct routing",
+                    routingPolicyId, request.model(), policy.getWorkspaceId());
+
+                return request;
+            }
 
             return new AiGatewayChatCompletionRequest(
                 request.model(), request.messages(), request.temperature(), request.maxTokens(), request.topP(),
                 request.stream(), policy.getName(), request.cache(), request.toolChoice(), request.tools(),
                 request.tags());
         } catch (IllegalArgumentException missingPolicy) {
-            // Model references a deleted policy — fall through to direct routing rather than 500.
             log.warn(
-                "Model '{}' has default_routing_policy_id={} but policy not found; falling back to direct routing",
-                request.model(), modelDefaultPolicyId);
+                "Resolved routing_policy_id={} for model '{}' but policy not found; falling back to direct routing",
+                routingPolicyId, request.model());
 
             return request;
         }
     }
 
+    /**
+     * Resolves the embedded default routing policy id for the already-resolved {@code connectedUserId} within
+     * {@code environmentId}, fetching the embedded settings row itself. A thin, self-fetching convenience wrapper
+     * around {@link #resolveEmbeddedDefaultRoutingPolicyId(Long, Optional)} kept for callers (and tests) that have not
+     * already resolved the row — production request handling has, by the time routing precedence runs (see
+     * {@link #resolveEmbeddedSettingsOnce}), so this overload is not on that hot path.
+     */
+    Long resolveEmbeddedDefaultRoutingPolicyId(@Nullable Long connectedUserId, long environmentId) {
+        return resolveEmbeddedDefaultRoutingPolicyId(
+            connectedUserId, resolveEmbeddedSettingsOnce(connectedUserId, environmentId));
+    }
+
+    /**
+     * Resolves the embedded default routing policy id from an ALREADY-RESOLVED {@code embeddedSettings} — the hot-path
+     * overload {@link #applyRoutingPolicyPrecedence} calls, so a request that reaches this level does not trigger a
+     * second {@code AiGatewayEmbeddedSettingsServiceImpl#find} beyond the one {@link #resolveEmbeddedSettingsOnce}
+     * already made for {@code checkConnectedUserBudget}. Returns {@code null} when {@code connectedUserId} is
+     * {@code null} (automation traffic, or an embedded request whose caller found no connected user) or when
+     * {@code embeddedSettings} is empty (no bean available, or no row for the environment).
+     */
+    private Long resolveEmbeddedDefaultRoutingPolicyId(
+        @Nullable Long connectedUserId, Optional<AiGatewayEmbeddedSettings> embeddedSettings) {
+
+        if (connectedUserId == null) {
+            return null;
+        }
+
+        return embeddedSettings.map(AiGatewayEmbeddedSettings::defaultRoutingPolicyId)
+            .orElse(null);
+    }
+
+    /**
+     * Resolves the embedded settings row for {@code connectedUserId}/{@code environmentId} AT MOST ONCE per request —
+     * the single fetch point {@code checkConnectedUserBudget} (spec §7's per-connected-user cap check) and
+     * {@link #applyRoutingPolicyPrecedence}'s embedded-default step both read from, so the row's uncached
+     * {@code AiGatewayEmbeddedSettingsServiceImpl#find} (a {@code PropertyService} read plus a decrypt) is paid once
+     * per request rather than twice on every request that reaches both. Returns {@link Optional#empty()} — without
+     * touching {@link #embeddedSettingsServiceProvider} at all — when {@code connectedUserId} is {@code null}
+     * (automation traffic), matching every other no-op branch in this class for that case; also empty when no
+     * {@link AiGatewayEmbeddedSettingsService} bean is available (an automation-only deployment with no embedded module
+     * on the classpath) or when no row exists for {@code environmentId}.
+     */
+    private Optional<AiGatewayEmbeddedSettings> resolveEmbeddedSettingsOnce(
+        @Nullable Long connectedUserId, long environmentId) {
+
+        if (connectedUserId == null) {
+            return Optional.empty();
+        }
+
+        AiGatewayEmbeddedSettingsService embeddedSettingsService = embeddedSettingsServiceProvider.getIfAvailable();
+
+        if (embeddedSettingsService == null) {
+            return Optional.empty();
+        }
+
+        return embeddedSettingsService.find(environmentId);
+    }
+
+    /**
+     * Combines {@link #resolveEmbeddedSettingsOnce} and {@link #checkConnectedUserBudget} into the single call each of
+     * {@code chatCompletion}/{@code chatCompletionStreamInternal} makes at request entry, so both settings rows are
+     * resolved and the cap enforced in one step, with the resolved value handed back for
+     * {@link #applyRoutingPolicyPrecedence} to reuse without fetching it again.
+     */
+    private EmbeddedRequestSettings resolveEmbeddedSettingsAndCheckBudget(
+        @Nullable Long connectedUserId, long environmentId) {
+
+        if (connectedUserId == null) {
+            return EmbeddedRequestSettings.NONE;
+        }
+
+        EmbeddedRequestSettings requestSettings = new EmbeddedRequestSettings(
+            resolveEmbeddedSettingsOnce(connectedUserId, environmentId),
+            aiGatewayConnectedUserSettingsService.fetchByConnectedUserId(connectedUserId));
+
+        checkConnectedUserBudget(connectedUserId, requestSettings);
+
+        return requestSettings;
+    }
+
     private Long resolveModelDefaultRoutingPolicyId(String modelIdentifier) {
         try {
-            ModelResolution resolution = resolveModel(modelIdentifier);
+            // No connected user id: only the resolved model's own default-routing-policy id is read below, never the
+            // provider, so a BYOK override here would be resolved and then silently discarded — skip it.
+            ModelResolution resolution = resolveModel(modelIdentifier, null);
 
             return resolution.model() != null ? resolution.model()
                 .getDefaultRoutingPolicyId() : null;
@@ -570,19 +821,34 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
         @Nullable AiPromptHeaders promptHeaders, @Nullable AtomicLong traceIdHolder) {
 
-        return Flux.defer(() -> chatCompletionStreamInternal(request, tracingHeaders, promptHeaders, traceIdHolder));
+        return chatCompletionStream(request, tracingHeaders, promptHeaders, null, traceIdHolder);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public Flux<AiGatewayChatCompletionResponse> chatCompletionStream(
+        AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
+        @Nullable AiPromptHeaders promptHeaders, @Nullable Long connectedUserId,
+        @Nullable AtomicLong traceIdHolder) {
+
+        return Flux.defer(
+            () -> chatCompletionStreamInternal(request, tracingHeaders, promptHeaders, connectedUserId, traceIdHolder));
     }
 
     private Flux<AiGatewayChatCompletionResponse> chatCompletionStreamInternal(
         AiGatewayChatCompletionRequest request, @Nullable AiObservabilityTracingHeaders tracingHeaders,
-        @Nullable AiPromptHeaders promptHeaders, @Nullable AtomicLong traceIdHolder) {
+        @Nullable AiPromptHeaders promptHeaders, @Nullable Long connectedUserId, @Nullable AtomicLong traceIdHolder) {
 
         AiObservabilityTracingHeaders effectiveTracingHeaders = tracingHeaders != null
             ? tracingHeaders
             : new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of());
 
-        checkBudget(request.tags(), request.model());
-        checkRateLimits(request.tags());
+        // connectedUserId arrives already resolved by the caller — see chatCompletion's Javadoc.
+        long environmentId = resolveConnectedUserEnvironmentId(connectedUserId);
+
+        checkRequestScope(request.tags(), request.model(), connectedUserId);
+
+        EmbeddedRequestSettings requestSettings = resolveEmbeddedSettingsAndCheckBudget(connectedUserId, environmentId);
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
         Long projectId = resolveProjectId(request.tags());
@@ -592,49 +858,25 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         // Request-direction guardrails apply as on the sync path. Response scanning on the streaming path is opt-in via
         // the response-scan-streaming-enabled operator flag (see StreamingResponseRedactor): a null redactor here keeps
         // the default token-by-token behavior byte-for-byte unchanged; a non-null one masks PII/secrets across chunk
-        // boundaries at the cost of a lookahead delay.
-        AiGatewayChatCompletionRequest effectiveRequest = aiGatewayGuardrails.apply(
-            resolvedPrompt != null
-                ? prependSystemMessage(request, resolvedPrompt.content())
-                : request,
-            workspaceId, projectId);
+        // boundaries at the cost of a lookahead delay. The full request-specified → connected-user → model default →
+        // embedded default chain is resolved afterward, the same chain the sync path runs.
+        AiGatewayChatCompletionRequest effectiveRequest = applyRoutingPolicyPrecedence(
+            aiGatewayGuardrails.apply(
+                resolvedPrompt != null
+                    ? prependSystemMessage(request, resolvedPrompt.content())
+                    : request,
+                resolvePlatformType(connectedUserId), workspaceId, projectId, null),
+            connectedUserId, requestSettings);
 
         long startTime = System.currentTimeMillis();
 
         AiGatewayProject project = resolveProject(effectiveRequest.tags());
 
-        RoutedDeployments routedDeployments = null;
-        ModelResolution modelResolution;
+        StreamModelResolution streamModelResolution =
+            resolveStreamModelResolution(effectiveRequest, workspaceId, startTime, connectedUserId);
 
-        try {
-            // Honor the routing policy on the streaming path too: previously streaming always used the request's
-            // literal model and ignored routing entirely. When a routing policy is set the request now streams from
-            // the routed deployment and fails over to the next deployment BEFORE the first token is emitted (see
-            // AiGatewayRetryHandler.executeStreamWithRetry).
-            if (effectiveRequest.routingPolicy() != null) {
-                routedDeployments = selectRoutedDeployments(effectiveRequest);
-
-                AiGatewayModelDeployment primaryDeployment = routedDeployments.orderedDeployments()
-                    .get(0);
-                AiModel primaryModel = routedDeployments.modelMap()
-                    .get(primaryDeployment.getModelId());
-                AiGatewayProvider primaryProvider =
-                    aiGatewayProviderService.getProvider(primaryModel.getProviderId());
-
-                modelResolution = new ModelResolution(primaryProvider, primaryModel);
-            } else {
-                modelResolution = resolveModel(effectiveRequest.model());
-            }
-        } catch (Exception exception) {
-            try {
-                aiGatewayRequestLogService.create(createErrorLog(effectiveRequest, startTime, exception), workspaceId);
-            } catch (Exception logException) {
-                log.error("Failed to log streaming setup error for model '{}'. Original error: {}",
-                    effectiveRequest.model(), exception.getMessage(), logException);
-            }
-
-            throw exception;
-        }
+        RoutedDeployments routedDeployments = streamModelResolution.routedDeployments();
+        ModelResolution modelResolution = streamModelResolution.modelResolution();
 
         AiGatewayProvider provider = modelResolution.provider();
         AiModel model = modelResolution.model();
@@ -653,7 +895,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         // When streaming response scanning is active, deltas are masked through the redactor and the terminal
         // finish_reason is deferred onto the flush chunk so the client never sees "stop" before the masked tail.
         StreamingResponseRedactor responseRedactor =
-            aiGatewayGuardrails.newStreamingResponseRedactor(workspaceId, projectId);
+            aiGatewayGuardrails.newStreamingResponseRedactor(
+                resolvePlatformType(connectedUserId), workspaceId, projectId);
         AtomicReference<String> deferredFinishReason = new AtomicReference<>();
 
         Flux<ChatResponse> chatResponseFlux;
@@ -665,8 +908,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 routedDeployments.orderedDeployments(),
                 deployment -> {
                     AiModel deploymentModel = routedModelMap.get(deployment.getModelId());
-                    AiGatewayProvider deploymentProvider =
+                    AiGatewayProvider deploymentTenantProvider =
                         aiGatewayProviderService.getProvider(deploymentModel.getProviderId());
+                    AiGatewayProvider deploymentProvider =
+                        applyByokOverride(deploymentTenantProvider, connectedUserId);
                     ChatModel deploymentChatModel = aiGatewayChatModelFactory.getChatModel(deploymentProvider);
                     Prompt deploymentPrompt = buildPrompt(
                         compressMessages(effectiveRequest, deploymentModel, project), deploymentModel.getName());
@@ -712,7 +957,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             .doFinally(signalType -> finalizeStreamRequest(
                 signalType, streamInputTokens, streamOutputTokens, streamError, streamOutputContent,
                 effectiveRequest, effectiveTracingHeaders, workspaceId, servedModel.get(), servedProvider.get(),
-                project, startTime, traceIdHolder));
+                project, startTime, traceIdHolder, connectedUserId));
     }
 
     /**
@@ -804,7 +1049,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AtomicReference<Throwable> streamError, StringBuilder streamOutputContent,
         AiGatewayChatCompletionRequest effectiveRequest, AiObservabilityTracingHeaders effectiveTracingHeaders,
         Long workspaceId, AiModel model, AiGatewayProvider provider, AiGatewayProject project,
-        long startTime, @Nullable AtomicLong traceIdHolder) {
+        long startTime, @Nullable AtomicLong traceIdHolder, @Nullable Long connectedUserId) {
 
         int inputTokens = (int) Math.min(streamInputTokens.get(), Integer.MAX_VALUE);
         int outputTokens = (int) Math.min(streamOutputTokens.get(), Integer.MAX_VALUE);
@@ -865,9 +1110,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         setProjectIdFromProject(requestLog, project);
         setApiKeyIdFromAuthentication(requestLog);
 
+        // Spend rollup key — see createSuccessLog's comment on the same field.
+        requestLog.setUserId(connectedUserId);
+
         try {
             transactionTemplate.executeWithoutResult(
-                status -> aiGatewayRequestLogService.create(requestLog, workspaceId));
+                status -> persistUsage(requestLog, workspaceId, connectedUserId));
         } catch (Exception exception) {
             recordRequestLogPersistFailure("streaming", "success");
 
@@ -883,9 +1131,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         processStreamingTracingHeaders(
             effectiveTracingHeaders, workspaceId, effectiveRequest, model, provider, inputTokens,
             outputTokens,
-            startTime, streamSuccess, accumulatedOutput.isEmpty() ? null : accumulatedOutput, traceIdHolder);
+            startTime, streamSuccess, accumulatedOutput.isEmpty() ? null : accumulatedOutput, traceIdHolder,
+            connectedUserId);
 
-        enforcePostRequestBudget(effectiveRequest.tags());
+        enforcePostRequestBudget(effectiveRequest.tags(), connectedUserId);
     }
 
     @Override
@@ -909,7 +1158,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         long startTime = System.currentTimeMillis();
 
-        ModelResolution modelResolution = resolveModel(request.model());
+        // No connected user id: AiGatewayFacade#embedding has no connected-user-aware overload today (unlike
+        // chatCompletion), so BYOK cannot apply to embeddings yet — an accepted, pre-existing gap, not a regression
+        // introduced here.
+        ModelResolution modelResolution = resolveModel(request.model(), null);
 
         AiGatewayProvider provider = modelResolution.provider();
         AiModel model = modelResolution.model();
@@ -1038,9 +1290,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         }
     }
 
-    private AiGatewayChatCompletionResponse chatCompletionDirect(AiGatewayChatCompletionRequest request) {
+    private AiGatewayChatCompletionResponse chatCompletionDirect(
+        AiGatewayChatCompletionRequest request, @Nullable Long connectedUserId) {
         if (isCacheable(request)) {
-            String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
+            String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
             AiGatewayChatCompletionResponse cached = aiGatewayResponseCache.get(cacheKey);
 
             if (cached != null) {
@@ -1051,7 +1304,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
         long startTime = System.currentTimeMillis();
 
-        ModelResolution modelResolution = resolveModel(request.model());
+        ModelResolution modelResolution = resolveModel(request.model(), connectedUserId);
 
         AiGatewayProvider provider = modelResolution.provider();
         AiModel model = modelResolution.model();
@@ -1070,12 +1323,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             int[] tokenCounts = extractTokenCounts(chatResponse);
 
             AiLlmUsage requestLog = createSuccessLog(
-                request, model, provider, startTime, tokenCounts[0], tokenCounts[1]);
+                request, model, provider, startTime, tokenCounts[0], tokenCounts[1], connectedUserId);
 
             setProjectIdFromProject(requestLog, project);
 
             try {
-                aiGatewayRequestLogService.create(requestLog, workspaceId);
+                persistUsage(requestLog, workspaceId, connectedUserId);
             } catch (Exception logException) {
                 recordRequestLogPersistFailure("chat", "success");
 
@@ -1085,12 +1338,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                     request.model(), requestLog.getCost(), logException);
             }
 
-            enforcePostRequestBudget(request.tags());
+            enforcePostRequestBudget(request.tags(), connectedUserId);
 
             AiGatewayChatCompletionResponse response = toResponse(chatResponse, request.model());
 
             if (isCacheable(request)) {
-                String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
+                String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
 
                 try {
                     aiGatewayResponseCache.put(cacheKey, response);
@@ -1105,11 +1358,11 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             return response;
         } catch (Exception exception) {
             try {
-                AiLlmUsage errorLog = createErrorLog(request, startTime, exception);
+                AiLlmUsage errorLog = createErrorLog(request, startTime, exception, connectedUserId);
 
                 setProjectIdFromProject(errorLog, project);
 
-                aiGatewayRequestLogService.create(errorLog, workspaceId);
+                persistUsage(errorLog, workspaceId, connectedUserId);
             } catch (Exception logException) {
                 recordRequestLogPersistFailure("chat", "error");
 
@@ -1122,12 +1375,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     }
 
     private AiGatewayChatCompletionResponse chatCompletionWithRouting(
-        AiGatewayChatCompletionRequest request) {
+        AiGatewayChatCompletionRequest request, @Nullable Long connectedUserId) {
 
         // Response cache is keyed on the request content (model-agnostic), so it applies to the routing path exactly
         // as it does to the direct path; previously routed requests always bypassed the cache.
         if (isCacheable(request)) {
-            String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
+            String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
             AiGatewayChatCompletionResponse cached = aiGatewayResponseCache.get(cacheKey);
 
             if (cached != null) {
@@ -1188,7 +1441,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             AiGatewayChatCompletionResponse response =
                 aiGatewayRetryHandler.executeWithRetry(orderedDeployments, deployment -> {
                     AiModel model = modelMap.get(deployment.getModelId());
-                    AiGatewayProvider provider = aiGatewayProviderService.getProvider(model.getProviderId());
+                    AiGatewayProvider tenantProvider = aiGatewayProviderService.getProvider(model.getProviderId());
+                    AiGatewayProvider provider = applyByokOverride(tenantProvider, connectedUserId);
 
                     ChatModel chatModel = aiGatewayChatModelFactory.getChatModel(provider);
 
@@ -1201,7 +1455,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                     int[] tokenCounts = extractTokenCounts(chatResponse);
 
                     AiLlmUsage requestLog = createSuccessLog(
-                        request, model, provider, startTime, tokenCounts[0], tokenCounts[1]);
+                        request, model, provider, startTime, tokenCounts[0], tokenCounts[1], connectedUserId);
 
                     setProjectIdFromProject(requestLog, project);
 
@@ -1211,7 +1465,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                             .ordinal());
 
                     try {
-                        aiGatewayRequestLogService.create(requestLog, workspaceId);
+                        persistUsage(requestLog, workspaceId, connectedUserId);
                     } catch (Exception logException) {
                         recordRequestLogPersistFailure("routing", "success");
 
@@ -1221,13 +1475,13 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                             request.model(), requestLog.getCost(), logException);
                     }
 
-                    enforcePostRequestBudget(request.tags());
+                    enforcePostRequestBudget(request.tags(), connectedUserId);
 
                     return toResponse(chatResponse, request.model());
                 });
 
             if (isCacheable(request)) {
-                String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
+                String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
 
                 try {
                     aiGatewayResponseCache.put(cacheKey, response);
@@ -1242,7 +1496,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             return response;
         } catch (Exception exception) {
             try {
-                AiLlmUsage errorLog = createErrorLog(request, startTime, exception);
+                AiLlmUsage errorLog = createErrorLog(request, startTime, exception, connectedUserId);
 
                 setProjectIdFromProject(errorLog, project);
 
@@ -1250,7 +1504,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 errorLog.setRoutingStrategy(routingPolicy.getStrategy() == null ? null : routingPolicy.getStrategy()
                     .ordinal());
 
-                aiGatewayRequestLogService.create(errorLog, workspaceId);
+                persistUsage(errorLog, workspaceId, connectedUserId);
             } catch (Exception logException) {
                 recordRequestLogPersistFailure("routing", "error");
 
@@ -1260,6 +1514,56 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
             throw exception;
         }
+    }
+
+    /**
+     * Runs the admission checks a request's scope calls for. Automation traffic is workspace-scoped: it names its
+     * workspace in a {@code workspace_id} tag, and the workspace budget, rate limits and membership check all key on
+     * it. Embedded traffic is scoped by its connected user instead -- a vendor's customer belongs to no workspace, so
+     * every workspace check would reject it -- and its spend is governed by {@link #checkConnectedUserBudget}. An
+     * embedded request naming a workspace or project is rejected: honouring the tag would let a customer bill,
+     * rate-limit or trace against an automation workspace.
+     */
+    private void checkRequestScope(Map<String, String> tags, String model, @Nullable Long connectedUserId) {
+        if (connectedUserId == null) {
+            checkBudget(tags, model);
+            checkRateLimits(tags);
+
+            return;
+        }
+
+        if (tags != null && (tags.containsKey("workspace_id") || tags.containsKey("project_id"))) {
+            throw new IllegalArgumentException(
+                "Embedded requests must not carry a 'workspace_id' or 'project_id' tag");
+        }
+    }
+
+    /**
+     * Persists a usage row under the scope its request ran in: the workspace for automation traffic, the connected user
+     * for embedded traffic, which has no workspace to claim.
+     */
+    private void persistUsage(AiLlmUsage usage, @Nullable Long workspaceId, @Nullable Long connectedUserId) {
+        if (connectedUserId == null) {
+            aiGatewayRequestLogService.create(usage, workspaceId);
+        } else {
+            aiGatewayRequestLogService.createForConnectedUser(usage, connectedUserId);
+        }
+    }
+
+    /**
+     * The workspace budget's post-request enforcement, skipped for embedded traffic for the reason
+     * {@link #checkRequestScope} gives.
+     */
+    private void enforcePostRequestBudget(Map<String, String> tags, @Nullable Long connectedUserId) {
+        if (connectedUserId != null) {
+            return;
+        }
+
+        enforcePostRequestBudget(tags);
+    }
+
+    private static @Nullable PlatformType resolvePlatformType(@Nullable Long connectedUserId) {
+        return connectedUserId == null ? null : PlatformType.EMBEDDED;
     }
 
     private void checkBudget(Map<String, String> tags, String model) {
@@ -1300,6 +1604,79 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             throw new IllegalArgumentException(
                 "Invalid workspace_id tag: " + tags.get("workspace_id"), numberFormatException);
         }
+    }
+
+    /**
+     * Enforces the connected user's spend cap (spec §7, ⚑5) — a customer over budget is rejected outright, never
+     * silently downgraded to a cheaper tier. See {@link #resolveBudgetCap} for precedence: the connected user's own
+     * cap, when set, overrides the embedded settings record's per-connected-user default cap. Called ahead of
+     * {@link #applyRoutingPolicyPrecedence} so a rejected request consumes neither a routing decision nor an LLM call.
+     *
+     * <p>
+     * {@code requestSettings} arrives already resolved by the caller (see {@link #resolveEmbeddedSettingsOnce}) — this
+     * method never fetches the connected-user or embedded settings rows itself. No-ops — and never touches
+     * {@link #aiGatewaySpendService} — for: automation traffic ({@code connectedUserId == null}, spec §3.2: automation
+     * behavior must not change), or when {@link #resolveBudgetCap} resolves no cap at all — neither the connected
+     * user's own row nor the environment's embedded settings carries one. The cap is opt-in, matching every other field
+     * on {@link AiGatewayConnectedUserSettings} and {@link AiGatewayEmbeddedSettings}'s "null means inherit / not set"
+     * convention.
+     *
+     * <p>
+     * Spend is compared as {@link Money}, not raw {@code BigDecimal} — mirroring
+     * {@code AiGatewayBudgetChecker#sumSpend}, which reads this same table for the same purpose and documents why: a
+     * summary row in a currency other than USD must fail the comparison (via {@link Money#compareTo}'s currency check)
+     * rather than silently produce an arithmetic-but-wrong number. The schema is all-USD today, so this is
+     * defense-in-depth, not a currently-reachable branch.
+     */
+    private void checkConnectedUserBudget(long connectedUserId, EmbeddedRequestSettings requestSettings) {
+        BigDecimal cap = resolveBudgetCap(requestSettings);
+
+        if (cap == null) {
+            return;
+        }
+
+        Instant periodStart = currentBillingPeriodStart();
+
+        Money currentSpend =
+            aiGatewaySpendService.getTotalCostByConnectedUserId(connectedUserId, periodStart, Instant.now());
+        Money capMoney = Money.usd(cap);
+
+        if (currentSpend.compareTo(capMoney) >= 0) {
+            throw new BudgetExceededException(
+                "Budget cap exceeded for connected user " + connectedUserId +
+                    ". Current spend: $" + currentSpend.amount() + " / Cap: $" + cap,
+                capMoney, currentSpend);
+        }
+    }
+
+    /**
+     * The connected user's own cap when set, otherwise the environment's default cap, otherwise none.
+     */
+    private static @Nullable BigDecimal resolveBudgetCap(EmbeddedRequestSettings requestSettings) {
+        BigDecimal connectedUserCap = requestSettings.connectedUserSettings()
+            .map(AiGatewayConnectedUserSettings::getBudgetCap)
+            .orElse(null);
+
+        if (connectedUserCap != null) {
+            return connectedUserCap;
+        }
+
+        return requestSettings.embeddedSettings()
+            .map(AiGatewayEmbeddedSettings::defaultConnectedUserBudgetCap)
+            .orElse(null);
+    }
+
+    /**
+     * Start of the current calendar month in UTC — the fixed window the per-connected-user cap resets on. Unlike a
+     * workspace {@code AiGatewayBudget}, which carries its own configurable period and enforcement mode, the
+     * per-connected-user cap is a single settings-record value (spec §7), so a fixed monthly window keeps the feature
+     * proportional to what it protects rather than duplicating the workspace budget's period machinery.
+     */
+    private static Instant currentBillingPeriodStart() {
+        return ZonedDateTime.now(ZoneOffset.UTC)
+            .withDayOfMonth(1)
+            .truncatedTo(ChronoUnit.DAYS)
+            .toInstant();
     }
 
     private void checkRateLimits(Map<String, String> tags) {
@@ -1517,7 +1894,122 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         List<AiGatewayModelDeployment> orderedDeployments, Map<Long, AiModel> modelMap) {
     }
 
-    private ModelResolution resolveModel(String modelIdentifier) {
+    private record StreamModelResolution(
+        ModelResolution modelResolution, @Nullable RoutedDeployments routedDeployments) {
+    }
+
+    /**
+     * Resolves the model/provider for {@link #chatCompletionStreamInternal}'s routed-vs-direct branch, and logs +
+     * rethrows on failure. Extracted purely to keep that method under the checkstyle method-length limit; the try/catch
+     * shape, the routed-vs-direct branching, and the BYOK override call ({@link #applyByokOverride}) are otherwise
+     * unchanged from before the extraction.
+     */
+    private StreamModelResolution resolveStreamModelResolution(
+        AiGatewayChatCompletionRequest effectiveRequest, Long workspaceId, long startTime,
+        @Nullable Long connectedUserId) {
+
+        RoutedDeployments routedDeployments = null;
+        ModelResolution modelResolution;
+
+        try {
+            // Honor the routing policy on the streaming path too: previously streaming always used the request's
+            // literal model and ignored routing entirely. When a routing policy is set the request now streams from
+            // the routed deployment and fails over to the next deployment BEFORE the first token is emitted (see
+            // AiGatewayRetryHandler.executeStreamWithRetry).
+            if (effectiveRequest.routingPolicy() != null) {
+                routedDeployments = selectRoutedDeployments(effectiveRequest);
+
+                AiGatewayModelDeployment primaryDeployment = routedDeployments.orderedDeployments()
+                    .get(0);
+                AiModel primaryModel = routedDeployments.modelMap()
+                    .get(primaryDeployment.getModelId());
+                AiGatewayProvider primaryTenantProvider =
+                    aiGatewayProviderService.getProvider(primaryModel.getProviderId());
+                AiGatewayProvider primaryProvider = applyByokOverride(primaryTenantProvider, connectedUserId);
+
+                modelResolution = new ModelResolution(primaryProvider, primaryModel);
+            } else {
+                modelResolution = resolveModel(effectiveRequest.model(), connectedUserId);
+            }
+        } catch (Exception exception) {
+            try {
+                persistUsage(
+                    createErrorLog(effectiveRequest, startTime, exception, connectedUserId), workspaceId,
+                    connectedUserId);
+            } catch (Exception logException) {
+                log.error("Failed to log streaming setup error for model '{}'. Original error: {}",
+                    effectiveRequest.model(), exception.getMessage(), logException);
+            }
+
+            throw exception;
+        }
+
+        return new StreamModelResolution(modelResolution, routedDeployments);
+    }
+
+    /**
+     * Applies the BYOK (bring-your-own-key) override on top of an already-determined tenant provider that a model
+     * deployment configured by id ({@code model.getProviderId()}): if {@code connectedUserId} has its own enabled
+     * provider of {@code tenantProvider}'s type, that provider serves the request instead of the tenant's — the
+     * customer's own credentials, run through the identical
+     * {@code AiGatewayChatModelFactory}/{@code AiGatewayEmbeddingModelFactory} call the tenant provider would have
+     * taken, so the SSRF guard ({@code AiObservabilityUrlValidator#validateExternalUrl}) and the API-key decryption
+     * those factories perform stay on the one path both kinds of provider go through — this method never builds a model
+     * client itself.
+     *
+     * <p>
+     * Deliberately calls {@code AiGatewayProviderService#fetchProviderByConnectedUserIdAndType} directly rather than
+     * {@link AiGatewayProviderResolver#resolve}: {@code resolve} re-derives its tenant fallback purely by type, which
+     * would let it return a DIFFERENT tenant provider row than {@code tenantProvider} in the (schema-permitted, if
+     * unusual) case of two enabled tenant providers sharing a type — silently swapping which of the tenant's own
+     * accounts serves a model deployment that a routing policy configured by a specific provider id. Falling back to
+     * the exact {@code tenantProvider} the caller already resolved avoids that divergence entirely.
+     * {@link #resolveModel} has no such already-known provider to preserve — it goes through
+     * {@link AiGatewayProviderResolver} directly.
+     *
+     * <p>
+     * Returns {@code tenantProvider} unchanged — with no extra lookup at all — for automation traffic
+     * ({@code connectedUserId == null}); every request that reaches this method with a null connected user id takes
+     * exactly the code path it took before this override existed. A connected-user provider that exists but is disabled
+     * also falls through to {@code tenantProvider} rather than failing the request — the same choice
+     * {@link AiGatewayProviderResolver#resolve} documents for the identical situation.
+     */
+    private AiGatewayProvider applyByokOverride(AiGatewayProvider tenantProvider, @Nullable Long connectedUserId) {
+        if (connectedUserId == null) {
+            return tenantProvider;
+        }
+
+        Optional<AiGatewayProvider> connectedUserProvider = aiGatewayProviderService
+            .fetchProviderByConnectedUserIdAndType(connectedUserId, tenantProvider.getType());
+
+        return connectedUserProvider.filter(AiGatewayProvider::isEnabled)
+            .orElseGet(() -> requireTenantProviderUsableByConnectedUser(tenantProvider, connectedUserId));
+    }
+
+    /**
+     * Positive allowlist guarding the fallback branch of {@link #applyByokOverride}: {@code tenantProvider} may only
+     * serve {@code connectedUserId}'s request if it is bound to NO connected user (a genuine tenant/shared row) or to
+     * this EXACT connected user. A provider bound to a DIFFERENT connected user must never silently serve here —
+     * unreachable today because nothing outside raw SQL writes {@code connected_user_id} on a provider, but this guard
+     * is what keeps it unreachable once something does: without it, a model deployment whose configured provider
+     * happens to be another customer's own BYOK row would run this customer's traffic on that other customer's
+     * credentials — a cross-tenant credential leak, not a convenience.
+     */
+    private AiGatewayProvider requireTenantProviderUsableByConnectedUser(
+        AiGatewayProvider tenantProvider, long connectedUserId) {
+
+        Long tenantProviderConnectedUserId = tenantProvider.getConnectedUserId();
+
+        if (tenantProviderConnectedUserId != null && !tenantProviderConnectedUserId.equals(connectedUserId)) {
+            throw new AiGatewayProviderScopeViolationException(
+                "Provider " + tenantProvider.getId() + " is scoped to a different connected user",
+                tenantProvider.getId(), connectedUserId, tenantProviderConnectedUserId);
+        }
+
+        return tenantProvider;
+    }
+
+    private ModelResolution resolveModel(String modelIdentifier, @Nullable Long connectedUserId) {
         String[] parts = modelIdentifier.split("/", 2);
 
         if (parts.length != 2) {
@@ -1529,19 +2021,39 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             .replace("-", "_");
         String modelName = parts[1];
 
-        List<AiGatewayProvider> providers = aiGatewayProviderService.getEnabledProviders();
+        AiGatewayProvider tenantProvider = resolveTenantProviderByTypeName(providerTypeName);
 
-        AiGatewayProvider provider = providers.stream()
-            .filter(existingProvider -> existingProvider.getType()
-                .name()
-                .equalsIgnoreCase(providerTypeName))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException(
-                "No enabled provider found for type: " + providerTypeName));
+        AiModel model = aiModelService.getModel(tenantProvider.getId(), modelName);
 
-        AiModel model = aiModelService.getModel(provider.getId(), modelName);
+        // Unlike applyByokOverride's by-id callers, resolveModel has no already-known specific provider to preserve
+        // — it only ever knew a TYPE, so going through the resolver's own customer-then-tenant precedence directly
+        // introduces no additional divergence beyond what resolveTenantProviderByTypeName above already accepted.
+        AiGatewayProvider provider = connectedUserId == null
+            ? tenantProvider
+            : aiGatewayProviderResolver.resolve(connectedUserId, tenantProvider.getType());
 
         return new ModelResolution(provider, model);
+    }
+
+    /**
+     * Resolves an already-normalized provider type name (uppercased, hyphens replaced with underscores — see
+     * {@link #resolveModel}) to the tenant's shared provider of that type, via
+     * {@link AiGatewayProviderResolver#resolveTenantProvider}. An unrecognized type name is folded into the same "no
+     * enabled provider" error as a recognized type with none configured: from the caller's perspective both mean "there
+     * is nothing here that can serve this request", and the pre-BYOK implementation of this method produced that
+     * identical message for both cases too (a stream filter that simply never matches an unknown name).
+     */
+    private AiGatewayProvider resolveTenantProviderByTypeName(String providerTypeName) {
+        AiGatewayProviderType providerType;
+
+        try {
+            providerType = AiGatewayProviderType.valueOf(providerTypeName);
+        } catch (IllegalArgumentException unknownProviderType) {
+            throw new IllegalArgumentException(
+                "No enabled provider found for type: " + providerTypeName, unknownProviderType);
+        }
+
+        return aiGatewayProviderResolver.resolveTenantProvider(providerType);
     }
 
     private AiGatewayChatCompletionRequest compressMessages(
@@ -1861,7 +2373,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
     private AiLlmUsage createSuccessLog(
         AiGatewayChatCompletionRequest request, AiModel model, AiGatewayProvider provider,
-        long startTime, int inputTokens, int outputTokens) {
+        long startTime, int inputTokens, int outputTokens, @Nullable Long connectedUserId) {
 
         AiLlmUsage requestLog = new AiLlmUsage(
             UUID.randomUUID()
@@ -1881,6 +2393,14 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         requestLog.setCost(cost);
 
         setApiKeyIdFromAuthentication(requestLog);
+
+        // The spend rollup key: ai_llm_usage.user_id already exists and is otherwise left null for every AI_GATEWAY
+        // row (see AiLlmUsage's Javadoc — the column was added for AI Hub attribution and is generic "the user this
+        // call ran under"). Stamping the resolved embedded connected user id here, with no schema change, is what
+        // makes per-customer spend attribution derivable straight from ai_llm_usage (spec §9); connectedUserId is
+        // null for every automation request and for an embedded request that never resolved one, so this is a no-op
+        // for existing traffic.
+        requestLog.setUserId(connectedUserId);
 
         return requestLog;
     }
@@ -1917,8 +2437,28 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         return null;
     }
 
+    /**
+     * Returns the environment the current API key principal authenticated into, for a request made on behalf of
+     * {@code connectedUserId}. Any API key token qualifies: the embedded endpoint authenticates with its own token, a
+     * sibling of the gateway's under {@code AbstractApiKeyAuthenticationToken}, so matching only the gateway's type
+     * read every embedded customer as DEVELOPMENT. A principal carrying no environment is refused rather than
+     * defaulted, since {@code 0} is itself a real environment. Automation traffic ({@code connectedUserId == null})
+     * never reads the result -- the embedded settings lookup short-circuits for it -- so it gets {@code 0} without a
+     * principal check.
+     */
+    private static long resolveConnectedUserEnvironmentId(@Nullable Long connectedUserId) {
+        if (connectedUserId == null) {
+            return 0L;
+        }
+
+        return PrincipalEnvironment.fetchCurrentPrincipalEnvironmentId()
+            .orElseThrow(() -> new AccessDeniedException(
+                "Connected user " + connectedUserId + " is not authenticated into an environment"));
+    }
+
     private AiLlmUsage createErrorLog(
-        AiGatewayChatCompletionRequest request, long startTime, Exception exception) {
+        AiGatewayChatCompletionRequest request, long startTime, Exception exception,
+        @Nullable Long connectedUserId) {
 
         AiLlmUsage errorLog = new AiLlmUsage(
             UUID.randomUUID()
@@ -1930,6 +2470,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         errorLog.setErrorMessage(exception.getMessage());
 
         setApiKeyIdFromAuthentication(errorLog);
+
+        // See createSuccessLog's comment on the same field — same spend rollup key, error rows included so a
+        // customer's failed-request costs (retries, error-status rows) attribute the same way as successful ones.
+        errorLog.setUserId(connectedUserId);
 
         return errorLog;
     }
@@ -1997,7 +2541,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         @Nullable AiGatewayChatCompletionResponse response,
         long startTime,
         boolean success,
-        @Nullable ResolvedPrompt resolvedPrompt) {
+        @Nullable ResolvedPrompt resolvedPrompt,
+        @Nullable Long connectedUserId) {
 
         if (workspaceId == null) {
             return;
@@ -2076,6 +2621,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 span.setPromptVersionId(resolvedPrompt.promptVersionId());
             }
 
+            applyConnectedUserSpanAttribute(span, connectedUserId);
+
             span.close(spanEndTime, success ? AiObservabilitySpanStatus.COMPLETED : AiObservabilitySpanStatus.ERROR);
 
             aiObservabilitySpanService.create(span);
@@ -2134,7 +2681,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         long startTime,
         boolean success,
         @Nullable String outputText,
-        @Nullable AtomicLong traceIdHolder) {
+        @Nullable AtomicLong traceIdHolder,
+        @Nullable Long connectedUserId) {
 
         if (workspaceId == null) {
             return;
@@ -2185,6 +2733,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 }
             }
 
+            applyConnectedUserSpanAttribute(span, connectedUserId);
+
             span.close(spanEndTime, success ? AiObservabilitySpanStatus.COMPLETED : AiObservabilitySpanStatus.ERROR);
 
             transactionTemplate.executeWithoutResult(
@@ -2192,6 +2742,21 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         } catch (Exception exception) {
             log.error("Failed to process streaming tracing headers for model '{}' — tracing data will be missing",
                 request.model(), exception);
+        }
+    }
+
+    /**
+     * Stamps the resolved embedded connected user id onto the span's existing {@code metadata} column as an attribute —
+     * per spec §9, spans already persist {@code input}, {@code output}, {@code model}, {@code cost} and
+     * {@code latencyMs}; they gain the connected user as an attribute on this call, not a new span type or a schema
+     * change. {@code metadata} is otherwise unused by every span the gateway itself creates (the trace-level metadata
+     * populated from {@code X-ByteChef-Metadata-*} headers is a separate field on {@link AiObservabilityTrace}, not
+     * this column), so this never collides with another writer. No-op when {@code connectedUserId} is {@code null} —
+     * automation traffic and a header-less embedded request leave the span exactly as before.
+     */
+    private static void applyConnectedUserSpanAttribute(AiObservabilitySpan span, @Nullable Long connectedUserId) {
+        if (connectedUserId != null) {
+            span.setMetadata("{\"connectedUserId\":" + connectedUserId + "}");
         }
     }
 
@@ -2568,7 +3133,9 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     @Nullable
     private BigDecimal calculateTraceCost(String modelIdentifier, int inputTokens, int outputTokens) {
         try {
-            ModelResolution modelResolution = resolveModel(modelIdentifier);
+            // No connected user id: only the resolved model's pricing metadata is read below, never the provider, so
+            // a BYOK override here would be resolved and then silently discarded — skip it.
+            ModelResolution modelResolution = resolveModel(modelIdentifier, null);
 
             return aiGatewayCostCalculator.calculateCost(
                 modelResolution.model(), inputTokens, outputTokens);
@@ -2685,5 +3252,18 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     }
 
     private record ResolvedPrompt(Long promptId, Long promptVersionId, String content) {
+    }
+
+    /**
+     * The two settings rows an embedded request reads, each resolved once at request entry: the environment's embedded
+     * settings (default plan, default cap) and the connected user's own settings (assigned plan, cap override). Both
+     * are empty for automation traffic.
+     */
+    private record EmbeddedRequestSettings(
+        Optional<AiGatewayEmbeddedSettings> embeddedSettings,
+        Optional<AiGatewayConnectedUserSettings> connectedUserSettings) {
+
+        private static final EmbeddedRequestSettings NONE =
+            new EmbeddedRequestSettings(Optional.empty(), Optional.empty());
     }
 }

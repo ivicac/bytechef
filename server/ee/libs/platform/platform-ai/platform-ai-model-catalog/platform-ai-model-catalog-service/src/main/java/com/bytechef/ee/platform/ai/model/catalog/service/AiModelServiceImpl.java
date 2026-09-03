@@ -135,6 +135,13 @@ class AiModelServiceImpl implements AiModelService {
         existingModel.setAlias(model.getAlias());
         existingModel.setCapabilities(model.getCapabilities());
         existingModel.setContextWindow(model.getContextWindow());
+        // Was missing entirely: create() persists this field (createWorkspaceAiModel accepts it), but update() used
+        // to silently drop it, making it settable once and then permanently unchangeable via the API despite the
+        // mutation returning 200. Including it here also means a null defaultRoutingPolicyId now CLEARS a
+        // previously-set value, not merely "leaves it alone" — the correct reading of a mutation that accepts the
+        // field at all, and the same round-trip-the-whole-object semantics applyAndSave's other setters already
+        // have.
+        existingModel.setDefaultRoutingPolicyId(model.getDefaultRoutingPolicyId());
         existingModel.setEnabled(model.isEnabled());
         existingModel.setInputCostPerMTokens(model.getInputCostPerMTokens());
         existingModel.setName(model.getName());
