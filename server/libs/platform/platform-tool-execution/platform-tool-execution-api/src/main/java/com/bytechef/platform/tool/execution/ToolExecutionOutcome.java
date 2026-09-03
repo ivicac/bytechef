@@ -17,6 +17,9 @@
 package com.bytechef.platform.tool.execution;
 
 /**
+ * The outcome of a direct tool/action execution. Persisted by ordinal; append new values at the end (pinned by an enum
+ * ordinal stability test).
+ *
  * @author Ivica Cardic
  */
 public enum ToolExecutionOutcome {
@@ -26,5 +29,6 @@ public enum ToolExecutionOutcome {
     CONNECTION_REQUIRED,
     TIMEOUT,
     APPROVAL_REQUIRED,
-    APPROVAL_DENIED
+    APPROVAL_DENIED,
+    RULE_BLOCKED
 }
