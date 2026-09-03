@@ -15,6 +15,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.ee.platform.ai.workspaceprompt.WorkspaceSystemPrompts;
 import com.bytechef.platform.constant.PlatformType;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class WorkspaceSystemPromptAdvisorProviderTest {
         when(projectProvider.getIfAvailable()).thenReturn(projectService);
 
         return new WorkspaceSystemPromptAdvisorProviderImpl(
-            workspaceSystemPrompts, deploymentProvider, projectProvider);
+            workspaceSystemPrompts, new JobPrincipalWorkspaceResolver(deploymentProvider, projectProvider));
     }
 
     @Test

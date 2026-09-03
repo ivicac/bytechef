@@ -1,5 +1,4 @@
 dependencies {
-    implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("io.micrometer:micrometer-core")
     implementation("org.apache.commons:commons-lang3")
     implementation("org.springframework:spring-context")
@@ -9,7 +8,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-api"))
     implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
     // Resolves a job principal id (project deployment id) to its workspace for AiGuardrailsAdvisorProviderImpl.
-    implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
+    implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-workspace"))
     // Provides the injection-classifier SPI + exception (AiGatewayInjectionClassifier, AiGatewayGuardrailException) and
     // the model/provider/chat-model-factory types the prompt-based classifiers call through.
     implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api"))
@@ -22,6 +21,9 @@ dependencies {
 
     api(project(":server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-api"))
 
+    // ProjectDeploymentService/ProjectService are named only by the advisor tests, which build a real
+    // JobPrincipalWorkspaceResolver from mocked providers.
+    testImplementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
