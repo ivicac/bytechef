@@ -29,3 +29,31 @@ export function resolveClusterRootId(data: NodeDataType): string | undefined {
 
     return data.clusterRoot ? data.workflowNodeName : undefined;
 }
+
+/**
+ * The workflow node name a request about a cluster element must carry as `workflowNodeName`: the
+ * TOP-LEVEL root task's. The server resolves the element inside that task's `clusterElements`
+ * (by type, then by name, nested types walked), so the root is the only name it accepts there.
+ *
+ * The node is the source of truth: every member the shared builder emits carries the root as
+ * `topLevelClusterRootId`, and a root names itself. `rootClusterElementNodeData` is a fallback for
+ * a cluster element with no ids only -- it is seeded while the dialog is open and left behind on
+ * the main canvas afterwards, so it can name the wrong root there. A node that is neither a
+ * cluster element nor a root resolves to nothing, so callers keep their own-name fallback for
+ * ordinary tasks.*/
+export function resolveMainClusterRootName(
+    currentNode: NodeDataType | undefined,
+    rootClusterElementNodeData: NodeDataType | undefined
+): string | undefined {
+    const resolvedFromNode = currentNode ? resolveClusterRootId(currentNode) : undefined;
+
+    if (resolvedFromNode) {
+        return resolvedFromNode;
+    }
+
+    // The store is consulted only for a cluster element the node graph could not place, and never
+    // for a plain task: on the main canvas the field is whatever root last opened a destination --
+    // nothing there clears it -- so preferring it sent a tool's requests to the root of a
+    // different box, and would hand a plain task a root it does not have.
+    return currentNode?.clusterElementType ? rootClusterElementNodeData?.workflowNodeName : undefined;
+}
