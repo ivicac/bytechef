@@ -344,6 +344,9 @@ public final class ComponentDsl {
                 .type(TOOLS)
                 .properties(properties);
 
+        actionDefinition.getRiskLevel()
+            .ifPresent(clusterElementDefinition::riskLevel);
+
         outputDefinition.ifPresent(definition -> {
             Optional<? extends BaseOutputFunction> outputFunction = definition.getOutput();
 
@@ -580,6 +583,7 @@ public final class ComponentDsl {
         private ProcessErrorResponseFunction processErrorResponseFunction;
         private List<? extends Property> properties = List.of();
         private BaseResumePerformFunction resumePerformFunction;
+        private RiskLevel riskLevel;
         private String title;
         private WorkflowNodeDescriptionFunction workflowNodeDescriptionFunction;
 
@@ -787,6 +791,12 @@ public final class ComponentDsl {
             return this;
         }
 
+        public ModifiableActionDefinition riskLevel(RiskLevel riskLevel) {
+            this.riskLevel = riskLevel;
+
+            return this;
+        }
+
         public ModifiableActionDefinition title(String title) {
             this.title = title;
 
@@ -900,6 +910,11 @@ public final class ComponentDsl {
         @Override
         public Optional<? extends BaseResumePerformFunction> getResumePerform() {
             return Optional.ofNullable(resumePerformFunction);
+        }
+
+        @Override
+        public Optional<RiskLevel> getRiskLevel() {
+            return Optional.ofNullable(riskLevel);
         }
 
         @Override
@@ -2553,6 +2568,7 @@ public final class ComponentDsl {
         private OutputDefinition outputDefinition;
         private ProcessErrorResponseFunction processErrorResponseFunction;
         private List<? extends Property> properties = List.of();
+        private RiskLevel riskLevel;
         private String title;
         private WorkflowNodeDescriptionFunction workflowNodeDescriptionFunction;
 
@@ -2669,6 +2685,12 @@ public final class ComponentDsl {
             return this;
         }
 
+        public ModifiableClusterElementDefinition<T> riskLevel(RiskLevel riskLevel) {
+            this.riskLevel = riskLevel;
+
+            return this;
+        }
+
         public ModifiableClusterElementDefinition<T> title(String title) {
             this.title = title;
 
@@ -2744,6 +2766,11 @@ public final class ComponentDsl {
         @Override
         public List<? extends Property> getProperties() {
             return properties == null ? List.of() : properties;
+        }
+
+        @Override
+        public Optional<RiskLevel> getRiskLevel() {
+            return Optional.ofNullable(riskLevel);
         }
 
         @Override
