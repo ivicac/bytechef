@@ -357,6 +357,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append Value to List",
     "workflowNodeDescription": null
   }, {
@@ -503,6 +504,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Atomic Increment",
     "workflowNodeDescription": null
   }, {
@@ -863,6 +865,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Await Get Value",
     "workflowNodeDescription": null
   }, {
@@ -943,6 +946,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Value",
     "workflowNodeDescription": null
   }, {
@@ -1042,6 +1046,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Value from List",
     "workflowNodeDescription": null
   }, {
@@ -1105,6 +1110,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get All Entries(Keys and Values)",
     "workflowNodeDescription": null
   }, {
@@ -1446,6 +1452,7 @@
       "type": "TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Value",
     "workflowNodeDescription": null
   }, {
@@ -1782,6 +1789,7 @@
       "type": "TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Set Value",
     "workflowNodeDescription": null
   }, {
@@ -2137,6 +2145,7 @@
       "type": "TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Set Value in List",
     "workflowNodeDescription": null
   } ],

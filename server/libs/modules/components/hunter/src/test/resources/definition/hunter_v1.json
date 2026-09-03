@@ -1347,6 +1347,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Combined Enrichment",
     "workflowNodeDescription": null
   }, {
@@ -2055,6 +2056,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Company Enrichment",
     "workflowNodeDescription": null
   }, {
@@ -2733,6 +2735,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Lead",
     "workflowNodeDescription": null
   }, {
@@ -3609,6 +3612,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Email Enrichment",
     "workflowNodeDescription": null
   } ],

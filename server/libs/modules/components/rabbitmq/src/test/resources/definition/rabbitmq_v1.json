@@ -59,6 +59,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Message",
     "workflowNodeDescription": null
   } ],
@@ -112,6 +113,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Send Message",
     "type": {
       "name": "TOOLS",

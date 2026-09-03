@@ -91,6 +91,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Check for Violations",
     "type": {
       "name": "GUARDRAILS",

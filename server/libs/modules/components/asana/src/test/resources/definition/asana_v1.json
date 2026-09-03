@@ -2532,6 +2532,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Custom Field",
     "workflowNodeDescription": null
   }, {
@@ -3722,6 +3723,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -4730,6 +4732,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Subtask",
     "workflowNodeDescription": null
   }, {
@@ -5671,6 +5674,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   } ],
@@ -8192,6 +8196,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Custom Field",
     "type": {
       "name": "TOOLS",
@@ -9374,6 +9379,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Project",
     "type": {
       "name": "TOOLS",
@@ -10374,6 +10380,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Subtask",
     "type": {
       "name": "TOOLS",
@@ -11307,6 +11314,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",

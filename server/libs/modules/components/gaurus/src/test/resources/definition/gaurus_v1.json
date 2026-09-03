@@ -41,6 +41,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Deletes an external user.",
     "workflowNodeDescription": null
   }, {
@@ -219,10 +220,10 @@
         },
         "placeholder": null,
         "sampleOutput": {
-          "code": "OK",
           "data": "AccountResult[]",
           "hasMoreResults": false,
-          "message": ""
+          "message": "",
+          "code": "OK"
         }
       },
       "outputSchema": {
@@ -381,16 +382,17 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
-        "code": "OK",
         "data": "AccountResult[]",
         "hasMoreResults": false,
-        "message": ""
+        "message": "",
+        "code": "OK"
       }
     },
     "perform": { },
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets accounts for provided client id.",
     "workflowNodeDescription": null
   }, {
@@ -569,10 +571,10 @@
         },
         "placeholder": null,
         "sampleOutput": {
-          "code": "OK",
           "data": "TransactionResult[]",
           "hasMoreResults": true,
-          "message": ""
+          "message": "",
+          "code": "OK"
         }
       },
       "outputSchema": {
@@ -731,10 +733,10 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
-        "code": "OK",
         "data": "TransactionResult[]",
         "hasMoreResults": true,
-        "message": ""
+        "message": "",
+        "code": "OK"
       }
     },
     "perform": { },
@@ -834,6 +836,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets transactions for provided IBAN and query parameters.",
     "workflowNodeDescription": null
   }, {
@@ -1009,18 +1012,18 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "errors": [ ],
           "data": [ {
+            "oib": 1.2345678901E10,
+            "mail": "pero@example.com",
             "name": "Pero Perić d.o.o.",
             "bankEntries": [ {
+              "consentJobStatus": "PENDING",
               "ibans": [ "HR1210010051863000160" ],
-              "bankSlug": "erste",
-              "consentJobStatus": "PENDING"
+              "bankSlug": "erste"
             } ],
-            "id": 42,
-            "oib": 1.2345678901E10,
-            "mail": "pero@example.com"
-          } ],
-          "errors": [ ]
+            "id": 42
+          } ]
         }
       },
       "outputSchema": {
@@ -1176,24 +1179,25 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "errors": [ ],
         "data": [ {
+          "oib": 1.2345678901E10,
+          "mail": "pero@example.com",
           "name": "Pero Perić d.o.o.",
           "bankEntries": [ {
+            "consentJobStatus": "PENDING",
             "ibans": [ "HR1210010051863000160" ],
-            "bankSlug": "erste",
-            "consentJobStatus": "PENDING"
+            "bankSlug": "erste"
           } ],
-          "id": 42,
-          "oib": 1.2345678901E10,
-          "mail": "pero@example.com"
-        } ],
-        "errors": [ ]
+          "id": 42
+        } ]
       }
     },
     "perform": { },
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Gets external users for provided client id.",
     "workflowNodeDescription": null
   }, {
@@ -1371,11 +1375,11 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "errors": [ ],
           "data": [ {
             "existingMails": [ "existing@example.com" ],
             "newMails": [ "new@example.com" ]
-          } ],
-          "errors": [ ]
+          } ]
         }
       },
       "outputSchema": {
@@ -1531,11 +1535,11 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "errors": [ ],
         "data": [ {
           "existingMails": [ "existing@example.com" ],
           "newMails": [ "new@example.com" ]
-        } ],
-        "errors": [ ]
+        } ]
       }
     },
     "perform": { },
@@ -1779,6 +1783,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Creates external users with bank consent jobs.",
     "workflowNodeDescription": null
   }, {
@@ -1823,6 +1828,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Updates an external user.",
     "workflowNodeDescription": null
   } ],

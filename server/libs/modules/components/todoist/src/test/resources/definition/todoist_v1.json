@@ -618,6 +618,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Project",
     "workflowNodeDescription": null
   }, {
@@ -1446,6 +1447,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   }, {
@@ -1496,6 +1498,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Mark Task as Completed",
     "workflowNodeDescription": null
   } ],
@@ -2103,6 +2106,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Project",
     "type": {
       "name": "TOOLS",
@@ -2923,6 +2927,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",
@@ -2967,6 +2972,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Mark Task as Completed",
     "type": {
       "name": "TOOLS",

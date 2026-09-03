@@ -136,6 +136,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Field Mapper",
     "type": {
       "name": "PROCESSOR",

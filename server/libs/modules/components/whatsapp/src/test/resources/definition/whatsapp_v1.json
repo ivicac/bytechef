@@ -373,6 +373,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Message",
     "workflowNodeDescription": null
   } ],
@@ -415,6 +416,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "WhatsApp",
     "type": {
       "name": "APPROVAL_CHANNELS",

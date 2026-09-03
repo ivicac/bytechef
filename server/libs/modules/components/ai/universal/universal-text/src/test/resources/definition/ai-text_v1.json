@@ -312,6 +312,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Classify Text",
     "workflowNodeDescription": null
   }, {
@@ -538,6 +539,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract Data",
     "workflowNodeDescription": null
   }, {
@@ -643,11 +645,11 @@
         },
         "placeholder": null,
         "sampleOutput": {
-          "text": "Hello, my name is [REDACTED_1] and my email is [EMAIL_1].",
           "maskMap": {
             "[REDACTED_1]": "John Doe",
             "[EMAIL_1]": "john@example.com"
-          }
+          },
+          "text": "Hello, my name is [REDACTED_1] and my email is [EMAIL_1]."
         }
       },
       "outputSchema": {
@@ -736,11 +738,11 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
-        "text": "Hello, my name is [REDACTED_1] and my email is [EMAIL_1].",
         "maskMap": {
           "[REDACTED_1]": "John Doe",
           "[EMAIL_1]": "john@example.com"
-        }
+        },
+        "text": "Hello, my name is [REDACTED_1] and my email is [EMAIL_1]."
       }
     },
     "perform": { },
@@ -1053,6 +1055,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Mask",
     "workflowNodeDescription": null
   }, {
@@ -1325,6 +1328,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Unmask",
     "workflowNodeDescription": null
   }, {
@@ -1555,6 +1559,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Sentiment Analysis",
     "workflowNodeDescription": null
   }, {
@@ -1868,6 +1873,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Score",
     "workflowNodeDescription": null
   }, {
@@ -2162,6 +2168,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Summarize Text",
     "workflowNodeDescription": null
   }, {
@@ -2404,6 +2411,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Similarity Search",
     "workflowNodeDescription": null
   }, {
@@ -2634,6 +2642,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Text Generation",
     "workflowNodeDescription": null
   } ],

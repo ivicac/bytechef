@@ -267,6 +267,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Messages",
     "workflowNodeDescription": null
   }, {
@@ -594,6 +595,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Messages",
     "workflowNodeDescription": null
   }, {
@@ -780,6 +782,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Conversation",
     "workflowNodeDescription": null
   } ],
@@ -843,6 +846,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Vector Store Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

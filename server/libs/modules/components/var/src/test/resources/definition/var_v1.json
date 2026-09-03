@@ -259,6 +259,7 @@
       "type": "TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Set Value",
     "workflowNodeDescription": null
   } ],

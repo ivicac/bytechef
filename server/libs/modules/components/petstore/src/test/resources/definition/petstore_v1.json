@@ -878,6 +878,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add a new pet to the store",
     "workflowNodeDescription": null
   }, {
@@ -1488,6 +1489,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create user",
     "workflowNodeDescription": null
   }, {
@@ -2167,6 +2169,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Creates list of users with given input array",
     "workflowNodeDescription": null
   }, {
@@ -2211,6 +2214,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete purchase order by ID",
     "workflowNodeDescription": null
   }, {
@@ -2279,6 +2283,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Deletes a pet",
     "workflowNodeDescription": null
   }, {
@@ -2326,6 +2331,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete user",
     "workflowNodeDescription": null
   }, {
@@ -3008,6 +3014,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Finds Pets by status",
     "workflowNodeDescription": null
   }, {
@@ -3699,6 +3706,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Finds Pets by tags",
     "workflowNodeDescription": null
   }, {
@@ -3819,6 +3827,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Returns pet inventories by status",
     "workflowNodeDescription": null
   }, {
@@ -4186,6 +4195,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find purchase order by ID",
     "workflowNodeDescription": null
   }, {
@@ -4811,6 +4821,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find pet by ID",
     "workflowNodeDescription": null
   }, {
@@ -5257,6 +5268,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get user by user name",
     "workflowNodeDescription": null
   }, {
@@ -5749,6 +5761,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Place an order for a pet",
     "workflowNodeDescription": null
   }, {
@@ -6630,6 +6643,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update an existing pet",
     "workflowNodeDescription": null
   }, {
@@ -6722,6 +6736,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Updates a pet in the store with form data",
     "workflowNodeDescription": null
   }, {
@@ -7356,6 +7371,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update user",
     "workflowNodeDescription": null
   }, {
@@ -7717,6 +7733,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "uploads an image",
     "workflowNodeDescription": null
   } ],

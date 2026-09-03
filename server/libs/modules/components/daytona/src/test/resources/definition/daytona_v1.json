@@ -404,6 +404,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Execute Code",
     "workflowNodeDescription": null
   }, {
@@ -552,6 +553,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Sandbox",
     "workflowNodeDescription": null
   }, {
@@ -688,6 +690,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Sandbox",
     "workflowNodeDescription": null
   }, {
@@ -946,6 +949,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -1347,6 +1351,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Execute Code",
     "type": {
       "name": "TOOLS",
@@ -1495,6 +1500,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Sandbox",
     "type": {
       "name": "TOOLS",
@@ -1631,6 +1637,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Sandbox",
     "type": {
       "name": "TOOLS",
@@ -1889,6 +1896,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Upload File",
     "type": {
       "name": "TOOLS",

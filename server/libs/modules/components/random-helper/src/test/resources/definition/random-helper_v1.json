@@ -108,6 +108,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Random Float",
     "workflowNodeDescription": null
   }, {
@@ -200,6 +201,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Random Hex",
     "workflowNodeDescription": null
   }, {
@@ -305,6 +307,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Random Integer",
     "workflowNodeDescription": null
   }, {
@@ -427,6 +430,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Random String",
     "workflowNodeDescription": null
   }, {
@@ -500,6 +504,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Random UUID",
     "workflowNodeDescription": null
   } ],
@@ -602,6 +607,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Random Float",
     "type": {
       "name": "TOOLS",
@@ -691,6 +697,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Random Hex",
     "type": {
       "name": "TOOLS",
@@ -793,6 +800,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Random Integer",
     "type": {
       "name": "TOOLS",
@@ -912,6 +920,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Random String",
     "type": {
       "name": "TOOLS",
@@ -982,6 +991,7 @@
     },
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Random UUID",
     "type": {
       "name": "TOOLS",

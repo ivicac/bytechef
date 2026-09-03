@@ -475,6 +475,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   } ],
@@ -643,6 +644,7 @@
       "required": false,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Amazon Bedrock Model",
     "type": {
       "name": "MODEL",

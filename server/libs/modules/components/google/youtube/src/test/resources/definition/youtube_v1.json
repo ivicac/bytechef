@@ -1402,6 +1402,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload Video",
     "workflowNodeDescription": null
   } ],
@@ -2798,6 +2799,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Upload Video",
     "type": {
       "name": "TOOLS",

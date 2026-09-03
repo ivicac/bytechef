@@ -554,6 +554,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Run",
     "workflowNodeDescription": null
   }, {
@@ -1992,6 +1993,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Session",
     "workflowNodeDescription": null
   }, {
@@ -2834,6 +2836,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Run",
     "workflowNodeDescription": null
   }, {
@@ -4072,6 +4075,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Session",
     "workflowNodeDescription": null
   } ],
@@ -4620,6 +4624,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Run",
     "type": {
       "name": "TOOLS",
@@ -6055,6 +6060,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Session",
     "type": {
       "name": "TOOLS",
@@ -6894,6 +6900,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Run",
     "type": {
       "name": "TOOLS",
@@ -8129,6 +8136,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Session",
     "type": {
       "name": "TOOLS",

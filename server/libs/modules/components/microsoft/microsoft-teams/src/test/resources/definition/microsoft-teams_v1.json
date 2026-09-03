@@ -573,6 +573,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Channel",
     "workflowNodeDescription": null
   }, {
@@ -2256,6 +2257,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Channel Message",
     "workflowNodeDescription": null
   }, {
@@ -3914,6 +3916,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Send Direct Message",
     "workflowNodeDescription": null
   }, {
@@ -5619,6 +5622,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Reply to Channel Message",
     "workflowNodeDescription": null
   } ],
@@ -6186,6 +6190,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Channel",
     "type": {
       "name": "TOOLS",
@@ -7866,6 +7871,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Channel Message",
     "type": {
       "name": "TOOLS",
@@ -9521,6 +9527,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Send Direct Message",
     "type": {
       "name": "TOOLS",
@@ -11223,6 +11230,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Reply to Channel Message",
     "type": {
       "name": "TOOLS",

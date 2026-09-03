@@ -62,6 +62,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Record",
     "workflowNodeDescription": null
   }, {
@@ -132,6 +133,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Record",
     "workflowNodeDescription": null
   }, {
@@ -207,6 +209,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Record",
     "workflowNodeDescription": null
   }, {
@@ -257,6 +260,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Records",
     "workflowNodeDescription": null
   }, {
@@ -347,6 +351,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Record",
     "workflowNodeDescription": null
   } ],
@@ -403,6 +408,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create Record",
     "type": {
       "name": "TOOLS",
@@ -470,6 +476,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Record",
     "type": {
       "name": "TOOLS",
@@ -542,6 +549,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Record",
     "type": {
       "name": "TOOLS",
@@ -589,6 +597,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Records",
     "type": {
       "name": "TOOLS",
@@ -676,6 +685,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Record",
     "type": {
       "name": "TOOLS",

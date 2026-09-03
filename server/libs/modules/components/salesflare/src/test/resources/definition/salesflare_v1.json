@@ -189,6 +189,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Account",
     "workflowNodeDescription": null
   }, {
@@ -593,6 +594,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contacts",
     "workflowNodeDescription": null
   }, {
@@ -839,6 +841,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Tasks",
     "workflowNodeDescription": null
   } ],
