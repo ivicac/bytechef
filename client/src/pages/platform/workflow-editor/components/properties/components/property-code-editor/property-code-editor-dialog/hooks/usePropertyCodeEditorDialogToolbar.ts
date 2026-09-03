@@ -1,11 +1,11 @@
 import {usePropertyCodeEditorDialogStore} from '@/pages/platform/workflow-editor/components/properties/components/property-code-editor/property-code-editor-dialog/stores/usePropertyCodeEditorDialogStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import {resolveMainClusterRootName} from '@/pages/platform/workflow-editor/utils/resolveClusterRootId';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import {useTestClusterElementScriptMutation, useTestWorkflowNodeScriptMutation} from '@/shared/middleware/graphql';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useCallback} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -54,9 +54,7 @@ export const usePropertyCodeEditorDialogToolbar = ({
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
     const rootClusterElementNodeData = useWorkflowEditorStore(useShallow((state) => state.rootClusterElementNodeData));
 
-    const ff_1570 = useFeatureFlagsStore()('ff-1570');
-
-    const copilotEnabled = ai.copilot.enabled && ff_1570;
+    const copilotEnabled = ai.copilot.enabled;
 
     const testClusterElementScriptMutation = useTestClusterElementScriptMutation();
     const testWorkflowNodeScriptMutation = useTestWorkflowNodeScriptMutation();
@@ -87,7 +85,8 @@ export const usePropertyCodeEditorDialogToolbar = ({
     const handleRunClick = useCallback(() => {
         setScriptIsRunning(true);
 
-        const isClusterElement = currentNode?.clusterElementType && rootClusterElementNodeData?.workflowNodeName;
+        const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+        const isClusterElement = currentNode?.clusterElementType && mainClusterRootName;
 
         if (isClusterElement) {
             testClusterElementScriptMutation
@@ -97,7 +96,7 @@ export const usePropertyCodeEditorDialogToolbar = ({
                     environmentId: currentEnvironmentId!,
                     inputParameters,
                     workflowId,
-                    workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                    workflowNodeName: mainClusterRootName as string,
                 })
                 .then((result) => {
                     if (process.env.NODE_ENV === 'development') {
