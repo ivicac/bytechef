@@ -39,6 +39,7 @@ import com.bytechef.platform.component.definition.AbstractActionDefinitionWrappe
 import com.bytechef.platform.component.definition.MultipleConnectionsOutputFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsResumePerformFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsStreamPerformFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.context.EnvironmentContextThreadLocalAccessor;
@@ -89,6 +90,22 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
             workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider).build();
     }
 
+    public static ActionDefinition of(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
+        return new AiAgentStreamChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            componentRuleEnforcers).build();
+    }
+
     private AiAgentStreamChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         AgentToolCallingManagers agentToolCallingManagers,
@@ -101,6 +118,22 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
             aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
             workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider);
+    }
+
+    private AiAgentStreamChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
+        super(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            componentRuleEnforcers);
     }
 
     /**
