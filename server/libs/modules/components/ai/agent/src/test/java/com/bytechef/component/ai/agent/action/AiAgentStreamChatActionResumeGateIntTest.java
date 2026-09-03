@@ -342,7 +342,7 @@ class AiAgentStreamChatActionResumeGateIntTest {
             // The gate is the real cluster element, not a stub: this test exists to prove the agent action and the
             // gate still speak the same suspend protocol now that they live in different modules.
             AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
-                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service), service, null);
+                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service, List.of()), service, null);
 
             ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateDefinition =
                 approvalGateTool.clusterElementDefinition;
