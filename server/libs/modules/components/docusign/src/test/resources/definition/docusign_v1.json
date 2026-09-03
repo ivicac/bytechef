@@ -688,6 +688,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Envelope",
     "workflowNodeDescription": null
   }, {
@@ -992,6 +993,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download Envelope Document",
     "workflowNodeDescription": null
   } ],
@@ -1674,6 +1676,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Envelope",
     "type": {
       "name": "TOOLS",
@@ -1975,6 +1978,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Download Envelope Document",
     "type": {
       "name": "TOOLS",

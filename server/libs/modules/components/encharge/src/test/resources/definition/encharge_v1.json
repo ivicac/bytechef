@@ -70,6 +70,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Tag",
     "workflowNodeDescription": null
   }, {
@@ -837,6 +838,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Email Template",
     "workflowNodeDescription": null
   }, {
@@ -1483,6 +1485,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Person",
     "workflowNodeDescription": null
   } ],

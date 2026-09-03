@@ -1472,6 +1472,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Address",
     "workflowNodeDescription": null
   }, {
@@ -2925,6 +2926,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Geolocation",
     "workflowNodeDescription": null
   }, {
@@ -14418,6 +14420,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Route",
     "workflowNodeDescription": null
   }, {
@@ -14530,6 +14533,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Nearby Search",
     "workflowNodeDescription": null
   } ],
@@ -15996,6 +16000,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Get Address",
     "type": {
       "name": "TOOLS",
@@ -17446,6 +17451,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Geolocation",
     "type": {
       "name": "TOOLS",
@@ -28936,6 +28942,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Route",
     "type": {
       "name": "TOOLS",
@@ -29045,6 +29052,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Nearby Search",
     "type": {
       "name": "TOOLS",

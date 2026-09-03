@@ -1318,6 +1318,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Crawl",
     "workflowNodeDescription": null
   }, {
@@ -2427,6 +2428,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Crawl Status",
     "workflowNodeDescription": null
   }, {
@@ -3031,6 +3033,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Map",
     "workflowNodeDescription": null
   }, {
@@ -4647,6 +4650,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Scrape URL",
     "workflowNodeDescription": null
   }, {
@@ -7164,6 +7168,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search",
     "workflowNodeDescription": null
   } ],
@@ -8476,6 +8481,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Crawl",
     "type": {
       "name": "TOOLS",
@@ -9582,6 +9588,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Crawl Status",
     "type": {
       "name": "TOOLS",
@@ -10183,6 +10190,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Map",
     "type": {
       "name": "TOOLS",
@@ -11796,6 +11804,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Scrape URL",
     "type": {
       "name": "TOOLS",
@@ -14310,6 +14319,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Search",
     "type": {
       "name": "TOOLS",

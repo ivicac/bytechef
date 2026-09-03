@@ -199,6 +199,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Documents",
     "workflowNodeDescription": null
   }, {
@@ -395,6 +396,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Load Documents",
     "workflowNodeDescription": null
   }, {
@@ -659,6 +661,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Documents",
     "workflowNodeDescription": null
   }, {
@@ -855,6 +858,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Documents",
     "workflowNodeDescription": null
   } ],
@@ -889,6 +893,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "MariaDB VectorStore",
     "type": {
       "name": "VECTOR_STORE",

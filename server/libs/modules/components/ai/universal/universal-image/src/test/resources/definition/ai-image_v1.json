@@ -374,6 +374,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Generate Image",
     "workflowNodeDescription": null
   } ],

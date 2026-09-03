@@ -402,6 +402,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Convert to Image",
     "workflowNodeDescription": null
   }, {
@@ -579,6 +580,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Extract Text",
     "workflowNodeDescription": null
   }, {
@@ -963,6 +965,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Image to PDF",
     "workflowNodeDescription": null
   }, {
@@ -1244,6 +1247,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Text to PDF",
     "workflowNodeDescription": null
   } ],
@@ -1640,6 +1644,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Convert to Image",
     "type": {
       "name": "TOOLS",
@@ -1814,6 +1819,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Extract Text",
     "type": {
       "name": "TOOLS",
@@ -2195,6 +2201,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Image to PDF",
     "type": {
       "name": "TOOLS",
@@ -2473,6 +2480,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Text to PDF",
     "type": {
       "name": "TOOLS",

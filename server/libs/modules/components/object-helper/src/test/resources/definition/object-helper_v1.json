@@ -320,6 +320,7 @@
       "type": "TIME"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Value to the Object by Key",
     "workflowNodeDescription": null
   }, {
@@ -878,6 +879,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Key-Value Pairs",
     "workflowNodeDescription": null
   }, {
@@ -997,6 +999,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Contains",
     "workflowNodeDescription": null
   }, {
@@ -1064,6 +1067,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Key-Value Pair",
     "workflowNodeDescription": null
   }, {
@@ -1181,6 +1185,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Equals",
     "workflowNodeDescription": null
   }, {
@@ -1246,6 +1251,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Merge Two Objects",
     "workflowNodeDescription": null
   } ],

@@ -2658,6 +2658,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Web Search",
     "workflowNodeDescription": null
   } ],
@@ -5310,6 +5311,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Web Search",
     "type": {
       "name": "TOOLS",

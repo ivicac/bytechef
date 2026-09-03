@@ -8,6 +8,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Redis Session Repository",
     "type": {
       "name": "SESSION_REPOSITORY",

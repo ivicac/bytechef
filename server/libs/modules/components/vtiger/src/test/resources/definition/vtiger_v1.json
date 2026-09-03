@@ -436,6 +436,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -773,6 +774,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Product",
     "workflowNodeDescription": null
   }, {
@@ -1638,6 +1640,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Me",
     "workflowNodeDescription": null
   } ],

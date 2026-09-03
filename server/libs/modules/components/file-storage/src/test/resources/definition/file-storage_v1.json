@@ -171,6 +171,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read from File as String",
     "workflowNodeDescription": null
   }, {
@@ -381,6 +382,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Read from File as Byte Array",
     "workflowNodeDescription": null
   }, {
@@ -659,6 +661,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Write to File",
     "workflowNodeDescription": null
   }, {
@@ -937,6 +940,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Download File",
     "workflowNodeDescription": null
   } ],
@@ -1105,6 +1109,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Read from File as String",
     "type": {
       "name": "TOOLS",
@@ -1315,6 +1320,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Read from File as Byte Array",
     "type": {
       "name": "TOOLS",
@@ -1593,6 +1599,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Write to File",
     "type": {
       "name": "TOOLS",

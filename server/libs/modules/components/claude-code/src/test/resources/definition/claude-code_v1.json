@@ -67,6 +67,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Initialize Claude Code",
     "workflowNodeDescription": null
   }, {
@@ -319,6 +320,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add MCP Server",
     "workflowNodeDescription": null
   }, {
@@ -454,6 +456,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Chat",
     "workflowNodeDescription": null
   } ],

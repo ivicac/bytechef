@@ -364,6 +364,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Meeting Space",
     "workflowNodeDescription": null
   }, {
@@ -715,6 +716,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Meeting Space",
     "workflowNodeDescription": null
   }, {
@@ -1023,6 +1025,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Participants",
     "workflowNodeDescription": null
   } ],
@@ -1381,6 +1384,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Meeting Space",
     "type": {
       "name": "TOOLS",
@@ -1729,6 +1733,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Meeting Space",
     "type": {
       "name": "TOOLS",
@@ -2034,6 +2039,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Participants",
     "type": {
       "name": "TOOLS",

@@ -36,6 +36,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Debug",
     "workflowNodeDescription": null
   }, {
@@ -75,6 +76,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Error",
     "workflowNodeDescription": null
   }, {
@@ -114,6 +116,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Info",
     "workflowNodeDescription": null
   }, {
@@ -153,6 +156,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Warn",
     "workflowNodeDescription": null
   } ],

@@ -535,6 +535,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Fetch Top Stories",
     "workflowNodeDescription": null
   } ],
@@ -1064,6 +1065,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Fetch Top Stories",
     "type": {
       "name": "TOOLS",

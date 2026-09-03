@@ -274,6 +274,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Attribution Event",
     "workflowNodeDescription": null
   }, {
@@ -682,6 +683,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create or Update User",
     "workflowNodeDescription": null
   } ],
@@ -950,6 +952,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Attribution Event",
     "type": {
       "name": "TOOLS",
@@ -1355,6 +1358,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create or Update User",
     "type": {
       "name": "TOOLS",

@@ -765,6 +765,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -1157,6 +1158,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Invoice",
     "workflowNodeDescription": null
   }, {
@@ -1450,6 +1452,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Item",
     "workflowNodeDescription": null
   } ],
@@ -2209,6 +2212,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -2598,6 +2602,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Create Invoice",
     "type": {
       "name": "TOOLS",
@@ -2888,6 +2893,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Item",
     "type": {
       "name": "TOOLS",

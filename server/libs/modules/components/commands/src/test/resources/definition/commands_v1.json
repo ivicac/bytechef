@@ -646,6 +646,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Shell",
     "workflowNodeDescription": null
   }, {
@@ -1295,6 +1296,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Python",
     "workflowNodeDescription": null
   }, {
@@ -1944,6 +1946,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Node",
     "workflowNodeDescription": null
   } ],

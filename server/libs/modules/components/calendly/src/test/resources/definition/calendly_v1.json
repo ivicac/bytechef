@@ -356,6 +356,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Cancel Event",
     "workflowNodeDescription": null
   } ],
@@ -704,6 +705,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Cancel Event",
     "type": {
       "name": "TOOLS",

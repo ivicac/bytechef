@@ -112,6 +112,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "HTML (Jsoup) Document Reader",
     "type": {
       "name": "DOCUMENT_READER",
@@ -276,6 +277,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "JSON Document Reader",
     "type": {
       "name": "DOCUMENT_READER",
@@ -397,6 +399,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Markdown Document Reader",
     "type": {
       "name": "DOCUMENT_READER",
@@ -518,6 +521,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Page PDF Document Reader",
     "type": {
       "name": "DOCUMENT_READER",
@@ -639,6 +643,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "Tika Document Reader",
     "type": {
       "name": "DOCUMENT_READER",
@@ -760,6 +765,7 @@
       "required": true,
       "type": "FILE_ENTRY"
     } ],
+    "riskLevel": null,
     "title": "TXT Document Reader",
     "type": {
       "name": "DOCUMENT_READER",

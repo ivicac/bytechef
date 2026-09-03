@@ -528,6 +528,7 @@
       "type": "STRING"
     } ],
     "resumePerform": { },
+    "riskLevel": null,
     "title": "Request Approval",
     "workflowNodeDescription": null
   } ],
@@ -1057,6 +1058,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Request Approval",
     "type": {
       "name": "TOOLS",

@@ -80,6 +80,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Row",
     "workflowNodeDescription": null
   }, {
@@ -138,6 +139,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Row",
     "workflowNodeDescription": null
   }, {
@@ -225,6 +227,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Row",
     "workflowNodeDescription": null
   }, {
@@ -334,6 +337,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Rows",
     "workflowNodeDescription": null
   }, {
@@ -436,6 +440,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Row",
     "workflowNodeDescription": null
   } ],
@@ -510,6 +515,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create Row",
     "type": {
       "name": "TOOLS",
@@ -565,6 +571,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete Row",
     "type": {
       "name": "TOOLS",
@@ -649,6 +656,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Get Row",
     "type": {
       "name": "TOOLS",
@@ -755,6 +763,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "List Rows",
     "type": {
       "name": "TOOLS",
@@ -854,6 +863,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Row",
     "type": {
       "name": "TOOLS",
