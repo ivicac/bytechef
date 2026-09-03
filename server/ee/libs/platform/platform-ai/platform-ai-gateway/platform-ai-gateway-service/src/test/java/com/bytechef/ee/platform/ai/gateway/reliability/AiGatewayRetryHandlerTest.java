@@ -14,8 +14,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayModelDeployment;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderScopeViolationException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -164,6 +166,45 @@ class AiGatewayRetryHandlerTest {
                 }));
 
         assertEquals("All deployments failed after retries", exception.getMessage());
+    }
+
+    /**
+     * Fix round 3 regression test: before {@link AiGatewayProviderScopeViolationException} was added to
+     * {@code isNonRetryable}, this exact shape — a permanent misconfiguration thrown from inside the retry lambda — was
+     * retried exactly like {@link IllegalStateException} above: 3 attempts against this deployment, then failover to
+     * every other deployment in the routing policy, all guaranteed to fail identically. The attempt counter is the
+     * assertion that actually matters here; {@code cooldownTracker} is checked too because a retried-but-non-retryable
+     * exception would still avoid recordFailure on SOME path, so the counter is what catches "retried once more than it
+     * should" in a way the cooldown-tracker checks alone would not.
+     */
+    @Test
+    void testExecuteWithRetryThrowsImmediatelyOnProviderScopeViolation() {
+        AiGatewayModelDeployment firstDeployment = createDeployment(1L);
+        AiGatewayModelDeployment secondDeployment = createDeployment(2L);
+
+        when(cooldownTracker.isCooledDown(1L)).thenReturn(false);
+        when(cooldownTracker.isCooledDown(2L)).thenReturn(false);
+
+        AtomicInteger attemptCount = new AtomicInteger();
+
+        assertThrows(
+            AiGatewayProviderScopeViolationException.class,
+            () -> retryHandler.executeWithRetry(
+                List.of(firstDeployment, secondDeployment), deploymentArg -> {
+                    attemptCount.incrementAndGet();
+
+                    throw new AiGatewayProviderScopeViolationException(
+                        "Provider 1 is scoped to a different connected user", 1L, 5L, 99L);
+                }));
+
+        assertEquals(1, attemptCount.get(),
+            "a permanent misconfiguration must be attempted exactly once — not 3 retries against this deployment, "
+                + "and not a failover attempt against the second deployment either");
+
+        verify(cooldownTracker, never()).recordFailure(1L);
+        verify(cooldownTracker, never()).recordSuccess(1L);
+        verify(cooldownTracker, never()).recordFailure(2L);
+        verify(cooldownTracker, never()).recordSuccess(2L);
     }
 
     @Test

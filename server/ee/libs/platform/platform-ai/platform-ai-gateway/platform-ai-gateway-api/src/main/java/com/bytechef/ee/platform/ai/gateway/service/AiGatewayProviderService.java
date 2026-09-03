@@ -8,8 +8,10 @@
 package com.bytechef.ee.platform.ai.gateway.service;
 
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderType;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,7 +24,18 @@ public interface AiGatewayProviderService {
 
     AiGatewayProvider create(AiGatewayProvider provider);
 
+    AiGatewayProvider createConnectedUserProvider(AiGatewayProvider provider, long connectedUserId);
+
     void delete(long id);
+
+    void disableByConnectedUserId(long connectedUserId);
+
+    /**
+     * Returns the provider bound to the given connected user for the given provider type, if any — the BYOK
+     * (bring-your-own-key) row that {@code AiGatewayProviderResolver} prefers over the tenant's own provider of the
+     * same type.
+     */
+    Optional<AiGatewayProvider> fetchProviderByConnectedUserIdAndType(long connectedUserId, AiGatewayProviderType type);
 
     AiGatewayProvider getProvider(long id);
 
@@ -31,6 +44,8 @@ public interface AiGatewayProviderService {
     List<AiGatewayProvider> getProviders();
 
     List<AiGatewayProvider> getEnabledProviders();
+
+    List<AiGatewayProvider> getProvidersByConnectedUserId(long connectedUserId);
 
     List<AiGatewayProvider> getProvidersByWorkspaceId(long workspaceId);
 

@@ -9,6 +9,8 @@ package com.bytechef.ee.platform.ai.gateway.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +27,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -107,6 +110,88 @@ class AiGatewayProviderServiceTest {
         assertThat(providers).containsExactly(enabledProvider);
 
         verify(aiGatewayProviderRepository).findAllByEnabled(true);
+    }
+
+    @Test
+    void testCreateConnectedUserProviderBindsTheConnectedUserAtCreation() {
+        AiGatewayProvider provider = new AiGatewayProvider("customer", AiGatewayProviderType.OPENAI, "sk-customer");
+
+        when(aiGatewayProviderRepository.findByConnectedUserIdAndType(42L, AiGatewayProviderType.OPENAI.ordinal()))
+            .thenReturn(Optional.empty());
+        when(aiGatewayProviderRepository.save(provider)).thenReturn(provider);
+
+        AiGatewayProvider created = aiGatewayProviderService.createConnectedUserProvider(provider, 42L);
+
+        assertThat(created.getConnectedUserId()).isEqualTo(42L);
+    }
+
+    /**
+     * {@code uk_ai_gateway_provider_connected_user_id_type} ignores {@code enabled}, so a disabled provider of the same
+     * type still blocks a new one. Refused as a domain error naming the existing provider instead of surfacing as an
+     * unmapped constraint violation.
+     */
+    @Test
+    void testCreateConnectedUserProviderRefusesASecondProviderOfTheSameTypeEvenWhenDisabled() {
+        AiGatewayProvider existing = newProviderWithId(7L);
+
+        existing.setEnabled(false);
+
+        when(aiGatewayProviderRepository.findByConnectedUserIdAndType(42L, AiGatewayProviderType.OPENAI.ordinal()))
+            .thenReturn(Optional.of(existing));
+
+        AiGatewayProvider provider = new AiGatewayProvider("customer", AiGatewayProviderType.OPENAI, "sk-customer");
+
+        assertThatThrownBy(() -> aiGatewayProviderService.createConnectedUserProvider(provider, 42L))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Connected user 42 already has a provider of type OPENAI (7); delete it first");
+
+        verify(aiGatewayProviderRepository, never()).save(any());
+    }
+
+    @Test
+    void testCreateConnectedUserProviderRefusesAWorkspaceScopedProvider() {
+        AiGatewayProvider provider = new AiGatewayProvider("customer", AiGatewayProviderType.OPENAI, "sk-customer");
+
+        provider.setWorkspaceId(9L);
+
+        assertThatThrownBy(() -> aiGatewayProviderService.createConnectedUserProvider(provider, 42L))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("A connected user's provider cannot belong to a workspace");
+
+        verify(aiGatewayProviderRepository, never()).save(any());
+    }
+
+    /**
+     * Disabling keeps {@code connected_user_id}: clearing it would hand the key to every other customer. Both model
+     * caches are evicted so a cached client built from the key stops serving immediately.
+     */
+    @Test
+    void testDisableByConnectedUserIdDisablesEveryProviderAndEvictsBothCaches() {
+        AiGatewayProvider firstProvider = newProviderWithId(7L);
+        AiGatewayProvider secondProvider = newProviderWithId(8L);
+
+        firstProvider.setConnectedUserId(42L);
+        secondProvider.setConnectedUserId(42L);
+
+        when(aiGatewayProviderRepository.findAllByConnectedUserId(42L))
+            .thenReturn(List.of(firstProvider, secondProvider));
+
+        aiGatewayProviderService.disableByConnectedUserId(42L);
+
+        ArgumentCaptor<AiGatewayProvider> providerCaptor = ArgumentCaptor.forClass(AiGatewayProvider.class);
+
+        verify(aiGatewayProviderRepository, org.mockito.Mockito.times(2)).save(providerCaptor.capture());
+
+        assertThat(providerCaptor.getAllValues())
+            .allSatisfy(provider -> {
+                assertThat(provider.isEnabled()).isFalse();
+                assertThat(provider.getConnectedUserId()).isEqualTo(42L);
+            });
+
+        verify(aiGatewayChatModelFactory).evict(7L);
+        verify(aiGatewayChatModelFactory).evict(8L);
+        verify(aiGatewayEmbeddingModelFactory).evict(7L);
+        verify(aiGatewayEmbeddingModelFactory).evict(8L);
     }
 
     private static AiGatewayProvider newProviderWithId(long id) {

@@ -26,4 +26,6 @@ public interface AiGatewayRoutingPolicyRepository extends ListCrudRepository<AiG
      * no workspace and is therefore never returned here — SQL equality never matches NULL.
      */
     List<AiGatewayRoutingPolicy> findAllByWorkspaceId(long workspaceId);
+
+    List<AiGatewayRoutingPolicy> findAllByWorkspaceIdIsNull();
 }
