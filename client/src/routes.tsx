@@ -511,6 +511,10 @@ const platformSettingsRoutes = {
                     path: 'component-visibility',
                 },
                 {
+                    element: <Navigate replace to="/automation/settings/ai/agents/rules" />,
+                    path: 'rules',
+                },
+                {
                     element: (
                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                             <EEVersion>
