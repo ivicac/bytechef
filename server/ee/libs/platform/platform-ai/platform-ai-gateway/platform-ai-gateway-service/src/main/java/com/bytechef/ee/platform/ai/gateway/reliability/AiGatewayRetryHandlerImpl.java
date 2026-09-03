@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.ai.gateway.reliability;
 
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayModelDeployment;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderScopeViolationException;
 import com.bytechef.ee.platform.ai.gateway.util.AiGatewayThrowables;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
@@ -188,7 +189,12 @@ public class AiGatewayRetryHandlerImpl implements AiGatewayRetryHandler {
             exception instanceof ClassCastException ||
             exception instanceof UnsupportedOperationException ||
             exception instanceof IndexOutOfBoundsException ||
-            exception instanceof NonTransientAiException;
+            exception instanceof NonTransientAiException ||
+            // A model deployment's configured provider belongs to a different connected user than the request —
+            // a vendor-operator misconfiguration, not a transient failure. Retrying would guarantee the identical
+            // failure on every deployment in the routing policy (several seconds of futile latency) and bury this
+            // exception's precise, security-relevant message inside a generic "All deployments failed" wrapper.
+            exception instanceof AiGatewayProviderScopeViolationException;
     }
 
     private <T> Flux<T> tryDeploymentStream(

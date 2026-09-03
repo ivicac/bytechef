@@ -19,6 +19,13 @@ public interface AiGatewayRoutingPolicyRepository extends ListCrudRepository<AiG
 
     Optional<AiGatewayRoutingPolicy> findByName(String name);
 
+    /**
+     * Returns the policy bound to the given connected user, if any. No environment parameter:
+     * {@link AiGatewayRoutingPolicy} has no environment field and the gateway schema has no environment column —
+     * environment arrives through the connected user id, which is already per-environment.
+     */
+    Optional<AiGatewayRoutingPolicy> findByConnectedUserId(long connectedUserId);
+
     List<AiGatewayRoutingPolicy> findAllByEnabled(boolean enabled);
 
     /**
@@ -26,4 +33,6 @@ public interface AiGatewayRoutingPolicyRepository extends ListCrudRepository<AiG
      * no workspace and is therefore never returned here — SQL equality never matches NULL.
      */
     List<AiGatewayRoutingPolicy> findAllByWorkspaceId(long workspaceId);
+
+    List<AiGatewayRoutingPolicy> findAllByWorkspaceIdIsNull();
 }

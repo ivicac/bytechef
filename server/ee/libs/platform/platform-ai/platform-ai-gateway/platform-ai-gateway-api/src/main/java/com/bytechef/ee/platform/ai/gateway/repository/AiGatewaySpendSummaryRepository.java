@@ -26,4 +26,13 @@ public interface AiGatewaySpendSummaryRepository extends ListCrudRepository<AiGa
      */
     List<AiGatewaySpendSummary> findAllByWorkspaceIdAndPeriodStartBetween(
         long workspaceId, Instant start, Instant end);
+
+    /**
+     * Returns the spend summaries attributed to the given connected user whose period starts inside the range. Backs
+     * the per-connected-user budget cap check (spec §7) — exercises the {@code (connected_user_id, period_start)} index
+     * added alongside the column. A summary with a null {@code connected_user_id} is never returned here, for the same
+     * reason a null {@code workspace_id} is never returned by {@link #findAllByWorkspaceIdAndPeriodStartBetween}.
+     */
+    List<AiGatewaySpendSummary> findAllByConnectedUserIdAndPeriodStartBetween(
+        long connectedUserId, Instant start, Instant end);
 }

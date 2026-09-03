@@ -70,6 +70,20 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
         "com.bytechef.ee.platform.ai.llm.usage",
         "com.bytechef.ee.platform.ai.observability",
         "com.bytechef.ee.platform.ai.prompt",
+        // EmbeddedAiGatewayIntTest's chain end to end: ConnectedUserServiceImpl, used to create connected users
+        // whose already-resolved id is fed directly into AiGatewayFacadeImpl. Scoped to the .service leaf package
+        // rather than com.bytechef.ee.embedded.connected.user as a whole — that package also holds
+        // ConnectedUserFacadeImpl, which needs ConnectionService/EnvironmentService/IntegrationInstance*
+        // collaborators this test context does not (and should not) wire.
+        "com.bytechef.ee.embedded.connected.user.service",
+        // ConnectedUserBeforeDeleteEventListener (phase 2 task 3): unbinds a connected user's AI Gateway routing
+        // policy before the row is deleted. Proven against a real delete here rather than mocked, since the
+        // listener only fires through Spring Data JDBC's actual relational event publication.
+        "com.bytechef.ee.embedded.connected.user.event",
+        // ConnectedUserAiGatewayRoutingPolicyFacadeImpl (phase 2 task 3): the vendor-admin bind/unbind entry point.
+        // A narrow leaf package, deliberately separate from com.bytechef.ee.embedded.connected.user.facade for the
+        // same reason the .service scope above is separate from it.
+        "com.bytechef.ee.embedded.connected.user.gateway.facade",
         "com.bytechef.encryption",
         "com.bytechef.file.storage"
     })

@@ -13,6 +13,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -53,6 +54,18 @@ class AiGatewayRoutingPolicyServiceImpl implements AiGatewayRoutingPolicyService
         aiGatewayModelDeploymentService.deleteByRoutingPolicyId(id);
 
         aiGatewayRoutingPolicyRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AiGatewayRoutingPolicy> fetchRoutingPolicyByConnectedUserId(long connectedUserId) {
+        return aiGatewayRoutingPolicyRepository.findByConnectedUserId(connectedUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiGatewayRoutingPolicy> getDefaultRoutingPolicies() {
+        return aiGatewayRoutingPolicyRepository.findAllByWorkspaceIdIsNull();
     }
 
     @Override
@@ -100,6 +113,15 @@ class AiGatewayRoutingPolicyServiceImpl implements AiGatewayRoutingPolicyService
         existingPolicy.setStrategy(policy.getStrategy());
 
         return aiGatewayRoutingPolicyRepository.save(existingPolicy);
+    }
+
+    @Override
+    public void updateConnectedUserId(long id, @Nullable Long connectedUserId) {
+        AiGatewayRoutingPolicy policy = getRoutingPolicy(id);
+
+        policy.setConnectedUserId(connectedUserId);
+
+        aiGatewayRoutingPolicyRepository.save(policy);
     }
 
     @Override

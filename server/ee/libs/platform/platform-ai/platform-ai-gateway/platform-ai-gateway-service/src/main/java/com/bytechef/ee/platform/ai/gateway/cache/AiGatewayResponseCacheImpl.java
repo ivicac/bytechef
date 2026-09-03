@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -56,7 +57,7 @@ public class AiGatewayResponseCacheImpl implements AiGatewayResponseCache {
     }
 
     @Override
-    public String computeCacheKey(AiGatewayChatCompletionRequest request) {
+    public String computeCacheKey(AiGatewayChatCompletionRequest request, @Nullable Long connectedUserId) {
         String messagesJson;
 
         try {
@@ -85,9 +86,12 @@ public class AiGatewayResponseCacheImpl implements AiGatewayResponseCache {
                 "Failed to serialize toolChoice for cache key computation", jacksonException);
         }
 
+        // connectedUserId is part of the key, not an afterthought: BYOK makes provider resolution
+        // connected-user-dependent, so a request-content-only key would let one connected user's cached response —
+        // generated on their own key, at their own provider's region — be served back to a different connected user.
         String raw = request.model() + "|" + messagesJson + "|" +
             request.temperature() + "|" + request.maxTokens() + "|" + request.topP() + "|" +
-            toolsJson + "|" + toolChoiceJson;
+            toolsJson + "|" + toolChoiceJson + "|" + connectedUserId;
 
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

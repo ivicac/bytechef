@@ -10,6 +10,7 @@ package com.bytechef.ee.platform.ai.gateway.service;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayRoutingPolicy;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,6 +25,20 @@ public interface AiGatewayRoutingPolicyService {
 
     void delete(long id);
 
+    /**
+     * Returns the policy bound to the given connected user, if any. This is the highest-precedence level in the
+     * gateway's routing resolution chain — a connected user's own policy outranks the model default and the embedded
+     * default (see {@code AiGatewayFacadeImpl#applyRoutingPolicyPrecedence}).
+     */
+    Optional<AiGatewayRoutingPolicy> fetchRoutingPolicyByConnectedUserId(long connectedUserId);
+
+    /**
+     * Returns the default-tier policies — those bound to no workspace. Deliberately a separate method rather than a
+     * nullable parameter on {@link #getRoutingPoliciesByWorkspaceId(long)}: overloading null onto a scope lookup would
+     * make the automation path's primitive signature dishonest.
+     */
+    List<AiGatewayRoutingPolicy> getDefaultRoutingPolicies();
+
     AiGatewayRoutingPolicy getRoutingPolicy(long id);
 
     AiGatewayRoutingPolicy getRoutingPolicyByName(String name);
@@ -35,6 +50,14 @@ public interface AiGatewayRoutingPolicyService {
     List<AiGatewayRoutingPolicy> getRoutingPoliciesByWorkspaceId(long workspaceId);
 
     AiGatewayRoutingPolicy update(AiGatewayRoutingPolicy policy);
+
+    /**
+     * Sets the policy's bound connected user, or clears it when {@code connectedUserId} is null. Mirrors
+     * {@link #updateWorkspaceId(long, Long)} for the connected-user scope; separate from
+     * {@link #update(AiGatewayRoutingPolicy)} for the same reason that one is separate from
+     * {@link #updateWorkspaceId(long, Long)} — a detached policy must not re-stamp its own binding.
+     */
+    void updateConnectedUserId(long id, @Nullable Long connectedUserId);
 
     /**
      * Sets the policy's owning workspace, or clears it when {@code workspaceId} is null. Separate from

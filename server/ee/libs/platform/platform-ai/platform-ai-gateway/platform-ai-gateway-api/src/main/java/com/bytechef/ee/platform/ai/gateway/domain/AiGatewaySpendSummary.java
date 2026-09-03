@@ -28,6 +28,17 @@ public final class AiGatewaySpendSummary {
     @Column("api_key_id")
     private Long apiKeyId;
 
+    // Unlike AiGatewayProvider/AiGatewayRoutingPolicy, workspaceId and connectedUserId are NOT mutually exclusive
+    // here and there is no check constraint enforcing it either way. AiGatewaySpendRollupJob writes one row per
+    // workspace for every rollup period, so workspaceId is always set on a rollup row; connectedUserId (populated by
+    // a later phase-2 task) narrows that same row to one customer within the workspace, i.e. an intersection
+    // (workspace, connected user, period), not an alternative to it. Null means the row is not yet attributed to a
+    // connected user — a boxed Long is required so that "no connected user" cannot collapse into connected user 0,
+    // which is a real id. No environment field: ConnectedUser already carries environment, so the same external id
+    // in two environments is two connected user rows with two ids.
+    @Column("connected_user_id")
+    private @Nullable Long connectedUserId;
+
     @Column("created_date")
     @CreatedDate
     private Instant createdDate;
@@ -110,6 +121,10 @@ public final class AiGatewaySpendSummary {
         return apiKeyId;
     }
 
+    public @Nullable Long getConnectedUserId() {
+        return connectedUserId;
+    }
+
     public Instant getCreatedDate() {
         return createdDate;
     }
@@ -179,6 +194,10 @@ public final class AiGatewaySpendSummary {
         this.apiKeyId = apiKeyId;
     }
 
+    public void setConnectedUserId(@Nullable Long connectedUserId) {
+        this.connectedUserId = connectedUserId;
+    }
+
     public void setCurrency(String currency) {
         Validate.notBlank(currency, "currency must not be blank");
         Validate.isTrue(currency.length() == 3, "currency must be a 3-letter ISO 4217 code");
@@ -240,6 +259,7 @@ public final class AiGatewaySpendSummary {
             ", totalCost=" + totalCost +
             ", createdDate=" + createdDate +
             ", workspaceId=" + workspaceId +
+            ", connectedUserId=" + connectedUserId +
             '}';
     }
 }
