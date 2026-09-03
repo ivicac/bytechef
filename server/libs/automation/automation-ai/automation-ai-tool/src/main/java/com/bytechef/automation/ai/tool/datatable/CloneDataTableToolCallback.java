@@ -19,8 +19,8 @@ package com.bytechef.automation.ai.tool.datatable;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -154,14 +154,14 @@ public class CloneDataTableToolCallback implements ToolCallback {
                 // listTables(workspaceId, environmentId) -- including resolveTableInWorkspace above, meaning the tool
                 // cannot see the table it just made. Fixed on the GraphQL path in 1e842972a21; this path was missed.
                 workspaceDataTableFacade.duplicateTable(dataTableId, input.newBaseName(), environmentId);
-            } catch (IllegalArgumentException exception) {
-                // Captures both validateBaseName failures (invalid characters) and registry collisions when the new
-                // base name is already taken in this environment. Surface verbatim so the LLM can pick a different
-                // newBaseName instead of silently overwriting.
+            } catch (IllegalArgumentException | DataTableException exception) {
+                // Captures both validateBaseName failures (invalid characters, now a DataTableException) and registry
+                // collisions when the new base name is already taken in this environment. Surface verbatim so the LLM
+                // can pick a different newBaseName instead of silently overwriting.
                 return toolError(exception.getMessage());
             }
 
-            long newId = dataTableService.getIdByBaseName(input.newBaseName(), PlatformType.AUTOMATION);
+            long newId = dataTableService.getIdByBaseName(input.newBaseName());
 
             return jsonMapper.writeValueAsString(new CloneDataTableOutput(newId, input.newBaseName()));
         } catch (JacksonException exception) {

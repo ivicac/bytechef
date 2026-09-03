@@ -82,14 +82,14 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void addColumn(long dataTableId, ColumnSpec columnSpec, long environmentId) {
         dataTableService.addColumn(
             dataTableService.getBaseNameById(dataTableId), columnSpec, environmentId);
     }
 
     @Override
-    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DATA_TABLE_CREATE', #environmentId)")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DATA_TABLE_CREATE')")
     public void createTable(
         String baseName, String description, List<ColumnSpec> columnSpecs, long workspaceId, long environmentId) {
 
@@ -101,14 +101,14 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void dropTable(long dataTableId, long environmentId) {
         dataTableService.dropTable(
             dataTableService.getBaseNameById(dataTableId), environmentId);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void duplicateTable(long dataTableId, String newBaseName, long environmentId) {
         dataTableService.duplicateTable(
             dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId);
@@ -136,7 +136,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DATA_TABLE_VIEW')")
     public List<DataTableInfo> listTables(long workspaceId, long environmentId) {
         List<DataTableInfo> dataTableInfos = dataTableService.listTables(environmentId);
 
@@ -152,21 +152,21 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void removeColumn(long dataTableId, String columnName, long environmentId) {
         dataTableService.removeColumn(
             dataTableService.getBaseNameById(dataTableId), columnName, environmentId);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void renameColumn(long dataTableId, String fromColumnName, String newName, long environmentId) {
         dataTableService.renameColumn(
             dataTableService.getBaseNameById(dataTableId), fromColumnName, newName, environmentId);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void renameTable(long dataTableId, String newBaseName, long environmentId) {
         dataTableService.renameTable(
             dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId);
@@ -174,38 +174,38 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public List<DataTableRow> listRows(long dataTableId, int limit, int offset, long environmentId) {
         return dataTableRowService.listRows(dataTableRef(dataTableId, environmentId), limit, offset);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public DataTableRow insertRow(long dataTableId, Map<String, Object> values, long environmentId) {
         return dataTableRowService.insertRow(dataTableRef(dataTableId, environmentId), values);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public DataTableRow updateRow(long dataTableId, long rowId, Map<String, Object> values, long environmentId) {
         return dataTableRowService.updateRow(dataTableRef(dataTableId, environmentId), rowId, values);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public boolean deleteRow(long dataTableId, long rowId, long environmentId) {
         return dataTableRowService.deleteRow(dataTableRef(dataTableId, environmentId), rowId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public String exportCsv(long dataTableId, long environmentId) {
         return dataTableRowService.exportCsv(dataTableRef(dataTableId, environmentId));
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public int importCsv(long dataTableId, String csv, long environmentId) {
         return dataTableRowService.importCsv(dataTableRef(dataTableId, environmentId), csv);
     }
@@ -223,7 +223,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public List<Webhook> listWebhooks(long dataTableId, long environmentId) {
         return dataTableWebhookService.listWebhooks(dataTableId, environmentId);
     }
@@ -236,7 +236,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public DataTableInfo getTable(long dataTableId, long environmentId) {
         String baseName = dataTableService.getBaseNameById(dataTableId);
 
@@ -255,7 +255,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public Page<DataTableRow> listRows(
         long dataTableId, List<RowFilter> rowFilters, List<RowSort> rowSorts, int pageNumber, int pageSize,
         long environmentId) {
@@ -271,7 +271,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public DataTableRow getRow(long dataTableId, long rowId, long environmentId) {
         DataTableRow dataTableRow = dataTableRowService.getRow(dataTableRef(dataTableId, environmentId), rowId);
 
@@ -284,13 +284,13 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')")
     public Optional<DataTableRow> fetchRowByExternalId(long dataTableId, String externalId, long environmentId) {
         return dataTableRowService.fetchRowByExternalId(dataTableRef(dataTableId, environmentId), externalId);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public DataTableRow insertRow(
         long dataTableId, Map<String, Object> values, @Nullable String externalId, long environmentId) {
 
@@ -298,7 +298,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public DataTableRow updateRow(
         long dataTableId, long rowId, Map<String, Object> values, @Nullable ExternalIdPatch externalIdPatch,
         long environmentId) {
@@ -308,7 +308,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public UpsertResult upsertRow(
         long dataTableId, String externalId, Map<String, Object> values, long environmentId) {
 
@@ -316,7 +316,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public boolean deleteRowByExternalId(long dataTableId, String externalId, long environmentId) {
         DataTableRef dataTableRef = dataTableRef(dataTableId, environmentId);
 
@@ -326,7 +326,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public List<DataTableRow> insertRows(
         long dataTableId, List<NewRow> newRows, CreateStrategy createStrategy, long environmentId) {
 
@@ -334,13 +334,13 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public List<Long> deleteRows(long dataTableId, List<Long> rowIds, long environmentId) {
         return dataTableRowService.deleteRows(dataTableRef(dataTableId, environmentId), rowIds);
     }
 
     @Override
-    @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
+    @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public long clearRows(long dataTableId, long environmentId) {
         return dataTableRowService.clearRows(dataTableRef(dataTableId, environmentId));
     }
