@@ -792,6 +792,7 @@ include("server:ee:libs:platform:platform-ai:platform-ai-gateway-otlp:platform-a
 include("server:ee:libs:platform:platform-ai:platform-ai-gateway-otlp:platform-ai-gateway-otlp-service")
 include("server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api")
 include("server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-service")
+include("server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-scorer-bakeoff")
 include("server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-api")
 include("server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-graphql")
 include("server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-opennlp")

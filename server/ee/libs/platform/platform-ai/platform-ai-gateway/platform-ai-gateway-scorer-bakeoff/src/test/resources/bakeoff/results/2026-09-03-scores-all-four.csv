@@ -1,0 +1,61 @@
+id,bucket,label,rationale,baseline,embedding-local,embedding-remote,opennlp
+adv-001,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0008,0.4901,0.5056,0.3691
+adv-002,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0016,0.5058,0.4950,0.4740
+adv-003,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0022,0.5835,0.5142,0.6482
+adv-004,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0030,0.4511,0.4997,0.2842
+adv-005,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0038,0.5149,0.5021,0.6902
+adv-006,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0022,0.4913,0.5059,0.4243
+adv-007,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0012,0.5051,0.5059,0.4614
+adv-008,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0036,0.6106,0.5115,0.4628
+adv-009,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0026,0.4980,0.5094,0.4361
+adv-010,short-but-hard,COMPLEX,"terse, but a competent answer needs multi-step reasoning the prompt does not state",0.0024,0.5006,0.5033,0.3195
+adv-011,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.4000,0.4229,0.4846,0.0000
+adv-012,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.4000,0.5100,0.5047,0.0000
+adv-013,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.2258,0.4866,0.4932,0.0000
+adv-014,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.1494,0.4119,0.4915,0.0000
+adv-015,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.2190,0.5583,0.5005,0.1060
+adv-016,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.4000,0.4667,0.4916,0.0000
+adv-017,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.3024,0.4463,0.4944,0.0000
+adv-018,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.2818,0.4754,0.4996,0.0000
+adv-019,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.4000,0.5111,0.5024,0.2900
+adv-020,long-but-trivial,SIMPLE,"large input, but the task is a mechanical extraction or count",0.3658,0.4281,0.4906,0.0000
+adv-021,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1544,0.4093,0.4918,0.1888
+adv-022,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1558,0.4510,0.4930,0.3023
+adv-023,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1534,0.4353,0.4876,0.0757
+adv-024,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1544,0.4043,0.4891,0.2274
+adv-025,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1544,0.3613,0.4957,0.1486
+adv-026,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1550,0.4439,0.4861,0.1515
+adv-027,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1550,0.4564,0.4932,0.0666
+adv-028,code-shaped-but-simple,SIMPLE,code is present but the question is answered by reading one line of it,0.1546,0.3949,0.4866,0.2311
+adv-029,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0102,0.5350,0.5026,0.4590
+adv-030,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0176,0.6131,0.5127,0.6573
+adv-031,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0182,0.4775,0.5012,0.9644
+adv-032,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0190,0.4398,0.5022,0.2462
+adv-033,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0154,0.5418,0.5061,0.9474
+adv-034,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0134,0.5073,0.5048,0.8680
+adv-035,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0144,0.5399,0.5088,0.9338
+adv-036,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0114,0.5163,0.5003,0.7952
+adv-037,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0182,0.5352,0.5119,0.8657
+adv-038,prose-but-complex,COMPLEX,"no structural markers, but resolving it needs sustained reasoning",0.0194,0.4473,0.4999,0.7439
+adv-039,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.2516,0.3695,0.4804,0.2631
+adv-040,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.1895,0.4068,0.4877,0.3363
+adv-041,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.2202,0.4270,0.4921,0.4573
+adv-042,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.1889,0.3317,0.4779,0.1659
+adv-043,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.2202,0.4383,0.4899,0.4950
+adv-044,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.2508,0.4543,0.4951,0.2921
+adv-045,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.1893,0.4304,0.4906,0.3961
+adv-046,multi-tool-but-trivial,SIMPLE,"many tools declared, but the request is a single lookup or conversion",0.2208,0.4112,0.4903,0.2817
+adv-047,non-english,SIMPLE,"single fact lookup, in German",0.0018,0.3548,0.4864,0.4146
+adv-048,non-english,COMPLEX,"self-referential paradox requiring reasoning, in French",0.0094,0.4702,0.4987,0.4332
+adv-049,non-english,SIMPLE,"single fact lookup, in Spanish",0.0014,0.3166,0.4797,0.3288
+adv-050,non-english,COMPLEX,"self-referential condition requiring reasoning, in Japanese",0.0044,0.4412,0.4954,0.5000
+adv-051,non-english,SIMPLE,"single fact lookup, in Croatian",0.0014,0.4027,0.4865,0.4146
+adv-052,non-english,COMPLEX,"self-referential paradox requiring reasoning, in Chinese",0.0030,0.3551,0.5012,0.5000
+adv-053,non-english,SIMPLE,"single fact lookup, in Arabic",0.0012,0.3638,0.4889,0.5000
+adv-054,non-english,COMPLEX,"logic puzzle requiring case analysis, in Korean",0.0068,0.4476,0.5031,0.3589
+adv-055,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.0000,0.0000,0.0000,0.0000
+adv-056,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.0004,0.0000,0.0000,0.0000
+adv-057,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.0008,0.3849,0.4844,0.5346
+adv-058,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.0998,0.4023,0.4934,0.5000
+adv-059,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.0004,0.4597,0.4842,0.5000
+adv-060,degenerate,SIMPLE,no answerable task is present; ties go to SIMPLE,0.4000,0.5682,0.5072,0.0000
