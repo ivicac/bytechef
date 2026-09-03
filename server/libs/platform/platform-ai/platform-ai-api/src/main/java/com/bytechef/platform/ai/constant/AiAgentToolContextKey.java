@@ -27,6 +27,7 @@ public final class AiAgentToolContextKey {
     }
 
     public static final String ACTION_CONTEXT = "actionContext";
+    public static final String APPROVED_BY = "approvedBy";
     public static final String SSE_BUFFERED_EVENTS = "sseBufferedEvents";
     public static final String SSE_EMITTER_REFERENCE = "sseEmitterReference";
 }
