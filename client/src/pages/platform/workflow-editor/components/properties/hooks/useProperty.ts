@@ -18,6 +18,7 @@ import {
     encodePath,
     safeResolvePath,
 } from '@/pages/platform/workflow-editor/utils/encodingUtils';
+import {resolveMainClusterRootName} from '@/pages/platform/workflow-editor/utils/resolveClusterRootId';
 import saveProperty from '@/pages/platform/workflow-editor/utils/saveProperty';
 import {ERROR_MESSAGES} from '@/shared/errorMessages';
 import {
@@ -474,21 +475,35 @@ export const useProperty = ({
             return undefined;
         }
 
+        // The root comes from the node first: on the main canvas rootClusterElementNodeData is
+        // seeded only by a box header destination and never cleared, so it is empty or names another
+        // box -- and with no element found here a field re-resolved to nothing after every save while
+        // the definition held the value.
+        const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+
+        if (!mainClusterRootName) {
+            return undefined;
+        }
+
         const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
 
-        const mainClusterRootTask = rootClusterElementNodeData?.workflowNodeName
-            ? getTask({
-                  tasks: workflowDefinitionTasks,
-                  workflowNodeName: rootClusterElementNodeData.workflowNodeName,
-              })
-            : undefined;
+        const mainClusterRootTask = getTask({
+            tasks: workflowDefinitionTasks,
+            workflowNodeName: mainClusterRootName,
+        });
 
         if (mainClusterRootTask?.clusterElements) {
             return getClusterElementByName(mainClusterRootTask.clusterElements, currentNodeName);
         }
+        // `currentNode` is read only through resolveMainClusterRootName, which depends on the three
+        // fields below; the whole object churns on every save and would re-parse the definition for nothing.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         currentNodeClusterElementType,
         currentNodeName,
+        currentNode?.clusterRoot,
+        currentNode?.parentClusterRootId,
+        currentNode?.topLevelClusterRootId,
         workflow.definition,
         rootClusterElementNodeData?.workflowNodeName,
     ]);
