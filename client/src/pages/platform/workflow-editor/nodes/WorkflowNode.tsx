@@ -671,8 +671,10 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const parentClusterRootId = data.parentClusterRootId;
     const hasSavedClusterElementPosition = data.metadata?.ui?.nodePosition;
     // A graph member is excluded: inside a frame a position is the model rather than a pin
-    // override, so there is nothing to reset it back to.
-    const hasSavedNodePosition = isRegularNode && !data.trigger && !data.graphData && data.metadata?.ui?.nodePosition;
+    // override, so there is nothing to reset it back to. A cluster root drawn as a box is pinned on
+    // the main canvas like any ordinary task, so it is included; the dialog's root card is not.
+    const hasSavedNodePosition =
+        (isRegularNode || !!data.clusterFrame) && !data.trigger && !data.graphData && data.metadata?.ui?.nodePosition;
 
     const isEffectivelyDisabled = Boolean(data.disabled) || disabledTaskNames.has(data.workflowNodeName);
 

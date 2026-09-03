@@ -409,6 +409,24 @@ describe('WorkflowNode reset position action', () => {
         expect(recordedContextMenuProps.value?.hasSavedPosition).toBe(true);
     });
 
+    // A cluster root drawn as a box is pinned on the main canvas exactly like an ordinary task, so
+    // the same reset is the only way back to the automatic layout short of resetting everything.
+    it('offers the reset position action on a box-mode cluster root that carries a saved position', () => {
+        renderNode(
+            {
+                clusterFrame: {contentOrigin: {x: 0, y: 0}, height: 300, width: 600},
+                clusterRoot: true,
+                componentName: 'aiAgent',
+                metadata: {ui: {nodePosition: {x: 10, y: 20}}},
+                name: 'aiAgent_1',
+                workflowNodeName: 'aiAgent_1',
+            } as unknown as NodeDataType,
+            'aiAgent_1'
+        );
+
+        expect(recordedContextMenuProps.value?.hasSavedPosition).toBe(true);
+    });
+
     // Inside a graph frame a position IS the model rather than a pin override, so there is nothing
     // for a reset to fall back to and the action is hidden.
     it('hides the reset position action on a graph member that carries a saved position', () => {
