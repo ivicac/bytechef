@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
+import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGateTool;
 import com.bytechef.component.ai.llm.ChatModel;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
@@ -40,8 +41,9 @@ import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
-import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
+import com.bytechef.platform.ai.tool.AiAgentToolContext;
+import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -54,8 +56,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -84,11 +84,11 @@ import reactor.core.publisher.Flux;
 
 /**
  * End-to-end integration test for the platform tool gate (an {@code approvalGateTool} cluster element) inside the
- * streaming AI agent suspend/resume flow. Mirrors {@link AiAgentStreamChatActionResumeIntTest}, but with an ordinary
- * EXECUTING tool nested beneath a gate: the first model tool call must be intercepted by the gate (tool not executed,
- * approval delivered through the default chat channel, suspend carries the GATED_* continuation keys); an approved
- * resume must execute the tool with the originally captured arguments and patch its real result into the conversation;
- * a rejected resume must patch a denial without ever executing the tool.
+ * streaming AI agent suspend/resume flow. Uses an ordinary EXECUTING tool nested beneath a gate: the first model tool
+ * call must be intercepted by the gate (tool not executed, approval delivered through the default chat channel, suspend
+ * carries the GATED_* continuation keys); an approved resume must execute the tool with the originally captured
+ * arguments and patch its real result into the conversation; a rejected resume must patch a denial without ever
+ * executing the tool.
  *
  * @author Ivica Cardic
  */
@@ -119,9 +119,12 @@ class AiAgentStreamChatActionResumeGateIntTest {
         assertThat(continueParameters)
             .containsEntry(ToolSuspendConstants.GATED_TOOL_NAME, TOOL_NAME)
             .containsEntry(ToolSuspendConstants.GATED_TOOL_INPUT, TOOL_CALL_ARGUMENTS)
-            .containsKey(ToolSuspendConstants.CONVERSATION_STATE);
-        assertThat(suspend.continueParameters()
-            .get(ToolSuspendConstants.PENDING_TOOL_CALL_ID)).isEqualTo(TOOL_CALL_ID);
+            .containsKey(AgentToolSuspension.CONTINUE_PARAMETER_KEY);
+
+        AgentToolSuspension agentToolSuspension = (AgentToolSuspension) continueParameters.get(
+            AgentToolSuspension.CONTINUE_PARAMETER_KEY);
+
+        assertThat(agentToolSuspension.pendingToolCallId()).isEqualTo(TOOL_CALL_ID);
 
         // === Approved resume: the RAW tool executes the original arguments and its result is patched ===
 
@@ -220,6 +223,8 @@ class AiAgentStreamChatActionResumeGateIntTest {
         @SuppressWarnings("PMD.SignatureDeclareThrowsException")
         private List<Object> resume(ActionContext.Suspend suspend, Map<String, Object> data) throws Exception {
             Parameters continueParameters = ParametersFactory.create(new HashMap<>(suspend.continueParameters()));
+
+            capturedSuspend.set(null);
 
             SseEmitterHandler resumeHandler = action.performResumeStream(
                 inputParameters, connectionParameters, extensions, continueParameters,
@@ -342,7 +347,8 @@ class AiAgentStreamChatActionResumeGateIntTest {
             // The gate is the real cluster element, not a stub: this test exists to prove the agent action and the
             // gate still speak the same suspend protocol now that they live in different modules.
             AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
-                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service), service, null);
+                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service, List.of()), service, null,
+                null);
 
             ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateDefinition =
                 approvalGateTool.clusterElementDefinition;
@@ -452,7 +458,7 @@ class AiAgentStreamChatActionResumeGateIntTest {
 
     /**
      * Mirrors the streaming perform/resume wiring of {@link AiAgentStreamChatAction} on top of the inherited protected
-     * helpers, identical to the harness in {@link AiAgentStreamChatActionResumeIntTest}.
+     * helpers.
      */
     private static final class TestableStreamAction extends AbstractAiAgentChatAction {
 
@@ -469,24 +475,18 @@ class AiAgentStreamChatActionResumeGateIntTest {
             Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
             Parameters extensions, ActionContext context) throws Exception {
 
-            AtomicReference<@Nullable SseEmitter> emitterReference = new AtomicReference<>();
-            Queue<Map<String, @Nullable Object>> bufferedEvents = new ConcurrentLinkedQueue<>();
+            SseTransport sseTransport = new SseTransport();
 
             ChatClient.ChatClientRequestSpec chatClientRequestSpec =
                 getChatClientRequestSpec(inputParameters, connectionParameters, extensions, null, context);
 
-            chatClientRequestSpec.toolContext(
-                Map.of(
-                    AiAgentToolContextKey.ACTION_CONTEXT, context,
-                    AiAgentToolContextKey.SSE_EMITTER_REFERENCE, emitterReference,
-                    AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents));
+            chatClientRequestSpec.toolContext(new AiAgentToolContext(context, sseTransport).toMap());
 
             Flux<Object> contentFlux = chatClientRequestSpec.stream()
                 .chatResponse()
                 .concatMap(chatResponse -> Flux.fromIterable(toSseEvents(chatResponse)));
 
-            return AiAgentStreamChatAction.createSseHandler(
-                contentFlux, emitterReference, bufferedEvents, context);
+            return AiAgentStreamChatAction.createSseHandler(contentFlux, sseTransport, context);
         }
 
         @SuppressWarnings("PMD.SignatureDeclareThrowsException")
@@ -495,25 +495,19 @@ class AiAgentStreamChatActionResumeGateIntTest {
             Parameters extensions, Parameters continueParameters, Parameters data,
             ActionContext context) throws Exception {
 
-            AtomicReference<@Nullable SseEmitter> emitterReference = new AtomicReference<>();
-            Queue<Map<String, @Nullable Object>> bufferedEvents = new ConcurrentLinkedQueue<>();
+            SseTransport sseTransport = new SseTransport();
 
             ChatClient.ChatClientRequestSpec chatClientRequestSpec =
-                buildPatchedRequestSpec(
-                    inputParameters, connectionParameters, extensions, continueParameters, data, context);
+                buildResumedRequestSpec(
+                    inputParameters, connectionParameters, extensions, continueParameters, data, null, context);
 
-            chatClientRequestSpec.toolContext(
-                Map.of(
-                    AiAgentToolContextKey.ACTION_CONTEXT, context,
-                    AiAgentToolContextKey.SSE_EMITTER_REFERENCE, emitterReference,
-                    AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents));
+            chatClientRequestSpec.toolContext(new AiAgentToolContext(context, sseTransport).toMap());
 
             Flux<Object> contentFlux = chatClientRequestSpec.stream()
                 .chatResponse()
                 .concatMap(chatResponse -> Flux.fromIterable(toSseEvents(chatResponse)));
 
-            return AiAgentStreamChatAction.createSseHandler(
-                contentFlux, emitterReference, bufferedEvents, context);
+            return AiAgentStreamChatAction.createSseHandler(contentFlux, sseTransport, context);
         }
 
         private static List<Object> toSseEvents(ChatResponse chatResponse) {

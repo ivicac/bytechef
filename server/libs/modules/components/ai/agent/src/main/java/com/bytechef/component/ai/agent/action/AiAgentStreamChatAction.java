@@ -16,9 +16,7 @@
 
 package com.bytechef.component.ai.agent.action;
 
-import static com.bytechef.component.ai.agent.constant.AiAgentConstants.CHAT_PROPERTIES;
 import static com.bytechef.component.ai.agent.constant.AiAgentConstants.STREAM_CHAT_PROPERTIES;
-import static com.bytechef.component.definition.ActionDefinition.SseEmitterHandler.SseEmitter;
 import static com.bytechef.component.definition.ComponentDsl.action;
 
 import com.bytechef.commons.util.JsonUtils;
@@ -31,11 +29,10 @@ import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
-import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
-import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
 import com.bytechef.platform.ai.tool.AiAgentToolContext;
+import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
 import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProvider;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
@@ -44,11 +41,13 @@ import com.bytechef.platform.component.definition.MultipleConnectionsOutputFunct
 import com.bytechef.platform.component.definition.MultipleConnectionsResumePerformFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsStreamPerformFunction;
 import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.context.EnvironmentContextThreadLocalAccessor;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.TenantContextThreadLocalAccessor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -70,6 +69,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 
@@ -80,9 +80,19 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
 
     static final String REFUSAL_NOTICE = "The model declined to respond to this request.";
 
-    @Override
-    protected boolean isStreaming() {
-        return true;
+    public static ActionDefinition of(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager) {
+
+        return new AiAgentStreamChatAction(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager)
+            .build();
+    }
+
+    private AiAgentStreamChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager) {
+
+        super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
     }
 
     public static ActionDefinition of(
@@ -91,12 +101,15 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
-        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        @Nullable ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         return new AiAgentStreamChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider).build();
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            toolInvocationWorkspaceResolverObjectProvider, componentRuleEnforcers).build();
     }
 
     private AiAgentStreamChatAction(
@@ -105,20 +118,25 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
-        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        @Nullable ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         super(
             aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider);
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            toolInvocationWorkspaceResolverObjectProvider, componentRuleEnforcers);
+    }
+
+    @Override
+    protected boolean isStreaming() {
+        return true;
     }
 
     /**
-     * Streaming chat never restores or clears crash checkpoints — restore lives only in
-     * {@link AiAgentChatAction#perform} and nothing clears the row on stream completion. Writing a checkpoint after
-     * every tool round would therefore be dead I/O that also leaves a stale conversation snapshot in {@code
-     * data_storage} until job purge (plus a stale-restore hazard for a non-stream Chat node sharing the same
-     * input-parameters fingerprint). Suppress checkpointing for the streaming path.
+     * Streaming chat never restores or clears crash checkpoints, so writing one after every tool round would only leave
+     * a stale conversation snapshot in data storage.
      */
     @Override
     protected @Nullable Consumer<List<Message>> createConversationCheckpointer(
@@ -143,7 +161,7 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
 
     public class ChatActionDefinitionWrapper extends AbstractActionDefinitionWrapper {
 
-        @SuppressFBWarnings("EI_EXPOSE_REP2")
+        @SuppressFBWarnings("EI")
         public ChatActionDefinitionWrapper(ActionDefinition actionDefinition) {
             super(actionDefinition);
         }

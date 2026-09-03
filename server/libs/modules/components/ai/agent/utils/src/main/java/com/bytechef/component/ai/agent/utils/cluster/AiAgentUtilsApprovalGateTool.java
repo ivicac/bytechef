@@ -35,6 +35,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -75,17 +76,22 @@ public class AiAgentUtilsApprovalGateTool {
     @Nullable
     private final ToolExecutionRecorder toolExecutionRecorder;
 
+    @Nullable
+    private final ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver;
+
     public final ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> clusterElementDefinition;
 
     @SuppressFBWarnings("EI")
     public AiAgentUtilsApprovalGateTool(
         ClusterElementToolCallbacks clusterElementToolCallbacks,
         ClusterElementDefinitionService clusterElementDefinitionService,
-        @Nullable ToolExecutionRecorder toolExecutionRecorder) {
+        @Nullable ToolExecutionRecorder toolExecutionRecorder,
+        @Nullable ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver) {
 
         this.clusterElementToolCallbacks = clusterElementToolCallbacks;
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.toolExecutionRecorder = toolExecutionRecorder;
+        this.toolInvocationWorkspaceResolver = toolInvocationWorkspaceResolver;
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement(APPROVAL_GATE)
@@ -157,13 +163,14 @@ public class AiAgentUtilsApprovalGateTool {
             checkGatableChild(toolClusterElement.getComponentName(), toolClusterElement.getClusterElementName());
 
             List<ToolCallback> elementToolCallbacks = clusterElementToolCallbacks.build(
-                toolClusterElement, componentConnections, context);
+                toolClusterElement, componentConnections, context, approvalChannelClusterElements);
 
             for (ToolCallback toolCallback : elementToolCallbacks) {
                 toolCallbacks.add(
                     new ApprovalGateToolCallback(
                         toolCallback, approvalChannelClusterElements, componentConnections,
-                        clusterElementDefinitionService, context, toolExecutionRecorder, approvalExpiry));
+                        clusterElementDefinitionService, context, toolExecutionRecorder,
+                        toolInvocationWorkspaceResolver, approvalExpiry));
             }
         }
 
