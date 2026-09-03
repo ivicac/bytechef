@@ -21,8 +21,10 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.service.TaskStateService;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -39,18 +41,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApprovalFormFacadeImpl implements ApprovalFormFacade {
 
     private static final String ENVIRONMENT_ID_METADATA_KEY = "environmentId";
+    private static final String FORM_TITLE = "formTitle";
+    private static final String FORM_DESCRIPTION = "formDescription";
 
     private final ApprovalTokens approvalTokens;
     private final JobService jobService;
     private final TaskExecutionService taskExecutionService;
+    private final TaskStateService taskStateService;
 
     @SuppressFBWarnings("EI")
     public ApprovalFormFacadeImpl(
-        ApprovalTokens approvalTokens, JobService jobService, TaskExecutionService taskExecutionService) {
+        ApprovalTokens approvalTokens, JobService jobService, TaskExecutionService taskExecutionService,
+        TaskStateService taskStateService) {
 
         this.approvalTokens = approvalTokens;
         this.jobService = jobService;
         this.taskExecutionService = taskExecutionService;
+        this.taskStateService = taskStateService;
     }
 
     @Override
@@ -83,7 +90,25 @@ public class ApprovalFormFacadeImpl implements ApprovalFormFacade {
                 result.put(ENVIRONMENT_ID_METADATA_KEY, environmentId);
             }
 
+            // A suspend raised for one tool call (an approval gate or a component rule) describes that call in its
+            // continue parameters. The task execution is the agent node, whose own parameters describe the prompt,
+            // so the suspend's title and description win when it carries them.
+            taskStateService.<Suspend>fetchValue(jobResumeId)
+                .map(Suspend::continueParameters)
+                .ifPresent(continueParameters -> {
+                    copyIfPresent(continueParameters, result, FORM_TITLE);
+                    copyIfPresent(continueParameters, result, FORM_DESCRIPTION);
+                });
+
             return result;
         });
+    }
+
+    private static void copyIfPresent(Map<String, ?> source, Map<String, Object> target, String key) {
+        Object value = source.get(key);
+
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 }
