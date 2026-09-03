@@ -20,9 +20,6 @@ import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 import static com.bytechef.component.definition.ai.agent.SubagentFunction.SUBAGENT;
 import static com.bytechef.platform.component.definition.ai.agent.ModelFunction.MODEL;
 
-import com.bytechef.component.ai.agent.utils.cluster.subagent.ByteChefSubagentExecutor;
-import com.bytechef.component.ai.agent.utils.cluster.subagent.ByteChefSubagentResolver;
-import com.bytechef.component.ai.agent.utils.cluster.subagent.ByteChefTaskRepository;
 import com.bytechef.component.ai.agent.utils.cluster.subagent.ClusterElementSubagentExecutor;
 import com.bytechef.component.ai.agent.utils.cluster.subagent.ClusterElementSubagentResolver;
 import com.bytechef.component.ai.agent.utils.cluster.subagent.TenantAwareTaskRepository;
@@ -37,9 +34,12 @@ import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolCallbackProviderFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,20 +56,12 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
 /**
- * Provides a task tool that delegates work to subagents the workflow builder defines as SUBAGENT child cluster
- * elements. Each subagent's persona, tools and model come from its own element, so it can call nothing that was not
- * attached to it, and one subagent can run on a different model than its siblings. A Model attached to this tool is the
- * fallback for subagents that declare none.
+ * Provides a task tool that delegates complex tasks to specialized sub-agents.
  *
  * @author Ivica Cardic
  */
 public class AiAgentUtilsTaskTool {
 
-    /**
-     * Shared across runs because a repository is built per invocation while the executor must outlive any one of them.
-     * Virtual threads keep an idle pool free, and the component handler is a singleton, so this lives for the
-     * application's lifetime and is never shut down by a repository.
-     */
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -79,11 +71,15 @@ public class AiAgentUtilsTaskTool {
 
     @SuppressFBWarnings("EI")
     public AiAgentUtilsTaskTool(
-        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService) {
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        List<ComponentRuleEnforcer> componentRuleEnforcers,
+        @Nullable ToolExecutionRecorder toolExecutionRecorder,
+        @Nullable ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver) {
 
         this.clusterElementDefinitionService = clusterElementDefinitionService;
-        this.clusterElementToolCallbacks =
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
+        this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers, toolExecutionRecorder,
+            toolInvocationWorkspaceResolver);
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement("taskTool")
@@ -104,18 +100,16 @@ public class AiAgentUtilsTaskTool {
 
         List<ClusterElement> subagentClusterElements = clusterElementMap.getClusterElements(SUBAGENT);
 
-        ByteChefSubagentResolver subagentResolver = new ByteChefSubagentResolver(subagentClusterElements);
+        ClusterElementSubagentResolver subagentResolver = new ClusterElementSubagentResolver(subagentClusterElements);
 
-        ByteChefSubagentExecutor subagentExecutor = new ByteChefSubagentExecutor(
+        ClusterElementSubagentExecutor subagentExecutor = new ClusterElementSubagentExecutor(
             defaultChatModel,
-            // Built from the subagent's OWN extensions, so one subagent can never be run on a sibling's model.
             subagentClusterElement -> resolveChatModel(
                 ClusterElementMap.of(subagentClusterElement.getExtensions()), componentConnections),
             subagentClusterElement -> buildSubagentToolCallbacks(
                 subagentClusterElement, componentConnections, context));
 
-        // One repository per invocation, so background task ids from one run can never be read by another.
-        ByteChefTaskRepository taskRepository = new ByteChefTaskRepository(executorService);
+        TenantAwareTaskRepository taskRepository = new TenantAwareTaskRepository(executorService);
 
         ToolCallback taskToolCallback = TaskTool.builder()
             .subagentTypes(new SubagentType(subagentResolver, subagentExecutor))
@@ -130,14 +124,6 @@ public class AiAgentUtilsTaskTool {
         return ToolCallbackProvider.from(taskToolCallback, taskOutputToolCallback);
     }
 
-    /**
-     * Turns one subagent's nested TOOLS children into callbacks.
-     *
-     * <p>
-     * The cluster element map is built from <b>this subagent's own</b> extensions. That is what makes a subagent
-     * structurally unable to reach a sibling's tools — it never sees them. Hoisting this map up to the task tool would
-     * silently hand every subagent every tool.
-     */
     private List<ToolCallback> buildSubagentToolCallbacks(
         ClusterElement subagentClusterElement, Map<String, ComponentConnection> componentConnections,
         Context context) {
@@ -147,15 +133,6 @@ public class AiAgentUtilsTaskTool {
         List<ToolCallback> toolCallbacks = new ArrayList<>();
 
         for (ClusterElement toolClusterElement : subagentClusterElementMap.getClusterElements(TOOLS)) {
-            // A gate here would suspend on the AGENT's context and return the sentinel into the subagent's own
-            // ChatClient, which treats it as an ordinary result and continues; the parent then cannot find the
-            // sentinel among its own tool responses and the suspend is orphaned.
-            if (AiAgentUtilsApprovalGateTool.APPROVAL_GATE.equals(toolClusterElement.getClusterElementName())) {
-                throw new IllegalStateException(
-                    "Approval gates cannot be attached to a subagent — a suspended subagent run cannot be resumed. " +
-                        "Attach the gate to the agent instead.");
-            }
-
             toolCallbacks.addAll(
                 clusterElementToolCallbacks.build(
                     toolClusterElement, componentConnections, (ActionContext) context));
@@ -164,12 +141,6 @@ public class AiAgentUtilsTaskTool {
         return toolCallbacks;
     }
 
-    /**
-     * Resolves the MODEL child of one cluster element map, or null when none is attached. Null is a valid answer at
-     * both call sites: a subagent without a Model falls back to the Task Tool's, and a Task Tool without one is fine as
-     * long as every subagent brings its own. Only a subagent left with neither fails, and it fails in the executor
-     * where the subagent's name can be named.
-     */
     @Nullable
     private ChatModel resolveChatModel(
         ClusterElementMap clusterElementMap, Map<String, ComponentConnection> componentConnections) {
@@ -189,8 +160,6 @@ public class AiAgentUtilsTaskTool {
 
         Object model;
 
-        // Resolution is lazy — a subagent's model is built when that subagent first runs — so the checked exception
-        // cannot propagate out of the java.util.function.Function seam the executor calls this through.
         try {
             model = modelFunction.apply(
                 ParametersFactory.create(element.getParameters()),

@@ -18,7 +18,6 @@ package com.bytechef.component.ai.agent.utils;
 
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.platform.ai.skill.facade.AiSkillFacade;
-import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -35,13 +34,13 @@ public class AiAgentUtilsComponentHandlerTest {
         JsonFileAssert.assertEquals(
             "definition/ai_agent-utils_v1.json",
             new AiAgentUtilsComponentHandler(
-                Mockito.mock(AiAgentToolFacade.class), Mockito.mock(AiSkillFacade.class), List.of(), null, null,
-                toolExecutionRecorderObjectProvider())
+                Mockito.mock(AiAgentToolFacade.class), Mockito.mock(AiSkillFacade.class), List.of(), null, null, null,
+                null, objectProvider(), objectProvider(), List.of())
                     .getDefinition());
     }
 
     @SuppressWarnings("unchecked")
-    private static ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider() {
+    private static <T> ObjectProvider<T> objectProvider() {
         return Mockito.mock(ObjectProvider.class);
     }
 }

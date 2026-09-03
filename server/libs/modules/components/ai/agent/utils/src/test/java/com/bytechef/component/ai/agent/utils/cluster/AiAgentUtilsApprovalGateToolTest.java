@@ -19,6 +19,7 @@ package com.bytechef.component.ai.agent.utils.cluster;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -45,7 +46,7 @@ class AiAgentUtilsApprovalGateToolTest {
 
     private final ClusterElementToolCallbacks clusterElementToolCallbacks = mock(ClusterElementToolCallbacks.class);
     private final AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
-        clusterElementToolCallbacks, mock(ClusterElementDefinitionService.class), null);
+        clusterElementToolCallbacks, mock(ClusterElementDefinitionService.class), null, null);
 
     @Test
     void testGateIsATypeOfTool() {
@@ -95,7 +96,7 @@ class AiAgentUtilsApprovalGateToolTest {
      */
     @Test
     void testWrapsEveryCallbackOfEveryGatedElementExactlyOnce() {
-        when(clusterElementToolCallbacks.build(any(), any(), any()))
+        when(clusterElementToolCallbacks.build(any(), any(), any(ActionContext.class), anyList()))
             .thenReturn(List.of(mock(ToolCallback.class), mock(ToolCallback.class)));
 
         List<ToolCallback> toolCallbacks = approvalGateTool.buildGatedToolCallbacks(
