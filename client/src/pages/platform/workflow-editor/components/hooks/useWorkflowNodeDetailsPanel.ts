@@ -87,7 +87,7 @@ import getWorkflowInputAndVariableDataPills from '../../utils/getWorkflowInputAn
 import {getClusterElementRootNames} from '../../utils/getWorkflowIssueOwnerName';
 import {findGraphMembersPrecedingMember} from '../../utils/graph/graphReachability';
 import invalidateOperationQueries from '../../utils/invalidateOperationQueries';
-import {resolveClusterRootId} from '../../utils/resolveClusterRootId';
+import {resolveClusterRootId, resolveMainClusterRootName} from '../../utils/resolveClusterRootId';
 import saveClusterElementFieldChange from '../../utils/saveClusterElementFieldChange';
 import saveTaskDispatcherSubtaskFieldChange from '../../utils/saveTaskDispatcherSubtaskFieldChange';
 import saveWorkflowDefinition from '../../utils/saveWorkflowDefinition';
@@ -211,12 +211,14 @@ export default function useWorkflowNodeDetailsPanel({
         !!currentNode?.componentName && !currentNode.taskDispatcher
     );
 
+    const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+
     const {data: workflowTestConfigurationConnections} = useGetWorkflowTestConfigurationConnectionsQuery(
         {
             environmentId: currentEnvironmentId,
             workflowId: workflow.id as string,
             workflowNodeName: currentNode?.clusterElementType
-                ? (rootClusterElementNodeData?.workflowNodeName as string)
+                ? (mainClusterRootName as string)
                 : (currentNode?.workflowNodeName as string),
         },
         !!workflow.id &&
@@ -407,7 +409,7 @@ export default function useWorkflowNodeDetailsPanel({
             clusterElementWorkflowNodeName: currentNode?.workflowNodeName || '',
             environmentId: currentEnvironmentId,
             id: workflow.id!,
-            workflowNodeName: rootClusterElementNodeData?.workflowNodeName as string,
+            workflowNodeName: mainClusterRootName as string,
         },
         !!currentNode && displayConditionsQueryTarget === 'cluster'
     );
@@ -448,7 +450,7 @@ export default function useWorkflowNodeDetailsPanel({
             clusterElementType: currentNode?.clusterElementType || '',
             clusterElementWorkflowNodeName: currentNode?.workflowNodeName || '',
             workflowId: workflow.id!,
-            workflowNodeName: rootClusterElementNodeData?.workflowNodeName as string,
+            workflowNodeName: mainClusterRootName as string,
         },
         {
             enabled:
@@ -521,7 +523,7 @@ export default function useWorkflowNodeDetailsPanel({
         () =>
             resolveShowOutputTab({
                 clusterElementType: currentNode?.clusterElementType,
-                clusterRootWorkflowNodeName: rootClusterElementNodeData?.workflowNodeName,
+                clusterRootWorkflowNodeName: mainClusterRootName,
                 operationDefinition: currentOperationDefinition,
                 taskDispatcher: currentNode?.taskDispatcher,
             }),
@@ -529,7 +531,7 @@ export default function useWorkflowNodeDetailsPanel({
             currentNode?.clusterElementType,
             currentNode?.taskDispatcher,
             currentOperationDefinition,
-            rootClusterElementNodeData?.workflowNodeName,
+            mainClusterRootName,
         ]
     );
 
@@ -550,13 +552,13 @@ export default function useWorkflowNodeDetailsPanel({
     );
 
     const currentClusterElementsConnections = useMemo(() => {
-        if (!rootClusterElementNodeData?.workflowNodeName) {
+        if (!mainClusterRootName) {
             return undefined;
         }
 
         const mainClusterRootTask = getTask({
             tasks: workflow.tasks || [],
-            workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+            workflowNodeName: mainClusterRootName,
         });
 
         if (!mainClusterRootTask) {
@@ -646,11 +648,11 @@ export default function useWorkflowNodeDetailsPanel({
 
         return undefined;
     }, [
+        mainClusterRootName,
         currentNode?.clusterElementType,
         currentNode?.clusterRoot,
         currentNode?.isNestedClusterRoot,
         currentNode?.workflowNodeName,
-        rootClusterElementNodeData?.workflowNodeName,
         workflow.tasks,
         currentComponentDefinition?.connection,
         currentComponentDefinition?.connectionRequired,
@@ -1455,7 +1457,7 @@ export default function useWorkflowNodeDetailsPanel({
         }
 
         const resolvedConnectionFields = resolveNodeConnectionFields(currentNode, currentWorkflowNodeConnections, {
-            rootClusterElementWorkflowNodeName: rootClusterElementNodeData?.workflowNodeName,
+            rootClusterElementWorkflowNodeName: mainClusterRootName,
             workflowTestConfigurationConnections,
         });
 
@@ -1482,8 +1484,7 @@ export default function useWorkflowNodeDetailsPanel({
 
     useEffect(() => {
         const isClusterElementOrRoot =
-            !!currentNode?.clusterElementType ||
-            currentNode?.workflowNodeName === rootClusterElementNodeData?.workflowNodeName;
+            !!currentNode?.clusterElementType || currentNode?.workflowNodeName === mainClusterRootName;
 
         if (!isClusterElementOrRoot || !workflowTestConfigurationConnections) {
             return;
