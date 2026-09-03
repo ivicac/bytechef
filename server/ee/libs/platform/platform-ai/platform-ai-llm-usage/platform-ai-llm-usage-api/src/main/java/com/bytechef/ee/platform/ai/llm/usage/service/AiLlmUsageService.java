@@ -38,9 +38,22 @@ public interface AiLlmUsageService {
      */
     void create(AiLlmUsage usage, Long workspaceId);
 
+    /**
+     * Persists a usage row for an embedded connected user. Embedded traffic has no workspace -- its connected user is
+     * its whole scope -- so the row is written with a null {@code workspace_id} and {@code connectedUserId} in
+     * {@code userId}, the column the spend rollup attributes gateway rows by. Kept apart from
+     * {@link #create(AiLlmUsage, Long)} so that method's workspace stays required for every other writer.
+     */
+    void createForConnectedUser(AiLlmUsage usage, long connectedUserId);
+
     void deleteOlderThan(Instant date);
 
     void deleteOlderThanByWorkspace(Instant date, Long workspaceId);
+
+    /**
+     * Deletes the workspace-less usage rows created before {@code date}. Per-workspace retention never reaches them.
+     */
+    void deleteOlderThanWithoutWorkspace(Instant date);
 
     List<Long> findDistinctWorkspaceIds();
 
@@ -55,4 +68,11 @@ public interface AiLlmUsageService {
     List<AiLlmUsage> getRequestLogs(Instant start, Instant end);
 
     List<AiLlmUsage> getRequestLogsByWorkspace(Long workspaceId, Instant start, Instant end);
+
+    /**
+     * The workspace-less usage rows carrying a {@code userId}, created inside the range: the embedded connected-user
+     * rows no per-workspace query can see. Callers still decide whether {@code userId} is a connected user, since that
+     * column is shared by every writer.
+     */
+    List<AiLlmUsage> getConnectedUserRequestLogsWithoutWorkspace(Instant start, Instant end);
 }
