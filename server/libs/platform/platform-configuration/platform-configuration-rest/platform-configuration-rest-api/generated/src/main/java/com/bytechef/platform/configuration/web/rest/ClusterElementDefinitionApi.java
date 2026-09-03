@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.726625+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:18.888327+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "cluster-element-definition", description = "The Platform Cluster Element Definition Internal API")
 public interface ClusterElementDefinitionApi {
@@ -80,7 +80,7 @@ public interface ClusterElementDefinitionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"componentName\" : \"componentName\", \"componentVersion\" : 0, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"type\", \"properties\" : [ { \"advancedOption\" : false, \"description\" : \"description\", \"displayCondition\" : \"displayCondition\", \"expressionEnabled\" : true, \"hidden\" : false, \"metadata\" : { \"key\" : \"\" }, \"name\" : \"name\", \"required\" : false, \"type\" : \"ARRAY\" }, { \"advancedOption\" : false, \"description\" : \"description\", \"displayCondition\" : \"displayCondition\", \"expressionEnabled\" : true, \"hidden\" : false, \"metadata\" : { \"key\" : \"\" }, \"name\" : \"name\", \"required\" : false, \"type\" : \"ARRAY\" } ], \"testable\" : true }";
+                    String exampleString = "{ \"componentName\" : \"componentName\", \"componentVersion\" : 0, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"riskLevel\" : \"LOW\", \"title\" : \"title\", \"type\" : \"type\", \"properties\" : [ { \"advancedOption\" : false, \"description\" : \"description\", \"displayCondition\" : \"displayCondition\", \"expressionEnabled\" : true, \"hidden\" : false, \"metadata\" : { \"key\" : \"\" }, \"name\" : \"name\", \"required\" : false, \"type\" : \"ARRAY\" }, { \"advancedOption\" : false, \"description\" : \"description\", \"displayCondition\" : \"displayCondition\", \"expressionEnabled\" : true, \"hidden\" : false, \"metadata\" : { \"key\" : \"\" }, \"name\" : \"name\", \"required\" : false, \"type\" : \"ARRAY\" } ], \"testable\" : true }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -125,7 +125,7 @@ public interface ClusterElementDefinitionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"componentName\" : \"componentName\", \"componentVersion\" : 6, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"type\" }, { \"componentName\" : \"componentName\", \"componentVersion\" : 6, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"type\" } ]";
+                    String exampleString = "[ { \"componentName\" : \"componentName\", \"componentVersion\" : 1, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"riskLevel\" : \"LOW\", \"title\" : \"title\", \"type\" : \"type\" }, { \"componentName\" : \"componentName\", \"componentVersion\" : 1, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"icon\" : \"icon\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"riskLevel\" : \"LOW\", \"title\" : \"title\", \"type\" : \"type\" } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

@@ -44,6 +44,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ApprovalFormFacadeImpl implements ApprovalFormFacade {
 
     private static final String ENVIRONMENT_ID_METADATA_KEY = "environmentId";
+    private static final String FORM_DESCRIPTION = "formDescription";
+    private static final String FORM_TITLE = "formTitle";
 
     private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
     private final JobService jobService;
@@ -131,6 +133,38 @@ public class ApprovalFormFacadeImpl implements ApprovalFormFacade {
         transactionTemplate.setReadOnly(true);
 
         return transactionTemplate;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, ?> getFormParameters(JobResumeId jobResumeId, TaskExecution taskExecution) {
+        Optional<Suspend> suspendOptional = taskStateService.fetchUnlockedValue(jobResumeId);
+
+        if (suspendOptional.isPresent()) {
+            Suspend suspend = suspendOptional.get();
+
+            if (suspend.continueParameters()
+                .get(MetadataConstants.APPROVAL_FORM_PARAMETERS) instanceof Map<?, ?> formParameters) {
+
+                return (Map<String, ?>) formParameters;
+            }
+
+            Map<String, Object> parameters = new HashMap<>(taskExecution.getParameters());
+
+            copyIfPresent(suspend.continueParameters(), parameters, FORM_TITLE);
+            copyIfPresent(suspend.continueParameters(), parameters, FORM_DESCRIPTION);
+
+            return parameters;
+        }
+
+        return taskExecution.getParameters();
+    }
+
+    private static void copyIfPresent(Map<String, ?> source, Map<String, Object> target, String key) {
+        Object value = source.get(key);
+
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 
     private Optional<String> resolveInnerToken(String id) {

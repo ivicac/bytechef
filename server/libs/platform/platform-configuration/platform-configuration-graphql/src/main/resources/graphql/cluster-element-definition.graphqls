@@ -51,8 +51,18 @@ type ClusterElementDefinition {
     outputFunctionDefined: Boolean!
     outputSchemaDefined: Boolean
     properties: [Property!]!
+    riskLevel: RiskLevel
     title: String
     type: ClusterElementType
+}
+
+"""How much damage one call of a tool can do. Declared by a component author; when undeclared the platform
+infers a level from the operation's name."""
+enum RiskLevel {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
 }
 
 type ClusterElementType {
