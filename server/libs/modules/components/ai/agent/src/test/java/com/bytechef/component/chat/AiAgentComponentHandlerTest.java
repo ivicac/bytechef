@@ -18,6 +18,7 @@ package com.bytechef.component.chat;
 
 import com.bytechef.component.ai.agent.AiAgentComponentHandler;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 public class AiAgentComponentHandlerTest {
@@ -26,6 +27,6 @@ public class AiAgentComponentHandlerTest {
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
             "definition/ai-agent_v1.json",
-            new AiAgentComponentHandler(null, null, null, null, null, null, null).getDefinition());
+            new AiAgentComponentHandler(null, null, null, null, null, null, null, List.of()).getDefinition());
     }
 }

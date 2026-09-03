@@ -53,6 +53,7 @@ import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import com.bytechef.platform.ai.skill.facade.AiSkillFacade;
 import com.bytechef.platform.component.definition.AbstractComponentDefinitionWrapper;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.ArrayList;
@@ -78,19 +79,26 @@ public final class AiAgentUtilsComponentHandler implements ComponentHandler {
         AiAgentToolFacade aiAgentToolFacade, AiSkillFacade aiSkillFacade,
         List<AiAgentUtilsClusterElementContributor> clusterElementContributors,
         ClusterElementDefinitionService clusterElementDefinitionService, AiAutoMemoryService aiAutoMemoryService,
-        ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+        ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         AiAgentUtilsSmartWebFetchTool agentUtilsSmartWebFetchTool = new AiAgentUtilsSmartWebFetchTool(
             clusterElementDefinitionService);
 
+        ToolExecutionRecorder toolExecutionRecorder = toolExecutionRecorderObjectProvider.getIfAvailable();
+
         AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(
-            aiAgentToolFacade, clusterElementDefinitionService);
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers, toolExecutionRecorder);
 
         AiAgentUtilsAutoMemoryTool agentUtilsAutoMemoryTool = new AiAgentUtilsAutoMemoryTool(aiAutoMemoryService);
 
+        // The gate must sit outside the rule layer: RuleEnforcingToolCallback wraps the gated tool's own callback
+        // here, so a human-approved re-execution — which unwraps only the gate, never this layer — is still
+        // rule-checked.
         AiAgentUtilsApprovalGateTool agentUtilsApprovalGate = new AiAgentUtilsApprovalGateTool(
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
-            clusterElementDefinitionService, toolExecutionRecorderObjectProvider.getIfAvailable());
+            new ClusterElementToolCallbacks(
+                aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers, toolExecutionRecorder),
+            clusterElementDefinitionService, toolExecutionRecorder);
 
         List<ClusterElementDefinition<?>> clusterElements = new ArrayList<>(List.of(
             // Delegates a task to a remote A2A agent. The io.a2a client transport is passed explicitly (no
