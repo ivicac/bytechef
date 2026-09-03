@@ -16,6 +16,7 @@ Name | Type
 `outputDefined` | boolean
 `outputFunctionDefined` | boolean
 `outputSchemaDefined` | boolean
+`riskLevel` | string
 `title` | string
 `type` | string
 `properties` | [Array&lt;Property&gt;](Property.md)
@@ -36,6 +37,7 @@ const example = {
   "outputDefined": null,
   "outputFunctionDefined": null,
   "outputSchemaDefined": null,
+  "riskLevel": null,
   "title": null,
   "type": null,
   "properties": null,

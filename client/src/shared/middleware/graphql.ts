@@ -3659,12 +3659,20 @@ export type UpdateComponentPolicyMutationVariables = Exact<{
 
 export type UpdateComponentPolicyMutation = { updateComponentPolicy: { name: string, title: string | null, icon: string | null, version: number, enabled: boolean } };
 
-export type ComponentRulesQueryVariables = Exact<{
-  componentName?: string | null | undefined;
+export type ComponentRuleSettingsQueryVariables = Exact<{
+  workspaceId?: string | number | null | undefined;
 }>;
 
 
-export type ComponentRulesQuery = { componentRules: Array<{ id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean }> };
+export type ComponentRuleSettingsQuery = { componentRuleSettings: { observeMode: boolean, approvalExpiresInHours: number, inherited: boolean } };
+
+export type ComponentRulesQueryVariables = Exact<{
+  componentName?: string | null | undefined;
+  workspaceId?: string | number | null | undefined;
+}>;
+
+
+export type ComponentRulesQuery = { componentRules: Array<{ id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, toolName: string | null, toolRiskLevel: Types.RiskLevel | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean, strict: boolean, workspaceId: string | null }> };
 
 export type DeleteComponentRuleMutationVariables = Exact<{
   id: string | number;
@@ -3676,16 +3684,27 @@ export type DeleteComponentRuleMutation = { deleteComponentRule: boolean };
 export type SaveComponentRuleMutationVariables = Exact<{
   id?: string | number | null | undefined;
   componentName: string;
-  actionName?: string | null | undefined;
+  toolName?: string | null | undefined;
   phase: Types.ComponentRulePhase;
   ruleAction: Types.ComponentRuleActionType;
   condition: string;
   description?: string | null | undefined;
   enabled: boolean;
+  strict: boolean;
+  workspaceId?: string | number | null | undefined;
 }>;
 
 
-export type SaveComponentRuleMutation = { saveComponentRule: { id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean } };
+export type SaveComponentRuleMutation = { saveComponentRule: { id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, toolName: string | null, toolRiskLevel: Types.RiskLevel | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean, strict: boolean, workspaceId: string | null } };
+
+export type UpdateComponentRuleSettingsMutationVariables = Exact<{
+  observeMode: boolean;
+  approvalExpiresInHours: number;
+  workspaceId?: string | number | null | undefined;
+}>;
+
+
+export type UpdateComponentRuleSettingsMutation = { updateComponentRuleSettings: { observeMode: boolean, approvalExpiresInHours: number } };
 
 export type AdminApiKeysQueryVariables = Exact<{
   environmentId: string | number;
@@ -17468,19 +17487,48 @@ export const useUpdateComponentPolicyMutation = <
   }
     )};
 
+export const ComponentRuleSettingsDocument = new TypedDocumentString(`
+    query ComponentRuleSettings($workspaceId: ID) {
+  componentRuleSettings(workspaceId: $workspaceId) {
+    observeMode
+    approvalExpiresInHours
+    inherited
+  }
+}
+    `);
+
+export const useComponentRuleSettingsQuery = <
+      TData = ComponentRuleSettingsQuery,
+      TError = unknown
+    >(
+      variables?: ComponentRuleSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<ComponentRuleSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ComponentRuleSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ComponentRuleSettingsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ComponentRuleSettings'] : ['ComponentRuleSettings', variables],
+    queryFn: fetcher<ComponentRuleSettingsQuery, ComponentRuleSettingsQueryVariables>(ComponentRuleSettingsDocument, variables),
+    ...options
+  }
+    )};
+
 export const ComponentRulesDocument = new TypedDocumentString(`
-    query ComponentRules($componentName: String) {
-  componentRules(componentName: $componentName) {
+    query ComponentRules($componentName: String, $workspaceId: ID) {
+  componentRules(componentName: $componentName, workspaceId: $workspaceId) {
     id
     componentName
     componentTitle
     componentIcon
-    actionName
+    toolName
+    toolRiskLevel
     phase
     ruleAction
     condition
     description
     enabled
+    strict
+    workspaceId
   }
 }
     `);
@@ -17521,27 +17569,32 @@ export const useDeleteComponentRuleMutation = <
     )};
 
 export const SaveComponentRuleDocument = new TypedDocumentString(`
-    mutation SaveComponentRule($id: ID, $componentName: String!, $actionName: String, $phase: ComponentRulePhase!, $ruleAction: ComponentRuleActionType!, $condition: String!, $description: String, $enabled: Boolean!) {
+    mutation SaveComponentRule($id: ID, $componentName: String!, $toolName: String, $phase: ComponentRulePhase!, $ruleAction: ComponentRuleActionType!, $condition: String!, $description: String, $enabled: Boolean!, $strict: Boolean!, $workspaceId: ID) {
   saveComponentRule(
     id: $id
     componentName: $componentName
-    actionName: $actionName
+    toolName: $toolName
     phase: $phase
     ruleAction: $ruleAction
     condition: $condition
     description: $description
     enabled: $enabled
+    strict: $strict
+    workspaceId: $workspaceId
   ) {
     id
     componentName
     componentTitle
     componentIcon
-    actionName
+    toolName
+    toolRiskLevel
     phase
     ruleAction
     condition
     description
     enabled
+    strict
+    workspaceId
   }
 }
     `);
@@ -17555,6 +17608,32 @@ export const useSaveComponentRuleMutation = <
       {
     mutationKey: ['SaveComponentRule'],
     mutationFn: (variables?: SaveComponentRuleMutationVariables) => fetcher<SaveComponentRuleMutation, SaveComponentRuleMutationVariables>(SaveComponentRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateComponentRuleSettingsDocument = new TypedDocumentString(`
+    mutation UpdateComponentRuleSettings($observeMode: Boolean!, $approvalExpiresInHours: Int!, $workspaceId: ID) {
+  updateComponentRuleSettings(
+    observeMode: $observeMode
+    approvalExpiresInHours: $approvalExpiresInHours
+    workspaceId: $workspaceId
+  ) {
+    observeMode
+    approvalExpiresInHours
+  }
+}
+    `);
+
+export const useUpdateComponentRuleSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateComponentRuleSettingsMutation, TError, UpdateComponentRuleSettingsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateComponentRuleSettingsMutation, TError, UpdateComponentRuleSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateComponentRuleSettings'],
+    mutationFn: (variables?: UpdateComponentRuleSettingsMutationVariables) => fetcher<UpdateComponentRuleSettingsMutation, UpdateComponentRuleSettingsMutationVariables>(UpdateComponentRuleSettingsDocument, variables)(),
     ...options
   }
     )};
