@@ -21,6 +21,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.platform.constant.PlatformType;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -60,7 +61,8 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectServiceProvider.getIfAvailable()).thenReturn(projectService);
 
         aiGuardrailsAdvisorProvider = new AiGuardrailsAdvisorProviderImpl(
-            aiGuardrails, meterRegistryProvider, projectDeploymentServiceProvider, projectServiceProvider);
+            aiGuardrails, meterRegistryProvider,
+            new JobPrincipalWorkspaceResolver(projectDeploymentServiceProvider, projectServiceProvider));
     }
 
     @Test
