@@ -7,6 +7,7 @@ import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPa
 import {updateClusterRootElementField, updateNestedClusterElementField} from './clusterElementsFieldChangeUtils';
 import getParametersWithDefaultValues from './getParametersWithDefaultValues';
 import {getTask} from './getTask';
+import {resolveMainClusterRootName} from './resolveClusterRootId';
 import saveWorkflowDefinition from './saveWorkflowDefinition';
 
 type FieldUpdateType = {
@@ -37,8 +38,12 @@ export default function saveClusterElementFieldChange({
 
     const {componentName, name, workflowNodeName} = currentNode;
 
-    if (!rootClusterElementNodeData?.workflowNodeName || !rootClusterElementNodeData?.componentName) {
-        console.error('Root cluster element node data is missing required properties');
+    // The root comes from the node first: on the main canvas rootClusterElementNodeData is seeded
+    // only by the box header's destinations and never cleared, so it is empty or names another box.
+    const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+
+    if (!mainClusterRootName) {
+        console.error('Cluster root could not be resolved for the current node');
 
         return;
     }
@@ -47,10 +52,19 @@ export default function saveClusterElementFieldChange({
 
     const mainClusterRootTask = getTask({
         tasks: workflowDefinitionTasks,
-        workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+        workflowNodeName: mainClusterRootName,
     });
 
     if (!mainClusterRootTask) {
+        return;
+    }
+
+    // The root's component name is the first segment of its task type; the store carries the same
+    // value for the dialog and is kept only as the fallback.
+    const mainClusterRootComponentName =
+        mainClusterRootTask.type?.split('/')[0] || rootClusterElementNodeData?.componentName;
+
+    if (!mainClusterRootComponentName) {
         return;
     }
 
@@ -59,7 +73,7 @@ export default function saveClusterElementFieldChange({
 
     if (
         currentNode.clusterRoot &&
-        currentNode.workflowNodeName === rootClusterElementNodeData.workflowNodeName &&
+        currentNode.workflowNodeName === mainClusterRootName &&
         !currentNode.isNestedClusterRoot
     ) {
         updatedMainRootData = updateClusterRootElementField({
@@ -68,14 +82,11 @@ export default function saveClusterElementFieldChange({
             fieldUpdate,
             mainRootElement: {
                 ...mainClusterRootTask,
-                componentName: rootClusterElementNodeData.componentName,
-                workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                componentName: mainClusterRootComponentName,
+                workflowNodeName: mainClusterRootName,
             },
         });
-    } else if (
-        currentNode.clusterElementType &&
-        currentNode.workflowNodeName !== rootClusterElementNodeData.workflowNodeName
-    ) {
+    } else if (currentNode.clusterElementType && currentNode.workflowNodeName !== mainClusterRootName) {
         const clusterElements = mainClusterRootTask.clusterElements;
 
         if (!clusterElements || Object.keys(clusterElements).length === 0) {
@@ -93,8 +104,8 @@ export default function saveClusterElementFieldChange({
         updatedMainRootData = {
             ...mainClusterRootTask,
             clusterElements: updatedClusterElements,
-            componentName: rootClusterElementNodeData.componentName,
-            workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+            componentName: mainClusterRootComponentName,
+            workflowNodeName: mainClusterRootName,
         };
     } else {
         console.error('Unknown cluster element type or root element mismatch');
