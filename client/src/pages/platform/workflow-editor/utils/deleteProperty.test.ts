@@ -64,6 +64,8 @@ describe('deleteProperty', () => {
         expect(callArgs.workflowNodeName).toBe('test_1');
     });
 
+    // The store root is whatever last opened a destination and is stale on the main canvas; a plain
+    // task must keep its own name regardless of it.
     test('sends a plain task its own name even when a root is in the store', async () => {
         const mutateAsync = vi.fn().mockResolvedValue({displayConditions: {}, metadata: {}, parameters: {}});
 
