@@ -1109,6 +1109,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   } ],
@@ -1966,6 +1967,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Ollama Model",
     "type": {
       "name": "MODEL",
@@ -2017,6 +2019,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Ollama Embedding",
     "type": {
       "name": "EMBEDDING",

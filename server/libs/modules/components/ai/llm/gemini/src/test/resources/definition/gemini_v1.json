@@ -733,6 +733,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask Gemini",
     "workflowNodeDescription": null
   } ],
@@ -962,6 +963,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Gemini Model",
     "type": {
       "name": "MODEL",

@@ -272,6 +272,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Board",
     "workflowNodeDescription": null
   }, {
@@ -719,6 +720,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Column",
     "workflowNodeDescription": null
   }, {
@@ -988,6 +990,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Group",
     "workflowNodeDescription": null
   }, {
@@ -1297,6 +1300,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Item",
     "workflowNodeDescription": null
   }, {
@@ -1392,6 +1396,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Item",
     "workflowNodeDescription": null
   }, {
@@ -1513,6 +1518,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Board Values",
     "workflowNodeDescription": null
   }, {
@@ -1835,6 +1841,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Item Status",
     "workflowNodeDescription": null
   } ],
@@ -2101,6 +2108,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Board",
     "type": {
       "name": "TOOLS",
@@ -2545,6 +2553,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Column",
     "type": {
       "name": "TOOLS",
@@ -2811,6 +2820,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Group",
     "type": {
       "name": "TOOLS",
@@ -3117,6 +3127,7 @@
       "required": false,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create Item",
     "type": {
       "name": "TOOLS",
@@ -3209,6 +3220,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Delete Item",
     "type": {
       "name": "TOOLS",
@@ -3327,6 +3339,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Get Board Values",
     "type": {
       "name": "TOOLS",
@@ -3646,6 +3659,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Item Status",
     "type": {
       "name": "TOOLS",

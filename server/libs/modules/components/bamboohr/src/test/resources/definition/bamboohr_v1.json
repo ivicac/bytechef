@@ -312,6 +312,7 @@
       "type": "DATE"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Employee",
     "workflowNodeDescription": null
   }, {
@@ -493,6 +494,7 @@
       "type": "DATE"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Employee",
     "workflowNodeDescription": null
   }, {
@@ -589,6 +591,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Employee",
     "workflowNodeDescription": null
   }, {
@@ -727,6 +730,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Employee File",
     "workflowNodeDescription": null
   } ],
@@ -1033,6 +1037,7 @@
       "required": false,
       "type": "DATE"
     } ],
+    "riskLevel": null,
     "title": "Create Employee",
     "type": {
       "name": "TOOLS",
@@ -1211,6 +1216,7 @@
       "required": false,
       "type": "DATE"
     } ],
+    "riskLevel": null,
     "title": "Update Employee",
     "type": {
       "name": "TOOLS",
@@ -1304,6 +1310,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Get Employee",
     "type": {
       "name": "TOOLS",
@@ -1439,6 +1446,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Update Employee File",
     "type": {
       "name": "TOOLS",

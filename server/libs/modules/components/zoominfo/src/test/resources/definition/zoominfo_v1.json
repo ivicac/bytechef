@@ -260,6 +260,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Enrich Company",
     "workflowNodeDescription": null
   }, {
@@ -542,6 +543,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Enrich Contact",
     "workflowNodeDescription": null
   }, {
@@ -1372,6 +1374,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Company",
     "workflowNodeDescription": null
   }, {
@@ -3078,6 +3081,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Search Contact",
     "workflowNodeDescription": null
   } ],
@@ -3335,6 +3339,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Enrich Company",
     "type": {
       "name": "TOOLS",
@@ -3617,6 +3622,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Enrich Contact",
     "type": {
       "name": "TOOLS",
@@ -4447,6 +4453,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Search Company",
     "type": {
       "name": "TOOLS",
@@ -6153,6 +6160,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Search Contact",
     "type": {
       "name": "TOOLS",

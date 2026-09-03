@@ -389,6 +389,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Category",
     "workflowNodeDescription": null
   }, {
@@ -1067,6 +1068,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Customer",
     "workflowNodeDescription": null
   }, {
@@ -1807,6 +1809,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Item",
     "workflowNodeDescription": null
   }, {
@@ -2260,6 +2263,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Payment",
     "workflowNodeDescription": null
   }, {
@@ -2831,6 +2835,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Customer",
     "workflowNodeDescription": null
   }, {
@@ -3222,6 +3227,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Invoice",
     "workflowNodeDescription": null
   }, {
@@ -3869,6 +3875,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Item",
     "workflowNodeDescription": null
   }, {
@@ -4300,6 +4307,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Payment",
     "workflowNodeDescription": null
   } ],
@@ -4686,6 +4694,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Category",
     "type": {
       "name": "TOOLS",
@@ -5364,6 +5373,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Customer",
     "type": {
       "name": "TOOLS",
@@ -6104,6 +6114,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Create Item",
     "type": {
       "name": "TOOLS",
@@ -6557,6 +6568,7 @@
       "required": true,
       "type": "NUMBER"
     } ],
+    "riskLevel": null,
     "title": "Create Payment",
     "type": {
       "name": "TOOLS",
@@ -7128,6 +7140,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Customer",
     "type": {
       "name": "TOOLS",
@@ -7519,6 +7532,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Invoice",
     "type": {
       "name": "TOOLS",
@@ -8166,6 +8180,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Item",
     "type": {
       "name": "TOOLS",
@@ -8597,6 +8612,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Get Payment",
     "type": {
       "name": "TOOLS",

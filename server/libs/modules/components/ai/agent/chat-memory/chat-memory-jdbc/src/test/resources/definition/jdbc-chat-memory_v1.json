@@ -1,9 +1,9 @@
 {
   "actionClusterElementTypes": {
-    "listConversations": [ "DATA_SOURCE" ],
     "addMessages": [ "DATA_SOURCE" ],
+    "getMessages": [ "DATA_SOURCE" ],
     "deleteConversation": [ "DATA_SOURCE" ],
-    "getMessages": [ "DATA_SOURCE" ]
+    "listConversations": [ "DATA_SOURCE" ]
   },
   "actions": [ {
     "batch": false,
@@ -269,6 +269,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Add Messages",
     "workflowNodeDescription": null
   }, {
@@ -574,6 +575,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Messages",
     "workflowNodeDescription": null
   }, {
@@ -757,6 +759,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Conversation",
     "workflowNodeDescription": null
   }, {
@@ -947,6 +950,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Conversations",
     "workflowNodeDescription": null
   } ],
@@ -991,6 +995,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "JDBC Chat Memory",
     "type": {
       "name": "CHAT_MEMORY",

@@ -290,6 +290,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Response to Webhook Request",
     "workflowNodeDescription": null
   } ],
@@ -324,9 +325,9 @@
       "outputResponse": {
         "outputSchema": null,
         "placeholder": {
-          "parameters": { },
-          "method": "POST",
           "headers": { },
+          "method": "POST",
+          "parameters": { },
           "body": { }
         },
         "sampleOutput": null
@@ -362,9 +363,9 @@
       "outputResponse": {
         "outputSchema": null,
         "placeholder": {
-          "parameters": { },
-          "method": "POST",
           "headers": { },
+          "method": "POST",
+          "parameters": { },
           "body": { }
         },
         "sampleOutput": null
@@ -422,9 +423,9 @@
       "outputResponse": {
         "outputSchema": null,
         "placeholder": {
-          "parameters": { },
-          "method": "POST",
           "headers": { },
+          "method": "POST",
+          "parameters": { },
           "body": { }
         },
         "sampleOutput": null

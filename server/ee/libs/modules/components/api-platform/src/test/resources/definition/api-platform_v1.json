@@ -72,6 +72,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Response to API Request",
     "workflowNodeDescription": null
   } ],

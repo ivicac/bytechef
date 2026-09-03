@@ -236,6 +236,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Comment on Issue",
     "workflowNodeDescription": null
   }, {
@@ -639,6 +640,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Issue",
     "workflowNodeDescription": null
   } ],
@@ -866,6 +868,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Comment on Issue",
     "type": {
       "name": "TOOLS",
@@ -1263,6 +1266,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Issue",
     "type": {
       "name": "TOOLS",

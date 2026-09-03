@@ -319,6 +319,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Account",
     "workflowNodeDescription": null
   }, {
@@ -773,6 +774,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Contact",
     "workflowNodeDescription": null
   }, {
@@ -1194,6 +1196,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Task",
     "workflowNodeDescription": null
   } ],
@@ -1502,6 +1505,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Account",
     "type": {
       "name": "TOOLS",
@@ -1948,6 +1952,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Contact",
     "type": {
       "name": "TOOLS",
@@ -2361,6 +2366,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Task",
     "type": {
       "name": "TOOLS",

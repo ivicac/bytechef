@@ -17,6 +17,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Compression Query Transformer",
     "type": {
       "name": "QUERY_TRANSFORMER",
@@ -34,6 +35,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Rewrite Query Transformer",
     "type": {
       "name": "QUERY_TRANSFORMER",
@@ -73,6 +75,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Translation Query Transformer",
     "type": {
       "name": "QUERY_TRANSFORMER",

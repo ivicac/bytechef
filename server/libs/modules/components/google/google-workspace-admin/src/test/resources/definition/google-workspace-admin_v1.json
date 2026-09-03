@@ -6571,6 +6571,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create User",
     "workflowNodeDescription": null
   }, {
@@ -7083,6 +7084,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Assign Role To User",
     "workflowNodeDescription": null
   }, {
@@ -7567,6 +7569,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Assign License",
     "workflowNodeDescription": null
   }, {
@@ -14010,6 +14013,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Suspend User",
     "workflowNodeDescription": null
   } ],
@@ -20578,6 +20582,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create User",
     "type": {
       "name": "TOOLS",
@@ -21090,6 +21095,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Assign Role To User",
     "type": {
       "name": "TOOLS",
@@ -21574,6 +21580,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Assign License",
     "type": {
       "name": "TOOLS",
@@ -28017,6 +28024,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Suspend User",
     "type": {
       "name": "TOOLS",

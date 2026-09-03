@@ -754,6 +754,7 @@
       "type": "DATE"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Deal",
     "workflowNodeDescription": null
   }, {
@@ -1470,6 +1471,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Enrich Company",
     "workflowNodeDescription": null
   }, {
@@ -2376,6 +2378,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Enrich Person",
     "workflowNodeDescription": null
   }, {
@@ -3133,6 +3136,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Deal",
     "workflowNodeDescription": null
   } ],
@@ -3878,6 +3882,7 @@
       "required": false,
       "type": "DATE"
     } ],
+    "riskLevel": null,
     "title": "Create Deal",
     "type": {
       "name": "TOOLS",
@@ -4588,6 +4593,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Enrich Company",
     "type": {
       "name": "TOOLS",
@@ -5488,6 +5494,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Enrich Person",
     "type": {
       "name": "TOOLS",
@@ -6239,6 +6246,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Update Deal",
     "type": {
       "name": "TOOLS",

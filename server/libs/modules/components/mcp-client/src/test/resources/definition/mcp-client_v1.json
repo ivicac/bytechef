@@ -59,6 +59,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Call Tool",
     "workflowNodeDescription": null
   } ],
@@ -196,6 +197,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "MCP Server Tools",
     "type": {
       "name": "TOOLS",

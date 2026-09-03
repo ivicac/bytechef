@@ -2169,6 +2169,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Coupon",
     "workflowNodeDescription": null
   }, {
@@ -4811,6 +4812,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Customer",
     "workflowNodeDescription": null
   }, {
@@ -10870,6 +10872,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Order",
     "workflowNodeDescription": null
   }, {
@@ -16286,6 +16289,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Product",
     "workflowNodeDescription": null
   } ],
@@ -18452,6 +18456,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Create Coupon",
     "type": {
       "name": "TOOLS",
@@ -21094,6 +21099,7 @@
       "required": false,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Customer",
     "type": {
       "name": "TOOLS",
@@ -27153,6 +27159,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "Create Order",
     "type": {
       "name": "TOOLS",
@@ -32569,6 +32576,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create Product",
     "type": {
       "name": "TOOLS",

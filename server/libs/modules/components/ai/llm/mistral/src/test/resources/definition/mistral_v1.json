@@ -710,6 +710,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1657,6 +1658,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Document OCR",
     "workflowNodeDescription": null
   }, {
@@ -2330,6 +2332,7 @@
       "type": "FILE_ENTRY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Upload File",
     "workflowNodeDescription": null
   } ],
@@ -2371,6 +2374,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Mistral Embedding",
     "type": {
       "name": "EMBEDDING",
@@ -2583,6 +2587,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "MistralAI Model",
     "type": {
       "name": "MODEL",

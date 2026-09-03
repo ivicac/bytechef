@@ -770,6 +770,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   } ],
@@ -1108,6 +1109,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Perplexity Model",
     "type": {
       "name": "MODEL",
