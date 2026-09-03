@@ -126,12 +126,6 @@ const WorkflowTestChatPanel = () => {
         setWorkflowTestChatPanelOpen(false);
     };
 
-    const handleResetChatClick = () => {
-        resetMessages();
-
-        generateConversationId();
-    };
-
     const handleVoiceStart = useCallback(() => {
         if (!workflow?.id) {
             return;
@@ -175,6 +169,14 @@ const WorkflowTestChatPanel = () => {
         }
     }, [generateConversationId, workflowTestChatPanelOpen]);
 
+    // The same pair the agent playground's reset uses: the runtime provider reads both `messages`
+    // and `conversationId` off the store, so clearing one and rotating the other starts a fresh
+    // thread in place.
+    const handleReset = useCallback(() => {
+        resetMessages();
+        generateConversationId();
+    }, [generateConversationId, resetMessages]);
+
     if (!workflowTestChatPanelOpen) {
         return <></>;
     }
@@ -196,7 +198,7 @@ const WorkflowTestChatPanel = () => {
                                 <Button
                                     aria-label="Reset the conversation"
                                     icon={<MessageSquareXIcon />}
-                                    onClick={handleResetChatClick}
+                                    onClick={handleReset}
                                     size="iconSm"
                                     variant="ghost"
                                 />
