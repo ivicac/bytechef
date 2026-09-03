@@ -31,6 +31,7 @@ import handleComponentAddedSuccess, {
     openNodeDetailsPanelForNewNode,
 } from '../utils/handleComponentAddedSuccess';
 import handleTaskDispatcherSubtaskOperationClick from '../utils/handleTaskDispatcherSubtaskOperationClick';
+import processClusterElementsHierarchy from '../utils/processClusterElementsHierarchy';
 import {resolveClusterRootId} from '../utils/resolveClusterRootId';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 
@@ -77,15 +78,53 @@ const WorkflowNodesPopoverMenuOperationList = ({
         }))
     );
 
-    const {mainClusterRootComponentDefinition, rootClusterElementNodeData, setRootClusterElementNodeData} =
+    const {clusterRootComponentDefinitions, rootClusterElementNodeData, setRootClusterElementNodeData} =
         useWorkflowEditorStore(
             useShallow((state) => ({
-                mainClusterRootComponentDefinition:
-                    state.clusterRootComponentDefinitions[state.rootClusterElementNodeData?.workflowNodeName ?? ''],
+                clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
                 rootClusterElementNodeData: state.rootClusterElementNodeData,
                 setRootClusterElementNodeData: state.setRootClusterElementNodeData,
             }))
         );
+
+    // `rootClusterElementNodeData` is seeded by useWorkflowEditorLayout only while
+    // `clusterElementsCanvasOpen` is true, so on the main canvas it is filled in only after one of the
+    // box header's destinations has been opened. Adding an element must not depend on that having
+    // happened: the placeholder already knows which root it hangs off, so resolve the root from the
+    // node graph and fall back to the store rather than the other way round.
+    const mainClusterRootNodeData = useMemo(() => {
+        const sourceNode = nodes.find((node) => node.id === sourceNodeId);
+
+        // Node graph first, store second: on the main canvas the store root is whatever last opened
+        // a destination, so preferring it added an element to the wrong box.
+        if (!sourceNode) {
+            return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
+                ? rootClusterElementNodeData
+                : undefined;
+        }
+
+        const sourceNodeData = sourceNode.data as NodeDataType;
+        const mainClusterRootId = resolveClusterRootId(sourceNodeData);
+
+        if (!mainClusterRootId) {
+            return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
+                ? rootClusterElementNodeData
+                : undefined;
+        }
+
+        const mainClusterRootNode = nodes.find((node) => node.id === mainClusterRootId);
+
+        if (mainClusterRootNode) {
+            return mainClusterRootNode.data as NodeDataType;
+        }
+
+        return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
+            ? rootClusterElementNodeData
+            : undefined;
+    }, [nodes, rootClusterElementNodeData, sourceNodeId]);
+
+    const mainClusterRootComponentDefinition =
+        clusterRootComponentDefinitions[mainClusterRootNodeData?.workflowNodeName ?? ''];
     const {currentNode, setCurrentNode, setWorkflowNodeDetailsPanelOpen, workflowNodeDetailsPanelOpen} =
         useWorkflowNodeDetailsPanelStore(
             useShallow((state) => ({
@@ -204,15 +243,29 @@ const WorkflowNodesPopoverMenuOperationList = ({
                 return;
             }
 
-            const nestedClusterElements = await addClusterElementToClusterRoot({
-                clusterElementName,
-                clusterElementType,
-                clusterRootComponentDefinition: mainClusterRootComponentDefinition,
-                clusterRootId: mainClusterRootNodeData.workflowNodeName,
-                componentDefinition,
+            const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
+
+            const mainClusterRootTask = getTask({
+                tasks: workflowDefinitionTasks,
+                workflowNodeName: mainClusterRootNodeData.workflowNodeName,
+            });
+
+            if (!mainClusterRootTask) {
+                return;
+            }
+
+            const clusterElements = initializeClusterElementsObject({
+                clusterElementsData: mainClusterRootTask.clusterElements || {},
+                mainClusterRootComponentDefinition,
+                mainClusterRootTask,
+            });
+
+            const updatedClusterElements = processClusterElementsHierarchy({
+                clusterElementData,
+                clusterElements,
+                elementType: clusterElementType,
                 isMultipleElements,
-                label,
-                queryClient,
+                mainRootId: mainClusterRootNodeData.workflowNodeName,
                 sourceNodeId,
                 updateWorkflowMutation: updateWorkflowMutation!,
                 workflow,
@@ -224,7 +277,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
 
             setRootClusterElementNodeData({
                 ...mainClusterRootNodeData,
-                clusterElements: nestedClusterElements,
+                clusterElements: updatedClusterElements.nestedClusterElements,
             } as typeof mainClusterRootNodeData);
 
             if (currentNode?.clusterRoot && !currentNode.isNestedClusterRoot) {
@@ -237,17 +290,36 @@ const WorkflowNodesPopoverMenuOperationList = ({
             if (workflowNodeDetailsPanelOpen && currentNode?.workflowNodeName === sourceNodeName) {
                 setCurrentNode({
                     ...mainClusterRootNodeData,
-                    clusterElements: nestedClusterElements,
+                    clusterElements: updatedClusterElements.nestedClusterElements,
                 });
 
                 setWorkflowNodeDetailsPanelOpen(false);
             }
+
+            saveWorkflowDefinition({
+                nodeData: {
+                    ...updatedNodeData,
+                    componentName: mainClusterRootNodeData.componentName,
+                    workflowNodeName: mainClusterRootNodeData.workflowNodeName,
+                },
+                onSuccess: () => {
+                    handleComponentAddedSuccess({
+                        nodeData: {
+                            ...updatedNodeData,
+                            componentName: mainClusterRootNodeData.componentName,
+                            workflowNodeName: mainClusterRootNodeData.workflowNodeName,
+                        },
+                        queryClient,
+                        workflow,
+                    });
+                },
+                updateWorkflowMutation: updateWorkflowMutation!,
+            });
         },
         [
             workflow,
             mainClusterRootComponentDefinition,
             mainClusterRootNodeData,
-            componentDefinition,
             setRootClusterElementNodeData,
             currentNode,
             workflowNodeDetailsPanelOpen,

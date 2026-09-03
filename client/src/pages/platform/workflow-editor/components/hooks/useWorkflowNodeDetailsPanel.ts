@@ -90,7 +90,7 @@ import {getClusterElementRootNames} from '../../utils/getWorkflowIssueOwnerName'
 import {findGraphMembersPrecedingMember} from '../../utils/graph/graphReachability';
 import hasDataPillPanelContent from '../../utils/hasDataPillPanelContent';
 import invalidateOperationQueries from '../../utils/invalidateOperationQueries';
-import {resolveClusterRootId} from '../../utils/resolveClusterRootId';
+import {resolveClusterRootId, resolveMainClusterRootName} from '../../utils/resolveClusterRootId';
 import saveClusterElementFieldChange from '../../utils/saveClusterElementFieldChange';
 import saveTaskDispatcherSubtaskFieldChange from '../../utils/saveTaskDispatcherSubtaskFieldChange';
 import saveWorkflowDefinition from '../../utils/saveWorkflowDefinition';
@@ -540,7 +540,12 @@ export default function useWorkflowNodeDetailsPanel({
                 operationDefinition: currentOperationDefinition,
                 taskDispatcher: currentNode?.taskDispatcher,
             }),
-        [currentNode?.clusterElementType, currentNode?.taskDispatcher, currentOperationDefinition, mainClusterRootName]
+        [
+            currentNode?.clusterElementType,
+            currentNode?.taskDispatcher,
+            currentOperationDefinition,
+            mainClusterRootName,
+        ]
     );
 
     const currentWorkflowTrigger = useMemo(
