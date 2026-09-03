@@ -10,6 +10,7 @@ import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {decodePath} from './encodingUtils';
+import {resolveMainClusterRootName} from './resolveClusterRootId';
 import {enqueueWorkflowMutation} from './workflowMutationQueue';
 
 interface SavePropertyProps {
@@ -51,6 +52,7 @@ export default function saveProperty({
     // `useProperty` carries the full account of that assumption and what removing it would cost.
     const {currentNode} = useWorkflowNodeDetailsPanelStore.getState();
     const {rootClusterElementNodeData} = useWorkflowEditorStore.getState();
+    const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
 
     if (!currentNode) {
         console.error('No current node found in the store');
@@ -111,7 +113,7 @@ export default function saveProperty({
                         type,
                         value,
                     },
-                    workflowNodeName: rootClusterElementNodeData?.workflowNodeName ?? '',
+                    workflowNodeName: mainClusterRootName ?? '',
                 },
                 {
                     onError: (error) => {
@@ -125,7 +127,7 @@ export default function saveProperty({
         return;
     }
 
-    const nodeWorkflowNodeName = rootClusterElementNodeData?.workflowNodeName || currentNode?.workflowNodeName || '';
+    const nodeWorkflowNodeName = mainClusterRootName || currentNode?.workflowNodeName || '';
 
     enqueueWorkflowMutation(() =>
         updateWorkflowNodeParameterMutation.mutateAsync(

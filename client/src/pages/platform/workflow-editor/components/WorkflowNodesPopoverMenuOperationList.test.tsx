@@ -1,8 +1,10 @@
 import {ComponentDefinition} from '@/shared/middleware/platform/configuration';
+import {ClusterElementDefinitionKeys} from '@/shared/queries/platform/clusterElementDefinitions.queries';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
-import {describe, expect, it, vi} from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import WorkflowNodesPopoverMenuOperationList from './WorkflowNodesPopoverMenuOperationList';
 
@@ -14,23 +16,52 @@ vi.mock('../providers/workflowEditorProvider', () => ({
     useWorkflowEditor: () => ({updateWorkflowMutation: {mutate: vi.fn()}}),
 }));
 
-vi.mock('../stores/useWorkflowDataStore', () => ({
-    default: (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({
-            edges: [],
-            nodes: [],
-            setLatestComponentDefinition: vi.fn(),
-            workflow: {definition: '{"tasks":[]}', id: 'workflow-1'},
-        }),
+const {editorStoreState, saveWorkflowDefinitionMock, workflowDataStoreState} = vi.hoisted(() => ({
+    editorStoreState: {
+        clusterRootComponentDefinitions: {} as Record<string, unknown>,
+        rootClusterElementNodeData: undefined as Record<string, unknown> | undefined,
+    },
+    saveWorkflowDefinitionMock: vi.fn(),
+    workflowDataStoreState: {
+        definition: '{"tasks":[]}',
+        nodes: [] as Array<{data: Record<string, unknown>; id: string}>,
+    },
 }));
 
-vi.mock('../stores/useWorkflowEditorStore', () => ({
-    default: (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({
-            clusterRootComponentDefinitions: {},
-            rootClusterElementNodeData: undefined,
-            setRootClusterElementNodeData: vi.fn(),
+// Both stores are read through the hook AND through `getState()` on the save path, so the mocks
+// serve the same state either way.
+vi.mock('../stores/useWorkflowDataStore', () => {
+    const getState = () => ({
+        edges: [],
+        nodes: workflowDataStoreState.nodes,
+        setLatestComponentDefinition: vi.fn(),
+        setWorkflow: vi.fn(),
+        workflow: {definition: workflowDataStoreState.definition, id: 'workflow-1'},
+    });
+
+    return {
+        default: Object.assign((selector: (state: Record<string, unknown>) => unknown) => selector(getState()), {
+            getState,
         }),
+    };
+});
+
+vi.mock('../stores/useWorkflowEditorStore', () => {
+    const getState = () => ({
+        clusterRootComponentDefinitions: editorStoreState.clusterRootComponentDefinitions,
+        rootClusterElementNodeData: editorStoreState.rootClusterElementNodeData,
+        setRootClusterElementNodeData: vi.fn(),
+    });
+
+    return {
+        default: Object.assign((selector: (state: Record<string, unknown>) => unknown) => selector(getState()), {
+            getState,
+        }),
+    };
+});
+
+vi.mock('../utils/saveWorkflowDefinition', () => ({
+    default: saveWorkflowDefinitionMock,
 }));
 
 vi.mock('../stores/useWorkflowNodeDetailsPanelStore', () => ({
@@ -62,9 +93,7 @@ const componentDefinitionWithBothActionsAndClusterElements = {
     version: 1,
 } as unknown as ComponentDefinition;
 
-function renderOperationList(clusterElementType?: string) {
-    const queryClient = new QueryClient();
-
+function renderOperationList(clusterElementType?: string, queryClient: QueryClient = new QueryClient()) {
     return render(
         (
             <QueryClientProvider client={queryClient}>
@@ -80,6 +109,66 @@ function renderOperationList(clusterElementType?: string) {
 }
 
 describe('WorkflowNodesPopoverMenuOperationList', () => {
+    beforeEach(() => {
+        editorStoreState.clusterRootComponentDefinitions = {};
+        editorStoreState.rootClusterElementNodeData = undefined;
+        workflowDataStoreState.definition = '{"tasks":[]}';
+        workflowDataStoreState.nodes = [];
+        saveWorkflowDefinitionMock.mockReset();
+    });
+
+    // `rootClusterElementNodeData` is seeded only while the dialog canvas is open, so on the main
+    // canvas it is empty unless a box header destination has been opened first -- and the save used
+    // to bail silently on it. The root has to come from the node the placeholder hangs off instead.
+    it('adds a cluster element with no canvas store seeded, resolving the root from the node', async () => {
+        editorStoreState.clusterRootComponentDefinitions = {
+            aiAgent_1: {
+                clusterElementTypes: [{label: 'Model', multipleElements: false, name: 'MODEL'}],
+                name: 'aiAgent',
+                version: 1,
+            },
+        };
+        workflowDataStoreState.definition = JSON.stringify({
+            tasks: [{clusterElements: {}, name: 'aiAgent_1', type: 'aiAgent/v1/chat'}],
+        });
+        workflowDataStoreState.nodes = [
+            {
+                data: {clusterRoot: true, componentName: 'aiAgent', workflowNodeName: 'aiAgent_1'},
+                id: 'aiAgent_1',
+            },
+            {
+                data: {clusterElementType: 'model', parentClusterRootId: 'aiAgent_1'},
+                id: 'placeholder-1',
+            },
+        ];
+
+        const queryClient = new QueryClient();
+
+        // The click fetches the picked element's definition first; served from cache here so no
+        // API is reached.
+        queryClient.setQueryData(
+            ClusterElementDefinitionKeys.clusterElementDefinition({
+                clusterElementName: 'gpt4',
+                clusterElementType: 'MODEL',
+                componentName: 'openAi',
+                componentVersion: 1,
+            }),
+            {properties: []}
+        );
+
+        const user = userEvent.setup();
+
+        renderOperationList('model', queryClient);
+
+        await user.click(screen.getByText('GPT-4'));
+
+        await waitFor(() => {
+            expect(saveWorkflowDefinitionMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(saveWorkflowDefinitionMock.mock.calls[0][0].nodeData.workflowNodeName).toBe('aiAgent_1');
+    });
+
     it('lists the component actions, not its cluster elements, when clusterElementType is undefined', () => {
         renderOperationList(undefined);
 

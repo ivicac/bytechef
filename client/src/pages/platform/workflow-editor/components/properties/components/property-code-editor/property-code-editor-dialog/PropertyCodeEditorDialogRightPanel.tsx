@@ -2,6 +2,7 @@ import PropertyCodeEditorDialogRightPanelConnections from '@/pages/platform/work
 import PropertyCodeEditorDialogRightPanelInput from '@/pages/platform/workflow-editor/components/properties/components/property-code-editor/property-code-editor-dialog/PropertyCodeEditorDialogRightPanelInput';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import {resolveMainClusterRootName} from '@/pages/platform/workflow-editor/utils/resolveClusterRootId';
 import {
     useClusterElementComponentConnectionsQuery,
     useClusterElementScriptInputQuery,
@@ -25,7 +26,8 @@ const PropertyCodeEditorDialogRightPanel = ({
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
     const rootClusterElementNodeData = useWorkflowEditorStore(useShallow((state) => state.rootClusterElementNodeData));
 
-    const isClusterElement = currentNode?.clusterElementType && rootClusterElementNodeData?.workflowNodeName;
+    const mainClusterRootName = resolveMainClusterRootName(currentNode, rootClusterElementNodeData);
+    const isClusterElement = currentNode?.clusterElementType && mainClusterRootName;
 
     const {data: clusterElementScriptInputData} = useClusterElementScriptInputQuery(
         {
@@ -33,7 +35,7 @@ const PropertyCodeEditorDialogRightPanel = ({
             clusterElementWorkflowNodeName: currentNode?.name ?? '',
             environmentId: currentEnvironmentId!,
             workflowId: workflow.id!,
-            workflowNodeName: rootClusterElementNodeData?.workflowNodeName ?? '',
+            workflowNodeName: mainClusterRootName ?? '',
         },
         {
             enabled: !!isClusterElement && currentEnvironmentId != null && !!workflow.id,
@@ -59,7 +61,7 @@ const PropertyCodeEditorDialogRightPanel = ({
             clusterElementType: currentNode?.clusterElementType ?? '',
             clusterElementWorkflowNodeName: currentNode?.name ?? '',
             workflowId: workflow.id!,
-            workflowNodeName: rootClusterElementNodeData?.workflowNodeName ?? '',
+            workflowNodeName: mainClusterRootName ?? '',
         },
         {
             enabled: clusterElementConnectionsQueryEnabled,
