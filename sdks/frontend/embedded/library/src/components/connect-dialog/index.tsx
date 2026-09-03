@@ -109,6 +109,7 @@ interface UseConnectDialogProps {
     integrationInstanceId?: string;
     jwtToken: string;
     mapObjectFields?: MapObjectFieldsType;
+    onClose?: () => void;
 }
 
 export default function useConnectDialog({
@@ -118,6 +119,7 @@ export default function useConnectDialog({
     integrationInstanceId,
     jwtToken,
     mapObjectFields,
+    onClose,
 }: UseConnectDialogProps): ConnectionDialogHookReturnType {
     const [integration, setIntegration] = useState<IntegrationType | undefined>(undefined);
     const [isOAuth2, setIsOAuth2] = useState(false);
@@ -685,6 +687,7 @@ export default function useConnectDialog({
     );
 
     const debouncedFetchesRef = useRef<Record<string, (...args: unknown[]) => void>>({});
+    const wasOpenRef = useRef(false);
 
     const currentIntegrationInstanceIdRef = useRef(currentIntegrationInstanceId);
     const inputOverridesRef = useRef(inputOverrides);
@@ -989,6 +992,20 @@ export default function useConnectDialog({
             setIsOAuth2(true);
         }
     }, [isOAuth2AuthorizationType]);
+
+    useEffect(() => {
+        if (isOpen) {
+            wasOpenRef.current = true;
+
+            return;
+        }
+
+        if (wasOpenRef.current) {
+            wasOpenRef.current = false;
+
+            onClose?.();
+        }
+    }, [isOpen, onClose]);
 
     return {
         openDialog,

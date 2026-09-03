@@ -639,3 +639,75 @@ describe('useConnectDialog - group-member persistence', () => {
         );
     });
 });
+
+describe('useConnectDialog - onClose', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('does not call onClose when the dialog has never been opened', () => {
+        const onClose = vi.fn();
+
+        renderHook(() => useConnectDialog({...defaultConnectDialogProps, onClose}));
+
+        expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('calls onClose when the dialog is closed', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                name: 'Test Integration',
+                workflows: [],
+                integrationInstances: [],
+            }),
+        });
+
+        const onClose = vi.fn();
+
+        const {result} = renderHook(() => useConnectDialog({...defaultConnectDialogProps, onClose}));
+
+        await act(async () => result.current.openDialog());
+
+        act(() => result.current.closeDialog());
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onClose when the integration fails to load', async () => {
+        // The dialog opens first and only then fails, as it would against a real network: the
+        // rejection is held back until React has committed the open state.
+        let rejectFetch: (error: Error) => void = () => {};
+
+        global.fetch = vi.fn(
+            () =>
+                new Promise((_, reject) => {
+                    rejectFetch = reject;
+                })
+        );
+
+        const onClose = vi.fn();
+
+        const {result} = renderHook(() => useConnectDialog({...defaultConnectDialogProps, onClose}));
+
+        let openDialogPromise: Promise<void> | undefined;
+
+        await act(async () => {
+            openDialogPromise = result.current.openDialog();
+        });
+
+        expect(onClose).not.toHaveBeenCalled();
+
+        await act(async () => {
+            rejectFetch(new Error('network down'));
+
+            await openDialogPromise;
+        });
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+});
