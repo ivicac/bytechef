@@ -67,13 +67,18 @@ const WorkflowTestChatPanel = () => {
     const voiceUnsupportedReason = useMemo(() => checkVoiceSupport(), []);
     const browserSupportsVoice = voiceUnsupportedReason === null;
 
-    // Voice is only available when the workflow has at least one trigger carrying a websocketTasks extension
+    // Voice is only available when the workflow has at least one trigger carrying a websocketTasks pipeline
     // (the embedded sub-workflow that runs during the voice session). Otherwise the voice button would fail
     // at WS-upgrade time with the server's "no websocketTasks" close, which is recoverable but a poor UX.
+    // The canonical placement is a trigger extension; `parameters` is the legacy placement the server still
+    // accepts (see WebsocketTasks.resolve), so both are checked here.
     const workflowSupportsVoice = (workflow?.triggers ?? []).some((trigger) => {
+        const extensions = (trigger?.extensions ?? {}) as Record<string, unknown>;
         const parameters = (trigger?.parameters ?? {}) as Record<string, unknown>;
 
-        return typeof parameters.websocketTasks === 'string' && parameters.websocketTasks.length > 0;
+        return [extensions.websocketTasks, parameters.websocketTasks].some(
+            (websocketTasks) => typeof websocketTasks === 'string' && websocketTasks.length > 0
+        );
     });
 
     // A workflow is "voice-only" when its trigger is `browser/v1/voiceSession`. In that case the test panel
@@ -121,12 +126,6 @@ const WorkflowTestChatPanel = () => {
         setWorkflowTestChatPanelOpen(false);
     };
 
-    const handleResetChatClick = () => {
-        resetMessages();
-
-        generateConversationId();
-    };
-
     const handleVoiceStart = useCallback(() => {
         if (!workflow?.id) {
             return;
@@ -170,6 +169,14 @@ const WorkflowTestChatPanel = () => {
         }
     }, [generateConversationId, workflowTestChatPanelOpen]);
 
+    // The same pair the agent playground's reset uses: the runtime provider reads both `messages`
+    // and `conversationId` off the store, so clearing one and rotating the other starts a fresh
+    // thread in place.
+    const handleReset = useCallback(() => {
+        resetMessages();
+        generateConversationId();
+    }, [generateConversationId, resetMessages]);
+
     if (!workflowTestChatPanelOpen) {
         return <></>;
     }
@@ -191,7 +198,7 @@ const WorkflowTestChatPanel = () => {
                                 <Button
                                     aria-label="Reset the conversation"
                                     icon={<MessageSquareXIcon />}
-                                    onClick={handleResetChatClick}
+                                    onClick={handleReset}
                                     size="iconSm"
                                     variant="ghost"
                                 />
