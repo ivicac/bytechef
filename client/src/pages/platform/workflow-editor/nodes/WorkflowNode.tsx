@@ -866,6 +866,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             const trimmed = newLabel.trim();
 
             if (trimmed && trimmed !== nodeLabel) {
+                // The root comes from this node's own data first: on the main canvas the store root
+                // is empty or names another box, and gating on it made a box member's rename a no-op.
                 const mainClusterRootName = isClusterElement
                     ? resolveMainClusterRootName(data, rootClusterElementNodeData)
                     : undefined;
