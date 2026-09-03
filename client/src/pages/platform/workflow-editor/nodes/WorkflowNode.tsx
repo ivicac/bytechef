@@ -40,6 +40,7 @@ import handleDeleteTask from '../utils/handleDeleteTask';
 import handleDeleteTrigger from '../utils/handleDeleteTrigger';
 import pasteNode from '../utils/pasteNode';
 import removeWorkflowNodePosition from '../utils/removeWorkflowNodePosition';
+import {resolveMainClusterRootName} from '../utils/resolveClusterRootId';
 import saveClusterElementNodesPosition from '../utils/saveClusterElementNodesPosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
@@ -849,13 +850,19 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             const trimmed = newLabel.trim();
 
             if (trimmed && trimmed !== nodeLabel) {
-                if (isClusterElement && rootClusterElementNodeData && workflow.definition) {
+                // The root comes from this node's own data first: on the main canvas the store root
+                // is empty or names another box, and gating on it made a box member's rename a no-op.
+                const mainClusterRootName = isClusterElement
+                    ? resolveMainClusterRootName(data, rootClusterElementNodeData)
+                    : undefined;
+
+                if (isClusterElement && mainClusterRootName && workflow.definition) {
                     const workflowDefinition = JSON.parse(workflow.definition);
                     const workflowDefinitionTasks = workflowDefinition.tasks ?? [];
 
                     const mainClusterRootTask = getTask({
                         tasks: workflowDefinitionTasks,
-                        workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                        workflowNodeName: mainClusterRootName,
                     });
 
                     if (!mainClusterRootTask?.clusterElements) {
@@ -875,8 +882,9 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                         nodeData: {
                             ...mainClusterRootTask,
                             clusterElements: updatedClusterElements,
-                            componentName: rootClusterElementNodeData.componentName,
-                            workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                            componentName:
+                                mainClusterRootTask.type?.split('/')[0] ?? rootClusterElementNodeData?.componentName,
+                            workflowNodeName: mainClusterRootName,
                         } as NodeDataType,
                         updateWorkflowMutation: updateWorkflowMutation!,
                     });
