@@ -21,6 +21,8 @@ import com.bytechef.cli.client.automation.ApiException;
 import com.bytechef.cli.client.automation.api.ProjectCodeWorkflowApi;
 import com.bytechef.cli.client.automation.api.ProjectGitApi;
 import com.bytechef.cli.client.automation.api.WorkflowExecutionApi;
+import com.bytechef.cli.client.automationdatatable.api.DataTableApi;
+import com.bytechef.cli.client.automationdatatable.api.DataTableRowApi;
 import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.error.CliException;
 import com.bytechef.cli.core.http.AuthInterceptor;
@@ -59,9 +61,37 @@ final class AutomationClientFactory {
         return new ProjectGitApi(apiClient(config));
     }
 
-    static CliException toCliException(ApiException exception) {
-        int status = exception.getCode();
+    /**
+     * The generated data-table client's {@code ApiClient} is a distinct type per generated package, so it needs its own
+     * builder rather than an overload of {@link #apiClient(CliConfig)}.
+     */
+    static com.bytechef.cli.client.automationdatatable.ApiClient dataTableApiClient(CliConfig config) {
+        com.bytechef.cli.client.automationdatatable.ApiClient apiClient =
+            new com.bytechef.cli.client.automationdatatable.ApiClient();
 
+        apiClient.updateBaseUri(AuthInterceptor.baseUri(config, AUTOMATION_API_PATH));
+        apiClient.setRequestInterceptor(new AuthInterceptor(config));
+
+        return apiClient;
+    }
+
+    static DataTableApi dataTableApi(CliConfig config) {
+        return new DataTableApi(dataTableApiClient(config));
+    }
+
+    static DataTableRowApi dataTableRowApi(CliConfig config) {
+        return new DataTableRowApi(dataTableApiClient(config));
+    }
+
+    static CliException toCliException(ApiException exception) {
+        return toCliException(exception.getCode());
+    }
+
+    static CliException toCliException(com.bytechef.cli.client.automationdatatable.ApiException exception) {
+        return toCliException(exception.getCode());
+    }
+
+    static CliException toCliException(int status) {
         if (status == 401 || status == 403) {
             return new CliException(2, "Authentication failed (HTTP " + status + ").");
         }

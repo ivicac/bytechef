@@ -3,6 +3,8 @@ dependencies {
 
     implementation(project(":cli:cli-core"))
     implementation(project(":cli:clients:automation-configuration"))
+    implementation(project(":cli:clients:automation-data-table"))
+    implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.springframework.shell:spring-shell-core:${rootProject.libs.versions.spring.shell.get()}")
 
     testImplementation(project(":cli:cli-app"))
