@@ -15,6 +15,7 @@ jjwt = "0.13.0"
 markpollack-agent-claude = "0.28.0"
 markpollack-agent-judge = "0.15.0"
 openai-java = "4.38.0"
+opennlp = "2.5.11"
 org-mapstruct = "1.6.3"
 org-mapstruct-extensions-spring = "2.0.0"
 org-springdoc = "3.1.0"
@@ -65,7 +66,7 @@ jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 org-apache-activemq-artemis-jakarta-server = "org.apache.activemq:artemis-jakarta-server:2.55.0"
-org-apache-opennlp-opennlp-tools = "org.apache.opennlp:opennlp-tools:2.5.11"
+org-apache-opennlp-opennlp-tools = { module = "org.apache.opennlp:opennlp-tools", version.ref = "opennlp" }
 org-apache-poi-poi-ooxml = "org.apache.poi:poi-ooxml:5.5.1"
 org-eclipse-jgit-org-eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r"
 org-graalvm-espresso-polyglot = { module = "org.graalvm.espresso:polyglot", version.ref = "graalvm" }
