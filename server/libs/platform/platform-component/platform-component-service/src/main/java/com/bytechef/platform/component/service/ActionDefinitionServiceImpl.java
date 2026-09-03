@@ -258,6 +258,20 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
         checkComponentVisible(componentName);
         checkActionVisible(componentName, actionName);
 
+        return doExecutePerformInternal(
+            componentName, componentVersion, actionName, jobPrincipalId, jobPrincipalWorkflowId, jobId,
+            taskExecutionId, workflowId, inputParameters, componentConnections, extensions, environmentId,
+            editorEnvironment, type, continueParameters, resumeData, suspendExpiresAt);
+    }
+
+    private Object doExecutePerformInternal(
+        String componentName, int componentVersion, String actionName, Long jobPrincipalId,
+        Long jobPrincipalWorkflowId, Long jobId, @Nullable Long taskExecutionId, String workflowId,
+        Map<String, ?> inputParameters, Map<String, ComponentConnection> componentConnections,
+        Map<String, ?> extensions, @Nullable Long environmentId, boolean editorEnvironment, PlatformType type,
+        @Nullable Map<String, ?> continueParameters, @Nullable Map<String, ?> resumeData,
+        @Nullable Instant suspendExpiresAt) {
+
         com.bytechef.component.definition.ActionDefinition actionDefinition = componentDefinitionRegistry
             .getActionDefinition(componentName, componentVersion, actionName);
 
@@ -357,8 +371,8 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
 
             // Cluster elements ride along in the extensions the caller composed, so an AI agent resolves its model
             // through the same code path a visual node uses.
-            return executeMultipleConnectionsPerform(
-                performFunction, inputParameters, connections, extensions, context);
+            return executeMultipleConnectionsPerform(performFunction, inputParameters, connections, extensions,
+                context);
         }
 
         // What is left is the streaming shapes, which read a sink the caller has no way to describe. Say so, rather

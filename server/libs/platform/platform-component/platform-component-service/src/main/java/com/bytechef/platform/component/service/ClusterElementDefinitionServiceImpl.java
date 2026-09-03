@@ -281,6 +281,7 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         boolean editorEnvironment) {
 
         checkComponentVisible(componentName);
+        checkClusterElementVisible(componentName, clusterElementName);
 
         ClusterElementContext clusterElementContext = contextFactory.createClusterElementContext(
             componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment);
@@ -298,6 +299,7 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         boolean editorEnvironment, @Nullable ActionContext agentActionContext) {
 
         checkComponentVisible(componentName);
+        checkClusterElementVisible(componentName, clusterElementName);
 
         ClusterElementContext clusterElementContext = contextFactory.createClusterElementContext(
             componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment,
@@ -325,6 +327,7 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         @Nullable ActionContext agentActionContext) {
 
         checkComponentVisible(componentName);
+        checkClusterElementVisible(componentName, clusterElementName);
 
         ComponentConnection firstConnection = componentConnections.isEmpty()
             ? null : componentConnections.values()
@@ -885,6 +888,19 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
             throw new ConfigurationException(
                 "Component '%s' is disabled by an administrator and cannot be executed.".formatted(componentName),
                 ClusterElementDefinitionErrorType.COMPONENT_DISABLED);
+        }
+    }
+
+    private void checkClusterElementVisible(String componentName, String clusterElementName) {
+        boolean visible = componentVisibilityProviders.stream()
+            .allMatch(componentVisibilityProvider -> componentVisibilityProvider.isActionVisible(
+                componentName, clusterElementName));
+
+        if (!visible) {
+            throw new ConfigurationException(
+                "Operation '%s' of component '%s' is disabled by an administrator and cannot be executed."
+                    .formatted(clusterElementName, componentName),
+                ClusterElementDefinitionErrorType.ACTION_DISABLED);
         }
     }
 
