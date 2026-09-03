@@ -26,6 +26,22 @@ public interface ConnectedUserFacade {
 
     ConnectedUser getConnectedUser(long id);
 
+    /**
+     * Tenant-admin-gated passthrough returning the raw {@link ConnectedUser} entity for the management GraphQL surface
+     * (which maps the entity directly, unlike the enriched {@link ConnectedUserDTO}). Lives on the facade so the gate
+     * is not on the controller and the runtime-shared {@code ConnectedUserService.getConnectedUser(long)} stays
+     * ungated.
+     */
+    ConnectedUser getConnectedUserEntity(long id);
+
+    /**
+     * Tenant-admin-gated passthrough returning a page of raw {@link ConnectedUser} entities for the management GraphQL
+     * surface.
+     */
+    Page<ConnectedUser> getConnectedUserEntities(
+        Long environmentId, String name, LocalDate createDateFrom, LocalDate createDateTo, Long integrationId,
+        int pageNumber);
+
     ConnectedUserDTO getConnectedUserDTO(long id);
 
     Page<ConnectedUserDTO> getConnectedUserDTOs(
