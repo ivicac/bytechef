@@ -20,6 +20,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
 
 /**
@@ -54,6 +55,11 @@ public final class AiGatewayRoutingPolicy {
     @Column
     private int strategy;
 
+    // Without an explicit idColumn, Spring Data JDBC's default naming strategy derives the reverse-reference column
+    // from this entity's @Table name ("ai_gateway_routing_policy") rather than the real FK column
+    // ("ai_gateway_routing_policy_id") the Liquibase init changeset actually creates on ai_gateway_routing_policy_tag
+    // — mirrors Project.projectTags's @MappedCollection(idColumn = "project_id") for the same relation shape.
+    @MappedCollection(idColumn = "ai_gateway_routing_policy_id")
     private Set<AiGatewayRoutingPolicyTag> tags = new HashSet<>();
 
     @Version

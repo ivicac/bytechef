@@ -12,20 +12,25 @@ import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProjectSe
 import com.bytechef.ee.automation.ai.observability.service.WorkspaceAiObservabilityAlertEventService;
 import com.bytechef.ee.automation.ai.observability.service.WorkspaceAiObservabilityTraceService;
 import com.bytechef.ee.platform.ai.eval.service.AiEvalExecutionService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayEmbeddedSettings;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProject;
 import com.bytechef.ee.platform.ai.gateway.metrics.AiGatewayMetrics;
+import com.bytechef.ee.platform.ai.gateway.service.AiGatewayEmbeddedSettingsService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProjectService;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityAlertEventService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -60,6 +65,7 @@ public class AiObservabilityDataCleanupService {
     private final WorkspaceAiObservabilityAlertEventService workspaceAiObservabilityAlertEventService;
     private final WorkspaceAiObservabilityTraceService workspaceAiObservabilityTraceService;
     private final AiObservabilityTraceService aiObservabilityTraceService;
+    private final ObjectProvider<AiGatewayEmbeddedSettingsService> embeddedSettingsServiceProvider;
 
     @SuppressFBWarnings("EI2")
     public AiObservabilityDataCleanupService(
@@ -72,8 +78,10 @@ public class AiObservabilityDataCleanupService {
         WorkspaceAiGatewayProjectService workspaceAiGatewayProjectService,
         WorkspaceAiObservabilityAlertEventService workspaceAiObservabilityAlertEventService,
         WorkspaceAiObservabilityTraceService workspaceAiObservabilityTraceService,
-        AiObservabilityTraceService aiObservabilityTraceService) {
+        AiObservabilityTraceService aiObservabilityTraceService,
+        ObjectProvider<AiGatewayEmbeddedSettingsService> embeddedSettingsServiceProvider) {
 
+        this.embeddedSettingsServiceProvider = embeddedSettingsServiceProvider;
         this.aiEvalExecutionService = aiEvalExecutionService;
         this.aiGatewayMetrics = aiGatewayMetrics;
         this.aiGatewayProjectService = aiGatewayProjectService;
@@ -114,7 +122,48 @@ public class AiObservabilityDataCleanupService {
             }
         }
 
+        cleanUpConnectedUserUsageWithoutWorkspace();
+
         log.info("AI observability data cleanup finished");
+    }
+
+    /**
+     * Deletes embedded gateway usage rows, which carry no workspace and so are never reached by the per-workspace pass.
+     * The rows record no environment of their own either, so retention is the longest any environment wants: each
+     * environment's embedded {@code logRetentionDays}, or {@link #DEFAULT_RETENTION_DAYS} when it sets none, maxed
+     * across environments -- the same never-delete-what-someone-kept rule the per-workspace pass applies across
+     * projects.
+     */
+    private void cleanUpConnectedUserUsageWithoutWorkspace() {
+        try {
+            int retentionDays = resolveEmbeddedRetentionDays();
+
+            Instant cutoff = Instant.now()
+                .minus(retentionDays, ChronoUnit.DAYS);
+
+            aiGatewayRequestLogService.deleteOlderThanWithoutWorkspace(cutoff);
+
+            log.debug("Cleanup completed for workspace-less usage (retention: {} days)", retentionDays);
+        } catch (Exception exception) {
+            log.error("Cleanup failed for workspace-less usage", exception);
+
+            aiGatewayMetrics.incrementCleanupFailure();
+        }
+    }
+
+    private int resolveEmbeddedRetentionDays() {
+        AiGatewayEmbeddedSettingsService embeddedSettingsService = embeddedSettingsServiceProvider.getIfAvailable();
+
+        if (embeddedSettingsService == null) {
+            return DEFAULT_RETENTION_DAYS;
+        }
+
+        return Arrays.stream(Environment.values())
+            .mapToInt(environment -> embeddedSettingsService.find(environment.ordinal())
+                .map(AiGatewayEmbeddedSettings::logRetentionDays)
+                .orElse(DEFAULT_RETENTION_DAYS))
+            .max()
+            .orElse(DEFAULT_RETENTION_DAYS);
     }
 
     /**

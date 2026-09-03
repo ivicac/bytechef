@@ -18,11 +18,13 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifi
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.constant.PlatformType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -171,8 +173,32 @@ public class AiGatewayGuardrails {
         AiGatewayChatCompletionRequest request, @Nullable Long workspaceId, @Nullable Long projectId,
         @Nullable PiiTokenSession session) {
 
+        return apply(request, null, workspaceId, projectId, session);
+    }
+
+    /**
+     * As {@link #apply(AiGatewayChatCompletionRequest, Long, Long, PiiTokenSession)}, reading the guardrail settings
+     * row {@code platformType} selects. An {@link PlatformType#EMBEDDED} request reads the embedded deployment's row
+     * and ignores {@code workspaceId}, since embedded traffic has no workspace; a {@code null} platform type is
+     * automation traffic, and reads the workspace's row, or the tenant default when {@code workspaceId} is
+     * {@code null}.
+     *
+     * @param request      the inbound chat-completion request
+     * @param platformType {@link PlatformType#EMBEDDED} for embedded traffic, {@code null} for automation traffic
+     * @param workspaceId  the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId    the project the request is attributed to, or {@code null} when none
+     * @param session      the session minting PII tokens for this exchange, or {@code null} to redact PII irreversibly
+     * @return the guardrailed request
+     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation or injection
+     *                                     detection
+     */
+    public AiGatewayChatCompletionRequest apply(
+        AiGatewayChatCompletionRequest request, @Nullable PlatformType platformType, @Nullable Long workspaceId,
+        @Nullable Long projectId, @Nullable PiiTokenSession session) {
+
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(platformType, workspaceId);
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
-        boolean moderate = moderationClassifier != null && resolveModerationEnabled(workspaceId, projectSettings);
+        boolean moderate = moderationClassifier != null && resolveModerationEnabled(target, projectSettings);
 
         List<AiGatewayChatMessage> guardrailedMessages = new ArrayList<>();
         boolean changed = false;
@@ -182,8 +208,8 @@ public class AiGatewayGuardrails {
             String processed = content;
 
             if (content != null) {
-                processed = redactOrTokenize(content, workspaceId, session);
-                processed = applyProjectOverlay(processed, projectSettings, workspaceId);
+                processed = redactOrTokenize(content, target, session);
+                processed = applyProjectOverlay(processed, projectSettings, target);
             }
 
             if (moderate && processed != null && moderationClassifier.isFlagged(processed)) {
@@ -220,8 +246,8 @@ public class AiGatewayGuardrails {
      * moderation (that stays this adapter's own concern, applied separately in {@link #apply}) regardless of whether
      * {@code session} is {@code null} — so this method adds no behaviour of its own beyond the single delegating call.
      */
-    private String redactOrTokenize(String content, @Nullable Long workspaceId, @Nullable PiiTokenSession session) {
-        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+    private String redactOrTokenize(
+        String content, AiGuardrailsSettingsTarget target, @Nullable PiiTokenSession session) {
 
         return aiGuardrails.applyToInputs(List.of(content), target, session)
             .getFirst();
@@ -256,8 +282,8 @@ public class AiGatewayGuardrails {
             return inputs;
         }
 
-        List<String> engineProcessed = aiGuardrails.applyToInputs(
-            inputs, AiGuardrailsSettingsTarget.resolve(null, workspaceId), null);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        List<String> engineProcessed = aiGuardrails.applyToInputs(inputs, target, null);
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
 
         if (projectSettings == null) {
@@ -268,7 +294,7 @@ public class AiGatewayGuardrails {
         boolean changed = false;
 
         for (String input : engineProcessed) {
-            String processed = applyProjectOverlay(input, projectSettings, workspaceId);
+            String processed = applyProjectOverlay(input, projectSettings, target);
 
             if (!processed.equals(input)) {
                 changed = true;
@@ -377,6 +403,24 @@ public class AiGatewayGuardrails {
     public AiGatewayChatCompletionResponse scanResponse(
         AiGatewayChatCompletionResponse response, @Nullable Long workspaceId, @Nullable Long projectId) {
 
+        return scanResponse(response, null, workspaceId, projectId);
+    }
+
+    /**
+     * As {@link #scanResponse(AiGatewayChatCompletionResponse, Long, Long)}, reading the guardrail settings row
+     * {@code platformType} selects -- see
+     * {@link #apply(AiGatewayChatCompletionRequest, PlatformType, Long, Long, PiiTokenSession)}.
+     *
+     * @param response     the completion response
+     * @param platformType {@link PlatformType#EMBEDDED} for embedded traffic, {@code null} for automation traffic
+     * @param workspaceId  the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId    the project the request is attributed to, or {@code null} when none
+     * @return the scanned response, or the original when response scanning is inactive or nothing matched
+     */
+    public AiGatewayChatCompletionResponse scanResponse(
+        AiGatewayChatCompletionResponse response, @Nullable PlatformType platformType, @Nullable Long workspaceId,
+        @Nullable Long projectId) {
+
         if (response == null || response.choices() == null || response.choices()
             .isEmpty()) {
 
@@ -385,7 +429,7 @@ public class AiGatewayGuardrails {
 
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
         boolean projectScanResponses = projectSettings != null && Boolean.TRUE.equals(projectSettings.scanResponses());
-        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(platformType, workspaceId);
         // Hoisted out of the per-choice loop below (final-branch-review minor fix): resolveMinConfidence resolves
         // the same target-scoped settings row (and recompiles the same uncached custom-rule regexes) that
         // redactEnabledKinds/redactPii/redactSecrets below would otherwise also resolve once per choice for a
@@ -558,7 +602,22 @@ public class AiGatewayGuardrails {
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
         @Nullable Long workspaceId, @Nullable Long projectId) {
 
-        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        return newStreamingResponseRedactor(null, workspaceId, projectId);
+    }
+
+    /**
+     * As {@link #newStreamingResponseRedactor(Long, Long)}, reading the guardrail settings row {@code platformType}
+     * selects -- see {@link #apply(AiGatewayChatCompletionRequest, PlatformType, Long, Long, PiiTokenSession)}.
+     *
+     * @param platformType {@link PlatformType#EMBEDDED} for embedded traffic, {@code null} for automation traffic
+     * @param workspaceId  the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId    the project the request is attributed to, or {@code null} when none
+     * @return a fresh {@link StreamingResponseRedactor}, or {@code null} when streaming scanning is inactive
+     */
+    public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
+        @Nullable PlatformType platformType, @Nullable Long workspaceId, @Nullable Long projectId) {
+
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(platformType, workspaceId);
         StreamingResponseRedactor redactor = aiGuardrails.newStreamingResponseRedactor(target, metrics);
 
         if (redactor != null) {
@@ -614,18 +673,18 @@ public class AiGatewayGuardrails {
      * the workspace's own threshold like every other call site.
      * </p>
      *
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed, used only to
-     *                    resolve the effective minimum confidence for the extra redaction below
+     * @param target the settings row the call is attributed to, used only to resolve the effective minimum confidence
+     *               for the extra redaction below
      */
     private String applyProjectOverlay(
-        String text, @Nullable AiGatewayProjectSettings projectSettings, @Nullable Long workspaceId) {
+        String text, @Nullable AiGatewayProjectSettings projectSettings, AiGuardrailsSettingsTarget target) {
 
         if (projectSettings == null) {
             return text;
         }
 
         String result = text;
-        double minConfidence = aiGuardrails.resolveMinConfidence(AiGuardrailsSettingsTarget.resolve(null, workspaceId));
+        double minConfidence = aiGuardrails.resolveMinConfidence(target);
 
         if (Boolean.TRUE.equals(projectSettings.redactPii())) {
             String redacted = aiGuardrails.redactPii(result, minConfidence);
@@ -688,13 +747,13 @@ public class AiGatewayGuardrails {
     }
 
     private boolean resolveModerationEnabled(
-        @Nullable Long workspaceId, @Nullable AiGatewayProjectSettings projectSettings) {
+        AiGuardrailsSettingsTarget target, @Nullable AiGatewayProjectSettings projectSettings) {
 
         if (globalModerationEnabled) {
             return true;
         }
 
-        AiGuardrailsWorkspaceSettings settings = fetchWorkspaceSettings(workspaceId);
+        AiGuardrailsWorkspaceSettings settings = fetchSettings(target);
 
         if (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())) {
             return true;
@@ -703,18 +762,20 @@ public class AiGatewayGuardrails {
         return projectSettings != null && Boolean.TRUE.equals(projectSettings.moderationEnabled());
     }
 
-    private @Nullable AiGuardrailsWorkspaceSettings fetchWorkspaceSettings(@Nullable Long workspaceId) {
+    private @Nullable AiGuardrailsWorkspaceSettings fetchSettings(AiGuardrailsSettingsTarget target) {
         try {
             Optional<AiGuardrailsWorkspaceSettings> settingsOptional =
-                aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId);
+                target.scope() == AiGuardrailsSettingsScope.EMBEDDED
+                    ? aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
+                    : aiGuardrailsWorkspaceSettingsService.fetchSettings(target.workspaceId());
 
             return settingsOptional.orElse(null);
         } catch (Exception exception) {
             // A settings lookup failure must not take the request path down; global/project moderation policy still
             // applies.
             log.warn(
-                "Failed to load AI guardrails workspace settings for workspace {} while resolving moderation: {}",
-                workspaceId, exception.getMessage());
+                "Failed to load AI guardrails settings for {} while resolving moderation: {}", target,
+                exception.getMessage());
 
             return null;
         }
