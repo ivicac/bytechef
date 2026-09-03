@@ -27,6 +27,7 @@ import com.bytechef.test.jsonasssert.JsonFileAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -36,10 +37,64 @@ public class AiAgentUtilsComponentHandlerTest {
     @Test
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
-            "definition/ai_agent-utils_v1.json",
-            new AiAgentUtilsComponentHandler(
-                Mockito.mock(AiAgentToolFacade.class), Mockito.mock(AiSkillFacade.class), List.of(), null, null,
-                toolExecutionRecorderObjectProvider())
-                    .getDefinition());
+            "definition/ai_agent-utils_v1.json", createComponentHandler(true, true, "test-key").getDefinition());
+    }
+
+    @Test
+    public void testGetComponentDefinitionLeavesOutShellToolsUnlessEnabled() {
+        assertThat(clusterElementNames(createComponentHandler(false, false, null))).doesNotContain("shellTools")
+            .contains("fileSystemTools");
+        assertThat(clusterElementNames(createComponentHandler(true, false, null))).contains("shellTools");
+    }
+
+    @Test
+    public void testGetComponentDefinitionIncludesBraveWebSearchToolOnlyWhenEnabledWithApiKey() {
+        assertThat(clusterElementNames(createComponentHandler(false, true, "test-key")))
+            .contains("braveWebSearchTool");
+        assertThat(clusterElementNames(createComponentHandler(false, false, "test-key")))
+            .doesNotContain("braveWebSearchTool");
+        assertThat(clusterElementNames(createComponentHandler(false, true, null)))
+            .doesNotContain("braveWebSearchTool");
+        assertThat(clusterElementNames(createComponentHandler(false, true, " ")))
+            .doesNotContain("braveWebSearchTool");
+    }
+
+    private static List<String> clusterElementNames(AiAgentUtilsComponentHandler componentHandler) {
+        ComponentDefinition componentDefinition = componentHandler.getDefinition();
+
+        List<ClusterElementDefinition<?>> clusterElements = componentDefinition.getClusterElements();
+
+        return clusterElements.stream()
+            .map(ClusterElementDefinition::getName)
+            .toList();
+    }
+
+    private static AiAgentUtilsComponentHandler createComponentHandler(
+        boolean shellEnabled, boolean braveEnabled, String braveApiKey) {
+
+        ApplicationProperties applicationProperties = new ApplicationProperties();
+
+        ApplicationProperties.Ai ai = applicationProperties.getAi();
+
+        ApplicationProperties.Ai.Brave brave = ai.getBrave();
+
+        brave.setApiKey(braveApiKey);
+        brave.setEnabled(braveEnabled);
+
+        ApplicationProperties.Ai.AgentUtils agentUtils = ai.getAgentUtils();
+
+        agentUtils.getShell()
+            .setEnabled(shellEnabled);
+        agentUtils.getWorkspace()
+            .setBasedir("build/ai-agent-workspaces");
+
+        return new AiAgentUtilsComponentHandler(
+            Mockito.mock(AiAgentToolFacade.class), Mockito.mock(AiSkillFacade.class), applicationProperties,
+            List.of(), null, null, null, null, objectProvider(), objectProvider(), List.of());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> objectProvider() {
+        return Mockito.mock(ObjectProvider.class);
     }
 }

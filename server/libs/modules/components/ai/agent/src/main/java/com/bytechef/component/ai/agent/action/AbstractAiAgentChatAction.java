@@ -22,6 +22,7 @@ import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_FORMAT;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_SCHEMA;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.SUBAGENT_CONVERSATION_ID;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.RESPONSE_PROMPT;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.SIMULATION_MODEL;
 import static com.bytechef.platform.ai.constant.AiAgentSimulationConstants.TOOL_SIMULATIONS;
@@ -85,6 +86,7 @@ import com.bytechef.platform.component.definition.ai.agent.ConversationHistoryRe
 import com.bytechef.platform.component.definition.ai.agent.GuardrailsFunction;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.RagFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
 import com.bytechef.platform.configuration.domain.ClusterElement;
@@ -210,6 +212,7 @@ public abstract class AbstractAiAgentChatAction {
             workspaceSystemPromptAdvisorProviderObjectProvider, null);
     }
 
+    @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         AgentToolCallingManagers agentToolCallingManagers,
@@ -218,9 +221,33 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
 
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
+            List.of());
+    }
+
+    /**
+     * {@code CT_CONSTRUCTOR_THROW} is suppressed on this constructor and on the one that delegates to it. The only call
+     * here that can throw is Spring's {@code ObjectProvider.getIfAvailable()}, and a container failure resolving the
+     * audit recorder must surface at bean creation rather than be swallowed into an unaudited agent. The pattern's own
+     * remedy — making the class final — is not available: this class is abstract precisely so the three chat actions
+     * can extend it, and none of them is a subclass an attacker controls.
+     */
+    @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
         this.clusterElementDefinitionService = clusterElementDefinitionService;
-        this.clusterElementToolCallbacks =
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
+        this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers,
+            toolExecutionRecorderObjectProvider == null ? null : toolExecutionRecorderObjectProvider.getIfAvailable());
         this.agentToolCallingManagers = agentToolCallingManagers;
         this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
         this.aiGuardrailsAdvisorProviderObjectProvider = aiGuardrailsAdvisorProviderObjectProvider;
@@ -372,8 +399,9 @@ public abstract class AbstractAiAgentChatAction {
                 .tools(
                     concatToolCallbacks(
                         getToolCallbacks(
-                            clusterElementMap.getClusterElements(BaseToolFunction.TOOLS), connectionParameters,
-                            toolExecutionListener, toolSimulations, providerChatModel, conversationId, context),
+                            clusterElementMap.getClusterElements(BaseToolFunction.TOOLS),
+                            clusterElementMap.getClusterElements(APPROVAL_CHANNELS), connectionParameters,
+                            toolExecutionListener, toolSimulations, chatModel, conversationId, context),
                         chatMemoryResult, toolExecutionListener, context)
                             .toArray());
 
@@ -1252,7 +1280,8 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     private List<ToolCallback> getToolCallbacks(
-        List<ClusterElement> toolClusterElements, Map<String, ComponentConnection> connectionParameters,
+        List<ClusterElement> toolClusterElements, List<ClusterElement> approvalChannelClusterElements,
+        Map<String, ComponentConnection> connectionParameters,
         @Nullable ToolExecutionListener toolExecutionListener,
         @Nullable Map<String, Map<String, String>> toolSimulations, ChatModel chatModel,
         @Nullable String conversationId, ActionContext context) {
@@ -1263,7 +1292,7 @@ public abstract class AbstractAiAgentChatAction {
         for (ClusterElement clusterElement : toolClusterElements) {
             List<ToolCallback> clusterElementCallbacks = clusterElementToolCallbacks.build(
                 clusterElement, connectionParameters, getSubagentConversationId(clusterElement, conversationId),
-                context);
+                context, approvalChannelClusterElements);
 
             if (toolSimulations != null && !toolSimulations.isEmpty()) {
                 clusterElementCallbacks = clusterElementCallbacks.stream()

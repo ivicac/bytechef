@@ -22,19 +22,26 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGateTool;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
+import com.bytechef.component.ai.llm.tool.ClusterElementToolCallbacks;
 import com.bytechef.component.definition.ActionContext;
+import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
+import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolCallbackProviderFunction;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
@@ -80,6 +87,29 @@ class AbstractAiAgentChatActionResumeGateTest {
                         "name", "slack_1",
                         "type", "slack/v1/sendMessage",
                         "parameters", Map.of())))));
+
+    /**
+     * The same tool, but nested beneath an approval gate — the shape that composes the gate wrapper with the rule
+     * wrapper.
+     */
+    private static final Parameters GATED_EXTENSIONS = ParametersFactory.create(
+        Map.of(
+            "clusterElements",
+            Map.of(
+                "tools",
+                List.of(
+                    Map.of(
+                        "name", "approvalGateTool_1",
+                        "type", "aiAgentUtils/v1/approvalGateTool",
+                        "parameters", Map.of("name", "Destructive"),
+                        "clusterElements",
+                        Map.of(
+                            "tools",
+                            List.of(
+                                Map.of(
+                                    "name", "slack_1",
+                                    "type", "slack/v1/sendMessage",
+                                    "parameters", Map.of()))))))));
 
     private final AiAgentToolFacade aiAgentToolFacade = mock(AiAgentToolFacade.class);
     private final ClusterElementDefinitionService clusterElementDefinitionService = mock(
@@ -151,6 +181,48 @@ class AbstractAiAgentChatActionResumeGateTest {
             .contains("approvedByReviewer")
             .contains("\"reviewer\"")
             .contains("@jane");
+    }
+
+    @Test
+    void testApprovedReExecutionCarriesTheReviewerIntoTheToolContext() throws Exception {
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        action.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
+
+        verify(toolCallback).call(eq(GATED_TOOL_INPUT), toolContextCaptor.capture());
+
+        // The rule layer survives the gate's unwrap, so it re-checks this call; the reviewer is how it knows the
+        // approval it required has already happened and must not be raised again.
+        Map<String, Object> toolContextMap = toolContextCaptor.getValue()
+            .getContext();
+
+        assertThat(toolContextMap).containsEntry(AiAgentToolContextKey.APPROVED_BY, "@jane");
+    }
+
+    @Test
+    void testApprovedWithNoVerifiedReviewerStillCarriesAnonymousIntoTheToolContext() throws Exception {
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        // The hosted approval form (no verified reviewer) is the common path, reached by the link in every emailed
+        // or messaged approval request — not an edge case. Without a non-null marker here, the rule layer's only
+        // "already approved" signal is missing, so a REQUIRE_APPROVAL rule would re-raise the same approval on every
+        // resume and suspend forever.
+        action.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, null), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
+
+        verify(toolCallback).call(eq(GATED_TOOL_INPUT), toolContextCaptor.capture());
+
+        Map<String, Object> toolContextMap = toolContextCaptor.getValue()
+            .getContext();
+
+        assertThat(toolContextMap).containsEntry(AiAgentToolContextKey.APPROVED_BY, "anonymous");
     }
 
     @Test
@@ -235,6 +307,53 @@ class AbstractAiAgentChatActionResumeGateTest {
         verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
 
         assertThat(resumeData).contains("message sent: ts=1721");
+    }
+
+    /**
+     * The composition the spec asked for and nobody had pinned: a gate over one tool, with rules switched on. The gate
+     * is itself a TOOLS element, so its element passes through {@code ClusterElementToolCallbacks.build} a second time
+     * carrying the already-governed callbacks it produced. Wrapping those again would leave a rule layer OUTSIDE the
+     * gate, where the resume branch's {@code DelegatingToolCallback::unwrap} cannot reach it — the gate would survive,
+     * the approved re-execution would raise a second approval, and every approval would repeat forever. So: the
+     * delegate runs exactly once, the enforcer sees exactly one check, and nothing suspends again.
+     */
+    @Test
+    void testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain() throws Exception {
+        when(context.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        ComponentRuleEnforcer componentRuleEnforcer = mock(ComponentRuleEnforcer.class);
+
+        when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(new ComponentRuleEnforcer.Decision.Allow());
+
+        AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
+            new ClusterElementToolCallbacks(
+                aiAgentToolFacade, clusterElementDefinitionService, List.of(componentRuleEnforcer)),
+            clusterElementDefinitionService, null);
+
+        ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateClusterElementDefinition =
+            approvalGateTool.clusterElementDefinition;
+
+        when(clusterElementDefinitionService.<MultipleConnectionsToolCallbackProviderFunction>getClusterElement(
+            eq("aiAgentUtils"), eq(1), eq("approvalGateTool")))
+                .thenReturn(gateClusterElementDefinition.getElement());
+
+        AbstractAiAgentChatAction governedAction = new AbstractAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService,
+            new AgentToolCallingManagers(mock(ToolCallingManager.class)), null, null, null, null,
+            List.of(componentRuleEnforcer)) {};
+
+        String resumeData = governedAction.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
+            GATED_EXTENSIONS, context);
+
+        verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
+        verify(componentRuleEnforcer).checkBeforeCall(any());
+        verify(context, never()).suspend(any());
+
+        assertThat(resumeData)
+            .contains("approvedByReviewer")
+            .contains("message sent: ts=1721");
     }
 
     @SuppressWarnings("unchecked")

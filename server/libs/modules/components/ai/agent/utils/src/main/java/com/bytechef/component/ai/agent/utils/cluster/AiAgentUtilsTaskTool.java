@@ -42,9 +42,12 @@ import com.bytechef.platform.component.definition.ai.agent.ClusterElementCallTar
 import com.bytechef.platform.component.definition.ai.agent.ClusterElementFailureAttributingChatModel;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolCallbackProviderFunction;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,12 +80,21 @@ public class AiAgentUtilsTaskTool {
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
+    private final ClusterElementToolCallbacks clusterElementToolCallbacks;
 
     public final ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> clusterElementDefinition;
 
     @SuppressFBWarnings("EI")
-    public AiAgentUtilsTaskTool(ClusterElementDefinitionService clusterElementDefinitionService) {
+    public AiAgentUtilsTaskTool(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        List<ComponentRuleEnforcer> componentRuleEnforcers,
+        @Nullable ToolExecutionRecorder toolExecutionRecorder,
+        @Nullable ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver) {
+
         this.clusterElementDefinitionService = clusterElementDefinitionService;
+        this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
+            aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers, toolExecutionRecorder,
+            toolInvocationWorkspaceResolver);
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement(TASK_TOOL)
