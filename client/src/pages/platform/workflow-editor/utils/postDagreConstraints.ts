@@ -1822,12 +1822,24 @@ export function centerLRSmallNodes(allNodes: Node[], crossAxis: 'x' | 'y'): void
  * When `crossAxisShift` is non-zero, saved positions are shifted on the cross-axis
  * to compensate for canvas centering changes (e.g., when a side panel opens/closes).
  */
+export interface TrailingPlaceholderI {
+    id: string;
+    predecessorId: string;
+}
+
 export function applySavedPositions(
     allNodes: Node[],
     crossAxis: 'x' | 'y' = 'x',
-    crossAxisShift: number = 0
+    crossAxisShift: number = 0,
+    trailingPlaceholder?: TrailingPlaceholderI
 ): Map<string, {x: number; y: number}> {
     const dispatcherDeltas = new Map<string, {x: number; y: number}>();
+
+    // The end-of-chain "+" has no saved position of its own and belongs to no dispatcher's frame,
+    // so nothing below would carry it: when the last node of the chain was pinned somewhere else,
+    // the layout put the "+" back under the chain's original column with a long edge to reach it.
+    // It rides with its predecessor's delta instead.
+    let trailingPlaceholderDelta: {x: number; y: number} | undefined;
 
     for (let nodeIndex = 0; nodeIndex < allNodes.length; nodeIndex++) {
         // A node parented to a graph frame stores a FRAME-relative position (see
@@ -1861,6 +1873,27 @@ export function applySavedPositions(
                     y: savedPosition.y - dagrePosition.y,
                 });
             }
+
+            if (allNodes[nodeIndex].id === trailingPlaceholder?.predecessorId) {
+                trailingPlaceholderDelta = {
+                    x: savedPosition.x - dagrePosition.x,
+                    y: savedPosition.y - dagrePosition.y,
+                };
+            }
+        }
+    }
+
+    if (trailingPlaceholder && trailingPlaceholderDelta) {
+        const placeholderIndex = allNodes.findIndex((node) => node.id === trailingPlaceholder.id && !node.parentId);
+
+        if (placeholderIndex !== -1) {
+            allNodes[placeholderIndex] = {
+                ...allNodes[placeholderIndex],
+                position: {
+                    x: allNodes[placeholderIndex].position.x + trailingPlaceholderDelta.x,
+                    y: allNodes[placeholderIndex].position.y + trailingPlaceholderDelta.y,
+                },
+            };
         }
     }
 

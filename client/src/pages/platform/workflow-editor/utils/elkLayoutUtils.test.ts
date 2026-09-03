@@ -628,6 +628,40 @@ describe('getElkLayoutElements', () => {
         expect(positionOf(result.nodes, 'task2')).toEqual({x: 400, y: 900});
     });
 
+    // The end-of-chain "+" has no saved position and belongs to no dispatcher, so applying the
+    // last node's saved position left it under the chain's original column with a long edge to
+    // reach it. It keeps its layout offset from its predecessor instead.
+    it('carries the end-of-chain placeholder with a pinned last node', async () => {
+        const buildFixture = (pinLastNode: boolean) => {
+            const nodes: Node[] = [
+                taskNode('task1'),
+                taskNode('task2'),
+                {data: {label: '+'}, id: FINAL_PLACEHOLDER_NODE_ID, position: {x: 0, y: 0}, type: 'placeholder'},
+            ];
+
+            if (pinLastNode) {
+                (nodes[1].data as Record<string, unknown>).metadata = {ui: {nodePosition: {x: 400, y: 900}}};
+            }
+
+            return {edges: [edge('task1', 'task2'), edge('task2', FINAL_PLACEHOLDER_NODE_ID)], nodes};
+        };
+
+        const offsetOf = async (pinLastNode: boolean) => {
+            const {edges, nodes} = buildFixture(pinLastNode);
+            const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+            const last = positionOf(result.nodes, 'task2');
+            const trailing = positionOf(result.nodes, FINAL_PLACEHOLDER_NODE_ID);
+
+            return {last, offset: {x: trailing.x - last.x, y: trailing.y - last.y}};
+        };
+
+        const unpinned = await offsetOf(false);
+        const pinned = await offsetOf(true);
+
+        expect(pinned.last).toEqual({x: 400, y: 900});
+        expect(pinned.offset).toEqual(unpinned.offset);
+    });
+
     it('keeps the caseTrue branch on the TRUE side in TB', async () => {
         const {edges, nodes} = singleConditionFixture();
 
