@@ -112,6 +112,11 @@ dependencies {
     // AiGatewayInjectionClassifier — referenced by AiHubSpringAIAgentGuardrailsTest to build AiGuardrails directly
     // (the same constructor argument AiGuardrailsAdvisorProviderImpl leaves unset in production).
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api"))
+    // ComponentRuleService and Evaluator — constructor arguments of the ComponentRuleToolCallbacksFactory that
+    // AiHubConfigurationComponentRuleFlatCrudToolCallbacksTest builds directly. Main sources only ever see the
+    // factory type itself, so these stay test-only.
+    testImplementation(project(":server:ee:libs:platform:platform-component-rule:platform-component-rule-api"))
+    testImplementation(project(":server:libs:core:evaluator:evaluator-api"))
     testImplementation(project(":server:ee:libs:platform:platform-audit:platform-audit-service"))
     testImplementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-service"))
     testImplementation(project(":server:libs:automation:automation-configuration:automation-configuration-service"))

@@ -276,6 +276,16 @@ Context-store mutations (find each with searchTool first, then call it — they 
 - deleteContextStore({id}) — drop an entire Context Store and every source, entity, and record it
   contains. Irreversible — always confirm with the user before calling.
 
+Component-rule mutations (find each with searchTool first, then call it — they are not pinned):
+- createComponentRule({componentName, actionName?, phase, ruleAction, condition, description?})
+  — create a rule that governs a component action call. Omit actionName to govern every
+  action of the component. phase is BEFORE or AFTER; ruleAction is BLOCK or TAG. An AFTER
+  rule must use TAG — BLOCK is rejected, because the action has already run by then.
+  condition is a ByteChef formula body (no leading "="). Validate it with
+  proposeComponentRuleCondition and show the admin the complete rule — component, action,
+  phase, enforcement and condition — for confirmation BEFORE calling this: it writes to the
+  database and the rule governs live workflow executions. Returns the new rule's id.
+
 Specialist subagents (write-capable Copilot specialists):
 
 For domain-specific work, prefer delegating to the matching specialist subagent rather
