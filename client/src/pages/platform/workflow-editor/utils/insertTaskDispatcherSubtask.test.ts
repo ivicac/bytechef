@@ -22,12 +22,11 @@ function placedAt(newTask: WorkflowTask, nodePosition: {x: number; y: number}): 
 }
 
 /**
- * The task as it comes back out of a graph insertion: a new member is always given a concrete
- * position, so it never has to be auto-placed on the next layout. With no member on the canvas to
- * measure, the free spot is the one right of the Start pill.
+ * The task as it comes back out of a graph insertion with no member on the canvas to measure: left
+ * unplaced, so the layout's auto-placement centres it on the chain entering the frame.
  */
-function placedAtFreeSpot(newTask: WorkflowTask): WorkflowTask {
-    return placedAt(newTask, {x: 112, y: 0});
+function leftForAutoPlacement(newTask: WorkflowTask): WorkflowTask {
+    return newTask;
 }
 
 /** The frame header's add-node anchor, exactly as `createGraphNode` mints it. */
@@ -94,7 +93,7 @@ describe('insertTaskDispatcherSubtask — graph', () => {
             tasks: [graphTask([])],
         });
 
-        expect(updatedTasks[0].parameters?.nodes).toEqual([placedAtFreeSpot(newTask)]);
+        expect(updatedTasks[0].parameters?.nodes).toEqual([leftForAutoPlacement(newTask)]);
     });
 
     it('should append a second task after an existing node, not prepend before it', () => {
@@ -108,7 +107,7 @@ describe('insertTaskDispatcherSubtask — graph', () => {
             tasks: [graphTask([existingTask])],
         });
 
-        expect(updatedTasks[0].parameters?.nodes).toEqual([existingTask, placedAtFreeSpot(newTask)]);
+        expect(updatedTasks[0].parameters?.nodes).toEqual([existingTask, leftForAutoPlacement(newTask)]);
     });
 
     // The task-dispatcher popover forwards NO `placeholderId` once the context names a dispatcher
@@ -150,7 +149,7 @@ describe('insertTaskDispatcherSubtask — graph', () => {
         const nodes = updatedTasks[0].parameters?.nodes as WorkflowTask[];
 
         expect(nodes).toHaveLength(existingTasks.length + 1);
-        expect(nodes[existingTasks.length]).toEqual(placedAtFreeSpot(newTask));
+        expect(nodes[existingTasks.length]).toEqual(leftForAutoPlacement(newTask));
     });
 
     // `thirdTask` carries a saved position deliberately: without one the generic
@@ -221,7 +220,7 @@ describe('insertTaskDispatcherSubtask — graph', () => {
 
         const updatedNestedGraph = (updatedTasks[0].parameters?.iteratee as WorkflowTask[])[0];
 
-        expect(updatedNestedGraph.parameters?.nodes).toEqual([placedAtFreeSpot(newTask)]);
+        expect(updatedNestedGraph.parameters?.nodes).toEqual([leftForAutoPlacement(newTask)]);
     });
 
     it('should land a task at the pending drop position and connect it to the source member', () => {
@@ -284,7 +283,7 @@ describe('insertTaskDispatcherSubtask — graph', () => {
             tasks: [graphTask([])],
         });
 
-        expect(updatedTasks[0].parameters?.nodes).toEqual([placedAtFreeSpot(newTask)]);
+        expect(updatedTasks[0].parameters?.nodes).toEqual([leftForAutoPlacement(newTask)]);
         expect(useWorkflowEditorStore.getState().graphPendingConnection).toEqual(pendingConnection);
     });
 
@@ -326,7 +325,56 @@ describe('insertTaskDispatcherSubtask — graph', () => {
         });
 
         expect(updatedTasks[0].parameters?.maxTransitions).toBe(100);
-        expect(updatedTasks[0].parameters?.nodes).toEqual([placedAtFreeSpot(newTask)]);
+        expect(updatedTasks[0].parameters?.nodes).toEqual([leftForAutoPlacement(newTask)]);
         expect(updatedTasks[0].parameters?.transitions).toEqual([]);
+    });
+});
+
+describe('insertTaskDispatcherSubtask — chain dispatchers', () => {
+    it('should pin a chain subtask inserted between two pinned subtasks at their midpoint', () => {
+        const firstTask = placedAt(task({name: 'first_action'}), {x: 100, y: 600});
+        const thirdTask = placedAt(task({name: 'third_action'}), {x: 500, y: 800});
+        const newTask = task({name: 'second_action'});
+        const conditionTask = task({
+            name: 'condition_1',
+            parameters: {caseFalse: [], caseTrue: [firstTask, thirdTask]},
+            type: 'condition/v1',
+        });
+
+        const updatedTasks = insertTaskDispatcherSubtask({
+            newTask,
+            taskDispatcherContext: {conditionCase: 'caseTrue', index: 1, taskDispatcherId: 'condition_1'},
+            tasks: [conditionTask],
+        });
+
+        const caseTrue = updatedTasks[0].parameters?.caseTrue as WorkflowTask[];
+
+        expect(caseTrue[1].name).toBe('second_action');
+        expect(caseTrue[1].metadata?.ui?.nodePosition).toEqual({x: 300, y: 700});
+    });
+
+    // A chain subtask's saved position is the user's own arrangement of an unlocked canvas, exactly
+    // like a top-level task's. Inserting before it must leave both axes alone, or the hand-placed
+    // subtask snaps back to the automatic layout's slot the moment its case grows.
+    it('should keep the saved positions of chain subtasks after the insertion point intact', () => {
+        const firstTask = task({name: 'first_action'});
+        const thirdTask = placedAt(task({name: 'third_action'}), {x: 300, y: 120});
+        const newTask = task({name: 'second_action'});
+        const conditionTask = task({
+            name: 'condition_1',
+            parameters: {caseFalse: [], caseTrue: [firstTask, thirdTask]},
+            type: 'condition/v1',
+        });
+
+        const updatedTasks = insertTaskDispatcherSubtask({
+            newTask,
+            taskDispatcherContext: {conditionCase: 'caseTrue', index: 1, taskDispatcherId: 'condition_1'},
+            tasks: [conditionTask],
+        });
+
+        const caseTrue = updatedTasks[0].parameters?.caseTrue as WorkflowTask[];
+
+        expect(caseTrue.map((subtask) => subtask.name)).toEqual(['first_action', 'second_action', 'third_action']);
+        expect(caseTrue[2].metadata?.ui?.nodePosition).toEqual({x: 300, y: 120});
     });
 });
