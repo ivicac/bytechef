@@ -62,6 +62,10 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
             return billingEnabled;
         }
 
+        if (navItem.href === 'ai-hub/tool-approvals') {
+            return isFeatureFlagEnabled('ff-ai-hub-tool-approvals');
+        }
+
         return true;
     };
 

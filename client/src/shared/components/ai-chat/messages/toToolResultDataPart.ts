@@ -64,6 +64,16 @@ interface AskUserQuestionResultI {
     }>;
 }
 
+interface ToolApprovalRequestResultI {
+    approvalId: number;
+    arguments: Record<string, unknown>;
+    awaitingApproval: boolean;
+    componentName?: string | null;
+    expiresAt?: string | null;
+    kind: 'tool-approval-request';
+    toolName: string;
+}
+
 interface KnowledgeBaseCitationsResultI {
     hits: Array<{
         docId?: string;
@@ -185,6 +195,26 @@ export function toToolResultDataPart(toolCallName: string, eventContent: string)
 
     if (fallbackKind === 'ask-user-question') {
         return toAskUserQuestionDataPart(eventContent, toolCallName);
+    }
+
+    if (fallbackKind === 'tool-approval-request') {
+        const payload = parseJson<ToolApprovalRequestResultI>(eventContent, 'tool-approval-request');
+
+        if (payload && typeof payload.approvalId === 'number') {
+            return {
+                data: {
+                    approvalId: payload.approvalId,
+                    arguments: payload.arguments,
+                    awaitingApproval: payload.awaitingApproval,
+                    componentName: payload.componentName,
+                    expiresAt: payload.expiresAt,
+                    kind: payload.kind,
+                    toolName: payload.toolName,
+                },
+                ok: true,
+                type: 'data-tool-approval-request',
+            };
+        }
     }
 
     return undefined;
