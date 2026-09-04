@@ -301,8 +301,8 @@ const currentWorkspaceSettingsRoutes = {
             ),
             path: 'ai/memories',
         },
-        // EE-only and behind ff-ai-hub-tool-approvals (see Settings.tsx's sidebarNavItems filter and the
-        // page's own useFeatureFlagsStore check) — a flagged-off or CE user should not reach this route.
+        // EE-only: the EEVersion wrapper below is the gate, and Settings.tsx's sidebarNavItems filter
+        // additionally withholds the nav row where the AI Hub module itself is off.
         {
             element: (
                 <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
