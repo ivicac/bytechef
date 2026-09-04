@@ -1,4 +1,4 @@
-import {AiHubChatKind, AiHubChatStatus} from '@/shared/middleware/graphql';
+import {AiHubChatKind, AiHubChatParticipation, AiHubChatStatus, AiHubChatVisibility} from '@/shared/middleware/graphql';
 import {describe, expect, it} from 'vitest';
 
 import {AiHubChatI, getChatDisplayTitle, isChannelAgentChat, toChat} from '../chats.api';
@@ -16,15 +16,20 @@ describe('toChat', () => {
         createdAt: '1716000000000',
         environmentId: '0',
         id: '101',
+        isOwner: true,
         kind: 'STANDARD' as unknown as AiHubChatKind,
         lastPreview: null,
         messageCount: 5,
+        ownerName: null,
+        ownerUserId: '3',
+        participation: 'VIEW' as unknown as AiHubChatParticipation,
         projectDeploymentId: null,
         status: AiHubChatStatus.Active,
         threadId: 'thread-1',
         title: 'Hello',
         updatedAt: '1716000060000',
         userId: '3',
+        visibility: 'PRIVATE' as unknown as AiHubChatVisibility,
         workflowExecutionId: null,
         workspaceId: '7',
     };

@@ -1,0 +1,17 @@
+mutation setAiHubChatVisibility(
+    $workspaceId: ID!
+    $chatId: ID!
+    $visibility: AiHubChatVisibility!
+    $participation: AiHubChatParticipation!
+) {
+    setAiHubChatVisibility(
+        workspaceId: $workspaceId
+        chatId: $chatId
+        visibility: $visibility
+        participation: $participation
+    ) {
+        id
+        visibility
+        participation
+    }
+}

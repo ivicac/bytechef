@@ -16,5 +16,10 @@ mutation updateAiHubChat($input: AiHubChatPatchInput!) {
         projectDeploymentId
         autoTitled
         aiAgentId
+        visibility
+        participation
+        ownerUserId
+        ownerName
+        isOwner
     }
 }

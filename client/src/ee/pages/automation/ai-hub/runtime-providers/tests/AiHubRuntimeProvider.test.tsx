@@ -33,13 +33,20 @@ const mockFetchWorkflowResponse = vi.mocked(fetchWorkflowResponse);
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
+    FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES,
+    abandonFocusedChat,
     bootstrapAiHubTurnRunState,
     buildAiHubSubscriber,
     buildStateToSend,
     cleanupForChatChange,
+    getOptimisticTurnMarker,
     hasLivePropertyOptionPicker,
+    nextFocusedThreadMissCount,
+    parseTurnInFlightBody,
     projectMessagesWithToolCalls,
+    removeOptimisticTurnMessages,
     runPostTurnTelemetry,
+    stampOptimisticTurnMarker,
 } from '../AiHubRuntimeProvider';
 
 import type {AgentSubscriber} from '@ag-ui/client';
@@ -148,6 +155,245 @@ const makeRunFinishedParams = (): {
         type: EventType.RUN_FINISHED,
     },
     outcome: 'success',
+});
+
+describe('parseTurnInFlightBody', () => {
+    it('parses runningUserId/runningUserName from a payload object shaped like TURN_IN_FLIGHT', () => {
+        expect(
+            parseTurnInFlightBody({payload: {error: 'TURN_IN_FLIGHT', runningUserId: 5, runningUserName: 'ana'}})
+        ).toEqual({runningUserId: 5, runningUserName: 'ana'});
+    });
+
+    it('parses the same shape out of a message string formatted as `HTTP 409: <json>`', () => {
+        expect(
+            parseTurnInFlightBody({
+                message: 'HTTP 409: {"error":"TURN_IN_FLIGHT","runningUserId":5,"runningUserName":"ana"}',
+            })
+        ).toEqual({runningUserId: 5, runningUserName: 'ana'});
+    });
+
+    it('prefers payload over message when both are present', () => {
+        expect(
+            parseTurnInFlightBody({
+                message: 'HTTP 409: {"error":"TURN_IN_FLIGHT","runningUserId":1,"runningUserName":"stale"}',
+                payload: {error: 'TURN_IN_FLIGHT', runningUserId: 5, runningUserName: 'ana'},
+            })
+        ).toEqual({runningUserId: 5, runningUserName: 'ana'});
+    });
+
+    it('returns null runningUserId/runningUserName when the body omits them', () => {
+        expect(parseTurnInFlightBody({payload: {error: 'TURN_IN_FLIGHT'}})).toEqual({
+            runningUserId: null,
+            runningUserName: null,
+        });
+    });
+
+    it('returns null for a payload with a different error code', () => {
+        expect(parseTurnInFlightBody({payload: {error: 'SOME_OTHER_ERROR'}})).toBeNull();
+    });
+
+    it('returns null for a message with no embedded JSON', () => {
+        expect(parseTurnInFlightBody({message: 'boom'})).toBeNull();
+    });
+
+    it('returns null for a message whose embedded text is not valid JSON', () => {
+        expect(parseTurnInFlightBody({message: 'HTTP 500: {not valid json'})).toBeNull();
+    });
+
+    it('returns null for null/undefined input', () => {
+        expect(parseTurnInFlightBody(null)).toBeNull();
+        expect(parseTurnInFlightBody(undefined)).toBeNull();
+    });
+});
+
+describe('nextFocusedThreadMissCount', () => {
+    it('resets to 0 when the status is present', () => {
+        expect(nextFocusedThreadMissCount(2, true)).toBe(0);
+        expect(nextFocusedThreadMissCount(0, true)).toBe(0);
+    });
+
+    it('increments by one when the status is absent', () => {
+        expect(nextFocusedThreadMissCount(0, false)).toBe(1);
+        expect(nextFocusedThreadMissCount(1, false)).toBe(2);
+        expect(nextFocusedThreadMissCount(2, false)).toBe(3);
+    });
+
+    /*
+     * Pins the exact sequence the coordinator asked for: a thread present for two poll cycles, then absent
+     * for three, must cross FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES only on the THIRD consecutive miss — not
+     * the first or second. A single dropped request (or two) must never read as "access lost"; only a run
+     * of misses long enough to rule out a transient network blip does.
+     */
+    it('only reaches FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES on the third consecutive miss, not the first or second', () => {
+        let consecutiveMisses = 0;
+
+        // Two present cycles: stays at 0, nowhere near the threshold.
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, true);
+        expect(consecutiveMisses).toBe(0);
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, true);
+        expect(consecutiveMisses).toBe(0);
+
+        // First absent cycle: below threshold.
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        expect(consecutiveMisses).toBe(1);
+        expect(consecutiveMisses).toBeLessThan(FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES);
+
+        // Second absent cycle: still below threshold — this is the case that must NOT trigger abandonment.
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        expect(consecutiveMisses).toBe(2);
+        expect(consecutiveMisses).toBeLessThan(FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES);
+
+        // Third absent cycle: now at the threshold — this is the case that DOES trigger abandonment.
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        expect(consecutiveMisses).toBe(3);
+        expect(consecutiveMisses).toBeGreaterThanOrEqual(FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES);
+    });
+
+    it('a hit in the middle of a run of misses resets the count, so the run has to start over', () => {
+        let consecutiveMisses = 0;
+
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        expect(consecutiveMisses).toBe(2);
+
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, true);
+        expect(consecutiveMisses).toBe(0);
+
+        consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, false);
+        expect(consecutiveMisses).toBe(1);
+        expect(consecutiveMisses).toBeLessThan(FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES);
+    });
+});
+
+describe('abandonFocusedChat', () => {
+    it('shows a toast, resets to a fresh home-view chat, and navigates to /automation/ai-hub', async () => {
+        const {aiHubChatsStore} = await import('@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore');
+        const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+        const {toast} = await import('sonner');
+
+        const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+        const navigate = vi.fn();
+
+        aiHubChatsStore.setState({currentChatId: 55});
+        aiHubStore.setState({chatId: 'thread-lost', messages: [{content: 'hi', role: 'user'}]});
+
+        const chatIdBeforeAbandon = aiHubStore.getState().chatId;
+
+        abandonFocusedChat({navigate});
+
+        expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith('You no longer have access to this chat.');
+        expect(aiHubChatsStore.getState().currentChatId).toBeUndefined();
+        expect(aiHubStore.getState().messages).toEqual([]);
+        // A fresh chat id is generated (mirrors the home view's own reset) rather than staying on the
+        // lost thread's id, which the server would just reject with another TURN_IN_FLIGHT/404 pattern.
+        expect(aiHubStore.getState().chatId).not.toBe(chatIdBeforeAbandon);
+        expect(navigate).toHaveBeenCalledExactlyOnceWith('/automation/ai-hub');
+
+        toastErrorSpy.mockRestore();
+    });
+});
+
+describe('stampOptimisticTurnMarker / getOptimisticTurnMarker', () => {
+    it('round-trips the marker through metadata.custom', () => {
+        const stamped = stampOptimisticTurnMarker({content: 'hi', role: 'user'}, 'marker-1');
+
+        expect(getOptimisticTurnMarker(stamped)).toBe('marker-1');
+    });
+
+    it('returns undefined for a message that was never stamped', () => {
+        expect(getOptimisticTurnMarker({content: 'hi', role: 'user'})).toBeUndefined();
+    });
+
+    it('preserves any existing metadata.custom fields on the message rather than replacing them', () => {
+        const stamped = stampOptimisticTurnMarker(
+            {content: 'hi', metadata: {custom: {authorName: 'ana', authorUserId: 2}}, role: 'user'},
+            'marker-1'
+        );
+
+        expect(stamped.metadata?.custom).toEqual({
+            authorName: 'ana',
+            authorUserId: 2,
+            optimisticTurnMarker: 'marker-1',
+        });
+    });
+});
+
+describe('removeOptimisticTurnMessages', () => {
+    it('removes exactly the messages carrying the given marker, leaving every other message untouched', async () => {
+        const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+
+        const serverMessage: ThreadMessageLike = {content: 'earlier reply', role: 'assistant'};
+
+        aiHubStore.setState({
+            messages: [
+                serverMessage,
+                stampOptimisticTurnMarker({content: 'hi', role: 'user'}, 'marker-1'),
+                stampOptimisticTurnMarker({content: '', role: 'assistant'}, 'marker-1'),
+            ],
+        });
+
+        removeOptimisticTurnMessages('marker-1');
+
+        expect(aiHubStore.getState().messages).toEqual([serverMessage]);
+    });
+
+    it('is a no-op when nothing in the store carries the given marker', async () => {
+        const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+
+        const untaggedMessages: ThreadMessageLike[] = [
+            {content: 'a', role: 'user'},
+            {content: 'b', role: 'assistant'},
+        ];
+
+        aiHubStore.setState({messages: untaggedMessages});
+
+        removeOptimisticTurnMessages('marker-that-does-not-exist');
+
+        expect(aiHubStore.getState().messages).toEqual(untaggedMessages);
+    });
+
+    /*
+     * The regression this whole extraction exists to close. TURN_IN_FLIGHT fires while another
+     * participant's turn is running; that SAME turn finishing is exactly what bumps messageCount and
+     * triggers the focused-chat poll's transcript refetch — which replaces `messages` WHOLESALE. If that
+     * replace lands between the optimistic append and the TURN_IN_FLIGHT rollback, a position-based
+     * `slice(0, length - N)` would silently delete the tail of the freshly-loaded REAL transcript instead
+     * of the two messages this call actually added — because by the time the rollback runs, the array is
+     * no longer the one it appended to. This test reproduces that exact sequence and would fail under the
+     * old position-based rollback (it would assert an array two entries shorter than the real transcript).
+     */
+    it('leaves the real transcript fully intact when a wholesale replace lands between the optimistic append and the rollback', async () => {
+        const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+
+        const marker = 'marker-race';
+
+        // 1. Optimistic append (mirrors onNew): the user's message and the empty assistant placeholder,
+        //    tagged with this turn's marker.
+        aiHubStore.setState({
+            chatId: 'thread-shared',
+            messages: [
+                stampOptimisticTurnMarker({content: 'can you help?', role: 'user'}, marker),
+                stampOptimisticTurnMarker({content: '', role: 'assistant'}, marker),
+            ],
+        });
+
+        // 2. The OTHER participant's turn — the one that made ours TURN_IN_FLIGHT — finishes server-side,
+        //    and the focused-chat poll's transcript refetch replaces `messages` wholesale with the real,
+        //    persisted transcript. This is exactly what AiHubRuntimeProvider's poll effect does via
+        //    `useAiHubStore.setState({messages: loadedMessages})` — it does not merge, it replaces.
+        const realTranscriptAfterOtherTurnFinished: ThreadMessageLike[] = [
+            {content: "what's up?", role: 'user'},
+            {content: 'Not much, how can I help?', role: 'assistant'},
+        ];
+
+        aiHubStore.setState({messages: realTranscriptAfterOtherTurnFinished});
+
+        // 3. The TURN_IN_FLIGHT rollback finally runs, well after the append it's meant to undo has
+        //    already been superseded by the refetch above.
+        removeOptimisticTurnMessages(marker);
+
+        expect(aiHubStore.getState().messages).toEqual(realTranscriptAfterOtherTurnFinished);
+    });
 });
 
 describe('buildAiHubSubscriber', () => {
@@ -1105,6 +1351,120 @@ describe('buildAiHubSubscriber', () => {
         });
     });
 
+    describe('onRunErrorEvent — TURN_IN_FLIGHT (Task 8)', () => {
+        // The AG-UI SDK formats a non-OK HttpAgent response as `HTTP <status>: <body>`, where <body> is the
+        // response's own JSON.stringify'd text when its content-type is application/json — this is what
+        // AiHubApiController.handleTurnInFlight's body looks like once it reaches onRunErrorEvent (which
+        // only ever sees {message, code}, never the parsed .payload the outer catch gets).
+        const turnInFlightMessage = 'HTTP 409: {"error":"TURN_IN_FLIGHT","runningUserId":5,"runningUserName":"ana"}';
+
+        it('does not append the red error bubble for a 409 TURN_IN_FLIGHT response', () => {
+            const addMessage = vi.fn();
+
+            const subscriber = buildAiHubSubscriber({
+                addMessage,
+                appendToLastAssistantMessage: vi.fn(),
+                chatId: 'thread-1',
+                getLastUserMessage: vi.fn().mockReturnValue(''),
+            });
+
+            subscriber.onRunErrorEvent!({event: {message: turnInFlightMessage}} as Parameters<
+                NonNullable<typeof subscriber.onRunErrorEvent>
+            >[0]);
+
+            expect(addMessage).not.toHaveBeenCalled();
+        });
+
+        it('invokes onTurnInFlight with the thread id and the parsed runningUserId/runningUserName', () => {
+            const onTurnInFlight = vi.fn();
+
+            const subscriber = buildAiHubSubscriber({
+                addMessage: vi.fn(),
+                appendToLastAssistantMessage: vi.fn(),
+                chatId: 'thread-1',
+                getLastUserMessage: vi.fn().mockReturnValue(''),
+                onTurnInFlight,
+            });
+
+            subscriber.onRunErrorEvent!({event: {message: turnInFlightMessage}} as Parameters<
+                NonNullable<typeof subscriber.onRunErrorEvent>
+            >[0]);
+
+            expect(onTurnInFlight).toHaveBeenCalledWith('thread-1', {runningUserId: 5, runningUserName: 'ana'});
+        });
+
+        it('still fires runLifecycle.onSettle so the composer is released even though no bubble was appended', () => {
+            const onSettle = vi.fn();
+
+            const subscriber = buildAiHubSubscriber({
+                addMessage: vi.fn(),
+                appendToLastAssistantMessage: vi.fn(),
+                chatId: 'thread-1',
+                getLastUserMessage: vi.fn().mockReturnValue(''),
+                runLifecycle: {onSettle},
+            });
+
+            subscriber.onRunErrorEvent!({event: {message: turnInFlightMessage}} as Parameters<
+                NonNullable<typeof subscriber.onRunErrorEvent>
+            >[0]);
+
+            expect(onSettle).toHaveBeenCalledOnce();
+        });
+
+        it('falls through to the ordinary red error bubble for a genuinely unrelated 409', async () => {
+            // A 409 that is NOT TURN_IN_FLIGHT (a different endpoint's conflict response, say) must not be
+            // silently swallowed — only the specific error code opts out of the ordinary error path.
+            const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+
+            aiHubStore.setState({chatId: 'thread-1'});
+
+            const addMessage = vi.fn();
+
+            const subscriber = buildAiHubSubscriber({
+                addMessage,
+                appendToLastAssistantMessage: vi.fn(),
+                chatId: 'thread-1',
+                getLastUserMessage: vi.fn().mockReturnValue(''),
+            });
+
+            subscriber.onRunErrorEvent!({
+                event: {message: 'HTTP 409: {"error":"SOME_OTHER_CONFLICT"}'},
+            } as Parameters<NonNullable<typeof subscriber.onRunErrorEvent>>[0]);
+
+            expect(addMessage).toHaveBeenCalledWith({
+                content: [{data: {message: 'HTTP 409: {"error":"SOME_OTHER_CONFLICT"}'}, type: 'data-run-error'}],
+                role: 'assistant',
+            });
+        });
+
+        it('does not treat an ordinary error as TURN_IN_FLIGHT just because chatId is set', async () => {
+            const {aiHubStore} = await import('@/ee/pages/automation/ai-hub/stores/useAiHubStore');
+
+            aiHubStore.setState({chatId: 'thread-1'});
+
+            const addMessage = vi.fn();
+            const onTurnInFlight = vi.fn();
+
+            const subscriber = buildAiHubSubscriber({
+                addMessage,
+                appendToLastAssistantMessage: vi.fn(),
+                chatId: 'thread-1',
+                getLastUserMessage: vi.fn().mockReturnValue(''),
+                onTurnInFlight,
+            });
+
+            subscriber.onRunErrorEvent!({event: {message: 'boom'}} as Parameters<
+                NonNullable<typeof subscriber.onRunErrorEvent>
+            >[0]);
+
+            expect(onTurnInFlight).not.toHaveBeenCalled();
+            expect(addMessage).toHaveBeenCalledWith({
+                content: [{data: {message: 'boom'}, type: 'data-run-error'}],
+                role: 'assistant',
+            });
+        });
+    });
+
     it('onToolCallResultEvent collapses a duplicate selectPropertyOption picker for the same property', async () => {
         // The agent looping (or re-invoking selectPropertyOption for the same property within a turn) would
         // otherwise stack identical comboboxes. The handler skips the redundant interactive bubble when a live
@@ -1504,14 +1864,19 @@ describe('runPostTurnTelemetry', () => {
             createdAt: '2026-01-01T00:00:00Z',
             autoTitled: true,
             id: 1,
+            isOwner: true,
             kind: 'STANDARD' as const,
             lastPreview: null,
             messageCount: 0,
+            ownerName: null,
+            ownerUserId: 1,
+            participation: 'VIEW' as const,
             status: 'ACTIVE' as const,
             threadId: 'thread-1',
             title: null,
             updatedAt: '2026-01-01T00:00:00Z',
             userId: 1,
+            visibility: 'PRIVATE' as const,
             workflowExecutionId: null,
             workspaceId: 1,
         };
@@ -1739,8 +2104,8 @@ describe('tool-call store routing in buildAiHubSubscriber', () => {
 
         expect(mockOpenWorkflowSseStream).toHaveBeenCalledOnce();
 
-        // Simulate the SSE handler invoking the supplied onChunk callback (formerly named
-        // appendToLastAssistantMessage — the rename also fixed a misleading-name bug, see the review).
+        // Simulate the SSE handler invoking the supplied onChunk callback, which appends the streamed
+        // text to the last assistant message.
         const args = mockOpenWorkflowSseStream.mock.calls[0][0]!;
 
         args.onChunk('Step 1 done');

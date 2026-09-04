@@ -3,10 +3,11 @@ import {
     type ReferencedResourceI,
     aiHubComposerStore,
 } from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
+import {aiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {ReactNode} from 'react';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 /**
  * Focused coverage for AiHubChatComposer's presentational layer — the referenced-resource chip row,
@@ -90,13 +91,39 @@ vi.mock('@/shared/middleware/graphql', () => ({
 interface MockChatI {
     aiAgentId?: number | null;
     id: number;
+    isOwner?: boolean;
     kind: string;
+    participation?: 'PARTICIPATE' | 'VIEW';
+    threadId?: string;
     workflowExecutionId?: string | null;
 }
 
-const {chatsQueryRef, currentChatIdRef} = vi.hoisted(() => ({
+interface MockThreadStatusI {
+    inFlight: boolean;
+    runningUserId: number | null;
+    runningUserName: string | null;
+}
+
+const {
+    chatsQueryRef,
+    currentChatIdRef,
+    currentUserIdRef,
+    isAdminRef,
+    sendPresenceMock,
+    sharingEnabledRef,
+    threadStatusRef,
+} = vi.hoisted(() => ({
     chatsQueryRef: {current: undefined as MockChatI[] | undefined},
     currentChatIdRef: {current: undefined as number | undefined},
+    currentUserIdRef: {current: undefined as number | undefined},
+    isAdminRef: {current: false},
+    sendPresenceMock: vi.fn(),
+    sharingEnabledRef: {current: true},
+    threadStatusRef: {current: {} as Record<string, MockThreadStatusI>},
+}));
+
+vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled', () => ({
+    useAiHubSharingEnabled: () => sharingEnabledRef.current,
 }));
 
 vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
@@ -104,13 +131,32 @@ vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
 }));
 
 vi.mock('@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore', () => ({
-    useAiHubChatsStore: (selector: (state: {currentChatId: number | undefined}) => unknown) =>
-        selector({currentChatId: currentChatIdRef.current}),
+    useAiHubChatsStore: (
+        selector: (state: {
+            currentChatId: number | undefined;
+            threadStatus: Record<string, MockThreadStatusI>;
+        }) => unknown
+    ) => selector({currentChatId: currentChatIdRef.current, threadStatus: threadStatusRef.current}),
+}));
+
+vi.mock('@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient', () => ({
+    sendPresence: sendPresenceMock,
 }));
 
 // Workspace / environment stores are read via selectors; constant returns are enough here.
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: vi.fn(() => 1),
+}));
+
+// Owner-or-admin bypass for the view-only composer gate — isAdminRef lets a test flip this without
+// pulling in the real edition/authentication stores the hook composes.
+vi.mock('@/shared/hooks/useVisibilityFeatureEnabled', () => ({
+    useVisibilityFeatureEnabled: () => ({enabled: true, isAdmin: isAdminRef.current, workspaceId: 1}),
+}));
+
+vi.mock('@/shared/stores/useAuthenticationStore', () => ({
+    useAuthenticationStore: (selector: (state: {account: {id: number | undefined}}) => unknown) =>
+        selector({account: {id: currentUserIdRef.current}}),
 }));
 
 vi.mock('@/shared/stores/useEnvironmentStore', () => ({
@@ -143,7 +189,12 @@ beforeEach(() => {
     });
 
     currentChatIdRef.current = undefined;
+    currentUserIdRef.current = undefined;
+    isAdminRef.current = false;
+    sharingEnabledRef.current = true;
+    threadStatusRef.current = {};
     chatsQueryRef.current = undefined;
+    sendPresenceMock.mockClear();
 });
 
 describe('AiHubChatComposer skill chips', () => {
@@ -428,5 +479,332 @@ describe("AiHubChatComposer '@' resource-picker trigger", () => {
         pressAt(0);
 
         expect(aiHubComposerStore.getState().resourcePickerOpen).toBe(false);
+    });
+});
+
+describe('AiHubChatComposer view-only gating', () => {
+    it('replaces the message input with a view-only notice when participation is VIEW and the caller is not the owner', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, isOwner: false, kind: 'STANDARD', participation: 'VIEW'}];
+
+        await renderComposer();
+
+        expect(screen.queryByLabelText('Message input')).not.toBeInTheDocument();
+        expect(screen.getByTestId('view-only-notice')).toBeInTheDocument();
+        expect(screen.getByText(/view-only access/)).toBeInTheDocument();
+    });
+
+    it('still renders a typeable input when participation is VIEW but the caller owns the chat', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, isOwner: true, kind: 'STANDARD', participation: 'VIEW'}];
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+        expect(screen.queryByTestId('view-only-notice')).not.toBeInTheDocument();
+    });
+
+    it('still renders a typeable input for a VIEW, non-owned chat when the caller is a workspace admin', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, isOwner: false, kind: 'STANDARD', participation: 'VIEW'}];
+        isAdminRef.current = true;
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+        expect(screen.queryByTestId('view-only-notice')).not.toBeInTheDocument();
+    });
+
+    it('still renders a typeable input when participation is PARTICIPATE, even for a non-owner', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, isOwner: false, kind: 'STANDARD', participation: 'PARTICIPATE'}];
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+        expect(screen.queryByTestId('view-only-notice')).not.toBeInTheDocument();
+    });
+
+    it("still renders a typeable input for a STANDARD chat with no participation set (the caller's own, never-shared chat)", async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD'}];
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+        expect(screen.queryByTestId('view-only-notice')).not.toBeInTheDocument();
+    });
+});
+
+describe("AiHubChatComposer another participant's turn running", () => {
+    it("disables the input and shows the running user's name in the placeholder when someone else's turn is in flight", async () => {
+        currentChatIdRef.current = 7;
+        currentUserIdRef.current = 1;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+        threadStatusRef.current = {
+            'thread-7': {inFlight: true, runningUserId: 2, runningUserName: 'Ana'},
+        };
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        expect(textarea).toBeDisabled();
+        expect(textarea).toHaveAttribute('placeholder', expect.stringContaining("Ana's turn is running"));
+    });
+
+    it('leaves the input enabled when the in-flight turn belongs to the caller themselves', async () => {
+        currentChatIdRef.current = 7;
+        currentUserIdRef.current = 2;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+        threadStatusRef.current = {
+            'thread-7': {inFlight: true, runningUserId: 2, runningUserName: 'Ana'},
+        };
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+
+    it('leaves the input enabled once the thread status reports no run in flight', async () => {
+        currentChatIdRef.current = 7;
+        currentUserIdRef.current = 1;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+        threadStatusRef.current = {
+            'thread-7': {inFlight: false, runningUserId: null, runningUserName: null},
+        };
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        expect(textarea).not.toBeDisabled();
+        expect(textarea).toHaveAttribute('placeholder', 'Send a message...');
+    });
+
+    it('leaves the input enabled when the thread has no polled status at all', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+});
+
+describe('AiHubChatComposer typing presence', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    // A typing indicator exists to say "words are coming" — it has to announce on the leading edge of a
+    // burst, not only once the person stops. These tests pin that directly: no timer advance is needed to
+    // observe the first TYPING send, because it must fire synchronously with the keystroke that starts it.
+    it('sends TYPING synchronously on the very first keystroke of a burst — no timer advance needed', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        expect(sendPresenceMock).toHaveBeenCalledExactlyOnceWith(aiHubStore.getState().chatId, 'TYPING');
+    });
+
+    it('throttles further TYPING sends during a continuous burst — no resend within the throttle window', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        act(() => {
+            vi.advanceTimersByTime(900);
+        });
+
+        fireEvent.change(textarea, {target: {value: 'he'}});
+
+        act(() => {
+            vi.advanceTimersByTime(900);
+        });
+
+        fireEvent.change(textarea, {target: {value: 'hel'}});
+
+        // Three keystrokes inside the 3s throttle window — still only the one leading-edge send.
+        expect(sendPresenceMock).toHaveBeenCalledExactlyOnceWith(aiHubStore.getState().chatId, 'TYPING');
+    });
+
+    it('sends a fresh TYPING once the throttle window elapses while the burst is still going', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        // Past the 3s throttle window, but keystrokes keep coming under the 3s idle gap so the burst never
+        // reverted to VIEWING in between.
+        act(() => {
+            vi.advanceTimersByTime(1_500);
+        });
+
+        fireEvent.change(textarea, {target: {value: 'he'}});
+
+        act(() => {
+            vi.advanceTimersByTime(1_500);
+        });
+
+        fireEvent.change(textarea, {target: {value: 'hel'}});
+
+        const typingCalls = sendPresenceMock.mock.calls.filter(([, state]) => state === 'TYPING');
+
+        expect(typingCalls).toHaveLength(2);
+    });
+
+    it('falls back to VIEWING once the user has genuinely paused (idle gap elapses)', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        sendPresenceMock.mockClear();
+
+        act(() => {
+            vi.advanceTimersByTime(3_000);
+        });
+
+        expect(sendPresenceMock).toHaveBeenCalledExactlyOnceWith(aiHubStore.getState().chatId, 'VIEWING');
+    });
+
+    it('does not fall back to VIEWING while keystrokes keep landing within the idle gap', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        sendPresenceMock.mockClear();
+
+        // Each keystroke lands well inside the 3s idle gap and resets it — total elapsed time exceeds 3s,
+        // but the gap SINCE THE LAST keystroke never does. This is the guard that stops "one dropped
+        // request" reasoning from applying here too: a steady typist must never flicker to VIEWING mid-word.
+        for (let tick = 0; tick < 4; tick += 1) {
+            act(() => {
+                vi.advanceTimersByTime(2_000);
+            });
+
+            fireEvent.change(textarea, {target: {value: `h${'e'.repeat(tick + 1)}`}});
+        }
+
+        expect(sendPresenceMock).not.toHaveBeenCalledWith(aiHubStore.getState().chatId, 'VIEWING');
+    });
+
+    it('announces a fresh leading-edge TYPING for a new burst that starts after an idle VIEWING', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        act(() => {
+            vi.advanceTimersByTime(3_000);
+        });
+
+        expect(sendPresenceMock).toHaveBeenLastCalledWith(aiHubStore.getState().chatId, 'VIEWING');
+
+        sendPresenceMock.mockClear();
+
+        fireEvent.change(textarea, {target: {value: 'hi'}});
+
+        expect(sendPresenceMock).toHaveBeenCalledExactlyOnceWith(aiHubStore.getState().chatId, 'TYPING');
+    });
+
+    it('clears pending timers on unmount so no further heartbeat fires afterward', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        const {unmount} = await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'h'}});
+
+        expect(sendPresenceMock).toHaveBeenCalledTimes(1);
+
+        unmount();
+
+        act(() => {
+            vi.advanceTimersByTime(5_000);
+        });
+
+        // The leading-edge TYPING already fired before unmount; nothing further (no VIEWING fallback)
+        // should follow it once the component — and its timers — are gone.
+        expect(sendPresenceMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('AiHubChatComposer with chat sharing disabled', () => {
+    beforeEach(() => {
+        sharingEnabledRef.current = false;
+    });
+
+    it('renders a plain typeable input — no view-only notice — for a VIEW, non-owned chat when the hook returns false', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, isOwner: false, kind: 'STANDARD', participation: 'VIEW'}];
+
+        await renderComposer();
+
+        expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+        expect(screen.queryByTestId('view-only-notice')).not.toBeInTheDocument();
+    });
+
+    it("leaves the input enabled — no others'-turn disable — when the hook returns false even though another user's turn is in flight", async () => {
+        currentChatIdRef.current = 7;
+        currentUserIdRef.current = 1;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+        threadStatusRef.current = {
+            'thread-7': {inFlight: true, runningUserId: 2, runningUserName: 'Ana'},
+        };
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        expect(textarea).not.toBeDisabled();
+        expect(textarea).toHaveAttribute('placeholder', 'Send a message...');
+    });
+
+    it('issues no presence request on typing when the hook returns false', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [{id: 7, kind: 'STANDARD', threadId: 'thread-7'}];
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        fireEvent.change(textarea, {target: {value: 'hi'}});
+
+        expect(sendPresenceMock).not.toHaveBeenCalled();
     });
 });

@@ -101,9 +101,9 @@ describe('AiHub home view resource panel', () => {
                 aiHubTabsStore.setState({activeTabId: undefined, openTabs: []});
             });
 
-            // Must still be mounted right after the last tab closes — an immediate unmount here is
-            // exactly the reviewer-flagged flash: the pane is still ~62% wide (the width-collapse
-            // animation hasn't run yet) but would render empty.
+            // Must still be mounted right after the last tab closes — an immediate unmount here would
+            // flash empty content: the pane is still ~62% wide (the width-collapse animation hasn't run
+            // yet) but would have nothing left to show.
             expect(screen.getByTestId('resource-panel')).toBeInTheDocument();
 
             act(() => {

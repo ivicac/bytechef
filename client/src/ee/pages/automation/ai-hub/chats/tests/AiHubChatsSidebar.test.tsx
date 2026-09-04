@@ -14,12 +14,30 @@ import {cancelChatRunIfStreaming} from '../hooks/useAiHubChatActions';
 // vi.mock factories hoist above module-scope consts, so the mutable chats list the individual chat-row
 // tests below need to configure per-test has to be declared via vi.hoisted rather than a plain outer
 // `let` — referencing a plain outer binding here throws "Cannot access X before initialization".
-const {mockChatsDataRef} = vi.hoisted(() => ({
+const {
+    mockChatsDataRef,
+    mockSharedChatsDataRef,
+    probeThreadStatusMock,
+    sharingEnabledRef,
+    useAiHubSharedChatsQueryMock,
+} = vi.hoisted(() => ({
     mockChatsDataRef: {current: [] as AiHubChatI[]},
+    mockSharedChatsDataRef: {current: [] as AiHubChatI[]},
+    probeThreadStatusMock: vi.fn(() => Promise.resolve({})),
+    sharingEnabledRef: {current: true},
+    useAiHubSharedChatsQueryMock: vi.fn(),
 }));
 
+vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled', () => ({
+    useAiHubSharingEnabled: () => sharingEnabledRef.current,
+}));
 vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
     useAiHubChatsQuery: () => ({data: mockChatsDataRef.current, isLoading: false}),
+    useAiHubSharedChatsQuery: (...args: unknown[]) => {
+        useAiHubSharedChatsQueryMock(...args);
+
+        return {data: mockSharedChatsDataRef.current, isLoading: false};
+    },
     useDeleteAiHubChatMutation: () => ({mutate: vi.fn()}),
     usePatchAiHubChatMutation: () => ({mutate: vi.fn()}),
 }));
@@ -27,7 +45,7 @@ vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat', () => ({
     useSwitchChat: () => vi.fn(),
 }));
 vi.mock('@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient', () => ({
-    probeInFlightStatus: () => Promise.resolve({}),
+    probeThreadStatus: probeThreadStatusMock,
 }));
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: (state: {currentWorkspaceId: number}) => unknown) =>
@@ -48,6 +66,10 @@ vi.mock('@/shared/middleware/graphql', () => ({
 // sidebar assuming an empty list.
 afterEach(() => {
     mockChatsDataRef.current = [];
+    mockSharedChatsDataRef.current = [];
+    sharingEnabledRef.current = true;
+    probeThreadStatusMock.mockClear();
+    useAiHubSharedChatsQueryMock.mockClear();
 });
 
 function renderSidebar() {
@@ -70,14 +92,19 @@ function buildChat(overrides: Partial<AiHubChatI> = {}): AiHubChatI {
         autoTitled: true,
         createdAt: new Date().toISOString(),
         id: 1,
+        isOwner: true,
         kind: 'STANDARD',
         lastPreview: null,
         messageCount: 0,
+        ownerName: null,
+        ownerUserId: 1,
+        participation: 'VIEW',
         status: 'ACTIVE',
         threadId: 'thread-1',
         title: 'Chat',
         updatedAt: new Date().toISOString(),
         userId: 1,
+        visibility: 'PRIVATE',
         workflowExecutionId: null,
         workspaceId: 1,
         ...overrides,
@@ -420,5 +447,85 @@ describe('AiHubChatsSidebar channel-born agent chat rows', () => {
         // channel-born row must still read as channel-born, not silently revert to the plain agent icon
         // just because it has a name.
         expect(screen.getByLabelText('Agent channel conversation')).toBeInTheDocument();
+    });
+});
+
+describe('AiHubChatsSidebar "Shared with me" list', () => {
+    beforeEach(() => {
+        aiHubChatsStore.getState().reset();
+    });
+
+    it('renders no "Shared with me" section when nobody has shared a chat', () => {
+        renderSidebar();
+
+        expect(screen.queryByText('Shared with me')).not.toBeInTheDocument();
+    });
+
+    it('renders a shared chat under its own heading, naming the owner', () => {
+        mockSharedChatsDataRef.current = [
+            buildChat({id: 51, isOwner: false, ownerName: 'ana@example.com', title: 'Q3 planning'}),
+        ];
+
+        renderSidebar();
+
+        expect(screen.getByText('Shared with me')).toBeInTheDocument();
+        expect(screen.getByText('Q3 planning')).toBeInTheDocument();
+        expect(screen.getByText('— ana@example.com')).toBeInTheDocument();
+    });
+
+    // A shared row cannot reach rename/archive/delete — none of those mutations belong to the caller — so
+    // the row must not even offer the "⋮" trigger that would open them, not merely disable the items behind it.
+    it('hides the "⋮" chat-actions menu on a shared row while keeping it on the caller\'s own row', () => {
+        mockChatsDataRef.current = [buildChat({id: 60, title: 'My own chat'})];
+        mockSharedChatsDataRef.current = [buildChat({id: 61, isOwner: false, title: 'Shared chat'})];
+
+        renderSidebar();
+
+        const triggers = screen.getAllByTestId('chat-actions-trigger');
+
+        expect(triggers).toHaveLength(1);
+    });
+
+    it('renders no "Shared with me" section when useAiHubSharingEnabled returns false, even with shared chats present', () => {
+        sharingEnabledRef.current = false;
+        mockSharedChatsDataRef.current = [
+            buildChat({id: 51, isOwner: false, ownerName: 'ana@example.com', title: 'Q3 planning'}),
+        ];
+
+        renderSidebar();
+
+        expect(screen.queryByText('Shared with me')).not.toBeInTheDocument();
+        expect(screen.queryByText('Q3 planning')).not.toBeInTheDocument();
+    });
+
+    // The render gate above is not enough on its own — this pins that the shared-chats query itself
+    // issues no request when the flag is off, rather than fetching an EE-only field and merely
+    // withholding the render. useAiHubChatMessagesQuery already exposes this same `enabled` shape;
+    // useAiHubSharedChatsQuery now follows it.
+    it('passes enabled=false to useAiHubSharedChatsQuery when useAiHubSharingEnabled returns false', () => {
+        sharingEnabledRef.current = false;
+
+        renderSidebar();
+
+        expect(useAiHubSharedChatsQueryMock).toHaveBeenCalledWith(1, 1, false);
+    });
+
+    it('passes enabled=true to useAiHubSharedChatsQuery when useAiHubSharingEnabled returns true', () => {
+        renderSidebar();
+
+        expect(useAiHubSharedChatsQueryMock).toHaveBeenCalledWith(1, 1, true);
+    });
+
+    // The sidebar's running/paused pulse predates chat sharing, and the server keeps its `in-flight`
+    // endpoint alive delegating to `/status` specifically so a flagged-off client keeps getting it.
+    // Gating this probe on useAiHubSharingEnabled would silently remove that pre-existing feature for
+    // exactly the callers who should see today's product unchanged.
+    it('still issues the /status probe that drives the running pulse when useAiHubSharingEnabled returns false', async () => {
+        sharingEnabledRef.current = false;
+        mockChatsDataRef.current = [buildChat({id: 60, title: 'My own chat'})];
+
+        renderSidebar();
+
+        await waitFor(() => expect(probeThreadStatusMock).toHaveBeenCalled());
     });
 });

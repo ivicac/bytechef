@@ -1,0 +1,5 @@
+mutation grantAiHubChatAccess($workspaceId: ID!, $chatId: ID!, $userId: ID!) {
+    grantAiHubChatAccess(workspaceId: $workspaceId, chatId: $chatId, userId: $userId) {
+        id
+    }
+}

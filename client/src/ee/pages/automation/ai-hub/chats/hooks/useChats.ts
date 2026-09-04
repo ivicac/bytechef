@@ -15,6 +15,7 @@ import {
     getChatMessages,
     listArtifacts,
     listChats,
+    listSharedChats,
     patchChat,
 } from '../api/chats.api';
 
@@ -28,6 +29,9 @@ export const AiHubChatsKeys = {
         [...AiHubChatsKeys.all, 'list', workspaceId, environment, status] as const,
     messages: (chatId: number, workspaceId: number) =>
         [...AiHubChatsKeys.all, 'messages', chatId, workspaceId] as const,
+    sharedAll: ['aiHubSharedChats'] as const,
+    sharedList: (workspaceId: number, environment: number) =>
+        [...AiHubChatsKeys.sharedAll, workspaceId, environment] as const,
 };
 
 export function useAiHubChatsQuery(workspaceId: number, environment: number, status: 'ACTIVE' | 'ARCHIVED') {
@@ -38,6 +42,25 @@ export function useAiHubChatsQuery(workspaceId: number, environment: number, sta
     });
 
     useReportQueryError('List chats', query.error);
+
+    return query;
+}
+
+/**
+ * The chats other workspace members have shared with the caller — a separate list from the caller's
+ * own. `enabled` defaults to true; the AI Hub sidebar passes its sharing-enabled gate so a flagged-off
+ * or CE caller issues no request for this EE-only field at all, rather than fetching it and merely
+ * withholding the render.
+ */
+export function useAiHubSharedChatsQuery(workspaceId: number, environment: number, enabled: boolean = true) {
+    const query = useQuery<AiHubChatI[], Error>({
+        enabled,
+        queryFn: () => listSharedChats({environment, workspaceId}),
+        queryKey: AiHubChatsKeys.sharedList(workspaceId, environment),
+        staleTime: 30_000,
+    });
+
+    useReportQueryError('List shared chats', query.error);
 
     return query;
 }

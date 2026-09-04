@@ -20,8 +20,16 @@ vi.mock('@/ee/pages/automation/ai-hub/composer/AiHubChatComposer', () => ({
 // vi.mock factories hoist above module-scope consts, so the per-test-configurable chats list has to be
 // declared via vi.hoisted rather than a plain outer `let` — see AiHubChatsSidebar.test.tsx for the same
 // pattern.
-const {mockChatsDataRef} = vi.hoisted(() => ({
+const {mockChatsDataRef, sharingEnabledRef} = vi.hoisted(() => ({
     mockChatsDataRef: {current: [] as AiHubChatI[]},
+    sharingEnabledRef: {current: true},
+}));
+
+// Defaults to true so the pre-existing chat-options-menu tests (none of which assert on Share…'s
+// presence either way) see the panel exactly as before. Individual tests flip this per-test to pin
+// both the Share…-offered and Share…-withheld cases.
+vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled', () => ({
+    useAiHubSharingEnabled: () => sharingEnabledRef.current,
 }));
 
 // The header's chat-actions menu pulls these in through useAiHubChatActions; the panel never fires them,
@@ -35,6 +43,7 @@ vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
 
 afterEach(() => {
     mockChatsDataRef.current = [];
+    sharingEnabledRef.current = true;
     aiHubChatsStore.getState().reset();
 });
 
@@ -51,14 +60,19 @@ function buildChat(overrides: Partial<AiHubChatI> = {}): AiHubChatI {
         autoTitled: true,
         createdAt: new Date().toISOString(),
         id: 1,
+        isOwner: true,
         kind: 'STANDARD',
         lastPreview: null,
         messageCount: 0,
+        ownerName: null,
+        ownerUserId: 1,
+        participation: 'VIEW',
         status: 'ACTIVE',
         threadId: 'thread-1',
         title: null,
         updatedAt: new Date().toISOString(),
         userId: 1,
+        visibility: 'PRIVATE',
         workflowExecutionId: null,
         workspaceId: 1049,
         ...overrides,
@@ -172,8 +186,8 @@ describe('AiHubPanel chat options menu', () => {
         await user.click(screen.getByRole('button', {name: 'Chat options'}));
     };
 
-    it('offers the current chat the same actions its sidebar row does', async () => {
-        mockChatsDataRef.current = [buildChat({id: 41, title: 'Some chat'})];
+    it('offers the current chat the same actions its sidebar row does when the caller owns it', async () => {
+        mockChatsDataRef.current = [buildChat({id: 41, isOwner: true, title: 'Some chat'})];
         aiHubChatsStore.getState().setCurrentChatId(41);
 
         await openMenu();
@@ -181,6 +195,22 @@ describe('AiHubPanel chat options menu', () => {
         expect(await screen.findByRole('menuitem', {name: 'Rename'})).toBeInTheDocument();
         expect(screen.getByRole('menuitem', {name: 'Archive'})).toBeInTheDocument();
         expect(screen.getByRole('menuitem', {name: 'Delete'})).toBeInTheDocument();
+    });
+
+    // A chat opened from "Shared with me" can become currentChat too (see AiHubChatsSidebar), but the
+    // caller doesn't own it. The server refuses rename/archive/delete for a non-owner regardless, so
+    // offering these here would just be three actions that fail — omitting them is a product decision,
+    // not the only thing standing between a viewer and someone else's chat.
+    it('offers none of rename/archive/delete for a chat the caller does not own', async () => {
+        mockChatsDataRef.current = [buildChat({id: 42, isOwner: false, title: 'Someone else’s chat'})];
+        aiHubChatsStore.getState().setCurrentChatId(42);
+
+        await openMenu();
+
+        expect(await screen.findByRole('menuitem', {name: 'Show tool calls'})).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Rename'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Archive'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Delete'})).not.toBeInTheDocument();
     });
 
     // Nothing to rename, archive or delete before the first message creates a chat, but the transcript
@@ -191,5 +221,25 @@ describe('AiHubPanel chat options menu', () => {
         expect(await screen.findByRole('menuitem', {name: 'Show tool calls'})).toBeInTheDocument();
         expect(screen.queryByRole('menuitem', {name: 'Rename'})).not.toBeInTheDocument();
         expect(screen.queryByRole('menuitem', {name: 'Delete'})).not.toBeInTheDocument();
+    });
+
+    it('offers Share… to the chat owner when useAiHubSharingEnabled returns true', async () => {
+        mockChatsDataRef.current = [buildChat({id: 43, isOwner: true, title: 'Some chat'})];
+        aiHubChatsStore.getState().setCurrentChatId(43);
+
+        await openMenu();
+
+        expect(await screen.findByRole('menuitem', {name: 'Share…'})).toBeInTheDocument();
+    });
+
+    it('offers no Share… item when useAiHubSharingEnabled returns false, even for the chat owner', async () => {
+        sharingEnabledRef.current = false;
+        mockChatsDataRef.current = [buildChat({id: 44, isOwner: true, title: 'Some chat'})];
+        aiHubChatsStore.getState().setCurrentChatId(44);
+
+        await openMenu();
+
+        expect(await screen.findByRole('menuitem', {name: 'Show tool calls'})).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Share…'})).not.toBeInTheDocument();
     });
 });

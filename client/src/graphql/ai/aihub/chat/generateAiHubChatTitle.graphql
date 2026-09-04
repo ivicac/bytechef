@@ -16,5 +16,10 @@ mutation generateAiHubChatTitle($workspaceId: ID!, $id: ID!) {
         projectDeploymentId
         autoTitled
         aiAgentId
+        visibility
+        participation
+        ownerUserId
+        ownerName
+        isOwner
     }
 }

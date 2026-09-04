@@ -11,12 +11,14 @@ import AiHubChatsSidebarToggle from '@/ee/pages/automation/ai-hub/AiHubChatsSide
 import AiHubArtifactsCard from '@/ee/pages/automation/ai-hub/artifacts/AiHubArtifactsCard';
 import useAiHubArtifactsCard from '@/ee/pages/automation/ai-hub/artifacts/useAiHubArtifactsCard';
 import AiHubChatActionDialogs from '@/ee/pages/automation/ai-hub/chats/AiHubChatActionDialogs';
+import AiHubPresenceStrip from '@/ee/pages/automation/ai-hub/chats/AiHubPresenceStrip';
 import {
     getChatDisplayTitle,
     isChannelAgentChat,
     isWebhookBridgedChat,
 } from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {useAiHubChatActions} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
+import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubChatComposer from '@/ee/pages/automation/ai-hub/composer/AiHubChatComposer';
@@ -27,9 +29,19 @@ import {useAiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTab
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
 import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
+import {useVisibilityFeatureEnabled} from '@/shared/hooks/useVisibilityFeatureEnabled';
 import {useAiDefaultModelQuery} from '@/shared/middleware/graphql';
+import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {ArchiveIcon, MoreVerticalIcon, PanelRightOpenIcon, PencilIcon, Trash2Icon, WrenchIcon} from 'lucide-react';
+import {
+    ArchiveIcon,
+    MoreVerticalIcon,
+    PanelRightOpenIcon,
+    PencilIcon,
+    Share2Icon,
+    Trash2Icon,
+    WrenchIcon,
+} from 'lucide-react';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -37,6 +49,16 @@ const AiHubPanel = () => {
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     const currentChatId = useAiHubChatsStore((state) => state.currentChatId);
+    const currentUserId = useAuthenticationStore((state) => state.account?.id);
+
+    // isAdmin still comes from useVisibilityFeatureEnabled — the same composite check the project
+    // list's own "promote/demote/share menu items" use — rather than re-deriving it from
+    // useAuthenticationStore by hand.
+    const {isAdmin} = useVisibilityFeatureEnabled();
+    // Gate for the header menu's Share… item and the presence strip: the EE visibility edition AND the
+    // ff-ai-hub-shared-chats flag must both be on. See useAiHubSharingEnabled's own doc for why the pair
+    // lives in one hook rather than being re-derived at each of this feature's surfaces.
+    const chatSharingEnabled = useAiHubSharingEnabled();
 
     const {data: defaultModelData} = useAiDefaultModelQuery({environment: String(currentEnvironmentId)});
     // The picker's Agents / Workflows cascades. Picking one leaves this chat and lands on a freshly created
@@ -70,6 +92,14 @@ const AiHubPanel = () => {
     const {data: chats} = useAiHubChatsQuery(currentWorkspaceId, currentEnvironmentId, 'ACTIVE');
 
     const currentChat = chats?.find((chat) => chat.id === currentChatId);
+
+    // The /status poll's entry for this chat — see useAiHubChatsStore's threadStatus doc for why a
+    // missing entry means "not polled yet / access lost", not "idle with nobody present". Read via a
+    // ternary keyed off currentChat.threadId (not currentChatId) since threadStatus is keyed by AG-UI
+    // thread id, like chatActivity.
+    const threadStatus = useAiHubChatsStore((state) =>
+        currentChat ? state.threadStatus[currentChat.threadId] : undefined
+    );
 
     const chatActions = useAiHubChatActions();
     // "New Chat" placeholder until the auto-title generator (kicked off by runPostTurnTelemetry
@@ -113,7 +143,7 @@ const AiHubPanel = () => {
 
             <AiHubArtifactsCard />
 
-            <AiHubChatActionDialogs {...chatActions} />
+            <AiHubChatActionDialogs {...chatActions} workspaceId={currentWorkspaceId} />
 
             {/*
              * Panel header: sidebar toggle + chat title on the left, action row (tool-call toggle →
@@ -145,6 +175,12 @@ const AiHubPanel = () => {
                             {bridgedBadgeLabel}
                         </span>
                     )}
+
+                    {/* Self-hides when nobody else is present and no other participant's turn is running —
+                     * see AiHubPresenceStrip's own doc for why a chat that was never shared looks
+                     * unchanged. */}
+
+                    <AiHubPresenceStrip currentUserId={currentUserId} threadStatus={threadStatus} />
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -193,9 +229,20 @@ const AiHubPanel = () => {
                                 {/* The same actions the chat's sidebar row offers, for the chat on screen —
                                  * through the shared hook, so the delete path stays one implementation. The
                                  * panel only ever loads ACTIVE chats, so Unarchive has nothing to act on
-                                 * here and only Archive is offered. */}
+                                 * here and only Archive is offered.
+                                 *
+                                 * Gated on currentChat.isOwner, not merely currentChat existing: this menu
+                                 * can now open on a chat from "Shared with me" (see AiHubChatsSidebar), and
+                                 * the server refuses rename/archive/delete for a non-owner regardless — the
+                                 * client omitting them here isn't a security boundary, it's so a viewer
+                                 * isn't offered three actions that would fail rather than being told they
+                                 * don't have them. Deliberately no isAdmin carve-out here, unlike Share below:
+                                 * the server's canManage check for these three doesn't grant one either. Read
+                                 * off the server-computed isOwner rather than comparing ids client-side —
+                                 * comparing ids would drift the moment an admin (who owns nothing here but
+                                 * can still act through Share) is involved. */}
 
-                                {currentChat && (
+                                {currentChat && currentChat.isOwner && (
                                     <>
                                         <DropdownMenuItem onClick={() => chatActions.requestRename(currentChat)}>
                                             <PencilIcon /> Rename
@@ -207,17 +254,30 @@ const AiHubPanel = () => {
                                     </>
                                 )}
 
+                                {/* Owner-or-admin only, and only where the EE visibility feature is on — a
+                                 * chat's own sharing UI, not offered at all on CE or to a plain member of
+                                 * someone else's chat. Kept as its own condition (not nested under the
+                                 * isOwner-only block above) since an admin who doesn't own the chat can still
+                                 * reach Share. */}
+
+                                {currentChat && chatSharingEnabled && (currentChat.isOwner || isAdmin) && (
+                                    <DropdownMenuItem onClick={() => chatActions.requestShare(currentChat)}>
+                                        <Share2Icon /> Share…
+                                    </DropdownMenuItem>
+                                )}
+
                                 {/* Tool-call cards are hidden by default so the transcript reads as a
                                  * conversation; this flips them on for inspection. A plain item rather than
                                  * a checkbox one: a checkbox reserves pl-8 for its tick, which would sit
                                  * this row's icon 24px right of its neighbours. The label carries the
-                                 * state instead. */}
+                                 * state instead. This one IS legitimately available to a viewer of a shared
+                                 * chat — it's a local display preference, not a mutation on the chat. */}
 
                                 <DropdownMenuItem onClick={() => setShowToolCalls(!showToolCalls)}>
                                     <WrenchIcon /> {showToolCalls ? 'Hide tool calls' : 'Show tool calls'}
                                 </DropdownMenuItem>
 
-                                {currentChat && (
+                                {currentChat && currentChat.isOwner && (
                                     <>
                                         <DropdownMenuSeparator />
 

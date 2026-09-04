@@ -10,11 +10,12 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {getChatDisplayTitle, isChannelAgentChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {useAiHubChatActions} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
-import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
+import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
+import {useAiHubChatsQuery, useAiHubSharedChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useLiveWorkflowLabel} from '@/ee/pages/automation/ai-hub/chats/hooks/useLiveWorkflowLabel';
 import {useSwitchChat} from '@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat';
 import {aiHubChatsStore, useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
-import {probeInFlightStatus} from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
+import {probeThreadStatus} from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
 import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -139,6 +140,14 @@ interface ChatItemProps {
     onRename: () => void;
     onSelect: () => void;
     onUnarchive: () => void;
+    /**
+     * True for a row in the "Shared with me" list: someone else's chat that the caller can only view (or,
+     * once Task 8 lands turn-sending, participate in) but never rename, archive, or delete. Hides the row's
+     * "⋮" menu entirely rather than merely disabling its items — there is no owner-only mutation this row
+     * could reach even if the menu were shown, so removing the trigger is the honest UI rather than a
+     * defence-in-depth extra.
+     */
+    readOnly?: boolean;
     workspaceId: number;
 }
 
@@ -150,6 +159,7 @@ const ChatItem = ({
     onRename,
     onSelect,
     onUnarchive,
+    readOnly = false,
     workspaceId,
 }: ChatItemProps) => {
     const queryClient = useQueryClient();
@@ -293,6 +303,13 @@ const ChatItem = ({
                         {getChatDisplayTitle(chat)}
                     </span>
 
+                    {/* Secondary line for a shared row: names whose chat this is, since a "Shared with me"
+                        row otherwise looks identical to the caller's own. */}
+
+                    {readOnly && chat.ownerName && (
+                        <span className="shrink-0 truncate text-xs text-muted-foreground">— {chat.ownerName}</span>
+                    )}
+
                     {/*
                      * Activity indicator. 'running' shows a spinning loader so the user knows their last turn
                      * is still in flight even if they switched away from this chat; 'paused' shows a
@@ -349,45 +366,47 @@ const ChatItem = ({
                      * `focus-within:flex` keeps keyboard navigation working without a hover.
                      */}
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                aria-label="Chat actions"
-                                className="hidden rounded p-0.5 group-focus-within:flex group-hover:flex hover:bg-muted focus:flex data-[state=open]:flex"
-                                data-testid="chat-actions-trigger"
-                                onClick={(event) => event.stopPropagation()}
-                                type="button"
-                            >
-                                <MoreVerticalIcon className="size-4" />
-                            </button>
-                        </DropdownMenuTrigger>
+                    {!readOnly && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    aria-label="Chat actions"
+                                    className="hidden rounded p-0.5 group-focus-within:flex group-hover:flex hover:bg-muted focus:flex data-[state=open]:flex"
+                                    data-testid="chat-actions-trigger"
+                                    onClick={(event) => event.stopPropagation()}
+                                    type="button"
+                                >
+                                    <MoreVerticalIcon className="size-4" />
+                                </button>
+                            </DropdownMenuTrigger>
 
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={onRename}>
-                                <PencilIcon />
-                                Rename
-                            </DropdownMenuItem>
-
-                            {isArchived ? (
-                                <DropdownMenuItem onClick={onUnarchive}>
-                                    <ArchiveRestoreIcon />
-                                    Unarchive
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={onRename}>
+                                    <PencilIcon />
+                                    Rename
                                 </DropdownMenuItem>
-                            ) : (
-                                <DropdownMenuItem onClick={onArchive}>
-                                    <ArchiveIcon />
-                                    Archive
+
+                                {isArchived ? (
+                                    <DropdownMenuItem onClick={onUnarchive}>
+                                        <ArchiveRestoreIcon />
+                                        Unarchive
+                                    </DropdownMenuItem>
+                                ) : (
+                                    <DropdownMenuItem onClick={onArchive}>
+                                        <ArchiveIcon />
+                                        Archive
+                                    </DropdownMenuItem>
+                                )}
+
+                                <DropdownMenuSeparator />
+
+                                <DropdownMenuItem onClick={onDelete} variant="destructive">
+                                    <Trash2Icon />
+                                    Delete
                                 </DropdownMenuItem>
-                            )}
-
-                            <DropdownMenuSeparator />
-
-                            <DropdownMenuItem onClick={onDelete} variant="destructive">
-                                <Trash2Icon />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
             </div>
         </div>
@@ -396,6 +415,7 @@ const ChatItem = ({
 
 const AiHubChatsSidebar = () => {
     const [visibleCount, setVisibleCount] = useState(CHATS_PAGE_SIZE);
+    const [visibleSharedCount, setVisibleSharedCount] = useState(CHATS_PAGE_SIZE);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
@@ -408,11 +428,27 @@ const AiHubChatsSidebar = () => {
 
     const switchChat = useSwitchChat();
     const chatActions = useAiHubChatActions();
+    // Gate for the "Shared with me" section: the EE visibility edition AND the ff-ai-hub-shared-chats
+    // flag must both be on. Deliberately does NOT gate the running-pulse probe below (probeThreadStatus
+    // over allChats) — that predates this feature and must keep working for a flagged-off caller too.
+    const sharingEnabled = useAiHubSharingEnabled();
 
     const {data: chats, isLoading} = useAiHubChatsQuery(
         currentWorkspaceId,
         currentEnvironmentId,
         activeFilter === 'ACTIVE' ? 'ACTIVE' : 'ARCHIVED'
+    );
+
+    // Chats other workspace members have shared with the caller — a separate list rendered below the
+    // caller's own, unaffected by the Active/Archived toggle above (aiHubSharedChats has no status
+    // argument; a shared chat's lifecycle is the owner's to manage, not the recipient's). Passing
+    // `sharingEnabled` as `enabled` means a flagged-off or CE caller issues no request at all for this
+    // EE-only field — not merely a render withheld from a fetched result — and sidesteps ever needing
+    // to know whether this component can mount where the field doesn't exist on the schema.
+    const {data: sharedChats, isLoading: isSharedChatsLoading} = useAiHubSharedChatsQuery(
+        currentWorkspaceId,
+        currentEnvironmentId,
+        sharingEnabled
     );
 
     // Hydrate the sidebar's per-chat running pulse from the server. Activity state is otherwise driven only
@@ -443,30 +479,40 @@ const AiHubChatsSidebar = () => {
     // Also re-runs on a 20-second interval so background chats get cleaned up even when the chats list
     // query is otherwise idle (the list has a 30s staleTime and no refetchInterval).
     useEffect(() => {
-        if (!chats || chats.length === 0) {
+        const allChats = [...(chats ?? []), ...(sharedChats ?? [])];
+
+        if (allChats.length === 0) {
             return;
         }
 
-        const visibleThreadIds = chats.map((chat) => chat.threadId);
+        // Shared chats are included here too — see Task 8, which builds the presence/status UI on top of
+        // this — so a shared row's running/paused pulse rehydrates the same way an owned row's does.
+        const visibleThreadIds = allChats.map((chat) => chat.threadId);
 
         let cancelled = false;
 
         const runProbe = () => {
-            void probeInFlightStatus(visibleThreadIds).then((statusByThreadId) => {
+            void probeThreadStatus(visibleThreadIds).then((statusByThreadId) => {
                 if (cancelled) {
                     return;
                 }
 
+                // Hydrate the full per-thread status (presence roster, running-user, message count) for
+                // every polled thread — Task 8's presence strip and composer states read this map
+                // directly. A thread the probe omitted (no view access, or the chat is gone) is left
+                // untouched here rather than backfilled with a default entry.
+                aiHubChatsStore.getState().setThreadStatus(statusByThreadId);
+
                 const chatsState = aiHubChatsStore.getState();
                 const runState = aiHubRunStateStore.getState();
 
-                const focusedThreadId = chats.find((chat) => chat.id === currentChatId)?.threadId;
+                const focusedThreadId = allChats.find((chat) => chat.id === currentChatId)?.threadId;
 
                 visibleThreadIds.forEach((threadId) => {
                     const decision = reconcileProbedChatActivity({
                         currentActivity: chatsState.chatActivity[threadId],
                         isFocused: threadId === focusedThreadId,
-                        isInFlight: statusByThreadId[threadId] ?? false,
+                        isInFlight: statusByThreadId[threadId]?.inFlight ?? false,
                         isRunningByChat: Boolean(runState.runningByChat[threadId]),
                     });
 
@@ -494,7 +540,11 @@ const AiHubChatsSidebar = () => {
 
             clearInterval(intervalHandle);
         };
-    }, [chats, currentChatId]);
+    }, [chats, sharedChats, currentChatId]);
+
+    const matchesSearch = (chat: AiHubChatI, lowerSearch: string) =>
+        (chat.title ?? '').toLowerCase().includes(lowerSearch) ||
+        (chat.lastPreview ?? '').toLowerCase().includes(lowerSearch);
 
     const filteredChats = useMemo(() => {
         if (!chats) {
@@ -507,21 +557,40 @@ const AiHubChatsSidebar = () => {
             return chats;
         }
 
-        return chats.filter(
-            (chat) =>
-                (chat.title ?? '').toLowerCase().includes(lowerSearch) ||
-                (chat.lastPreview ?? '').toLowerCase().includes(lowerSearch)
-        );
+        return chats.filter((chat) => matchesSearch(chat, lowerSearch));
     }, [chats, searchTerm]);
+
+    const filteredSharedChats = useMemo(() => {
+        if (!sharedChats) {
+            return [];
+        }
+
+        const lowerSearch = searchTerm.toLowerCase();
+
+        if (!lowerSearch) {
+            return sharedChats;
+        }
+
+        return sharedChats.filter((chat) => matchesSearch(chat, lowerSearch));
+    }, [sharedChats, searchTerm]);
 
     const {hiddenCount, visibleChats} = useMemo(
         () => getChatsPage(filteredChats, visibleCount),
         [filteredChats, visibleCount]
     );
 
+    const {hiddenCount: hiddenSharedCount, visibleChats: visibleSharedChats} = useMemo(
+        () => getChatsPage(filteredSharedChats, visibleSharedCount),
+        [filteredSharedChats, visibleSharedCount]
+    );
+
     useEffect(() => {
         setVisibleCount(CHATS_PAGE_SIZE);
     }, [searchTerm, activeFilter]);
+
+    useEffect(() => {
+        setVisibleSharedCount(CHATS_PAGE_SIZE);
+    }, [searchTerm]);
 
     const handleSelectChat = (chat: AiHubChatI) => {
         switchChat(chat);
@@ -767,7 +836,61 @@ const AiHubChatsSidebar = () => {
                 </div>
             )}
 
-            <AiHubChatActionDialogs {...chatActions} />
+            {/*
+             * "Shared with me": chats other workspace members have shared, rendered as its own section below
+             * the caller's own list rather than merged into it — the two lists have different row
+             * capabilities (no rename/archive/delete here, see ChatItem's readOnly prop) and mixing them
+             * would make that distinction only discoverable by opening each row's menu.
+             */}
+
+            {sharingEnabled && (isSharedChatsLoading || (sharedChats && sharedChats.length > 0)) && (
+                <>
+                    <div className="flex items-center justify-between gap-2 px-2 pt-2">
+                        <h4 className="text-sm font-semibold text-foreground">Shared with me</h4>
+                    </div>
+
+                    {isSharedChatsLoading ? (
+                        <ChatsSidebarSkeleton />
+                    ) : filteredSharedChats.length === 0 ? (
+                        <div className="px-2 py-4">
+                            <span className="px-3 text-xs text-muted-foreground">
+                                No shared chats match your search.
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-0.5">
+                            {visibleSharedChats.map((chat) => (
+                                <ChatItem
+                                    chat={chat}
+                                    isCurrent={currentChatId === chat.id}
+                                    key={chat.id}
+                                    onArchive={() => {}}
+                                    onDelete={() => {}}
+                                    onRename={() => {}}
+                                    onSelect={() => handleSelectChat(chat)}
+                                    onUnarchive={() => {}}
+                                    readOnly
+                                    workspaceId={currentWorkspaceId}
+                                />
+                            ))}
+
+                            {hiddenSharedCount > 0 && (
+                                <button
+                                    className="rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    onClick={() =>
+                                        setVisibleSharedCount((previousCount) => previousCount + CHATS_PAGE_SIZE)
+                                    }
+                                    type="button"
+                                >
+                                    {`Show ${Math.min(hiddenSharedCount, CHATS_PAGE_SIZE)} more`}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </>
+            )}
+
+            <AiHubChatActionDialogs {...chatActions} workspaceId={currentWorkspaceId} />
         </div>
     );
 };
