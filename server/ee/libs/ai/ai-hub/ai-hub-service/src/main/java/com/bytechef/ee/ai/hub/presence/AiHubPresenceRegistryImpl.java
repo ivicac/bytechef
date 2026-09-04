@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -72,6 +73,14 @@ public class AiHubPresenceRegistryImpl implements AiHubPresenceRegistry {
     private final CacheManager cacheManager;
     private final Clock clock;
 
+    /**
+     * Annotated because the class has a second, {@link Clock}-taking constructor and no no-arg one. With two candidates
+     * and no annotation, Spring picks neither and falls back to a default constructor that does not exist, failing
+     * context refresh with {@code NoSuchMethodException: <init>()} — at scan time only, which no test here reaches: the
+     * unit tests call the two-arg constructor directly and the integration tests assemble their contexts from explicit
+     * {@code @Bean} methods.
+     */
+    @Autowired
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubPresenceRegistryImpl(CacheManager cacheManager) {
         this(cacheManager, Clock.systemUTC());
