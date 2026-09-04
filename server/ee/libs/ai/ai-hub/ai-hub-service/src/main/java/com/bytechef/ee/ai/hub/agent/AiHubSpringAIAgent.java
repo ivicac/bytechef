@@ -23,6 +23,8 @@ import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.commons.util.NumberUtils;
+import com.bytechef.ee.ai.hub.approval.AiHubApprovalGate;
+import com.bytechef.ee.ai.hub.approval.AiHubApprovalGateToolCallback;
 import com.bytechef.ee.ai.hub.progress.SubagentProgressEmitter;
 import com.bytechef.ee.ai.hub.tool.AiHubToolInvocationContext;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
@@ -139,6 +141,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
     private final @Nullable AiGuardrails aiGuardrails;
     private final @Nullable AiGuardrailMetrics aiGuardrailMetrics;
     private final @Nullable WorkspaceSystemPrompts workspaceSystemPrompts;
+    private final @Nullable AiHubApprovalGate approvalGate;
 
     protected AiHubSpringAIAgent(final Builder builder) throws AGUIException {
         super(builder);
@@ -151,6 +154,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         this.aiGuardrails = builder.aiGuardrails;
         this.aiGuardrailMetrics = builder.aiGuardrailMetrics;
         this.workspaceSystemPrompts = builder.workspaceSystemPrompts;
+        this.approvalGate = builder.approvalGate;
     }
 
     public static Builder builder() {
@@ -286,6 +290,13 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
                 .llmModel(selectedLlm == null ? null : selectedLlm.model())
                 .build()
                 .toToolContext());
+
+        Object mode = input.state() == null ? null : input.state()
+            .get("mode");
+
+        if (mode instanceof String stringMode) {
+            toolContext.put(AiHubApprovalGateToolCallback.TOOL_CONTEXT_MODE_KEY, stringMode);
+        }
 
         return toolContext;
     }
@@ -489,7 +500,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
      * by both the per-request {@link #additionalToolCallbacks} path and the static-builder path.
      */
     ToolCallback wrapToolCallback(ToolCallback callback) {
-        return AiHubToolCallbackWrappers.wrap(callback, securityContextRehydrator);
+        return AiHubToolCallbackWrappers.wrap(callback, securityContextRehydrator, approvalGate);
     }
 
     AiHubToolInvocationContext buildInvocationContext(RunAgentInput input) {
@@ -681,6 +692,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         private @Nullable AiGuardrails aiGuardrails;
         private @Nullable AiGuardrailMetrics aiGuardrailMetrics;
         private @Nullable WorkspaceSystemPrompts workspaceSystemPrompts;
+        private @Nullable AiHubApprovalGate approvalGate;
         // Captured from agentId() so the usage advisor can tag ai_llm_usage rows with the agent that served the turn.
         private @Nullable String usageAgentName;
         // Holds the unwrapped tool callbacks the caller registers via toolCallbacks/toolCallback. Deferred
@@ -793,6 +805,17 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
             return this;
         }
 
+        /**
+         * Wires the tool approval gate so a flagged tool call waits for a person's approval before executing — see
+         * {@link AiHubToolCallbackWrappers}. Absent {@link AiHubApprovalGate} bean (AI Hub module not enabled) is a
+         * no-op — every tool call executes immediately, unchanged behaviour.
+         */
+        public Builder approvalGate(@Nullable AiHubApprovalGate approvalGate) {
+            this.approvalGate = approvalGate;
+
+            return this;
+        }
+
         public Builder state(State state) {
             super.state(state);
 
@@ -875,7 +898,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         }
 
         private ToolCallback wrapForAgent(ToolCallback callback) {
-            return AiHubToolCallbackWrappers.wrap(callback, securityContextRehydrator);
+            return AiHubToolCallbackWrappers.wrap(callback, securityContextRehydrator, approvalGate);
         }
     }
 }

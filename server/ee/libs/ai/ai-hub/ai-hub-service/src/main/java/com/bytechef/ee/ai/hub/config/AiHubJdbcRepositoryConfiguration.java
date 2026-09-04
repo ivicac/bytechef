@@ -43,6 +43,7 @@ import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 @EnableConfigurationProperties(CostEstimationProperties.class)
 @EnableJdbcRepositories(
     basePackages = {
+        "com.bytechef.ee.ai.hub.approval.repository",
         "com.bytechef.ee.ai.hub.mcpserver.repository",
         "com.bytechef.ee.ai.hub.task.repository",
         "com.bytechef.ee.ai.hub.chat.repository",

@@ -11,6 +11,7 @@ import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.commons.util.MemoizationUtils;
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
 import com.bytechef.ee.ai.hub.agent.AiHubToolCallbackWrappers;
+import com.bytechef.ee.ai.hub.approval.AiHubApprovalGate;
 import com.bytechef.ee.ai.hub.config.AiHubPgVectorConfiguration;
 import com.bytechef.ee.ai.hub.util.ToolNameNormalizer;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
@@ -196,12 +197,13 @@ public class ToolSearchAdvisorConfiguration {
         @Qualifier("toolSearchPgVectorStore") VectorStore toolSearchPgVectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
-        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry, findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID),
-            securityContextRehydrator, toolSearchCatalogWarmup);
+            securityContextRehydrator, toolSearchCatalogWarmup, approvalGateProvider.getIfAvailable());
     }
 
     @Bean
@@ -211,20 +213,22 @@ public class ToolSearchAdvisorConfiguration {
         @Qualifier("toolSearchPgVectorStore") VectorStore toolSearchPgVectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
-        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry,
             findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID),
-            securityContextRehydrator, toolSearchCatalogWarmup);
+            securityContextRehydrator, toolSearchCatalogWarmup, approvalGateProvider.getIfAvailable());
     }
 
     private static ToolSearchToolCallingAdvisor buildModeAdvisor(
         VectorToolIndex vectorToolIndex, VectorStore toolSearchPgVectorStore,
         Supplier<Map<String, ToolCallback>> clusterElementCallbacksMapSupplier,
         ObservationRegistry observationRegistry, @Nullable AiHubGlobalToolCatalog globalToolCatalog,
-        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        @Nullable AiHubApprovalGate approvalGate) {
 
         Set<String> additionalSessionIds = globalToolCatalog == null
             ? Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID)
@@ -258,7 +262,8 @@ public class ToolSearchAdvisorConfiguration {
                     // Discovered global tools resolve through this resolver and execute directly on a Reactor scheduler
                     // thread. Mirror AiHubSpringAIAgent.wrapToolCallback so tenant-scoped and @PreAuthorize-protected
                     // service calls run under the invoking tenant + principal (and empty results are guarded).
-                    ToolCallback wrapped = AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator);
+                    ToolCallback wrapped =
+                        AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator, approvalGate);
 
                     callbackMap.put(
                         wrapped.getToolDefinition()
