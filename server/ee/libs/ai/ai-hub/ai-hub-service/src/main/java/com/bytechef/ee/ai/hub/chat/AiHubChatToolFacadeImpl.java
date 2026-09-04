@@ -10,6 +10,7 @@ package com.bytechef.ee.ai.hub.chat;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatComponentRepository;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatConnectorRepository;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatToolRepository;
+import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder.ChatToolReference;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -303,7 +304,7 @@ public class AiHubChatToolFacadeImpl implements AiHubChatToolFacade {
                     new AiHubChatToolBinding(
                         tool.getId(), component.getId(), chatId, component.getComponentName(),
                         component.getComponentVersion(), tool.getName(), component.getConnectionId(),
-                        component.getEnvironment(), tool.getParameters()));
+                        component.getEnvironment(), tool.getParameters(), tool.isRequiresApproval()));
             }
         }
 
@@ -382,7 +383,7 @@ public class AiHubChatToolFacadeImpl implements AiHubChatToolFacade {
                     new AiHubChatToolBinding(
                         tool.getId(), component.getId(), 0L, component.getComponentName(),
                         component.getComponentVersion(), tool.getName(), component.getConnectionId(),
-                        component.getEnvironment(), tool.getParameters()));
+                        component.getEnvironment(), tool.getParameters(), tool.isRequiresApproval()));
             }
         }
 
@@ -436,8 +437,7 @@ public class AiHubChatToolFacadeImpl implements AiHubChatToolFacade {
     public void setToolEnabled(long chatComponentId, String toolName, boolean enabled) {
         // Upsert the tool row carrying the enabled flag. A missing row means "enabled" (the default), so
         // disabling persists a row and re-enabling flips it back, preserving any configured parameters.
-        AiHubChatTool tool = chatToolRepository.findByChatComponentIdAndName(chatComponentId, toolName)
-            .orElseGet(() -> new AiHubChatTool(chatComponentId, toolName, Map.of()));
+        AiHubChatTool tool = findOrCreateTool(chatComponentId, toolName);
 
         tool.setEnabled(enabled);
 
@@ -448,11 +448,40 @@ public class AiHubChatToolFacadeImpl implements AiHubChatToolFacade {
     public void setToolParameters(long chatComponentId, String toolName, Map<String, ?> parameters) {
         // Same upsert-by-(component, name) shape as setToolEnabled. A missing row defaults to enabled, so
         // configuring parameters on a not-yet-toggled tool keeps it enabled while persisting its parameters.
-        AiHubChatTool tool = chatToolRepository.findByChatComponentIdAndName(chatComponentId, toolName)
-            .orElseGet(() -> new AiHubChatTool(chatComponentId, toolName, Map.of()));
+        AiHubChatTool tool = findOrCreateTool(chatComponentId, toolName);
 
         tool.setParameters(parameters);
 
         chatToolRepository.save(tool);
+    }
+
+    @Override
+    public void setToolRequiresApproval(long chatToolId, boolean requiresApproval) {
+        AiHubChatTool tool = chatToolRepository.findById(chatToolId)
+            .orElseThrow(() -> new NotFoundException("AiHubChatTool", chatToolId));
+
+        tool.setRequiresApproval(requiresApproval);
+
+        chatToolRepository.save(tool);
+    }
+
+    @Override
+    public void setToolRequiresApproval(long chatComponentId, String toolName, boolean requiresApproval) {
+        AiHubChatTool tool = findOrCreateTool(chatComponentId, toolName);
+
+        tool.setRequiresApproval(requiresApproval);
+
+        chatToolRepository.save(tool);
+    }
+
+    /**
+     * Shared upsert-by-(component, name) lookup for {@link #setToolEnabled}, {@link #setToolParameters}, and the
+     * (component, name)-addressed overload of {@link #setToolRequiresApproval(long, String, boolean)}. A missing row
+     * defaults to a fresh {@link AiHubChatTool} with empty parameters — enabled and not-requiring-approval — so the
+     * caller can flip a single field on it without disturbing the others.
+     */
+    private AiHubChatTool findOrCreateTool(long chatComponentId, String toolName) {
+        return chatToolRepository.findByChatComponentIdAndName(chatComponentId, toolName)
+            .orElseGet(() -> new AiHubChatTool(chatComponentId, toolName, Map.of()));
     }
 }

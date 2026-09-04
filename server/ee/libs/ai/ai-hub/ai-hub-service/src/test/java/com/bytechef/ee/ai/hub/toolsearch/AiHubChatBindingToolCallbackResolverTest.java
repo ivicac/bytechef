@@ -83,10 +83,10 @@ class AiHubChatBindingToolCallbackResolverTest {
 
         AiHubChatToolBinding sendBinding = new AiHubChatToolBinding(
             11L, 99L, 7L, "slack", 1, "sendMessage", 42L, 0,
-            Map.of("channel", "#engineering"));
+            Map.of("channel", "#engineering"), false);
         AiHubChatToolBinding postBinding = new AiHubChatToolBinding(
             12L, 99L, 7L, "github", 1, "createIssue", 50L, 0,
-            Map.of("repo", "acme/site"));
+            Map.of("repo", "acme/site"), false);
 
         when(chatToolFacade.listChatTools(7L)).thenReturn(List.of(sendBinding, postBinding));
 
@@ -145,9 +145,9 @@ class AiHubChatBindingToolCallbackResolverTest {
         // dropped the action between attach time and now). Resolver must register the surviving one and skip
         // the dead one — failing the whole turn on a single dead binding would break the entire chat.
         AiHubChatToolBinding aliveBinding = new AiHubChatToolBinding(
-            11L, 99L, 7L, "slack", 1, "sendMessage", 42L, 0, Map.of());
+            11L, 99L, 7L, "slack", 1, "sendMessage", 42L, 0, Map.of(), false);
         AiHubChatToolBinding deadBinding = new AiHubChatToolBinding(
-            12L, 100L, 7L, "deprecated-component", 1, "removed-action", 50L, 0, Map.of());
+            12L, 100L, 7L, "deprecated-component", 1, "removed-action", 50L, 0, Map.of(), false);
 
         when(chatToolFacade.listChatTools(7L)).thenReturn(List.of(aliveBinding, deadBinding));
 
@@ -206,9 +206,9 @@ class AiHubChatBindingToolCallbackResolverTest {
         when(chatToolFacade.listChatTools(7L)).thenReturn(List.of());
 
         AiHubChatToolBinding slackBinding = new AiHubChatToolBinding(
-            11L, 99L, 0L, "slack", 1, "sendMessage", 42L, 0, Map.of());
+            11L, 99L, 0L, "slack", 1, "sendMessage", 42L, 0, Map.of(), false);
         AiHubChatToolBinding githubBinding = new AiHubChatToolBinding(
-            12L, 100L, 0L, "github", 1, "createIssue", 50L, 0, Map.of());
+            12L, 100L, 0L, "github", 1, "createIssue", 50L, 0, Map.of(), false);
 
         when(chatToolFacade.listChatDisabledConnectors(7L)).thenReturn(Set.of("slack"));
 

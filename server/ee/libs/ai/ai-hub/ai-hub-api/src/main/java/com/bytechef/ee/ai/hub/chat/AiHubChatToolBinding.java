@@ -24,5 +24,5 @@ import org.jspecify.annotations.Nullable;
 public record AiHubChatToolBinding(
     long chatToolId, long chatComponentId, long chatId, String componentName,
     int componentVersion, String clusterElementName, @Nullable Long connectionId, int environment,
-    Map<String, ?> parameters) {
+    Map<String, ?> parameters, boolean requiresApproval) {
 }

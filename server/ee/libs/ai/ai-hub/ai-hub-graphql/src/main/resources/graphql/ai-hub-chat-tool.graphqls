@@ -19,6 +19,8 @@ type AiHubChatToolBinding {
     connectionId: ID
     environment: Int!
     parameters: Any!
+    "Whether the approval gate must hold this tool call for a person's decision before it executes."
+    requiresApproval: Boolean!
 }
 
 type ToolableComponent {
@@ -84,6 +86,14 @@ extend type Mutation {
     removeAiHubChatTool(workspaceId: ID!, chatToolId: ID!): Boolean!
 
     """
+    Toggle whether the approval gate must hold this attached tool's calls for a person's decision before it
+    executes. This is the chat owner's own switch, independent of any workspace-level component rule.
+    """
+    setAiHubChatToolRequiresApproval(
+        workspaceId: ID!, chatToolId: ID!, requiresApproval: Boolean!
+    ): AiHubChatToolBinding!
+
+    """
     Detach a whole component binding (cascades to all its tools via the FK). Use when the user wants to
     remove all of e.g. Slack's tools at once instead of one at a time.
     """
@@ -124,6 +134,14 @@ extend type Mutation {
     setAiHubUserConnectorToolParameters(
         workspaceId: ID!, connectorId: ID!, toolName: String!, parameters: Any!
     ): Boolean!
+
+    """
+    Toggle whether the approval gate must hold a single tool within a user connector for a person's decision
+    before it executes.
+    """
+    setAiHubUserConnectorToolRequiresApproval(
+        workspaceId: ID!, connectorId: ID!, toolName: String!, requiresApproval: Boolean!
+    ): Boolean!
 }
 
 type AiHubUserConnector {
@@ -148,6 +166,8 @@ type AiHubUserConnectorTool {
     description: String
     enabled: Boolean!
     parameters: Any
+    "Whether the approval gate must hold this tool call for a person's decision before it executes."
+    requiresApproval: Boolean!
 }
 
 input AttachAiHubChatToolInput {

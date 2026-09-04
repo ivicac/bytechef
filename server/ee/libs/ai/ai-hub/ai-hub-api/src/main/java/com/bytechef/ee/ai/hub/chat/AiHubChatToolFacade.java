@@ -161,4 +161,19 @@ public interface AiHubChatToolFacade {
      * row carrying the parameters — a missing row defaults to enabled — preserving the enabled flag.
      */
     void setToolParameters(long chatComponentId, String toolName, Map<String, ?> parameters);
+
+    /**
+     * Toggle whether a single tool row requires approval before the gate lets it execute. Throws
+     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the tool id does not exist — unlike
+     * {@link #setToolEnabled}/{@link #setToolParameters}, there is no upsert-on-missing-row fallback because the caller
+     * always addresses an already-attached tool by its {@code chatToolId}.
+     */
+    void setToolRequiresApproval(long chatToolId, boolean requiresApproval);
+
+    /**
+     * Same toggle as {@link #setToolRequiresApproval(long, boolean)}, addressed by (component, name) instead of a known
+     * {@code chatToolId} — same upsert-by-name shape as {@link #setToolEnabled} and {@link #setToolParameters} so a
+     * user-global connector's tool row is created on first toggle rather than requiring a prior attach.
+     */
+    void setToolRequiresApproval(long chatComponentId, String toolName, boolean requiresApproval);
 }

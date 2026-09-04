@@ -8,6 +8,7 @@
 package com.bytechef.ee.ai.hub.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatComponentRepository;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatConnectorRepository;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatToolRepository;
+import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -301,5 +303,106 @@ class AiHubChatToolFacadeImplTest {
             new AiHubChatToolFacadeImpl(componentRepository, connectorRepository, toolRepository, null);
 
         assertThat(facade.listChatDisabledConnectors(7L)).containsExactly("slack");
+    }
+
+    @Test
+    void testSetToolRequiresApprovalFlipsTheFlag() {
+        AiHubChatComponentRepository componentRepository = mock(AiHubChatComponentRepository.class);
+        AiHubChatToolRepository toolRepository = mock(AiHubChatToolRepository.class);
+        AiHubChatConnectorRepository connectorRepository = mock(AiHubChatConnectorRepository.class);
+
+        AiHubChatTool tool = new AiHubChatTool(99L, "sendMessage", Map.of());
+
+        tool.setId(5L);
+        tool.setRequiresApproval(false);
+
+        when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+        when(toolRepository.save(any(AiHubChatTool.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiHubChatToolFacadeImpl facade =
+            new AiHubChatToolFacadeImpl(componentRepository, connectorRepository, toolRepository, null);
+
+        facade.setToolRequiresApproval(5L, true);
+
+        ArgumentCaptor<AiHubChatTool> captor = ArgumentCaptor.forClass(AiHubChatTool.class);
+
+        verify(toolRepository).save(captor.capture());
+
+        AiHubChatTool saved = captor.getValue();
+
+        assertThat(saved.isRequiresApproval()).isTrue();
+    }
+
+    @Test
+    void testSetToolRequiresApprovalThrowsForUnknownId() {
+        AiHubChatComponentRepository componentRepository = mock(AiHubChatComponentRepository.class);
+        AiHubChatToolRepository toolRepository = mock(AiHubChatToolRepository.class);
+        AiHubChatConnectorRepository connectorRepository = mock(AiHubChatConnectorRepository.class);
+
+        when(toolRepository.findById(404L)).thenReturn(Optional.empty());
+
+        AiHubChatToolFacadeImpl facade =
+            new AiHubChatToolFacadeImpl(componentRepository, connectorRepository, toolRepository, null);
+
+        assertThatThrownBy(() -> facade.setToolRequiresApproval(404L, true))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(toolRepository, never()).save(any(AiHubChatTool.class));
+    }
+
+    @Test
+    void testSetToolRequiresApprovalByNameFlipsTheFlagOnExistingRow() {
+        AiHubChatComponentRepository componentRepository = mock(AiHubChatComponentRepository.class);
+        AiHubChatToolRepository toolRepository = mock(AiHubChatToolRepository.class);
+        AiHubChatConnectorRepository connectorRepository = mock(AiHubChatConnectorRepository.class);
+
+        AiHubChatTool existing = new AiHubChatTool(99L, "sendMessage", Map.of("channel", "#general"));
+
+        existing.setId(7L);
+        existing.setRequiresApproval(false);
+
+        when(toolRepository.findByChatComponentIdAndName(99L, "sendMessage")).thenReturn(Optional.of(existing));
+        when(toolRepository.save(any(AiHubChatTool.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiHubChatToolFacadeImpl facade =
+            new AiHubChatToolFacadeImpl(componentRepository, connectorRepository, toolRepository, null);
+
+        facade.setToolRequiresApproval(99L, "sendMessage", true);
+
+        ArgumentCaptor<AiHubChatTool> captor = ArgumentCaptor.forClass(AiHubChatTool.class);
+
+        verify(toolRepository).save(captor.capture());
+
+        AiHubChatTool saved = captor.getValue();
+
+        assertThat(saved.getId()).isEqualTo(7L);
+        assertThat(saved.isRequiresApproval()).isTrue();
+        assertThat(saved.getParameters()
+            .get("channel")).isEqualTo("#general");
+    }
+
+    @Test
+    void testSetToolRequiresApprovalByNameCreatesRowWhenNoneExists() {
+        AiHubChatComponentRepository componentRepository = mock(AiHubChatComponentRepository.class);
+        AiHubChatToolRepository toolRepository = mock(AiHubChatToolRepository.class);
+        AiHubChatConnectorRepository connectorRepository = mock(AiHubChatConnectorRepository.class);
+
+        when(toolRepository.findByChatComponentIdAndName(99L, "sendMessage")).thenReturn(Optional.empty());
+        when(toolRepository.save(any(AiHubChatTool.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiHubChatToolFacadeImpl facade =
+            new AiHubChatToolFacadeImpl(componentRepository, connectorRepository, toolRepository, null);
+
+        facade.setToolRequiresApproval(99L, "sendMessage", true);
+
+        ArgumentCaptor<AiHubChatTool> captor = ArgumentCaptor.forClass(AiHubChatTool.class);
+
+        verify(toolRepository).save(captor.capture());
+
+        AiHubChatTool saved = captor.getValue();
+
+        assertThat(saved.getChatComponentId()).isEqualTo(99L);
+        assertThat(saved.getName()).isEqualTo("sendMessage");
+        assertThat(saved.isRequiresApproval()).isTrue();
     }
 }
