@@ -165,6 +165,8 @@ const EmbeddableWorkflowEditorInner = ({
         useWorkflowTestChatStore.getState().setWorkflowTestChatPanelOpen(false);
 
         useWorkflowNodeDetailsPanelStore.getState().reset();
+
+        useWorkflowNodeDetailsPanelStore.getState().clearPendingSaveNodeNames();
     }, [projectWorkflowId]);
 
     // The canvas layout centers nodes within `canvasWidth`. Left unset, the editor falls back to a
