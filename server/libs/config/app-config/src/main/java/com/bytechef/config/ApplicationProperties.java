@@ -1089,6 +1089,8 @@ public class ApplicationProperties {
 
             private McpServer mcpServer = new McpServer();
 
+            private ToolApproval toolApproval = new ToolApproval();
+
             public boolean isEnabled() {
                 return enabled;
             }
@@ -1103,6 +1105,14 @@ public class ApplicationProperties {
 
             public void setMcpServer(McpServer mcpServer) {
                 this.mcpServer = mcpServer;
+            }
+
+            public ToolApproval getToolApproval() {
+                return toolApproval;
+            }
+
+            public void setToolApproval(ToolApproval toolApproval) {
+                this.toolApproval = toolApproval;
             }
 
             /**
@@ -1123,6 +1133,28 @@ public class ApplicationProperties {
 
                 public void setAllowedHosts(List<String> allowedHosts) {
                     this.allowedHosts = allowedHosts;
+                }
+            }
+
+            /**
+             * Configuration for the AI Hub tool approval gate (see {@code AiHubApprovalGate}).
+             */
+            public static class ToolApproval {
+
+                /**
+                 * Whether the AI Hub tool approval gate is enabled. Off by default: a flagged tool call runs
+                 * immediately, unchanged from behaviour before the gate existed. Turning this on with the client's
+                 * {@code ff-ai-hub-tool-approvals} feature flag left off gates every flagged tool call with no settings
+                 * page able to write an EXEMPT rule to lift a default — the two must be turned on together.
+                 */
+                private boolean enabled;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
                 }
             }
         }

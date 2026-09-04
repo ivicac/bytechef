@@ -381,7 +381,8 @@ SMS, approval task), failing the step only when every configured channel fails; 
 place. A `requiresApproval: true` TOOLS entry wraps the callback in `ApprovalGateToolCallback`, which
 suspends via the sentinel protocol. Expiry, reminders, and escalation each run a 15-minute
 platform-coordinator sweep. Never add notification logic under `server/libs/atlas/`.
-See `.agents/hitl-approvals.md`.
+See `.agents/hitl-approvals.md`. The AI Hub chat has a separate, unrelated tool approval gate — see
+`.agents/ai-hub.md`'s "Tool approval gate" section.
 
 ### Variables (workspace / embedded organization, EE)
 
