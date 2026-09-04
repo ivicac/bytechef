@@ -12,7 +12,7 @@ import ResumeForm from '@/pages/automation/resume-form/ResumeForm';
 import TriggerForm from '@/pages/automation/trigger-form/TriggerForm';
 import {AccessControl} from '@/shared/auth/AccessControl';
 import PrivateRoute from '@/shared/auth/PrivateRoute';
-import {AUTHORITIES, DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
+import {AUTHORITIES} from '@/shared/constants';
 import EEVersion from '@/shared/edition/EEVersion';
 import ErrorPage from '@/shared/error/ErrorPage';
 import LazyLoadWrapper from '@/shared/error/LazyLoadWrapper';
@@ -20,6 +20,7 @@ import PageNotFound from '@/shared/error/PageNotFound';
 import Settings from '@/shared/layout/Settings';
 import {ProjectApi} from '@/shared/middleware/automation/configuration';
 import {EnvironmentApi} from '@/shared/middleware/platform/configuration';
+import {getDevelopmentOnlyFallbackHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import {EnvironmentKeys} from '@/shared/queries/platform/environments.queries';
 import {authenticationStore} from '@/shared/stores/useAuthenticationStore';
@@ -916,13 +917,18 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     loader: async () => {
-                                        const currentEnvironmentId = environmentStore.getState().currentEnvironmentId;
+                                        // Redirecting here as well as in useDevelopmentOnlyRouteGuard keeps the
+                                        // most common entry point flash-free: the loader runs before Projects
+                                        // mounts and fires its queries, while the guard covers what a loader
+                                        // cannot see -- the environment changing without any navigation.
+                                        const {currentEnvironmentId} = environmentStore.getState();
 
-                                        if (currentEnvironmentId !== DEVELOPMENT_ENVIRONMENT) {
-                                            return redirect('/automation/deployments');
-                                        }
+                                        const fallbackHref = getDevelopmentOnlyFallbackHref(
+                                            '/automation/projects',
+                                            currentEnvironmentId
+                                        );
 
-                                        return null;
+                                        return fallbackHref ? redirect(fallbackHref) : null;
                                     },
                                     path: 'projects',
                                 },
@@ -1349,7 +1355,14 @@ export const getRouter = (queryClient: QueryClient) =>
                                 {
                                     index: true,
                                     loader: async () => {
-                                        return redirect('integrations');
+                                        const {currentEnvironmentId} = environmentStore.getState();
+
+                                        const fallbackHref = getDevelopmentOnlyFallbackHref(
+                                            '/embedded/integrations',
+                                            currentEnvironmentId
+                                        );
+
+                                        return redirect(fallbackHref ?? 'integrations');
                                     },
                                 },
                                 getAccountRoutes('/embedded'),
