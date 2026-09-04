@@ -51,7 +51,7 @@ const Header = ({
                     button group) would push the toggle down by half the difference — a page-by-page drift of
                     a few pixels depending on what its header happens to carry. */}
 
-                <div className="flex items-start gap-2 self-start">
+                <div className="flex min-w-0 items-start gap-2 self-start">
                     {/* Sidebar headers never carry the toggle: it belongs beside the content, not inside the
                         panel it hides. */}
 
@@ -61,7 +61,7 @@ const Header = ({
                         </div>
                     )}
 
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-col">
                         <div
                             className={twMerge(
                                 'flex h-header-height flex-col justify-center text-lg tracking-tight text-foreground',
@@ -72,11 +72,11 @@ const Header = ({
                             {title}
                         </div>
 
-                        <div className="text-sm text-muted-foreground">{description}</div>
+                        {description && <div className="truncate text-sm text-muted-foreground">{description}</div>}
                     </div>
                 </div>
 
-                {right && <div>{right}</div>}
+                {right && <div className="shrink-0">{right}</div>}
             </div>
         </header>
     );
