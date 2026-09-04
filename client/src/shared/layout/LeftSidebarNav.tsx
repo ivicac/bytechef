@@ -40,6 +40,7 @@ const LeftSidebarNav = ({body, className, loading = false, loadingRows = 4, titl
 );
 
 interface LeftSidebarNavItemProps {
+    /** Indents a nested row's label. Padding rather than a wrapper, so the highlight box stays full width. */
     className?: string;
     disabled?: boolean;
     item: {
