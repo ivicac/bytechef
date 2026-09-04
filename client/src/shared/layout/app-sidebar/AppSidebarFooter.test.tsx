@@ -5,7 +5,10 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {AppSidebarFooter} from './AppSidebarFooter';
 
-const {logoutMock} = vi.hoisted(() => ({logoutMock: vi.fn(() => Promise.resolve())}));
+const {logoutMock, platformTypeState} = vi.hoisted(() => ({
+    logoutMock: vi.fn(() => Promise.resolve()),
+    platformTypeState: {currentType: 0},
+}));
 
 vi.mock('@/shared/middleware/graphql', () => ({
     useEnvironmentsQuery: () => ({data: {environments: []}}),
@@ -46,7 +49,7 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
 vi.mock('@/pages/home/stores/usePlatformTypeStore', () => ({
     PlatformType: {AUTOMATION: 0, EMBEDDED: 1},
     usePlatformTypeStore: vi.fn((selector: (state: {currentType: number; setCurrentType: () => void}) => unknown) =>
-        selector({currentType: 0, setCurrentType: vi.fn()})
+        selector({currentType: platformTypeState.currentType, setCurrentType: vi.fn()})
     ),
 }));
 
@@ -64,6 +67,8 @@ vi.mock('@/shared/stores/useEnvironmentStore', () => ({
 describe('AppSidebarFooter', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+
+        platformTypeState.currentType = 0;
     });
 
     it('renders the user menu trigger with the signed-in email', () => {
@@ -91,6 +96,37 @@ describe('AppSidebarFooter', () => {
         expect(screen.getByText('Log Out')).toBeInTheDocument();
         // Email appears in both the trigger and the open menu.
         expect(screen.getAllByText('user@localhost.com').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('offers Approval Tasks in automation mode', async () => {
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter>
+                <AppSidebarFooter />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole('button', {name: 'User menu'}));
+
+        expect(screen.getByText('Approval Tasks')).toBeInTheDocument();
+    });
+
+    it('hides Approval Tasks in embedded mode', async () => {
+        platformTypeState.currentType = 1;
+
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter>
+                <AppSidebarFooter />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole('button', {name: 'User menu'}));
+
+        expect(screen.getByText('Log Out')).toBeInTheDocument();
+        expect(screen.queryByText('Approval Tasks')).not.toBeInTheDocument();
     });
 
     // Resetting the cache refetches every active query, and those refetches race the log out
