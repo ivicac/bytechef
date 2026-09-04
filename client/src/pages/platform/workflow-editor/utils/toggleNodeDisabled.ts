@@ -7,6 +7,7 @@ import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPa
 import {flattenDefinitionTasks, isWorkflowTask} from './flattenDefinitionTasks';
 import {
     consumePendingDefinition,
+    drainPendingSaves,
     isWorkflowMutating,
     setPendingDefinition,
     setWorkflowMutating,
@@ -45,6 +46,38 @@ function withDisabled<T extends object>(target: T, disabled: boolean): T {
     return updatedTarget as T;
 }
 
+function withSyncedDisabledFlags<T>(value: T, disabledFlagsByTaskName: Map<string, boolean>): T {
+    if (Array.isArray(value)) {
+        const updatedItems = value.map((item) => withSyncedDisabledFlags(item, disabledFlagsByTaskName));
+
+        return updatedItems.every((item, index) => item === value[index]) ? value : (updatedItems as T);
+    }
+
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+
+    let updatedValue = value as Record<string, unknown>;
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+        const updatedNestedValue = withSyncedDisabledFlags(nestedValue, disabledFlagsByTaskName);
+
+        if (updatedNestedValue !== nestedValue) {
+            updatedValue = {...updatedValue, [key]: updatedNestedValue};
+        }
+    }
+
+    if (isWorkflowTask(value)) {
+        const disabled = disabledFlagsByTaskName.get(value.name);
+
+        if (disabled !== undefined && !!value.disabled !== disabled) {
+            updatedValue = withDisabled(updatedValue, disabled);
+        }
+    }
+
+    return updatedValue as T;
+}
+
 /**
  * Applies `definition` to the store together with EVERY other surface that mirrors a
  * task's `disabled` flag: `workflow.tasks`, the React Flow `nodes[].data`, and the
@@ -78,11 +111,9 @@ function applyDefinitionWithDisabledFlags(definition: string): void {
     }
 
     useWorkflowDataStore.setState((state) => {
-        const updatedTasks = state.workflow.tasks?.map((task) => {
-            const disabled = disabledFlagsByTaskName.get(task.name);
-
-            return disabled === undefined || !!task.disabled === disabled ? task : withDisabled(task, disabled);
-        });
+        const updatedTasks = state.workflow.tasks?.map((task) =>
+            withSyncedDisabledFlags(task, disabledFlagsByTaskName)
+        );
 
         const updatedNodes = state.nodes.map((node) => {
             const disabled = disabledFlagsByTaskName.get(node.id);
@@ -319,6 +350,8 @@ function fireToggleNodeDisabledMutation({
                         version: currentWorkflow.version,
                         workflowId,
                     });
+                } else {
+                    drainPendingSaves(workflowId);
                 }
             },
             onSuccess: (updatedWorkflow) => {

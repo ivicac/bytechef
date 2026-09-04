@@ -5,6 +5,7 @@ import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import getRecursivelyUpdatedTasks from '../getRecursivelyUpdatedTasks';
 import saveWorkflowDefinition from '../saveWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from '../taskDispatcherConfig';
+import {enqueuePendingSave, isWorkflowMutating} from '../workflowMutationGuard';
 
 /**
  * Applies `updater` to a `graph/v1` task's `parameters` and persists the result. Reads the live
@@ -20,6 +21,12 @@ export function saveGraphParameters(
     const {workflow} = useWorkflowDataStore.getState();
 
     if (!workflow.definition) {
+        return;
+    }
+
+    if (workflow.id && isWorkflowMutating(workflow.id)) {
+        enqueuePendingSave(workflow.id, () => saveGraphParameters(graphId, updater, updateWorkflowMutation));
+
         return;
     }
 

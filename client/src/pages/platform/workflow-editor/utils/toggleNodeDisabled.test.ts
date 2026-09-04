@@ -203,6 +203,31 @@ describe('toggleNodeDisabled', () => {
         expect('disabled' in useWorkflowDataStore.getState().workflow.tasks![0]).toBe(false);
     });
 
+    it('should re-enable the copy nested in its dispatcher as well as the flattened top-level copy', () => {
+        const disabledOpenAi = task({disabled: true, name: 'openAi_1'});
+        const forkJoin = task({
+            name: 'forkJoin_1',
+            parameters: {branches: [[task({name: 'firecrawl_6'}), disabledOpenAi]]},
+        });
+
+        setDefinition([forkJoin]);
+
+        useWorkflowDataStore.setState((state) => ({
+            workflow: {...state.workflow, tasks: [forkJoin, task({name: 'firecrawl_6'}), disabledOpenAi]},
+        }));
+
+        toggleNodeDisabled({updateWorkflowMutation, workflowNodeName: 'openAi_1'});
+
+        const storeTasks = useWorkflowDataStore.getState().workflow.tasks!;
+        const nestedOpenAi = (storeTasks[0].parameters!.branches as Array<Array<WorkflowTask>>)[0][1];
+
+        expect('disabled' in storeTasks[2]).toBe(false);
+        expect('disabled' in nestedOpenAi).toBe(false);
+        expect((storeTasks[0].parameters!.branches as Array<Array<WorkflowTask>>)[0][0]).toBe(
+            (forkJoin.parameters!.branches as Array<Array<WorkflowTask>>)[0][0]
+        );
+    });
+
     it('should patch the matching React Flow node data so the badge and the menu label agree', () => {
         setDefinition([task({name: 'action_1'})]);
 
