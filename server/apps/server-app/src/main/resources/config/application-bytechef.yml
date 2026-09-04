@@ -10,6 +10,11 @@ bytechef:
       enabled: false
     hub:
       enabled: false
+      tool-approval:
+        # Independent of hub.enabled — see AiHubApprovalGate's javadoc. Pair with the client's
+        # ff-ai-hub-tool-approvals feature flag when turning this on, or gating begins with no settings-page
+        # escape hatch able to lift a default.
+        enabled: false
     knowledge-base:
       enabled: false
     memory:
