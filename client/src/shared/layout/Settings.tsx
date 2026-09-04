@@ -3,7 +3,7 @@ import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav';
 import SettingsNavGroup, {SettingsNavGroupItemI} from '@/shared/layout/SettingsNavGroup';
-import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
+import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {ReactNode} from 'react';
 import {Outlet, useLocation} from 'react-router-dom';
@@ -34,6 +34,8 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
 
     const billingEnabled = useApplicationInfoStore((state) => state.billing.enabled);
     const mcpServerEnabled = useApplicationInfoStore((state) => state.ai.mcp.server.enabled);
+    const aiHubEnabled = useApplicationInfoStore((state) => state.ai.hub.enabled);
+    const edition = useApplicationInfoStore((state) => state.application?.edition);
     const isFeatureFlagEnabled = useFeatureFlagsStore();
 
     const location = useLocation();
@@ -77,8 +79,12 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
             return billingEnabled;
         }
 
+        // The page is EE-only (its route is wrapped in EEVersion) and reads AI Hub GraphQL, which only
+        // exists where the hub module is on — so both conditions are the row's real reachability, not a
+        // rollout switch. Without them a CE or hub-off instance would offer a nav row leading to a page
+        // with no server behind it.
         if (navItem.href === 'ai-hub/tool-approvals') {
-            return isFeatureFlagEnabled('ff-ai-hub-tool-approvals');
+            return edition === EditionType.EE && aiHubEnabled;
         }
 
         return true;
