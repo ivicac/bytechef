@@ -6,6 +6,8 @@ import {useClusterElementsCanvasDialogStore} from './components/stores/useCluste
 import {useWorkflowEditor} from './providers/workflowEditorProvider';
 import useClusterElementsViewModeStore from './stores/useClusterElementsViewModeStore';
 import useWorkflowEditorStore from './stores/useWorkflowEditorStore';
+import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPanelStore';
+import {isWorkflowMutating, setWorkflowMutating} from './utils/workflowMutationGuard';
 
 // WorkflowEditorLayout branches between the React Flow canvas and the Monaco source editor based on
 // the codeWorkflow/codeWorkflowLanguage flags threaded onto the shared WorkflowEditorStateI context
@@ -209,5 +211,32 @@ describe('WorkflowEditorLayout - playground panel single-instance guard', () => 
         renderLayout();
 
         expect(screen.queryByTestId('playground-panel')).not.toBeInTheDocument();
+    });
+});
+
+describe('WorkflowEditorLayout - unmount cleanup', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        useParamsMock.mockReturnValue({projectId: '123', projectWorkflowId: '456'});
+        mockUseWorkflowEditor(undefined, undefined);
+
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterElementsCanvasDialogStore.setState({testingPanelOpen: false});
+        useWorkflowEditorStore.setState({clusterElementsCanvasOpen: false});
+    });
+
+    it('drops the pending-first-save markers together with the mutation guard when it unmounts', () => {
+        useWorkflowNodeDetailsPanelStore.getState().addPendingSaveNodeName('logger_1');
+        setWorkflowMutating('workflow-1', true);
+
+        const {unmount} = renderLayout();
+
+        expect(useWorkflowNodeDetailsPanelStore.getState().pendingSaveNodeNames.has('logger_1')).toBe(true);
+
+        unmount();
+
+        expect(useWorkflowNodeDetailsPanelStore.getState().pendingSaveNodeNames.size).toBe(0);
+        expect(isWorkflowMutating('workflow-1')).toBe(false);
     });
 });

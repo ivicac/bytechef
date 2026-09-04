@@ -14,6 +14,7 @@ import WorkflowTestRunLeaveDialog from '@/shared/components/WorkflowTestRunLeave
 import {DEFAULT_CANVAS_WIDTH} from '@/shared/constants';
 import {useWorkflowTestRunGuard} from '@/shared/hooks/useWorkflowTestRunGuard';
 import {WebhookTriggerTestApi} from '@/shared/middleware/automation/configuration';
+import {PlatformType} from '@/shared/middleware/graphql';
 import {useCreateConnectionMutation} from '@/shared/mutations/automation/connections.mutations';
 import {useUpdateWorkflowMutation} from '@/shared/mutations/automation/workflows.mutations';
 import {
@@ -165,6 +166,8 @@ const EmbeddableWorkflowEditorInner = ({
         useWorkflowTestChatStore.getState().setWorkflowTestChatPanelOpen(false);
 
         useWorkflowNodeDetailsPanelStore.getState().reset();
+
+        useWorkflowNodeDetailsPanelStore.getState().clearPendingSaveNodeNames();
     }, [projectWorkflowId]);
 
     // The canvas layout centers nodes within `canvasWidth`. Left unset, the editor falls back to a
@@ -211,6 +214,7 @@ const EmbeddableWorkflowEditorInner = ({
                     deleteClusterElementParameterMutation,
                     deleteWorkflowNodeParameterMutation,
                     invalidateWorkflowQueries,
+                    platformType: PlatformType.Automation,
                     updateClusterElementParameterMutation,
                     updateWorkflowMutation: updateWorkflowEditorMutation,
                     updateWorkflowNodeParameterMutation,

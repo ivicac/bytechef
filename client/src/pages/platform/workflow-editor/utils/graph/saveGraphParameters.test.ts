@@ -1,6 +1,12 @@
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {
+    clearAllWorkflowMutations,
+    drainPendingSaves,
+    hasPendingSaves,
+    setWorkflowMutating,
+} from '../workflowMutationGuard';
 import {saveGraphParameters, saveGraphTransitions} from './saveGraphParameters';
 
 // saveGraphParameters is thin glue: parse the store's definition, locate the graph task, apply the
@@ -8,7 +14,7 @@ import {saveGraphParameters, saveGraphTransitions} from './saveGraphParameters';
 // that glue (found/not-found/malformed-JSON branches) without re-covering saveWorkflowDefinition's
 // own mutation/rollback behaviour, which already has its own test file.
 const {mockWorkflowState, saveWorkflowDefinitionMock} = vi.hoisted(() => ({
-    mockWorkflowState: {workflow: {definition: undefined as string | undefined}},
+    mockWorkflowState: {workflow: {definition: undefined} as {definition?: string; id?: string}},
     saveWorkflowDefinitionMock: vi.fn(),
 }));
 
@@ -30,7 +36,51 @@ describe('saveGraphParameters', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        clearAllWorkflowMutations();
+
         mockWorkflowState.workflow = {definition: undefined};
+    });
+
+    it('re-runs itself from the fresh definition once an in-flight mutation releases the guard', () => {
+        mockWorkflowState.workflow = {
+            definition: JSON.stringify({
+                tasks: [{name: 'graph_1', parameters: {transitions: []}, type: 'graph/v1'}],
+            }),
+            id: 'workflow-1',
+        };
+
+        const mutation = makeMutation();
+
+        setWorkflowMutating('workflow-1', true);
+
+        saveGraphParameters(
+            'graph_1',
+            (parameters) => ({...parameters, transitions: [{from: 'a', to: 'b'}]}),
+            mutation
+        );
+
+        expect(saveWorkflowDefinitionMock).not.toHaveBeenCalled();
+        expect(hasPendingSaves('workflow-1')).toBe(true);
+
+        mockWorkflowState.workflow = {
+            definition: JSON.stringify({
+                tasks: [{name: 'graph_1', parameters: {maxTransitions: 5, transitions: []}, type: 'graph/v1'}],
+            }),
+            id: 'workflow-1',
+        };
+
+        setWorkflowMutating('workflow-1', false);
+
+        drainPendingSaves('workflow-1');
+
+        expect(saveWorkflowDefinitionMock).toHaveBeenCalledOnce();
+
+        const call = saveWorkflowDefinitionMock.mock.calls[0][0];
+
+        expect(call.updatedWorkflowTasks[0].parameters).toEqual({
+            maxTransitions: 5,
+            transitions: [{from: 'a', to: 'b'}],
+        });
     });
 
     it('applies the updater to the graph task parameters and forwards the rewritten tasks', () => {
