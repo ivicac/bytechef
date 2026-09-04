@@ -44,7 +44,7 @@ class ListChatToolsToolCallbackTest {
         when(chatService.findByThreadId("thread-1")).thenReturn(Optional.of(chat));
 
         AiHubChatToolBinding binding = new AiHubChatToolBinding(
-            11L, 99L, 7L, "slack", 1, "sendMessage", 42L, 0, Map.of("channel", "#engineering"));
+            11L, 99L, 7L, "slack", 1, "sendMessage", 42L, 0, Map.of("channel", "#engineering"), false);
 
         when(chatToolFacade.listChatTools(7L)).thenReturn(List.of(binding));
 

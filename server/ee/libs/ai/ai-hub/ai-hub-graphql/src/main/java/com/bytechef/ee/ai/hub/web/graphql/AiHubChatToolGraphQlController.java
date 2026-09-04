@@ -228,6 +228,21 @@ public class AiHubChatToolGraphQlController {
     }
 
     @MutationMapping
+    public AiHubChatToolBinding setAiHubChatToolRequiresApproval(
+        @Argument long workspaceId, @Argument long chatToolId, @Argument boolean requiresApproval) {
+
+        long userId = currentUserId();
+
+        WorkspaceAccessGuard.verifyUserCanAccessWorkspace(workspaceFacade, userId, workspaceId);
+
+        AiHubChatToolBinding existing = findToolBindingOrThrow(workspaceId, userId, chatToolId);
+
+        chatToolFacade.setToolRequiresApproval(existing.chatToolId(), requiresApproval);
+
+        return findToolBindingOrThrow(workspaceId, userId, chatToolId, existing.chatId());
+    }
+
+    @MutationMapping
     public boolean detachAiHubChatComponent(
         @Argument long workspaceId, @Argument long chatComponentId) {
 
@@ -251,6 +266,11 @@ public class AiHubChatToolGraphQlController {
         return true;
     }
 
+    /**
+     * A stored {@link AiHubChatTool} row is a deviation from the all-tools-enabled, no-parameters, no-approval-required
+     * defaults: {@code enabled = false}, pre-configured {@code parameters}, and/or {@code requiresApproval = true}.
+     * Absence of a row means every default holds.
+     */
     @QueryMapping
     public List<AiHubUserConnector> aiHubUserConnectors(
         @Argument long workspaceId, @Argument @Nullable String chatId) {
@@ -286,14 +306,17 @@ public class AiHubChatToolGraphQlController {
                 ck -> componentDefinitionService.getComponentDefinition(
                     component.getComponentName(), component.getComponentVersion()));
 
-            // A stored tool row with enabled=false is a deviation from the all-tools-enabled default; a row may
-            // also carry pre-configured parameters. Index both by tool name so the catalog walk can surface them.
             Set<String> disabledTools = new HashSet<>();
+            Set<String> requiresApprovalTools = new HashSet<>();
             Map<String, Map<String, ?>> parametersByTool = new HashMap<>();
 
             for (AiHubChatTool tool : chatToolFacade.listComponentTools(component.getId())) {
                 if (!tool.isEnabled()) {
                     disabledTools.add(tool.getName());
+                }
+
+                if (tool.isRequiresApproval()) {
+                    requiresApprovalTools.add(tool.getName());
                 }
 
                 Map<String, ?> parameters = tool.getParameters();
@@ -307,7 +330,8 @@ public class AiHubChatToolGraphQlController {
                 .stream()
                 .map(catalogTool -> new AiHubUserConnectorTool(
                     catalogTool.name(), catalogTool.title(), catalogTool.description(),
-                    !disabledTools.contains(catalogTool.name()), parametersByTool.get(catalogTool.name())))
+                    !disabledTools.contains(catalogTool.name()), parametersByTool.get(catalogTool.name()),
+                    requiresApprovalTools.contains(catalogTool.name())))
                 .toList();
 
             connectors.add(
@@ -428,6 +452,24 @@ public class AiHubChatToolGraphQlController {
         }
 
         chatToolFacade.setToolParameters(connectorId, toolName, parameters == null ? Map.of() : parameters);
+
+        return true;
+    }
+
+    @MutationMapping
+    public boolean setAiHubUserConnectorToolRequiresApproval(
+        @Argument long workspaceId, @Argument long connectorId, @Argument String toolName,
+        @Argument boolean requiresApproval) {
+
+        long userId = currentUserId();
+
+        WorkspaceAccessGuard.verifyUserCanAccessWorkspace(workspaceFacade, userId, workspaceId);
+
+        if (!userOwnsConnector(userId, workspaceId, connectorId)) {
+            return false;
+        }
+
+        chatToolFacade.setToolRequiresApproval(connectorId, toolName, requiresApproval);
 
         return true;
     }
@@ -575,6 +617,6 @@ public class AiHubChatToolGraphQlController {
     })
     public record AiHubUserConnectorTool(
         String name, @Nullable String title, @Nullable String description, boolean enabled,
-        @Nullable Map<String, ?> parameters) {
+        @Nullable Map<String, ?> parameters, boolean requiresApproval) {
     }
 }
