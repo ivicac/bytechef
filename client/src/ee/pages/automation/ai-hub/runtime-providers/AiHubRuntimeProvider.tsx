@@ -8,6 +8,7 @@ import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHu
 import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {aiHubProgressStore} from '@/ee/pages/automation/ai-hub/progress/stores/useAiHubProgressStore';
 import {
+    type ThreadStatusI,
     attachToInFlightRun,
     probeInFlightStatus,
     probeThreadStatus,
@@ -467,6 +468,97 @@ export function abandonFocusedChat({navigate}: {navigate: (path: string) => void
     useAiHubStore.getState().generateChatId();
 
     navigate('/automation/ai-hub');
+}
+
+/**
+ * How many consecutive attach attempts may close without having delivered a single event before the
+ * focused-chat poll stops re-attaching to that thread.
+ *
+ * <p>`EventSource.onerror` cannot read a response status, so from the client an attach 404 — the run is in
+ * flight on a DIFFERENT instance of a multi-instance deployment, which the design declares unsupported —
+ * looks exactly like a network blip. Both close immediately with no events. Left unbounded, the poll
+ * reopened a doomed `EventSource` every 5 s for the whole duration of the other node's turn, and since
+ * `attachToContinuation` sets the chat running on open and its `onClose` sets it back, the composer's
+ * Send/Stop control flickered on every tick. The same shape as
+ * {@link FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES}: a blip self-heals within a tick or two, a wrong-node run
+ * never does.</p>
+ */
+export const FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES = 3;
+
+/** A stream that delivered events resets the count; one that closed empty increments it. */
+export function nextAttachFailureCount(previousConsecutiveFailures: number, eventsReceived: boolean): number {
+    return eventsReceived ? 0 : previousConsecutiveFailures + 1;
+}
+
+/**
+ * True exactly on the tick the failure count crosses {@link FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES},
+ * so {@link warnMultiInstanceAttach} fires once per giving-up rather than on every subsequent close.
+ */
+export function shouldWarnMultiInstanceAttach(
+    previousConsecutiveFailures: number,
+    nextConsecutiveFailures: number
+): boolean {
+    return (
+        previousConsecutiveFailures < FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES &&
+        nextConsecutiveFailures >= FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES
+    );
+}
+
+/**
+ * The user-facing half of the unsupported multi-instance attach. Without it the failure is silent but not
+ * quiet: the mount-time and poll attach paths both append a blank assistant bubble and set the pulse before
+ * opening the stream, so a 404 left an empty bubble on screen and a pulse that blinked off, with no
+ * explanation. "Unsupported" should degrade quietly; this says what happened instead.
+ */
+export function warnMultiInstanceAttach(): void {
+    toast.info('Running on another node — refresh when done.');
+}
+
+/**
+ * What one focused-chat poll tick should do, given the `/status` answer and the counters carried across
+ * ticks. Split out from the effect because the effect itself cannot be exercised: nothing in this codebase
+ * mounts {@link AiHubRuntimeProvider} (it needs the assistant-ui runtime, an AG-UI agent, the router and a
+ * dozen stores), so the branch tree here — which decides whether a viewer mirrors another participant's
+ * turn, refetches a finished one, or gets sent home — would otherwise have no coverage at all.
+ *
+ * @param consecutiveMisses the count AFTER {@link nextFocusedThreadMissCount} has been applied to this tick
+ * @param consecutiveAttachFailures the count from {@link nextAttachFailureCount}, across earlier ticks
+ * @param lastKnownMessageCount null until a first poll resolved — a missing baseline must not read as
+ *                              "grew from 0" and fire a spurious refetch on the very first tick
+ */
+export function decideFocusedThreadPollAction({
+    consecutiveAttachFailures,
+    consecutiveMisses,
+    isRunningLocally,
+    lastKnownMessageCount,
+    status,
+}: {
+    consecutiveAttachFailures: number;
+    consecutiveMisses: number;
+    isRunningLocally: boolean;
+    lastKnownMessageCount: number | null;
+    status: ThreadStatusI | undefined;
+}): 'abandon' | 'attach' | 'idle' | 'refetch' {
+    if (!status) {
+        return consecutiveMisses >= FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES ? 'abandon' : 'idle';
+    }
+
+    if (status.inFlight) {
+        // Nothing to do while THIS client is the one running the turn — its own subscriber owns the stream,
+        // and a second one would render every event twice. And nothing to do once the thread has proved
+        // unreachable: 'idle' here is what stops the every-5s reattach.
+        if (isRunningLocally || consecutiveAttachFailures >= FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES) {
+            return 'idle';
+        }
+
+        return 'attach';
+    }
+
+    if (lastKnownMessageCount != null && status.messageCount > lastKnownMessageCount) {
+        return 'refetch';
+    }
+
+    return 'idle';
 }
 
 interface BuildSubscriberDepsI {
@@ -1909,7 +2001,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     // the part that must stay byte-for-byte identical between them: building the subscriber against that
     // placeholder and opening the /attach EventSource. Extracted so the two call sites can never diverge.
     const attachToContinuation = useCallback(
-        (threadId: string, signal?: AbortSignal) => {
+        (threadId: string, signal?: AbortSignal, onAttachClosed?: (eventsReceived: boolean) => void) => {
             aiHubRunStateStore.getState().setChatRunning(threadId, true);
 
             const assistantMessageIndex = useAiHubStore.getState().messages.length - 1;
@@ -1945,7 +2037,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             });
 
             return attachToInFlightRun({
-                onClose: () => {
+                onClose: (eventsReceived) => {
                     aiHubRunStateStore.getState().setChatRunning(threadId, false);
 
                     // Activity state is already cleared by onRunFinishedEvent / onRunErrorEvent inside the
@@ -1953,6 +2045,11 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                     // closes for a non-terminal reason (network blip, server restart). Leaving the pulse
                     // active in that case would look like the run is still going.
                     aiHubChatsStore.getState().clearActivityState(threadId);
+
+                    // Only the focused-chat poll supplies this: it re-opens attaches on a schedule, so it is
+                    // the one caller that can loop on a stream it will never reach. The mount-time path
+                    // attaches once and passes nothing.
+                    onAttachClosed?.(eventsReceived);
                 },
                 subscriber: attachSubscriber,
                 threadId,
@@ -2167,13 +2264,12 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 
-    // Whether chat sharing is on at all: the EE visibility edition AND the ff-ai-hub-shared-chats flag
-    // must both be true. The two effects below short-circuit entirely on this rather than only hiding
-    // their output — a flagged-off or CE deployment must generate neither the presence writes nor the
-    // extra per-focused-chat status poll, since both are network calls attributable to a feature the
-    // caller cannot see. This deliberately does NOT touch the mount-time resume-in-flight-run effect
-    // above (probeInFlightStatus) or the sidebar's own /status poll — both predate chat sharing and must
-    // keep working regardless of this flag.
+    // Whether chat sharing is on at all: the EE visibility edition. The two effects below short-circuit
+    // entirely on this rather than only hiding their output — a CE deployment must generate neither the
+    // presence writes nor the extra per-focused-chat status poll, since both are network calls
+    // attributable to a feature the caller cannot see. This deliberately does NOT touch the mount-time
+    // resume-in-flight-run effect above (probeInFlightStatus) or the sidebar's own /status poll — both
+    // predate chat sharing and must keep working in either edition.
     const sharingEnabled = useAiHubSharingEnabled();
 
     // Presence heartbeat: announces this client is viewing `chatId` to every other participant on a
@@ -2209,6 +2305,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     //  - messageCount grows past what's already loaded, while NOT in flight — another participant's turn
     //    finished while this client wasn't attached to it (no subscriber ever streamed the reply in), so
     //    refetch the transcript rather than leaving the reply invisible until the next manual chat switch.
+    //
+    // decideFocusedThreadPollAction holds the whole branch tree, including the two give-up thresholds (see
+    // FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES and FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES); this effect
+    // carries the counters across ticks and performs whatever the decision names.
     useEffect(() => {
         if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
             return;
@@ -2221,6 +2321,14 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         // See nextFocusedThreadMissCount's doc for why this is a running count rather than an
         // act-on-the-first-miss check.
         let consecutiveMisses = 0;
+        // See FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES for why an attach that closes without ever
+        // delivering an event has to be counted rather than simply retried on the next tick.
+        let consecutiveAttachFailures = 0;
+        // The disposer for the attach this poll most recently opened, so the effect cleanup can close it.
+        // Without it, a chat switch while successfully mirroring another participant's turn left the
+        // EventSource open until the server closed it — harmless (every subscriber write is chat-id guarded)
+        // but a leak, and unlike the mount-time effect, which has always kept its own disposer.
+        let disposeAttach: (() => void) | null = null;
 
         const pollFocusedThread = () => {
             void probeThreadStatus([chatId]).then((statusByThreadId) => {
@@ -2232,8 +2340,16 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
                 consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, status != null);
 
+                const action = decideFocusedThreadPollAction({
+                    consecutiveAttachFailures,
+                    consecutiveMisses,
+                    isRunningLocally: isChatRunning(aiHubRunStateStore.getState(), chatId),
+                    lastKnownMessageCount,
+                    status,
+                });
+
                 if (!status) {
-                    if (consecutiveMisses >= FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES) {
+                    if (action === 'abandon') {
                         cancelled = true;
 
                         abandonFocusedChat({navigate});
@@ -2244,9 +2360,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
                 aiHubChatsStore.getState().setThreadStatus({[chatId]: status});
 
-                const isRunningLocally = isChatRunning(aiHubRunStateStore.getState(), chatId);
-
-                if (status.inFlight && !isRunningLocally) {
+                if (action === 'attach') {
                     // Mirrors the mount-time attach effect's own placeholder-reuse logic above — see its
                     // comment for why a trailing ARRAY-content assistant (an artifact-link/tool-call card,
                     // not partial reply text) must NOT be reused as the replay's write target.
@@ -2264,12 +2378,29 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                     aiHubChatsStore.getState().clearActivityState(chatId);
                     aiHubChatsStore.getState().setActivityState(chatId, 'running');
 
-                    attachToContinuation(chatId);
-                } else if (
-                    !status.inFlight &&
-                    lastKnownMessageCount != null &&
-                    status.messageCount > lastKnownMessageCount
-                ) {
+                    if (disposeAttach) {
+                        disposeAttach();
+                    }
+
+                    disposeAttach = attachToContinuation(chatId, undefined, (eventsReceived) => {
+                        // The effect cleanup disposes the attach it opened, which closes it with no events
+                        // if the switch beat the first one. That is not a failure to reach the run, and it
+                        // must not be able to raise a toast about a chat the user has already left.
+                        if (cancelled) {
+                            return;
+                        }
+
+                        const previousConsecutiveAttachFailures = consecutiveAttachFailures;
+
+                        consecutiveAttachFailures = nextAttachFailureCount(consecutiveAttachFailures, eventsReceived);
+
+                        if (
+                            shouldWarnMultiInstanceAttach(previousConsecutiveAttachFailures, consecutiveAttachFailures)
+                        ) {
+                            warnMultiInstanceAttach();
+                        }
+                    });
+                } else if (action === 'refetch') {
                     const currentChatIdNumeric = aiHubChatsStore.getState().currentChatId;
 
                     if (currentChatIdNumeric != null && currentWorkspaceId != null) {
@@ -2281,6 +2412,19 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                             // clobber whatever the user has since switched to. Mirrors useSwitchChat's own
                             // "still on this chat" guard.
                             if (!cancelled && useAiHubStore.getState().chatId === chatId) {
+                                // Drop this chat's live tool-call entries FIRST. They are projected by array
+                                // POSITION (projectMessagesWithToolCalls buckets on messageIndex), and this is
+                                // the only place `messages` is replaced wholesale WITHIN one chat — everywhere
+                                // else a replace comes with a chatId change, which already resets the store via
+                                // cleanupForChatChange. The two arrays do not line up: while mirroring another
+                                // participant's turn this client holds the streamed assistant placeholder but
+                                // not their user bubble (AG-UI replay starts at RUN_STARTED), while the
+                                // refetched transcript has both, so every surviving entry would project one
+                                // position early — on top of the cards the loaded rows already carry, rebuilt
+                                // from their own toolEvents. Nothing is lost by dropping them: the loaded
+                                // messages carry the correct cards.
+                                aiChatToolCallStore.getState().resetForChat(chatId);
+
                                 useAiHubStore.setState({messages: loadedMessages});
                             }
                         });
@@ -2297,6 +2441,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             cancelled = true;
 
             clearInterval(intervalHandle);
+
+            if (disposeAttach) {
+                disposeAttach();
+            }
         };
         // attachToContinuation is memoized (see the mount-time attach effect's own note above — same
         // reasoning applies here); currentWorkspaceId only changes on a workspace switch, which already

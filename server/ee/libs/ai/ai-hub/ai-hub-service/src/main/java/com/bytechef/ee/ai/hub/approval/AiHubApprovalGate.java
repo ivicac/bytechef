@@ -21,13 +21,12 @@ import org.springframework.stereotype.Component;
  * collaborator that is simply absent when the AI Hub module isn't enabled.
  *
  * <p>
- * Also requires {@code bytechef.ai.hub.tool-approval.enabled} (default {@code false}), a second and independent switch
- * from {@code bytechef.ai.hub.enabled}: turning the hub on must not, by itself, start gating the built-in tool names
- * ({@link AiHubToolApprovalDefaults#DEFAULT_TOOL_NAMES}) plus four destructive-verb prefixes across every deployment
- * the moment this ships — an operator opts in deliberately. The client's own escape hatch (the Tool Approvals settings
- * page, which can write an {@code EXEMPT} rule to lift a default) sits behind the separate
- * {@code ff-ai-hub-tool-approvals} feature flag, off by default; the two must be turned on together, or gating begins
- * with no UI able to lift it. See {@code .agents/ai-hub.md}'s tool approval gate section.
+ * Gated on {@code bytechef.ai.hub.enabled} alone — the module switch, and the only one. Every deployment running the
+ * hub therefore gates the built-in tool names ({@link AiHubToolApprovalDefaults#DEFAULT_TOOL_NAMES}) plus four
+ * destructive-verb prefixes: a destructive tool call waits for a person by default rather than by opt-in. The escape
+ * hatch travels with it — the Tool Approvals settings page, which writes an {@code EXEMPT} rule to lift a default, is
+ * likewise reachable wherever the hub runs in EE, so a workspace can always widen what its agents may do unattended.
+ * See {@code .agents/ai-hub.md}'s tool approval gate section.
  * </p>
  *
  * @version ee
@@ -35,10 +34,7 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
-@ConditionalOnProperty(
-    name = {
-        "bytechef.ai.hub.enabled", "bytechef.ai.hub.tool-approval.enabled"
-    }, havingValue = "true")
+@ConditionalOnProperty(prefix = "bytechef.ai.hub", name = "enabled", havingValue = "true")
 public class AiHubApprovalGate {
 
     private final AiHubToolApprovalPolicy policy;

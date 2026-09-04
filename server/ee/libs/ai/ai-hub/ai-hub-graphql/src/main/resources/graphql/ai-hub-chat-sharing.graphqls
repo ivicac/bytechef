@@ -21,17 +21,9 @@ enum AiHubChatParticipation {
     PARTICIPATE
 }
 
-# Deliberately narrower than the platform's ResourceVisibility (PRIVATE/WORKSPACE/ORGANIZATION), and
-# deliberately NOT that same enum re-declared here. AiHubChatVisibilityPolicy supports only PRIVATE and
-# WORKSPACE — a chat belongs to at most one workspace, so ORGANIZATION is not a rung a chat can ever
-# legally carry, and publishing it would advertise a value the server always rejects. Re-declaring the
-# platform enum instead was tried and rejected: verified empirically against this project's graphql-java
-# (25.0) that TypeDefinitionRegistry.merge() throws SchemaProblem (TypeRedefinitionError) on ANY duplicate
-# top-level type name, even a byte-for-byte identical redeclaration, and server-app depends on both this
-# module and the module that already declares ResourceVisibility (automation-configuration-graphql's
-# connection.graphqls) — redeclaring it here would have broken server-app's schema at startup.
-# AiHubChatVisibilityMapper converts to and from ResourceVisibility at the controller boundary; the
-# facade and service layers keep speaking the platform type.
+"""The visibility rungs an AI Hub chat can carry. Deliberately narrower than the platform's
+ResourceVisibility: a chat belongs to at most one workspace, so ORGANIZATION is not a rung a chat can
+legally carry, and publishing it would advertise a value the server always rejects."""
 enum AiHubChatVisibility {
     PRIVATE
     WORKSPACE

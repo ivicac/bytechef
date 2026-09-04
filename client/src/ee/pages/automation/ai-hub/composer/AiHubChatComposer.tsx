@@ -4,6 +4,11 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {isChannelAgentChat, isWebhookBridgedChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
+import {
+    canResolveToolApproval,
+    getToolApprovalOwnerLabel,
+    hasPendingToolApproval,
+} from '@/ee/pages/automation/ai-hub/chats/pendingToolApproval';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubComposer from '@/ee/pages/automation/ai-hub/composer/AiHubComposer';
 import AiHubComposerDropZone from '@/ee/pages/automation/ai-hub/composer/AiHubComposerDropZone';
@@ -33,6 +38,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ComposerPrimitive, ThreadPrimitive, useAui} from '@assistant-ui/react';
 import {
     ArrowUpIcon,
+    ClockIcon,
     EyeIcon,
     HexagonIcon,
     Loader2Icon,
@@ -139,9 +145,8 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
     // chats) case that was never shared.
     const {isAdmin} = useVisibilityFeatureEnabled();
     // Gate for the sharing-derived composer states below and the typing/viewing presence heartbeat in
-    // handleComposerChange: the EE visibility edition AND the ff-ai-hub-shared-chats flag must both be
-    // on. A flagged-off caller sees today's composer exactly — no view-only notice, no others'-turn
-    // disable, and no presence pings.
+    // handleComposerChange: the EE visibility edition. A CE caller sees the plain composer — no view-only
+    // notice, no others'-turn disable, and no presence pings.
     const sharingEnabled = useAiHubSharingEnabled();
     const isViewOnlyChat =
         sharingEnabled && activeChat != null && activeChat.participation === 'VIEW' && !activeChat.isOwner && !isAdmin;
@@ -160,6 +165,26 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
         threadStatus?.inFlight === true &&
         threadStatus.runningUserId != null &&
         threadStatus.runningUserId !== currentUserId;
+
+    // A gated tool call waits for an owner or admin to decide it, and only they get the card's
+    // Approve/Reject controls. For everyone else the chat simply stops answering, so say what it is waiting
+    // on — but do NOT disable the composer while it waits. The only way to withdraw a pending request is
+    // supersedePending, which the server runs on EVERY send regardless of who is sending, so a participant
+    // who could neither resolve nor send would be stuck indefinitely behind someone else's decision. The
+    // hint below has to name the consequence, since cancelling an approval the owner was still considering
+    // is a surprise if the person only finds out afterwards. Read from the transcript because that IS where
+    // a pending approval lives — see hasPendingToolApproval.
+    //
+    // Withheld while another participant's turn is running: the input is disabled by that turn, so a hint
+    // promising that sending withdraws the request would be telling the person to do something they cannot
+    // currently do. It returns the moment that turn settles.
+    const pendingToolApproval = useAiHubStore((state) => hasPendingToolApproval(state.messages));
+    const isAwaitingOthersApproval =
+        sharingEnabled &&
+        pendingToolApproval &&
+        !isOthersTurnRunning &&
+        activeChat != null &&
+        !canResolveToolApproval(activeChat, isAdmin);
 
     const cancelWorkflowChatTurnMutation = useCancelWorkflowChatTurnMutation();
     const cancelAiHubRunMutation = useCancelAiHubRunMutation();
@@ -624,6 +649,27 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
                         </div>
                     ) : (
                         <>
+                            {/* A persistent row, not the input's placeholder: a placeholder disappears on
+                             * the first keystroke, which is precisely when the person still needs to know
+                             * that sending will withdraw the request. Additive rather than replacing the
+                             * input (unlike the two notices above) because the input stays usable here —
+                             * sending IS the way out of this state. */}
+
+                            {isAwaitingOthersApproval && (
+                                <div
+                                    className="flex items-start gap-2 px-4 pt-2 text-xs text-muted-foreground"
+                                    data-testid="pending-approval-hint"
+                                    role="status"
+                                >
+                                    <ClockIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+
+                                    <span>
+                                        Waiting for {getToolApprovalOwnerLabel(activeChat)}&apos;s approval of a tool
+                                        call — sending a message withdraws that request.
+                                    </span>
+                                </div>
+                            )}
+
                             <ComposerPrimitive.Input
                                 aria-label="Message input"
                                 autoFocus

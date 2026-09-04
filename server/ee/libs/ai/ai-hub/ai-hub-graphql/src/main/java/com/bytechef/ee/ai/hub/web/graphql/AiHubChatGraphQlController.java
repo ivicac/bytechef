@@ -26,12 +26,17 @@ import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
@@ -388,14 +393,64 @@ public class AiHubChatGraphQlController {
         return chat.getUserId();
     }
 
-    @SchemaMapping(typeName = "AiHubChat", field = "ownerName")
-    @Nullable
-    public String chatOwnerName(AiHubChat chat) {
-        return userService.fetchUser(chat.getUserId())
-            .map(User::getLogin)
-            .orElse(null);
+    /**
+     * Resolver for {@code AiHubChat.ownerName}. Declared as {@code @BatchMapping} rather than a per-row
+     * {@code @SchemaMapping} — the client selects this field unconditionally on {@code aiHubChats}, so a per-row
+     * {@code userService.fetchUser} was one lookup per chat on every sidebar load. Owner ids are de-duplicated first,
+     * which is what actually collapses the cost: a sidebar is mostly the caller's own chats plus a handful shared by
+     * others, so N rows resolve to one or two distinct owners.
+     *
+     * <p>
+     * A login that no longer resolves maps to {@code null}, exactly as the per-row version did — {@code ownerName} is
+     * nullable in the schema, and a deleted user must not blank the row.
+     * </p>
+     *
+     * <p>
+     * Returns a positional {@code List} rather than a {@code Map} keyed by the parent, which spring-graphql matches to
+     * the input order ({@code BatchLoaderHandlerMethod#invokeForIterable}). The map form would key on
+     * {@code AiHubChat}'s own {@code equals}, and the sibling {@link #messageAuthorName} could not use it safely at all
+     * — {@code AiHubChatMessage} is a record, so two identical rows are equal and would collapse into one entry,
+     * silently nulling the duplicate's author. Positional has neither problem, so both use it.
+     * </p>
+     */
+    @BatchMapping(typeName = "AiHubChat", field = "ownerName")
+    public List<String> chatOwnerName(List<AiHubChat> chats) {
+        Map<Long, String> loginByUserId = resolveLoginsByUserId(
+            chats.stream()
+                .map(AiHubChat::getUserId));
+
+        return chats.stream()
+            .map(chat -> loginByUserId.get(chat.getUserId()))
+            .toList();
     }
 
+    /**
+     * Resolver for {@code AiHubChat.isOwner}. Deliberately per-row, unlike its two batched neighbours, and not because
+     * batching is hard: the per-row cost is not a database round-trip. {@code UserService.getCurrentUser()} is a
+     * {@code SecurityContextHolder} read plus {@code UserRepository.findByLogin}, which is
+     * {@code @Cacheable(USERS_BY_LOGIN_CACHE)} and tenant-keyed, evicted by {@code UserServiceImpl} on every user
+     * mutation — so resolving it once per row costs a cache hit per row, not a query. That is the same cost
+     * {@code ProjectOwnershipResolver#resolveOwnerUserId} already accepts, with the same reasoning written down, on the
+     * hotter authorization path. Neither a {@code DataLoader} nor a per-request memo of the current user would buy
+     * anything here, because there is no query to save.
+     *
+     * <p>
+     * The two neighbours are batched because their cost IS a round-trip: they resolve through
+     * {@code UserService#fetchUser(long)} to {@code findById}, which carries no {@code @Cacheable}.
+     * </p>
+     *
+     * <p>
+     * Batching this one would also be actively risky, which is the second reason to leave it alone. A
+     * {@code @BatchMapping} body runs inside a {@code DataLoader} dispatch rather than on the request thread, and
+     * {@code BatchLoaderHandlerMethod} restores no {@code SecurityContextHolder} thread-local — its
+     * {@code springSecurityPresent} flag only resolves a {@code Principal} method argument. Whether the thread-local
+     * survives the dispatch therefore depends on the app's executor and Reactor context propagation, which this module
+     * cannot verify: it has no {@code GraphQlTest} harness for this controller, and a unit test calling the method
+     * directly cannot see the difference. Getting it wrong would either throw {@code UserNotFoundException} for a whole
+     * batch or mislabel ownership, which drives the rename/archive/delete controls. The two batched neighbours take an
+     * explicit user id and touch no security context, so they carry none of this risk.
+     * </p>
+     */
     @SchemaMapping(typeName = "AiHubChat", field = "isOwner")
     public boolean chatIsOwner(AiHubChat chat) {
         long userId = userService.getCurrentUser()
@@ -410,18 +465,41 @@ public class AiHubChatGraphQlController {
             .toEpochMilli();
     }
 
-    @SchemaMapping(typeName = "AiHubChatMessage", field = "authorName")
-    @Nullable
-    public String messageAuthorName(AiHubChatMessage message) {
-        Long authorUserId = message.authorUserId();
+    /**
+     * Resolver for {@code AiHubChatMessage.authorName}. Batched like {@link #chatOwnerName}: a shared chat's transcript
+     * carries an author id on every USER row, and a per-row lookup made opening one N messages long cost N queries for
+     * what is almost always one or two distinct authors. A message with no resolved author — the whole transcript when
+     * turn attribution is unreliable, see {@code AiHubChatServiceImpl.loadMessages} — maps to {@code null}, and
+     * contributes no lookup.
+     */
+    @BatchMapping(typeName = "AiHubChatMessage", field = "authorName")
+    public List<String> messageAuthorName(List<AiHubChatMessage> messages) {
+        Map<Long, String> loginByUserId = resolveLoginsByUserId(
+            messages.stream()
+                .map(AiHubChatMessage::authorUserId));
 
-        if (authorUserId == null) {
-            return null;
-        }
+        return messages.stream()
+            .map(AiHubChatMessage::authorUserId)
+            .map(authorUserId -> authorUserId == null ? null : loginByUserId.get(authorUserId))
+            .toList();
+    }
 
-        return userService.fetchUser(authorUserId)
-            .map(User::getLogin)
-            .orElse(null);
+    /**
+     * Resolves logins for the DISTINCT, non-null user ids in {@code userIds}, one lookup each. {@code UserService}
+     * exposes no {@code IN}-clause batch read, so de-duplication rather than a single query is what bounds the cost
+     * here — by the number of distinct people in the response, not by its number of rows. A user id that no longer
+     * resolves is simply absent from the returned map, so callers read {@code null} for it.
+     */
+    private Map<Long, String> resolveLoginsByUserId(Stream<Long> userIds) {
+        Map<Long, String> loginByUserId = new HashMap<>();
+
+        userIds.filter(Objects::nonNull)
+            .distinct()
+            .forEach(userId -> userService.fetchUser(userId)
+                .map(User::getLogin)
+                .ifPresent(login -> loginByUserId.put(userId, login)));
+
+        return loginByUserId;
     }
 
     public record AiHubChatPatchInput(

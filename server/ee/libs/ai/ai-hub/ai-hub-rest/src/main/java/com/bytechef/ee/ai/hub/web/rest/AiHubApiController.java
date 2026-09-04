@@ -244,14 +244,19 @@ public class AiHubApiController {
         Set<String> inFlight = new HashSet<>(inFlightRunRegistry.getInFlightThreadIds());
         Map<String, ThreadStatus> statusByThreadId = new HashMap<>();
 
-        for (String threadId : threadIds) {
-            Optional<AiHubChat> chatOptional = chatService.findByThreadIdViewable(threadId, userId);
+        // One query for every supplied id, not one per id: the sidebar poll hands this endpoint its whole thread
+        // list every 20 seconds, so the per-id lookup it replaced cost N round-trips per tick. The batch omits a
+        // thread the caller cannot view exactly as the single-row lookup did — same canView predicate, applied per
+        // row inside the service — so nothing here answers for a chat the caller could not already ask about.
+        Map<String, AiHubChat> chatByThreadId = chatService.findAllByThreadIdViewable(threadIds, userId);
 
-            if (chatOptional.isEmpty()) {
+        for (String threadId : threadIds) {
+            AiHubChat chat = chatByThreadId.get(threadId);
+
+            if (chat == null) {
                 continue;
             }
 
-            AiHubChat chat = chatOptional.get();
             boolean running = inFlight.contains(threadId);
             Optional<AiHubChatTurn> latestTurn = running ? chatService.findLatestTurn(chat.getId()) : Optional.empty();
 
@@ -285,8 +290,24 @@ public class AiHubApiController {
             return;
         }
 
-        presenceRegistry.heartbeat(
-            threadId, user.getId(), user.getLogin(), AiHubPresenceRegistry.PresenceState.valueOf(request.state()));
+        presenceRegistry.heartbeat(threadId, user.getId(), user.getLogin(), parsePresenceState(request.state()));
+    }
+
+    /**
+     * Resolves a client-supplied presence state name. {@code PresenceState.valueOf} throws
+     * {@link IllegalArgumentException} on anything unrecognized, which surfaces as a 500 — a malformed request body is
+     * the client's error, not the server's, so it is translated to a 400 here.
+     */
+    private static AiHubPresenceRegistry.PresenceState parsePresenceState(@Nullable String state) {
+        if (state == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing presence state");
+        }
+
+        try {
+            return AiHubPresenceRegistry.PresenceState.valueOf(state);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown presence state");
+        }
     }
 
     /**
@@ -305,6 +326,16 @@ public class AiHubApiController {
     public record ThreadStatus(
         boolean inFlight, @Nullable Long runningUserId, @Nullable String runningUserName, int messageCount,
         long updatedAt, List<PresenceEntry> presence) {
+
+        /**
+         * Copies {@code presence} so the record does not depend on its supplier's choice of list. Today
+         * {@code AiHubPresenceRegistry.presence} returns an unmodifiable {@code Stream.toList()} result, so this is
+         * defence in depth rather than a live defect — but it is the record that is handed out, and it should not stop
+         * being safe because a future supplier hands over something mutable.
+         */
+        public ThreadStatus {
+            presence = List.copyOf(presence);
+        }
     }
 
     /**

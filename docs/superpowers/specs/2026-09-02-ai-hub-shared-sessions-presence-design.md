@@ -229,8 +229,9 @@ and the client closes the chat.
 - **Presence strip** in the header: avatars of everyone with a live presence entry, typing dots on
   the ones in `TYPING`, and "Ana's turn is running" while `inFlight` names someone else.
 - **Composer states**: enabled; disabled "View only" (`participation = VIEW`, not owner); disabled
-  "Ana's turn is running"; disabled "Waiting for owner's approval" when a tool approval is pending
-  and the viewer cannot resolve it.
+  "Ana's turn is running"; and **enabled with a hint** — not disabled — when a tool approval is
+  pending and the viewer cannot resolve it. The hint must say that sending withdraws the pending
+  request, because that is what sending does (see "With the approval gate").
 - **Author labels** on user bubbles once a chat has more than one author.
 - **Shared with me** sidebar section, with the same running / paused pulses as own chats, driven by
   the status poll.
@@ -243,7 +244,22 @@ The tool-approval card renders for everyone who can view; `resolveAiHubToolAppro
 `canManage`, so participants see it disabled with the owner's name. A participant's gated call is
 requested in their name and, once approved, executes under the identity the companion spec
 assigns (participant for catalog tools, owner for chat-scoped attached tools). The presence strip
-shows "Waiting for Ivica's approval" while a row is `PENDING`.
+shows "Waiting for Ivica's approval" while a row is `PENDING` — informational, not a lock.
+
+**Sending a new turn withdraws the pending request.** Every send calls `supersedePending` for the
+chat before the agent runs, unconditionally and regardless of who is sending, so any still-`PENDING`
+row becomes `SUPERSEDED`. That is why the composer is **not** locked while an approval waits, which
+reverses this spec's earlier position: a participant who can neither resolve the approval nor send
+would have no path forward at all, stuck indefinitely behind another person's decision on a request
+whose only withdrawal mechanism is the very control that was disabled. The trade is that a
+participant can cancel an approval the owner was still considering, so the composer hint has to
+state the consequence before they hit send rather than surprising them after.
+
+This costs nothing on the server and needs no new endpoint: the gate returns a
+`tool-approval-request` envelope in place of the tool's result rather than suspending the run (the
+deliberate difference from the workflow-side gate, which suspends an atlas job the hub does not
+have), so the turn completes normally, the thread is not in flight while an approval waits, and the
+participant's send is not rejected as a concurrent turn.
 
 ### Audit and metrics
 

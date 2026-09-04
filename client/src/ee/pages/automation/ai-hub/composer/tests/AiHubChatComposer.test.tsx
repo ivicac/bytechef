@@ -93,6 +93,7 @@ interface MockChatI {
     id: number;
     isOwner?: boolean;
     kind: string;
+    ownerName?: string | null;
     participation?: 'PARTICIPATE' | 'VIEW';
     threadId?: string;
     workflowExecutionId?: string | null;
@@ -187,6 +188,10 @@ beforeEach(() => {
         rightPanelOpen: false,
         snapshotsByChatId: {},
     });
+
+    // The pending-approval composer state is derived from the transcript, so a message left behind by an
+    // earlier test would disable the input in the next one.
+    aiHubStore.setState({messages: []});
 
     currentChatIdRef.current = undefined;
     currentUserIdRef.current = undefined;
@@ -589,6 +594,227 @@ describe("AiHubChatComposer another participant's turn running", () => {
         await renderComposer();
 
         expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+});
+
+describe('AiHubChatComposer pending tool approval', () => {
+    const pendingApprovalMessages = [
+        {content: 'run it', role: 'user' as const},
+        {
+            content: [{data: {approvalId: 3, awaitingApproval: true}, type: 'data-tool-approval-request' as const}],
+            role: 'assistant' as const,
+        },
+    ];
+
+    const participantChat = (ownerName: string | null = 'Ivica') => [
+        {
+            id: 7,
+            isOwner: false,
+            kind: 'STANDARD',
+            ownerName,
+            participation: 'PARTICIPATE' as const,
+            threadId: 'thread-7',
+        },
+    ];
+
+    /*
+     * The composer is deliberately NOT locked here. supersedePending runs on every send regardless of who
+     * is sending, so sending is the only way to withdraw a request the participant cannot resolve — locking
+     * the composer would leave them stuck behind someone else's decision with no path forward at all.
+     */
+    it('lets a participant who cannot resolve the approval type and send', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        expect(textarea).not.toBeDisabled();
+        expect(textarea).toHaveAttribute('placeholder', 'Send a message...');
+
+        fireEvent.change(textarea, {target: {value: 'never mind, do something else'}});
+
+        expect(textarea).toHaveValue('never mind, do something else');
+        expect(screen.getByLabelText('Send message')).not.toBeDisabled();
+    });
+
+    it('warns that sending withdraws the pending request, naming whose approval it is', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.getByTestId('pending-approval-hint')).toHaveTextContent(
+            "Waiting for Ivica's approval of a tool call — sending a message withdraws that request."
+        );
+    });
+
+    /*
+     * A persistent row rather than the input's placeholder: a placeholder vanishes on the first keystroke,
+     * which is exactly when the person still needs to know what sending will do.
+     */
+    it('keeps the warning on screen once the participant starts typing', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        fireEvent.change(screen.getByLabelText('Message input'), {target: {value: 'typing'}});
+
+        expect(screen.getByTestId('pending-approval-hint')).toBeInTheDocument();
+    });
+
+    it('falls back to a role when the owner name has not resolved', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat(null);
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.getByTestId('pending-approval-hint')).toHaveTextContent(
+            "Waiting for the owner's approval of a tool call — sending a message withdraws that request."
+        );
+    });
+
+    it('shows no hint to the owner, who has the card and can resolve it themselves', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [
+            {
+                id: 7,
+                isOwner: true,
+                kind: 'STANDARD',
+                ownerName: 'Ivica',
+                participation: 'PARTICIPATE',
+                threadId: 'thread-7',
+            },
+        ];
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+
+    it('shows no hint to an admin, since the server lets them resolve it too', async () => {
+        currentChatIdRef.current = 7;
+        isAdminRef.current = true;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+
+    it('shows no hint once the approval has been decided', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({
+            messages: [
+                {
+                    content: [
+                        {
+                            data: {approvalId: 3, awaitingApproval: true, resolvedStatus: 'APPROVED'},
+                            type: 'data-tool-approval-request' as const,
+                        },
+                    ],
+                    role: 'assistant' as const,
+                },
+            ],
+        });
+
+        await renderComposer();
+
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+    });
+
+    it('shows no hint when chat sharing is off', async () => {
+        sharingEnabledRef.current = false;
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = participantChat();
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Message input')).not.toBeDisabled();
+    });
+
+    /*
+     * The three other composer states share this render path, and none of them may become typeable (or
+     * gain a "just send to withdraw it" hint) because of the unlock above.
+     */
+    it("keeps the others'-turn disable, and withholds the hint while that turn runs", async () => {
+        currentChatIdRef.current = 7;
+        currentUserIdRef.current = 1;
+        chatsQueryRef.current = participantChat();
+        threadStatusRef.current = {
+            'thread-7': {inFlight: true, runningUserId: 2, runningUserName: 'Ana'},
+        };
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        const textarea = screen.getByLabelText('Message input');
+
+        expect(textarea).toBeDisabled();
+        expect(textarea).toHaveAttribute('placeholder', expect.stringContaining("Ana's turn is running"));
+        // Sending is impossible while that turn runs, so promising it withdraws the request would be a lie.
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+    });
+
+    it('keeps a VIEW participant on the view-only notice, with no input and no hint', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [
+            {id: 7, isOwner: false, kind: 'STANDARD', ownerName: 'Ivica', participation: 'VIEW', threadId: 'thread-7'},
+        ];
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.getByTestId('view-only-notice')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Message input')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
+    });
+
+    it('keeps a channel-born chat read-only, with no input and no hint', async () => {
+        currentChatIdRef.current = 7;
+        chatsQueryRef.current = [
+            {
+                aiAgentId: 9,
+                id: 7,
+                isOwner: false,
+                kind: 'AGENT_CHAT',
+                ownerName: 'Ivica',
+                participation: 'PARTICIPATE',
+                threadId: 'thread-7',
+                workflowExecutionId: null,
+            },
+        ];
+
+        aiHubStore.setState({messages: pendingApprovalMessages});
+
+        await renderComposer();
+
+        expect(screen.getByTestId('channel-born-readonly-notice')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Message input')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('pending-approval-hint')).not.toBeInTheDocument();
     });
 });
 

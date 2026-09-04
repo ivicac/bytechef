@@ -24,7 +24,8 @@ import {
     useWorkspaceUsersQuery,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {useEffect, useState} from 'react';
+import {Loader2Icon} from 'lucide-react';
+import {useEffect, useMemo, useState} from 'react';
 
 interface AiHubChatShareDialogPropsI {
     chat: AiHubChatI;
@@ -79,10 +80,22 @@ const AiHubChatShareDialog = ({chat, onClose, open, workspaceId}: AiHubChatShare
     const grantAccessMutation = useGrantAiHubChatAccessMutation();
     const revokeAccessMutation = useRevokeAiHubChatAccessMutation();
 
-    const members = (membersQuery.data?.workspaceUsers ?? []).map((workspaceUser) => ({
-        label: workspaceUser.user?.email ?? `User ${workspaceUser.userId}`,
-        userId: Number(workspaceUser.userId),
-    }));
+    // Memoized on the query result rather than rebuilt per render: ResourceVisibilityPicker takes this as a
+    // prop, and a fresh array on every render would defeat any memoization on its side of the boundary.
+    const members = useMemo(
+        () =>
+            (membersQuery.data?.workspaceUsers ?? []).map((workspaceUser) => ({
+                label: workspaceUser.user?.email ?? `User ${workspaceUser.userId}`,
+                userId: Number(workspaceUser.userId),
+            })),
+        [membersQuery.data]
+    );
+
+    // Both queries feed the SAME control (the picker's radio state is derived from the chat's visibility AND
+    // the grant list, so a half-loaded dialog would show "Private" for a chat shared with three people and
+    // then snap), so they gate the body together rather than each rendering its own spinner. Save is withheld
+    // for the same reason: a Save issued before the grants land diffs against an empty seed list.
+    const loadingAudience = grantsQuery.isPending || membersQuery.isPending;
 
     // Naming people is meaningless while the chat has no audience at all, matching
     // ResourceVisibilityPicker's own "Specific people" derivation.
@@ -185,26 +198,40 @@ const AiHubChatShareDialog = ({chat, onClose, open, workspaceId}: AiHubChatShare
                     <DialogCloseButton />
                 </DialogHeader>
 
-                <ResourceVisibilityPicker
-                    grantedUserIds={grantedUserIds}
-                    onGrantedUserIdsChange={setGrantedUserIds}
-                    onVisibilityChange={handleVisibilityChange}
-                    showSpecificPeopleOption
-                    visibility={visibility}
-                    workspaceMembers={members}
-                />
+                {loadingAudience ? (
+                    <div
+                        className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+                        data-testid="share-dialog-loading"
+                        role="status"
+                    >
+                        <Loader2Icon aria-hidden className="size-4 animate-spin" />
 
-                <Switch
-                    checked={participation}
-                    disabled={participationDisabled}
-                    label="People with access can send messages"
-                    onCheckedChange={setParticipation}
-                />
+                        <span>Loading who has access…</span>
+                    </div>
+                ) : (
+                    <>
+                        <ResourceVisibilityPicker
+                            grantedUserIds={grantedUserIds}
+                            onGrantedUserIdsChange={setGrantedUserIds}
+                            onVisibilityChange={handleVisibilityChange}
+                            showSpecificPeopleOption
+                            visibility={visibility}
+                            workspaceMembers={members}
+                        />
+
+                        <Switch
+                            checked={participation}
+                            disabled={participationDisabled}
+                            label="People with access can send messages"
+                            onCheckedChange={setParticipation}
+                        />
+                    </>
+                )}
 
                 <DialogFooter>
                     <Button label="Cancel" onClick={onClose} variant="outline" />
 
-                    <Button label="Save" onClick={handleSave} />
+                    <Button disabled={loadingAudience} label="Save" onClick={handleSave} />
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -100,7 +100,7 @@ dependencies {
     implementation(project(":server:ee:libs:automation:automation-context-store:automation-context-store-api"))
     implementation(project(":server:ee:libs:platform:platform-audit:platform-audit-api"))
     implementation(project(":server:ee:libs:platform:platform-context-store:platform-context-store-api"))
-    // WorkspaceUserService — resolving who a chat may be shared with (Task 4).
+    // WorkspaceUserService — workspace membership: who a chat may be shared with, and who may view a shared one.
     implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-resource-grant:platform-resource-grant-api"))
 

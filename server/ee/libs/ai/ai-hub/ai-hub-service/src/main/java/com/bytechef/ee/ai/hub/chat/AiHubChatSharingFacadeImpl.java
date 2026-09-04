@@ -57,8 +57,10 @@ public class AiHubChatSharingFacadeImpl implements AiHubChatSharingFacade {
     private final WorkspaceUserService workspaceUserService;
 
     /**
-     * {@code auditPublisher} is nullable so hand-built unit tests can pass {@code null} rather than a mock; the private
-     * {@link #publish} helper guards on it.
+     * {@code auditPublisher} is nullable because an app variant assembled without the audit module has no such bean;
+     * the private {@link #publish} helper guards on it, so sharing still works with audit absent. Tests pass a mock,
+     * not {@code null} — a null publisher makes every {@code publish} call a silent no-op, so nothing would assert that
+     * the three sharing events fire or what their payload keys are.
      */
     @SuppressFBWarnings("EI")
     public AiHubChatSharingFacadeImpl(

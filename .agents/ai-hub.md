@@ -170,13 +170,50 @@ keep the entity's `PRIVATE`/`VIEW` default; the recorder's `adoptChat` guard is 
 apart (see "Channel-born agent conversations" above). `user_id` still means **owner** — it was not
 renamed, and "owner" is the word used everywhere in the new interfaces below.
 
+**The channel-born override is unconditional, and nothing on the server gates it.** The recorder
+writes `WORKSPACE` on every deployment running the hub. It once sat behind
+`bytechef.ai.hub.shared-chats.enabled` (`ApplicationProperties.Ai.Hub.SharedChats`, off by default),
+a server-side switch because the client flag beside it could not reach a row written on an agent's
+turn-completion path with no browser involved; both are gone, and the override is now simply how a
+channel-born chat is created. Worth knowing when reading an old deployment's data: rows written
+before this landed, on an instance that never set the property, are `PRIVATE` and stay that way —
+there is no backfill. Nothing else on the server is gated either — owner-only became owner-or-admin
+on every by-id path, and a concurrent second turn now gets a 409 — both deliberate and neither a
+visibility widening.
+
 **`AiHubChatAccessPolicy`** (`canView`/`canParticipate`/`canManage`) replaces every
 `chat.getUserId() != userId` check in `AiHubChatServiceImpl`. `canView` is owner-or-admin, or
-`WORKSPACE` reach, or a `resource_grant` row, resolved through the registered
-`AiHubChatVisibilityProvider` (resource type `"AiHubChat"`) exactly like `ProjectVisibilityProvider`.
-`canParticipate` is `canView` plus `participation == PARTICIPATE` (owner/admin always pass).
-`canManage` is owner-or-admin only — sharing a chat never extends management rights to the people
-it is shared with.
+**membership of the chat's workspace** plus either `WORKSPACE` reach or a `resource_grant` row,
+resolved through the registered `AiHubChatVisibilityProvider` (resource type `"AiHubChat"`) exactly
+like `ProjectVisibilityProvider`. `canParticipate` is the same non-owner test plus
+`participation == PARTICIPATE` (owner/admin always pass). `canManage` is owner-or-admin only —
+sharing a chat never extends management rights to the people it is shared with.
+
+**The membership half is not optional, and `filterVisibleIds` will not supply it.**
+`ResourceVisibilityResolver.filterVisibleIds` takes a `workspaceId` and never reads it — visibility
+is a *precondition*, per the cross-cutting rule in `CLAUDE.md`, and the membership half lives in
+`PermissionServiceImpl.hasResourceScope`, which pairs `isResourceVisible` with `hasWorkspaceScope`.
+Calling the filter alone makes `WORKSPACE` mean "any authenticated user in the tenant", which for a
+chat matters more than for a project: `attach`, `status` and `presence` on `AiHubApiController` have
+no workspace guard of their own (the GraphQL surface does, via `WorkspaceAccessGuard`), so anyone
+holding a threadId would reach them. `AiHubChatAccessPolicyImpl.isSharedWith` therefore requires
+`workspaceUserService.fetchWorkspaceUser` before consulting the filter, which is also what makes
+removal from a workspace revoke access — for the grant rung as much as the `WORKSPACE` one, matching
+`grantAccess`'s own membership requirement at grant time. `AiHubChatAccessPolicyTest`'s two
+`RealResolver` cases build the real `ResourceVisibilityResolverImpl` rather than mocking it, because
+a stubbed resolver authorizes by construction and cannot see this half at all.
+
+**`AiHubChatVisibility` is a separate GraphQL enum, not the platform's `ResourceVisibility`
+redeclared.** It is narrower on purpose — no `ORGANIZATION`, which a chat can never legally carry —
+but the reason it is not simply the platform enum re-exported is mechanical: verified empirically
+against this project's graphql-java (25.0) that `TypeDefinitionRegistry.merge()` throws
+`SchemaProblem` (`TypeRedefinitionError`) on ANY duplicate top-level type name, even a byte-for-byte
+identical redeclaration. `server-app` depends both on `ai-hub-graphql` and on the module that
+already declares `ResourceVisibility` (`automation-configuration-graphql`'s `connection.graphqls`),
+so redeclaring it in `ai-hub-chat-sharing.graphqls` would have broken `server-app`'s schema at
+startup. `AiHubChatVisibilityMapper` converts in both directions at the controller boundary — the
+facade and service layers keep speaking the platform type. Do not "simplify" this to one shared
+enum without re-checking that merge behaviour.
 
 **`canManage`'s admin branch is not workspace-scoped, and that is deliberate but easy to
 misjudge.** `isOwnerOrAdmin` is `chat.getUserId() == userId || hasCurrentUserThisAuthority(ADMIN)` —
@@ -184,28 +221,44 @@ the same instance-wide check every other owner-or-admin gate in AI Hub uses, wit
 admin belongs to the chat's workspace. An instance admin can therefore manage, or resolve a tool
 approval on (`AiHubToolApprovalFacadeImpl.canResolve` delegates to this same `canManage`), a chat in
 a workspace they do not belong to at all. This is unchanged behavior carried forward, not a
-regression introduced by sharing — but because sharing routes through the one shared policy, a
-future fix to the workspace-membership gap applies to both call sites at once.
+regression introduced by sharing, and it is consistent with the platform: `PermissionServiceImpl`
+short-circuits both `hasResourceRole` and `hasResourceScope` on `isTenantAdmin()` before resolving
+the resource's workspace, and `isTenantAdmin()` is byte-for-byte the same authority check. The
+tenant is the isolation boundary here; a workspace is not, against an admin. The membership
+requirement described above governs the **non-owner, non-admin** path only.
 
-**Owner-only tools depend on a nullable value, and an absent one fails closed but silently.** A
-shared chat's own attached tools are always in scope for every participant; the owner's three
-user-global sources — `listUserTools` connectors, external MCP servers, AI skills — join in only
-when `AiHubChatBindingToolCallbackResolver` sees `Objects.equals(invocationContext.ownerUserId(),
-invocationContext.userId())`. `ownerUserId` is threaded from `AiHubChat.getUserId()` through
-`AiHubRunState.inject` (`VERIFIED_OWNER_USER_ID`) into `AiHubToolInvocationContext`, and it is
-optional at every hop. `Objects.equals(null, x)` is `false` for any `x`, so a call site that omits
-it makes `senderIsOwner` false even for the owner's own turn — the owner then silently loses their
-own connectors/MCP servers/skills for that turn. Safe (never widens access), but invisible: nothing
-errors, the tool list is just smaller than the owner expects.
+**Owner-only tools are decided from the chat row, not from the context.** A shared chat's own attached
+tools are always in scope for every participant; the owner's three user-global sources —
+`listUserTools` connectors, external MCP servers, AI skills — join in only when
+`AiHubChatBindingToolCallbackResolver` sees `Objects.equals(ownerUserId, invocationContext.userId())`,
+where `ownerUserId` is the `user_id` of the chat row it has just loaded by `threadId`.
+
+It used to compare `invocationContext.ownerUserId()` instead, and that was a latent trap rather than a
+live bug. `ownerUserId` is threaded from `AiHubChat.getUserId()` through `AiHubRunState.inject`
+(`VERIFIED_OWNER_USER_ID`) into `AiHubToolInvocationContext`, and it is `@Nullable` at every hop;
+`Objects.equals(null, x)` is `false` for any `x`, so a call site that omitted it made `senderIsOwner`
+false even for the owner's own turn, and the owner silently lost their own connectors/MCP servers/skills
+— safe (never widens access) but invisible, since nothing errors and the tool list is merely smaller
+than expected. Comparing the row keeps the invariant local, so no future call site can get it wrong.
+The two are equal in every production path today (both the run-state keys and the approval facade take
+their `ownerUserId` from the same row the resolver re-loads by the same `threadId`), so the change was
+behaviour-preserving; `invocationContext.ownerUserId()` stays on the context for
+`TOOL_CONTEXT_OWNER_USER_ID_KEY`, which is asset-file scoping.
 
 **Attribution rides on event order, because the session store drops message metadata.**
 `AiHubChatServiceImpl.recordTurn` inserts one `ai_hub_chat_turn` row (`chatId`, `userId`, `runId`)
 per POST. `loadMessages` cannot stash `authorUserId` on the session event itself — Spring AI's
 session store persists only text and tool calls — so it zips the ordered `ai_hub_chat_turn` rows
 positionally against the transcript's USER-typed events: the Nth USER event is attributed to the
-Nth turn row. `reliableTurnAttribution = turns.size() <= totalUserEventCount` is the one guard
-against a corrupted zip (more turn rows than USER events would misattribute); when it trips,
-attribution is simply omitted rather than guessed.
+Nth turn row. `reliableTurnAttribution = turns.size() == totalUserEventCount` is the one guard
+against a corrupted zip; when it trips, attribution is simply omitted rather than guessed. The guard
+is an **equality** check, not `<=`, and the difference matters: a deficit of turn rows is the
+reachable direction, because `recordTurn` has one production caller (the POST) while the
+channel/webhook path writes USER session events and no turn rows at all. A channel-born chat with N
+Slack messages and no turn rows, later set to `PARTICIPATE` and given two Hub turns, would satisfy
+`<=` and zip those two rows onto Slack messages 1 and 2 — naming the wrong people, and visibly so
+once more than one distinct author exists (`AiHubMessage` renders a label only when
+`authorUserIds.size > 1`).
 
 **Truncation must keep the two stores in step, and mostly does — by construction, not by a shared
 transaction.** `truncateMessagesFrom` first runs the session store's own compare-and-set
@@ -259,6 +312,28 @@ overwrite the other's, and this is accepted rather than locked — the loser's e
 own next heartbeat, well inside the TTL, so the worst case is a momentary gap, never a stuck or
 corrupted entry.
 
+That "momentary gap" claim holds only because `readPresenceMap` returns a **copy**. A local
+`CaffeineCache` stores the object reference, so handing the cached map back directly gave `heartbeat`
+and `leave` the very instance `presence` streams — a `put` landing mid-iteration threw
+`ConcurrentModificationException` out of the `/status` poll (an intermittent 500 on any thread with a
+couple of viewers) and could leave the map structurally damaged. Under that shape no write was lost;
+the failure was the exception instead, i.e. the opposite of what the paragraph above describes. Redis
+serializes, so it always copied. Keep the copy: it is what makes the read-modify-write reasoning above
+true rather than backend-dependent.
+
+**The focused-chat poll's transcript refetch must reset the tool-call store first.** Its
+"another participant's turn finished while we weren't attached" branch does
+`useAiHubStore.setState({messages: loadedMessages})` — the only wholesale replace of `messages`
+**within one chat** in the client. Everywhere else a replace comes with a `chatId` change, which
+already resets the store through `cleanupForChatChange`. Tool-call entries are projected by array
+POSITION (`projectMessagesWithToolCalls` buckets on `messageIndex`), and the two arrays do not line
+up: a mirroring client holds the streamed assistant placeholder but not the other participant's user
+bubble, since AG-UI replay starts at `RUN_STARTED`, while the refetched transcript has both. So every
+surviving live entry projected one position early, on top of the cards the loaded rows already carry
+rebuilt from their own `toolEvents` — a duplicate card, one copy attached to the previous assistant
+message. `resetForChat(chatId)` runs immediately before the replace; nothing is lost, because the
+loaded messages already carry the correct cards.
+
 **The status poll supersedes, and eventually replaces, the `in-flight` endpoint.**
 `GET .../ai_hub/status` reports, per thread, `inFlight` + who is running the turn + `messageCount` +
 `updatedAt` + the presence roster, and omits any thread the caller cannot view (never reports
@@ -271,10 +346,23 @@ reads presence and in-flight state from the shared cache/DB, so it answers corre
 which instance serves the request. `attach` does not: `InFlightAiHubRunRegistry` holds a
 `Sinks.Many<BaseEvent>` per run, a stateful reactive primitive that cannot be serialized to Redis, so
 the registry is intentionally process-local (see its own Javadoc). A viewer whose `attach` request
-lands on an instance other than the one running the turn gets a 404 and falls back to a
-history-only render with a running pulse — the same thing a page reload already does today in a
-multi-instance deployment. This feature does not fix that gap or make it worse; it just means the
-gap now applies to a shared viewer's attach as well as the owner's own reload.
+lands on an instance other than the one running the turn gets a 404 — the same thing a page reload
+already does today in a multi-instance deployment. This feature does not fix that gap or make it
+worse; it just means the gap now applies to a shared viewer's attach as well as the owner's own
+reload.
+
+**What the client actually shows for that 404, which is not simply "history plus a pulse".**
+`EventSource.onerror` cannot read a response status, so the client cannot tell a 404 from a network
+blip; both close the stream with no events delivered. `attachToContinuation`'s `onClose` then clears
+the chat's running flag AND its activity state, so the pulse the attach path sets just before opening
+the stream is cleared again — a flicker, not a steady pulse. Because `/status` (correctly, from the
+shared cache) keeps reporting `inFlight` for as long as the other node's turn runs, the focused-chat
+poll would reopen a doomed `EventSource` every 5s and flicker the composer's Send/Stop control for
+the whole turn. It now counts consecutive closes that delivered no event
+(`FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES` = 3, the same three-strike shape
+`FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES` uses for absent statuses), stops re-attaching once that is
+reached, and raises the design's own hint — "Running on another node — refresh when done." — exactly
+once, on the tick the threshold is crossed. A one-off transient close never reaches it.
 
 ### Workflow-chat metrics
 
@@ -452,6 +540,33 @@ granularity available. A second gated call in the same turn gets a `deferred` en
 row. A new user turn does not lock the composer against a pending approval — `supersedePending`
 marks any still-`PENDING` row `SUPERSEDED` when a fresh turn starts.
 
+**On a shared chat the client says what the chat is waiting on — and deliberately does NOT lock the
+composer while it waits.** A participant who can neither resolve a pending approval nor send would
+have no path forward at all, because `supersedePending` above is the only way to withdraw the request
+and every send is what triggers it. So the composer stays enabled and carries a hint instead:
+"Waiting for <name>'s approval of a tool call — sending a message withdraws that request." The
+presence strip carries its own informational "Waiting for <name>'s approval" line, so a gated call
+does not read as "idle, nobody here" to a participant. An earlier revision of the spec asked for a
+*disabled* composer here; it was reversed for the reason above, and the spec records the reversal —
+do not re-add the lock thinking the hint is a half-measure.
+
+Two details worth keeping. The hint is a **persistent row, not the input's placeholder**: a
+placeholder disappears on the first keystroke, which is exactly when the person still needs to know
+what sending will do. And it is withheld while another participant's turn is running, because the
+input is disabled by that turn anyway and promising that sending withdraws the request would be
+telling someone to do what they currently cannot.
+
+Both surfaces derive their state from two client-side facts and nothing new on the wire: whether the
+transcript still holds an undecided `data-tool-approval-request` part (`hasPendingToolApproval` — the
+approval IS a message, there is no store field for it, and `useSwitchChat` stitches `resolvedStatus`
+onto every part whose approval has since been decided), and whether the caller is owner-or-admin
+(`canResolveToolApproval`, mirroring `canResolve`). Neither says anything to the person who CAN
+resolve it: they have the interactive card, and telling them they are waiting on themselves reads as
+a bug. Both are behind `useAiHubSharingEnabled`, so a CE deployment sees the plain composer.
+
+The cost of the unlock, stated so nobody discovers it as a surprise: a participant can now cancel an
+approval the owner was still considering. That is what the hint's wording is for.
+
 **The envelope is an ordinary tool result** — `{"kind":"tool-approval-request","awaitingApproval":true,
 ...}` returned from `call()` in place of the delegate's real output. That is what keeps Anthropic's and
 OpenAI's tool-call/tool-result pairing rules satisfied for free, and means nothing has to be patched
@@ -495,19 +610,38 @@ row itself stored. This is acceptable because the conversation transcript is alr
 session memory under the chat's `threadId`; the continuation model reads it back the normal way and
 loses no history, only the ambient UI-panel context of the interrupted turn.
 
-**The approved tool executes under the RESOLVER's security context, not the requester's.** The
-requester is always the chat owner; `canResolve` delegates to `AiHubChatAccessPolicy#canManage` (Task
-3 of the shared-sessions work), which lets the owner OR any INSTANCE admin (`AuthorityConstants.ADMIN`,
-`SecurityUtils.hasCurrentUserThisAuthority`) resolve — the check itself is unchanged from before that
-delegation (still no workspace-membership check on the admin branch, so an instance admin who does not
-belong to the workspace at all can still resolve an approval raised there), but it now goes through the
-one policy the rest of AI Hub's chat authorization already shares rather than a private copy of the
-same admin check living inside this facade — a future fix to that workspace-membership gap in
-`AiHubChatAccessPolicyImpl` will apply here too. An admin resolving as themselves is at least as
-privileged as the requester, so `SecurityUtils.runAs` is deliberately NOT used to impersonate
-the requester — `execute` reads `SecurityContextHolder.getContext().getAuthentication()` directly into
-the rebuilt tool context. Both `requestedByUserId` (set at creation) and `decidedByUserId` (set at
-resolve) are recorded on the row.
+**Requester and resolver are two different people now, and each governs different things.** Once a
+chat can be shared, a participant's turn can raise an approval that the owner resolves, so
+`AiHubToolApprovalFacadeImpl` no longer treats "requester" and "current principal" as
+interchangeable:
+
+- **Tool resolution and the continuation turn follow the REQUESTER** (`requestedByUserId`).
+  `findCallback` and `toolContextFor` build their `AiHubToolInvocationContext` with the requester as
+  `userId` and the chat owner as `ownerUserId`, and `startContinuation` injects the requester as the
+  run state's `AUTHENTICATED_USER_ID`. This is load-bearing, not cosmetic: pass the resolver instead
+  and `AiHubChatBindingToolCallbackResolver` computes `senderIsOwner = true` whenever the owner
+  resolves, which hands a participant's continuation the owner's user-global connectors, MCP servers
+  and skills — the exact three populations "A participant's turn never sees any of the owner's three"
+  promises to withhold. The mirror image bites an admin resolver: `senderIsOwner` false means an
+  owner-user-global tool is in none of `findCallback`'s three populations, and the row goes `FAILED`
+  with "no longer available in this chat".
+- **Execution still happens under the RESOLVER's security context.** `execute` reads
+  `SecurityContextHolder.getContext().getAuthentication()` straight into the rebuilt tool context
+  (and that is also the `userId` on the surface-neutral `AgentToolInvocationContext`, so the id and
+  the authentication in that half name the same person). `SecurityUtils.runAs` is NOT used to
+  impersonate the requester. **This split is deliberate but unsettled** — whether the authorization
+  identity should follow the requester too, which decides what `@PreAuthorize` facades the executed
+  tool and the continuation's tools can reach, is left for the companion approval-gate spec rather
+  than inherited from when the requester was always the owner.
+
+Both `requestedByUserId` (set at creation) and `decidedByUserId` (set at resolve) are on the row, and
+the resolver is who the audit event names.
+
+`canResolve` delegates to `AiHubChatAccessPolicy#canManage`, which lets the owner OR any INSTANCE
+admin (`AuthorityConstants.ADMIN`, `SecurityUtils.hasCurrentUserThisAuthority`) resolve. The admin
+branch is not workspace-scoped, so an instance admin who does not belong to the workspace can resolve
+an approval raised there — deliberate and platform-consistent (see the `canManage` paragraph in the
+sharing section above), not a gap awaiting a fix.
 
 **Four audit events**, all through `AiHubAuditPublisher`: `AI_HUB_TOOL_APPROVAL_REQUESTED` (not strict —
 emitted from `AiHubToolApprovalServiceImpl.createPending`), `AI_HUB_TOOL_APPROVAL_APPROVED` (strict —
@@ -550,21 +684,23 @@ its own thread; no shared abstraction was introduced ahead of a second surface a
 (YAGNI). This gate and the workflow-engine tool gate under "Agent HITL approvals" are two different
 mechanisms — see that section for the line between them.
 
-**Two independent on/off switches, and they must be turned on together.** `AiHubApprovalGate` is
-conditional on BOTH `bytechef.ai.hub.enabled` AND `bytechef.ai.hub.tool-approval.enabled`
-(`ApplicationProperties.Ai.Hub.ToolApproval`, default `false`) — turning the hub on must not, by
-itself, start gating every deployment's tool calls the moment this ships. The client's only way to
-lift a default (the Tool Approvals settings page, writing an `EXEMPT` rule) sits behind the separate
-`ff-ai-hub-tool-approvals` feature flag, also off by default and gated in four places (`routes.tsx`,
-`ToolApprovals.tsx`, `AiHubChatsSidebar.tsx`, `Settings.tsx`). The on-call consequence of turning on
-only one: enable the server property without the client flag and every flagged tool call starts
-returning an approval-request envelope with no settings page able to resolve or exempt it — every
-gated call in every affected chat stalls, indistinguishable from a hang, until the property is turned
-back off. Enable the client flag without the server property and the settings page renders and can
-write rules, but nothing is ever gated — `EXEMPT`/`REQUIRE` rules save cleanly and silently do
-nothing, which reads as a broken feature rather than an off one. Turn both on together, in either
-order, before relying on this gate in a given environment; `application-bytechef.yml` sets both
-`hub.enabled` and `hub.tool-approval.enabled` to `false` side by side for exactly this reason.
+**One switch: `bytechef.ai.hub.enabled`.** `AiHubApprovalGate` is conditional on the module switch
+and nothing else, so every deployment running the hub gates the built-in destructive tool names plus
+the four destructive-verb prefixes — a destructive tool call waits for a person by default rather
+than by opt-in. The escape hatch is reachable wherever the gate is: the Tool Approvals settings page,
+the only way to write an `EXEMPT` rule and lift a default, needs no flag of its own. It is EE-only
+(the `routes.tsx` route is wrapped in `EEVersion`), and `Settings.tsx`'s `sidebarNavItems` filter
+additionally withholds its nav row where `ai.hub.enabled` is off, so the row never points at a page
+with no server behind it.
+
+The pairing this replaced is the reason to keep them coupled in future.
+`bytechef.ai.hub.tool-approval.enabled` (`ApplicationProperties.Ai.Hub.ToolApproval`) and the
+client's `ff-ai-hub-tool-approvals` flag were independent and both off by default, and either one
+alone was a broken state: the property without
+the flag gated every flagged call with no settings page able to resolve or exempt it — every gated
+call stalling, indistinguishable from a hang — and the flag without the property rendered a settings
+page whose `EXEMPT`/`REQUIRE` rules saved cleanly and did nothing. If a gate is ever reintroduced
+here, it has to cover the engine and its escape hatch together.
 
 ### Subagent conversation memory and interactive questions (EE, ticket 732)
 

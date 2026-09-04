@@ -433,8 +433,8 @@ function buildArtifactLinkMessages(artifacts: AiHubChatArtifactI[]): ThreadMessa
 /**
  * Fetches a chat's history, artifacts, and tool approvals and maps them to the same
  * {@code ThreadMessageLike[]} shape {@link useSwitchChat} loads into {@code aiHubStore.messages}. Extracted
- * so the runtime provider's focused-chat poll (Task 8 — refetching the transcript when another
- * participant's turn finishes while this client wasn't attached to it) can reuse the exact same
+ * so the runtime provider's focused-chat poll — which refetches the transcript when another
+ * participant's turn finishes while this client wasn't attached to it — can reuse the exact same
  * fetch-and-map pipeline rather than a second, divergent one. Artifacts and tool approvals degrade to empty
  * on their own failure — only the primary message fetch can reject this promise.
  */

@@ -23,10 +23,18 @@ function buildStatus(overrides: Partial<ThreadStatusI> = {}): ThreadStatusI {
     };
 }
 
-const renderStrip = (props: Parameters<typeof AiHubPresenceStrip>[0]) =>
+type PresenceStripPropsType = Parameters<typeof AiHubPresenceStrip>[0];
+
+// Every prop is defaulted to the "nothing to show" value so each test names only what it is about.
+const renderStrip = (props: Partial<PresenceStripPropsType>) =>
     render(
         <TooltipProvider>
-            <AiHubPresenceStrip {...props} />
+            <AiHubPresenceStrip
+                currentUserId={undefined}
+                pendingApprovalUserName={null}
+                threadStatus={undefined}
+                {...props}
+            />
         </TooltipProvider>
     );
 
@@ -147,5 +155,49 @@ describe('AiHubPresenceStrip', () => {
 
         expect(container).toBeEmptyDOMElement();
         expect(screen.queryByTestId('ai-hub-presence-strip')).not.toBeInTheDocument();
+    });
+
+    it('names whose approval a gated tool call is waiting on, even with nothing else to show', () => {
+        // The whole point: while an approval waits, presence is empty and inFlight is false, so without
+        // this line the chat reads as "idle, nobody here" — the conflation this strip exists to prevent.
+        renderStrip({pendingApprovalUserName: 'Ivica', threadStatus: buildStatus()});
+
+        expect(screen.getByTestId('presence-pending-approval-line')).toHaveTextContent("Waiting for Ivica's approval");
+    });
+
+    it('renders the pending-approval line alongside the roster and the running-turn line', () => {
+        renderStrip({
+            currentUserId: 1,
+            pendingApprovalUserName: 'Ivica',
+            threadStatus: buildStatus({
+                inFlight: true,
+                presence: [{lastSeen: '2026-09-02T10:00:00Z', state: 'VIEWING', userId: 2, userName: 'ana'}],
+                runningUserId: 2,
+                runningUserName: 'Ana',
+            }),
+        });
+
+        expect(screen.getByText('A')).toBeInTheDocument();
+        expect(screen.getByTestId('presence-running-line')).toBeInTheDocument();
+        expect(screen.getByTestId('presence-pending-approval-line')).toBeInTheDocument();
+    });
+
+    it('renders no pending-approval line when nothing is pending', () => {
+        renderStrip({
+            pendingApprovalUserName: null,
+            threadStatus: buildStatus({
+                presence: [{lastSeen: '2026-09-02T10:00:00Z', state: 'VIEWING', userId: 2, userName: 'ana'}],
+            }),
+        });
+
+        expect(screen.queryByTestId('presence-pending-approval-line')).not.toBeInTheDocument();
+    });
+
+    it('renders nothing at all when sharing is off, pending approval included', () => {
+        sharingEnabledRef.current = false;
+
+        const {container} = renderStrip({pendingApprovalUserName: 'Ivica', threadStatus: buildStatus()});
+
+        expect(container).toBeEmptyDOMElement();
     });
 });

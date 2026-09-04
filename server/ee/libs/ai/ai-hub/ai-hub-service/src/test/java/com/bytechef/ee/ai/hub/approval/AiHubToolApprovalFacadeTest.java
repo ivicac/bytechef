@@ -20,34 +20,47 @@ import static org.mockito.Mockito.when;
 import com.agui.core.message.UserMessage;
 import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
+import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.ai.hub.agent.AiHubChatStreamer;
 import com.bytechef.ee.ai.hub.agent.AiHubSpringAIAgent;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
+import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
+import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
+import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.OwnerOnlyAccessPolicy;
 import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.metric.AiHubToolApprovalMetrics;
+import com.bytechef.ee.ai.hub.tool.AiHubToolInvocationContext;
 import com.bytechef.ee.ai.hub.toolsearch.AiHubChatBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.AiHubGlobalToolCatalog;
+import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
+import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.user.domain.User;
+import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.platform.user.service.UserService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -62,6 +75,11 @@ class AiHubToolApprovalFacadeTest {
     private static final long WORKSPACE_ID = 7L;
     private static final long CHAT_OWNER_ID = 3L;
     private static final long CHAT_ID = 10L;
+    private static final long INSTANCE_ADMIN_ID = 8L;
+    private static final long PARTICIPANT_ID = 5L;
+    private static final String ADMIN_LOGIN = "admin";
+    private static final String OWNER_LOGIN = "owner";
+    private static final String PARTICIPANT_LOGIN = "participant";
     private static final String THREAD_ID = "thread-1";
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-02T00:00:00Z"), ZoneOffset.UTC);
@@ -72,8 +90,13 @@ class AiHubToolApprovalFacadeTest {
     private AiHubChatStreamer chatStreamer;
     private InFlightAiHubRunRegistry inFlightRunRegistry;
     private AiHubChatBindingToolCallbackResolver chatBindingResolver;
+    private AiHubGlobalToolCatalog askGlobalToolCatalog;
+    private AiHubGlobalToolCatalog buildGlobalToolCatalog;
     private AiHubSpringAIAgent askSpringAIAgent;
     private AiHubSpringAIAgent buildSpringAIAgent;
+    private LocalAgent buildAgent;
+    private SecurityContextRehydrator securityContextRehydrator;
+    private AiHubAuditPublisher auditPublisher;
     private ToolCallback sendEmailCallback;
     private PlatformTransactionManager transactionManager;
     private AiHubToolApprovalFacadeImpl facade;
@@ -95,9 +118,8 @@ class AiHubToolApprovalFacadeTest {
 
         when(sendEmailCallback.getToolDefinition()).thenReturn(sendEmailDefinition);
 
-        AiHubGlobalToolCatalog askGlobalToolCatalog = new AiHubGlobalToolCatalog("ask-session", List.of());
-        AiHubGlobalToolCatalog buildGlobalToolCatalog =
-            new AiHubGlobalToolCatalog("build-session", List.of(sendEmailCallback));
+        askGlobalToolCatalog = new AiHubGlobalToolCatalog("ask-session", List.of());
+        buildGlobalToolCatalog = new AiHubGlobalToolCatalog("build-session", List.of(sendEmailCallback));
 
         askSpringAIAgent = mock(AiHubSpringAIAgent.class);
         buildSpringAIAgent = mock(AiHubSpringAIAgent.class);
@@ -105,7 +127,7 @@ class AiHubToolApprovalFacadeTest {
         when(askSpringAIAgent.pinnedToolCallbacks()).thenReturn(List.of());
         when(buildSpringAIAgent.pinnedToolCallbacks()).thenReturn(List.of());
 
-        LocalAgent buildAgent = mock(LocalAgent.class);
+        buildAgent = mock(LocalAgent.class);
 
         when(buildAgent.getAgentId()).thenReturn("ai_hub_build");
 
@@ -119,21 +141,47 @@ class AiHubToolApprovalFacadeTest {
         when(chatBindingResolver.resolve(any())).thenReturn(List.of());
         when(approvalService.save(any(AiHubToolApproval.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User currentUser = mock(User.class);
+        User owner = user(CHAT_OWNER_ID, OWNER_LOGIN);
+        User participant = user(PARTICIPANT_ID, PARTICIPANT_LOGIN);
+        User instanceAdmin = user(INSTANCE_ADMIN_ID, ADMIN_LOGIN);
 
-        when(currentUser.getId()).thenReturn(CHAT_OWNER_ID);
-        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(userService.getCurrentUser()).thenReturn(owner);
+        when(userService.fetchUser(CHAT_OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userService.fetchUser(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+        when(userService.fetchUser(INSTANCE_ADMIN_ID)).thenReturn(Optional.of(instanceAdmin));
+
+        securityContextRehydrator = new SecurityContextRehydrator(userService, mock(AuthorityService.class));
+        auditPublisher = mock(AiHubAuditPublisher.class);
 
         transactionManager = noopTransactionManager();
 
-        facade = new AiHubToolApprovalFacadeImpl(
-            new OwnerOnlyAccessPolicy(), approvalService, chatService, userService, chatStreamer,
-            inFlightRunRegistry, chatBindingResolver, askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent,
-            buildSpringAIAgent, List.of(buildAgent), null, null, null,
-            new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
+        facade = newFacade(new OwnerOnlyAccessPolicy());
 
         SecurityContextHolder.getContext()
-            .setAuthentication(new UsernamePasswordAuthenticationToken("ivica", "n/a", List.of()));
+            .setAuthentication(new UsernamePasswordAuthenticationToken(OWNER_LOGIN, "n/a", List.of()));
+    }
+
+    /**
+     * Builds a facade over the shared collaborators with the given access policy, so the tests that need an
+     * instance-admin resolver can supply a policy that admits one without every other test losing the real
+     * owner-vs-stranger behaviour {@link OwnerOnlyAccessPolicy} gives them.
+     */
+    private AiHubToolApprovalFacadeImpl newFacade(AiHubChatAccessPolicy accessPolicy) {
+        return new AiHubToolApprovalFacadeImpl(
+            accessPolicy, approvalService, chatService, userService, chatStreamer, inFlightRunRegistry,
+            chatBindingResolver, askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent,
+            List.of(buildAgent), securityContextRehydrator, auditPublisher, null,
+            new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
+    }
+
+    private static User user(long id, String login) {
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(id);
+        when(user.getLogin()).thenReturn(login);
+        when(user.getAuthorityIds()).thenReturn(List.of());
+
+        return user;
     }
 
     @AfterEach
@@ -289,6 +337,62 @@ class AiHubToolApprovalFacadeTest {
     }
 
     /**
+     * A participant raised the approval and the OWNER resolved it. Everything that reproduces the requester's turn —
+     * the tool population {@code findCallback} searches, the executed call's tool context, and the continuation's run
+     * state — must follow the REQUESTER, with the chat's owner travelling separately as {@code ownerUserId}. Passing
+     * the resolver instead makes {@code AiHubChatBindingToolCallbackResolver} compute
+     * {@code senderIsOwner = Objects.equals(ownerUserId, userId)} as true, which un-gates the owner's user-global
+     * connectors, external MCP servers and AI skills inside a turn the participant is still driving, and hands the
+     * whole continuation the same population.
+     */
+    @Test
+    void testResolvingAParticipantsApprovalKeepsTheRequesterAsTheTurnsUser() {
+        AiHubToolApproval approval = pendingApproval("sendEmail", "BUILD");
+
+        approval.setRequestedByUserId(PARTICIPANT_ID);
+
+        when(sendEmailCallback.call(eq(approval.getArguments()), any())).thenReturn("{\"sent\":true}");
+
+        AiHubToolApprovalFacade.Resolution resolution = facade.resolve(WORKSPACE_ID, 99L, true, null);
+
+        assertThat(resolution.approval()
+            .getDecidedByUserId()).isEqualTo(CHAT_OWNER_ID);
+
+        ArgumentCaptor<AiHubToolInvocationContext> invocationContextCaptor =
+            ArgumentCaptor.forClass(AiHubToolInvocationContext.class);
+
+        verify(chatBindingResolver).resolve(invocationContextCaptor.capture());
+
+        AiHubToolInvocationContext invocationContext = invocationContextCaptor.getValue();
+
+        assertThat(invocationContext.userId()).isEqualTo(PARTICIPANT_ID);
+        assertThat(invocationContext.ownerUserId()).isEqualTo(CHAT_OWNER_ID);
+
+        ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
+
+        verify(sendEmailCallback).call(eq(approval.getArguments()), toolContextCaptor.capture());
+
+        Map<String, Object> toolContext = toolContextCaptor.getValue()
+            .getContext();
+
+        assertThat(toolContext.get(AiHubToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY)).isEqualTo(PARTICIPANT_ID);
+        assertThat(toolContext.get(AiHubToolInvocationContext.TOOL_CONTEXT_OWNER_USER_ID_KEY))
+            .isEqualTo(CHAT_OWNER_ID);
+
+        ArgumentCaptor<AgUiParameters> parametersCaptor = ArgumentCaptor.forClass(AgUiParameters.class);
+
+        verify(chatStreamer).runAgent(any(), parametersCaptor.capture(), eq(THREAD_ID));
+
+        Map<String, Object> stateMap = parametersCaptor.getValue()
+            .getState()
+            .getState();
+
+        assertThat(stateMap.get(AiHubStateKeys.AUTHENTICATED_USER_ID)).isEqualTo(PARTICIPANT_ID);
+        assertThat(stateMap.get(AiHubStateKeys.USER_ID)).isEqualTo(PARTICIPANT_ID);
+        assertThat(stateMap.get(AiHubStateKeys.VERIFIED_OWNER_USER_ID)).isEqualTo(CHAT_OWNER_ID);
+    }
+
+    /**
      * Regression test for the pinned-tool gap: {@code findCallback} used to search only the chat-bound and global
      * catalog populations, so a gated PINNED tool (e.g. the BUILD agent's {@code deleteProjectDeployment}, added
      * directly to the agent's builder rather than the searchable catalog) could never be found again at resolve time.
@@ -354,6 +458,210 @@ class AiHubToolApprovalFacadeTest {
 
         verify(chatStreamer, never()).runAgent(any(), any(), any());
         verify(approvalService).save(any(AiHubToolApproval.class));
+    }
+
+    /**
+     * The CATALOG half of the execution-identity split. A participant raised the gated call and the OWNER approved it;
+     * the tool is a global catalog tool, so it must execute as the REQUESTER — the person whose instruction raised it —
+     * and never borrow the approver's authority. Asserts the login the executing tool actually observes on its own
+     * thread, not merely that a rehydration wrapper was invoked: a wrapper carrying the wrong login would satisfy the
+     * latter. The approver stays recorded on the row and in the audit event.
+     */
+    @Test
+    void testCatalogToolApprovedByTheOwnerExecutesAsTheRequester() {
+        AiHubToolApproval approval = pendingApproval("sendEmail", "BUILD");
+
+        approval.setRequestedByUserId(PARTICIPANT_ID);
+
+        List<String> observedLogins = new ArrayList<>();
+
+        when(sendEmailCallback.call(eq(approval.getArguments()), any())).thenAnswer(invocation -> {
+            observedLogins.add(SecurityUtils.getCurrentUserLogin());
+
+            return "{\"sent\":true}";
+        });
+
+        AiHubToolApprovalFacade.Resolution resolution = facade.resolve(WORKSPACE_ID, 99L, true, null);
+
+        assertThat(observedLogins).containsExactly(PARTICIPANT_LOGIN);
+        assertThat(resolution.approval()
+            .getStatus()).isEqualTo(AiHubToolApproval.Status.APPROVED);
+        assertThat(resolution.approval()
+            .getDecidedByUserId()).isEqualTo(CHAT_OWNER_ID);
+
+        ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
+
+        verify(sendEmailCallback).call(eq(approval.getArguments()), toolContextCaptor.capture());
+
+        assertThat(toolContextCaptor.getValue()
+            .getContext()
+            .get(AgentToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY)).isEqualTo(PARTICIPANT_ID);
+
+        assertThat(auditedDecision(AiHubAuditEvent.AI_HUB_TOOL_APPROVAL_APPROVED))
+            .containsEntry("decidedByUserId", CHAT_OWNER_ID)
+            .containsEntry("requestedByUserId", PARTICIPANT_ID);
+    }
+
+    /**
+     * The CHAT-SCOPED half of the execution-identity split, and the case where running as the approver is furthest from
+     * right: an INSTANCE ADMIN — who need not even be a member of the chat's workspace — approves a participant's gated
+     * call on a tool the chat's owner attached. The binding, its pinned connection and the resources behind it are the
+     * owner's, so it must execute as the OWNER: neither the admin (whose authority nobody asked for) nor the requester
+     * (who cannot reach the owner's connection).
+     */
+    @Test
+    void testChatScopedToolApprovedByAnInstanceAdminExecutesAsTheOwner() {
+        ToolDefinition postMessageDefinition = mock(ToolDefinition.class);
+
+        when(postMessageDefinition.name()).thenReturn("postMessage");
+
+        ToolCallback postMessageCallback = mock(ToolCallback.class);
+
+        when(postMessageCallback.getToolDefinition()).thenReturn(postMessageDefinition);
+        when(chatBindingResolver.resolve(any())).thenReturn(List.of(postMessageCallback));
+
+        AiHubToolApproval approval = pendingApproval("postMessage", "BUILD");
+
+        approval.setRequestedByUserId(PARTICIPANT_ID);
+        approval.setToolKind(AiHubToolApproval.ToolKind.COMPONENT);
+        approval.setComponentName("slack");
+
+        List<String> observedLogins = new ArrayList<>();
+
+        when(postMessageCallback.call(eq(approval.getArguments()), any())).thenAnswer(invocation -> {
+            observedLogins.add(SecurityUtils.getCurrentUserLogin());
+
+            return "{\"posted\":true}";
+        });
+
+        User instanceAdmin = user(INSTANCE_ADMIN_ID, ADMIN_LOGIN);
+
+        when(userService.getCurrentUser()).thenReturn(instanceAdmin);
+
+        SecurityContextHolder.getContext()
+            .setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                    ADMIN_LOGIN, "n/a", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+
+        AiHubToolApprovalFacade.Resolution resolution =
+            newFacade(new OwnerOrInstanceAdminAccessPolicy(INSTANCE_ADMIN_ID)).resolve(
+                WORKSPACE_ID, 99L, true, null);
+
+        assertThat(observedLogins).containsExactly(OWNER_LOGIN);
+        assertThat(resolution.approval()
+            .getStatus()).isEqualTo(AiHubToolApproval.Status.APPROVED);
+        assertThat(resolution.approval()
+            .getDecidedByUserId()).isEqualTo(INSTANCE_ADMIN_ID);
+
+        ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
+
+        verify(postMessageCallback).call(eq(approval.getArguments()), toolContextCaptor.capture());
+
+        assertThat(toolContextCaptor.getValue()
+            .getContext()
+            .get(AgentToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY)).isEqualTo(CHAT_OWNER_ID);
+
+        assertThat(auditedDecision(AiHubAuditEvent.AI_HUB_TOOL_APPROVAL_APPROVED))
+            .containsEntry("decidedByUserId", INSTANCE_ADMIN_ID)
+            .containsEntry("requestedByUserId", PARTICIPANT_ID);
+    }
+
+    /**
+     * The continuation turn is dispatched as the REQUESTER, not the approver. The turn can call further tools, so
+     * starting it under the resolver's ambient context would hand the approver's authority to everything the run
+     * touches on the dispatching thread — undoing one call later the split the tool execution just established. Asserts
+     * the login observed at the moment of dispatch, inside {@code chatStreamer.runAgent}.
+     */
+    @Test
+    void testContinuationTurnIsDispatchedAsTheRequester() {
+        AiHubToolApproval approval = pendingApproval("sendEmail", "BUILD");
+
+        approval.setRequestedByUserId(PARTICIPANT_ID);
+
+        when(sendEmailCallback.call(eq(approval.getArguments()), any())).thenReturn("{\"sent\":true}");
+
+        List<String> dispatchLogins = new ArrayList<>();
+
+        when(chatStreamer.runAgent(any(), any(), eq(THREAD_ID))).thenAnswer(invocation -> {
+            dispatchLogins.add(SecurityUtils.getCurrentUserLogin());
+
+            return null;
+        });
+
+        AiHubToolApprovalFacade.Resolution resolution = facade.resolve(WORKSPACE_ID, 99L, true, null);
+
+        assertThat(dispatchLogins).containsExactly(PARTICIPANT_LOGIN);
+        assertThat(resolution.continuationStarted()).isTrue();
+        assertThat(resolution.approval()
+            .getDecidedByUserId()).isEqualTo(CHAT_OWNER_ID);
+    }
+
+    /**
+     * Fail-closed on the continuation: when the requester's identity cannot be established — their account is gone — no
+     * turn is started, rather than one started under the approver's context. Uses a chat-scoped tool so the execution
+     * identity is the owner and the tool still runs, isolating the continuation's own guard: the decision and the tool
+     * result stay committed, only the status turn is skipped, which is an outcome every caller of {@code Resolution}
+     * already handles.
+     */
+    @Test
+    void testContinuationIsNotStartedWhenTheRequesterCannotBeResolved() {
+        ToolDefinition postMessageDefinition = mock(ToolDefinition.class);
+
+        when(postMessageDefinition.name()).thenReturn("postMessage");
+
+        ToolCallback postMessageCallback = mock(ToolCallback.class);
+
+        when(postMessageCallback.getToolDefinition()).thenReturn(postMessageDefinition);
+        when(chatBindingResolver.resolve(any())).thenReturn(List.of(postMessageCallback));
+
+        AiHubToolApproval approval = pendingApproval("postMessage", "BUILD");
+
+        approval.setRequestedByUserId(PARTICIPANT_ID);
+
+        when(postMessageCallback.call(eq(approval.getArguments()), any())).thenReturn("{\"posted\":true}");
+        when(userService.fetchUser(PARTICIPANT_ID)).thenReturn(Optional.empty());
+
+        AiHubToolApprovalFacade.Resolution resolution = facade.resolve(WORKSPACE_ID, 99L, true, null);
+
+        assertThat(resolution.continuationStarted()).isFalse();
+        assertThat(resolution.runId()).isNull();
+        assertThat(resolution.approval()
+            .getStatus()).isEqualTo(AiHubToolApproval.Status.APPROVED);
+
+        verify(postMessageCallback).call(eq(approval.getArguments()), any());
+        verify(chatStreamer, never()).runAgent(any(), any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> auditedDecision(AiHubAuditEvent event) {
+        ArgumentCaptor<Map<String, Object>> dataCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(auditPublisher).publish(eq(event), dataCaptor.capture());
+
+        return dataCaptor.getValue();
+    }
+
+    /**
+     * Test fixture standing in for the production policy's owner-or-instance-admin {@code canManage}: true for the
+     * chat's own owner and for the one user id given as the instance admin, false for anyone else. Deliberately not a
+     * Mockito mock, for the same reason {@link OwnerOnlyAccessPolicy} is not.
+     */
+    private record OwnerOrInstanceAdminAccessPolicy(long adminUserId) implements AiHubChatAccessPolicy {
+
+        @Override
+        public boolean canView(AiHubChat chat, long userId) {
+            return chat.getUserId() == userId || adminUserId == userId;
+        }
+
+        @Override
+        public boolean canParticipate(AiHubChat chat, long userId) {
+            return canView(chat, userId);
+        }
+
+        @Override
+        public boolean canManage(AiHubChat chat, long userId) {
+            return canView(chat, userId);
+        }
     }
 
     /**

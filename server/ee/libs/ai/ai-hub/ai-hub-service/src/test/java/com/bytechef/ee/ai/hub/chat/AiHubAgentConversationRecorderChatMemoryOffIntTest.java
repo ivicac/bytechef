@@ -26,6 +26,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -146,7 +147,8 @@ class AiHubAgentConversationRecorderChatMemoryOffIntTest {
         AiHubAgentConversationRecorder aiHubAgentConversationRecorder(
             AiHubChatRepository chatRepository, AiHubChatService chatService, ProjectService projectService) {
 
-            return new AiHubAgentConversationRecorder(chatRepository, chatService, projectService);
+            return new AiHubAgentConversationRecorder(
+                chatRepository, chatService, projectService, Clock.systemUTC());
         }
 
         /**

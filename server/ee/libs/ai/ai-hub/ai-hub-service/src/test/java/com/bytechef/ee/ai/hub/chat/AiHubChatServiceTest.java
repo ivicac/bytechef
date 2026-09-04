@@ -12,11 +12,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +35,7 @@ import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -947,6 +950,87 @@ class AiHubChatServiceTest {
             .authorUserId()).isNull();
         assertThat(messages.get(2)
             .authorUserId()).isNull();
+    }
+
+    /**
+     * Measures the repository round-trips the {@code /status} poll costs, at the actual database boundary rather than
+     * at the service seam. Three thread ids resolve in ONE {@code findAllByThreadIdIn}, and the per-id
+     * {@code findByThreadId} the old loop issued once per thread is not called at all — so a tick over N sidebar
+     * threads is 1 query, not N.
+     *
+     * <p>
+     * The companion assertion is the one that makes this a comparison rather than a claim: three calls to the
+     * single-row {@code findByThreadIdViewable} still cost three {@code findByThreadId} queries, which is exactly what
+     * the endpoint used to do per tick.
+     * </p>
+     */
+    @Test
+    void testFindAllByThreadIdViewableCostsOneQueryForManyThreads() {
+        AiHubChat firstChat = buildChat(1L, USER_ID, "t-1", AiHubChatStatus.ACTIVE);
+        AiHubChat secondChat = buildChat(2L, USER_ID, "t-2", AiHubChatStatus.ACTIVE);
+        AiHubChat strangersChat = buildChat(3L, OTHER_USER_ID, "t-3", AiHubChatStatus.ACTIVE);
+
+        List<String> threadIds = List.of("t-1", "t-2", "t-3");
+
+        when(chatRepository.findAllByThreadIdIn(threadIds))
+            .thenReturn(List.of(firstChat, secondChat, strangersChat));
+
+        Map<String, AiHubChat> chatByThreadId = chatService.findAllByThreadIdViewable(threadIds, USER_ID);
+
+        // The stranger's chat was returned by the batch query and dropped by canView, exactly as the single-row
+        // overload would have dropped it — batching saves queries, not authorization.
+        assertThat(chatByThreadId).containsOnlyKeys("t-1", "t-2");
+
+        verify(chatRepository, times(1)).findAllByThreadIdIn(threadIds);
+        verify(chatRepository, never()).findByThreadId(anyString());
+
+        // The old per-id shape, for comparison: one query per thread.
+        when(chatRepository.findByThreadId(anyString())).thenReturn(Optional.empty());
+
+        for (String threadId : threadIds) {
+            chatService.findByThreadIdViewable(threadId, USER_ID);
+        }
+
+        verify(chatRepository, times(3)).findByThreadId(anyString());
+    }
+
+    @Test
+    void testFindAllByThreadIdViewableIssuesNoQueryForAnEmptyRequest() {
+        assertThat(chatService.findAllByThreadIdViewable(List.of(), USER_ID)).isEmpty();
+
+        verify(chatRepository, never()).findAllByThreadIdIn(any());
+    }
+
+    /**
+     * The mirror image of the surplus case, and the reachable one: a channel-born chat accumulates {@code USER} session
+     * events with no turn rows, and once its owner shares it at {@code PARTICIPATE} the Hub turns that follow add turn
+     * rows that are FEWER than the total {@code USER} events. Zipping those rows by position would attribute them to
+     * the earliest channel messages instead — naming the wrong people as soon as a second distinct author makes the
+     * client render labels at all. Pins that a turn-row deficit degrades the whole load to null authors, exactly as a
+     * surplus does.
+     */
+    @Test
+    void testLoadMessagesReturnsNullAuthorsWhenTurnRowsAreFewerThanUserEvents() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        List<org.springframework.ai.session.SessionEvent> events = List.of(
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "slack-1", Instant.ofEpochMilli(100)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "slack-2", Instant.ofEpochMilli(200)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "hub-1", Instant.ofEpochMilli(300)));
+
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(events);
+
+        AiHubChatTurn hubTurn = new AiHubChatTurn(1L, 4L, "run-1");
+
+        when(turnRepository.findAllByChatIdOrderByCreatedDateAsc(1L)).thenReturn(List.of(hubTurn));
+
+        List<AiHubChatMessage> messages = chatService.loadMessages(1L, WORKSPACE_ID, USER_ID);
+
+        assertThat(messages).hasSize(3);
+        assertThat(messages).allSatisfy(
+            message -> assertThat(message.authorUserId()).isNull());
     }
 
     /**

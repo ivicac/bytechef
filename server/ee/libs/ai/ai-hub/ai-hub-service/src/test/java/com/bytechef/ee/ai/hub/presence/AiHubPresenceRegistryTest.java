@@ -14,6 +14,7 @@ import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceState;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -96,6 +97,35 @@ class AiHubPresenceRegistryTest {
         assertThat(registry.presence(THREAD_ID)).extracting(PresenceEntry::userId)
             .containsExactly(USER_ID);
         assertThat(registry.presence(OTHER_THREAD_ID)).extracting(PresenceEntry::userId)
+            .containsExactly(OTHER_USER_ID);
+    }
+
+    /**
+     * Both the default Caffeine backend and the {@link ConcurrentMapCacheManager} used here store the object reference
+     * rather than a serialized copy, so a read that handed back the cached instance would let {@code heartbeat} and
+     * {@code leave} mutate the very map {@code presence} is streaming — a {@code ConcurrentModificationException} out
+     * of the {@code /status} poll, on a key several clients heartbeat and read concurrently. Reading the cached map and
+     * then mutating through the registry is the deterministic form of that race.
+     */
+    @Test
+    void testTheCachedMapIsNeverHandedOutForMutation() {
+        ConcurrentMapCacheManager cacheManager =
+            new ConcurrentMapCacheManager(AiHubPresenceRegistryImpl.CACHE_NAME);
+
+        AiHubPresenceRegistryImpl registry = new AiHubPresenceRegistryImpl(
+            cacheManager, Clock.fixed(Instant.parse("2026-09-02T10:00:00Z"), ZoneOffset.UTC));
+
+        registry.heartbeat(THREAD_ID, USER_ID, "alice", PresenceState.VIEWING);
+
+        HashMap<?, ?> mapReadBeforeTheSecondHeartbeat = cacheManager.getCache(AiHubPresenceRegistryImpl.CACHE_NAME)
+            .get(THREAD_ID, HashMap.class);
+
+        registry.heartbeat(THREAD_ID, OTHER_USER_ID, "bob", PresenceState.VIEWING);
+        registry.leave(THREAD_ID, USER_ID);
+
+        assertThat(mapReadBeforeTheSecondHeartbeat).hasSize(1);
+        assertThat(mapReadBeforeTheSecondHeartbeat.containsKey(USER_ID)).isTrue();
+        assertThat(registry.presence(THREAD_ID)).extracting(PresenceEntry::userId)
             .containsExactly(OTHER_USER_ID);
     }
 

@@ -9,6 +9,7 @@ package com.bytechef.ee.ai.hub.web.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,7 @@ import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -76,6 +78,79 @@ class AiHubChatToolGraphQlControllerTest {
 
         verify(chatToolFacade).setToolRequiresApproval(5L, true);
         assertThat(result.requiresApproval()).isTrue();
+    }
+
+    /**
+     * A chat's own attached tools are in scope for every participant, so listing them authorizes on viewability
+     * ({@code findByThreadIdViewable}) rather than ownership: a participant who can invoke a chip must be able to see
+     * it. The chat here is owned by 10 and read by 11.
+     */
+    @Test
+    void testAiHubChatToolsListsAParticipantsChatTools() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ComponentDefinitionService componentDefinitionService = mock(ComponentDefinitionService.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User participant = mock(User.class);
+
+        when(participant.getId()).thenReturn(11L);
+        when(userService.getCurrentUser()).thenReturn(participant);
+
+        Workspace workspace = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(11L)).thenReturn(List.of(workspace));
+
+        AiHubChat chat = mock(AiHubChat.class);
+
+        when(chat.getId()).thenReturn(42L);
+        when(chatService.findByThreadIdViewable("thread-1", 11L)).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(42L)).thenReturn(7L);
+
+        AiHubChatToolBinding binding = new AiHubChatToolBinding(
+            5L, 99L, 42L, "slack", 1, "sendMessage", 42L, 0, Map.of(), false);
+
+        when(chatToolFacade.listChatTools(42L)).thenReturn(List.of(binding));
+
+        AiHubChatToolGraphQlController controller = new AiHubChatToolGraphQlController(
+            chatService, chatToolFacade, clusterElementDefinitionService, componentDefinitionService, userService,
+            workspaceFacade);
+
+        assertThat(controller.aiHubChatTools(7L, "thread-1")).containsExactly(binding);
+    }
+
+    /**
+     * A thread the caller cannot view is indistinguishable from one that does not exist yet — the composer renders the
+     * chip list before the first turn creates the row, so both answer with an empty list rather than an error.
+     */
+    @Test
+    void testAiHubChatToolsReturnsEmptyForAThreadTheCallerCannotView() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ComponentDefinitionService componentDefinitionService = mock(ComponentDefinitionService.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User stranger = mock(User.class);
+
+        when(stranger.getId()).thenReturn(12L);
+        when(userService.getCurrentUser()).thenReturn(stranger);
+
+        Workspace workspace = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(12L)).thenReturn(List.of(workspace));
+        when(chatService.findByThreadIdViewable("thread-1", 12L)).thenReturn(Optional.empty());
+
+        AiHubChatToolGraphQlController controller = new AiHubChatToolGraphQlController(
+            chatService, chatToolFacade, clusterElementDefinitionService, componentDefinitionService, userService,
+            workspaceFacade);
+
+        assertThat(controller.aiHubChatTools(7L, "thread-1")).isEmpty();
+
+        verify(chatToolFacade, never()).listChatTools(anyLong());
     }
 
     @Test

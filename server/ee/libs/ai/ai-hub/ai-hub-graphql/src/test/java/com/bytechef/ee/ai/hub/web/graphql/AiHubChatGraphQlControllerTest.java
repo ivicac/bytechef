@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -430,7 +431,7 @@ class AiHubChatGraphQlControllerTest {
         AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
-        assertThat(controller.chatOwnerName(chat)).isEqualTo("ivica");
+        assertThat(controller.chatOwnerName(List.of(chat))).containsExactly("ivica");
     }
 
     @Test
@@ -448,7 +449,7 @@ class AiHubChatGraphQlControllerTest {
         AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
-        assertThat(controller.chatOwnerName(chat)).isNull();
+        assertThat(controller.chatOwnerName(List.of(chat))).containsExactly((String) null);
     }
 
     @Test
@@ -489,6 +490,42 @@ class AiHubChatGraphQlControllerTest {
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
         assertThat(controller.chatIsOwner(chat)).isFalse();
+    }
+
+    /**
+     * The client selects {@code ownerName} unconditionally on {@code aiHubChats}, so the per-row resolver this replaced
+     * cost one {@code fetchUser} per chat on every sidebar load. Pins the batched shape: five chats over two distinct
+     * owners cost two user lookups, not five.
+     */
+    @Test
+    void testOwnerNameResolvesOncePerDistinctUserForTheWholeBatch() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        List<AiHubChat> chats = List.of(
+            new AiHubChat(10L), new AiHubChat(10L), new AiHubChat(99L), new AiHubChat(10L), new AiHubChat(99L));
+
+        User owner = mock(User.class);
+        User sharer = mock(User.class);
+
+        when(owner.getLogin()).thenReturn("ivica");
+        when(sharer.getLogin()).thenReturn("ana");
+        when(userService.fetchUser(10L)).thenReturn(Optional.of(owner));
+        when(userService.fetchUser(99L)).thenReturn(Optional.of(sharer));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        // Positional: one entry per input row, in the input's order — including the repeated owners, which a
+        // parent-keyed Map would have collapsed.
+        assertThat(controller.chatOwnerName(chats)).containsExactly("ivica", "ivica", "ana", "ivica", "ana");
+
+        // Five rows, two distinct owners: two lookups.
+        verify(userService, times(1)).fetchUser(10L);
+        verify(userService, times(1)).fetchUser(99L);
     }
 
     @Test
@@ -545,7 +582,7 @@ class AiHubChatGraphQlControllerTest {
         AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
-        assertThat(controller.messageAuthorName(message)).isEqualTo("participant");
+        assertThat(controller.messageAuthorName(List.of(message))).containsExactly("participant");
     }
 
     @Test
@@ -561,8 +598,45 @@ class AiHubChatGraphQlControllerTest {
         AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
-        assertThat(controller.messageAuthorName(message)).isNull();
+        assertThat(controller.messageAuthorName(List.of(message))).containsExactly((String) null);
+
+        // A message with no author contributes no lookup at all.
         verify(userService, never()).fetchUser(anyLong());
+    }
+
+    /**
+     * {@code AiHubChatMessage} is a record, so two rows with the same role, content, timestamp, tool events and author
+     * are {@code equals}. A {@code @BatchMapping} returning a parent-keyed {@code Map} would collapse them into one
+     * entry and leave the duplicate's {@code authorName} unresolved; the positional {@code List} form cannot. Pins that
+     * a transcript containing a genuinely repeated message still gets an author for every row.
+     */
+    @Test
+    void testAuthorNameResolvesEveryRowWhenTwoMessagesAreEqual() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        Instant timestamp = Instant.parse("2026-09-03T10:00:00Z");
+        AiHubChatMessage first = new AiHubChatMessage("user", "ping", timestamp, null, 42L);
+        AiHubChatMessage duplicate = new AiHubChatMessage("user", "ping", timestamp, null, 42L);
+
+        assertThat(first).isEqualTo(duplicate);
+
+        User author = mock(User.class);
+
+        when(author.getLogin()).thenReturn("participant");
+        when(userService.fetchUser(42L)).thenReturn(Optional.of(author));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.messageAuthorName(List.of(first, duplicate)))
+            .containsExactly("participant", "participant");
+
+        // Two equal rows, one distinct author: one lookup.
+        verify(userService, times(1)).fetchUser(42L);
     }
 
     private static Workspace buildWorkspace(long id) {

@@ -23,6 +23,11 @@ interface AiHubPresenceStripPropsI {
     // ELSE — the caller's own in-flight turn is already covered by the composer's Stop button, so this
     // strip stays silent about it.
     currentUserId: number | undefined;
+    // Whose decision a gated tool call is waiting on, or null when nothing is pending / the viewer is the
+    // one who can decide it. Derived by the caller (which has the chat row and the admin flag) rather than
+    // read here, since a pending approval is not part of threadStatus — it lives in the transcript, see
+    // pendingToolApproval.
+    pendingApprovalUserName: string | null;
     threadStatus: ThreadStatusI | undefined;
 }
 
@@ -60,8 +65,9 @@ const PresenceAvatar = ({entry}: PresenceAvatarPropsI) => (
 /**
  * Who's currently on this shared chat: one avatar per present viewer (initials from their name, bouncing
  * dots while that viewer's state is TYPING), plus — while another participant's turn is running — a line
- * naming them. Self-hides when there is nothing to show, so a chat nobody else has ever opened looks
- * exactly as it always has.
+ * naming them, and — while a gated tool call waits on a decision the viewer cannot make — a line naming
+ * whose approval it needs. Self-hides when there is nothing to show, so a chat nobody else has ever opened
+ * looks exactly as it always has.
  *
  * <p>
  * Fed by {@code useAiHubChatsStore.threadStatus}, hydrated by the sidebar's {@code /status} poll (own
@@ -73,11 +79,10 @@ const PresenceAvatar = ({entry}: PresenceAvatarPropsI) => (
  *
  * <p>
  * Self-gated on {@code useAiHubSharingEnabled} rather than relying only on the caller to withhold
- * {@code threadStatus} — a flagged-off or CE caller renders nothing here regardless of what the prop
- * carries.
+ * {@code threadStatus} — a CE caller renders nothing here regardless of what the prop carries.
  * </p>
  */
-const AiHubPresenceStrip = ({currentUserId, threadStatus}: AiHubPresenceStripPropsI) => {
+const AiHubPresenceStrip = ({currentUserId, pendingApprovalUserName, threadStatus}: AiHubPresenceStripPropsI) => {
     const sharingEnabled = useAiHubSharingEnabled();
 
     if (!sharingEnabled || !threadStatus) {
@@ -88,7 +93,7 @@ const AiHubPresenceStrip = ({currentUserId, threadStatus}: AiHubPresenceStripPro
 
     const showRunningLine = inFlight && runningUserId != null && runningUserId !== currentUserId;
 
-    if (presence.length === 0 && !showRunningLine) {
+    if (presence.length === 0 && !showRunningLine && pendingApprovalUserName == null) {
         return null;
     }
 
@@ -104,6 +109,16 @@ const AiHubPresenceStrip = ({currentUserId, threadStatus}: AiHubPresenceStripPro
 
             {showRunningLine && (
                 <span data-testid="presence-running-line">{runningUserName}&apos;s turn is running</span>
+            )}
+
+            {/* Shown alongside the roster rather than instead of it: while a gated tool call waits, the
+             * chat looks idle to everyone who cannot decide it, and "idle with nobody here" is exactly
+             * the reading this strip exists to prevent. */}
+
+            {pendingApprovalUserName != null && (
+                <span data-testid="presence-pending-approval-line">
+                    Waiting for {pendingApprovalUserName}&apos;s approval
+                </span>
             )}
         </div>
     );

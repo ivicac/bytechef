@@ -53,11 +53,18 @@ import org.springframework.ai.tool.ToolCallback;
  * A shared chat's capability set is the same for every reader: the chat's own attached tools are always in scope, but
  * every user-scoped source — the owner's "added connectors" ({@code listUserTools}), their external MCP servers
  * ({@link AiHubMcpToolCallbackProvider}), and their AI skills ({@link AiHubSkillsToolProvider}) — joins in only when
- * the current sender IS that owner, per {@link AiHubToolInvocationContext#ownerUserId()} vs
+ * the current sender IS that owner, decided by the loaded chat row's {@code user_id} against
  * {@link AiHubToolInvocationContext#userId()}. A participant's turn never sees any of the owner's three, and never sees
  * its own either — all three are always keyed off the chat's owner, not the sender. Within the chat-scoped/user-global
  * pair, a tool configured at chat scope overrides the user-global one for the same (component, version, clusterElement)
  * — more specific wins.
+ * </p>
+ *
+ * <p>
+ * Deliberately NOT decided from {@link AiHubToolInvocationContext#ownerUserId()}, even though that field carries the
+ * same value in every production path: it is {@code @Nullable} the whole way down from the controller, so a call site
+ * that omitted it would silently withhold the owner's own three sources from the owner. The field remains on the
+ * context for {@code TOOL_CONTEXT_OWNER_USER_ID_KEY} (asset-file scoping).
  * </p>
  *
  * @version ee
@@ -106,13 +113,19 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
 
         AiHubChat aiHubChat = chat.get();
 
-        long userId = aiHubChat.getUserId();
+        long ownerUserId = aiHubChat.getUserId();
         long workspaceId = chatService.getWorkspaceId(aiHubChat.getId());
 
-        boolean senderIsOwner = Objects.equals(invocationContext.ownerUserId(), invocationContext.userId());
+        // Compared against the row just loaded, NOT invocationContext.ownerUserId(): that field is @Nullable at
+        // every hop from the controller down, and Objects.equals(null, x) is false for any x, so a call site that
+        // forgets to thread it would silently strip the OWNER of their own user-global connectors, MCP servers and
+        // skills — safe, but invisible. The two operands agree in every production path, because both the run-state
+        // keys and the approval facade derive their ownerUserId from the same chat row this method re-loads by the
+        // same threadId, so this is behaviour-preserving and simply makes the invariant local.
+        boolean senderIsOwner = Objects.equals(ownerUserId, invocationContext.userId());
         List<AiHubChatToolBinding> chatBindings = chatToolFacade.listChatTools(aiHubChat.getId());
         List<AiHubChatToolBinding> userBindings =
-            senderIsOwner ? chatToolFacade.listUserTools(userId, workspaceId) : List.of();
+            senderIsOwner ? chatToolFacade.listUserTools(ownerUserId, workspaceId) : List.of();
 
         // …minus whatever this chat has switched off. The subtraction has to be explicit: listUserTools answers
         // "what has this user made available", which knows nothing about one chat, so without this the composer's
@@ -148,20 +161,21 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
 
         if (senderIsOwner) {
             try {
-                callbacks.addAll(mcpToolCallbackProvider.resolve(userId, workspaceId));
+                callbacks.addAll(mcpToolCallbackProvider.resolve(ownerUserId, workspaceId));
             } catch (RuntimeException exception) {
                 log.warn(
                     "MCP server tool resolution failed for user={}, workspace={}; continuing without MCP tools",
-                    userId, workspaceId, exception);
+                    ownerUserId, workspaceId, exception);
             }
         }
 
         if (senderIsOwner) {
             try {
-                callbacks.addAll(skillsToolCallbackProvider.resolve(userId));
+                callbacks.addAll(skillsToolCallbackProvider.resolve(ownerUserId));
             } catch (RuntimeException exception) {
                 log.warn(
-                    "Skill tool resolution failed for user={}; continuing without skill tools", userId, exception);
+                    "Skill tool resolution failed for user={}; continuing without skill tools", ownerUserId,
+                    exception);
             }
         }
 
