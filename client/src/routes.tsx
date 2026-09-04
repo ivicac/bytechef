@@ -338,16 +338,19 @@ const currentWorkspaceSettingsRoutes = {
             title: 'Variables',
         },
         {
+            group: 'AI',
             href: 'ai-hub/connectors',
-            title: 'AI Hub Connectors',
+            title: 'Hub Connectors',
         },
         {
+            group: 'AI',
             href: 'ai/agents',
-            title: 'AI Agents',
+            title: 'Agents',
         },
         {
+            group: 'AI',
             href: 'ai/memories',
-            title: 'AI Memories',
+            title: 'Memories',
         },
         {
             href: 'ai-hub/tool-approvals',
@@ -734,23 +737,12 @@ const platformSettingsRoutes = {
             title: 'Billing',
         },
         {
-            items: [
-                {
-                    href: 'ai-providers',
-                    title: 'Providers',
-                },
-                {
-                    href: 'ai/skills',
-                    title: 'Skills',
-                },
-                {
-                    href: 'ai/memories',
-                    title: 'Memories',
-                },
-            ],
-            title: 'AI',
+            group: 'AI',
+            href: 'ai-providers',
+            title: 'Providers',
         },
         {
+            group: 'AI',
             href: 'ai/skills',
             title: 'AI Skills',
         },
