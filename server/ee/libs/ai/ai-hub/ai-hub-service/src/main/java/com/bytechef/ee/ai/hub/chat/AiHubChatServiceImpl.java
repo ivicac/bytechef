@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiPredicate;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +80,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     private static final int MESSAGE_LIMIT = 500;
 
     private final AiHubChatRepository chatRepository;
+    private final AiHubChatAccessPolicy accessPolicy;
     private final Clock clock;
     private final JobFacade jobFacade;
     private final WorkflowChatJobRegistry jobRegistry;
@@ -96,14 +98,15 @@ public class AiHubChatServiceImpl implements AiHubChatService {
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubChatServiceImpl(
-        AiHubChatRepository chatRepository, JobFacade jobFacade, WorkflowChatJobRegistry jobRegistry,
-        InFlightAiHubRunRegistry inFlightRunRegistry,
+        AiHubChatRepository chatRepository, AiHubChatAccessPolicy accessPolicy, JobFacade jobFacade,
+        WorkflowChatJobRegistry jobRegistry, InFlightAiHubRunRegistry inFlightRunRegistry,
         ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider,
         ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider,
         @Nullable AiHubAuditPublisher auditPublisher,
         @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
 
         this.chatRepository = chatRepository;
+        this.accessPolicy = accessPolicy;
         this.clock = Clock.systemUTC();
         this.jobFacade = jobFacade;
         this.jobRegistry = jobRegistry;
@@ -366,7 +369,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     public List<AiHubChatMessage> loadMessages(
         long chatId, long requesterWorkspaceId, long requesterUserId) {
 
-        AiHubChat chat = loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+        AiHubChat chat = loadViewable(chatId, requesterWorkspaceId, requesterUserId);
 
         AiHubSessionMemory sessionMemory = aiHubSessionMemoryProvider.getIfAvailable();
 
@@ -434,7 +437,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     public AiHubChatTranscriptSummary summarizeTranscript(
         long chatId, long requesterWorkspaceId, long requesterUserId) {
 
-        AiHubChat chat = loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+        AiHubChat chat = loadViewable(chatId, requesterWorkspaceId, requesterUserId);
 
         AiHubSessionMemory sessionMemory = aiHubSessionMemoryProvider.getIfAvailable();
 
@@ -506,7 +509,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         AiHubChatPatch chatPatch) {
 
         AiHubChat chat =
-            loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+            loadManageable(chatId, requesterWorkspaceId, requesterUserId);
 
         if (chatPatch.title() != null) {
             chat.setTitle(chatPatch.title());
@@ -587,7 +590,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         long chatId, long requesterWorkspaceId, long requesterUserId, int fromMessageIndex) {
 
         AiHubChat chat =
-            loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+            loadParticipable(chatId, requesterWorkspaceId, requesterUserId);
 
         if (fromMessageIndex < 0) {
             // Defensive — a negative index would delete every row. The GraphQL surface should reject this earlier
@@ -657,7 +660,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
 
     @Override
     public void appendAssistantMessage(long chatId, long requesterWorkspaceId, long requesterUserId, String content) {
-        AiHubChat chat = loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+        AiHubChat chat = loadParticipable(chatId, requesterWorkspaceId, requesterUserId);
 
         if (content == null || content.isBlank()) {
             return;
@@ -684,13 +687,13 @@ public class AiHubChatServiceImpl implements AiHubChatService {
 
     @Override
     public boolean cancelWorkflowChatTurn(long chatId, long requesterWorkspaceId, long requesterUserId) {
-        // Ownership check is the same gate as patch/delete — verifies the chat belongs to the requester.
+        // Participability check, the same gate truncateMessagesFrom/appendAssistantMessage use.
         // We don't restrict to kind=WORKFLOW_CHAT here: the cancel-turn surface is workflow-chat-specific by name
         // and the GraphQL mutation is the only entry point, but if a future caller wires this against a standard
         // chat by mistake, the registry lookup returns null and we surface a clean false rather than
         // accidentally cancelling something else.
         AiHubChat chat =
-            loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+            loadParticipable(chatId, requesterWorkspaceId, requesterUserId);
 
         Long jobId = jobRegistry.get(chat.getId());
 
@@ -723,7 +726,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // SSE subscribers and makes subsequent isInFlight probes return false. That's the contract the
         // client needs: a re-mount after the cancel sees a not-in-flight chat and stops showing the
         // streaming UI. Passing runId lets the registry tombstone a run that hasn't registered yet.
-        AiHubChat chat = loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+        AiHubChat chat = loadParticipable(chatId, requesterWorkspaceId, requesterUserId);
 
         return inFlightRunRegistry.cancel(chat.getThreadId(), runId);
     }
@@ -731,7 +734,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     @Override
     public void delete(long chatId, long requesterWorkspaceId, long requesterUserId) {
         AiHubChat chat =
-            loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+            loadManageable(chatId, requesterWorkspaceId, requesterUserId);
 
         deleteApprovals(chatId);
 
@@ -830,7 +833,25 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     @Override
     @Transactional(readOnly = true)
     public AiHubChat getById(long chatId, long requesterWorkspaceId, long requesterUserId) {
-        return loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
+        return loadViewable(chatId, requesterWorkspaceId, requesterUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AiHubChat getViewable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return loadViewable(chatId, requesterWorkspaceId, requesterUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AiHubChat getParticipable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return loadParticipable(chatId, requesterWorkspaceId, requesterUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AiHubChat getManageable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return loadManageable(chatId, requesterWorkspaceId, requesterUserId);
     }
 
     @Override
@@ -844,9 +865,9 @@ public class AiHubChatServiceImpl implements AiHubChatService {
 
         AiHubChat chat = chatOptional.get();
 
-        if (chat.getUserId() != requesterUserId || !workspaceOwnsChat(requesterWorkspaceId, chat)) {
+        if (!workspaceOwnsChat(requesterWorkspaceId, chat) || !accessPolicy.canManage(chat, requesterUserId)) {
             log.warn(
-                "AiHubChat ownership mismatch: requester userId={} workspaceId={} attempted to access "
+                "AiHubChat access denied: requester userId={} workspaceId={} attempted to access "
                     + "threadId={} owned by userId={}. Returning 404 to avoid leaking existence.",
                 requesterUserId, requesterWorkspaceId, threadId, chat.getUserId());
 
@@ -856,33 +877,58 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         return chat;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AiHubChat> findByThreadIdViewable(String threadId, long requesterUserId) {
+        return chatRepository.findByThreadId(threadId)
+            .filter(chat -> accessPolicy.canView(chat, requesterUserId));
+    }
+
     /**
-     * Loads {@code chatId} and verifies it belongs to {@code requesterUserId} AND lives in
-     * {@code requesterWorkspaceId}. The workspace check is required because the controller-level workspaceId query
-     * parameter would otherwise be a decorative no-op — a caller could read or mutate any chat they own from any
-     * workspace.
+     * Loads {@code chatId} and verifies the requester may view it — either as owner/admin, or, for a non-owner, per
+     * {@link AiHubChatAccessPolicy#canView}.
+     */
+    private AiHubChat loadViewable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return load(chatId, requesterWorkspaceId, requesterUserId, accessPolicy::canView);
+    }
+
+    /**
+     * Loads {@code chatId} and verifies the requester may contribute a turn to it, per
+     * {@link AiHubChatAccessPolicy#canParticipate}.
+     */
+    private AiHubChat loadParticipable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return load(chatId, requesterWorkspaceId, requesterUserId, accessPolicy::canParticipate);
+    }
+
+    /**
+     * Loads {@code chatId} and verifies the requester may manage it — owner or admin only, per
+     * {@link AiHubChatAccessPolicy#canManage}.
+     */
+    private AiHubChat loadManageable(long chatId, long requesterWorkspaceId, long requesterUserId) {
+        return load(chatId, requesterWorkspaceId, requesterUserId, accessPolicy::canManage);
+    }
+
+    /**
+     * Loads {@code chatId}, verifies it lives in {@code requesterWorkspaceId}, and verifies {@code allowed} accepts the
+     * requester. The workspace check is required because the controller-level workspaceId query parameter would
+     * otherwise be a decorative no-op — a caller could read or mutate any chat reachable from any workspace they merely
+     * claim to be operating in.
      *
      * <p>
-     * Probe-oracle defense: "does not exist" and "exists in another workspace/user" both return 404 with an opaque
-     * message so an authenticated attacker cannot enumerate chat ids across the install. Server-side logging at WARN
-     * preserves the audit trail for security review.
+     * Probe-oracle defense: "does not exist", "exists in another workspace", and "not permitted for this requester" all
+     * return 404 with an opaque message so an authenticated attacker cannot enumerate chat ids across the install.
+     * Server-side logging at WARN preserves the audit trail for security review.
      */
-    private AiHubChat loadAndCheckOwnership(
-        long chatId, long requesterWorkspaceId, long requesterUserId) {
+    private AiHubChat load(
+        long chatId, long requesterWorkspaceId, long requesterUserId, BiPredicate<AiHubChat, Long> allowed) {
 
-        Optional<AiHubChat> chatOptional = chatRepository.findById(chatId);
+        AiHubChat chat = chatRepository.findById(chatId)
+            .orElseThrow(() -> new NotFoundException("AiHubChat not found"));
 
-        if (chatOptional.isEmpty()) {
-            throw new NotFoundException("AiHubChat not found");
-        }
-
-        AiHubChat chat = chatOptional.get();
-
-        if (chat.getUserId() != requesterUserId || !workspaceOwnsChat(requesterWorkspaceId, chat)) {
+        if (!workspaceOwnsChat(requesterWorkspaceId, chat) || !allowed.test(chat, requesterUserId)) {
             log.warn(
-                "AiHubChat ownership mismatch: requester userId={} workspaceId={} attempted to access "
-                    + "chatId={} owned by userId={}. Returning 404 to avoid leaking "
-                    + "existence.",
+                "AiHubChat access denied: requester userId={} workspaceId={} attempted to access chatId={} owned by "
+                    + "userId={}. Returning 404 to avoid leaking existence.",
                 requesterUserId, requesterWorkspaceId, chatId, chat.getUserId());
 
             throw new NotFoundException("AiHubChat not found");

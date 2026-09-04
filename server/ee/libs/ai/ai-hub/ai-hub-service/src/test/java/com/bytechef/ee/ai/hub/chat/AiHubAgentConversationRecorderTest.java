@@ -111,7 +111,7 @@ class AiHubAgentConversationRecorderTest {
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         chatService = new AiHubChatServiceImpl(
-            chatRepository, mock(com.bytechef.atlas.execution.facade.JobFacade.class),
+            chatRepository, new OwnerOnlyAccessPolicy(), mock(com.bytechef.atlas.execution.facade.JobFacade.class),
             mock(com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry.class),
             mock(com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider,
             null, null);
@@ -143,7 +143,8 @@ class AiHubAgentConversationRecorderTest {
         // The second turn found the row and did not attempt another insert — the opposite of
         // createAgentChatAiHubChat, which is deliberately always-new.
         verify(chatRepository, times(1)).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
     }
 
     @Test
@@ -156,7 +157,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, OTHER_AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, times(1)).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
 
         AiHubChat chat = storedChat.get();
 
@@ -176,7 +178,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
         verify(chatRepository, never()).save(any(AiHubChat.class));
 
         assertThat(composerChat.getAiAgentId()).isNull();
@@ -285,7 +288,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
         verify(chatRepository, never()).save(any(AiHubChat.class));
     }
 
@@ -296,7 +300,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID + 1, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
         verify(chatRepository, never()).findByThreadId(anyString());
     }
 
@@ -330,7 +335,8 @@ class AiHubAgentConversationRecorderTest {
                 WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID, CONVERSATION_ID, null, null, WORKFLOW_ID, null));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+            anyInt());
     }
 
     @Test
@@ -407,7 +413,8 @@ class AiHubAgentConversationRecorderTest {
             .thenAnswer(invocation -> Optional.ofNullable(storedChat.get()));
         when(
             chatRepository.insertAgentChatIfAbsent(
-                anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any()))
+                anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
+                anyInt()))
                     .thenAnswer(invocation -> {
                         AiHubChat chat = chat(
                             AiHubChatKind.values()[invocation.getArgument(5, Integer.class)],

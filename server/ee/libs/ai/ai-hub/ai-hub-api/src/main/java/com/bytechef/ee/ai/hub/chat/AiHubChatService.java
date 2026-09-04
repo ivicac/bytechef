@@ -86,18 +86,18 @@ public interface AiHubChatService {
 
     /**
      * Loads the message history for a chat from Spring AI's session store. Throws
-     * {@link com.bytechef.ee.ai.hub.exception.ForbiddenException} if the chat does not belong to the requester or does
-     * not belong to {@code requesterWorkspaceId}, and {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when
-     * the chat does not exist.
+     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist, does not live in
+     * {@code requesterWorkspaceId}, or is not viewable by {@code requesterUserId} per
+     * {@link AiHubChatAccessPolicy#canView}.
      */
     List<AiHubChatMessage>
         loadMessages(long chatId, long requesterWorkspaceId, long requesterUserId);
 
     /**
      * Applies a partial update ({@link AiHubChatPatch}) to an existing chat. Only non-null patch fields are applied.
-     * Throws {@link com.bytechef.ee.ai.hub.exception.ForbiddenException} if the chat does not belong to the requester
-     * or does not belong to {@code requesterWorkspaceId}, and
-     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist.
+     * Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist, does not live in
+     * {@code requesterWorkspaceId}, or is not manageable by {@code requesterUserId} per
+     * {@link AiHubChatAccessPolicy#canManage}.
      */
     AiHubChat patch(
         long chatId, long requesterWorkspaceId, long requesterUserId,
@@ -105,9 +105,9 @@ public interface AiHubChatService {
 
     /**
      * Hard-deletes a chat, removes its events from the session store, and deletes the metadata row. Throws
-     * {@link com.bytechef.ee.ai.hub.exception.ForbiddenException} if the chat does not belong to the requester or does
-     * not belong to {@code requesterWorkspaceId}, and {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when
-     * the chat does not exist.
+     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist, does not live in
+     * {@code requesterWorkspaceId}, or is not manageable by {@code requesterUserId} per
+     * {@link AiHubChatAccessPolicy#canManage}.
      */
     void delete(long chatId, long requesterWorkspaceId, long requesterUserId);
 
@@ -132,8 +132,9 @@ public interface AiHubChatService {
      *
      * <p>
      * Returns the number of rows deleted. Idempotent — calling with an index past the end of the history deletes zero
-     * rows. Throws {@link com.bytechef.ee.ai.hub.exception.ForbiddenException} /
-     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same ownership invariants as {@link #patch}.
+     * rows. Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist, does not
+     * live in {@code requesterWorkspaceId}, or is not participable by {@code requesterUserId} per
+     * {@link AiHubChatAccessPolicy#canParticipate}.
      * </p>
      *
      * <p>
@@ -144,8 +145,8 @@ public interface AiHubChatService {
      * </p>
      *
      * @param chatId               the chat whose history to truncate
-     * @param requesterWorkspaceId workspace of the calling user (ownership check)
-     * @param requesterUserId      the calling user (ownership check)
+     * @param requesterWorkspaceId workspace of the calling user (workspace + participability check)
+     * @param requesterUserId      the calling user (participability check)
      * @param fromMessageIndex     zero-based index; the message at this position AND all subsequent are deleted
      * @return the number of chat-memory rows that were deleted
      */
@@ -156,11 +157,11 @@ public interface AiHubChatService {
      * Appends an assistant message to the chat's chat memory. Used by the workflow-chat client to persist an
      * approval-resolution continuation — the resumed run's output streams to the client outside the
      * {@code WebhookBridgeAgent} turn model, so without this write the continuation text would vanish on reload. Blank
-     * content is a no-op. Ownership invariants match {@link #truncateMessagesFrom}.
+     * content is a no-op. Participability invariants match {@link #truncateMessagesFrom}.
      *
      * @param chatId               the chat to append to
-     * @param requesterWorkspaceId workspace the requester claims; must own the chat
-     * @param requesterUserId      the requesting user; must own the chat
+     * @param requesterWorkspaceId workspace the requester claims; the chat must live there
+     * @param requesterUserId      the requesting user; must be able to participate in the chat
      * @param content              the assistant message text
      */
     void appendAssistantMessage(long chatId, long requesterWorkspaceId, long requesterUserId, String content);
@@ -173,8 +174,8 @@ public interface AiHubChatService {
      * <p>
      * Resolves through {@code WorkflowChatJobRegistry} (the chatId-to-jobId mapping AgUiStreamBridge populates on the
      * workflow's {@code start} event) to find the right {@code JobFacade.stopJob} target. Throws
-     * {@link com.bytechef.ee.ai.hub.exception.ForbiddenException}/
-     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same ownership invariants as {@link #patch}.
+     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same participability invariants as
+     * {@link #truncateMessagesFrom}.
      * </p>
      */
     boolean cancelWorkflowChatTurn(long chatId, long requesterWorkspaceId, long requesterUserId);
@@ -190,8 +191,8 @@ public interface AiHubChatService {
      * sink. The agent's reactive subscription may keep producing events server-side — the AGUI {@code agent.runAgent}
      * call doesn't expose a {@code Disposable} we can dispose — but subsequent events are dropped because the sink is
      * in a terminal state, and the client's mount-time probe sees the chat as not-in-flight so the streaming UI is
-     * dismissed. Throws {@link com.bytechef.ee.ai.hub.exception.ForbiddenException}/
-     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same ownership invariants as {@link #patch}.
+     * dismissed. Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same participability
+     * invariants as {@link #truncateMessagesFrom}.
      * </p>
      *
      * <p>
@@ -221,7 +222,7 @@ public interface AiHubChatService {
      * threadId) use this helper. Throws {@code NotFoundException} if no chat exists with the given id.
      *
      * <p>
-     * Privilege note: this method skips the workspace/user ownership check that {@link #getById(long, long, long)}
+     * Privilege note: this method skips the workspace/viewability check that {@link #getById(long, long, long)}
      * enforces. Callers must have already authorized the access through another mechanism (e.g. a single-use session
      * token gated by an authenticated REST endpoint). Used by the AI Hub voice WS handler, which validates the token at
      * upgrade time.
@@ -229,26 +230,60 @@ public interface AiHubChatService {
     String getThreadId(long chatId);
 
     /**
-     * Loads a chat by id and verifies it belongs to {@code requesterUserId} AND lives in {@code requesterWorkspaceId}.
-     * Used when the caller needs to read a chat without applying any patch — avoids the leaky pattern of passing an
-     * all-null {@link AiHubChatPatch} just to round-trip a read through {@link #patch}. Throws
-     * {@link com.bytechef.ee.ai.hub.exception.ForbiddenException}/
-     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same conditions as {@link #patch}.
+     * Loads a chat by id and verifies the requester may view it — either by ownership/admin, or, for a non-owner, by
+     * {@link AiHubChatAccessPolicy#canView}. Used when the caller needs to read a chat without applying any patch —
+     * avoids the leaky pattern of passing an all-null {@link AiHubChatPatch} just to round-trip a read through
+     * {@link #patch}. Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist,
+     * does not live in {@code requesterWorkspaceId}, or is not viewable by {@code requesterUserId}.
      */
     AiHubChat getById(long chatId, long requesterWorkspaceId, long requesterUserId);
 
     /**
-     * Loads a chat by its client-generated {@code threadId} and verifies the same ownership invariants as
-     * {@link #getById}. The AI Hub client tracks chats by their NanoID-shaped threadId (the AG-UI thread identifier —
-     * see {@code useAiHubStore}); resolvers that take a {@code chatId: ID!} argument from the client receive that
-     * string and use this method to map to the persistent row before authorization-sensitive operations.
+     * Loads a chat by id and verifies the requester may view it. Public alias of the same viewability check
+     * {@link #getById} applies, kept under its own name so the REST controller can request the exact permission level a
+     * given endpoint needs.
+     */
+    AiHubChat getViewable(long chatId, long requesterWorkspaceId, long requesterUserId);
+
+    /**
+     * Loads a chat by id and verifies the requester may contribute a turn to it — either by ownership/admin, or, for a
+     * non-owner, by {@link AiHubChatAccessPolicy#canParticipate}. Throws
+     * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the same conditions as {@link #getViewable}, plus
+     * when the chat's {@link AiHubChatParticipation} does not permit turns from a non-owner.
+     */
+    AiHubChat getParticipable(long chatId, long requesterWorkspaceId, long requesterUserId);
+
+    /**
+     * Loads a chat by id and verifies the requester may manage it — owner or admin only, per
+     * {@link AiHubChatAccessPolicy#canManage}. Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} on the
+     * same conditions as {@link #getViewable}, plus when the requester is neither the owner nor an admin.
+     */
+    AiHubChat getManageable(long chatId, long requesterWorkspaceId, long requesterUserId);
+
+    /**
+     * Loads a chat by its client-generated {@code threadId} and verifies the requester may manage it, per
+     * {@link AiHubChatAccessPolicy#canManage}. The AI Hub client tracks chats by their NanoID-shaped threadId (the
+     * AG-UI thread identifier — see {@code useAiHubStore}); this method's one caller, {@code attachAiHubChatTool},
+     * resolves the threadId to a row and then writes a new tool binding into it (component, connection, arbitrary
+     * parameters), so the check here is owner-or-admin rather than mere viewability — a non-owner the chat has been
+     * shared with, even at {@code participation = PARTICIPATE}, must not be able to attach a tool bound to a connection
+     * of their own choosing.
      *
      * <p>
-     * Probe-oracle defense matches {@link #getById}: "does not exist" and "exists in another workspace/user" both
-     * surface as a generic not-found.
+     * Probe-oracle defense matches {@link #getById}: "does not exist", "lives in another workspace", and "not
+     * manageable by the requester" all surface as the same generic not-found.
      * </p>
      */
     AiHubChat getByThreadId(String threadId, long requesterWorkspaceId, long requesterUserId);
+
+    /**
+     * Loads a chat by its client-generated {@code threadId} and returns it only when {@code requesterUserId} may view
+     * it, per {@link AiHubChatAccessPolicy#canView}. Unlike {@link #getByThreadId}, this overload takes no workspace
+     * argument — the chat's own {@code workspace_id} column is what the access policy consults — so it suits a caller
+     * that has resolved a chat by thread id but has no separately-asserted "current workspace" for the requester.
+     * Returns empty rather than throwing when the chat does not exist or is not viewable.
+     */
+    Optional<AiHubChat> findByThreadIdViewable(String threadId, long requesterUserId);
 
     /**
      * Counts the chat's visible transcript and returns its genuinely latest message, in one pass over the session
@@ -263,7 +298,7 @@ public interface AiHubChatService {
      * </p>
      *
      * <p>
-     * Ownership is verified exactly as {@link #loadMessages} verifies it.
+     * Viewability is verified exactly as {@link #loadMessages} verifies it.
      * </p>
      */
     AiHubChatTranscriptSummary summarizeTranscript(long chatId, long requesterWorkspaceId, long requesterUserId);

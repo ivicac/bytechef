@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.time.LocalDateTime;
@@ -160,7 +161,8 @@ public class AiHubChatRepositoryIntTest {
 
         int inserted = chatRepository.insertAgentChatIfAbsent(
             10L, "slack-C0123", null, AiHubChatStatus.ACTIVE.ordinal(), Environment.PRODUCTION.ordinal(),
-            AiHubChatKind.AGENT_CHAT.ordinal(), 1L, 20L, now);
+            AiHubChatKind.AGENT_CHAT.ordinal(), 1L, 20L, now, ResourceVisibility.WORKSPACE.ordinal(),
+            AiHubChatParticipation.PARTICIPATE.ordinal());
 
         assertThat(inserted).isEqualTo(1);
 
@@ -178,6 +180,8 @@ public class AiHubChatRepositoryIntTest {
         assertThat(chat.getStatus()).isEqualTo(AiHubChatStatus.ACTIVE);
         assertThat(chat.getMessageCount()).isZero();
         assertThat(chat.isAutoTitled()).isTrue();
+        assertThat(chat.getVisibility()).isEqualTo(ResourceVisibility.WORKSPACE);
+        assertThat(chat.getParticipation()).isEqualTo(AiHubChatParticipation.PARTICIPATE);
     }
 
     @Test
@@ -186,7 +190,8 @@ public class AiHubChatRepositoryIntTest {
 
         chatRepository.insertAgentChatIfAbsent(
             10L, "slack-C0123", null, AiHubChatStatus.ACTIVE.ordinal(), Environment.PRODUCTION.ordinal(),
-            AiHubChatKind.AGENT_CHAT.ordinal(), 1L, 20L, now);
+            AiHubChatKind.AGENT_CHAT.ordinal(), 1L, 20L, now, ResourceVisibility.PRIVATE.ordinal(),
+            AiHubChatParticipation.VIEW.ordinal());
 
         // Both inserts run sequentially on one connection, so this does NOT exercise the cross-transaction blocking
         // a real concurrent-turn race would hit. What it does prove is the property the recorder actually relies on:
@@ -194,7 +199,8 @@ public class AiHubChatRepositoryIntTest {
         // raise a constraint violation that aborts it beyond recovery by any later catch.
         int inserted = chatRepository.insertAgentChatIfAbsent(
             99L, "slack-C0123", null, AiHubChatStatus.ACTIVE.ordinal(), Environment.DEVELOPMENT.ordinal(),
-            AiHubChatKind.AGENT_CHAT.ordinal(), 2L, 21L, now);
+            AiHubChatKind.AGENT_CHAT.ordinal(), 2L, 21L, now, ResourceVisibility.WORKSPACE.ordinal(),
+            AiHubChatParticipation.PARTICIPATE.ordinal());
 
         assertThat(inserted).isZero();
 

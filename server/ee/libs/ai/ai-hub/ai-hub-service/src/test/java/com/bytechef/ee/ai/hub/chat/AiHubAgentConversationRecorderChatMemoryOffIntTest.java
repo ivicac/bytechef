@@ -136,7 +136,7 @@ class AiHubAgentConversationRecorderChatMemoryOffIntTest {
             AiHubChatRepository chatRepository, ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider) {
 
             return new AiHubChatServiceImpl(
-                chatRepository, mock(JobFacade.class), mock(WorkflowChatJobRegistry.class),
+                chatRepository, new OwnerOnlyAccessPolicy(), mock(JobFacade.class), mock(WorkflowChatJobRegistry.class),
                 mock(InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider, null, null);
         }
 
