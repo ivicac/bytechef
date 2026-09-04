@@ -6,12 +6,12 @@ import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import handleImportProject from '@/pages/automation/project/utils/handleImportProject';
 import ProjectsFilterTitle from '@/pages/automation/projects/components/ProjectsFilterTitle';
-import ProjectsLeftSidebarNav from '@/pages/automation/projects/components/ProjectsLeftSidebarNav';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {getProjectGitApi} from '@/shared/edition/project-git/projectGitApi';
+import CategoryTagLeftSidebarNav from '@/shared/layout/CategoryTagLeftSidebarNav';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useImportProjectMutation} from '@/shared/mutations/automation/projects.mutations';
@@ -187,11 +187,14 @@ const Projects = () => {
                 />
             }
             leftSidebarBody={
-                <ProjectsLeftSidebarNav
+                <CategoryTagLeftSidebarNav
                     categories={categories}
                     categoriesIsLoading={categoriesIsLoading}
-                    filterData={filterData}
+                    currentCategoryId={categoryId ? parseInt(categoryId) : undefined}
+                    currentTagId={tagId ? parseInt(tagId) : undefined}
                     tags={tags}
+                    tagsClassName="mb-0"
+                    tagsEmptyMessage="No defined tags."
                     tagsIsLoading={tagsIsLoading}
                 />
             }

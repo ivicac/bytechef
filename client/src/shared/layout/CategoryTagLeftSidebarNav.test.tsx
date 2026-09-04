@@ -1,9 +1,7 @@
-import {Type} from '@/pages/automation/projects/Projects';
+import CategoryTagLeftSidebarNav from '@/shared/layout/CategoryTagLeftSidebarNav';
 import {render, resetAll, screen, windowResizeObserver} from '@/shared/util/test-utils';
 import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
-
-import ProjectsLeftSidebarNav from '../ProjectsLeftSidebarNav';
 
 const CATEGORIES = [
     {id: 1, name: 'AI'},
@@ -15,8 +13,6 @@ const TAGS = [
     {id: 11, name: 'bank'},
 ];
 
-const FILTER_DATA = {type: Type.Category};
-
 beforeEach(() => {
     windowResizeObserver();
 });
@@ -25,14 +21,19 @@ afterEach(() => {
     resetAll();
 });
 
-const renderNav = (props: Partial<Parameters<typeof ProjectsLeftSidebarNav>[0]> = {}) =>
+const renderNav = (props: Partial<Parameters<typeof CategoryTagLeftSidebarNav>[0]> = {}) =>
     render(
         <MemoryRouter>
-            <ProjectsLeftSidebarNav categories={CATEGORIES} filterData={FILTER_DATA} tags={TAGS} {...props} />
+            <CategoryTagLeftSidebarNav
+                categories={CATEGORIES}
+                tags={TAGS}
+                tagsEmptyMessage="No defined tags."
+                {...props}
+            />
         </MemoryRouter>
     );
 
-describe('ProjectsLeftSidebarNav', () => {
+describe('CategoryTagLeftSidebarNav', () => {
     it('renders both groups once loaded, with no placeholders left behind', () => {
         renderNav();
 
@@ -71,5 +72,25 @@ describe('ProjectsLeftSidebarNav', () => {
 
         expect(screen.getByText('No defined tags.')).toBeInTheDocument();
         expect(screen.queryByTestId('left-sidebar-nav-skeleton')).not.toBeInTheDocument();
+    });
+
+    it('marks the selected category and tag as current', () => {
+        renderNav({currentCategoryId: 2, currentTagId: 11});
+
+        expect(screen.getByText('Records').closest('a')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByText('bank').closest('a')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByText('All Categories').closest('a')).not.toHaveAttribute('aria-current');
+    });
+
+    it('leaves All Categories unselected when a filter outside these groups is active', () => {
+        renderNav({otherFilterActive: true});
+
+        expect(screen.getByText('All Categories').closest('a')).not.toHaveAttribute('aria-current');
+    });
+
+    it('appends any extra groups after the tags', () => {
+        renderNav({extraGroups: <div data-testid="extra-group" />});
+
+        expect(screen.getByTestId('extra-group')).toBeInTheDocument();
     });
 });

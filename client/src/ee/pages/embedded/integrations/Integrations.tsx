@@ -5,16 +5,18 @@ import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import IntegrationsFilterTitle from '@/ee/pages/embedded/integrations/components/IntegrationsFilterTitle';
-import IntegrationsLeftSidebarNav from '@/ee/pages/embedded/integrations/components/IntegrationsLeftSidebarNav';
 import NewIntegrationCodeWorkflowDialog from '@/ee/pages/embedded/integrations/components/NewIntegrationCodeWorkflowDialog';
+import UnifiedApiLeftSidebarNav from '@/ee/pages/embedded/integrations/components/UnifiedApiLeftSidebarNav';
 import IntegrationList from '@/ee/pages/embedded/integrations/components/integration-list/IntegrationList';
 import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
 import {useGetIntegrationCategoriesQuery} from '@/ee/shared/queries/embedded/integrationCategories.queries';
 import {useGetIntegrationTagsQuery} from '@/ee/shared/queries/embedded/integrationTags.quries';
 import {useGetIntegrationsQuery} from '@/ee/shared/queries/embedded/integrations.queries';
+import CategoryTagLeftSidebarNav from '@/shared/layout/CategoryTagLeftSidebarNav';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
+import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {ChevronDownIcon, CodeIcon, SquareIcon} from 'lucide-react';
 import {useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
@@ -33,6 +35,9 @@ const Integrations = () => {
 
     const categoryId = searchParams.get('categoryId');
     const tagId = searchParams.get('tagId');
+    const unifiedApiCategory = searchParams.get('unifiedApiCategory') ?? undefined;
+
+    const ff_743 = useFeatureFlagsStore()('ff-743');
 
     const filterData: {id: number | string | undefined; type: Type} = {
         id: categoryId ? parseInt(categoryId) : tagId ? parseInt(tagId) : undefined,
@@ -102,11 +107,16 @@ const Integrations = () => {
                 )
             }
             leftSidebarBody={
-                <IntegrationsLeftSidebarNav
+                <CategoryTagLeftSidebarNav
                     categories={categories}
                     categoriesIsLoading={categoriesLoading}
-                    filterData={filterData}
+                    currentCategoryId={categoryId ? parseInt(categoryId) : undefined}
+                    currentTagId={tagId ? parseInt(tagId) : undefined}
+                    extraGroups={ff_743 && <UnifiedApiLeftSidebarNav currentUnifiedApiCategory={unifiedApiCategory} />}
+                    otherFilterActive={!!unifiedApiCategory}
                     tags={tags}
+                    tagsClassName={ff_743 ? '' : 'mb-0'}
+                    tagsEmptyMessage="No tags."
                     tagsIsLoading={tagsLoading}
                 />
             }
