@@ -1,4 +1,5 @@
 import {PlatformType, usePlatformTypeStore} from '@/pages/home/stores/usePlatformTypeStore';
+import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import SettingsSidebar from '@/shared/layout/settings-sidebar/SettingsSidebar';
 import {
@@ -78,15 +79,8 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
 
     return (
         <LayoutContainer
-            leftSidebarBody={
-                <SettingsSidebar isCurrent={isCurrent} openSection={openSection} sections={sections} title={title} />
-            }
-            // The aside snaps between widths while the content padding transitions, so give the width the
-            // same 300ms as the padding — otherwise the sidebar jumps and the page glides after it.
-            leftSidebarClass="transition-[width] duration-300 ease-in-out"
-            // 512px is two 256px columns: the submenu matches the width of a sidebar anywhere else in the
-            // app, and the pair sits flush with the aside's edge rather than floating inside it.
-            leftSidebarWidth={openSection ? '128' : '64'}
+            leftSidebarBody={<SettingsSidebar isCurrent={isCurrent} openSection={openSection} sections={sections} />}
+            leftSidebarHeader={<Header position="sidebar" title={title} />}
         >
             <div className="size-full">
                 <Outlet />

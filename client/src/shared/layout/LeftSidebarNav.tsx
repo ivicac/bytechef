@@ -25,6 +25,8 @@ const LeftSidebarNav = ({body, className, title}: LeftSidebarNavProps) => (
 );
 
 interface LeftSidebarNavItemProps {
+    /** Indents a nested row's label. Padding rather than a wrapper, so the highlight box stays full width. */
+    className?: string;
     disabled?: boolean;
     item: {
         current: boolean;
@@ -43,6 +45,7 @@ interface LeftSidebarNavItemProps {
 }
 
 const LeftSidebarNavItem = ({
+    className,
     disabled = false,
     icon,
     item: {current, id, name, onItemClick},
@@ -58,7 +61,8 @@ const LeftSidebarNavItem = ({
                 current ? 'bg-accent hover:bg-accent' : 'hover:bg-accent',
                 'w-full justify-start px-2 font-normal',
                 trailing && 'pr-8',
-                disabled && 'pointer-events-none opacity-50'
+                disabled && 'pointer-events-none opacity-50',
+                className
             )}
             onClick={(event) => {
                 if (disabled) {
