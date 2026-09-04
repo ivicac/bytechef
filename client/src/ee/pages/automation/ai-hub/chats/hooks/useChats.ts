@@ -48,9 +48,9 @@ export function useAiHubChatsQuery(workspaceId: number, environment: number, sta
 
 /**
  * The chats other workspace members have shared with the caller — a separate list from the caller's
- * own. `enabled` defaults to true; the AI Hub sidebar passes its sharing-enabled gate so a flagged-off
- * or CE caller issues no request for this EE-only field at all, rather than fetching it and merely
- * withholding the render.
+ * own. `enabled` defaults to true; the AI Hub sidebar passes its sharing-enabled gate so a CE caller
+ * issues no request for this EE-only field at all, rather than fetching it and merely withholding the
+ * render.
  */
 export function useAiHubSharedChatsQuery(workspaceId: number, environment: number, enabled: boolean = true) {
     const query = useQuery<AiHubChatI[], Error>({

@@ -66,8 +66,14 @@ export interface AttachOptionsI {
      * Fires when the attach EventSource closes for ANY reason — terminal event (RUN_FINISHED / RUN_ERROR),
      * network error, or caller-side disposer. The runtime provider uses this to release its
      * {@code isAgentRunning} flag and clear the sidebar pulse.
+     *
+     * <p>{@code eventsReceived} says whether the stream delivered at least one parsable AG-UI event before
+     * closing. It is the only signal that separates a stream that did its job from one that never opened —
+     * `EventSource.onerror` cannot read the response status, so an attach 404 (the run lives on another
+     * instance) is indistinguishable from a network blip from inside this adapter. The caller uses it to
+     * stop re-attaching to a thread it can never reach.</p>
      */
-    onClose?: () => void;
+    onClose?: (eventsReceived: boolean) => void;
 }
 
 /**
@@ -88,6 +94,7 @@ export function attachToInFlightRun({onClose, subscriber, threadId}: AttachOptio
     const toolCallBufferById = new Map<string, string>();
     const toolCallNameById = new Map<string, string>();
     let closed = false;
+    let eventsReceived = false;
 
     const close = () => {
         if (closed) {
@@ -97,7 +104,7 @@ export function attachToInFlightRun({onClose, subscriber, threadId}: AttachOptio
         closed = true;
 
         eventSource.close();
-        onClose?.();
+        onClose?.(eventsReceived);
     };
 
     eventSource.onmessage = (rawEvent) => {
@@ -118,6 +125,8 @@ export function attachToInFlightRun({onClose, subscriber, threadId}: AttachOptio
 
             return;
         }
+
+        eventsReceived = true;
 
         // Dispatch handlers expect `AgentSubscriberParams` (messages / state / agent / input) alongside the
         // event. The existing AI Hub handlers don't actually read those four fields — their guards key off
@@ -347,8 +356,8 @@ async function probeStatusBatch(threadIds: ReadonlyArray<string>): Promise<Recor
 
 /**
  * Thin boolean projection of {@link probeThreadStatus} for callers that only care whether a run is in
- * flight (the sidebar's pre-Task-8 probe, and its tests). A thread {@link probeThreadStatus} omits resolves
- * to {@code false} here, matching this function's original (pre-`/status`) contract.
+ * flight (the runtime provider's mount-time resume probe, and its tests). A thread {@link
+ * probeThreadStatus} omits resolves to {@code false} here rather than being absent from the map.
  */
 export async function probeInFlightStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, boolean>> {
     const statusByThreadId = await probeThreadStatus(threadIds);

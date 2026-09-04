@@ -9,7 +9,9 @@ package com.bytechef.ee.ai.hub.chat;
 
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -338,6 +340,19 @@ public interface AiHubChatService {
      * Returns empty rather than throwing when the chat does not exist or is not viewable.
      */
     Optional<AiHubChat> findByThreadIdViewable(String threadId, long requesterUserId);
+
+    /**
+     * Batch counterpart of {@link #findByThreadIdViewable}, keyed by {@code threadId}. Resolves every id in one query
+     * and applies the SAME {@link AiHubChatAccessPolicy#canView} check per row, so a thread the requester may not view
+     * is absent from the result exactly as it would be from the single-row overload — the two are
+     * indistinguishable-by-construction rather than by a caller remembering to filter.
+     *
+     * <p>
+     * Exists for the {@code /status} poll, which is handed every thread id the sidebar knows about on an interval and
+     * would otherwise issue one query per id per tick.
+     * </p>
+     */
+    Map<String, AiHubChat> findAllByThreadIdViewable(Collection<String> threadIds, long requesterUserId);
 
     /**
      * Applies a visibility and participation change to an existing chat, saving both in one write. Runs no access check

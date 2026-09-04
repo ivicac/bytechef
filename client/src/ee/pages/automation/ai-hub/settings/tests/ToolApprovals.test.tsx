@@ -16,7 +16,6 @@ const hoisted = vi.hoisted(() => ({
     createRuleMutate: vi.fn(),
     defaultToolNames: ['deleteRecord', 'sendEmail'] as string[],
     deleteRuleMutate: vi.fn(),
-    isFeatureFlagEnabled: vi.fn(() => true),
     rules: [
         {componentName: null, id: 'rule-1', mode: 'EXEMPT', toolKind: 'CATALOG', toolName: 'sendEmail'},
         {componentName: 'gmail', id: 'rule-2', mode: 'REQUIRE', toolKind: 'COMPONENT', toolName: 'sendEmail'},
@@ -43,10 +42,6 @@ vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
     };
 });
 
-vi.mock('@/shared/stores/useFeatureFlagsStore', () => ({
-    useFeatureFlagsStore: () => hoisted.isFeatureFlagEnabled,
-}));
-
 vi.mock(import('@tanstack/react-query'), async (importOriginal) => ({
     ...(await importOriginal()),
     useQueryClient: vi.fn(() => ({invalidateQueries: vi.fn()}) as never),
@@ -64,7 +59,6 @@ describe('ToolApprovals', () => {
         vi.clearAllMocks();
 
         hoisted.defaultToolNames = ['deleteRecord', 'sendEmail'];
-        hoisted.isFeatureFlagEnabled = vi.fn(() => true);
         hoisted.rules = [
             {componentName: null, id: 'rule-1', mode: 'EXEMPT', toolKind: 'CATALOG', toolName: 'sendEmail'},
             {componentName: 'gmail', id: 'rule-2', mode: 'REQUIRE', toolKind: 'COMPONENT', toolName: 'sendEmail'},
@@ -72,14 +66,6 @@ describe('ToolApprovals', () => {
         hoisted.scopes = ['WORKSPACE_MANAGE'];
 
         useWorkspaceStore.setState({currentWorkspaceId: 7});
-    });
-
-    it('renders nothing when the feature flag is off', () => {
-        hoisted.isFeatureFlagEnabled = vi.fn(() => false);
-
-        const {container} = renderPage();
-
-        expect(container).toBeEmptyDOMElement();
     });
 
     it('lists every default tool name with an Exempt switch and creates a rule when toggled on', async () => {

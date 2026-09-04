@@ -30,8 +30,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -463,7 +465,17 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         long totalUserEventCount = allEvents.stream()
             .filter(event -> isVisibleConversationEvent(event) && event.getMessageType() == MessageType.USER)
             .count();
-        boolean reliableTurnAttribution = turns.size() <= totalUserEventCount;
+
+        // The zip is positional, so it is only sound when turn rows and USER events correspond one-for-one. A
+        // surplus of turn rows (a phantom run, or stale rows left by a truncation whose CAS committed against a
+        // non-relational session store while the ambient transaction rolled back) shifts every position after it.
+        // A DEFICIT shifts them just as badly and is the more reachable direction: recordTurn has one caller, the
+        // REST dispatch path, while USER session events are also written by the channel/webhook path, which records
+        // no turn rows at all. A channel-born chat with N Slack USER events and zero turn rows that is later shared
+        // at PARTICIPATE accumulates 2 turn rows against N+2 USER events, and a <= test would zip those two rows
+        // onto Slack messages 1 and 2 -- naming the wrong people the moment a second distinct author makes the
+        // client render labels at all. Equality degrades the whole transcript to unknown authorship instead.
+        boolean reliableTurnAttribution = turns.size() == totalUserEventCount;
 
         List<AiHubChatMessage> messages = new ArrayList<>();
         int userEventIndex = 0;
@@ -1003,6 +1015,27 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     public Optional<AiHubChat> findByThreadIdViewable(String threadId, long requesterUserId) {
         return chatRepository.findByThreadId(threadId)
             .filter(chat -> accessPolicy.canView(chat, requesterUserId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, AiHubChat> findAllByThreadIdViewable(Collection<String> threadIds, long requesterUserId) {
+        if (threadIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, AiHubChat> chatByThreadId = new LinkedHashMap<>();
+
+        for (AiHubChat chat : chatRepository.findAllByThreadIdIn(threadIds)) {
+            // Same predicate as the single-row overload, applied row by row rather than in SQL: canView spans the
+            // chat's visibility rung, workspace membership and the resource-grant table, so it is not expressible as
+            // a WHERE clause. What the batch saves is the N chat lookups, not the authorization.
+            if (accessPolicy.canView(chat, requesterUserId)) {
+                chatByThreadId.put(chat.getThreadId(), chat);
+            }
+        }
+
+        return chatByThreadId;
     }
 
     /**

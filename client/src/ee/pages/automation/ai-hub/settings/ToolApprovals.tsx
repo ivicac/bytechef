@@ -15,7 +15,6 @@ import {
     useDeleteAiHubToolApprovalRuleMutation,
     useMyWorkspaceScopesQuery,
 } from '@/shared/middleware/graphql';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {useMemo, useState} from 'react';
 
@@ -33,7 +32,6 @@ const ToolApprovals = () => {
     const [addRuleOpen, setAddRuleOpen] = useState(false);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const isFeatureFlagEnabled = useFeatureFlagsStore();
 
     const queryClient = useQueryClient();
 
@@ -121,12 +119,6 @@ const ToolApprovals = () => {
 
         setAddRuleOpen(false);
     };
-
-    // Called after every other hook, so gating the page here never varies the hook call order across
-    // renders — the flag is not expected to flip while the page is mounted.
-    if (!isFeatureFlagEnabled('ff-ai-hub-tool-approvals')) {
-        return null;
-    }
 
     return (
         <LayoutContainer

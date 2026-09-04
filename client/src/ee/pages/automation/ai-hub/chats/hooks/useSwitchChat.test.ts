@@ -166,7 +166,7 @@ describe('useSwitchChat', () => {
         ]);
     });
 
-    describe('author metadata (Task 8)', () => {
+    describe('author metadata on restored rows', () => {
         it('stamps metadata.custom.{authorName, authorUserId} on a restored USER row that carries them', async () => {
             mockGetChatMessages.mockResolvedValue([
                 {

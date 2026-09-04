@@ -499,7 +499,7 @@ describe('AiHubChatsSidebar "Shared with me" list', () => {
     });
 
     // The render gate above is not enough on its own — this pins that the shared-chats query itself
-    // issues no request when the flag is off, rather than fetching an EE-only field and merely
+    // issues no request for a CE caller, rather than fetching an EE-only field and merely
     // withholding the render. useAiHubChatMessagesQuery already exposes this same `enabled` shape;
     // useAiHubSharedChatsQuery now follows it.
     it('passes enabled=false to useAiHubSharedChatsQuery when useAiHubSharingEnabled returns false', () => {
@@ -517,9 +517,9 @@ describe('AiHubChatsSidebar "Shared with me" list', () => {
     });
 
     // The sidebar's running/paused pulse predates chat sharing, and the server keeps its `in-flight`
-    // endpoint alive delegating to `/status` specifically so a flagged-off client keeps getting it.
-    // Gating this probe on useAiHubSharingEnabled would silently remove that pre-existing feature for
-    // exactly the callers who should see today's product unchanged.
+    // endpoint alive delegating to `/status` specifically so a CE client keeps getting it. Gating this
+    // probe on useAiHubSharingEnabled would silently remove that pre-existing feature for exactly the
+    // callers who should see today's product unchanged.
     it('still issues the /status probe that drives the running pulse when useAiHubSharingEnabled returns false', async () => {
         sharingEnabledRef.current = false;
         mockChatsDataRef.current = [buildChat({id: 60, title: 'My own chat'})];

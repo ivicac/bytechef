@@ -11,6 +11,7 @@ import com.bytechef.ee.ai.hub.approval.AiHubToolApproval;
 import com.bytechef.ee.ai.hub.approval.AiHubToolApprovalFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -69,9 +70,9 @@ public class AiHubToolApprovalGraphQlController {
 
     @SchemaMapping(typeName = "AiHubToolApproval", field = "decidedAt")
     public @Nullable Long toolApprovalDecidedAt(AiHubToolApproval approval) {
-        return approval.getDecidedAt() == null ? null
-            : approval.getDecidedAt()
-                .toEpochMilli();
+        Instant decidedAt = approval.getDecidedAt();
+
+        return decidedAt == null ? null : decidedAt.toEpochMilli();
     }
 
     @SchemaMapping(typeName = "AiHubToolApproval", field = "expiresAt")

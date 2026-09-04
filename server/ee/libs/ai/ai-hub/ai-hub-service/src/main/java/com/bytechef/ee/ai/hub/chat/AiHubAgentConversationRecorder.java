@@ -214,6 +214,9 @@ public class AiHubAgentConversationRecorder implements AgentConversationRecorder
 
         LocalDateTime now = LocalDateTime.now(clock);
 
+        // A Slack channel was never private to whoever happened to send the first message, so a channel-born row is
+        // created WORKSPACE-visible, overriding the entity's PRIVATE default. Participation stays VIEW: the workspace
+        // can read the conversation, but contributing a turn to someone else's channel thread is a separate grant.
         chatRepository.insertAgentChatIfAbsent(
             agentConversation.creatorUserId(), threadId, agentConversation.title(), AiHubChatStatus.ACTIVE.ordinal(),
             environment, AiHubChatKind.AGENT_CHAT.ordinal(), agentConversation.workspaceId(),

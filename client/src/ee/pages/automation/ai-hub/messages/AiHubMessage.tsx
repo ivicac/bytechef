@@ -104,11 +104,10 @@ const AiHubUserMessage: FC = () => {
     // aiHubChatMessages query's authorName/authorUserId fields (see useSwitchChat's mapServerMessages) —
     // null for a message the current turn just sent locally, since that one has no server round-trip yet.
     const authorName = useAuiState((state) => state.message.metadata?.custom?.authorName as string | undefined);
-    // Gate for the author label below: the EE visibility edition AND the ff-ai-hub-shared-chats flag
-    // must both be on. Without this, a chat that already received a second participant's turn before
-    // sharing was later disabled as a kill switch would keep showing author labels forever — derived
-    // purely from message history, with no other gate on this component — while every other sharing
-    // surface (the dialog, "Shared with me", the presence strip) has gone dark.
+    // Gate for the author label below: the EE visibility edition. This component derives the label
+    // purely from message history and reads no other gate, so without this a CE caller would show
+    // author labels on any chat whose transcript happens to carry more than one author, while every
+    // other sharing surface (the dialog, "Shared with me", the presence strip) renders nothing.
     const sharingEnabled = useAiHubSharingEnabled();
     // A boolean selector, not the raw messages array: subscribing to the whole array here would re-render
     // every user bubble on every streamed token. Zustand only notifies subscribers when the selected value

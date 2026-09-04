@@ -10,12 +10,15 @@ package com.bytechef.ee.ai.hub.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,10 +48,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
@@ -365,15 +370,12 @@ class AiHubApiControllerTest {
         when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of("t-viewable", "t-not-viewable"));
 
         AiHubChat viewableChat = buildChat(CHAT_ID, OWNER_USER_ID);
-
-        when(chatService.findByThreadIdViewable("t-viewable", OTHER_USER_ID)).thenReturn(Optional.of(viewableChat));
-        when(chatService.findByThreadIdViewable("t-not-viewable", OTHER_USER_ID)).thenReturn(Optional.empty());
-        when(chatService.findByThreadIdViewable("t-unknown", OTHER_USER_ID)).thenReturn(Optional.empty());
-
         AiHubChat neverInFlightChat = buildChat(CHAT_ID + 1, OWNER_USER_ID);
 
-        when(chatService.findByThreadIdViewable("t-never-in-flight", OTHER_USER_ID))
-            .thenReturn(Optional.of(neverInFlightChat));
+        // "t-not-viewable" and "t-unknown" are simply absent from the batch's result, which is how the batch
+        // expresses both "no such thread" and "not yours" — the same conflation the single-row lookup made.
+        when(chatService.findAllByThreadIdViewable(anyCollection(), eq(OTHER_USER_ID)))
+            .thenReturn(Map.of("t-viewable", viewableChat, "t-never-in-flight", neverInFlightChat));
         when(presenceRegistry.presence(any())).thenReturn(List.of());
 
         Map<String, Boolean> result = controller.inFlightStatus(
@@ -409,7 +411,8 @@ class AiHubApiControllerTest {
         chat.setMessageCount(5);
         chat.setUpdatedAt(LocalDateTime.of(2026, 9, 2, 10, 0, 0));
 
-        when(chatService.findByThreadIdViewable(THREAD_ID, OWNER_USER_ID)).thenReturn(Optional.of(chat));
+        when(chatService.findAllByThreadIdViewable(anyCollection(), eq(OWNER_USER_ID)))
+            .thenReturn(Map.of(THREAD_ID, chat));
 
         AiHubChatTurn runningTurn = new AiHubChatTurn(CHAT_ID, OTHER_USER_ID, "run-running");
 
@@ -455,12 +458,65 @@ class AiHubApiControllerTest {
 
         when(userService.getCurrentUser()).thenReturn(currentUser);
         when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of());
-        when(chatService.findByThreadIdViewable("t-hidden", OTHER_USER_ID)).thenReturn(Optional.empty());
+        when(chatService.findAllByThreadIdViewable(anyCollection(), eq(OTHER_USER_ID))).thenReturn(Map.of());
 
         Map<String, ThreadStatus> result = controller.status(List.of("t-hidden"));
 
         assertThat(result).doesNotContainKey("t-hidden");
         assertThat(result).isEmpty();
+    }
+
+    /**
+     * The sidebar polls this endpoint with its whole thread list every 20 seconds, and the {@code /in-flight} endpoint
+     * it replaced short-circuited on the in-flight set before touching the database, so a per-id lookup turned a free
+     * tick into N round-trips. Pins that the endpoint resolves every supplied id in ONE service call regardless of how
+     * many are supplied, and never falls back to the single-row lookup.
+     *
+     * <p>
+     * Batching cannot widen access: the batch applies the same {@code canView} predicate per row inside the service, so
+     * a thread the caller may not view is absent from its result exactly as it was from {@code findByThreadIdViewable},
+     * and the loop below can only report on ids the batch returned.
+     * </p>
+     */
+    @Test
+    void testStatusResolvesEverySuppliedThreadInOneLookup() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OWNER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of());
+        when(presenceRegistry.presence(any())).thenReturn(List.of());
+
+        AiHubChat firstChat = buildChat(CHAT_ID, OWNER_USER_ID);
+        AiHubChat secondChat = buildChat(CHAT_ID + 1, OWNER_USER_ID);
+        AiHubChat thirdChat = buildChat(CHAT_ID + 2, OWNER_USER_ID);
+
+        when(chatService.findAllByThreadIdViewable(anyCollection(), eq(OWNER_USER_ID)))
+            .thenReturn(Map.of("t-1", firstChat, "t-2", secondChat, "t-3", thirdChat));
+
+        Map<String, ThreadStatus> result = controller.status(List.of("t-1", "t-2", "t-3", "t-hidden"));
+
+        assertThat(result).containsOnlyKeys("t-1", "t-2", "t-3");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<String>> threadIdsCaptor = ArgumentCaptor.forClass(Collection.class);
+
+        verify(chatService, times(1)).findAllByThreadIdViewable(threadIdsCaptor.capture(), eq(OWNER_USER_ID));
+
+        assertThat(threadIdsCaptor.getValue()).containsExactly("t-1", "t-2", "t-3", "t-hidden");
+
+        verify(chatService, never()).findByThreadIdViewable(anyString(), anyLong());
     }
 
     @Test
@@ -520,6 +576,48 @@ class AiHubApiControllerTest {
 
         verify(presenceRegistry).leave(THREAD_ID, OWNER_USER_ID);
         verify(presenceRegistry, never()).heartbeat(any(), anyLong(), any(), any());
+    }
+
+    /**
+     * {@code PresenceState.valueOf} throws {@link IllegalArgumentException} on an unrecognized name, which would
+     * surface as a 500. A malformed request body is the caller's error, so the endpoint answers 400 and records
+     * nothing.
+     */
+    @Test
+    void testPresenceRejectsAnUnknownStateWithBadRequest() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OWNER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(accessPolicy.canView(chat, OWNER_USER_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> controller.presence(THREAD_ID, new PresenceRequest("SLEEPING")))
+            .isInstanceOf(ResponseStatusException.class)
+            .satisfies(exception -> assertThat(((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> controller.presence(THREAD_ID, new PresenceRequest(null)))
+            .isInstanceOf(ResponseStatusException.class)
+            .satisfies(exception -> assertThat(((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(presenceRegistry, never()).heartbeat(any(), anyLong(), any(), any());
+        verify(presenceRegistry, never()).leave(any(), anyLong());
     }
 
     private static AiHubApiController newController(

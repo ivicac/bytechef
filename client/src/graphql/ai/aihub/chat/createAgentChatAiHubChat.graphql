@@ -28,5 +28,10 @@ mutation createAgentChatAiHubChat(
         projectDeploymentId
         autoTitled
         aiAgentId
+        visibility
+        participation
+        ownerUserId
+        ownerName
+        isOwner
     }
 }

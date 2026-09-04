@@ -2,6 +2,7 @@ import {TooltipProvider} from '@/components/ui/tooltip';
 import AiHubPanel from '@/ee/pages/automation/ai-hub/AiHubPanel';
 import {AiHubChatI} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {aiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -45,6 +46,9 @@ afterEach(() => {
     mockChatsDataRef.current = [];
     sharingEnabledRef.current = true;
     aiHubChatsStore.getState().reset();
+    // The presence strip's pending-approval line is derived from the transcript, so a message left
+    // behind here would show up on the next test's header.
+    aiHubStore.setState({messages: []});
 });
 
 // EnvironmentSelect now lives in the panel header (next to Ask/Build) and pulls useEnvironmentsQuery via
@@ -241,5 +245,80 @@ describe('AiHubPanel chat options menu', () => {
 
         expect(await screen.findByRole('menuitem', {name: 'Show tool calls'})).toBeInTheDocument();
         expect(screen.queryByRole('menuitem', {name: 'Share…'})).not.toBeInTheDocument();
+    });
+});
+
+describe('AiHubPanel pending-approval presence line', () => {
+    const pendingApprovalMessage = {
+        content: [{data: {approvalId: 3, awaitingApproval: true}, type: 'data-tool-approval-request' as const}],
+        role: 'assistant' as const,
+    };
+
+    // The strip needs a polled status to render at all — see its own doc for why an absent entry means
+    // "not polled yet / access lost" rather than "idle".
+    const idleStatus = {
+        inFlight: false,
+        messageCount: 2,
+        presence: [],
+        runningUserId: null,
+        runningUserName: null,
+        updatedAt: 0,
+    };
+
+    it('names the owner for a viewer who cannot resolve the pending approval', () => {
+        mockChatsDataRef.current = [buildChat({id: 51, isOwner: false, ownerName: 'Ivica', threadId: 'thread-51'})];
+        aiHubChatsStore.getState().setCurrentChatId(51);
+        aiHubChatsStore.getState().setThreadStatus({'thread-51': idleStatus});
+        aiHubStore.setState({messages: [pendingApprovalMessage]});
+
+        wrap(<AiHubPanel />);
+
+        expect(screen.getByTestId('presence-pending-approval-line')).toHaveTextContent("Waiting for Ivica's approval");
+    });
+
+    it('says nothing to the owner, who has the card in the transcript', () => {
+        mockChatsDataRef.current = [buildChat({id: 52, isOwner: true, ownerName: 'Ivica', threadId: 'thread-52'})];
+        aiHubChatsStore.getState().setCurrentChatId(52);
+        aiHubChatsStore.getState().setThreadStatus({'thread-52': idleStatus});
+        aiHubStore.setState({messages: [pendingApprovalMessage]});
+
+        wrap(<AiHubPanel />);
+
+        expect(screen.queryByTestId('presence-pending-approval-line')).not.toBeInTheDocument();
+    });
+
+    it('says nothing when the approval has already been decided', () => {
+        mockChatsDataRef.current = [buildChat({id: 53, isOwner: false, ownerName: 'Ivica', threadId: 'thread-53'})];
+        aiHubChatsStore.getState().setCurrentChatId(53);
+        aiHubChatsStore.getState().setThreadStatus({'thread-53': idleStatus});
+        aiHubStore.setState({
+            messages: [
+                {
+                    content: [
+                        {
+                            data: {approvalId: 3, awaitingApproval: true, resolvedStatus: 'REJECTED'},
+                            type: 'data-tool-approval-request' as const,
+                        },
+                    ],
+                    role: 'assistant' as const,
+                },
+            ],
+        });
+
+        wrap(<AiHubPanel />);
+
+        expect(screen.queryByTestId('presence-pending-approval-line')).not.toBeInTheDocument();
+    });
+
+    it('says nothing when chat sharing is off', () => {
+        sharingEnabledRef.current = false;
+        mockChatsDataRef.current = [buildChat({id: 54, isOwner: false, ownerName: 'Ivica', threadId: 'thread-54'})];
+        aiHubChatsStore.getState().setCurrentChatId(54);
+        aiHubChatsStore.getState().setThreadStatus({'thread-54': idleStatus});
+        aiHubStore.setState({messages: [pendingApprovalMessage]});
+
+        wrap(<AiHubPanel />);
+
+        expect(screen.queryByTestId('presence-pending-approval-line')).not.toBeInTheDocument();
     });
 });

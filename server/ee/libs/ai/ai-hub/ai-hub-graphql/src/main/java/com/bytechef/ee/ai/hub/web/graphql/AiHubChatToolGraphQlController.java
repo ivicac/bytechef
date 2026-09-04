@@ -50,9 +50,11 @@ import org.springframework.stereotype.Controller;
  * </p>
  *
  * <p>
- * All operations are workspace-scoped and require the caller to have access to the supplied workspace. AiHubChat
- * ownership is verified at the service layer ({@link AiHubChatService#getById(long, long, long)}) which throws on
- * cross-user / cross-workspace mismatch.
+ * All operations are workspace-scoped and require the caller to have access to the supplied workspace. Beyond that, the
+ * MUTATIONS authorize at the service layer ({@link AiHubChatService#getById(long, long, long)} and the owner-only
+ * {@link AiHubChatService#list}), which throws on a cross-user / cross-workspace mismatch, while the
+ * {@code aiHubChatTools} READ authorizes through {@link AiHubChatService#findByThreadIdViewable} — a chat's own
+ * attached tools are in scope for everyone it is shared with, so a participant who can invoke them can list them.
  * </p>
  *
  * @version ee
@@ -98,16 +100,18 @@ public class AiHubChatToolGraphQlController {
 
         WorkspaceAccessGuard.verifyUserCanAccessWorkspace(workspaceFacade, userId, workspaceId);
 
-        // The client-supplied "chatId" is the AG-UI threadId (NanoID) carried by useAiHubStore — see
-        // the schema doc on AiHubChat.threadId. The composer renders this chip list before the user
-        // sends
-        // their first message, so the chat row may not exist in the DB yet (it's created by the chat
-        // backend on the first turn). Treat a not-yet-persisted thread as "no attached tools" rather than 404 —
-        // there is definitionally nothing to list. Probe-oracle defense still holds: a thread that exists but
-        // belongs to another user also returns an empty list, indistinguishable from "not yet created".
-        return chatService.findByThreadId(chatId)
-            .filter(chat -> chat.getUserId() == userId
-                && chatService.getWorkspaceId(chat.getId()) == workspaceId)
+        // The client-supplied "chatId" is the AG-UI threadId (NanoID) carried by useAiHubStore — see the schema doc
+        // on AiHubChat.threadId. The composer renders this chip list before the user sends their first message, so
+        // the chat row may not exist in the DB yet (it's created by the chat backend on the first turn). Treat a
+        // not-yet-persisted thread as "no attached tools" rather than 404 — there is definitionally nothing to list.
+        // Probe-oracle defense still holds: a thread that exists but is not viewable by the caller also returns an
+        // empty list, indistinguishable from "not yet created".
+        //
+        // Viewability, not ownership: a chat's own attached tools are in scope for every participant, so a
+        // participant who can invoke them must be able to see them. The mutations in this controller stay
+        // owner-gated.
+        return chatService.findByThreadIdViewable(chatId, userId)
+            .filter(chat -> chatService.getWorkspaceId(chat.getId()) == workspaceId)
             .map(chat -> chatToolFacade.listChatTools(chat.getId()))
             .orElseGet(List::of);
     }

@@ -20,11 +20,17 @@ import {
 import {useAiHubChatActions} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
 import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
+import {
+    canResolveToolApproval,
+    getToolApprovalOwnerLabel,
+    hasPendingToolApproval,
+} from '@/ee/pages/automation/ai-hub/chats/pendingToolApproval';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubChatComposer from '@/ee/pages/automation/ai-hub/composer/AiHubChatComposer';
 import useAiHubChatLaunchers from '@/ee/pages/automation/ai-hub/hooks/useAiHubChatLaunchers';
 import AiHubThread from '@/ee/pages/automation/ai-hub/messages/AiHubThread';
 import useAiHubSettingsStore from '@/ee/pages/automation/ai-hub/stores/useAiHubSettingsStore';
+import {useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {useAiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
@@ -55,9 +61,9 @@ const AiHubPanel = () => {
     // list's own "promote/demote/share menu items" use — rather than re-deriving it from
     // useAuthenticationStore by hand.
     const {isAdmin} = useVisibilityFeatureEnabled();
-    // Gate for the header menu's Share… item and the presence strip: the EE visibility edition AND the
-    // ff-ai-hub-shared-chats flag must both be on. See useAiHubSharingEnabled's own doc for why the pair
-    // lives in one hook rather than being re-derived at each of this feature's surfaces.
+    // Gate for the header menu's Share… item and the presence strip: the EE visibility edition. See
+    // useAiHubSharingEnabled's own doc for why the check lives in one hook rather than being re-derived
+    // at each of this feature's surfaces.
     const chatSharingEnabled = useAiHubSharingEnabled();
 
     const {data: defaultModelData} = useAiDefaultModelQuery({environment: String(currentEnvironmentId)});
@@ -100,6 +106,17 @@ const AiHubPanel = () => {
     const threadStatus = useAiHubChatsStore((state) =>
         currentChat ? state.threadStatus[currentChat.threadId] : undefined
     );
+
+    // A gated tool call blocks the whole chat until an owner or admin decides it, and nobody else gets the
+    // card's controls — so for everyone else the chat just stops answering. The strip names whose decision
+    // it is waiting on; the composer (which derives the same two facts for itself) says the same thing in
+    // its placeholder. Null for the person who CAN resolve it: they have the interactive card in the
+    // transcript, and telling them they are waiting on themselves reads as a bug.
+    const pendingToolApproval = useAiHubStore((state) => hasPendingToolApproval(state.messages));
+    const pendingApprovalUserName =
+        chatSharingEnabled && pendingToolApproval && !canResolveToolApproval(currentChat, isAdmin)
+            ? getToolApprovalOwnerLabel(currentChat)
+            : null;
 
     const chatActions = useAiHubChatActions();
     // "New Chat" placeholder until the auto-title generator (kicked off by runPostTurnTelemetry
@@ -180,7 +197,11 @@ const AiHubPanel = () => {
                      * see AiHubPresenceStrip's own doc for why a chat that was never shared looks
                      * unchanged. */}
 
-                    <AiHubPresenceStrip currentUserId={currentUserId} threadStatus={threadStatus} />
+                    <AiHubPresenceStrip
+                        currentUserId={currentUserId}
+                        pendingApprovalUserName={pendingApprovalUserName}
+                        threadStatus={threadStatus}
+                    />
                 </div>
 
                 <div className="flex items-center gap-1">

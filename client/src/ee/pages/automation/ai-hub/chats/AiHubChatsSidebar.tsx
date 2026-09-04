@@ -19,7 +19,6 @@ import {probeThreadStatus} from '@/ee/pages/automation/ai-hub/runtime-providers/
 import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ArchiveIcon,
@@ -141,8 +140,8 @@ interface ChatItemProps {
     onSelect: () => void;
     onUnarchive: () => void;
     /**
-     * True for a row in the "Shared with me" list: someone else's chat that the caller can only view (or,
-     * once Task 8 lands turn-sending, participate in) but never rename, archive, or delete. Hides the row's
+     * True for a row in the "Shared with me" list: someone else's chat that the caller can view, and send
+     * turns to when its participation level allows, but never rename, archive, or delete. Hides the row's
      * "⋮" menu entirely rather than merely disabling its items — there is no owner-only mutation this row
      * could reach even if the menu were shown, so removing the trigger is the honest UI rather than a
      * defence-in-depth extra.
@@ -428,9 +427,9 @@ const AiHubChatsSidebar = () => {
 
     const switchChat = useSwitchChat();
     const chatActions = useAiHubChatActions();
-    // Gate for the "Shared with me" section: the EE visibility edition AND the ff-ai-hub-shared-chats
-    // flag must both be on. Deliberately does NOT gate the running-pulse probe below (probeThreadStatus
-    // over allChats) — that predates this feature and must keep working for a flagged-off caller too.
+    // Gate for the "Shared with me" section: the EE visibility edition. Deliberately does NOT gate the
+    // running-pulse probe below (probeThreadStatus over allChats) — that predates this feature and must
+    // keep working for a CE caller too.
     const sharingEnabled = useAiHubSharingEnabled();
 
     const {data: chats, isLoading} = useAiHubChatsQuery(
@@ -442,7 +441,7 @@ const AiHubChatsSidebar = () => {
     // Chats other workspace members have shared with the caller — a separate list rendered below the
     // caller's own, unaffected by the Active/Archived toggle above (aiHubSharedChats has no status
     // argument; a shared chat's lifecycle is the owner's to manage, not the recipient's). Passing
-    // `sharingEnabled` as `enabled` means a flagged-off or CE caller issues no request at all for this
+    // `sharingEnabled` as `enabled` means a CE caller issues no request at all for this
     // EE-only field — not merely a render withheld from a fetched result — and sidesteps ever needing
     // to know whether this component can mount where the field doesn't exist on the schema.
     const {data: sharedChats, isLoading: isSharedChatsLoading} = useAiHubSharedChatsQuery(
@@ -485,8 +484,8 @@ const AiHubChatsSidebar = () => {
             return;
         }
 
-        // Shared chats are included here too — see Task 8, which builds the presence/status UI on top of
-        // this — so a shared row's running/paused pulse rehydrates the same way an owned row's does.
+        // Shared chats are included here too, so a shared row's running/paused pulse rehydrates the same
+        // way an owned row's does.
         const visibleThreadIds = allChats.map((chat) => chat.threadId);
 
         let cancelled = false;
@@ -498,9 +497,9 @@ const AiHubChatsSidebar = () => {
                 }
 
                 // Hydrate the full per-thread status (presence roster, running-user, message count) for
-                // every polled thread — Task 8's presence strip and composer states read this map
-                // directly. A thread the probe omitted (no view access, or the chat is gone) is left
-                // untouched here rather than backfilled with a default entry.
+                // every polled thread — the presence strip and the composer's shared-session states read
+                // this map directly. A thread the probe omitted (no view access, or the chat is gone) is
+                // left untouched here rather than backfilled with a default entry.
                 aiHubChatsStore.getState().setThreadStatus(statusByThreadId);
 
                 const chatsState = aiHubChatsStore.getState();
@@ -598,8 +597,6 @@ const AiHubChatsSidebar = () => {
 
     const isViewingArchived = activeFilter === 'ARCHIVED';
 
-    const isFeatureFlagEnabled = useFeatureFlagsStore();
-
     const {pathname} = useLocation();
 
     // Active-state predicates for the top-level menu items.
@@ -617,9 +614,7 @@ const AiHubChatsSidebar = () => {
     const isOnSkills = pathname.startsWith('/automation/settings/ai/skills');
     const isOnToolApprovals = pathname.startsWith('/automation/settings/ai-hub/tool-approvals');
 
-    const toolApprovalsEnabled = isFeatureFlagEnabled('ff-ai-hub-tool-approvals');
-
-    const isOnMoreTarget = isOnMemories || isOnConnectors || isOnSkills || (toolApprovalsEnabled && isOnToolApprovals);
+    const isOnMoreTarget = isOnMemories || isOnConnectors || isOnSkills || isOnToolApprovals;
 
     // `bg-accent` alone is the same shade as `hover:bg-accent`, so an "active" menu item is visually
     // indistinguishable from a hovered one — the user reads the row as not-selected. Mirror the active-chat
@@ -732,14 +727,12 @@ const AiHubChatsSidebar = () => {
                             </Link>
                         </DropdownMenuItem>
 
-                        {toolApprovalsEnabled && (
-                            <DropdownMenuItem asChild>
-                                <Link to="/automation/settings/ai-hub/tool-approvals">
-                                    <ShieldCheckIcon />
-                                    Tool approvals
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem asChild>
+                            <Link to="/automation/settings/ai-hub/tool-approvals">
+                                <ShieldCheckIcon />
+                                Tool approvals
+                            </Link>
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

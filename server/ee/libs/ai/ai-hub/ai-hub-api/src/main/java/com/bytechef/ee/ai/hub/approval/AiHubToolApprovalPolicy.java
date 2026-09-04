@@ -30,6 +30,17 @@ public interface AiHubToolApprovalPolicy {
      */
     record Decision(Set<String> required, Set<String> exempt) {
 
+        /**
+         * Both sets are copied, not stored as handed in. {@code isGated} reads them on every gate check for the whole
+         * turn, so a caller that kept its own reference to the mutable set it passed could add a tool to {@code exempt}
+         * — or drop one from {@code required} — and silently switch an approval gate off after the decision was made.
+         * {@code AiHubToolApprovalPolicyImpl} does pass live {@code HashSet}s on its happy path.
+         */
+        public Decision {
+            required = Set.copyOf(required);
+            exempt = Set.copyOf(exempt);
+        }
+
         public boolean isGated(String toolName) {
             if (exempt.contains(toolName)) {
                 return false;

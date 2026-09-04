@@ -14,6 +14,71 @@ export type AiHubChatStatusType = 'ACTIVE' | 'ARCHIVED' | 'DELETED';
  */
 export type ChatActivityStateType = 'running' | 'paused';
 
+/** Value equality for one thread's presence roster. Order matters — the server returns a stable order. */
+function isSamePresence(left: ThreadStatusI['presence'], right: ThreadStatusI['presence']): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    return left.every((entry, index) => {
+        const other = right[index];
+
+        return (
+            entry.lastSeen === other.lastSeen &&
+            entry.state === other.state &&
+            entry.userId === other.userId &&
+            entry.userName === other.userName
+        );
+    });
+}
+
+function isSameThreadStatus(left: ThreadStatusI, right: ThreadStatusI): boolean {
+    return (
+        left.inFlight === right.inFlight &&
+        left.messageCount === right.messageCount &&
+        left.runningUserId === right.runningUserId &&
+        left.runningUserName === right.runningUserName &&
+        left.updatedAt === right.updatedAt &&
+        isSamePresence(left.presence, right.presence)
+    );
+}
+
+/**
+ * Merges a `/status` poll's per-thread answers into the stored map, keeping the PREVIOUS object for any
+ * thread whose answer is value-identical — and returning the previous map itself when no thread moved.
+ *
+ * Two polls run against this map (the focused chat's every 5 s, the sidebar's every 20 s) and each parses
+ * its response afresh, so every answer is a new object even for a thread nothing has happened to. Consumers
+ * select {@code state.threadStatus[threadId]}, which zustand compares by reference, so an unconditional
+ * spread woke the presence strip, the composer's disabled state and the panel header on every tick for a
+ * status that had not changed. Exported for direct testing: the saving is invisible from the components.
+ *
+ * <p>A presence heartbeat legitimately changes {@code lastSeen} every 20 s per present viewer, so a chat
+ * somebody else is watching still churns at that cadence. The case this makes free is the common one — an
+ * idle chat nobody else has open, where every poll answer is identical to the last.</p>
+ */
+export function mergeThreadStatus(
+    previousStatusByThreadId: Record<string, ThreadStatusI>,
+    incomingStatusByThreadId: Record<string, ThreadStatusI>
+): Record<string, ThreadStatusI> {
+    const merged: Record<string, ThreadStatusI> = {...previousStatusByThreadId};
+
+    let changed = false;
+
+    Object.entries(incomingStatusByThreadId).forEach(([threadId, status]) => {
+        const previousStatus = previousStatusByThreadId[threadId];
+
+        if (previousStatus != null && isSameThreadStatus(previousStatus, status)) {
+            return;
+        }
+
+        merged[threadId] = status;
+        changed = true;
+    });
+
+    return changed ? merged : previousStatusByThreadId;
+}
+
 interface AiHubChatsStateI {
     activeFilter: AiHubChatStatusType;
     chatActivity: Record<string, ChatActivityStateType>;
@@ -50,7 +115,9 @@ interface AiHubChatsStateI {
     setSearchTerm: (term: string) => void;
     // Merges by thread id — a call with one thread's status leaves every other thread's entry (and
     // chatActivity) untouched. The sidebar's poll and the runtime provider's TURN_IN_FLIGHT handling are the
-    // two writers; both pass a full ThreadStatusI per key, never a partial patch.
+    // two writers; both pass a full ThreadStatusI per key, never a partial patch. A value-identical answer
+    // preserves the previous object (and the previous map) rather than replacing it — see
+    // mergeThreadStatus for why that matters to every selector reading this field.
     setThreadStatus: (statusByThreadId: Record<string, ThreadStatusI>) => void;
     // Keyed by AG-UI thread id, like chatActivity — see that field's doc for why. A thread absent from this
     // map means "not polled yet, or the last poll omitted it" (no view access, or the chat is gone) — NOT
@@ -163,7 +230,7 @@ export const aiHubChatsStore = create<AiHubChatsStateI>()(
         setSearchTerm: (term) => set({searchTerm: term}),
         setThreadStatus: (statusByThreadId) =>
             set((state) => ({
-                threadStatus: {...state.threadStatus, ...statusByThreadId},
+                threadStatus: mergeThreadStatus(state.threadStatus, statusByThreadId),
             })),
         threadStatus: {},
         titleGenerationFailures: {},

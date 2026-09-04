@@ -3,8 +3,10 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {ThreadStatusI, probeInFlightStatus, probeThreadStatus, sendPresence} from '../inFlightRunClient';
 
 /**
- * Focused coverage for the `/status` and `/presence` client adapters. `attachToInFlightRun` (the
- * EventSource replay adapter) is covered elsewhere and isn't touched by this task.
+ * Focused coverage for the `/status` and `/presence` client adapters, both of which go through `fetch`
+ * and so can be driven from jsdom directly. `attachToInFlightRun` is deliberately not covered here: it
+ * constructs an `EventSource`, which jsdom does not implement, so exercising it would mean asserting
+ * against a hand-rolled global stub rather than against the adapter's real behaviour.
  */
 
 function buildStatus(overrides: Partial<ThreadStatusI> = {}): ThreadStatusI {

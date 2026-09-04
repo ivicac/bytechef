@@ -142,6 +142,11 @@ class AiHubAgentConversationRecorderTest {
         assertThat(created.getWorkspaceId()).isEqualTo(WORKSPACE_ID);
         assertThat(created.getEnvironment()).isEqualTo(Environment.values()[ENVIRONMENT_ID]);
 
+        // A Slack channel was never private to whoever sent the first message, so a channel-born row overrides the
+        // entity's PRIVATE default. Asserted on the stored entity, not only on the insert argument, because the
+        // ordinal the repository is handed and the visibility the row ends up with are two separate claims.
+        assertThat(created.getVisibility()).isEqualTo(ResourceVisibility.WORKSPACE);
+
         recorder.recordTurn(agentConversation(WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID));
 
         // The second turn found the row and did not attempt another insert — the opposite of
@@ -427,6 +432,7 @@ class AiHubAgentConversationRecorderTest {
 
                         chat.setThreadId(invocation.getArgument(1, String.class));
                         chat.setEnvironment(Environment.values()[invocation.getArgument(4, Integer.class)]);
+                        chat.setVisibility(ResourceVisibility.values()[invocation.getArgument(9, Integer.class)]);
 
                         storedChat.set(chat);
 

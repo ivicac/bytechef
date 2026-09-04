@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.hub.approval;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -39,7 +40,16 @@ public interface AiHubToolApprovalFacade {
     /**
      * The outcome of a {@link #resolve} call: the decided (and possibly executed) approval row, whether a continuation
      * turn was actually started, and that turn's run id when it was.
+     *
+     * <p>
+     * {@code approval} is deliberately the live {@link AiHubToolApproval} row rather than a copy: it is a Spring Data
+     * JDBC entity with no copy path, and every caller wants the decided row's own state — the status the decision and
+     * the execution just wrote. Handing out a mutable entity is what the persistence layer does everywhere here, so the
+     * {@code EI} suppression records that this is the intended shape, not an oversight. Collection-valued components
+     * elsewhere are copied instead (see {@code Decision}); there is no equivalent for an entity.
+     * </p>
      */
+    @SuppressFBWarnings("EI")
     record Resolution(AiHubToolApproval approval, boolean continuationStarted, @Nullable String runId) {
     }
 }

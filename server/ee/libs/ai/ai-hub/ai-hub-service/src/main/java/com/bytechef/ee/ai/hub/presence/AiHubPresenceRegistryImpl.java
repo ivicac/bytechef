@@ -25,11 +25,19 @@ import org.springframework.stereotype.Component;
  * cache entry per thread.
  *
  * <p>
- * The stored map is read, mutated, and written back on every {@link #heartbeat} / {@link #leave} call. This
- * read-modify-write races between two users' heartbeats landing on the same thread at the same time — the loser's write
- * is silently overwritten by the winner's read-then-write. That is accepted rather than guarded with locking: the
- * loser's entry reappears on its own next heartbeat, well within the presence TTL, so the worst case is a momentary gap
- * in the roster rather than a lost or corrupted entry.
+ * Every read takes a COPY of the stored map ({@link #readPresenceMap}), which is mutated and written back on each
+ * {@link #heartbeat} / {@link #leave} call. Copy-on-read is not an optimisation to skip: a local Caffeine backend
+ * stores the object reference, so reading without copying would hand out the live map and a {@code put} landing
+ * mid-iteration in {@link #presence} would throw {@link java.util.ConcurrentModificationException} out of the
+ * {@code /status} poll. Copying also makes the two backends behave identically, since a serializing backend (Redis)
+ * copies on read anyway.
+ * </p>
+ *
+ * <p>
+ * What copy-on-read leaves is a lost update: two heartbeats on the same thread read the same snapshot, and the loser's
+ * write is silently overwritten by the winner's. That is accepted rather than guarded with locking — the loser's entry
+ * reappears on its own next heartbeat, well within the presence TTL, so the worst case is a momentary gap in the
+ * roster, never a corrupted map or a failed request.
  * </p>
  *
  * <p>
@@ -114,15 +122,20 @@ public class AiHubPresenceRegistryImpl implements AiHubPresenceRegistry {
             .toList();
     }
 
+    /**
+     * Returns a COPY, never the cached instance. A local {@link org.springframework.cache.caffeine.CaffeineCache}
+     * stores the object reference, so returning it directly hands out the live map: {@link #heartbeat} and
+     * {@link #leave} would then {@code put}/{@code remove} on the same instance {@link #presence} is streaming, which
+     * throws {@link java.util.ConcurrentModificationException} out of a {@code /status} poll and can leave the map
+     * structurally damaged. A serializing backend (Redis) already copies on every read, so copying here is what makes
+     * the two behave identically and what makes this class's read-modify-write reasoning true rather than
+     * backend-dependent.
+     */
     @SuppressWarnings("unchecked")
     private static Map<Long, PresenceEntry> readPresenceMap(Cache cache, String threadId) {
         HashMap<Long, PresenceEntry> presenceByUserId = cache.get(threadId, HashMap.class);
 
-        if (presenceByUserId == null) {
-            return new HashMap<>();
-        }
-
-        return presenceByUserId;
+        return presenceByUserId == null ? new HashMap<>() : new HashMap<>(presenceByUserId);
     }
 
     private Cache getCache() {

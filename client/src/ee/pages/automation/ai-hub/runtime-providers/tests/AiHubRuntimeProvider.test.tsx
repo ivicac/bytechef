@@ -33,20 +33,25 @@ const mockFetchWorkflowResponse = vi.mocked(fetchWorkflowResponse);
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
+    FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES,
     FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES,
     abandonFocusedChat,
     bootstrapAiHubTurnRunState,
     buildAiHubSubscriber,
     buildStateToSend,
     cleanupForChatChange,
+    decideFocusedThreadPollAction,
     getOptimisticTurnMarker,
     hasLivePropertyOptionPicker,
+    nextAttachFailureCount,
     nextFocusedThreadMissCount,
     parseTurnInFlightBody,
     projectMessagesWithToolCalls,
     removeOptimisticTurnMessages,
     runPostTurnTelemetry,
+    shouldWarnMultiInstanceAttach,
     stampOptimisticTurnMarker,
+    warnMultiInstanceAttach,
 } from '../AiHubRuntimeProvider';
 
 import type {AgentSubscriber} from '@ag-ui/client';
@@ -57,6 +62,8 @@ import type {
     ToolCallResultEvent,
     ToolCallStartEvent,
 } from '@ag-ui/core';
+
+import type {ThreadStatusI} from '../inFlightRunClient';
 
 /**
  * Typed event factories. Tests previously cast every event payload via `as never`, which silently dropped
@@ -290,6 +297,156 @@ describe('abandonFocusedChat', () => {
         expect(navigate).toHaveBeenCalledExactlyOnceWith('/automation/ai-hub');
 
         toastErrorSpy.mockRestore();
+    });
+});
+
+describe('nextAttachFailureCount / shouldWarnMultiInstanceAttach', () => {
+    it('resets to 0 when the closed stream had delivered at least one event', () => {
+        expect(nextAttachFailureCount(2, true)).toBe(0);
+        expect(nextAttachFailureCount(0, true)).toBe(0);
+    });
+
+    it('increments when the stream closed without ever delivering an event', () => {
+        expect(nextAttachFailureCount(0, false)).toBe(1);
+        expect(nextAttachFailureCount(2, false)).toBe(3);
+    });
+
+    /*
+     * The whole point of the counter: a single 404 or dropped connection must not conclude "this run is on
+     * another node". Only a run of them, long enough that a blip is ruled out, does — the same bargain
+     * nextFocusedThreadMissCount makes for absent statuses.
+     */
+    it('crosses the threshold only on the third consecutive empty close', () => {
+        let consecutiveFailures = 0;
+
+        consecutiveFailures = nextAttachFailureCount(consecutiveFailures, false);
+        expect(consecutiveFailures).toBeLessThan(FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES);
+
+        consecutiveFailures = nextAttachFailureCount(consecutiveFailures, false);
+        expect(consecutiveFailures).toBeLessThan(FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES);
+
+        consecutiveFailures = nextAttachFailureCount(consecutiveFailures, false);
+        expect(consecutiveFailures).toBeGreaterThanOrEqual(FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES);
+    });
+
+    it('a successful stream mid-run resets the count, so the run has to start over', () => {
+        let consecutiveFailures = nextAttachFailureCount(nextAttachFailureCount(0, false), false);
+
+        expect(consecutiveFailures).toBe(2);
+
+        consecutiveFailures = nextAttachFailureCount(consecutiveFailures, true);
+
+        expect(consecutiveFailures).toBe(0);
+    });
+
+    it('warns exactly on the tick the threshold is crossed, and not on later closes', () => {
+        expect(shouldWarnMultiInstanceAttach(1, 2)).toBe(false);
+        expect(shouldWarnMultiInstanceAttach(2, 3)).toBe(true);
+        expect(shouldWarnMultiInstanceAttach(3, 4)).toBe(false);
+        expect(shouldWarnMultiInstanceAttach(4, 5)).toBe(false);
+    });
+});
+
+describe('warnMultiInstanceAttach', () => {
+    // The spec asks for this copy and only documentation ever shipped for it, so the string itself is the
+    // finding: without it an attach 404 leaves a blank assistant bubble and a pulse that blinks off.
+    it('surfaces the multi-instance hint as an informational toast', async () => {
+        const {toast} = await import('sonner');
+
+        const toastInfoSpy = vi.spyOn(toast, 'info').mockImplementation(() => '');
+
+        warnMultiInstanceAttach();
+
+        expect(toastInfoSpy).toHaveBeenCalledExactlyOnceWith('Running on another node — refresh when done.');
+
+        toastInfoSpy.mockRestore();
+    });
+});
+
+/*
+ * The focused-chat poll's whole branch tree. Nothing in this codebase mounts AiHubRuntimeProvider — it
+ * needs the assistant-ui runtime, an AG-UI agent, the router and a dozen stores — so this decision function
+ * is where the poll's behaviour is actually pinned: which tick mirrors another participant's turn, which
+ * refetches a finished one, which sends the user home, and which does nothing at all.
+ */
+describe('decideFocusedThreadPollAction', () => {
+    function buildStatus(overrides: Partial<ThreadStatusI> = {}): ThreadStatusI {
+        return {
+            inFlight: false,
+            messageCount: 0,
+            presence: [],
+            runningUserId: null,
+            runningUserName: null,
+            updatedAt: 0,
+            ...overrides,
+        };
+    }
+
+    function decide(overrides: Partial<Parameters<typeof decideFocusedThreadPollAction>[0]> = {}) {
+        return decideFocusedThreadPollAction({
+            consecutiveAttachFailures: 0,
+            consecutiveMisses: 0,
+            isRunningLocally: false,
+            lastKnownMessageCount: null,
+            status: buildStatus(),
+            ...overrides,
+        });
+    }
+
+    it('idles on an absent status until the miss threshold is reached, then abandons', () => {
+        expect(decide({consecutiveMisses: 1, status: undefined})).toBe('idle');
+        expect(decide({consecutiveMisses: 2, status: undefined})).toBe('idle');
+        expect(decide({consecutiveMisses: FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES, status: undefined})).toBe('abandon');
+    });
+
+    it('attaches when a turn is in flight and this client is not the one running it', () => {
+        expect(decide({status: buildStatus({inFlight: true})})).toBe('attach');
+    });
+
+    it('does not attach to a turn this client is running itself', () => {
+        // A second subscriber on this client's own stream would render every event twice.
+        expect(decide({isRunningLocally: true, status: buildStatus({inFlight: true})})).toBe('idle');
+    });
+
+    it('stops attaching once the attach-failure threshold is reached, even while inFlight stays true', () => {
+        // The multi-instance case: /status keeps correctly reporting inFlight from the shared cache while
+        // the run lives on another node, so without this the poll reopened a doomed EventSource every 5s
+        // and flickered the composer's Send/Stop control for the whole of the other node's turn.
+        expect(
+            decide({
+                consecutiveAttachFailures: FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES,
+                status: buildStatus({inFlight: true}),
+            })
+        ).toBe('idle');
+    });
+
+    it('still attaches while below the attach-failure threshold', () => {
+        expect(
+            decide({
+                consecutiveAttachFailures: FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES - 1,
+                status: buildStatus({inFlight: true}),
+            })
+        ).toBe('attach');
+    });
+
+    it('refetches when a finished turn grew the message count past the last known baseline', () => {
+        expect(decide({lastKnownMessageCount: 4, status: buildStatus({messageCount: 6})})).toBe('refetch');
+    });
+
+    it('does not refetch on the very first tick, when there is no baseline yet', () => {
+        // A null baseline must not read as "grew from 0" — that fired a refetch on every chat open.
+        expect(decide({lastKnownMessageCount: null, status: buildStatus({messageCount: 6})})).toBe('idle');
+    });
+
+    it('does not refetch when the message count has not moved', () => {
+        expect(decide({lastKnownMessageCount: 6, status: buildStatus({messageCount: 6})})).toBe('idle');
+    });
+
+    it('prefers attaching over refetching when a turn is in flight and the count has also grown', () => {
+        // The attach's own replay carries the reply in; a refetch on the same tick would race it.
+        expect(decide({lastKnownMessageCount: 4, status: buildStatus({inFlight: true, messageCount: 6})})).toBe(
+            'attach'
+        );
     });
 });
 
@@ -1351,7 +1508,7 @@ describe('buildAiHubSubscriber', () => {
         });
     });
 
-    describe('onRunErrorEvent — TURN_IN_FLIGHT (Task 8)', () => {
+    describe('onRunErrorEvent — TURN_IN_FLIGHT', () => {
         // The AG-UI SDK formats a non-OK HttpAgent response as `HTTP <status>: <body>`, where <body> is the
         // response's own JSON.stringify'd text when its content-type is application/json — this is what
         // AiHubApiController.handleTurnInFlight's body looks like once it reaches onRunErrorEvent (which

@@ -298,6 +298,64 @@ class AiHubChatBindingToolCallbackResolverTest {
     }
 
     /**
+     * The owner's own turn, with {@code ownerUserId} absent from the context. {@code ownerUserId} is {@code @Nullable}
+     * at every hop from the controller down, and {@code Objects.equals(null, x)} is false for any {@code x}, so
+     * deciding ownership from the CONTEXT made a call site that forgot to thread it silently strip the owner of their
+     * own user-global connectors — safe, but invisible: nothing errors, the tool list is just smaller than the owner
+     * expects. Deciding it from the chat ROW, which this resolver has already loaded, cannot be got wrong by a caller.
+     */
+    @Test
+    void testResolveTreatsTheOwnerAsOwnerEvenWhenTheContextOmitsOwnerUserId() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ConnectionService connectionService = mock(ConnectionService.class);
+
+        AiHubChat chat = mock(AiHubChat.class);
+
+        when(chat.getId()).thenReturn(7L);
+        when(chat.getUserId()).thenReturn(1L);
+        when(chatService.findByThreadId("thread-1")).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(7L)).thenReturn(10L);
+        when(chatToolFacade.listChatTools(7L)).thenReturn(List.of());
+
+        AiHubChatToolBinding slackBinding = new AiHubChatToolBinding(
+            11L, 99L, 0L, "slack", 1, "sendMessage", 42L, 0, Map.of(), false);
+
+        ClusterElementDefinition slackDef = mock(ClusterElementDefinition.class);
+
+        lenient()
+            .when(slackDef.getDescription())
+            .thenReturn("Send a message to a Slack channel");
+        lenient()
+            .when(slackDef.getTitle())
+            .thenReturn("Slack: Send Message");
+        lenient()
+            .when(slackDef.getProperties())
+            .thenReturn(List.of());
+        lenient()
+            .when(clusterElementDefinitionService.getClusterElementDefinition(eq("slack"), eq(1), eq("sendMessage")))
+            .thenReturn(slackDef);
+
+        AiHubChatBindingToolCallbackResolver resolver = newResolver(
+            chatService, chatToolFacade, clusterElementDefinitionService, connectionService);
+
+        // After newResolver, which blanket-stubs listUserTools to an empty list.
+        when(chatToolFacade.listUserTools(1L, 10L)).thenReturn(List.of(slackBinding));
+
+        // Sender IS the owner (1), but ownerUserId is null — the six-argument overload.
+        AiHubToolInvocationContext context = new AiHubToolInvocationContext(
+            10L, 1L, (short) 0, "x", 0L, "thread-1");
+
+        List<ToolCallback> callbacks = resolver.resolve(context);
+
+        assertThat(callbacks).hasSize(1);
+        assertThat(callbacks.getFirst()
+            .getToolDefinition()
+            .name()).isEqualTo("slack_sendMessage");
+    }
+
+    /**
      * Extends the owner-vs-participant gate beyond connectors: an external MCP server row is scoped to (userId,
      * workspaceId) ({@code AiHubMcpServerFacadeImpl#listMcpServers} queries {@code findAllByUserIdAndWorkspaceId}) and
      * an AI skill is scoped to its creator's login ({@link AiHubSkillsToolProvider#resolve}) — both exactly as personal

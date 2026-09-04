@@ -49,6 +49,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,11 +81,30 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </ol>
  *
  * <p>
- * The approved tool call executes under the RESOLVER's own security context, not the requester's: the requester is
- * always the chat owner and the resolver is the owner or any INSTANCE admin (see {@link #canResolve} — there is no
- * workspace-membership check on the admin branch), so impersonating the requester via {@code SecurityUtils.runAs} would
- * buy nothing and cost a rebuilt {@code Authentication}. Both ids are recorded on the row ({@code requestedByUserId} at
- * creation, {@code decidedByUserId} here) and the CURRENT authentication is carried into the tool context.
+ * Two identities are in play, and they are used for different things. The REQUESTER ({@code requestedByUserId}) is
+ * whoever sent the turn that raised the approval; the RESOLVER ({@code decidedByUserId}, the current principal) is
+ * whoever decided it — the chat owner or any INSTANCE admin (see {@link #canResolve}; there is no workspace-membership
+ * check on the admin branch). Since a chat can be shared, the two are no longer necessarily the same person: a
+ * participant's turn can raise an approval the owner resolves.
+ * </p>
+ *
+ * <p>
+ * <b>Which identity is used where.</b> Tool RESOLUTION and the continuation turn follow the REQUESTER — the tool
+ * population, asset-file scoping and {@link AiHubStateKeys#AUTHENTICATED_USER_ID} must match the turn being continued,
+ * or the owner's user-global connectors, MCP servers and skills leak into a participant's turn (and an admin resolver
+ * cannot find an owner-user-global tool at all). EXECUTION follows a two-way split decided by which of the three
+ * populations {@link #findCallback} resolved the callback from: a CHAT-SCOPED attached tool runs as the chat's OWNER,
+ * because the binding, its pinned connection and the resources behind it are the owner's; a CATALOG or a PINNED tool —
+ * globally registered and owned by nobody — runs as the REQUESTER, whose instruction it serves.
+ * </p>
+ *
+ * <p>
+ * Neither branch is the RESOLVER. The approver is recorded ({@code decidedByUserId} and the audit event) and never
+ * impersonated, so approving a call never lends the approver's authority to it. Execution runs inside
+ * {@link SecurityContextRehydrator#withUserSecurityContext}, which resolves that identity's own login and authorities,
+ * so both the executed tool's {@code @PreAuthorize} facades and the {@link AgentToolInvocationContext} the call carries
+ * name the same person. When the identity cannot be established — no rehydrator on the classpath, or the user no longer
+ * exists — the row is marked {@code FAILED} rather than falling back to the resolver's ambient context.
  * </p>
  *
  * @version ee
@@ -93,6 +114,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @ConditionalOnProperty(prefix = "bytechef.ai.hub", name = "enabled", havingValue = "true")
 public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(AiHubToolApprovalFacadeImpl.class);
 
     private final AiHubChatAccessPolicy accessPolicy;
     private final AiHubToolApprovalService approvalService;
@@ -172,9 +195,11 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     }
 
     /**
-     * {@code chatService.getById} is the authorization check: it enforces chat ownership within the requested workspace
-     * and throws {@link NotFoundException} otherwise. There is no separate workspace-role check, because a tool
-     * approval belongs to one chat, not to the workspace at large.
+     * {@code chatService.getById} is the authorization check: it requires the chat to belong to the requested workspace
+     * and the caller to be able to VIEW it ({@link AiHubChatAccessPolicy#canView}), throwing {@link NotFoundException}
+     * otherwise. Viewability, not ownership — the approval card renders for everyone the chat is shared with, so every
+     * viewer needs to read the row. Only {@link #resolve} is owner-or-admin, through {@link #canResolve}. There is no
+     * separate workspace-role check, because a tool approval belongs to one chat, not to the workspace at large.
      */
     @Override
     public List<AiHubToolApproval> list(long workspaceId, long chatId) {
@@ -207,9 +232,9 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
 
         AiHubToolApproval decided = persistDecision(approval, currentUserId, approved, comment);
 
-        String toolResult = approved ? executeAndPersistOutcome(decided, chat, currentUserId) : null;
+        String toolResult = approved ? executeAndPersistOutcome(decided, chat) : null;
 
-        String runId = startContinuation(decided, chat, currentUserId, toolResult);
+        String runId = startContinuation(decided, chat, workspaceId, toolResult);
 
         return new Resolution(decided, runId != null, runId);
     }
@@ -284,8 +309,8 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
      * {@code FAILED} (see {@link #execute}) and persists that as a second, independent write — the decision itself
      * stays committed either way.
      */
-    private @Nullable String executeAndPersistOutcome(AiHubToolApproval decided, AiHubChat chat, long userId) {
-        String toolResult = execute(decided, chat, userId);
+    private @Nullable String executeAndPersistOutcome(AiHubToolApproval decided, AiHubChat chat) {
+        String toolResult = execute(decided, chat);
 
         if (decided.getStatus() == AiHubToolApproval.Status.FAILED) {
             approvalService.save(decided);
@@ -296,23 +321,67 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     }
 
     /**
-     * Runs the approved tool call with the row's stored arguments, under the CURRENT (resolver's) security context —
-     * see the class Javadoc. Mutates {@code approval} to {@code FAILED} (with
-     * {@link AiHubToolApproval#getExecutionError} set) when the tool cannot be found or throws; the caller is
-     * responsible for persisting the mutated row.
+     * Runs the approved tool call with the row's stored arguments, under the EXECUTION identity the population the
+     * callback was resolved from selects — the chat's owner for a chat-scoped attached tool, the requester for a
+     * catalog or pinned one; never the resolver (see the class Javadoc). Mutates {@code approval} to {@code FAILED}
+     * (with {@link AiHubToolApproval#getExecutionError} set) when the tool cannot be found, that identity cannot be
+     * established, or the call throws; the caller is responsible for persisting the mutated row.
      */
-    private @Nullable String execute(AiHubToolApproval approval, AiHubChat chat, long userId) {
-        Optional<ToolCallback> callbackOptional = findCallback(approval, chat, userId);
+    private @Nullable String execute(AiHubToolApproval approval, AiHubChat chat) {
+        Optional<ResolvedToolCallback> resolvedOptional = findCallback(approval, chat);
 
-        if (callbackOptional.isEmpty()) {
+        if (resolvedOptional.isEmpty()) {
             approval.setStatus(AiHubToolApproval.Status.FAILED);
             approval.setExecutionError("Tool " + approval.getToolName() + " is no longer available in this chat");
 
             return null;
         }
 
-        ToolCallback callback = AiHubToolCallbackWrappers.wrap(callbackOptional.get(), securityContextRehydrator);
-        ToolContext toolContext = new ToolContext(toolContextFor(approval, chat, userId));
+        ResolvedToolCallback resolved = resolvedOptional.get();
+        long executionUserId = executionUserId(approval, chat, resolved.population());
+
+        if (securityContextRehydrator == null || userService.fetchUser(executionUserId)
+            .isEmpty()) {
+
+            approval.setStatus(AiHubToolApproval.Status.FAILED);
+            approval.setExecutionError(
+                "Tool " + approval.getToolName() + " cannot run: the security context of user " + executionUserId
+                    + " could not be established");
+
+            return null;
+        }
+
+        return securityContextRehydrator.withUserSecurityContext(
+            executionUserId, () -> call(approval, chat, resolved.callback(), executionUserId));
+    }
+
+    /**
+     * The identity an approved call executes as. A CHAT_SCOPED callback came from the chat's own attached tools, whose
+     * bindings, pinned connections and backing resources belong to the chat's owner, so it runs as the owner. A CATALOG
+     * or PINNED callback is registered globally and belongs to nobody, so it runs as the requester — the person whose
+     * instruction raised the call. The resolver is never an option: they decided the call, they did not make it.
+     *
+     * <p>
+     * The two branches coincide whenever the requester IS the owner, which is every unshared chat, so this only
+     * diverges for a participant's gated call in a shared chat.
+     * </p>
+     */
+    private static long executionUserId(
+        AiHubToolApproval approval, AiHubChat chat, ToolPopulation population) {
+
+        return population == ToolPopulation.CHAT_SCOPED ? chat.getUserId() : approval.getRequestedByUserId();
+    }
+
+    /**
+     * Invokes the resolved callback. Called inside {@link SecurityContextRehydrator#withUserSecurityContext}, which is
+     * why {@link #toolContextFor} can capture the ambient {@code Authentication} and get the execution identity's
+     * rather than the resolver's.
+     */
+    private @Nullable String call(
+        AiHubToolApproval approval, AiHubChat chat, ToolCallback resolvedCallback, long executionUserId) {
+
+        ToolCallback callback = AiHubToolCallbackWrappers.wrap(resolvedCallback, securityContextRehydrator);
+        ToolContext toolContext = new ToolContext(toolContextFor(approval, chat, executionUserId));
 
         try {
             return toolExecutionRecorder == null
@@ -338,8 +407,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     /**
      * {@link ToolExecutionKind} has no CATALOG-equivalent constant (only {@code COMPONENT}, {@code WORKFLOW},
      * {@code CONTRIBUTED}, {@code MANAGEMENT_TOOL}); a catalog tool is a hand-built callback contributed directly by AI
-     * Hub rather than derived from a component, so {@code CONTRIBUTED} is the nearest match. See this task's report for
-     * the full reasoning.
+     * Hub rather than derived from a component, so {@code CONTRIBUTED} is the nearest match.
      */
     private static ToolExecutionKind toolExecutionKind(AiHubToolApproval approval) {
         return approval.getToolKind() == AiHubToolApproval.ToolKind.COMPONENT
@@ -355,17 +423,34 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
      * delete/rollback/promote tools) never appears in either of the first two populations, since it is registered once
      * at builder time rather than resolved per chat or per catalog lookup. Empty when the tool is in none of the three
      * (e.g. a connector was detached, or a catalog tool was removed between the request and the decision).
+     *
+     * <p>
+     * Reports WHICH population answered alongside the callback, because that is what {@link #executionUserId} needs:
+     * the populations are the only thing that distinguishes a chat-scoped attached tool from a globally registered one.
+     * The row's own {@code toolKind} is not a substitute — it records only whether the gated callback was a
+     * {@code ClusterElementToolCallback}, so the owner's user-global MCP-server and skill tools, which reach this
+     * method through the chat-bound population, are stored as {@code CATALOG}.
+     * </p>
+     *
+     * <p>
+     * The invocation context carries {@code requestedByUserId} as its {@code userId} — the requester, NOT the resolver.
+     * That is what reproduces the population the original gated call saw: the resolver is the owner or an instance
+     * admin, so resolving as the resolver would compute {@code senderIsOwner = Objects.equals(ownerUserId, userId)}
+     * differently from the turn being continued — un-gating the owner's user-global connectors, MCP servers and skills
+     * for a participant's turn when the owner resolves, and failing to find an owner-user-global tool at all when an
+     * admin does.
+     * </p>
      */
-    private Optional<ToolCallback> findCallback(AiHubToolApproval approval, AiHubChat chat, long userId) {
+    private Optional<ResolvedToolCallback> findCallback(AiHubToolApproval approval, AiHubChat chat) {
         List<ToolCallback> chatCallbacks = chatBindingResolver.resolve(
             new AiHubToolInvocationContext(
-                chat.getWorkspaceId(), userId, Source.AI_HUB.toAgentSourceOrdinal(), null,
+                chat.getWorkspaceId(), approval.getRequestedByUserId(), Source.AI_HUB.toAgentSourceOrdinal(), null,
                 (long) approval.getEnvironment(), chat.getThreadId(), chat.getUserId()));
 
         Optional<ToolCallback> chatCallback = findByName(chatCallbacks, approval.getToolName());
 
         if (chatCallback.isPresent()) {
-            return chatCallback;
+            return chatCallback.map(callback -> new ResolvedToolCallback(callback, ToolPopulation.CHAT_SCOPED));
         }
 
         boolean build = "BUILD".equals(approval.getMode());
@@ -373,12 +458,25 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         Optional<ToolCallback> catalogCallback = findByName(catalog.toolCallbacks(), approval.getToolName());
 
         if (catalogCallback.isPresent()) {
-            return catalogCallback;
+            return catalogCallback.map(callback -> new ResolvedToolCallback(callback, ToolPopulation.CATALOG));
         }
 
         AiHubSpringAIAgent pinnedAgent = build ? buildSpringAIAgent : askSpringAIAgent;
 
-        return findByName(pinnedAgent.pinnedToolCallbacks(), approval.getToolName());
+        return findByName(pinnedAgent.pinnedToolCallbacks(), approval.getToolName())
+            .map(callback -> new ResolvedToolCallback(callback, ToolPopulation.PINNED));
+    }
+
+    /**
+     * Which of the three populations {@link #findCallback} searches answered. {@code CHAT_SCOPED} is the chat's own
+     * attached tools, {@code CATALOG} the searchable global catalog for the row's mode, {@code PINNED} the mode's
+     * agent's always-on tool callbacks.
+     */
+    private enum ToolPopulation {
+        CHAT_SCOPED, CATALOG, PINNED
+    }
+
+    private record ResolvedToolCallback(ToolCallback callback, ToolPopulation population) {
     }
 
     private static Optional<ToolCallback> findByName(List<ToolCallback> callbacks, String toolName) {
@@ -393,18 +491,29 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
      * Builds the {@link ToolContext} map the original gated call would have carried: the AI-Hub-specific
      * {@link AiHubToolInvocationContext} map merged with the surface-neutral {@link AgentToolInvocationContext} map
      * (the same two maps {@code AiHubSpringAIAgent.toolContext} builds), plus the mode key the approval gate reads.
+     *
+     * <p>
+     * The two maps can carry different user ids, and each carries the one its consumers need.
+     * {@link AiHubToolInvocationContext}'s {@code userId} is the requester, so the executed call sees the same tool
+     * population and the same asset-file scoping as the turn it belongs to. {@link AgentToolInvocationContext}'s
+     * {@code userId} is the EXECUTION identity, and travels beside an {@code authentication} captured from the ambient
+     * context — which this method is called inside {@link SecurityContextRehydrator#withUserSecurityContext} precisely
+     * so that it names that same person. The pair therefore never names two people, and what
+     * {@link com.bytechef.ai.copilot.tool.RehydrateContextToolCallback} restores on a worker thread is the identity the
+     * call is authorized as, not whoever approved it.
+     * </p>
      */
-    private Map<String, Object> toolContextFor(AiHubToolApproval approval, AiHubChat chat, long userId) {
+    private Map<String, Object> toolContextFor(AiHubToolApproval approval, AiHubChat chat, long executionUserId) {
         Map<String, Object> toolContext = new HashMap<>(
             new AiHubToolInvocationContext(
-                chat.getWorkspaceId(), userId, Source.AI_HUB.toAgentSourceOrdinal(), null,
+                chat.getWorkspaceId(), approval.getRequestedByUserId(), Source.AI_HUB.toAgentSourceOrdinal(), null,
                 (long) approval.getEnvironment(), chat.getThreadId(), chat.getUserId())
                     .toToolContext());
 
         toolContext.putAll(
             AgentToolInvocationContext.builder()
                 .workspaceId(chat.getWorkspaceId())
-                .userId(userId)
+                .userId(executionUserId)
                 .environmentId((long) approval.getEnvironment())
                 .conversationId(chat.getThreadId())
                 .tenantId(TenantContext.getCurrentTenantId())
@@ -424,9 +533,44 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
      * Starts a continuation turn on the owning chat reporting the decision's outcome, unless a run is already in flight
      * for the chat's thread (a fresh user turn started the same run) or no matching agent variant is registered.
      * Returns the started run's id, or {@code null} when no continuation was started.
+     *
+     * <p>
+     * The run state's {@code userId} is the requester, not the resolver: the continuation is still driven by the
+     * requester's original instruction and can call further tools, so {@link AiHubStateKeys#AUTHENTICATED_USER_ID} must
+     * stay what that key documents itself to be — the current sender — rather than becoming whoever happened to
+     * approve. The chat's owner travels separately as {@link AiHubStateKeys#VERIFIED_OWNER_USER_ID}, and the resolver's
+     * own identity is on the row ({@code decidedByUserId}) and in the audit event.
+     * </p>
+     *
+     * <p>
+     * The dispatch runs inside {@link SecurityContextRehydrator#withUserSecurityContext} for that same requester, so
+     * the ambient context the run starts under is theirs and not the approver's. Scope of that, precisely: the agent's
+     * individual tool calls were already the requester's — {@code AiHubSpringAIAgent.toolContext} carries the run
+     * state's {@code AUTHENTICATED_USER_ID} as the {@link AgentToolInvocationContext} {@code userId}, which
+     * {@code RehydrateContextToolCallback} turns into a per-call security context on the worker thread. What this
+     * covers is everything else the run touches on the dispatching thread before the first scheduler hop, which
+     * otherwise inherits the resolver's context. It cannot reach work a Reactor scheduler picks up later; identity that
+     * must survive a hop travels in the run state and the tool context, as it does everywhere else here.
+     * </p>
+     *
+     * <p>
+     * Fail-closed: when that identity cannot be established the continuation is not started at all, rather than started
+     * under the approver's. A whole turn can call many tools, so the blast radius of guessing is much wider than for
+     * one stored call — and no continuation is an outcome this method already produces (a run in flight, no registered
+     * agent variant) and every caller already handles, so the cost is a status message, not the decision or the tool
+     * result, both of which are committed by then.
+     * </p>
+     *
+     * <p>
+     * {@code workspaceId} arrives as a primitive from {@link #resolve}'s own parameter rather than being read back off
+     * {@code chat}: {@link AiHubChat#getWorkspaceId()} is a {@code @Nullable Long}, and unboxing it here would be a
+     * potential NPE that nothing local rules out. {@link #resolve} has already established the two are the same value —
+     * a chat whose workspace differs from the requested one is rejected as not-found before this point — so taking the
+     * parameter makes non-nullness structural instead of an invariant held one method away.
+     * </p>
      */
     private @Nullable String startContinuation(
-        AiHubToolApproval approval, AiHubChat chat, long userId, @Nullable String toolResult) {
+        AiHubToolApproval approval, AiHubChat chat, long workspaceId, @Nullable String toolResult) {
 
         if (inFlightRunRegistry.isInFlight(chat.getThreadId())) {
             return null;
@@ -435,6 +579,19 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         LocalAgent localAgent = localAgentMap.get("BUILD".equals(approval.getMode()) ? "ai_hub_build" : "ai_hub_ask");
 
         if (localAgent == null) {
+            return null;
+        }
+
+        long requesterUserId = approval.getRequestedByUserId();
+
+        if (securityContextRehydrator == null || userService.fetchUser(requesterUserId)
+            .isEmpty()) {
+
+            log.warn(
+                "Not starting the continuation turn for approval id={}: the security context of requesting user {}"
+                    + " could not be established, and the turn must not run as the approver",
+                approval.getId(), requesterUserId);
+
             return null;
         }
 
@@ -459,7 +616,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         }
 
         AiHubRunState.inject(
-            state, userId, chat.getWorkspaceId(), chat.getThreadId(), approval.getEnvironment(),
+            state, requesterUserId, workspaceId, chat.getThreadId(), approval.getEnvironment(),
             TenantContext.getCurrentTenantId(), chat.getUserId());
 
         AgUiParameters parameters = new AgUiParameters();
@@ -469,9 +626,11 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         parameters.setMessages(List.of(userMessage));
         parameters.setState(state);
 
-        chatStreamer.runAgent(localAgent, parameters, chat.getThreadId());
+        return securityContextRehydrator.withUserSecurityContext(requesterUserId, () -> {
+            chatStreamer.runAgent(localAgent, parameters, chat.getThreadId());
 
-        return runId;
+            return runId;
+        });
     }
 
     /**
@@ -498,11 +657,11 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
             .append(approval.getComponentName() == null ? "" : approval.getComponentName() + "/")
             .append(approval.getToolName());
 
-        if (approval.getComment() != null && !approval.getComment()
-            .isBlank()) {
+        String comment = approval.getComment();
 
+        if (comment != null && !comment.isBlank()) {
             text.append("\nComment: ")
-                .append(approval.getComment());
+                .append(comment);
         }
 
         if (toolResult != null) {
