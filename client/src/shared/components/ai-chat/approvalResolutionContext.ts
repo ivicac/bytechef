@@ -30,6 +30,15 @@ export interface ApprovalResolutionContextI {
      * approval). Callers should only mark the approval resolved after it settles successfully.
      */
     resolveApproval: (resumeId: string, payload: Record<string, unknown>) => Promise<void>;
+    /**
+     * Resolves a gated AI Hub tool call through the {@code resolveAiHubToolApproval} GraphQL mutation. Distinct
+     * from {@link resolveApproval}: the tool-approval gate suspends a single tool call (not a whole workflow run)
+     * and, on approval, the server starts a fresh agent turn on the same thread rather than resuming a job. Optional
+     * because only surfaces that provide this resolution path (AI Hub) render {@link ToolApprovalRequestMessage}
+     * interactively; the returned promise settles once the mutation itself completes — the card does not wait for
+     * the continuation to finish.
+     */
+    resolveToolApproval?: (approvalId: number, approved: boolean, comment?: string) => Promise<void>;
 }
 
 /**
