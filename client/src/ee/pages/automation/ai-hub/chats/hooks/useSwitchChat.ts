@@ -8,7 +8,15 @@ import {ThreadMessageLike} from '@assistant-ui/react';
 import {useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
 
-import {AiHubChatArtifactI, AiHubChatI, AiHubChatMessageI, getChatArtifacts, getChatMessages} from '../api/chats.api';
+import {
+    AiHubChatArtifactI,
+    AiHubChatI,
+    AiHubChatMessageI,
+    AiHubToolApprovalI,
+    getChatArtifacts,
+    getChatMessages,
+    getToolApprovals,
+} from '../api/chats.api';
 
 interface RestoredToolEventI {
     arguments?: string;
@@ -183,6 +191,64 @@ function mapServerMessages(messages: AiHubChatMessageI[]): ThreadMessageLike[] {
     });
 
     return mapped;
+}
+
+/**
+ * Stitches settled tool-approval outcomes onto the restored `data-tool-approval-request` parts
+ * {@link buildRestoredToolParts} rebuilt from persisted tool-call results. That restoration only sees the
+ * original gated request — the tool call's own result never carries its eventual decision, since the gate
+ * suspends before the tool runs — so a card would otherwise render its Approve/Reject buttons forever, even for
+ * an approval decided days ago. Approvals with `status === 'PENDING'` are left untouched: the card must keep
+ * rendering interactively for those, since there is at most one pending approval per chat and it may still be
+ * several messages back if the user kept chatting while it waited.
+ */
+function applyToolApprovalStatuses(
+    messages: ThreadMessageLike[],
+    approvalsById: Map<number, AiHubToolApprovalI>
+): ThreadMessageLike[] {
+    if (approvalsById.size === 0) {
+        return messages;
+    }
+
+    return messages.map((message) => {
+        if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+            return message;
+        }
+
+        let changed = false;
+
+        const content = message.content.map((part) => {
+            if (
+                typeof part !== 'object' ||
+                part === null ||
+                (part as {type?: unknown}).type !== 'data-tool-approval-request'
+            ) {
+                return part;
+            }
+
+            const data = (part as {data: Record<string, unknown>}).data;
+            const approvalId = typeof data.approvalId === 'number' ? data.approvalId : null;
+            const approval = approvalId != null ? approvalsById.get(approvalId) : undefined;
+
+            if (!approval || approval.status === 'PENDING') {
+                return part;
+            }
+
+            changed = true;
+
+            return {
+                ...part,
+                data: {
+                    ...data,
+                    executionError: approval.executionError ?? undefined,
+                    resolvedBy: approval.decidedByUserId != null ? String(approval.decidedByUserId) : undefined,
+                    resolvedStatus: approval.status,
+                },
+            };
+        });
+
+        return changed ? ({...message, content} as ThreadMessageLike) : message;
+    });
 }
 
 function mapServerRoleToClient(role: string): 'user' | 'assistant' | 'system' | null {
@@ -379,9 +445,10 @@ export function useSwitchChat() {
             navigate(`/automation/ai-hub/chats/${chat.id}`);
 
             try {
-                // Fetch history and artifacts together. Artifacts back the link-card reconstruction below;
-                // a failure there must not break the (primary) message load, so it degrades to no cards.
-                const [messages, artifacts] = await Promise.all([
+                // Fetch history, artifacts, and tool approvals together. Artifacts back the link-card
+                // reconstruction below and tool approvals back applyToolApprovalStatuses; a failure in either
+                // must not break the (primary) message load, so both degrade to empty.
+                const [messages, artifacts, toolApprovals] = await Promise.all([
                     getChatMessages({
                         chatId: chat.id,
                         workspaceId: currentWorkspaceId,
@@ -389,9 +456,17 @@ export function useSwitchChat() {
                     getChatArtifacts({chatId: chat.id, workspaceId: currentWorkspaceId}).catch(
                         (): AiHubChatArtifactI[] => []
                     ),
+                    getToolApprovals({chatId: chat.id, workspaceId: currentWorkspaceId}).catch(
+                        (): AiHubToolApprovalI[] => []
+                    ),
                 ]);
 
-                const mappedMessages: ThreadMessageLike[] = mapServerMessages(messages);
+                const toolApprovalsById = new Map(toolApprovals.map((approval) => [approval.id, approval]));
+
+                const mappedMessages: ThreadMessageLike[] = applyToolApprovalStatuses(
+                    mapServerMessages(messages),
+                    toolApprovalsById
+                );
 
                 // Chat memory persists only plain text, so the artifact link cards that streamed live are gone
                 // on reload. Rebuild them from the durable artifact rows and append after the transcript.

@@ -15,6 +15,7 @@ query aiHubUserConnectors($workspaceId: ID!, $chatId: ID) {
             enabled
             name
             parameters
+            requiresApproval
             title
         }
     }

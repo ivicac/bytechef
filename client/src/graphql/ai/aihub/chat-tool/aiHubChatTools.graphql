@@ -9,5 +9,6 @@ query aiHubChatTools($workspaceId: ID!, $chatId: ID!) {
         chatToolId
         environment
         parameters
+        requiresApproval
     }
 }

@@ -1,7 +1,11 @@
 import Badge from '@/components/Badge/Badge';
 import useChatToolsCache from '@/ee/pages/automation/ai-hub/tools/hooks/useChatToolsCache';
-import {useAiHubChatToolsQuery, useRemoveAiHubChatToolMutation} from '@/shared/middleware/graphql';
-import {WrenchIcon, XIcon} from 'lucide-react';
+import {
+    useAiHubChatToolsQuery,
+    useRemoveAiHubChatToolMutation,
+    useSetAiHubChatToolRequiresApprovalMutation,
+} from '@/shared/middleware/graphql';
+import {ShieldCheckIcon, ShieldIcon, WrenchIcon, XIcon} from 'lucide-react';
 
 interface ChatToolChipsPropsI {
     chatId: string;
@@ -29,6 +33,8 @@ const ChatToolChips = ({chatId, workspaceId}: ChatToolChipsPropsI) => {
         onSuccess: () => invalidate(chatId, workspaceId),
     });
 
+    const setRequiresApprovalMutation = useSetAiHubChatToolRequiresApprovalMutation();
+
     const tools = data?.aiHubChatTools ?? [];
 
     if (tools.length === 0) {
@@ -52,6 +58,29 @@ const ChatToolChips = ({chatId, workspaceId}: ChatToolChipsPropsI) => {
                     <span className="font-medium">{tool.componentName}:</span>
 
                     <span>{tool.clusterElementName}</span>
+
+                    <button
+                        aria-label={tool.requiresApproval ? 'Approval required' : 'Require approval'}
+                        className="ml-0.5 rounded hover:opacity-75"
+                        disabled={setRequiresApprovalMutation.isPending}
+                        onClick={() =>
+                            setRequiresApprovalMutation.mutate(
+                                {
+                                    chatToolId: tool.chatToolId,
+                                    requiresApproval: !tool.requiresApproval,
+                                    workspaceId: String(workspaceId),
+                                },
+                                {onSuccess: () => invalidate(chatId, workspaceId)}
+                            )
+                        }
+                        type="button"
+                    >
+                        {tool.requiresApproval ? (
+                            <ShieldCheckIcon className="size-3" />
+                        ) : (
+                            <ShieldIcon className="size-3" />
+                        )}
+                    </button>
 
                     <button
                         aria-label={`Remove ${tool.componentName} ${tool.clusterElementName}`}

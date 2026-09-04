@@ -1,8 +1,14 @@
 import {TooltipIconButton} from '@/components/assistant-ui/tooltip-icon-button';
 import AiHubMessageContent from '@/ee/pages/automation/ai-hub/messages/AiHubMessageContent';
-import {ActionBarPrimitive, ComposerPrimitive, MessagePrimitive} from '@assistant-ui/react';
+import {ActionBarPrimitive, ComposerPrimitive, MessagePrimitive, useAuiState} from '@assistant-ui/react';
 import {CheckIcon, CopyIcon, PencilIcon, RefreshCwIcon} from 'lucide-react';
 import {FC} from 'react';
+
+// The platform-generated prompt that restarts an agent turn after a tool approval is resolved — see
+// AiHubRuntimeProvider's resolveToolApproval / attachToContinuation. It is never typed by a person, so it
+// renders as a slim status line rather than a user bubble; TOOL_APPROVAL_STATUS_PREFIX is the marker that
+// tells the two apart.
+const TOOL_APPROVAL_STATUS_PREFIX = '[tool-approval #';
 
 /**
  * Edit composer for user messages — replaces the previous AiHubUserMessageEditor wrapper. The runtime
@@ -90,30 +96,52 @@ const AiHubAssistantActionBar: FC = () => (
     </ActionBarPrimitive.Root>
 );
 
-const AiHubUserMessage: FC = () => (
-    <MessagePrimitive.Root asChild>
-        <div
-            className="aui-cc-user-message mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-3 py-3 first:mt-3 last:mb-2 [&:where(>*)]:col-start-2"
-            data-role="user"
-        >
-            <div className="relative col-start-2 min-w-0">
-                <div className="rounded-2xl bg-muted px-4 py-2 text-sm break-words text-foreground">
-                    <AiHubMessageContent />
-                </div>
+const AiHubUserMessage: FC = () => {
+    const content = useAuiState((state) => state.message.content);
 
-                {/*
-                 * Hover-revealed pencil button. Clicking it triggers assistant-ui's beginEdit which swaps
-                 * the message in the thread for the EditComposer below. The save handler is wired through
-                 * the runtime provider's onEdit adapter which truncates chat-memory + re-runs the agent.
-                 */}
+    const firstTextPart = content.find((part) => part.type === 'text');
+    const firstTextValue = firstTextPart && 'text' in firstTextPart ? firstTextPart.text : undefined;
 
-                <div className="absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 pr-2">
-                    <AiHubUserActionBar />
+    if (firstTextValue?.startsWith(TOOL_APPROVAL_STATUS_PREFIX)) {
+        const closingBracketIndex = firstTextValue.indexOf(']');
+        const statusLine =
+            closingBracketIndex >= 0 ? firstTextValue.slice(1, closingBracketIndex) : firstTextValue.slice(1);
+
+        return (
+            <div
+                className="mx-auto w-full max-w-[var(--thread-max-width)] px-3 py-1 text-xs text-muted-foreground"
+                data-testid="tool-approval-status-line"
+            >
+                {statusLine}
+            </div>
+        );
+    }
+
+    return (
+        <MessagePrimitive.Root asChild>
+            <div
+                className="aui-cc-user-message mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-3 py-3 first:mt-3 last:mb-2 [&:where(>*)]:col-start-2"
+                data-role="user"
+            >
+                <div className="relative col-start-2 min-w-0">
+                    <div className="rounded-2xl bg-muted px-4 py-2 text-sm break-words text-foreground">
+                        <AiHubMessageContent />
+                    </div>
+
+                    {/*
+                     * Hover-revealed pencil button. Clicking it triggers assistant-ui's beginEdit which swaps
+                     * the message in the thread for the EditComposer below. The save handler is wired through
+                     * the runtime provider's onEdit adapter which truncates chat-memory + re-runs the agent.
+                     */}
+
+                    <div className="absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 pr-2">
+                        <AiHubUserActionBar />
+                    </div>
                 </div>
             </div>
-        </div>
-    </MessagePrimitive.Root>
-);
+        </MessagePrimitive.Root>
+    );
+};
 
 const AiHubAssistantMessage: FC = () => (
     <MessagePrimitive.Root asChild>

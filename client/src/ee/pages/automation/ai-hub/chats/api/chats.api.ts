@@ -13,6 +13,9 @@ import {
     AiHubChatsDocument,
     AiHubChatsQuery,
     AiHubChatsQueryVariables,
+    AiHubToolApprovalsDocument,
+    AiHubToolApprovalsQuery,
+    AiHubToolApprovalsQueryVariables,
     CreateAiHubChatDocument,
     CreateAiHubChatMutation,
     CreateAiHubChatMutationVariables,
@@ -204,6 +207,17 @@ export interface AiHubChatMessageI {
     toolEventsJson: string | null;
 }
 
+export type AiHubToolApprovalStatusType = 'APPROVED' | 'EXPIRED' | 'FAILED' | 'PENDING' | 'REJECTED' | 'SUPERSEDED';
+
+export interface AiHubToolApprovalI {
+    componentName: string | null;
+    decidedByUserId: number | null;
+    executionError: string | null;
+    id: number;
+    status: AiHubToolApprovalStatusType;
+    toolName: string;
+}
+
 export interface AiHubChatPatchI {
     lastPreview?: string;
     messageCount?: number;
@@ -299,6 +313,38 @@ export async function getChatMessages({
         role: message.role,
         timestamp: new Date(Number(message.timestamp)).toISOString(),
         toolEventsJson: message.toolEventsJson ?? null,
+    }));
+}
+
+/**
+ * Fetches the tool approvals recorded for a chat, so a reload can tell a still-pending {@code
+ * data-tool-approval-request} card (rendered from the restored tool-call result — see toToolResultDataPart's
+ * payload-kind fallback) apart from one that already settled while the client was away. Approvals are
+ * per-chat and there is never more than one PENDING at a time (a second gated call defers instead of raising
+ * its own request), so the caller matches this list back onto restored cards by approvalId.
+ */
+export async function getToolApprovals({
+    chatId,
+    workspaceId,
+}: {
+    chatId: number;
+    workspaceId: number;
+}): Promise<AiHubToolApprovalI[]> {
+    const result = await fetcher<AiHubToolApprovalsQuery, AiHubToolApprovalsQueryVariables>(
+        AiHubToolApprovalsDocument,
+        {
+            chatId: String(chatId),
+            workspaceId: String(workspaceId),
+        }
+    )();
+
+    return result.aiHubToolApprovals.map((approval) => ({
+        componentName: approval.componentName ?? null,
+        decidedByUserId: approval.decidedByUserId != null ? Number(approval.decidedByUserId) : null,
+        executionError: approval.executionError ?? null,
+        id: Number(approval.id),
+        status: approval.status as AiHubToolApprovalStatusType,
+        toolName: approval.toolName,
     }));
 }
 

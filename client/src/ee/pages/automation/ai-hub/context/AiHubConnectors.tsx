@@ -22,6 +22,7 @@ import {
     useSetAiHubMcpServerToolEnabledMutation,
     useSetAiHubUserConnectorEnabledMutation,
     useSetAiHubUserConnectorToolEnabledMutation,
+    useSetAiHubUserConnectorToolRequiresApprovalMutation,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
 import {
@@ -51,6 +52,7 @@ interface ConnectorRowProps {
     onRemove: () => void;
     onToggle: (enabled: boolean) => void;
     onToggleTool: (toolName: string, enabled: boolean) => void;
+    onToggleToolRequiresApproval: (toolName: string, requiresApproval: boolean) => void;
     workspaceId: string;
 }
 
@@ -60,7 +62,15 @@ interface ConnectorRowProps {
  * component-level enabled toggle + remove. The chevron is its own trigger so expanding doesn't collide with the
  * controls on the same row.
  */
-const ConnectorRow = ({connector, onConnect, onRemove, onToggle, onToggleTool, workspaceId}: ConnectorRowProps) => {
+const ConnectorRow = ({
+    connector,
+    onConnect,
+    onRemove,
+    onToggle,
+    onToggleTool,
+    onToggleToolRequiresApproval,
+    workspaceId,
+}: ConnectorRowProps) => {
     const [expanded, setExpanded] = useState(false);
     const [configuringTool, setConfiguringTool] = useState<string | null>(null);
 
@@ -130,8 +140,17 @@ const ConnectorRow = ({connector, onConnect, onRemove, onToggle, onToggleTool, w
                                 </div>
 
                                 <Switch
+                                    aria-label="Enabled"
                                     checked={tool.enabled}
                                     onCheckedChange={(checked) => onToggleTool(tool.name, checked)}
+                                    title="Enabled"
+                                />
+
+                                <Switch
+                                    aria-label={tool.requiresApproval ? 'Approval required' : 'Require approval'}
+                                    checked={tool.requiresApproval}
+                                    onCheckedChange={(checked) => onToggleToolRequiresApproval(tool.name, checked)}
+                                    title={tool.requiresApproval ? 'Approval required' : 'Require approval'}
                                 />
 
                                 <Popover
@@ -320,6 +339,9 @@ const AiHubConnectors = () => {
 
     const setEnabledMutation = useSetAiHubUserConnectorEnabledMutation({onSuccess: invalidateConnectors});
     const setToolEnabledMutation = useSetAiHubUserConnectorToolEnabledMutation({onSuccess: invalidateConnectors});
+    const setToolRequiresApprovalMutation = useSetAiHubUserConnectorToolRequiresApprovalMutation({
+        onSuccess: invalidateConnectors,
+    });
     const removeMutation = useRemoveAiHubUserConnectorMutation({onSuccess: invalidateConnectors});
     const setMcpServerEnabledMutation = useSetAiHubMcpServerEnabledMutation({onSuccess: invalidateMcpServers});
     const removeMcpServerMutation = useRemoveAiHubMcpServerMutation({onSuccess: invalidateMcpServers});
@@ -420,6 +442,14 @@ const AiHubConnectors = () => {
                                     setToolEnabledMutation.mutate({
                                         connectorId: connector.id,
                                         enabled,
+                                        toolName,
+                                        workspaceId: workspaceIdString,
+                                    })
+                                }
+                                onToggleToolRequiresApproval={(toolName, requiresApproval) =>
+                                    setToolRequiresApprovalMutation.mutate({
+                                        connectorId: connector.id,
+                                        requiresApproval,
                                         toolName,
                                         workspaceId: workspaceIdString,
                                     })
