@@ -1,6 +1,7 @@
 import {act, renderHook} from '@testing-library/react';
-import {describe, expect, it, vi} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {clearAllWorkflowMutations} from '../../../utils/workflowMutationGuard';
 import useWorkflowInputs from './useWorkflowInputs';
 
 const {updateWorkflowMutationMock} = vi.hoisted(() => ({
@@ -20,12 +21,17 @@ vi.mock('@/shared/stores/useEnvironmentStore', () => ({
         selector({currentEnvironmentId: 1}),
 }));
 
+const {workflowDataState} = vi.hoisted(() => ({
+    workflowDataState: {
+        setWorkflow: vi.fn(),
+        workflow: {definition: JSON.stringify({inputs: []}), id: 'workflow-1', version: 1},
+    },
+}));
+
 vi.mock('../../../stores/useWorkflowDataStore', () => ({
-    default: (selector: (state: {setWorkflow: () => void; workflow: unknown}) => unknown) =>
-        selector({
-            setWorkflow: vi.fn(),
-            workflow: {definition: JSON.stringify({inputs: []}), id: 'workflow-1', version: 1},
-        }),
+    default: Object.assign((selector: (state: typeof workflowDataState) => unknown) => selector(workflowDataState), {
+        getState: () => workflowDataState,
+    }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -33,6 +39,10 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 describe('useWorkflowInputs', () => {
+    afterEach(() => {
+        clearAllWorkflowMutations();
+    });
+
     it('rejects "vars" as a reserved input name and does not save', () => {
         updateWorkflowMutationMock.mutate.mockClear();
 

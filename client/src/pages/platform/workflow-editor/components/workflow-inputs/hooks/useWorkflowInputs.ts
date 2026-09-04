@@ -10,7 +10,7 @@ import {useForm} from 'react-hook-form';
 import {useShallow} from 'zustand/react/shallow';
 
 import useWorkflowDataStore from '../../../stores/useWorkflowDataStore';
-import stringifyWorkflowDefinition from '../../../utils/stringifyWorkflowDefinition';
+import saveWorkflowDefinitionUpdate from '../../../utils/saveWorkflowDefinitionUpdate';
 import deriveObjectName from '../utils/deriveObjectName';
 import {fromWorkflowDefinitionInput} from '../utils/fromWorkflowDefinitionInput';
 import {toWorkflowDefinitionInput} from '../utils/toWorkflowDefinitionInput';
@@ -177,135 +177,101 @@ export default function useWorkflowInputs({
 
         const workflowDefinition: WorkflowDefinitionType = JSON.parse(workflow.definition!);
 
-        let inputs: WorkflowInput[] = workflowDefinition.inputs ?? [];
+        const previousInputs = workflowDefinition.inputs ?? [];
 
-        if (currentInputIndex === -1) {
-            const duplicateInput = inputs.find((existingInput) => existingInput.name === input.name);
-
-            if (duplicateInput) {
-                input.name = getFormattedInputName(input.name, inputs);
-            }
-
-            inputs = [...inputs, toWorkflowDefinitionInput(input)];
-        } else {
-            inputs[currentInputIndex] = toWorkflowDefinitionInput(input);
+        if (currentInputIndex === -1 && previousInputs.some((existingInput) => existingInput.name === input.name)) {
+            input.name = getFormattedInputName(input.name, previousInputs);
         }
+
+        const definitionInput = toWorkflowDefinitionInput(input);
+
+        const applyInput = (inputs: WorkflowInput[]): WorkflowInput[] =>
+            currentInputIndex === -1
+                ? [...inputs, definitionInput]
+                : inputs.map((existingInput, index) => (index === currentInputIndex ? definitionInput : existingInput));
 
         // The definition persists flat keys; the local store mirrors what a reload returns (nested
         // componentReference), so component inputs keep their reference instead of degrading to a string.
-        const stateInputs = inputs.map(fromWorkflowDefinitionInput);
-
         setWorkflow({
             ...workflow,
-            inputs: stateInputs,
+            inputs: applyInput(previousInputs).map(fromWorkflowDefinitionInput),
         });
 
-        updateWorkflowMutation!.mutate(
-            {
-                id: workflow.id!,
-                workflow: {
-                    definition: stringifyWorkflowDefinition({
-                        ...workflowDefinition,
-                        inputs,
-                    }),
-                    version: workflow.version,
-                },
+        saveWorkflowDefinitionUpdate({
+            onError: () => {
+                setWorkflow({
+                    ...useWorkflowDataStore.getState().workflow,
+                    inputs: previousInputs.map(fromWorkflowDefinitionInput),
+                });
             },
-            {
-                onError: () => {
-                    setWorkflow({
-                        ...workflow,
-                        inputs: (workflowDefinition.inputs ?? []).map(fromWorkflowDefinitionInput),
-                    });
-                },
-                onSuccess: async () => {
-                    saveWorkflowTestConfigurationInputsMutation.mutate({
-                        environmentId: currentEnvironmentId,
-                        saveWorkflowTestConfigurationInputsRequest: {
-                            key: input.name,
-                            value: getValues().testValue!,
-                        },
-                        workflowId: workflow.id!,
-                    });
+            onSuccess: () => {
+                saveWorkflowTestConfigurationInputsMutation.mutate({
+                    environmentId: currentEnvironmentId,
+                    saveWorkflowTestConfigurationInputsRequest: {
+                        key: input.name,
+                        value: getValues().testValue!,
+                    },
+                    workflowId: workflow.id!,
+                });
 
-                    setWorkflow({
-                        ...workflow,
-                        inputs: stateInputs,
-                        version: (workflow.version ?? 0) + 1,
-                    });
+                form.reset({
+                    internalOnly: false,
+                    label: '',
+                    name: '',
+                    required: false,
+                    testValue: '',
+                    type: undefined,
+                });
 
-                    form.reset({
-                        internalOnly: false,
-                        label: '',
-                        name: '',
-                        required: false,
-                        testValue: '',
-                        type: undefined,
-                    });
+                setTimeout(() => {
+                    const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
 
-                    setTimeout(() => {
-                        const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
+                    if (nameInput) {
+                        nameInput.focus();
+                    }
+                }, 0);
 
-                        if (nameInput) {
-                            nameInput.focus();
-                        }
-                    }, 0);
-
-                    invalidateWorkflowQueries();
-                },
-            }
-        );
+                invalidateWorkflowQueries();
+            },
+            updateDefinition: (freshWorkflowDefinition) => ({
+                ...freshWorkflowDefinition,
+                inputs: applyInput(freshWorkflowDefinition.inputs ?? []),
+            }),
+            updateWorkflowMutation: updateWorkflowMutation!,
+        });
     }
 
     function deleteWorkflowInput(input: WorkflowInput) {
         const definitionObject: WorkflowDefinitionType = JSON.parse(workflow.definition!);
 
-        const inputs: WorkflowInput[] = definitionObject.inputs ?? [];
+        const originalInputs = definitionObject.inputs ?? [];
 
-        const index = inputs.findIndex((curInput) => curInput.name === input.name);
-
-        const originalInputs = [...inputs];
-
-        inputs.splice(index, 1);
-
-        const stateInputs = inputs.map(fromWorkflowDefinitionInput);
+        const removeInput = (inputs: WorkflowInput[]): WorkflowInput[] =>
+            inputs.filter((existingInput) => existingInput.name !== input.name);
 
         setWorkflow({
             ...workflow,
-            inputs: stateInputs,
+            inputs: removeInput(originalInputs).map(fromWorkflowDefinitionInput),
         });
 
-        updateWorkflowMutation!.mutate(
-            {
-                id: workflow.id!,
-                workflow: {
-                    definition: stringifyWorkflowDefinition({
-                        ...definitionObject,
-                        inputs,
-                    }),
-                    version: workflow.version,
-                },
+        saveWorkflowDefinitionUpdate({
+            onError: () => {
+                setWorkflow({
+                    ...useWorkflowDataStore.getState().workflow,
+                    inputs: originalInputs.map(fromWorkflowDefinitionInput),
+                });
             },
-            {
-                onError: () => {
-                    setWorkflow({
-                        ...workflow,
-                        inputs: originalInputs.map(fromWorkflowDefinitionInput),
-                    });
-                },
-                onSuccess: () => {
-                    setWorkflow({
-                        ...workflow,
-                        inputs: stateInputs,
-                        version: (workflow.version ?? 0) + 1,
-                    });
+            onSuccess: () => {
+                invalidateWorkflowQueries();
 
-                    invalidateWorkflowQueries();
-
-                    setIsDeleteDialogOpen(false);
-                },
-            }
-        );
+                setIsDeleteDialogOpen(false);
+            },
+            updateDefinition: (freshWorkflowDefinition) => ({
+                ...freshWorkflowDefinition,
+                inputs: removeInput(freshWorkflowDefinition.inputs ?? []),
+            }),
+            updateWorkflowMutation: updateWorkflowMutation!,
+        });
     }
 
     useEffect(() => {
