@@ -460,6 +460,11 @@ public class AiHubChatServiceImpl implements AiHubChatService {
                 .addAll(0, leadingToolEvents);
         }
 
+        long totalUserEventCount = allEvents.stream()
+            .filter(event -> isVisibleConversationEvent(event) && event.getMessageType() == MessageType.USER)
+            .count();
+        boolean reliableTurnAttribution = turns.size() <= totalUserEventCount;
+
         List<AiHubChatMessage> messages = new ArrayList<>();
         int userEventIndex = 0;
 
@@ -469,8 +474,10 @@ public class AiHubChatServiceImpl implements AiHubChatService {
             Long authorUserId = null;
 
             if (event.getMessageType() == MessageType.USER) {
-                authorUserId = userEventIndex < turns.size() ? turns.get(userEventIndex)
-                    .getUserId() : null;
+                if (reliableTurnAttribution && userEventIndex < turns.size()) {
+                    authorUserId = turns.get(userEventIndex)
+                        .getUserId();
+                }
 
                 userEventIndex++;
             }

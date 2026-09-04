@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -31,13 +32,21 @@ import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatParticipation;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatTurn;
+import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry;
+import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceEntry;
+import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceState;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
+import com.bytechef.ee.ai.hub.web.rest.AiHubApiController.PresenceRequest;
+import com.bytechef.ee.ai.hub.web.rest.AiHubApiController.ThreadStatus;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -59,6 +68,12 @@ class AiHubApiControllerTest {
     private static final long CHAT_ID = 100L;
     private static final String THREAD_ID = "thread-1";
 
+    /**
+     * A participant the chat has been shared with at {@code PARTICIPATE} — not the chat's owner — may still send a turn
+     * through {@code chat}: {@code enforceThreadAccess} gates on {@link AiHubChatAccessPolicy#canParticipate}, stubbed
+     * directly here rather than exercised through {@code AiHubChatAccessPolicyImpl}, which has its own test. The
+     * recorded turn is attributed to the sender's own id, not the owner's.
+     */
     @Test
     void testChatAllowsAParticipantWithParticipateAccessAndRecordsTheTurn() {
         AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
@@ -86,9 +101,6 @@ class AiHubApiControllerTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
         when(chatService.getWorkspaceId(CHAT_ID)).thenReturn(WORKSPACE_ID);
 
-        // The chat has been shared at PARTICIPATE; the sender (OTHER_USER_ID) is not the owner. The access policy —
-        // not this test — decides what PARTICIPATE means, so it is stubbed directly rather than exercising
-        // AiHubChatAccessPolicyImpl here.
         when(accessPolicy.canParticipate(chat, OTHER_USER_ID)).thenReturn(true);
         when(inFlightRunRegistry.isInFlight(THREAD_ID)).thenReturn(false);
 
@@ -104,6 +116,12 @@ class AiHubApiControllerTest {
         verify(chatService).recordTurn(CHAT_ID, OTHER_USER_ID, "run-1");
     }
 
+    /**
+     * Pins that {@code enforceThreadAccess} gates {@code chat} on {@code canParticipate}, not {@code canView}: a sender
+     * with only view-only access (canView passes, canParticipate does not) is rejected with 403 from {@code chat}, yet
+     * the same sender reaches {@code attach} successfully — that endpoint gates on viewability alone, since attaching
+     * to an in-flight stream is a read, not a turn.
+     */
     @Test
     void testChatRejectsAViewOnlyNonOwnerButAttachAllowsIt() {
         AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
@@ -127,7 +145,6 @@ class AiHubApiControllerTest {
 
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
 
-        // View-only participation: canView passes, canParticipate does not.
         when(accessPolicy.canView(chat, OTHER_USER_ID)).thenReturn(true);
         when(accessPolicy.canParticipate(chat, OTHER_USER_ID)).thenReturn(false);
 
@@ -140,7 +157,6 @@ class AiHubApiControllerTest {
 
         verify(chatService, never()).recordTurn(anyLong(), anyLong(), any());
 
-        // The same view-only sender reaches attach() without error — viewability, not participability, gates it.
         SseEmitter emitter = new SseEmitter();
 
         when(chatStreamer.attachToRun(THREAD_ID)).thenReturn(Optional.of(emitter));
@@ -201,8 +217,66 @@ class AiHubApiControllerTest {
         verify(chatService, never()).recordTurn(anyLong(), anyLong(), any());
     }
 
+    /**
+     * Pins the ordering a phantom turn row depends on: {@code recordTurn} must fire only after {@code runAgent} has
+     * returned without throwing, never before. A turn recorded ahead of a run that then fails to register would
+     * permanently offset {@code loadMessages}' ordinal zip between turn rows and {@code USER} events for every later
+     * turn in the chat — misattributing them, not just leaving them unattributed. This test exists so a future refactor
+     * that moves {@code recordTurn} back ahead of the run fails here.
+     */
     @Test
-    void testInFlightStatusReportsTrueOnlyForViewableInFlightIds() {
+    void testChatRecordsTheTurnOnlyAfterRunAgentSucceeds() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        LocalAgent askAgent = mock(LocalAgent.class);
+
+        when(askAgent.getAgentId()).thenReturn("ai_hub_ask");
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(askAgent), chatService, accessPolicy, userService,
+            workspaceFacade, mock(AiHubToolApprovalService.class));
+
+        User currentUser = buildUser(OWNER_USER_ID);
+        Workspace workspace = buildWorkspace(WORKSPACE_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(workspaceFacade.getUserWorkspaces(OWNER_USER_ID)).thenReturn(List.of(workspace));
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(CHAT_ID)).thenReturn(WORKSPACE_ID);
+        when(accessPolicy.canParticipate(chat, OWNER_USER_ID)).thenReturn(true);
+        when(inFlightRunRegistry.isInFlight(THREAD_ID)).thenReturn(false);
+
+        SseEmitter emitter = new SseEmitter();
+
+        when(chatStreamer.runAgent(eq(askAgent), any(AgUiParameters.class), eq(THREAD_ID))).thenReturn(emitter);
+
+        AgUiParameters agUiParameters = buildAgUiParameters(WORKSPACE_ID, THREAD_ID, "run-1");
+
+        controller.chat(agUiParameters);
+
+        InOrder order = inOrder(chatStreamer, chatService);
+
+        order.verify(chatStreamer)
+            .runAgent(eq(askAgent), any(AgUiParameters.class), eq(THREAD_ID));
+        order.verify(chatService)
+            .recordTurn(CHAT_ID, OWNER_USER_ID, "run-1");
+    }
+
+    /**
+     * Companion to {@link #testChatRecordsTheTurnOnlyAfterRunAgentSucceeds}: when the resolved agent variant is not
+     * registered, {@code chat} throws 404 before ever reaching {@code runAgent}, and {@code recordTurn} must not have
+     * fired either — recording a turn is conditioned on the run actually starting, not merely on the in-flight check
+     * having passed.
+     */
+    @Test
+    void testChatRecordsNoTurnWhenTheAgentVariantIsUnregistered() {
         AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
         InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
         AiHubChatService chatService = mock(AiHubChatService.class);
@@ -214,21 +288,60 @@ class AiHubApiControllerTest {
             chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
             mock(AiHubToolApprovalService.class));
 
+        User currentUser = buildUser(OWNER_USER_ID);
+        Workspace workspace = buildWorkspace(WORKSPACE_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(workspaceFacade.getUserWorkspaces(OWNER_USER_ID)).thenReturn(List.of(workspace));
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(CHAT_ID)).thenReturn(WORKSPACE_ID);
+        when(accessPolicy.canParticipate(chat, OWNER_USER_ID)).thenReturn(true);
+        when(inFlightRunRegistry.isInFlight(THREAD_ID)).thenReturn(false);
+
+        AgUiParameters agUiParameters = buildAgUiParameters(WORKSPACE_ID, THREAD_ID, "run-1");
+
+        assertThatThrownBy(() -> controller.chat(agUiParameters))
+            .isInstanceOf(ResponseStatusException.class)
+            .satisfies(exception -> assertThat(((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(chatService, never()).recordTurn(anyLong(), anyLong(), any());
+        verify(chatStreamer, never()).runAgent(any(), any(), any());
+    }
+
+    @Test
+    void testInFlightStatusDelegatesToStatusAndAnswersFalseForOmittedThreads() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
         User currentUser = buildUser(OTHER_USER_ID);
 
         when(userService.getCurrentUser()).thenReturn(currentUser);
         when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of("t-viewable", "t-not-viewable"));
 
         AiHubChat viewableChat = buildChat(CHAT_ID, OWNER_USER_ID);
-        AiHubChat notViewableChat = buildChat(CHAT_ID + 1, OWNER_USER_ID);
 
-        when(chatService.findByThreadId("t-viewable")).thenReturn(Optional.of(viewableChat));
-        when(accessPolicy.canView(viewableChat, OTHER_USER_ID)).thenReturn(true);
+        when(chatService.findByThreadIdViewable("t-viewable", OTHER_USER_ID)).thenReturn(Optional.of(viewableChat));
+        when(chatService.findByThreadIdViewable("t-not-viewable", OTHER_USER_ID)).thenReturn(Optional.empty());
+        when(chatService.findByThreadIdViewable("t-unknown", OTHER_USER_ID)).thenReturn(Optional.empty());
 
-        when(chatService.findByThreadId("t-not-viewable")).thenReturn(Optional.of(notViewableChat));
-        when(accessPolicy.canView(notViewableChat, OTHER_USER_ID)).thenReturn(false);
+        AiHubChat neverInFlightChat = buildChat(CHAT_ID + 1, OWNER_USER_ID);
 
-        when(chatService.findByThreadId("t-unknown")).thenReturn(Optional.empty());
+        when(chatService.findByThreadIdViewable("t-never-in-flight", OTHER_USER_ID))
+            .thenReturn(Optional.of(neverInFlightChat));
+        when(presenceRegistry.presence(any())).thenReturn(List.of());
 
         Map<String, Boolean> result = controller.inFlightStatus(
             List.of("t-viewable", "t-not-viewable", "t-unknown", "t-never-in-flight"));
@@ -239,11 +352,159 @@ class AiHubApiControllerTest {
             .containsEntry("t-never-in-flight", false);
     }
 
-    @SuppressWarnings("unchecked")
+    @Test
+    void testStatusReportsInFlightRunningUserMessageCountAndPresence() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OWNER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of(THREAD_ID));
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        chat.setMessageCount(5);
+        chat.setUpdatedAt(LocalDateTime.of(2026, 9, 2, 10, 0, 0));
+
+        when(chatService.findByThreadIdViewable(THREAD_ID, OWNER_USER_ID)).thenReturn(Optional.of(chat));
+
+        AiHubChatTurn runningTurn = new AiHubChatTurn(CHAT_ID, OTHER_USER_ID, "run-running");
+
+        when(chatService.findLatestTurn(CHAT_ID)).thenReturn(Optional.of(runningTurn));
+
+        User runningUser = buildUser(OTHER_USER_ID);
+
+        when(runningUser.getLogin()).thenReturn("alice");
+        when(userService.fetchUser(OTHER_USER_ID)).thenReturn(Optional.of(runningUser));
+
+        List<PresenceEntry> presenceEntries = List.of(
+            new PresenceEntry(OWNER_USER_ID, "owner", PresenceState.VIEWING, Instant.parse("2026-09-02T10:00:00Z")));
+
+        when(presenceRegistry.presence(THREAD_ID)).thenReturn(presenceEntries);
+
+        Map<String, ThreadStatus> result = controller.status(List.of(THREAD_ID));
+
+        ThreadStatus threadStatus = result.get(THREAD_ID);
+
+        assertThat(threadStatus).isNotNull();
+        assertThat(threadStatus.inFlight()).isTrue();
+        assertThat(threadStatus.runningUserId()).isEqualTo(OTHER_USER_ID);
+        assertThat(threadStatus.runningUserName()).isEqualTo("alice");
+        assertThat(threadStatus.messageCount()).isEqualTo(5);
+        assertThat(threadStatus.presence()).isEqualTo(presenceEntries);
+    }
+
+    @Test
+    void testStatusOmitsThreadsTheCallerCannotView() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OTHER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(inFlightRunRegistry.getInFlightThreadIds()).thenReturn(List.of());
+        when(chatService.findByThreadIdViewable("t-hidden", OTHER_USER_ID)).thenReturn(Optional.empty());
+
+        Map<String, ThreadStatus> result = controller.status(List.of("t-hidden"));
+
+        assertThat(result).doesNotContainKey("t-hidden");
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void testPresenceHeartbeatRecordsTheRequestedState() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OWNER_USER_ID);
+
+        when(currentUser.getLogin()).thenReturn("owner");
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(accessPolicy.canView(chat, OWNER_USER_ID)).thenReturn(true);
+
+        controller.presence(THREAD_ID, new PresenceRequest("TYPING"));
+
+        verify(presenceRegistry).heartbeat(THREAD_ID, OWNER_USER_ID, "owner", PresenceState.TYPING);
+        verify(presenceRegistry, never()).leave(any(), anyLong());
+    }
+
+    @Test
+    void testPresenceLeftRemovesThePresenceEntryInsteadOfHeartbeating() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OWNER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(accessPolicy.canView(chat, OWNER_USER_ID)).thenReturn(true);
+
+        controller.presence(THREAD_ID, new PresenceRequest("LEFT"));
+
+        verify(presenceRegistry).leave(THREAD_ID, OWNER_USER_ID);
+        verify(presenceRegistry, never()).heartbeat(any(), anyLong(), any(), any());
+    }
+
     private static AiHubApiController newController(
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry, List<LocalAgent> localAgents,
         AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy, UserService userService,
         WorkspaceFacade workspaceFacade, AiHubToolApprovalService toolApprovalService) {
+
+        return newController(
+            chatStreamer, inFlightRunRegistry, localAgents, chatService, accessPolicy, userService, workspaceFacade,
+            toolApprovalService, mock(AiHubPresenceRegistry.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AiHubApiController newController(
+        AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry, List<LocalAgent> localAgents,
+        AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy, UserService userService,
+        WorkspaceFacade workspaceFacade, AiHubToolApprovalService toolApprovalService,
+        AiHubPresenceRegistry presenceRegistry) {
 
         ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider = mock(ObjectProvider.class);
 
@@ -252,7 +513,7 @@ class AiHubApiControllerTest {
 
         return new AiHubApiController(
             chatStreamer, inFlightRunRegistry, localAgents, chatService, accessPolicy, userService, workspaceFacade,
-            toolApprovalServiceProvider);
+            toolApprovalServiceProvider, presenceRegistry);
     }
 
     private static AgUiParameters buildAgUiParameters(long workspaceId, String threadId, String runId) {
@@ -274,6 +535,7 @@ class AiHubApiControllerTest {
         chat.setId(id);
         chat.setThreadId(THREAD_ID);
         chat.setParticipation(AiHubChatParticipation.PARTICIPATE);
+        chat.setUpdatedAt(LocalDateTime.of(2026, 9, 2, 10, 0, 0));
 
         return chat;
     }

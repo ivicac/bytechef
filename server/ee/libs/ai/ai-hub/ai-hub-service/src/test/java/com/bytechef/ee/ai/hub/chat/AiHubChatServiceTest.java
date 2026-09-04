@@ -914,6 +914,42 @@ class AiHubChatServiceTest {
     }
 
     /**
+     * A phantom turn row (a run that registered and then died before writing its first event) shifts every zip position
+     * after it, so the pre-fix behavior would attribute the SECOND {@code USER} event to the phantom's sender rather
+     * than leaving it unattributed or attributing it to the real third turn. Pins that a turn-row surplus degrades the
+     * WHOLE load to null authors instead: both {@code USER} rows come back null, not just the one whose position
+     * collides with the phantom.
+     */
+    @Test
+    void testLoadMessagesReturnsNullAuthorsWhenTurnRowsOutnumberUserEvents() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        List<org.springframework.ai.session.SessionEvent> events = List.of(
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "a", Instant.ofEpochMilli(100)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.ASSISTANT, "b", Instant.ofEpochMilli(200)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "c", Instant.ofEpochMilli(300)));
+
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(events);
+
+        AiHubChatTurn firstTurn = new AiHubChatTurn(1L, 3L, "run-1");
+        AiHubChatTurn phantomTurn = new AiHubChatTurn(1L, 4L, "run-phantom");
+        AiHubChatTurn thirdTurn = new AiHubChatTurn(1L, 5L, "run-3");
+
+        when(turnRepository.findAllByChatIdOrderByCreatedDateAsc(1L))
+            .thenReturn(List.of(firstTurn, phantomTurn, thirdTurn));
+
+        List<AiHubChatMessage> messages = chatService.loadMessages(1L, WORKSPACE_ID, USER_ID);
+
+        assertThat(messages).hasSize(3);
+        assertThat(messages.get(0)
+            .authorUserId()).isNull();
+        assertThat(messages.get(2)
+            .authorUserId()).isNull();
+    }
+
+    /**
      * Truncation must keep the turn history in step with the visible transcript it truncates, or a later turn is
      * attributed against a row that no longer represents it. Four events (USER, ASSISTANT, USER, ASSISTANT) truncated
      * from visible index 2 (the second USER event) keep only the first USER/ASSISTANT pair — one retained USER event —
