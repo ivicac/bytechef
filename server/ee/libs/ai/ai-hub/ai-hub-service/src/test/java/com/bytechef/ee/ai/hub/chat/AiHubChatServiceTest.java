@@ -89,10 +89,11 @@ class AiHubChatServiceTest {
         lenient().when(aiHubSessionMemory.sessionRepository())
             .thenReturn(sessionRepository);
 
-        // The optional tool-search ObjectProvider is left null (the delete path's index clear guards on null) —
-        // the same shape the previous @InjectMocks wiring produced.
+        // The optional tool-search and tool-approval ObjectProviders are left null (the delete path's index clear
+        // and approval cleanup both guard on null) — the same shape the previous @InjectMocks wiring produced.
         chatService = new AiHubChatServiceImpl(
-            chatRepository, jobFacade, jobRegistry, inFlightRunRegistry, null, aiHubSessionMemoryProvider, null);
+            chatRepository, jobFacade, jobRegistry, inFlightRunRegistry, null, aiHubSessionMemoryProvider, null,
+            null);
     }
 
     private static org.springframework.ai.session.SessionEvent sessionEvent(

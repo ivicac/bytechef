@@ -62,6 +62,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
     implementation(project(":server:libs:platform:platform-connection:platform-connection-api"))
     implementation(project(":server:libs:platform:platform-scheduler:platform-scheduler-api"))
+    implementation(project(":server:libs:platform:platform-tool-execution:platform-tool-execution-api"))
     implementation(project(":server:libs:platform:platform-user:platform-user-api"))
     implementation(project(":server:libs:platform:platform-webhook:platform-webhook-api"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
