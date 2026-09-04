@@ -130,7 +130,11 @@ const PropertyJsonSchemaBuilderSheet = ({
                 onPointerDownOutside={(event) => event.preventDefault()}
             >
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <Tabs className="flex size-full flex-col gap-0" defaultValue="designer" onValueChange={handleTabChange}>
+                    <Tabs
+                        className="flex size-full flex-col gap-0"
+                        defaultValue="designer"
+                        onValueChange={handleTabChange}
+                    >
                         <header className="flex w-full shrink-0 items-center justify-between gap-x-3 rounded-t-md border-b border-stroke-neutral-primary bg-surface-neutral-primary p-3">
                             <div className="flex flex-col">
                                 <span className="text-lg font-semibold">
