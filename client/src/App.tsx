@@ -7,17 +7,20 @@ import {bootstrapCommandBar} from '@/shared/command-bar/commandBarBootstrap';
 import {useCommandBarStore} from '@/shared/command-bar/useCommandBarStore';
 import {useRegisterNavigationCommands} from '@/shared/command-bar/useRegisterNavigationCommands';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
+import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import {useHelpHub} from '@/shared/hooks/useHelpHub';
 import {MobileTopNavigation} from '@/shared/layout/MobileTopNavigation';
 import {TrialBanner} from '@/shared/layout/TrialBanner';
 import {AppSidebar} from '@/shared/layout/app-sidebar/AppSidebar';
+import {isDevelopmentOnlyHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {
     type NavigationItemI,
     automationNavigation,
     embeddedNavigation,
     platformNavigation,
 } from '@/shared/navigation/navigationItems';
+import {useDevelopmentOnlyRouteGuard} from '@/shared/navigation/useDevelopmentOnlyRouteGuard';
 import useAppSidebarStore from '@/shared/stores/useAppSidebarStore';
 import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
@@ -77,12 +80,21 @@ function App() {
 
     useFetchInterceptor();
 
+    useDevelopmentOnlyRouteGuard();
+
     const ff_1023 = useFeatureFlagsStore()('ff-1023');
     const ff_2446 = useFeatureFlagsStore()('ff-2446');
     const ff_2396 = useFeatureFlagsStore()('ff-2396');
     const ff_4855 = useFeatureFlagsStore()('ff-4855');
 
     const filteredAutomationNavigation = automationNavigation.filter((navItem) => {
+        // Projects and Agents are authoring surfaces that only exist in Development; outside it the
+        // Deploy group carries their deployed counterparts. No edition test is needed -- CE has no
+        // environment selector and never leaves DEVELOPMENT_ENVIRONMENT.
+        if (isDevelopmentOnlyHref(navItem.href)) {
+            return currentEnvironmentId === DEVELOPMENT_ENVIRONMENT;
+        }
+
         if (navItem.href === '/automation/api-platform') {
             return ff_1023;
         }
@@ -121,8 +133,8 @@ function App() {
     });
 
     const filteredEmbeddedNavigation = embeddedNavigation.filter((navItem) => {
-        if (currentEnvironmentId !== 0 && navItem.href === '/embedded/integrations') {
-            return false;
+        if (isDevelopmentOnlyHref(navItem.href)) {
+            return currentEnvironmentId === DEVELOPMENT_ENVIRONMENT;
         }
 
         if (navItem.href === '/embedded/mcp-servers') {
