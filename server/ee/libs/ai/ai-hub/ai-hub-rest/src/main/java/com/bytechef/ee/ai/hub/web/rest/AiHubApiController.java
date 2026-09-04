@@ -94,6 +94,12 @@ public class AiHubApiController {
 
     private static final Logger log = LoggerFactory.getLogger(AiHubApiController.class);
 
+    /**
+     * The single reason both of {@code enforceThreadViewable}'s rejections carry. Held as one constant rather than
+     * written at each throw site so the two answers cannot drift into being tellable apart again.
+     */
+    private static final String UNKNOWN_THREAD_REASON = "Unknown thread";
+
     private final Map<String, LocalAgent> localAgentMap;
     private final AiHubChatStreamer chatStreamer;
     private final InFlightAiHubRunRegistry inFlightRunRegistry;
@@ -346,6 +352,18 @@ public class AiHubApiController {
     public record PresenceRequest(String state) {
     }
 
+    /**
+     * Resolves {@code threadId} to the {@link AiHubChat} the caller may view, for the endpoints keyed on a thread id
+     * rather than a row id ({@link #attach} and {@link #presence}).
+     *
+     * <p>
+     * A thread the caller cannot view answers exactly as a thread that does not exist — same status, same reason — so
+     * neither endpoint confirms a chat exists to a caller who cannot see it. Thread ids are guessable, and answering
+     * 403 here rather than 404 would have let any caller enumerate which ids name a real chat. Not-found is the answer
+     * the shared-sessions design fixes for a non-member, and the shape {@link #status} already gives by omitting such a
+     * thread from its map.
+     * </p>
+     */
     private AiHubChat enforceThreadViewable(String threadId, long userId) {
         if (threadId == null || threadId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing threadId");
@@ -354,14 +372,13 @@ public class AiHubApiController {
         Optional<AiHubChat> chat = chatService.findByThreadId(threadId);
 
         if (chat.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown thread");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, UNKNOWN_THREAD_REASON);
         }
 
         AiHubChat row = chat.get();
 
         if (!accessPolicy.canView(row, userId)) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN, "AiHubChat is not accessible to the current user");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, UNKNOWN_THREAD_REASON);
         }
 
         return row;

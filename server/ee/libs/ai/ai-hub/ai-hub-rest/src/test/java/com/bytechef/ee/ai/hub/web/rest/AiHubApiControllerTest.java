@@ -519,6 +519,91 @@ class AiHubApiControllerTest {
         verify(chatService, never()).findByThreadIdViewable(anyString(), anyLong());
     }
 
+    /**
+     * Enumeration safety on the two endpoints that resolve a thread through {@code enforceThreadViewable}. A caller who
+     * guesses a thread id must not be able to tell a chat that does not exist from one that exists but is not theirs,
+     * so a non-viewable thread answers exactly as an unknown one does — same status, same reason. The shared-sessions
+     * spec's error table fixes that answer as not-found.
+     */
+    @Test
+    void testAttachAnswersAnUnknownAndANonViewableThreadIdentically() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OTHER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(chatService.findByThreadId("unknown-thread")).thenReturn(Optional.empty());
+
+        ResponseStatusException unknownThreadException = catchResponseStatusException(
+            () -> controller.attach("unknown-thread"));
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(accessPolicy.canView(chat, OTHER_USER_ID)).thenReturn(false);
+
+        ResponseStatusException nonViewableThreadException = catchResponseStatusException(
+            () -> controller.attach(THREAD_ID));
+
+        assertThat(unknownThreadException.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(nonViewableThreadException.getStatusCode()).isEqualTo(unknownThreadException.getStatusCode());
+        assertThat(nonViewableThreadException.getReason()).isEqualTo(unknownThreadException.getReason());
+
+        verify(chatStreamer, never()).attachToRun(anyString());
+    }
+
+    /**
+     * The {@code presence} half of {@link #testAttachAnswersAnUnknownAndANonViewableThreadIdentically} — the same
+     * {@code enforceThreadViewable} gate, reached from the endpoint the client's heartbeat drives.
+     */
+    @Test
+    void testPresenceAnswersAnUnknownAndANonViewableThreadIdentically() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        AiHubPresenceRegistry presenceRegistry = mock(AiHubPresenceRegistry.class);
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), presenceRegistry);
+
+        User currentUser = buildUser(OTHER_USER_ID);
+
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(chatService.findByThreadId("unknown-thread")).thenReturn(Optional.empty());
+
+        ResponseStatusException unknownThreadException = catchResponseStatusException(
+            () -> controller.presence("unknown-thread", new PresenceRequest("VIEWING")));
+
+        AiHubChat chat = buildChat(CHAT_ID, OWNER_USER_ID);
+
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(accessPolicy.canView(chat, OTHER_USER_ID)).thenReturn(false);
+
+        ResponseStatusException nonViewableThreadException = catchResponseStatusException(
+            () -> controller.presence(THREAD_ID, new PresenceRequest("VIEWING")));
+
+        assertThat(unknownThreadException.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(nonViewableThreadException.getStatusCode()).isEqualTo(unknownThreadException.getStatusCode());
+        assertThat(nonViewableThreadException.getReason()).isEqualTo(unknownThreadException.getReason());
+
+        verify(presenceRegistry, never()).heartbeat(any(), anyLong(), any(), any());
+        verify(presenceRegistry, never()).leave(any(), anyLong());
+    }
+
     @Test
     void testPresenceHeartbeatRecordsTheRequestedState() {
         AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
@@ -690,6 +775,21 @@ class AiHubApiControllerTest {
         chat.setUpdatedAt(LocalDateTime.of(2026, 9, 2, 10, 0, 0));
 
         return chat;
+    }
+
+    /**
+     * Runs {@code callable} and returns the {@link ResponseStatusException} it threw, so a test can compare two calls'
+     * status AND reason against each other rather than asserting one expected value per call — which is what an
+     * enumeration-safety claim actually requires.
+     */
+    private static ResponseStatusException catchResponseStatusException(Runnable callable) {
+        try {
+            callable.run();
+        } catch (ResponseStatusException exception) {
+            return exception;
+        }
+
+        throw new AssertionError("Expected a ResponseStatusException, but none was thrown");
     }
 
     private static User buildUser(long id) {
