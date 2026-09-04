@@ -17,6 +17,9 @@ import SelectConnectionMessage, {
 import SelectPropertyOptionMessage, {
     SelectPropertyOptionDataI,
 } from '@/shared/components/ai-chat/messages/SelectPropertyOptionMessage';
+import ToolApprovalRequestMessage, {
+    ToolApprovalRequestDataI,
+} from '@/shared/components/ai-chat/messages/ToolApprovalRequestMessage';
 import {DataMessagePartProps} from '@assistant-ui/react';
 
 export const aiChatDataComponents = {
@@ -30,5 +33,8 @@ export const aiChatDataComponents = {
     'select-connection': (props: DataMessagePartProps<SelectConnectionDataI>) => <SelectConnectionMessage {...props} />,
     'select-property-option': (props: DataMessagePartProps<SelectPropertyOptionDataI>) => (
         <SelectPropertyOptionMessage {...props} />
+    ),
+    'tool-approval-request': (props: DataMessagePartProps<ToolApprovalRequestDataI>) => (
+        <ToolApprovalRequestMessage {...props} />
     ),
 };
