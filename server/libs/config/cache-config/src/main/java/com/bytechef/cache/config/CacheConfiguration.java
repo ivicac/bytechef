@@ -80,6 +80,17 @@ public class CacheConfiguration implements CachingConfigurer {
     private static final String WORKFLOW_CHAT_IN_FLIGHT_CACHE =
         "com.bytechef.ee.ai.hub.agent.WorkflowChatGuard.inFlight";
 
+    /**
+     * EE AI Hub presence cache. Maps threadId to a per-user presence map so the status poll can report who is currently
+     * viewing or typing in a shared chat. Same duplicated-literal pattern as {@link #WORKFLOW_CHAT_IN_FLIGHT_CACHE} —
+     * declared here as {@code AiHubPresenceRegistryImpl.CACHE_NAME}'s twin because {@code cache-config} cannot depend
+     * on {@code ai-hub}. 1-minute TTL comfortably outlives the 45-second per-entry staleness window
+     * {@code AiHubPresenceRegistryImpl} enforces on read, since that window is what actually governs presence freshness
+     * — this TTL is only a backstop against an abandoned thread's map lingering forever.
+     */
+    private static final String AI_HUB_PRESENCE_CACHE =
+        "com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.presence";
+
     @Bean
     @ConditionalOnProperty(prefix = "bytechef", name = "cache.provider", havingValue = "redis")
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
@@ -93,7 +104,8 @@ public class CacheConfiguration implements CachingConfigurer {
                 .withCacheConfiguration(WEBHOOK_RESUME_URL_CACHE, getCacheConfiguration(30, classLoader))
                 .withCacheConfiguration(WORKFLOW_CHAT_JOB_CACHE, getCacheConfiguration(30, classLoader))
                 .withCacheConfiguration(WORKFLOW_CHAT_LAST_TURN_CACHE, getCacheConfiguration(5, classLoader))
-                .withCacheConfiguration(WORKFLOW_CHAT_IN_FLIGHT_CACHE, getCacheConfiguration(30, classLoader));
+                .withCacheConfiguration(WORKFLOW_CHAT_IN_FLIGHT_CACHE, getCacheConfiguration(30, classLoader))
+                .withCacheConfiguration(AI_HUB_PRESENCE_CACHE, getCacheConfiguration(1, classLoader));
         };
     }
 
@@ -139,6 +151,13 @@ public class CacheConfiguration implements CachingConfigurer {
             WORKFLOW_CHAT_IN_FLIGHT_CACHE,
             Caffeine.newBuilder()
                 .expireAfterWrite(30, TimeUnit.MINUTES)
+                .recordStats()
+                .build());
+
+        caffeineCacheManager.registerCustomCache(
+            AI_HUB_PRESENCE_CACHE,
+            Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
                 .recordStats()
                 .build());
 
