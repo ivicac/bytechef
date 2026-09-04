@@ -6,6 +6,7 @@ import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore, {runWithoutHistory} from '../stores/useWorkflowDataStore';
 import {
     consumePendingDefinition,
+    drainPendingSaves,
     isWorkflowMutating,
     setPendingDefinition,
     setWorkflowMutating,
@@ -433,6 +434,8 @@ function fireStickyNoteMutation({
                         version: currentWorkflow.version,
                         workflowId,
                     });
+                } else {
+                    drainPendingSaves(workflowId);
                 }
             },
             onSuccess: (updatedWorkflow) => {
