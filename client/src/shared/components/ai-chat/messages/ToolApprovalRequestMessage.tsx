@@ -34,16 +34,15 @@ const formatArgumentValue = (value: unknown): string => (typeof value === 'strin
 /**
  * Maps a settled approval to its status line. {@code resolvedStatus} (from the approvals-list reload lookup) wins
  * when present — it can be any terminal status, including ones this card's own buttons never produce (EXPIRED,
- * SUPERSEDED, FAILED). Absent that, the locally-tracked {@code resolved} boolean (set right after a successful
- * Approve/Reject click in this session) covers the two outcomes this card itself can cause.
+ * SUPERSEDED). Absent that, {@code localStatus} — the row's actual status as returned by this session's own
+ * Approve/Reject click — covers the outcomes this card itself can cause, which is not only APPROVED/REJECTED: an
+ * approved call can still come back FAILED if the tool itself throws, and the card must say so rather than claim
+ * "Approved — the tool ran." for a call that never actually ran to completion.
  */
 const resolvedStatusMessage = (
-    resolvedStatus: string | undefined,
-    resolved: boolean | null,
-    executionError: string | undefined
+    status: string | undefined,
+    executionError: string | undefined | null
 ): string | null => {
-    const status = resolvedStatus ?? (resolved === null ? null : resolved ? 'APPROVED' : 'REJECTED');
-
     switch (status) {
         case 'APPROVED':
             return 'Approved — the tool ran.';
@@ -88,6 +87,12 @@ const ToolApprovalArgumentRow = ({label, value}: {label: string; value: string})
     );
 };
 
+/** This session's own Approve/Reject outcome, as actually returned by the resolve mutation. */
+interface LocalResolutionI {
+    executionError?: string | null;
+    status: string;
+}
+
 /**
  * Renders a gated AI Hub tool call awaiting a person's approval as an inline card in the chat conversation. The
  * gated tool never executes on its own — this is the ONLY UI that can move it forward, via
@@ -105,7 +110,7 @@ const ToolApprovalArgumentRow = ({label, value}: {label: string; value: string})
  */
 const ToolApprovalRequestMessage = ({data}: DataMessagePartProps<ToolApprovalRequestMessageDataType>) => {
     const [comment, setComment] = useState('');
-    const [resolved, setResolved] = useState<boolean | null>(null);
+    const [localResolution, setLocalResolution] = useState<LocalResolutionI | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -113,7 +118,10 @@ const ToolApprovalRequestMessage = ({data}: DataMessagePartProps<ToolApprovalReq
 
     const {approvalId, arguments: toolArguments, componentName, toolName} = data;
 
-    const statusMessage = resolvedStatusMessage(data.resolvedStatus, resolved, data.executionError);
+    const statusMessage = resolvedStatusMessage(
+        data.resolvedStatus ?? localResolution?.status,
+        data.executionError ?? localResolution?.executionError
+    );
 
     const resolve = async (approved: boolean) => {
         setSubmitting(true);
@@ -122,9 +130,13 @@ const ToolApprovalRequestMessage = ({data}: DataMessagePartProps<ToolApprovalReq
         const trimmedComment = comment.trim();
 
         try {
-            await approvalResolution?.resolveToolApproval?.(approvalId, approved, trimmedComment || undefined);
+            const result = await approvalResolution?.resolveToolApproval?.(
+                approvalId,
+                approved,
+                trimmedComment || undefined
+            );
 
-            setResolved(approved);
+            setLocalResolution(result ?? {status: approved ? 'APPROVED' : 'REJECTED'});
         } catch (error) {
             setSubmitError(
                 error instanceof Error ? error.message : 'Failed to submit your decision. Please try again.'

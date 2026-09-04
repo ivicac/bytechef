@@ -15,6 +15,7 @@ import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.ai.hub.agent.AiHubChatStreamer;
 import com.bytechef.ee.ai.hub.agent.AiHubRunState;
+import com.bytechef.ee.ai.hub.agent.AiHubSpringAIAgent;
 import com.bytechef.ee.ai.hub.agent.AiHubToolCallbackWrappers;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
@@ -80,10 +81,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>
  * The approved tool call executes under the RESOLVER's own security context, not the requester's: the requester is
- * always the chat owner and the resolver is the owner or a workspace admin, so impersonating the requester via
- * {@code SecurityUtils.runAs} would buy nothing and cost a rebuilt {@code Authentication}. Both ids are recorded on the
- * row ({@code requestedByUserId} at creation, {@code decidedByUserId} here) and the CURRENT authentication is carried
- * into the tool context.
+ * always the chat owner and the resolver is the owner or any INSTANCE admin (see {@link #canResolve} — there is no
+ * workspace-membership check on the admin branch), so impersonating the requester via {@code SecurityUtils.runAs} would
+ * buy nothing and cost a rebuilt {@code Authentication}. Both ids are recorded on the row ({@code requestedByUserId} at
+ * creation, {@code decidedByUserId} here) and the CURRENT authentication is carried into the tool context.
  * </p>
  *
  * @version ee
@@ -102,6 +103,8 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     private final AiHubChatBindingToolCallbackResolver chatBindingResolver;
     private final AiHubGlobalToolCatalog askGlobalToolCatalog;
     private final AiHubGlobalToolCatalog buildGlobalToolCatalog;
+    private final AiHubSpringAIAgent askSpringAIAgent;
+    private final AiHubSpringAIAgent buildSpringAIAgent;
     private final Map<String, LocalAgent> localAgentMap;
     private final @Nullable SecurityContextRehydrator securityContextRehydrator;
     private final @Nullable AiHubAuditPublisher auditPublisher;
@@ -123,14 +126,17 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         AiHubChatBindingToolCallbackResolver chatBindingResolver,
         @Qualifier("aiHubAskGlobalToolCatalog") AiHubGlobalToolCatalog askGlobalToolCatalog,
         @Qualifier("aiHubBuildGlobalToolCatalog") AiHubGlobalToolCatalog buildGlobalToolCatalog,
+        @Qualifier("aiHubAskSpringAIAgent") AiHubSpringAIAgent askSpringAIAgent,
+        @Qualifier("aiHubBuildSpringAIAgent") AiHubSpringAIAgent buildSpringAIAgent,
         List<LocalAgent> localAgents, @Nullable SecurityContextRehydrator securityContextRehydrator,
         @Nullable AiHubAuditPublisher auditPublisher, @Nullable ToolExecutionRecorder toolExecutionRecorder,
         AiHubToolApprovalMetrics metrics, PlatformTransactionManager transactionManager) {
 
         this(
             approvalService, chatService, userService, chatStreamer, inFlightRunRegistry, chatBindingResolver,
-            askGlobalToolCatalog, buildGlobalToolCatalog, localAgents, securityContextRehydrator, auditPublisher,
-            toolExecutionRecorder, metrics, transactionManager, Clock.systemUTC());
+            askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent, localAgents,
+            securityContextRehydrator, auditPublisher, toolExecutionRecorder, metrics, transactionManager,
+            Clock.systemUTC());
     }
 
     @SuppressFBWarnings("EI")
@@ -138,7 +144,8 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         AiHubToolApprovalService approvalService, AiHubChatService chatService, UserService userService,
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
         AiHubChatBindingToolCallbackResolver chatBindingResolver, AiHubGlobalToolCatalog askGlobalToolCatalog,
-        AiHubGlobalToolCatalog buildGlobalToolCatalog, List<LocalAgent> localAgents,
+        AiHubGlobalToolCatalog buildGlobalToolCatalog, AiHubSpringAIAgent askSpringAIAgent,
+        AiHubSpringAIAgent buildSpringAIAgent, List<LocalAgent> localAgents,
         @Nullable SecurityContextRehydrator securityContextRehydrator, @Nullable AiHubAuditPublisher auditPublisher,
         @Nullable ToolExecutionRecorder toolExecutionRecorder, AiHubToolApprovalMetrics metrics,
         PlatformTransactionManager transactionManager, Clock clock) {
@@ -151,6 +158,8 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         this.chatBindingResolver = chatBindingResolver;
         this.askGlobalToolCatalog = askGlobalToolCatalog;
         this.buildGlobalToolCatalog = buildGlobalToolCatalog;
+        this.askSpringAIAgent = askSpringAIAgent;
+        this.buildSpringAIAgent = buildSpringAIAgent;
         this.localAgentMap = localAgents.stream()
             .collect(Collectors.toMap(LocalAgent::getAgentId, localAgent -> localAgent));
         this.securityContextRehydrator = securityContextRehydrator;
@@ -205,9 +214,11 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     }
 
     /**
-     * Chat-ownership-based authorization: the chat owner, or any workspace admin, may resolve an approval raised on
-     * that chat. Deliberately not a workspace-role {@code @PreAuthorize} — the approval belongs to the chat, not the
-     * workspace's resource-visibility graph.
+     * Chat-ownership-based authorization: the chat owner, or any INSTANCE admin ({@link AuthorityConstants#ADMIN}), may
+     * resolve an approval raised on that chat. Deliberately not a workspace-role {@code @PreAuthorize} — the approval
+     * belongs to the chat, not the workspace's resource-visibility graph — but note the admin branch is also NOT
+     * workspace-scoped: it checks only the instance-wide {@code ADMIN} authority, with no check that the admin belongs
+     * to {@code chat}'s workspace. An instance admin can resolve an approval in a workspace they are not a member of.
      */
     private boolean canResolve(AiHubChat chat, long userId) {
         return chat.getUserId() == userId || SecurityUtils.hasCurrentUserThisAuthority(AuthorityConstants.ADMIN);
@@ -333,10 +344,13 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     }
 
     /**
-     * Resolves the {@link ToolCallback} the original gated call would have invoked: first the chat's own attached
-     * tools, then the global catalog matching the row's {@code mode}. Empty when the tool is no longer attached to the
-     * chat and no longer in the catalog (e.g. a connector was detached, or a catalog tool was removed between the
-     * request and the decision).
+     * Resolves the {@link ToolCallback} the original gated call would have invoked, searching the same three
+     * populations {@link AiHubToolCallbackWrappers#wrap} gates in the first place: the chat's own attached tools, the
+     * global catalog matching the row's {@code mode}, and finally the mode's agent's PINNED static tool callbacks — a
+     * tool added via {@code toolCallbacks(...)} on the agent's builder (e.g. the BUILD agent's deployment
+     * delete/rollback/promote tools) never appears in either of the first two populations, since it is registered once
+     * at builder time rather than resolved per chat or per catalog lookup. Empty when the tool is in none of the three
+     * (e.g. a connector was detached, or a catalog tool was removed between the request and the decision).
      */
     private Optional<ToolCallback> findCallback(AiHubToolApproval approval, AiHubChat chat, long userId) {
         List<ToolCallback> chatCallbacks = chatBindingResolver.resolve(
@@ -350,10 +364,17 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
             return chatCallback;
         }
 
-        AiHubGlobalToolCatalog catalog =
-            "BUILD".equals(approval.getMode()) ? buildGlobalToolCatalog : askGlobalToolCatalog;
+        boolean build = "BUILD".equals(approval.getMode());
+        AiHubGlobalToolCatalog catalog = build ? buildGlobalToolCatalog : askGlobalToolCatalog;
+        Optional<ToolCallback> catalogCallback = findByName(catalog.toolCallbacks(), approval.getToolName());
 
-        return findByName(catalog.toolCallbacks(), approval.getToolName());
+        if (catalogCallback.isPresent()) {
+            return catalogCallback;
+        }
+
+        AiHubSpringAIAgent pinnedAgent = build ? buildSpringAIAgent : askSpringAIAgent;
+
+        return findByName(pinnedAgent.pinnedToolCallbacks(), approval.getToolName());
     }
 
     private static Optional<ToolCallback> findByName(List<ToolCallback> callbacks, String toolName) {

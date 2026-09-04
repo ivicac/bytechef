@@ -7,7 +7,11 @@ import {describe, expect, it, vi} from 'vitest';
 import ToolApprovalRequestMessage, {ToolApprovalRequestDataI} from '../ToolApprovalRequestMessage';
 
 const withResolution = (
-    resolveToolApproval: (approvalId: number, approved: boolean, comment?: string) => Promise<void>
+    resolveToolApproval: (
+        approvalId: number,
+        approved: boolean,
+        comment?: string
+    ) => Promise<{executionError?: string | null; status: string}>
 ) =>
     function Wrapper({children}: {children: ReactNode}) {
         return (
@@ -31,7 +35,7 @@ describe('ToolApprovalRequestMessage', () => {
     });
 
     it('approves through the context and shows the approved state', async () => {
-        const resolveToolApproval = vi.fn().mockResolvedValue(undefined);
+        const resolveToolApproval = vi.fn().mockResolvedValue({status: 'APPROVED'});
 
         render(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,8 +49,29 @@ describe('ToolApprovalRequestMessage', () => {
         expect(await screen.findByText(/Approved/)).toBeInTheDocument();
     });
 
+    /**
+     * Regression test for the card claiming success on a failed execution: approving a call whose tool then throws
+     * still resolves the mutation successfully (2xx), so the old code — which set the local "resolved" flag from the
+     * `approved` boolean it already knew, ignoring what the mutation actually returned — rendered "Approved — the
+     * tool ran." here. This asserts on the row's real returned status instead.
+     */
+    it('shows the failed state when the resolved approval failed to execute', async () => {
+        const resolveToolApproval = vi.fn().mockResolvedValue({executionError: 'boom', status: 'FAILED'});
+
+        render(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <ToolApprovalRequestMessage {...({data: data()} as any)} />,
+            {wrapper: withResolution(resolveToolApproval)}
+        );
+
+        await userEvent.click(screen.getByRole('button', {name: 'Approve'}));
+
+        expect(await screen.findByText(/Failed: boom/)).toBeInTheDocument();
+        expect(screen.queryByText(/^Approved/)).not.toBeInTheDocument();
+    });
+
     it('rejects with a comment', async () => {
-        const resolveToolApproval = vi.fn().mockResolvedValue(undefined);
+        const resolveToolApproval = vi.fn().mockResolvedValue({status: 'REJECTED'});
 
         render(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

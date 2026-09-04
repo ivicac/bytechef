@@ -249,6 +249,194 @@ resolution is fail-open everywhere (`SubAgentChatModelResolution`): a missing re
 pick, or a resolver that throws all fall back to the delegate's default client, so a model preference
 never fails a turn.
 
+### Tool approval gate (EE, ticket 732)
+
+Spec: `docs/superpowers/specs/2026-09-02-ai-hub-tool-approval-gate-design.md`. A flagged AI Hub tool
+never executes from the model's own call; it executes only from a server-verified approval mutation,
+running the exact arguments the model chose.
+
+**One wrapper, one insertion point.** `AiHubToolCallbackWrappers.wrap(callback, rehydrator,
+approvalGate)` applies, outside-in, `RehydrateContextToolCallback` → `AiHubApprovalGate` →
+`NonEmptyToolCallback` → the delegate. Every tool the hub can call passes through this one method:
+`AiHubSpringAIAgent`'s static-builder path (pinned tools), its per-request
+`chatToolBindingResolver.resolve(...)` path, and `ToolSearchAdvisorConfiguration` (catalog tools
+surfaced through `searchTool`). There is no second wrap site to keep in sync. The two-argument
+overload (`wrap(callback, rehydrator)`) applies NO gate — `AiHubToolApprovalFacadeImpl.execute` calls
+it deliberately, so an approved execution re-running the stored callback cannot re-trigger the gate on
+itself.
+
+That "no second wrap site" claim is about *wrapping* only — it says nothing about *resolution*, and
+the two drifted apart once. `AiHubToolApprovalFacadeImpl.findCallback` (the code path `execute` uses
+to re-find the callback an approved row should run) must independently know how to re-derive all
+THREE gated populations named above: chat-bound tools via `chatBindingResolver.resolve(...)` again,
+catalog tools via `askGlobalToolCatalog`/`buildGlobalToolCatalog`, and pinned tools via each mode's
+`AiHubSpringAIAgent#pinnedToolCallbacks()` (the agent's own unwrapped static list, captured at
+builder time — pinned tools are never in the catalog, by design, so there is no other place to find
+them). A pinned tool omitted from that third lookup is gated correctly (the model's call is blocked,
+the card renders, the decision is recorded) but can never actually execute: `execute` hits the
+`callbackOptional.isEmpty()` branch, flips the row to `FAILED` with "no longer available in this
+chat", and the destructive action never happens — a gate that is airtight on the way in and silently
+inert on the way out.
+
+Inside that per-request path, `AiHubChatBindingToolCallbackResolver.resolve` builds ONE combined
+`List<ToolCallback>` from two structurally different sources before either reaches the wrap site:
+attached-component tools come from `AiHubChatToolBinding` (backed by `AiHubChatComponent`/
+`AiHubChatTool` rows) via `bindingToCallback`, producing a `ClusterElementToolCallback`; external MCP
+tools come from enabled `AiHubMcpServer` rows via `AiHubMcpToolCallbackProvider`, which bridges each
+server's live tool list through Spring AI's `SyncMcpToolCallbackProvider` and is `callbacks.addAll`-ed
+onto the same list — no `AiHubChatComponent`/`AiHubChatTool` row exists for an MCP tool at all. Both
+land in the one combined list that this resolver returns, so both still pass through the single wrap
+site above — that part of the "one insertion point" claim holds. But it means an MCP tool is invisible
+to two of the three gating mechanisms below: `AiHubToolApprovalPolicyImpl`'s COMPONENT-kind rule
+matching and its owner-flag pass both walk `AiHubChatComponent`/`AiHubChatTool` rows exclusively, so
+**neither a COMPONENT-kind workspace rule nor a chat owner's per-tool `requiresApproval` switch can
+ever gate an MCP tool** — only a CATALOG-kind rule naming the MCP tool's exact tool name, or a
+built-in default prefix match, can.
+
+**Gating decision.** `AiHubToolApprovalPolicy.decide(workspaceId, userId, chatId)` returns a
+`Decision(required, exempt)` built by `AiHubToolApprovalPolicyImpl`: workspace `ai_hub_tool_approval_rule`
+rows first (CATALOG and COMPONENT/wildcard kinds), then the chat owner's per-tool `requiresApproval`
+flag on `AiHubChatTool` applied LAST and only ever adding to `required`. `Decision.isGated(toolName)`
+checks `exempt` first, then `required`, then `AiHubToolApprovalDefaults.isGatedByDefault`. A workspace
+`EXEMPT` rule is the only way to lift a built-in default or a `REQUIRE` rule — an owner flag can never
+un-gate one. A repository failure during lookup never throws and never leaves a workspace ungated: it
+falls back to whatever was accumulated in `required` before the failure with an empty `exempt` set, so
+the built-in defaults still gate through `isGated`.
+
+**Fail CLOSED on persistence failure — the opposite of `ComponentRuleEnforcer`.** If
+`AiHubApprovalGateToolCallback` cannot persist the `PENDING` row, it returns a refused-result envelope
+and the tool never runs (metric `refused`). Component rules fail OPEN on an unresolved SpEL reference
+(see `platform-component-rule`) because a mis-authored tenant-wide rule must not take a customer's
+whole workflow estate offline; here, one refused tool call costs the user one retry in one chat — the
+blast radius is small enough that failing safe (never execute unapproved) is the right default instead.
+Persisting the row and building the response envelope are two separate failure domains: if the row
+saves but the envelope then fails to serialize, the callback immediately flips that row to `SUPERSEDED`
+(in its own guarded try/catch) rather than leaving it `PENDING` — an unseen row must not block every
+later gated call in the chat with a `deferred` result until something else clears it. "Until something
+else clears it" is deliberately not "for the rest of its 24-hour expiry": `supersedePending` marks any
+still-`PENDING` row `SUPERSEDED` the moment the user's NEXT turn starts, regardless of whether that
+turn's own gated call needs to — so in practice a stuck `PENDING` row survives only until the next
+message, and `EXPIRED` is nearly unreachable outside a chat the user has simply abandoned mid-approval
+for a full day. The immediate `SUPERSEDED` flip above exists precisely so an unseen envelope-build
+failure isn't left depending on that next-turn safety net either.
+
+**One pending approval per CHAT, not per turn.** The wrapper only sees a `ToolContext`, which carries
+the thread id but not the AG-UI run id, so `approvalService.findPending(chat.getId())` is the only
+granularity available. A second gated call in the same turn gets a `deferred` envelope, not a second
+row. A new user turn does not lock the composer against a pending approval — `supersedePending`
+marks any still-`PENDING` row `SUPERSEDED` when a fresh turn starts.
+
+**The envelope is an ordinary tool result** — `{"kind":"tool-approval-request","awaitingApproval":true,
+...}` returned from `call()` in place of the delegate's real output. That is what keeps Anthropic's and
+OpenAI's tool-call/tool-result pairing rules satisfied for free, and means nothing has to be patched
+into session memory afterward: the turn ends normally with a tool result the model already understands
+how to report on (see the "Tool approvals" section of `prompt_ai_hub_ask.txt`/`prompt_ai_hub_build.txt`).
+
+**The transaction shape of `resolve`, and why.** `AiHubToolApprovalFacadeImpl.resolve` runs in three
+separate steps, none sharing a transaction: (1) `expireIfPastDeadline` — outside any transaction, saves
+`EXPIRED` and throws; (2) `persistDecision` — the resolver's decision is saved and its own
+`TransactionTemplate` block COMMITTED, audit published, BEFORE the tool ever runs; (3)
+`executeAndPersistOutcome` — runs the tool call OUTSIDE any transaction, and a thrown execution flips
+the row to `FAILED` as a second, independent write. This is a restructure from a review finding: the
+original code ran expiry-check, decision-save and tool-execution inside one `TransactionTemplate.execute`
+block, so the `EXPIRED` write was rolled back by the very `ConflictException` the same method threw,
+leaving the row `PENDING` forever with no card ever shown again. A mocked `PlatformTransactionManager`
+in the test hid it (mock rollback reverses nothing). Anyone who "simplifies" this back into one
+transaction reintroduces that bug — and additionally holds a pooled DB connection open across a
+possibly-slow outbound tool call. Writing the decision BEFORE executing the tool is also what makes the
+row's `@Version` optimistic-lock column protect against a double-resolve: two concurrent resolves both
+reading `PENDING` race on `persistDecision`'s save; the loser's `OptimisticLockingFailureException` is
+translated to the same not-found-shaped `NotFoundException` every other enumeration-safe failure in
+this facade uses. That race protection only works because the decision write is the FIRST write, not
+buried after tool execution.
+
+**The continuation turn.** After a resolve, `startContinuation` posts a synthetic `UserMessage` whose
+text starts with `AiHubRunState.CONTINUATION_PREFIX` (`"[tool-approval #"`) — never message metadata,
+because the session store drops `Message.getMetadata()` (`spring-ai-session-jdbc` `insertEvent`
+persists only text and tool calls). The client's transcript renderer (`AiHubMessage.tsx`,
+`TOOL_APPROVAL_STATUS_PREFIX`) recognizes the prefix and renders that message as a status line instead
+of a chat bubble, and the system prompt tells the model the same thing so it doesn't narrate the
+message back to the user. No continuation starts if another run is already in flight for the thread
+(`InFlightAiHubRunRegistry.isInFlight`) or no matching agent variant (`ai_hub_ask`/`ai_hub_build`) is
+registered — the mutation still returns the decided row, just with `continuationStarted: false`.
+
+The continuation's AG-UI `State` is reduced, not the original turn's full state: `startContinuation`
+sends only `mode`, `environment`, `llm_provider` and `llm_model` (plus `AiHubRunState.inject`'s
+authenticated keys). Open tabs, referenced resources and the active file from the turn that made the
+gated call are NOT resent — the wrapper that persisted the `PENDING` row never saw the AG-UI `State`
+in the first place (it only has a `ToolContext`), so there is nothing to carry forward but what the
+row itself stored. This is acceptable because the conversation transcript is already sitting in
+session memory under the chat's `threadId`; the continuation model reads it back the normal way and
+loses no history, only the ambient UI-panel context of the interrupted turn.
+
+**The approved tool executes under the RESOLVER's security context, not the requester's.** The
+requester is always the chat owner; `canResolve` lets the owner OR any INSTANCE admin
+(`AuthorityConstants.ADMIN`, `SecurityUtils.hasCurrentUserThisAuthority`) resolve — there is no
+workspace-membership check on the admin branch, so an instance admin who does not belong to the
+workspace at all can still resolve an approval raised there. An admin resolving as themselves is at
+least as privileged as the requester, so `SecurityUtils.runAs` is deliberately NOT used to impersonate
+the requester — `execute` reads `SecurityContextHolder.getContext().getAuthentication()` directly into
+the rebuilt tool context. Both `requestedByUserId` (set at creation) and `decidedByUserId` (set at
+resolve) are recorded on the row. `AiHubToolApprovalFacade`'s own Javadoc must describe `canResolve`
+the same way — it previously read "the owner or a workspace admin", which overstates the check.
+
+**Four audit events**, all through `AiHubAuditPublisher`: `AI_HUB_TOOL_APPROVAL_REQUESTED` (not strict —
+emitted from `AiHubToolApprovalServiceImpl.createPending`), `AI_HUB_TOOL_APPROVAL_APPROVED` (strict —
+an approval decision that lets a gated call through IS the compliance event the gate exists to record),
+`AI_HUB_TOOL_APPROVAL_REJECTED` (not strict), `AI_HUB_TOOL_APPROVAL_RULE_CHANGED` (strict — a rule
+change alters what is gated for the whole workspace). `approved`/`rejected` on
+`AI_HUB_TOOL_APPROVAL_APPROVED`/`REJECTED` reflect the resolver's DECISION, not the eventual execution
+outcome — a decision to approve is still audited `APPROVED` even when the tool then fails, because the
+decision itself is what happened. Payloads never carry `arguments` (may contain arbitrary tool input,
+e.g. an email body). Metric: `bytechef_ai_hub_tool_approval{outcome=requested|deferred|refused|approved
+|rejected|expired|superseded|failed}` (`AiHubToolApprovalMetrics`, no-op without a `MeterRegistry`).
+
+**`strictAudit` is inert on this path.** `AiHubAuditEvent`'s own Javadoc defines `strictAudit = true` as
+"an SpEL-evaluation failure during `AiHubAuditAspect` capture rolls back the surrounding business
+transaction" — that guarantee belongs to the DECLARATIVE aspect-based audit mechanism. The four events
+above are published IMPERATIVELY, straight calls to `AiHubAuditPublisher.publish(event, data)` from
+`AiHubToolApprovalFacadeImpl.publishDecision`/`AiHubToolApprovalServiceImpl.createPending`/the rule
+facade, never through `AiHubAuditAspect`. `AiHubAuditPublisher.publish` catches every `Exception`
+unconditionally and never rethrows (only a JVM `Error` propagates), incrementing
+`bytechef_ai_hub_audit_failed` and logging instead. So `strictAudit = true` on
+`AI_HUB_TOOL_APPROVAL_APPROVED`/`RULE_CHANGED` documents INTENT — these are the events where a missing
+trail matters most — but does not change what happens when publishing fails on this path: the failure
+absorbs silently either way, exactly like the "not strict" events beside it.
+
+**Known telemetry limitation.** `execute`'s `ToolExecutionEvent` is tagged
+`ToolExecutionSurface.AI_AGENT` / `ToolExecutionKind.CONTRIBUTED` (or `COMPONENT` for a
+component-backed tool) — nearest-match substitutes, because no `AI_HUB` surface constant exists on
+`ToolExecutionSurface`. A resolved Hub approval is therefore indistinguishable from an AI Agent gate
+resolution in that data until a real `AI_HUB` surface constant is added.
+
+**Distributed EE.** `ai_hub_tool_approval` and the rules table are ordinary tenant tables, so the
+resolve mutation may land on any instance. The continuation run registers in
+`InFlightAiHubRunRegistry` on whichever instance served the mutation — the same process-local
+limitation every Hub run already has (the registry's own Javadoc names Redis pub/sub as the eventual
+multi-instance fix); this feature does not make that limitation worse.
+
+**Surface independence.** The wrapper takes `AiHubToolApprovalPolicy`/`AiHubToolApprovalService`/
+`AiHubChatService` as interfaces — a Copilot adopter would supply its own implementations and a card in
+its own thread; no shared abstraction was introduced ahead of a second surface actually needing one
+(YAGNI). This gate and the workflow-engine tool gate under "Agent HITL approvals" are two different
+mechanisms — see that section for the line between them.
+
+**Two independent on/off switches, and they must be turned on together.** `AiHubApprovalGate` is
+conditional on BOTH `bytechef.ai.hub.enabled` AND `bytechef.ai.hub.tool-approval.enabled`
+(`ApplicationProperties.Ai.Hub.ToolApproval`, default `false`) — turning the hub on must not, by
+itself, start gating every deployment's tool calls the moment this ships. The client's only way to
+lift a default (the Tool Approvals settings page, writing an `EXEMPT` rule) sits behind the separate
+`ff-ai-hub-tool-approvals` feature flag, also off by default and gated in four places (`routes.tsx`,
+`ToolApprovals.tsx`, `AiHubChatsSidebar.tsx`, `Settings.tsx`). The on-call consequence of turning on
+only one: enable the server property without the client flag and every flagged tool call starts
+returning an approval-request envelope with no settings page able to resolve or exempt it — every
+gated call in every affected chat stalls, indistinguishable from a hang, until the property is turned
+back off. Enable the client flag without the server property and the settings page renders and can
+write rules, but nothing is ever gated — `EXEMPT`/`REQUIRE` rules save cleanly and silently do
+nothing, which reads as a broken feature rather than an off one. Turn both on together, in either
+order, before relying on this gate in a given environment; `application-bytechef.yml` sets both
+`hub.enabled` and `hub.tool-approval.enabled` to `false` side by side for exactly this reason.
+
 ### Subagent conversation memory and interactive questions (EE, ticket 732)
 
 Two features, and they no longer share a package. Memory is EE, in

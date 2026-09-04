@@ -113,9 +113,11 @@ const AddToolApprovalRuleDialog = ({onOpenChange, onSubmit, open}: AddToolApprov
                             value={toolName}
                         />
 
-                        <p className="text-xs text-muted-foreground">
-                            Use <code>*</code> for every operation of the component.
-                        </p>
+                        {isComponentKind && (
+                            <p className="text-xs text-muted-foreground">
+                                Use <code>*</code> for every operation of the component.
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-2">
