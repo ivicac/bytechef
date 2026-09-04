@@ -9,6 +9,7 @@ package com.bytechef.ee.ai.hub.chat;
 
 import com.bytechef.ee.ai.hub.util.EnumOrdinals;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -115,6 +116,21 @@ public class AiHubChat {
      */
     @Column("ai_agent_id")
     private @Nullable Long aiAgentId;
+
+    /**
+     * INT ordinal of {@link ResourceVisibility} — how far this chat reaches beyond its owner. Defaults to the most
+     * restrictive rung so a chat is private until its owner deliberately shares it. Legal rungs for this resource type
+     * are declared by {@code AiHubChatVisibilityPolicy}, not enforced here.
+     */
+    @Column
+    private int visibility = ResourceVisibility.PRIVATE.ordinal();
+
+    /**
+     * INT ordinal of {@link AiHubChatParticipation} — whether a person this chat has been shared with may only follow
+     * it live, or may also contribute turns. Defaults to view-only.
+     */
+    @Column
+    private int participation = AiHubChatParticipation.VIEW.ordinal();
 
     public AiHubChat() {
     }
@@ -307,6 +323,26 @@ public class AiHubChat {
 
     public void setAiAgentId(@Nullable Long aiAgentId) {
         this.aiAgentId = aiAgentId;
+    }
+
+    public ResourceVisibility getVisibility() {
+        return EnumOrdinals.fromOrdinal(visibility, ResourceVisibility.class);
+    }
+
+    public void setVisibility(ResourceVisibility visibility) {
+        if (visibility != null) {
+            this.visibility = visibility.ordinal();
+        }
+    }
+
+    public AiHubChatParticipation getParticipation() {
+        return EnumOrdinals.fromOrdinal(participation, AiHubChatParticipation.class);
+    }
+
+    public void setParticipation(AiHubChatParticipation participation) {
+        if (participation != null) {
+            this.participation = participation.ordinal();
+        }
     }
 
     @Override

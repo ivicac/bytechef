@@ -53,10 +53,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 class PermissionServiceVisibilityTest {
 
+    private static final String AI_HUB_CHAT = "AiHubChat";
     private static final String CONNECTION = "Connection";
     private static final String PROJECT = "Project";
     private static final String WORKFLOW = "Workflow";
     private static final String PRIVATE_WORKFLOW_ID = "wf-private";
+    private static final long PRIVATE_CHAT_ID = 30L;
     private static final long PRIVATE_CONNECTION_ID = 10L;
     private static final long PRIVATE_PROJECT_ID = 20L;
     private static final long PRIVATE_PROJECT_FOR_SCOPE_ID = 30L;
@@ -123,6 +125,14 @@ class PermissionServiceVisibilityTest {
 
         assertThat(permissionService(Set.of()).hasResourceScope(PRIVATE_CONNECTION_ID, CONNECTION, "CONNECTION_EDIT"))
             .isTrue();
+    }
+
+    @Test
+    void testPrivateAiHubChatDeniedToNonOwnerHoldingTheScope() {
+        authenticate("ana");
+
+        assertThat(permissionService(Set.of()).hasResourceScope(PRIVATE_CHAT_ID, AI_HUB_CHAT, "WORKSPACE_VIEW"))
+            .isFalse();
     }
 
     @Test
@@ -255,8 +265,8 @@ class PermissionServiceVisibilityTest {
             currentUserResolver, mock(PermissionScopeRegistry.class), mock(ProjectRepository.class),
             workspaceScopeCacheService, mock(WorkspaceUserRepository.class),
             List.of(connectionOwnershipResolver(), apiKeyOwnershipResolver()),
-            List.of(connectionVisibilityProvider()), visibilityResolver(grantedConnectionIds), List.of(),
-            mock(ObjectProvider.class));
+            List.of(connectionVisibilityProvider(), chatVisibilityProvider()),
+            visibilityResolver(grantedConnectionIds), List.of(), mock(ObjectProvider.class));
     }
 
     private static ResourceOwnershipResolver connectionOwnershipResolver() {
@@ -303,6 +313,25 @@ class PermissionServiceVisibilityTest {
 
                 if (id == WORKSPACE_CONNECTION_ID) {
                     return Optional.of(new VisibilityRecord(id, ResourceVisibility.WORKSPACE, "ivica"));
+                }
+
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static ResourceVisibilityProvider chatVisibilityProvider() {
+        return new ResourceVisibilityProvider() {
+
+            @Override
+            public String resourceType() {
+                return AI_HUB_CHAT;
+            }
+
+            @Override
+            public Optional<VisibilityRecord> fetchVisibility(long id) {
+                if (id == PRIVATE_CHAT_ID) {
+                    return Optional.of(new VisibilityRecord(id, ResourceVisibility.PRIVATE, "ivica"));
                 }
 
                 return Optional.empty();

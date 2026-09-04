@@ -103,13 +103,13 @@ public interface AiHubChatRepository extends CrudRepository<AiHubChat, Long> {
     @Query("""
         INSERT INTO ai_hub_chat (
             user_id, thread_id, title, message_count, status, environment, kind, workspace_id, ai_agent_id,
-            auto_titled, created_at, updated_at)
+            visibility, participation, auto_titled, created_at, updated_at)
         VALUES (
             :userId, :threadId, :title, 0, :status, :environment, :kind, :workspaceId, :aiAgentId,
-            true, :now, :now)
+            :visibility, :participation, true, :now, :now)
         ON CONFLICT (thread_id) DO NOTHING
         """)
     int insertAgentChatIfAbsent(
         long userId, String threadId, @Nullable String title, int status, int environment, int kind, long workspaceId,
-        long aiAgentId, LocalDateTime now);
+        long aiAgentId, LocalDateTime now, int visibility, int participation);
 }

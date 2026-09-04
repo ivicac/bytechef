@@ -92,8 +92,8 @@ class AiHubChatServiceTest {
         // The optional tool-search and tool-approval ObjectProviders are left null (the delete path's index clear
         // and approval cleanup both guard on null) — the same shape the previous @InjectMocks wiring produced.
         chatService = new AiHubChatServiceImpl(
-            chatRepository, jobFacade, jobRegistry, inFlightRunRegistry, null, aiHubSessionMemoryProvider, null,
-            null);
+            chatRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
+            aiHubSessionMemoryProvider, null, null);
     }
 
     private static org.springframework.ai.session.SessionEvent sessionEvent(
@@ -620,5 +620,144 @@ class AiHubChatServiceTest {
 
         assertThatThrownBy(() -> chatService.truncateMessagesFrom(1L, WORKSPACE_ID, OTHER_USER_ID, 0))
             .isInstanceOf(NotFoundException.class);
+    }
+
+    /**
+     * A non-owner the chat has been shared with can read it but not manage it — pins that {@code loadMessages} routes
+     * through {@link AiHubChatAccessPolicy#canView} while {@code patch} routes through
+     * {@link AiHubChatAccessPolicy#canManage}, and the two disagree for a granted non-owner.
+     */
+    @Test
+    void testGrantedNonOwnerCanLoadMessagesButNotPatch() {
+        AiHubChatServiceImpl grantedChatService = grantedChatService();
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(List.of());
+
+        assertThat(grantedChatService.loadMessages(1L, WORKSPACE_ID, OTHER_USER_ID)).isEmpty();
+
+        assertThatThrownBy(
+            () -> grantedChatService.patch(
+                1L, WORKSPACE_ID, OTHER_USER_ID, new AiHubChatPatch("New title", null, null, null)))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("AiHubChat not found");
+    }
+
+    /**
+     * A non-owner may contribute a turn only when the chat's {@link AiHubChatParticipation} allows it — pins that
+     * {@code appendAssistantMessage} routes through {@link AiHubChatAccessPolicy#canParticipate}, not merely
+     * {@code canView}.
+     */
+    @Test
+    void testParticipateModeNonOwnerCanAppendAssistantMessage() {
+        AiHubChatServiceImpl grantedChatService = grantedChatService();
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        chat.setParticipation(AiHubChatParticipation.PARTICIPATE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+        when(chatRepository.save(any(AiHubChat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        grantedChatService.appendAssistantMessage(1L, WORKSPACE_ID, OTHER_USER_ID, "resumed");
+
+        verify(sessionRepository).appendEvent(any());
+    }
+
+    /**
+     * The counterpart to {@link #testParticipateModeNonOwnerCanAppendAssistantMessage}: a view-only non-owner is
+     * granted {@code canView} but must still be refused a turn.
+     */
+    @Test
+    void testViewModeNonOwnerCannotAppendAssistantMessage() {
+        AiHubChatServiceImpl grantedChatService = grantedChatService();
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        assertThatThrownBy(() -> grantedChatService.appendAssistantMessage(1L, WORKSPACE_ID, OTHER_USER_ID, "resumed"))
+            .isInstanceOf(NotFoundException.class)
+            .hasMessageContaining("AiHubChat not found");
+    }
+
+    /**
+     * {@code getByThreadId}'s one production caller ({@code attachAiHubChatTool}) writes a new tool binding —
+     * component, connection, arbitrary parameters — into the chat it resolves, so the gate must be {@code canManage},
+     * not {@code canView}. Pins the owner side of that: the owner passes regardless of the chat's own
+     * {@link AiHubChatParticipation}.
+     */
+    @Test
+    void testGetByThreadIdAllowsOwner() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+
+        assertThat(chatService.getByThreadId(THREAD_ID, WORKSPACE_ID, USER_ID)).isSameAs(chat);
+    }
+
+    /**
+     * A granted non-owner at the default {@code participation = VIEW} can {@code canView} the chat but must not reach
+     * {@code getByThreadId} — under the pre-fix {@code canView} gate this would have succeeded, letting a bystander who
+     * was only meant to watch the conversation attach a tool to it.
+     */
+    @Test
+    void testGetByThreadIdRefusesGrantedNonOwnerAtViewParticipation() {
+        AiHubChatServiceImpl grantedChatService = grantedChatService();
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+
+        assertThatThrownBy(() -> grantedChatService.getByThreadId(THREAD_ID, WORKSPACE_ID, OTHER_USER_ID))
+            .isInstanceOf(NotFoundException.class)
+            .hasMessageContaining("AiHubChat not found");
+    }
+
+    /**
+     * The counterpart to {@link #testGetByThreadIdRefusesGrantedNonOwnerAtViewParticipation}: even a granted non-owner
+     * who may contribute turns ({@code participation = PARTICIPATE}) must still be refused — attaching a tool is a
+     * management action, not a turn, so {@code canParticipate} granting turns does not extend to it.
+     */
+    @Test
+    void testGetByThreadIdRefusesGrantedNonOwnerAtParticipateParticipation() {
+        AiHubChatServiceImpl grantedChatService = grantedChatService();
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        chat.setParticipation(AiHubChatParticipation.PARTICIPATE);
+
+        when(chatRepository.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+
+        assertThatThrownBy(() -> grantedChatService.getByThreadId(THREAD_ID, WORKSPACE_ID, OTHER_USER_ID))
+            .isInstanceOf(NotFoundException.class)
+            .hasMessageContaining("AiHubChat not found");
+    }
+
+    /**
+     * Builds a service instance wired with a policy that grants {@code canView} unconditionally and follows the chat's
+     * own {@link AiHubChatParticipation} for {@code canParticipate} — standing in for a workspace member the chat has
+     * been shared with, without re-exercising {@link AiHubChatAccessPolicyImpl}'s own visibility-resolution logic
+     * (covered by {@code AiHubChatAccessPolicyTest}).
+     */
+    private AiHubChatServiceImpl grantedChatService() {
+        return new AiHubChatServiceImpl(
+            chatRepository, new GrantedNonOwnerAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
+            aiHubSessionMemoryProvider, null, null);
+    }
+
+    private static final class GrantedNonOwnerAccessPolicy implements AiHubChatAccessPolicy {
+
+        @Override
+        public boolean canView(AiHubChat chat, long userId) {
+            return true;
+        }
+
+        @Override
+        public boolean canParticipate(AiHubChat chat, long userId) {
+            return chat.getParticipation() == AiHubChatParticipation.PARTICIPATE;
+        }
+
+        @Override
+        public boolean canManage(AiHubChat chat, long userId) {
+            return chat.getUserId() == userId;
+        }
     }
 }

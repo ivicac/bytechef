@@ -14,6 +14,7 @@ import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatTranscriptSummary;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -216,7 +217,8 @@ public class AiHubAgentConversationRecorder implements AgentConversationRecorder
         chatRepository.insertAgentChatIfAbsent(
             agentConversation.creatorUserId(), threadId, agentConversation.title(), AiHubChatStatus.ACTIVE.ordinal(),
             environment, AiHubChatKind.AGENT_CHAT.ordinal(), agentConversation.workspaceId(),
-            agentConversation.aiAgentId(), now);
+            agentConversation.aiAgentId(), now, ResourceVisibility.PRIVATE.ordinal(),
+            AiHubChatParticipation.VIEW.ordinal());
 
         // Re-read rather than trusting the insert's row count: when a concurrent turn of the same conversation won the
         // race, DO NOTHING left its row in place and that is the row this turn must use.
