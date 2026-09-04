@@ -23,16 +23,12 @@ const AgentDeploymentsLeftSidebarNav = ({currentAgentId, currentTagId}: AgentDep
     // The DEPLOYMENTS' own tags, not the owning agents'. This list drives the tag filter below, and a
     // deployment is filtered by the tags it carries — listing agent tags here offered filters that
     // matched nothing and hid deployment tags that do.
-    const {data: agentTagsData} = useAiAgentDeploymentTagsQuery(
+    const {data: agentTagsData, isLoading: tagsIsLoading} = useAiAgentDeploymentTagsQuery(
         {workspaceId: String(currentWorkspaceId)},
         {enabled: currentWorkspaceId != null}
     );
 
     const tags = agentTagsData?.aiAgentDeploymentTags ?? [];
-
-    if (agentsIsLoading) {
-        return <></>;
-    }
 
     return (
         <>
@@ -57,6 +53,7 @@ const AgentDeploymentsLeftSidebarNav = ({currentAgentId, currentTagId}: AgentDep
                         ))}
                     </>
                 }
+                loading={agentsIsLoading}
                 title="Agents"
             />
 
@@ -80,6 +77,7 @@ const AgentDeploymentsLeftSidebarNav = ({currentAgentId, currentTagId}: AgentDep
                     )
                 }
                 className="mb-0"
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>

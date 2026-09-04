@@ -56,6 +56,7 @@ const KnowledgeBaseLeftSidebarNav = () => {
                             </>
                         )
                     }
+                    loading={isLoading}
                 />
             </div>
         </div>

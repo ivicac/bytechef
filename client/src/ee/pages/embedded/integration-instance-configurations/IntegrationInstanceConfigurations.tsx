@@ -168,6 +168,7 @@ const IntegrationInstanceConfigurations = () => {
                                     ))}
                             </>
                         }
+                        loading={componentDefinitionsLoading || integrationsLoading}
                         title="Integrations"
                     />
 
@@ -193,6 +194,7 @@ const IntegrationInstanceConfigurations = () => {
                                     ))}
                             </>
                         }
+                        loading={tagsIsLoading}
                         title="Tags"
                     />
 

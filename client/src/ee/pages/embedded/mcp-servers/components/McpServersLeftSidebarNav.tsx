@@ -9,10 +9,15 @@ import {useSearchParams} from 'react-router-dom';
 
 interface McpServersLeftSidebarNavProps {
     allComponentNames: string[];
+    mcpServersIsLoading?: boolean;
     validMcpServerIds: Set<string>;
 }
 
-const McpServersLeftSidebarNav = ({allComponentNames, validMcpServerIds}: McpServersLeftSidebarNavProps) => {
+const McpServersLeftSidebarNav = ({
+    allComponentNames,
+    mcpServersIsLoading = false,
+    validMcpServerIds,
+}: McpServersLeftSidebarNavProps) => {
     const [searchParams] = useSearchParams();
 
     const componentName = searchParams.get('componentName');
@@ -90,6 +95,7 @@ const McpServersLeftSidebarNav = ({allComponentNames, validMcpServerIds}: McpSer
                             ))}
                     </>
                 }
+                loading={componentDefinitionsIsLoading || mcpServersIsLoading}
                 title="Components"
             />
 
@@ -115,6 +121,7 @@ const McpServersLeftSidebarNav = ({allComponentNames, validMcpServerIds}: McpSer
                             ))}
                     </>
                 }
+                loading={mcpIntegrationInstanceConfigurationsIsLoading || mcpServersIsLoading}
                 title="Integrations"
             />
 
@@ -138,6 +145,7 @@ const McpServersLeftSidebarNav = ({allComponentNames, validMcpServerIds}: McpSer
                             ))}
                     </>
                 }
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>

@@ -5,12 +5,16 @@ import {TagIcon} from 'lucide-react';
 
 const ProjectsLeftSidebarNav = ({
     categories,
+    categoriesIsLoading = false,
     filterData,
     tags,
+    tagsIsLoading = false,
 }: {
     categories: Category[] | undefined;
+    categoriesIsLoading?: boolean;
     filterData: {id?: number; type: Type};
     tags: Tag[] | undefined;
+    tagsIsLoading?: boolean;
 }) => {
     return (
         <>
@@ -38,6 +42,7 @@ const ProjectsLeftSidebarNav = ({
                             ))}
                     </>
                 }
+                loading={categoriesIsLoading}
                 title="Categories"
             />
 
@@ -64,6 +69,7 @@ const ProjectsLeftSidebarNav = ({
                     </>
                 }
                 className="mb-0"
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>

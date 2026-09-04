@@ -6,12 +6,16 @@ import {TagIcon} from 'lucide-react';
 
 const IntegrationsLeftSidebarNav = ({
     categories,
+    categoriesIsLoading = false,
     filterData,
     tags,
+    tagsIsLoading = false,
 }: {
     categories: Category[] | undefined;
+    categoriesIsLoading?: boolean;
     filterData: {id?: number | string; type: Type};
     tags: Tag[] | undefined;
+    tagsIsLoading?: boolean;
 }) => {
     const ff_743 = useFeatureFlagsStore()('ff-743');
 
@@ -41,6 +45,7 @@ const IntegrationsLeftSidebarNav = ({
                             ))}
                     </>
                 }
+                loading={categoriesIsLoading}
                 title="Categories"
             />
 
@@ -67,6 +72,7 @@ const IntegrationsLeftSidebarNav = ({
                     </>
                 }
                 className={!ff_743 ? 'mb-0' : ''}
+                loading={tagsIsLoading}
                 title="Tags"
             />
 

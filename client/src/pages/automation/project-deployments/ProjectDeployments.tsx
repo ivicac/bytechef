@@ -206,6 +206,7 @@ const ProjectDeployments = () => {
                                     ))}
                             </>
                         }
+                        loading={projectsIsLoading}
                         title="Projects"
                     />
 
@@ -231,6 +232,7 @@ const ProjectDeployments = () => {
                                     ))}
                             </>
                         }
+                        loading={tagsIsLoading}
                         title="Tags"
                     />
                 </>

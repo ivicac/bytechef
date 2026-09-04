@@ -186,7 +186,15 @@ const Projects = () => {
                     }
                 />
             }
-            leftSidebarBody={<ProjectsLeftSidebarNav categories={categories} filterData={filterData} tags={tags} />}
+            leftSidebarBody={
+                <ProjectsLeftSidebarNav
+                    categories={categories}
+                    categoriesIsLoading={categoriesIsLoading}
+                    filterData={filterData}
+                    tags={tags}
+                    tagsIsLoading={tagsIsLoading}
+                />
+            }
             leftSidebarHeader={<Header position="sidebar" title="Projects" />}
             leftSidebarWidth="64"
         >

@@ -101,7 +101,15 @@ const Integrations = () => {
                     />
                 )
             }
-            leftSidebarBody={<IntegrationsLeftSidebarNav categories={categories} filterData={filterData} tags={tags} />}
+            leftSidebarBody={
+                <IntegrationsLeftSidebarNav
+                    categories={categories}
+                    categoriesIsLoading={categoriesLoading}
+                    filterData={filterData}
+                    tags={tags}
+                    tagsIsLoading={tagsLoading}
+                />
+            }
             leftSidebarHeader={<Header position="sidebar" title="Integrations" />}
             leftSidebarWidth="64"
         >

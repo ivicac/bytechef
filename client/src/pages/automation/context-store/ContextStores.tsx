@@ -40,7 +40,7 @@ const ContextStores = () => {
         workspaceId: String(currentWorkspaceId),
     });
 
-    const {data: tagsData} = useContextStoreTagsQuery({
+    const {data: tagsData, isLoading: tagsIsLoading} = useContextStoreTagsQuery({
         workspaceId: String(currentWorkspaceId),
     });
 
@@ -53,7 +53,7 @@ const ContextStores = () => {
     const contextStores = useMemo(() => data?.contextStores ?? [], [data?.contextStores]);
     const workspaceTags = useMemo(() => tagsData?.contextStoreTags ?? [], [tagsData?.contextStoreTags]);
 
-    const {sources} = useContextStoreSources();
+    const {isLoading: sourcesIsLoading, sources} = useContextStoreSources();
 
     const [searchParams] = useSearchParams();
 
@@ -179,11 +179,13 @@ const ContextStores = () => {
                 />
             }
             leftSidebarBody={
-                contextStores.length > 0 ? (
+                contextStores.length > 0 || isLoading ? (
                     <ContextStoresFilterLeftSidebarNav
                         filterData={filterData}
                         sourceComponents={sourceComponents}
+                        sourceComponentsIsLoading={isLoading || sourcesIsLoading}
                         tags={sidebarTags}
+                        tagsIsLoading={tagsIsLoading}
                     />
                 ) : undefined
             }

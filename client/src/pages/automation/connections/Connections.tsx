@@ -89,6 +89,8 @@ export const Connections = () => {
 
     const isAnyLoading = componentsLoading || connectionsIsLoading || tagsIsLoading || unfilteredConnectionsIsLoading;
 
+    const componentRowsAreLoading = componentsLoading || connectionsIsLoading || unfilteredConnectionsIsLoading;
+
     return (
         <LayoutContainer
             header={
@@ -162,6 +164,7 @@ export const Connections = () => {
                                         ))}
                             </>
                         }
+                        loading={componentRowsAreLoading}
                         title="Components"
                     />
 
@@ -187,6 +190,7 @@ export const Connections = () => {
                                     ))}
                             </>
                         }
+                        loading={tagsIsLoading}
                         title="Tags"
                     />
                 </>

@@ -8,10 +8,19 @@ interface ApiPlatformLeftSidebarNavProps {
     environment?: number;
     filterData?: {id?: number; type: Type};
     projects: ProjectBasic[] | undefined;
+    projectsIsLoading?: boolean;
     tags: Tag[] | undefined;
+    tagsIsLoading?: boolean;
 }
 
-const ApiPlatformLeftSidebarNav = ({environment, filterData, projects, tags}: ApiPlatformLeftSidebarNavProps) => {
+const ApiPlatformLeftSidebarNav = ({
+    environment,
+    filterData,
+    projects,
+    projectsIsLoading = false,
+    tags,
+    tagsIsLoading = false,
+}: ApiPlatformLeftSidebarNavProps) => {
     return (
         <>
             <LeftSidebarNav
@@ -39,6 +48,7 @@ const ApiPlatformLeftSidebarNav = ({environment, filterData, projects, tags}: Ap
                             ))}
                     </>
                 }
+                loading={projectsIsLoading}
                 title="Projects"
             />
 
@@ -63,6 +73,7 @@ const ApiPlatformLeftSidebarNav = ({environment, filterData, projects, tags}: Ap
                         )}
                     </>
                 }
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>

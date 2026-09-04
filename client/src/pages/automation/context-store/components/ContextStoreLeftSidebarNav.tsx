@@ -97,6 +97,7 @@ const ContextStoreLeftSidebarNav = ({isAdmin = false}: ContextStoreLeftSidebarNa
                         </>
                     )
                 }
+                loading={isLoading}
             />
         </div>
     );

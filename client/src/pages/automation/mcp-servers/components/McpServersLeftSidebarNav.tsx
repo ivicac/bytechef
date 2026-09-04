@@ -11,6 +11,7 @@ interface McpServersLeftSidebarNavProps {
     componentDefinitionsIsLoading: boolean;
     filterData: {id?: string; type: Type};
     mcpProjectsIsLoading: boolean;
+    mcpServersIsLoading?: boolean;
     tags?: Tag[];
     tagsIsLoading: boolean;
     uniqueProjects: {id: string; name: string}[];
@@ -22,6 +23,7 @@ const McpServersLeftSidebarNav = ({
     componentDefinitionsIsLoading,
     filterData,
     mcpProjectsIsLoading,
+    mcpServersIsLoading = false,
     tags,
     tagsIsLoading,
     uniqueProjects,
@@ -63,6 +65,7 @@ const McpServersLeftSidebarNav = ({
                             ))}
                     </>
                 }
+                loading={componentDefinitionsIsLoading || mcpServersIsLoading}
                 title="Components"
             />
 
@@ -87,6 +90,7 @@ const McpServersLeftSidebarNav = ({
                             ))}
                     </>
                 }
+                loading={mcpProjectsIsLoading}
                 title="Projects"
             />
 
@@ -110,6 +114,7 @@ const McpServersLeftSidebarNav = ({
                             ))}
                     </>
                 }
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>

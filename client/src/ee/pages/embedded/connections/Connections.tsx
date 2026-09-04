@@ -80,6 +80,8 @@ export const Connections = () => {
 
     const {data: tags, error: tagsError, isLoading: tagsIsLoading} = useGetConnectionTagsQuery();
 
+    const componentRowsAreLoading = componentsLoading || connectionsIsLoading || unfilteredConnectionsIsLoading;
+
     return (
         <LayoutContainer
             header={
@@ -147,6 +149,7 @@ export const Connections = () => {
                                         ))}
                             </>
                         }
+                        loading={componentRowsAreLoading}
                         title="Components"
                     />
 
@@ -172,6 +175,7 @@ export const Connections = () => {
                                     ))}
                             </>
                         }
+                        loading={tagsIsLoading}
                         title="Tags"
                     />
                 </>

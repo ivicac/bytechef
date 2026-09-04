@@ -124,7 +124,7 @@ const AssetFiles = () => {
         {enabled: !!tagId}
     );
 
-    const {data: tagsData} = useGetAssetFileTagsQuery({workspaceId: workspaceIdAsString});
+    const {data: tagsData, isLoading: tagsIsLoading} = useGetAssetFileTagsQuery({workspaceId: workspaceIdAsString});
 
     const files = useMemo(() => filesData?.assetFiles ?? [], [filesData?.assetFiles]);
     const tags = useMemo(() => tagsData?.assetFileTags ?? [], [tagsData?.assetFileTags]);
@@ -358,6 +358,7 @@ const AssetFiles = () => {
                         )}
                     </>
                 }
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>
