@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.hub.chat;
 
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +84,23 @@ public interface AiHubChatService {
      */
     List<AiHubChat>
         list(long workspaceId, long userId, int environment, AiHubChatStatus status);
+
+    /**
+     * Lists chats other workspace members have shared with {@code userId}: every {@code WORKSPACE}-visible chat in the
+     * workspace, plus any {@code PRIVATE} chat {@code userId} has been individually granted, both restricted to chats
+     * owned by someone else. Returns at most 100 results, ordered by last update descending, mirroring {@link #list}.
+     *
+     * <p>
+     * The grant half only widens the result on a deployment that carries a {@code ResourceGrantService} bean — a CE
+     * build with no such bean returns the {@code WORKSPACE}-visible chats alone.
+     * </p>
+     *
+     * <p>
+     * <b>Bounded reach:</b> the grant half only scans a fixed window of the workspace's most recently updated
+     * {@code PRIVATE} chats. A grant on a chat outside that window is not returned by this method.
+     * </p>
+     */
+    List<AiHubChat> listSharedWithMe(long workspaceId, long userId, int environment);
 
     /**
      * Loads the message history for a chat from Spring AI's session store. Throws
@@ -284,6 +302,14 @@ public interface AiHubChatService {
      * Returns empty rather than throwing when the chat does not exist or is not viewable.
      */
     Optional<AiHubChat> findByThreadIdViewable(String threadId, long requesterUserId);
+
+    /**
+     * Applies a visibility and participation change to an existing chat, saving both in one write. Runs no access check
+     * of its own — the caller ({@code AiHubChatSharingFacade}) has already verified the requester may manage the chat
+     * before reaching this method. Throws {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does
+     * not exist.
+     */
+    AiHubChat patchSharing(long chatId, ResourceVisibility visibility, AiHubChatParticipation participation);
 
     /**
      * Counts the chat's visible transcript and returns its genuinely latest message, in one pass over the session

@@ -217,7 +217,7 @@ public class AiHubAgentConversationRecorder implements AgentConversationRecorder
         chatRepository.insertAgentChatIfAbsent(
             agentConversation.creatorUserId(), threadId, agentConversation.title(), AiHubChatStatus.ACTIVE.ordinal(),
             environment, AiHubChatKind.AGENT_CHAT.ordinal(), agentConversation.workspaceId(),
-            agentConversation.aiAgentId(), now, ResourceVisibility.PRIVATE.ordinal(),
+            agentConversation.aiAgentId(), now, ResourceVisibility.WORKSPACE.ordinal(),
             AiHubChatParticipation.VIEW.ordinal());
 
         // Re-read rather than trusting the insert's row count: when a concurrent turn of the same conversation won the

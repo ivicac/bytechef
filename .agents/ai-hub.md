@@ -370,15 +370,18 @@ session memory under the chat's `threadId`; the continuation model reads it back
 loses no history, only the ambient UI-panel context of the interrupted turn.
 
 **The approved tool executes under the RESOLVER's security context, not the requester's.** The
-requester is always the chat owner; `canResolve` lets the owner OR any INSTANCE admin
-(`AuthorityConstants.ADMIN`, `SecurityUtils.hasCurrentUserThisAuthority`) resolve — there is no
-workspace-membership check on the admin branch, so an instance admin who does not belong to the
-workspace at all can still resolve an approval raised there. An admin resolving as themselves is at
-least as privileged as the requester, so `SecurityUtils.runAs` is deliberately NOT used to impersonate
+requester is always the chat owner; `canResolve` delegates to `AiHubChatAccessPolicy#canManage` (Task
+3 of the shared-sessions work), which lets the owner OR any INSTANCE admin (`AuthorityConstants.ADMIN`,
+`SecurityUtils.hasCurrentUserThisAuthority`) resolve — the check itself is unchanged from before that
+delegation (still no workspace-membership check on the admin branch, so an instance admin who does not
+belong to the workspace at all can still resolve an approval raised there), but it now goes through the
+one policy the rest of AI Hub's chat authorization already shares rather than a private copy of the
+same admin check living inside this facade — a future fix to that workspace-membership gap in
+`AiHubChatAccessPolicyImpl` will apply here too. An admin resolving as themselves is at least as
+privileged as the requester, so `SecurityUtils.runAs` is deliberately NOT used to impersonate
 the requester — `execute` reads `SecurityContextHolder.getContext().getAuthentication()` directly into
 the rebuilt tool context. Both `requestedByUserId` (set at creation) and `decidedByUserId` (set at
-resolve) are recorded on the row. `AiHubToolApprovalFacade`'s own Javadoc must describe `canResolve`
-the same way — it previously read "the owner or a workspace admin", which overstates the check.
+resolve) are recorded on the row.
 
 **Four audit events**, all through `AiHubAuditPublisher`: `AI_HUB_TOOL_APPROVAL_REQUESTED` (not strict —
 emitted from `AiHubToolApprovalServiceImpl.createPending`), `AI_HUB_TOOL_APPROVAL_APPROVED` (strict —

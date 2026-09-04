@@ -11,6 +11,7 @@ import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatArtifact;
 import com.bytechef.ee.ai.hub.chat.AiHubChatArtifactService;
+import com.bytechef.ee.ai.hub.chat.AiHubChatParticipation;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatPatch;
@@ -21,6 +22,7 @@ import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.ZoneOffset;
@@ -92,6 +94,16 @@ public class AiHubChatGraphQlController {
             status == null ? AiHubChatStatus.ACTIVE : status;
 
         return chatService.list(workspaceId, userId, environment, effectiveStatus);
+    }
+
+    @QueryMapping
+    public List<AiHubChat> aiHubSharedChats(@Argument long workspaceId, @Argument int environment) {
+        long userId = userService.getCurrentUser()
+            .getId();
+
+        WorkspaceAccessGuard.verifyUserCanAccessWorkspace(workspaceFacade, userId, workspaceId);
+
+        return chatService.listSharedWithMe(workspaceId, userId, environment);
     }
 
     @QueryMapping
@@ -359,6 +371,37 @@ public class AiHubChatGraphQlController {
             : chat.getUpdatedAt()
                 .toInstant(ZoneOffset.UTC)
                 .toEpochMilli();
+    }
+
+    @SchemaMapping(typeName = "AiHubChat", field = "visibility")
+    public AiHubChatVisibility chatVisibility(AiHubChat chat) {
+        return AiHubChatVisibilityMapper.toAiHubChatVisibility(chat.getVisibility());
+    }
+
+    @SchemaMapping(typeName = "AiHubChat", field = "participation")
+    public AiHubChatParticipation chatParticipation(AiHubChat chat) {
+        return chat.getParticipation();
+    }
+
+    @SchemaMapping(typeName = "AiHubChat", field = "ownerUserId")
+    public long chatOwnerUserId(AiHubChat chat) {
+        return chat.getUserId();
+    }
+
+    @SchemaMapping(typeName = "AiHubChat", field = "ownerName")
+    @Nullable
+    public String chatOwnerName(AiHubChat chat) {
+        return userService.fetchUser(chat.getUserId())
+            .map(User::getLogin)
+            .orElse(null);
+    }
+
+    @SchemaMapping(typeName = "AiHubChat", field = "isOwner")
+    public boolean chatIsOwner(AiHubChat chat) {
+        long userId = userService.getCurrentUser()
+            .getId();
+
+        return chat.getUserId() == userId;
     }
 
     @SchemaMapping(typeName = "AiHubChatMessage", field = "timestamp")

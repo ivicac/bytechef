@@ -21,6 +21,7 @@ import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
+import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
@@ -30,8 +31,6 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubChatBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.AiHubGlobalToolCatalog;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
 import com.bytechef.ee.ai.hub.util.Source;
-import com.bytechef.platform.security.constant.AuthorityConstants;
-import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
@@ -95,6 +94,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ConditionalOnProperty(prefix = "bytechef.ai.hub", name = "enabled", havingValue = "true")
 public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
 
+    private final AiHubChatAccessPolicy accessPolicy;
     private final AiHubToolApprovalService approvalService;
     private final AiHubChatService chatService;
     private final UserService userService;
@@ -121,8 +121,8 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     @Autowired
     @SuppressFBWarnings("EI")
     public AiHubToolApprovalFacadeImpl(
-        AiHubToolApprovalService approvalService, AiHubChatService chatService, UserService userService,
-        AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
+        AiHubChatAccessPolicy accessPolicy, AiHubToolApprovalService approvalService, AiHubChatService chatService,
+        UserService userService, AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
         AiHubChatBindingToolCallbackResolver chatBindingResolver,
         @Qualifier("aiHubAskGlobalToolCatalog") AiHubGlobalToolCatalog askGlobalToolCatalog,
         @Qualifier("aiHubBuildGlobalToolCatalog") AiHubGlobalToolCatalog buildGlobalToolCatalog,
@@ -133,16 +133,16 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         AiHubToolApprovalMetrics metrics, PlatformTransactionManager transactionManager) {
 
         this(
-            approvalService, chatService, userService, chatStreamer, inFlightRunRegistry, chatBindingResolver,
-            askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent, localAgents,
-            securityContextRehydrator, auditPublisher, toolExecutionRecorder, metrics, transactionManager,
-            Clock.systemUTC());
+            accessPolicy, approvalService, chatService, userService, chatStreamer, inFlightRunRegistry,
+            chatBindingResolver, askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent,
+            localAgents, securityContextRehydrator, auditPublisher, toolExecutionRecorder, metrics,
+            transactionManager, Clock.systemUTC());
     }
 
     @SuppressFBWarnings("EI")
     AiHubToolApprovalFacadeImpl(
-        AiHubToolApprovalService approvalService, AiHubChatService chatService, UserService userService,
-        AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
+        AiHubChatAccessPolicy accessPolicy, AiHubToolApprovalService approvalService, AiHubChatService chatService,
+        UserService userService, AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
         AiHubChatBindingToolCallbackResolver chatBindingResolver, AiHubGlobalToolCatalog askGlobalToolCatalog,
         AiHubGlobalToolCatalog buildGlobalToolCatalog, AiHubSpringAIAgent askSpringAIAgent,
         AiHubSpringAIAgent buildSpringAIAgent, List<LocalAgent> localAgents,
@@ -150,6 +150,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         @Nullable ToolExecutionRecorder toolExecutionRecorder, AiHubToolApprovalMetrics metrics,
         PlatformTransactionManager transactionManager, Clock clock) {
 
+        this.accessPolicy = accessPolicy;
         this.approvalService = approvalService;
         this.chatService = chatService;
         this.userService = userService;
@@ -214,14 +215,17 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
     }
 
     /**
-     * Chat-ownership-based authorization: the chat owner, or any INSTANCE admin ({@link AuthorityConstants#ADMIN}), may
-     * resolve an approval raised on that chat. Deliberately not a workspace-role {@code @PreAuthorize} — the approval
-     * belongs to the chat, not the workspace's resource-visibility graph — but note the admin branch is also NOT
-     * workspace-scoped: it checks only the instance-wide {@code ADMIN} authority, with no check that the admin belongs
-     * to {@code chat}'s workspace. An instance admin can resolve an approval in a workspace they are not a member of.
+     * Delegates to {@link AiHubChatAccessPolicy#canManage} rather than keeping a private copy of the same
+     * owner-or-admin check: the chat owner, or any INSTANCE admin ({@code AuthorityConstants.ADMIN}), may resolve an
+     * approval raised on that chat. Deliberately not a workspace-role {@code @PreAuthorize} — the approval belongs to
+     * the chat, not the workspace's resource-visibility graph — but note the admin branch of {@code canManage} is also
+     * NOT workspace-scoped: it checks only the instance-wide {@code ADMIN} authority, with no check that the admin
+     * belongs to {@code chat}'s workspace. An instance admin can resolve an approval in a workspace they are not a
+     * member of; routing through the shared policy means a future fix to that gap in {@code AiHubChatAccessPolicyImpl}
+     * applies here too, rather than only where it is fixed first.
      */
     private boolean canResolve(AiHubChat chat, long userId) {
-        return chat.getUserId() == userId || SecurityUtils.hasCurrentUserThisAuthority(AuthorityConstants.ADMIN);
+        return accessPolicy.canManage(chat, userId);
     }
 
     /**

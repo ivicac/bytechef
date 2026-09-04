@@ -163,7 +163,7 @@ public class AiHubAgentConversationRecorderTransactionIntTest {
 
             return new AiHubChatServiceImpl(
                 chatRepository, new OwnerOnlyAccessPolicy(), mock(JobFacade.class), mock(WorkflowChatJobRegistry.class),
-                mock(InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider, null, null);
+                mock(InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider, null, null, null);
         }
 
         @Bean
