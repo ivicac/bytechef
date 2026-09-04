@@ -40,7 +40,7 @@ const Header = ({
                     className
                 )}
             >
-                <div className="flex items-start gap-2 self-start">
+                <div className="flex min-w-0 items-start gap-2 self-start">
                     {showLeftSidebarToggle && (
                         <div
                             className={twMerge(
@@ -52,7 +52,7 @@ const Header = ({
                         </div>
                     )}
 
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-col">
                         <div
                             className={twMerge(
                                 'flex h-header-height flex-col justify-center text-lg tracking-tight text-foreground',
@@ -63,18 +63,18 @@ const Header = ({
                             {title}
                         </div>
 
-                        <div className="text-sm text-muted-foreground">{description}</div>
+                        {description && <div className="truncate text-sm text-muted-foreground">{description}</div>}
                     </div>
                 </div>
 
                 {showSidebarHeaderToggle ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                         {right && <div>{right}</div>}
 
                         <LeftSidebarToggle />
                     </div>
                 ) : (
-                    right && <div>{right}</div>
+                    right && <div className="shrink-0">{right}</div>
                 )}
             </div>
         </header>

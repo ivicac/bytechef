@@ -2,6 +2,7 @@ import {TooltipProvider} from '@/components/ui/tooltip';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {act, fireEvent, render, screen} from '@/shared/util/test-utils';
+import {ReactNode} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 const renderHeader = (title: string) =>
@@ -127,5 +128,40 @@ describe('Header', () => {
         );
 
         expect(screen.getByRole('button', {name: 'Toggle sidebar'})).toBeInTheDocument();
+    });
+});
+
+describe('Header description', () => {
+    const description = 'Reusable instructions agents can load on demand across every workflow in this workspace';
+
+    const renderPlainHeader = (ui: ReactNode) => render(<TooltipProvider>{ui}</TooltipProvider>);
+
+    it('truncates the description rather than wrapping it', () => {
+        renderPlainHeader(<Header description={description} position="main" title="AI Skills" />);
+
+        expect(screen.getByText(description)).toHaveClass('truncate');
+    });
+
+    it('lets the title block shrink so the truncation engages', () => {
+        renderPlainHeader(<Header description={description} position="main" title="AI Skills" />);
+
+        const titleBlock = screen.getByText(description).parentElement;
+
+        expect(titleBlock).toHaveClass('min-w-0');
+        expect(titleBlock?.parentElement).toHaveClass('min-w-0');
+    });
+
+    it('holds the toolbar at its own width so the description is what gives way', () => {
+        renderPlainHeader(
+            <Header description={description} position="main" right={<span>Toolbar</span>} title="Skills" />
+        );
+
+        expect(screen.getByText('Toolbar').parentElement).toHaveClass('shrink-0');
+    });
+
+    it('renders no description element when a header has none', () => {
+        renderPlainHeader(<Header position="main" title="AI Skills" />);
+
+        expect(screen.getByText('AI Skills').parentElement?.children).toHaveLength(1);
     });
 });
