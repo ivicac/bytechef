@@ -36,7 +36,7 @@ const AgentsLeftSidebarNav = ({
 
     const {agents, agentsIsLoading} = useAgents();
 
-    const {data: agentTagsData} = useAiAgentTagsQuery(
+    const {data: agentTagsData, isLoading: tagsIsLoading} = useAiAgentTagsQuery(
         {workspaceId: String(currentWorkspaceId)},
         {enabled: filterMode && currentWorkspaceId != null}
     );
@@ -54,10 +54,6 @@ const AgentsLeftSidebarNav = ({
 
         return agents.filter((agent) => agent.title.toLowerCase().includes(query));
     }, [agents, filterMode, search]);
-
-    if (agentsIsLoading) {
-        return <></>;
-    }
 
     return (
         <>
@@ -128,6 +124,7 @@ const AgentsLeftSidebarNav = ({
                         )}
                     </>
                 }
+                loading={agentsIsLoading}
                 title={filterMode ? 'Agents' : undefined}
             />
 
@@ -152,6 +149,7 @@ const AgentsLeftSidebarNav = ({
                         )
                     }
                     className="mb-0"
+                    loading={tagsIsLoading}
                     title="Tags"
                 />
             )}

@@ -30,8 +30,10 @@ export type SourceComponentOptionType = {
 type ContextStoresFilterLeftSidebarNavPropsType = {
     /** Source components present across all stores' sources in the current workspace+env. */
     sourceComponents: SourceComponentOptionType[];
+    sourceComponentsIsLoading?: boolean;
     /** Workspace tags used across context stores. */
     tags: TagOptionType[];
+    tagsIsLoading?: boolean;
     filterData: ContextStoresFilterDataType;
 };
 
@@ -43,7 +45,9 @@ type ContextStoresFilterLeftSidebarNavPropsType = {
 const ContextStoresFilterLeftSidebarNav = ({
     filterData,
     sourceComponents,
+    sourceComponentsIsLoading = false,
     tags,
+    tagsIsLoading = false,
 }: ContextStoresFilterLeftSidebarNavPropsType) => {
     const noSourceComponentFilter =
         filterData.type === ContextStoresFilterType.SourceComponent && !filterData.sourceComponentName;
@@ -76,6 +80,7 @@ const ContextStoresFilterLeftSidebarNav = ({
                         ))}
                     </>
                 }
+                loading={sourceComponentsIsLoading}
                 title="Components"
             />
 
@@ -100,6 +105,7 @@ const ContextStoresFilterLeftSidebarNav = ({
                     )
                 }
                 className="mb-0"
+                loading={tagsIsLoading}
                 title="Tags"
             />
         </>
