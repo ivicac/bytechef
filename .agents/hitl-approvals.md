@@ -1,145 +1,260 @@
 <!-- Extracted from CLAUDE.md so the agent-facing reference does not sit in every prompt.
-     Load this when working on approvals, the tool gate, or a delivery channel. -->
+     Load this when working on the approval step, a delivery channel, interactivity, the resume contract,
+     the approval monitors, or approval-task rows. -->
 
-# Agent HITL approvals (chat cards + tool gate)
+# HITL approvals
 
-Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; user docs
-`docs/content/docs/automation/human-in-the-loop.mdx`. Load-bearing pieces:
+User docs: `docs/content/docs/platform/automation/build/workflows/human-in-the-loop.mdx`,
+`docs/content/docs/platform/automation/monitor/approval-tasks.mdx`. Load-bearing pieces:
 
-- Two primitives, disjoint jobs: **Approval** (decision; comment valid on BOTH outcomes under the
-  reserved `comment` key) and **AskUserQuestion** (LLM clarification). No free-text mode on
-  Approval; typing in chat NEVER resolves an approval (D4).
-- **ChatApprovalChannel** (`chat/chat` APPROVAL_CHANNELS element, on the **chat** component — it moved off `approval` so a channel is not itself a cluster root) publishes an
-  `__eventType: approval_request` data event (`AiAgentSseEventType.APPROVAL_REQUEST`) onto the
-  job's SSE stream via the `SSE_STREAM_EVENTS` broker route; requires `getJobId()` (now on
-  `JobContextAware`), throws without one. Both SSE bridges + `JobResumeSseStreamBridge` map
-  `__eventType` payloads to named events; `AgUiStreamBridge` passes them as AG-UI CustomEvents and
-  folds a persist-only markdown form-link marker into accumulated text for reload.
-- **Channel fan-out is best-effort**: `ApprovalRequestApprovalAction.deliverToChannels` and
-  `ApprovalGateToolCallback.deliverApprovalRequest` try/catch per channel (warn log), failing the
-  step ONLY when every configured channel fails. Per-channel counters:
-  `bytechef_approval_request` (success) + `bytechef_approval_delivery_failure` (failure), both
-  incremented in `ClusterElementDefinitionServiceImpl.executeApprovalChannel`. Channels receive
-  the computed expiry under `ApprovalChannelFunction.EXPIRES_AT` (ISO-8601) and render it in
-  their messages; the approval-task channel maps it onto the task's `dueDate`; the chat channel
-  carries it in the `approval_request` event. Markdown channels (Mattermost, Rocket.Chat) escape
-  link-forming characters in title/description — gate descriptions embed AI-chosen tool args.
-  One-click `?approved=` links NEVER auto-submit:
-  `ApprovalForm` shows a pre-selected Confirm view (link scanners must not resolve approvals).
-  Delivery channels: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail, Outlook 365,
-  generic SMTP email, WhatsApp (Meta/Twilio/Infobip), SMS (Twilio/Infobip), approval task.
-  In-place Slack resolution IS implemented: an optional `signingSecret` on the Slack connection
-  switches `SlackApprovalChannel` to `block_actions` buttons (value = tokenized resume id), and
-  `SlackInteractivityController`/`SlackInteractivityHandler` (platform-webhook-rest-impl,
-  anonymous `/slack/interactivity`, permit-listed) verify the `X-Slack-Signature` HMAC per
-  tenant (anchored by the resume id), resolve via `JobResumeFacade`, and rewrite the message via
-  `response_url`. Spec: `docs/superpowers/specs/2026-07-22-slack-inplace-approval-interactivity-design.md`.
-  In-place is also implemented for **WhatsApp (Meta)** (`appSecret` on the connection →
-  interactive reply buttons; `WhatsAppInteractivityController`/`Handler` verify `X-Hub-Signature-256`,
-  GET verify-handshake via `bytechef.webhook.whatsapp.verify-token`; button id carries the
-  decision-prefixed signed token), **Mattermost** (interactive attachment buttons whose
-  `integration.url` = `/mattermost/interactivity` carry the token in `integration.context`; unsigned,
-  so no `approvedBy`), **Telegram** (`webhookSecretToken` on the connection → inline-keyboard callback
-  buttons; `/telegram/interactivity` verifies `X-Telegram-Bot-Api-Secret-Token`), and **Discord**
-  (`publicKey` on the connection → interaction buttons; `/discord/interactivity` verifies the Ed25519
-  signature against `bytechef.webhook.discord.public-key`, answers `PING`→`PONG`). Telegram/Discord
-  cap the button payload below the signed token, so the channel mints a short id via the anonymous
-  `POST /approval/short-token` (`ApprovalShortTokenStore`, process-local — form-link fallback covers a
-  restart; distributed EE needs a shared store). Twilio/Infobip SMS+WhatsApp and Rocket.Chat
-  intentionally stay on URL buttons (won't be built — SMS/BSP reply-code UX and Rocket.Chat's lack of
-  a callback aren't worth it; see `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md`).
-- **Tool gate**: the `approvalGateTool` cluster element (`AiAgentUtilsApprovalGateTool`, TOOLS type on the
-  **aiAgentUtils** component) declares two child types — `TOOLS` (what it gates) and
-  `APPROVAL_CHANNELS` (where requests go) — plus `name` and expiry (`approvalExpiresIn` /
-  `approvalExpiresInUnit`) properties. It returns its children already wrapped in
-  `ApprovalGateToolCallback`, so the agent action has NO gate special case; simulation and
-  observable wrapping run over the flattened list afterwards, preserving gate-inside-audit
-  ordering. An agent may carry several gates, each with its own channels and expiry; an empty
-  channel list defaults to the chat channel. On a hand-authored workflow those channels are picked on
-  the canvas; the **Agents** feature does not offer that choice — it derives them from the agent's own
-  inbound channels (see `.agents/agents.md`), so an approval goes back over the channel the
-  conversation arrived on, reusing its connection. Suspends via the sentinel protocol with
-  `GATED_TOOL_NAME`/`GATED_TOOL_INPUT` continueParameters; a second gated call in one round defers
-  (single-suspend-per-round invariant). Resume branch
-  `AbstractAiAgentChatAction.resolveGatedToolResumeData`: approve → RAW callback executes original
-  args; reject → denial JSON. **The gate and the agent action live in different modules**
-  (`ai/agent/utils` vs `ai/agent`) and couple only through `ToolSuspendConstants`; because a gated
-  callback reports its delegate's tool definition, resume unwraps it via `DelegatingToolCallback`
-  (`ai/llm`) rather than importing the gate. Gates are rejected under a subagent — the sentinel
-  would be lost in the subagent's own ChatClient and the suspend orphaned — and `requestApproval`
-  is rejected as a gate child. Editor runs deliver the
-  card via the agent's ToolContext SSE emitter (channels are production transports); the standalone
-  Approval action delivers it in editor runs by returning a one-shot `SuspendAwareSseEmitterHandler`
-  (suspend happens INSIDE the handler — suspending before returning makes `checkSuspend` swallow
-  the emitter output) that the in-process post-output processor drains into the test-run stream.
-- **Client cards**: `ApprovalRequestMessage` (`data-approval-request` in `aiChatDataComponents`) —
-  self-contained buttons+comment for field-less approvals (`hasInputs` flag threaded from event
-  `inputs`), embeds `ApprovalForm` only when fields exist. Resolution goes through
-  `ApprovalResolutionContext` when the surface provides it (CE Chats page, canvas test chat,
-  AI Hub workflow chat — each points its SSE machinery at `POST /job/resume/{id}` with
-  `Accept: text/event-stream`, streaming the continuation through its normal event handlers), else
-  the plain resume mutation. AI Hub persists the continuation on stream close via the
-  `appendAiHubChatAssistantMessage` GraphQL mutation. The `@bytechef/chat` widget has its own
-  inline card + `drainSseResponse`-based continuation.
-- `WebhookBridgeAgent` routes runs with an approval task onto the streaming path
-  (`WebhookWorkflowExecutor.hasApprovalTask`). The coordinator's `SseStreamApplicationEventListener`
-  emits a named `result` data event on COMPLETED (message read from the `WEBHOOK_RESPONSE`-tagged
-  task execution, published before the terminal job-status event) so approval-only chat workflows
-  keep their final reply; `AgUiStreamBridge` renders it only when nothing was streamed. MCP/A2A
-  sync runs paused on an approval return "approval required — resolve at <form URL>"
-  (`ApprovalFormUrls.buildFormUrl`, STOPPED + `jobResumeId` metadata) instead of an empty result;
-  MCP workflow tools additionally URL-elicit the form on capable clients (form-elicitation
-  fallback with a simple approved/comment schema on form-only clients; bounded at 3 rounds per
-  call for chained approvals) and return the resumed run's output in the same tools/call
-  (`ApprovalElicitingToolSpecifications` + `AutomationMcpToolFacade.awaitApprovedWorkflowRun`,
-  which polls the job out of STOPPED before awaiting — STOPPED is terminal to
-  `JobCompletionAwaiter`), and A2A surfaces the task as `input-required`
-  (`A2AAgentResult.ofInputRequired(text, jobId)`); a later `tasks/get` refreshes it through the
-  `A2AAgentExecutor.pollRun(jobId)` SPI. Enriched `task_started` events
-  (`{event, payload:{taskExecutionId,name,type}}` from the coordinator) render as AG-UI tool-call
-  step chips in `AgUiStreamBridge` and as a floating step chip on the CE Chats page.
-- **Suspend expiry is enforced and configurable**: the Approval action's `expiresIn`/`expiresInUnit`
-  properties (HOURS/DAYS, default 60 days) and a gated tool's `approvalExpiresIn`/
-  `approvalExpiresInUnit` entry parameters (`ToolConstants`) drive the suspend `expiresAt`.
-  `JobResumeFacadeImpl` rejects expired resumes (GONE), and
-  `ApprovalExpiryMonitor` (platform-coordinator, 15-min per-tenant sweep over
-  `getStaleJobs(STOPPED, now)`, `bytechef.workflow.execution.approval-expiry.enabled` default on)
-  fails runs whose suspend `expiresAt` passed. Metrics: `bytechef_approval_expired{source=resume|sweep}`
-  counter + `bytechef_approval_pending` gauge. `ApprovalReminderMonitor` (platform-coordinator,
-  15-min sweep, `bytechef.workflow.execution.approval-reminder.*` — `enabled` default on,
-  `lead-time` default PT24H) fires a `JOB_APPROVAL_EXPIRING` notification (new
-  `NotificationEvent.Type`, append-only ordinal; `ApprovalReminder{Email,Slack,Webhook}NotificationHandler`)
-  through the central notification registry once per run (idempotence via job metadata
-  `approvalReminderSentAt`), carrying expiry + form URL in `NotificationHandlerContext`.
-  `ApprovalEscalationMonitor` (platform-coordinator, 15-min sweep,
-  `bytechef.workflow.execution.approval-escalation.*` — `enabled` default on, `after` a Duration
-  with NO default so the sweep is a no-op until set) fires a `JOB_APPROVAL_ESCALATED` notification
-  (new `NotificationEvent.Type`, append-only ordinal 7; liquibase id 8/type 7;
-  `ApprovalEscalation{Email,Slack,Webhook}NotificationHandler`) once a run has been paused on an
-  approval longer than `after` (measured from the suspended task execution's startDate) and is
-  still unexpired — routed to a DIFFERENT subscribed `Notification` than the reminder. Idempotence
-  via job metadata `approvalEscalatedAt`; both `approvalReminderSentAt` and `approvalEscalatedAt`
-  are cleared on resume in `SuspendTaskDispatcherPreSendProcessor` (per-suspend, not per-run).
-  The gate's expiry is editable via the "Approval expires in" preset submenu in
-  `AiAgentToolDropdownMenu` (expiresIn 0 = clear override). `ApprovalTaskReconciliationMonitor`
-  (automation-task-service, per-tenant sweep) closes OPEN/IN_PROGRESS Approval Task rows whose
-  backing run is no longer STOPPED: COMPLETED run → COMPLETED row (covers cross-process resumes
-  the in-JVM `ApprovalTaskCompletionListener` misses), FAILED/CANCELLED/purged run → EXPIRED row
-  (`ApprovalTask.Status.EXPIRED`, appended last — ordinal storage). The **pending-approvals inbox**
-  (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL query →
-  `PendingApprovalsList` on the Approval Tasks page) lists all STOPPED runs carrying a
-  `jobResumeId`, with workflow label, form URL, createdDate, and expiry — channel-independent.
-  In distributed EE the approval-task channel + inbox are NOT monolith-only: worker-app's
-  `RemoteApprovalTaskFacadeClient` issues real `LoadBalancedRestClient` calls to configuration-app's
-  `automation-task-remote-rest` `RemoteApprovalTaskFacadeController` (`/remote/approval-task-facade`),
-  and configuration-app hosts the real `automation-task-service` (facade + `ApprovalTaskReconciliationMonitor`
-  + `ApprovalTaskCompletionListener`) and `automation-task-graphql`. The service-level
-  `RemoteApprovalTaskServiceClient` stays a stub — `ApprovalTaskService` is only consumed by the
-  GraphQL controller, which runs in configuration-app against the real bean.
-- **Chat-only channel validation**: `WorkflowValidator.validateChatOnlyApprovalChannels`
-  (platform-workflow-validator-service) warns, when the workflow has no `chat/` trigger, about a
-  task whose own `approvalChannels` are chat-only (the standalone Approval action) and about any
-  `approvalGateTool` whose channels are chat-only OR absent (absent defaults to chat). Such
-  webhook/schedule runs pause with no live card and are only reachable via the pending-approvals
-  inbox or the hosted form. The warning names the gate.
-- AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
+- **Two primitives, disjoint jobs.** **Approval** is a decision: resume data carries a boolean `approved`, plus
+  `comment` (valid on BOTH outcomes) and `approvedBy`. **AskUserQuestion** (`aiAgentUtils` `askUserQuestion` tool)
+  is LLM clarification and resumes with `STREAMING_RESUME`. Typing in chat NEVER resolves an approval.
+- **The approval step** is `approval/v1/requestApproval` (`RequestApprovalApprovalAction`) plus the same action
+  as an agent TOOLS element (`RequestApprovalApprovalTool`, same component). Both take `APPROVAL_CHANNELS`
+  children (`ApprovalComponentDefinition`). Expiry comes from `expiresIn`/`expiresInUnit` (HOURS/DAYS); blank means
+  `ActionContextAware.DEFAULT_APPROVAL_EXPIRY` (60 days). The suspend's continue parameters carry `formUrl`,
+  `approvalRaisedAt` and `APPROVAL_RESUME=true`. The tool also stores its own inputs under
+  `APPROVAL_FORM_PARAMETERS`, because otherwise the form would be built from the agent's parameters. In editor runs the
+  action suspends but skips delivery, and the tool neither delivers nor suspends: it returns a "cannot be approved in
+  the editor" result. `resumePerform` always outputs `comment` and `approvedBy` as strings (`""` when absent or the
+  approver is unknown), so later steps can reference them.
+  An action with no channels delivers nothing, so the run can be reached only through the inbox or the hosted form.
+  The older `approval-link` component and `waitForApproval` dispatcher take a separate path (`ApprovalId`,
+  `JobResumeFacade.resumeApproval`).
+- **The suspend is recorded when it happens.** `SuspendTaskCompletionHandler` writes the whole `Suspend`
+  (`expiresAt` + continue parameters) to the suspended task execution's `suspend` metadata. It also copies
+  `APPROVAL_RESUME`/`STREAMING_RESUME`/`SUBFLOW_RESUME` and `TASK_EXECUTION_RESUME_ID` onto the job. Read them only
+  through `JobSuspends`: `isAwaitingApproval` (STOPPED + resume id + approval flag) and `isSuspendedForApproval`
+  (the flag alone, any status). Read expiry and raised-at through `SuspendUtils`. `SuspendTaskExecutionPostOutputProcessor`
+  schedules a one-time timer at `expiresAt`.
+- **Links.** `ActionContextAware.getApprovalLinks(expiresAt)` returns `ApprovalLinks`:
+  - a signed resume id whose TTL is the expiry plus `ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN` (1h);
+  - `resumeUrl` = `/job/resume/{token}`;
+  - `formUrl` = `/resume/{token}`;
+  - `shortResumeId`, `ApprovalTokens.toShortToken` of the signed resume id: the version, expiry, job id, UUID and
+    tenant id packed into bytes with a 12-byte HMAC (keyed apart from the long token's) and base64url-encoded, at
+    most 62 characters. `ApprovalChannelFunction.SHORT_RESUME_ID` hands it to Telegram and Discord, whose button
+    payload (`ApprovalButtonPayload`, `<shortId>:a|:d`) cannot hold the signed token; `parseShortToken` checks the
+    HMAC against the active and previous secrets and the expiry, then re-signs the long token. Nothing is stored.
+
+  Without a signing secret, or when the packed id would not fit, the id is null and channels fall back to form links.
+  The anonymous `POST /approval/short-token` shortens a valid signed token for external callers.
+- **Channel fan-out is best-effort.** `deliverToChannels` tries every channel and fails the step only when every
+  channel fails, and the step error lists each channel's root cause. `ClusterElementDefinitionServiceImpl.executeApprovalChannel`
+  counts deliveries in `bytechef_approval_request` and failures in `bytechef_approval_delivery_failure`.
+  `TokenRefreshAspect` refreshes only the connection of the failing component, and surfaces the HTTP error when it
+  cannot refresh.
+  The step passes server-owned parameters (`EXPIRES_AT` ISO-8601, `PUBLIC_URL`, `RESUME_ID`, `RESUME_URL`,
+  `SHORT_RESUME_ID`), which override the channel's own parameters. 15 elements: chat, Slack, Discord, Telegram,
+  Mattermost, Rocket.Chat, Gmail, Outlook 365, SMTP email, WhatsApp (Meta), Twilio SMS/WhatsApp, Infobip SMS/WhatsApp,
+  approval task.
+  - The approval-task channel maps `EXPIRES_AT` to the row's `dueDate`.
+  - Mattermost and Rocket.Chat escape characters that form markdown links.
+  - **Chat** (`chat/chat`, on the chat component) sends an `__eventType: approval_request` data event
+    (`ApprovalRequestEvents`) over the `SSE_STREAM_EVENTS` route. It throws unless the job carries `STREAMED_EXECUTION`,
+    which only the chat-trigger streaming path sets, so a non-chat run needs a fallback channel.
+  - One-click `?approved=` links NEVER auto-submit: `ApprovalForm` shows a pre-selected Confirm view, so link
+    scanners cannot resolve approvals.
+- **In-place resolution (5 interactivity controllers** in `platform-webhook-rest-impl`, anonymous, permit-listed by
+  `WebhookAuthorizeHttpRequestContributor`). The tenant always comes from the resume id, and each controller then
+  verifies the callback against that tenant's connections:
+  - Slack `/slack/interactivity`: `signingSecret` on the connection. The `X-Slack-Signature` HMAC is computed over the
+    **raw request body** (read from the stream, not re-encoded form params). The message is rewritten through
+    `response_url`.
+  - WhatsApp (Meta) `/whatsapp/interactivity`: `appSecret`, `X-Hub-Signature-256`. The GET handshake checks
+    `bytechef.webhook.whatsapp.verify-token`.
+  - Telegram `/telegram/interactivity`: `webhookSecretToken`, `X-Telegram-Bot-Api-Secret-Token`.
+  - Discord `/discord/interactivity`: Ed25519 check against `bytechef.webhook.discord.public-key`, and `PING` is
+    answered with `PONG`.
+  - Mattermost `/mattermost/interactivity`: unsigned, so no `approvedBy`.
+
+  On `GONE`, `ApprovalResolutionLookup.describe` words the reply by how the approval closed: `EXPIRED` (the job's
+  `expiredJobResumeId` marker), `RESOLVED` (consumed id, or the run moved past it) or `UNAVAILABLE` (cancelled via the
+  `cancelledJobResumeId` marker, failed, or not found). Twilio/Infobip and Rocket.Chat stay on URL buttons.
+- **Resume contract** (`JobResumeController` `/job/resume/{id}` → `JobResumeFacadeImpl`):
+  - An approval resume requires a **signed** token, whatever `bytechef.approval.signed-token.required` is set to, and
+    `approved` must be a JSON boolean. Otherwise the result is `INVALID_ID` → 400.
+  - A **GET** on an approval resume id answers **405** (`Allow: POST`) and never resolves it. GETs on non-approval
+    suspends (wait webhooks) still work. A **HEAD** of any resume link answers 405 and resumes nothing.
+  - A streaming resume (`Accept: text/event-stream`) is allowed only when the job has `STREAMING_RESUME` or
+    `STREAMED_EXECUTION`; otherwise 406.
+  - Other outcomes: `GONE` 410 (consumed, expired, or lost `tryClaimResume`), `JOB_FAILED` 422, `NOT_YET_SUSPENDED`
+    409 after a 10s backoff retry. A job suspended for a sub-workflow returns `NOT_YET_SUSPENDED` and resumes only
+    itself.
+  - **Restart** of an approval-suspended run: `JobApiController.restartJob` → **409**. Restarting a failed run clears
+    its previous error.
+  - **Stop** → `JobResumeFacade.cancelApproval`: CANCELLED, resume id consumed and recorded as cancelled
+    (`JobSuspends.closeCancelledApproval`), `JobApprovalClosedEvent`. Falls back to `stopJob` when the run is not
+    waiting on an approval.
+  - Every resolution metric is `bytechef_approval_resolution{approved}`.
+- **Expired approvals FAIL the run, with the reason stored on the job error.** There are three paths:
+  - A resume after expiry fails the run and answers `GONE` (410), `bytechef_approval_expired{source=resume}`.
+  - The suspend timer → `JobResumeFacade.resumeExpiredJob` → `failExpiredApproval` (`source=timer`). Non-approval
+    suspends are still resumed without data.
+  - `ApprovalExpiryMonitor` (platform-coordinator, per tenant, every 15 min over `getStaleJobs(STOPPED, now)`):
+    `source=sweep`, plus the `bytechef_approval_pending` gauge.
+
+  Every path fails through `JobSuspends.failExpiredApproval`, which spends the resume id and records it as
+  `expiredJobResumeId`; the resume and timer paths also fail the suspended task execution. All paths that fail or
+  cancel publish `JobApprovalClosedEvent`, and `ApprovalTaskExpiryListener` marks that job's open rows EXPIRED.
+- **No approval reminders or escalation.** Approvers get the request through the approval channels and the
+  pending-approvals inbox, and an expired approval fails the run, which fires `JOB_FAILED`.
+  - `ApprovalExpiryMonitor` holds a ShedLock lock, so only one coordinator runs the sweep: JDBC (`public.shedlock`)
+    in server-app, Redis in the distributed coordinator-app.
+  - Inbox, MCP and A2A form links are signed to expire with the approval.
+  - `NotificationEvent.Type` ordinals are append-only and persisted. `JOB_APPROVAL_EXPIRING` (ordinal 6) and
+    `JOB_APPROVAL_ESCALATED` (ordinal 7) stay as `@Deprecated` placeholders with no handlers; their
+    `notification_event` rows (ids 7 and 8) and subscriptions were deleted by an Upgrade changelog. Never reuse
+    them. Real escalation, if wanted, belongs on the approval step (extra approvers or channels after a delay), not
+    in a server-wide admin notification.
+- **Approval-task rows** (`ApprovalTask.Status`: OPEN, IN_PROGRESS, COMPLETED, EXPIRED, appended in that order) close
+  three ways:
+  - `ApprovalTaskCompletionListener` on `JobResumedEvent` → COMPLETED.
+  - `ApprovalTaskExpiryListener` → EXPIRED.
+  - `ApprovalTaskReconciliationMonitor` (automation-task-service, 15 min,
+    `bytechef.automation.approval-task.reconciliation.enabled`) catches what the listeners miss: COMPLETED run or
+    moved-on resume id → COMPLETED; FAILED/CANCELLED/purged run, or an unparseable token past `dueDate` → EXPIRED.
+
+  The **pending-approvals inbox** (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL →
+  `PendingApprovalsList`) lists only `isAwaitingApproval` runs, with form links signed to the approval's expiry.
+  Distributed EE: worker-app's `RemoteApprovalTaskFacadeClient` makes real calls to configuration-app's
+  `/remote/approval-task-facade`. configuration-app hosts `automation-task-service`, which includes the reconciliation
+  monitor and listeners.
+- **The hosted form** is the SPA route `/resume/{token}`, which loads `/api/platform/internal/approval-form/{id}`
+  (permit-all). In multi-tenant mode `MultiTenantInternalFilter` passes that path through without a session, and
+  `ApprovalFormFacadeImpl` takes the tenant from the signed token. It returns a form only while the job is STOPPED on
+  that exact resume id. Load failures are 500.
+- **SSE.** `SseStreamBridgeRegistry` keys open streams by **(tenantId, jobId)**, because job ids are unique only
+  within a tenant, and routes each event by the tenant in its metadata. `SseEmitterStreamBridge` maps `__eventType`
+  payloads to named events. On COMPLETED, `SseStreamApplicationEventListener` sends a named `result` event (taken from
+  the `WEBHOOK_RESPONSE`-tagged task) before the terminal status event.
+- **Sync callers cannot pause.**
+  - `SuspendingTasks` tells the steps that can pause a run: `approval/`, `wait/` and `waitForApproval/` tasks, and AI
+    agents with an `approvalGate` anywhere in their cluster elements.
+  - `WebhookWorkflowExecutorImpl.executeSync` rejects a workflow with such a task anywhere in it, nested ones
+    included, before the run starts (`ConfigurationException`, `SUSPENDING_TASK_IN_SYNC_EXECUTION`, unwrapped by
+    `WebhookTriggerController` rather than surfacing as a 500).
+  - `SyncExecutionSuspendRejectingTaskDispatcher` (registered in `WebhookConfiguration` and
+    `WorkflowSubflowSyncExecutorConfiguration`) fails a sync run before such a step is dispatched, so the step never
+    delivers anything. `SyncExecutionSuspendRejectingTaskCompletionHandler`, which must sit ahead of the suspend
+    handler, fails any sync run that still suspends.
+  - MCP workflow tools return an `approval_required` descriptor with `formUrl` and `jobId`, never the raw resume token.
+    `ApprovalElicitingToolSpecifications` URL-elicits, or form-elicits with server-held tokens (at most 3 rounds), then
+    `awaitApprovedWorkflowRun`.
+  - A2A returns `input-required` with the form URL.
+- **Sub-workflow suspension.** An agent's sub-workflow tool suspends with `SUBFLOW_RESUME` (no expiry) when the run
+  can pause (`SubflowToolSupport`), and otherwise runs synchronously. `AgentSubflowLauncher`/`AgentJobResumer` resume
+  the parent. `JobCompletionAwaiter` and SSE status events (`METADATA_AWAITING_SUBFLOW`) treat that suspend as
+  non-terminal. Nesting is capped by `bytechef.workflow.execution.agent.max-subflow-depth`.
+  `ChildJobPrincipalFactoryImpl` links a child job to the deployment that contains the called workflow: the caller's
+  own deployment when it contains it, otherwise the called workflow's project deployment in the caller's environment.
+- **One suspend per round.** `SuspendableToolCallingManager` runs a round's calls one at a time. After a call
+  suspends, the rest get `NOT_EXECUTED_TOOL_RESULT`, and a second suspend sentinel in one round is an error.
+- **Deferred calls are re-issued.** `DeferredToolCallReplay.of(conversation)` replaces each `NOT_EXECUTED_TOOL_RESULT`
+  in the suspended round with `DEFERRED_TOOL_RESULT`. It wraps the chat model so the first model response of the
+  resumed turn re-issues those calls (ids suffixed `_deferred`), and they run without depending on the model to repeat
+  them. This applies to every suspending tool.
+- **No approval under a subagent.** A `requestApproval` tool under a subagent is rejected by
+  `WorkflowValidator.validateApprovalGatePlacement` (a save-time error attributed to the node, recursively through
+  nested task tools) and by `AiAgentUtilsTaskTool.checkSubagentTools` before the agent runs, because the suspend would be
+  lost in the subagent's own ChatClient.
+- **Chat-only channel validation.** `WorkflowValidator.validateChatOnlyApprovalChannels` adds a warning, attributed
+  to the node, when a workflow with no `chat/` trigger has a task whose `approvalChannels` are all chat. Such runs
+  pause with no live card and can be reached only through the inbox or the form.
+- **Client.**
+  - `ApprovalRequestMessage` (`data-approval-request` in `aiChatDataComponents`) renders buttons and a comment field;
+    it embeds `ApprovalForm` only when the request has `inputs`.
+  - `ApprovalResolutionContext` is provided by the CE Chats page (`ChatRuntimeProvider`), the canvas test chat
+    (`WorkflowTestChatRuntimeProvider`), the AI agent testing panel (`AiAgentTestRuntimeProvider`), the Agents test chat
+    (`AgentTestChatRuntimeProvider`) and the AI Hub workflow chat (`AiHubRuntimeProvider`). Each points its SSE
+    machinery at `POST /job/resume/{id}` with `Accept: text/event-stream` and streams the continuation through its
+    normal event handlers. Other surfaces use the resume mutation. AI Hub persists the continuation on stream close
+    via the `appendAiHubChatAssistantMessage` GraphQL mutation.
+  - Enriched coordinator `task_started` events (`{taskExecutionId, name, type}`) render as a floating step chip on
+    the CE Chats page.
+  - The `@bytechef/chat` SDK has its own `ApprovalCard` plus a `drainSseResponse` continuation.
+  - A 410 reads as "expired or already resolved".
+- **Config** (declared in `ApplicationProperties`; defaults from `application-bytechef.yml`):
+
+  | Key | Default |
+  |-----|---------|
+  | `bytechef.approval.signed-token.secret` | unset; derived from the encryption key |
+  | `bytechef.approval.signed-token.previous-secrets` | empty |
+  | `bytechef.approval.signed-token.default-ttl` | `P30D` |
+  | `bytechef.approval.signed-token.clock-skew` | `PT60S` |
+  | `bytechef.approval.signed-token.required` | `false` (fail startup without a secret; approvals need a signed token regardless) |
+  | `bytechef.webhook.discord.public-key` | unset |
+  | `bytechef.webhook.whatsapp.verify-token` | unset |
+  | `bytechef.workflow.execution.approval-expiry.enabled` | `true` |
+  | `bytechef.automation.approval-task.reconciliation.enabled` | `true` |
+  | `bytechef.workflow.execution.agent.max-subflow-depth` | `10` |
+
+- **Only approval-scoped sweeps exist.** There is no orphaned-job recovery, no worker heartbeat, no per-run timeout
+  and no retention monitor. A run that never resolves its approval ends only through expiry or stop.
+
+## AI-agent approval gate
+
+- **The gate is a cluster element.** `aiAgentUtils/v1/approvalGate` (`AiAgentUtilsApprovalGate`, TOOLS type, titled
+  "Approval Gate Tool") is registered in `AiAgentUtilsComponentHandler` with two child types: `TOOLS` (what it gates)
+  and `APPROVAL_CHANNELS` (where requests go). Its properties are `name` (required) and
+  `approvalExpiresIn`/`approvalExpiresInUnit` (`ToolConstants`; blank means 60 days). It builds its children through
+  `ClusterElementToolCallbacks` and returns them already wrapped in `ApprovalGateToolCallback`, so the agent action
+  has no gate special case on the way in. Simulation, observation and suspension-failure wrapping run over the
+  flattened list afterwards. An agent may carry several gates, each with its own channels and expiry.
+- **Agents.** On a hand-authored workflow the gate's channels are picked on the canvas; the **Agents** feature does
+  not offer that choice. It derives them from the agent's own inbound channels (see `.agents/agents.md`), so an
+  approval goes back over the channel the conversation arrived on, reusing its connection. A TOOL row with
+  `requiresApproval: true` is generated into that gate, and only when the agent also has an `APPROVAL_GATE` row.
+- **`ApprovalGateToolCallback.call`:**
+  - In an editor run it returns `EDITOR_ENVIRONMENT_RESULT`. Nothing is delivered and nothing suspends.
+  - Otherwise it calls `getApprovalLinks(expiresAt)` and delivers to every channel, best-effort, with the same
+    server-owned parameters as the approval step (`FORM_TITLE`/`FORM_DESCRIPTION`, which embed the AI-chosen tool
+    arguments, `EXPIRES_AT`, `RESUME_ID`, `SHORT_RESUME_ID`, …).
+  - An **empty channel list delivers to the chat channel**, which throws outside a `STREAMED_EXECUTION` run.
+  - When there are no links or every channel fails, it throws `ToolSuspensionException`, which fails the agent
+    rather than letting the model continue.
+  - Then it suspends with `GatedToolSuspension.toContinueParameters()`: `GATED_TOOL_NAME`, `GATED_TOOL_INPUT`,
+    `formUrl`, `approvalRaisedAt`, `APPROVAL_RESUME=true`, `APPROVAL_FORM_PARAMETERS`. It returns
+    `ToolSuspension.suspendedToolResult`, a per-suspend random sentinel, so tool output cannot impersonate a suspend.
+  - It records nothing in the tool invocation log. The gate call itself is the agent's `SUSPENDED` cluster element call
+    record, which the execution view shows.
+- **Resume.** `AbstractAiAgentChatAction.buildResumedRequestSpec` reads `GatedToolSuspension.from(continueParameters)`
+  and `GateDecision.from(resumeData)`. Only `approved == true` (or `"true"`) is `Approved`, so anything else denies.
+  - Denied → `{denied, reason, deniedBy}`. `ClusterElementCallRecorder.callDenied` ends the suspended gate call as
+    `DENIED` with that denial (kept even without a listener), streamed as `cluster_element_denied`.
+  - Approved (`resolveGatedToolResumeData`) → rebuilds the agent's TOOLS, matches the gated tool by name, unwraps it
+    with `DelegatingToolCallback.unwrap` (`ai/llm`), and runs the RAW callback with the stored arguments, honoring
+    tool simulations. It returns `{approvedByReviewer, reviewerComment, reviewer, result|error}`.
+  - The approved run is observed as its own agent call, nested under the gate call through
+    `ClusterElementCallScope.callWith`, and the gate call completes with the resume data above.
+  - Gate calls never reach the tool invocation log, which covers MCP and embedded API calls only.
+  - It throws if the tool is no longer configured.
+  - The gate (`ai/agent/utils`) and the agent action (`ai/agent`) couple only through `ToolSuspendConstants`,
+    `GatedToolSuspension` and `GateDecision` (`platform-ai-api`).
+- **Deferred gated calls.** A gated call that `DeferredToolCallReplay` re-issues on resume raises its own approval in
+  turn.
+- **Placement rules, enforced twice.** `WorkflowValidator.validateApprovalGatePlacement` reports these as save-time
+  errors, attributed to a node. `AiAgentUtilsApprovalGate.checkGatableChild` and `AiAgentUtilsTaskTool.checkSubagentTools`
+  reject the same cases at run time, before the agent runs. The rules apply recursively through nested task tools:
+  - no `requestApproval` under a gate (it already raises its own approval);
+  - no gate under a gate;
+  - no `askUserQuestionTool` under a gate, because the approved call runs when the approval resolves, outside the
+    streamed turn whose `SseTransport` would show its questions;
+  - no gate and no `requestApproval` under a **subagent**, because the sentinel would be lost in the subagent's own
+    ChatClient and the suspend orphaned.
+- **Chat-only gate warning.** `validateChatOnlyApprovalChannels` also warns, attributed to the gate node, when a
+  workflow with no `chat/` trigger has a gate whose channels are chat-only or **absent** (absent defaults to chat).
+- **Client.** `useAiAgentTools` groups tools nested in an `approvalGate` into `toolGroups` with the gate's label and
+  channel labels. Ungated tools stay in `tools`.
+
+## Not this gate: the AI Hub tool approval gate
+
+The AI Hub chat has its own, separate approval mechanism; do not confuse the two. It still carries the pinned
+`askUserQuestion` tool (LLM clarification, unrelated to approvals). But a flagged AI Hub tool call is gated by
+`AiHubApprovalGate`/`AiHubToolApprovalFacade` (`server/ee/libs/ai/ai-hub/`, see `.agents/ai-hub.md`'s "Tool approval
+gate" section), a completely different mechanism from everything above on this page: no atlas job, no suspend
+sentinel, no `JobResumeFacade`, no delivery channels. It persists an `ai_hub_tool_approval` row directly and resumes
+via a GraphQL mutation that starts a continuation AG-UI run, entirely inside the AI Hub chat's own reactive machinery.
+Wiring a Hub gate expecting `ApprovalGateToolCallback`'s suspend/resume contract (or vice versa) will not work; they
+share no code path.

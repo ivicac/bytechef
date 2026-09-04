@@ -37,8 +37,16 @@ export interface ApprovalResolutionContextI {
      * because only surfaces that provide this resolution path (AI Hub) render {@link ToolApprovalRequestMessage}
      * interactively; the returned promise settles once the mutation itself completes — the card does not wait for
      * the continuation to finish.
+     *
+     * <p>Resolves with the row's actual terminal {@code status} (and {@code executionError} when the tool then
+     * failed) rather than {@code void} — approving a call that goes on to fail is still a real outcome the card
+     * must render honestly, not "Approved" just because the mutation itself returned 2xx.
      */
-    resolveToolApproval?: (approvalId: number, approved: boolean, comment?: string) => Promise<void>;
+    resolveToolApproval?: (
+        approvalId: number,
+        approved: boolean,
+        comment?: string
+    ) => Promise<{executionError?: string | null; status: string}>;
 }
 
 /**
