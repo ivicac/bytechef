@@ -60,7 +60,39 @@ public enum AiHubAuditEvent {
      * Marked {@code strictAudit} — a chat deletion drops the entire conversation transcript, so a missing audit trail
      * is a compliance blind spot.
      */
-    AI_HUB_CHAT_DELETED(true);
+    AI_HUB_CHAT_DELETED(true),
+
+    /**
+     * A flagged AI Hub tool call was suspended pending a person's approval decision. Payload: {@code workspaceId},
+     * {@code chatId}, {@code approvalId}, {@code toolName}, {@code toolKind}.
+     */
+    AI_HUB_TOOL_APPROVAL_REQUESTED(false),
+
+    /**
+     * A pending tool approval was approved, letting the suspended tool call proceed. Payload: {@code workspaceId},
+     * {@code chatId}, {@code approvalId}, {@code toolName}, {@code decidedByUserId}.
+     *
+     * <p>
+     * Marked {@code strictAudit} — an approval decision that lets a gated tool call through is itself the compliance
+     * event the gate exists to record.
+     */
+    AI_HUB_TOOL_APPROVAL_APPROVED(true),
+
+    /**
+     * A pending tool approval was rejected, cancelling the suspended tool call. Payload: {@code workspaceId},
+     * {@code chatId}, {@code approvalId}, {@code toolName}, {@code decidedByUserId}.
+     */
+    AI_HUB_TOOL_APPROVAL_REJECTED(false),
+
+    /**
+     * A workspace's tool approval rule set changed. Payload: {@code workspaceId}, {@code ruleId}, {@code toolName},
+     * {@code mode}, {@code action} ({@code "created"} or {@code "deleted"}).
+     *
+     * <p>
+     * Marked {@code strictAudit} — a rule change alters which tool calls are gated for the whole workspace, so a
+     * missing audit trail is a compliance blind spot.
+     */
+    AI_HUB_TOOL_APPROVAL_RULE_CHANGED(true);
 
     private final boolean strictAudit;
 

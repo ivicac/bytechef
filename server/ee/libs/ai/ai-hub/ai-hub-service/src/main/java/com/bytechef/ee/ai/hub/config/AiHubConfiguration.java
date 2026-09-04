@@ -373,18 +373,9 @@ public class AiHubConfiguration {
                 .memorySystemPrompt(promptAiHubAutoMemoryToolsResource)
                 .build());
 
-        chatBindingToolCallbackResolverProvider.ifAvailable(builder::chatToolBindingResolver);
-
-        // Tool approval gate. Bean is only present when the AI Hub module is enabled; absent → every tool call
-        // executes immediately, unchanged behaviour.
-        approvalGateProvider.ifAvailable(builder::approvalGate);
-
-        // Per-task LLM model override. Bean is only present when AI Gateway is enabled; absent → no
-        // override capability, agents fall back to workspace default ChatClient (unchanged behaviour).
-        overrideChatClientResolverProvider.ifAvailable(builder::overrideChatClientResolver);
-
-        // Per-turn token metering into ai_llm_usage (source = AI_HUB). Absent recorder → advisor logs only.
-        llmUsageRecorderProvider.ifAvailable(builder::llmUsageRecorder);
+        wireAskOptionalCollaborators(
+            builder, chatBindingToolCallbackResolverProvider, approvalGateProvider, overrideChatClientResolverProvider,
+            llmUsageRecorderProvider);
 
         // Workspace content guardrails on every LLM turn this agent resolves a ChatClient for — see
         // AiHubSpringAIAgent#attachGuardrailsAdvisor. Absent AiGuardrails bean (EE guardrails module not on the
@@ -578,15 +569,9 @@ public class AiHubConfiguration {
                 .memorySystemPrompt(promptAiHubAutoMemoryToolsResource)
                 .build());
 
-        chatBindingToolCallbackResolverProvider.ifAvailable(buildBuilder::chatToolBindingResolver);
-        overrideChatClientResolverProvider.ifAvailable(buildBuilder::overrideChatClientResolver);
-
-        // Tool approval gate. Bean is only present when the AI Hub module is enabled; absent → every tool call
-        // executes immediately, unchanged behaviour.
-        approvalGateProvider.ifAvailable(buildBuilder::approvalGate);
-
-        // Per-turn token metering into ai_llm_usage (source = AI_HUB). Absent recorder → advisor logs only.
-        llmUsageRecorderProvider.ifAvailable(buildBuilder::llmUsageRecorder);
+        wireBuildOptionalCollaborators(
+            buildBuilder, chatBindingToolCallbackResolverProvider, overrideChatClientResolverProvider,
+            approvalGateProvider, llmUsageRecorderProvider);
 
         // Workspace content guardrails on every LLM turn this agent resolves a ChatClient for — mirrors
         // aiHubAskSpringAIAgent, including task model-override turns (see
@@ -619,6 +604,49 @@ public class AiHubConfiguration {
         if (aiGuardrails != null) {
             builder.aiGuardrails(aiGuardrails, aiGuardrailMetrics);
         }
+    }
+
+    /**
+     * Wiring for {@link #aiHubAskSpringAIAgent}'s four optional per-turn collaborators. Order matches the call order
+     * the bean method used before this method was extracted; each collaborator is an independent {@code Builder}
+     * setter, so reordering these calls would not change behaviour, but the order is kept as-is regardless.
+     */
+    private static void wireAskOptionalCollaborators(
+        AiHubSpringAIAgent.Builder builder,
+        ObjectProvider<AiHubChatBindingToolCallbackResolver> chatBindingToolCallbackResolverProvider,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider,
+        ObjectProvider<AiHubSpringAIAgent.OverrideChatClientResolver> overrideChatClientResolverProvider,
+        ObjectProvider<LlmUsageRecorder> llmUsageRecorderProvider) {
+
+        chatBindingToolCallbackResolverProvider.ifAvailable(builder::chatToolBindingResolver);
+        approvalGateProvider.ifAvailable(builder::approvalGate);
+
+        // Per-task LLM model override. Bean is only present when AI Gateway is enabled; absent → no
+        // override capability, agents fall back to workspace default ChatClient (unchanged behaviour).
+        overrideChatClientResolverProvider.ifAvailable(builder::overrideChatClientResolver);
+
+        // Per-turn token metering into ai_llm_usage (source = AI_HUB). Absent recorder → advisor logs only.
+        llmUsageRecorderProvider.ifAvailable(builder::llmUsageRecorder);
+    }
+
+    /**
+     * Wiring for {@link #aiHubBuildSpringAIAgent}'s four optional per-turn collaborators. Order matches the call order
+     * the bean method used before this method was extracted; each collaborator is an independent {@code Builder}
+     * setter, so reordering these calls would not change behaviour, but the order is kept as-is regardless.
+     */
+    private static void wireBuildOptionalCollaborators(
+        AiHubSpringAIAgent.Builder builder,
+        ObjectProvider<AiHubChatBindingToolCallbackResolver> chatBindingToolCallbackResolverProvider,
+        ObjectProvider<AiHubSpringAIAgent.OverrideChatClientResolver> overrideChatClientResolverProvider,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider,
+        ObjectProvider<LlmUsageRecorder> llmUsageRecorderProvider) {
+
+        chatBindingToolCallbackResolverProvider.ifAvailable(builder::chatToolBindingResolver);
+        overrideChatClientResolverProvider.ifAvailable(builder::overrideChatClientResolver);
+        approvalGateProvider.ifAvailable(builder::approvalGate);
+
+        // Per-turn token metering into ai_llm_usage (source = AI_HUB). Absent recorder → advisor logs only.
+        llmUsageRecorderProvider.ifAvailable(builder::llmUsageRecorder);
     }
 
     /**
