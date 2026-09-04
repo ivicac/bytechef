@@ -19,6 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
+import com.bytechef.ee.ai.hub.metric.AiHubChatSharingMetrics;
 import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
 import com.bytechef.ee.automation.configuration.service.WorkspaceUserService;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
@@ -26,10 +27,13 @@ import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.security.domain.ResourceVisibilityPolicyRegistry;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @version ee
@@ -46,13 +50,16 @@ class AiHubChatSharingFacadeTest {
     private AiHubChatService chatService;
     private ResourceGrantService resourceGrantService;
     private WorkspaceUserService workspaceUserService;
+    private MeterRegistry meterRegistry;
     private AiHubChatSharingFacadeImpl sharingFacade;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         chatService = mock(AiHubChatService.class);
         resourceGrantService = mock(ResourceGrantService.class);
         workspaceUserService = mock(WorkspaceUserService.class);
+        meterRegistry = new SimpleMeterRegistry();
 
         UserService userService = mock(UserService.class);
         User currentUser = mock(User.class);
@@ -67,9 +74,14 @@ class AiHubChatSharingFacadeTest {
 
         when(chatService.getManageable(CHAT_ID, WORKSPACE_ID, CURRENT_USER_ID)).thenReturn(chat);
 
+        ObjectProvider<MeterRegistry> meterRegistryProvider = mock(ObjectProvider.class);
+
+        when(meterRegistryProvider.getIfAvailable()).thenReturn(meterRegistry);
+
         sharingFacade = new AiHubChatSharingFacadeImpl(
-            null, chatService, new ResourceVisibilityPolicyRegistry(List.of(new AiHubChatVisibilityPolicy())),
-            resourceGrantService, userService, workspaceUserService);
+            null, chatService, new AiHubChatSharingMetrics(meterRegistryProvider),
+            new ResourceVisibilityPolicyRegistry(List.of(new AiHubChatVisibilityPolicy())), resourceGrantService,
+            userService, workspaceUserService);
     }
 
     @Test
@@ -82,6 +94,8 @@ class AiHubChatSharingFacadeTest {
 
         verify(chatService, never()).patchSharing(anyLong(), any(), any());
         verify(chatService, never()).getManageable(anyLong(), anyLong(), anyLong());
+        assertThat(meterRegistry.find(AiHubChatSharingMetrics.SHARE_COUNTER)
+            .counter()).isNull();
     }
 
     @Test
@@ -101,6 +115,8 @@ class AiHubChatSharingFacadeTest {
 
         assertThat(result).isSameAs(updated);
         verify(chatService).patchSharing(CHAT_ID, ResourceVisibility.WORKSPACE, AiHubChatParticipation.PARTICIPATE);
+        assertThat(meterRegistry.counter(AiHubChatSharingMetrics.SHARE_COUNTER, "visibility", "WORKSPACE")
+            .count()).isEqualTo(1.0);
     }
 
     @Test

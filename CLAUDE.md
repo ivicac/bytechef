@@ -570,6 +570,7 @@ These are the parts that apply outside their own area, so they stay here:
   (the `workspace_user` shape). Six pre-existing relation tables deliberately remain.
 - **Every resource is created WORKSPACE-visible.** Visibility is a *precondition* of
   `hasResourceScope`, not a filter beside it. "Specific people" is `PRIVATE` + `resource_grant` rows.
+  The one deliberate exception is the AI Hub chat, created `PRIVATE` — see `.agents/ai-hub.md`.
 - **Never add notification, admission, or approval logic under `server/libs/atlas/`** — the engine
   stays agnostic; those concerns live in `platform-coordinator` and the platform modules.
 - **Enum ordinals are persisted as INT** — append new values at the end, never reorder.
