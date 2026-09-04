@@ -21,7 +21,9 @@ import {
     embeddedNavigation,
     platformNavigation,
 } from '@/shared/navigation/navigationItems';
+import {isDevelopmentOnlyHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {isStandaloneRoute} from '@/shared/navigation/standaloneRoutes';
+import {useDevelopmentOnlyRouteGuard} from '@/shared/navigation/useDevelopmentOnlyRouteGuard';
 import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -78,11 +80,17 @@ function App() {
 
     useFetchInterceptor();
 
+    useDevelopmentOnlyRouteGuard();
+
     const ff_1023 = useFeatureFlagsStore()('ff-1023');
     const ff_2396 = useFeatureFlagsStore()('ff-2396');
     const ff_4855 = useFeatureFlagsStore()('ff-4855');
 
     const filteredAutomationNavigation = automationNavigation.filter((navItem) => {
+        if (isDevelopmentOnlyHref(navItem.href) && currentEnvironmentId !== DEVELOPMENT_ENVIRONMENT) {
+            return false;
+        }
+
         if (
             currentEnvironmentId !== DEVELOPMENT_ENVIRONMENT &&
             edition === EditionType.EE &&
@@ -119,6 +127,10 @@ function App() {
     });
 
     const filteredEmbeddedNavigation = embeddedNavigation.filter((navItem) => {
+        if (isDevelopmentOnlyHref(navItem.href) && currentEnvironmentId !== DEVELOPMENT_ENVIRONMENT) {
+            return false;
+        }
+
         if (currentEnvironmentId !== 0 && navItem.href === '/embedded/integrations') {
             return false;
         }
