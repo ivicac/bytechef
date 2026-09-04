@@ -12,9 +12,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Resolution surface over pending {@link AiHubToolApproval} rows: listing a chat's approval history, and applying a
- * person's approve/reject decision to a {@code PENDING} row. Authorization is chat-ownership-based (the chat owner or a
- * workspace admin), enforced in the implementation rather than through a workspace-role {@code @PreAuthorize} — a tool
- * approval belongs to one chat, not to the workspace at large.
+ * person's approve/reject decision to a {@code PENDING} row. Authorization is chat-ownership-based (the chat owner or
+ * any INSTANCE admin — there is no workspace-membership check on the admin branch, so an instance admin outside the
+ * chat's workspace can still resolve it), enforced in the implementation rather than through a workspace-role
+ * {@code @PreAuthorize} — a tool approval belongs to one chat, not to the workspace at large.
  *
  * @version ee
  *

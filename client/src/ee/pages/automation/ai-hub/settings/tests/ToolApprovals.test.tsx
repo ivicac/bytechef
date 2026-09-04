@@ -1,9 +1,16 @@
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {render, screen, userEvent, within} from '@/shared/util/test-utils';
 import {MemoryRouter} from 'react-router-dom';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ToolApprovals from '../ToolApprovals';
+
+beforeAll(() => {
+    // Radix relies on pointer-capture APIs that jsdom does not implement.
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
+    Element.prototype.setPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
+});
 
 const hoisted = vi.hoisted(() => ({
     createRuleMutate: vi.fn(),
@@ -153,5 +160,23 @@ describe('ToolApprovals', () => {
             toolName: 'sendEmail',
             workspaceId: '7',
         });
+    });
+
+    /**
+     * Regression test: only AiHubToolApprovalPolicyImpl#applyComponentRules resolves a "*" tool name, so a
+     * CATALOG-kind rule saved with "*" matches nothing — the dialog must not advertise wildcard support for a kind
+     * that doesn't honor it.
+     */
+    it('shows the wildcard hint only for Kind = Component', async () => {
+        renderPage();
+
+        await userEvent.click(screen.getByRole('button', {name: 'Add rule'}));
+
+        expect(screen.getByText(/every operation of the component/)).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('combobox', {name: 'Kind'}));
+        await userEvent.click(screen.getByRole('option', {name: 'Catalog'}));
+
+        expect(screen.queryByText(/every operation of the component/)).not.toBeInTheDocument();
     });
 });

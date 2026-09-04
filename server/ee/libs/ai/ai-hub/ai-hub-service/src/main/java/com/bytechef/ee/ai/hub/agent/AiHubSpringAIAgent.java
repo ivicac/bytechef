@@ -142,6 +142,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
     private final @Nullable AiGuardrailMetrics aiGuardrailMetrics;
     private final @Nullable WorkspaceSystemPrompts workspaceSystemPrompts;
     private final @Nullable AiHubApprovalGate approvalGate;
+    private final List<ToolCallback> pinnedToolCallbacks;
 
     protected AiHubSpringAIAgent(final Builder builder) throws AGUIException {
         super(builder);
@@ -155,6 +156,19 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         this.aiGuardrailMetrics = builder.aiGuardrailMetrics;
         this.workspaceSystemPrompts = builder.workspaceSystemPrompts;
         this.approvalGate = builder.approvalGate;
+        this.pinnedToolCallbacks = List.copyOf(builder.pendingToolCallbacks);
+    }
+
+    /**
+     * Returns this agent's pinned static tool callbacks, UNWRAPPED — none of the approval-gate, context-rehydration, or
+     * empty-guard wrappers {@link Builder#wrapForAgent} applies before registering them with the underlying
+     * {@code ChatClient}. This is the third tool population a gated pinned tool call must be resolvable from at
+     * approval time, alongside the chat-bound and global-catalog populations
+     * {@code AiHubToolApprovalFacadeImpl#findCallback} already searches — a pinned tool never appears in either of
+     * those, since it is registered once here at builder time rather than resolved per chat or per catalog lookup.
+     */
+    public List<ToolCallback> pinnedToolCallbacks() {
+        return pinnedToolCallbacks;
     }
 
     public static Builder builder() {

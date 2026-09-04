@@ -142,4 +142,12 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `approvalGateTool` whose channels are chat-only OR absent (absent defaults to chat). Such
   webhook/schedule runs pause with no live card and are only reachable via the pending-approvals
   inbox or the hosted form. The warning names the gate.
-- AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
+- **The AI Hub chat has its own, separate approval mechanism — do not confuse the two.** It still
+  carries the pinned `askUserQuestion` tool (LLM clarification, unrelated to approvals). But a flagged
+  AI Hub tool call is now gated by `AiHubApprovalGate`/`AiHubToolApprovalFacade`
+  (`server/ee/libs/ai/ai-hub/`, see `.agents/ai-hub.md`'s "Tool approval gate" section) — a completely
+  different mechanism from everything above on this page: no atlas job, no suspend sentinel, no
+  `JobResumeFacade`, no delivery channels. It persists an `ai_hub_tool_approval` row directly and
+  resumes via a GraphQL mutation that starts a continuation AG-UI run, entirely inside the AI Hub
+  chat's own reactive machinery. Wiring a Hub gate expecting `ApprovalGateToolCallback`'s
+  suspend/resume contract (or vice versa) will not work — they share no code path below this line.

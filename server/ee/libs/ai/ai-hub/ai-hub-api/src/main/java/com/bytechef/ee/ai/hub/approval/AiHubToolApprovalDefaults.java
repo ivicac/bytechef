@@ -30,7 +30,7 @@ public final class AiHubToolApprovalDefaults {
 
     public static final Set<String> DEFAULT_TOOL_NAMES = Set.of(
         "deleteProject", "deleteWorkflow", "deleteProjectDeployment", "dropDataTable", "deleteDataTableRow",
-        "deleteKnowledgeBase", "deleteKnowledgeBaseDocument", "deleteCustomComponent", "deleteAiSkill",
+        "deleteKnowledgeBase", "deleteKnowledgeBaseDocument", "aiAgentUtils_deleteAiSkill",
         "deleteContextStore", "deleteContextStoreSource", "deleteAiAgentChannel", "deleteAiAgentElement",
         "rollbackProjectDeployment", "promoteWorkflow");
 

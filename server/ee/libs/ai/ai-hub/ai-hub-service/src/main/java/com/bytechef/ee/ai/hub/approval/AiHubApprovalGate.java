@@ -20,12 +20,25 @@ import org.springframework.stereotype.Component;
  * site) so {@link com.bytechef.ee.ai.hub.agent.AiHubToolCallbackWrappers} and its callers can depend on one
  * collaborator that is simply absent when the AI Hub module isn't enabled.
  *
+ * <p>
+ * Also requires {@code bytechef.ai.hub.tool-approval.enabled} (default {@code false}), a second and independent switch
+ * from {@code bytechef.ai.hub.enabled}: turning the hub on must not, by itself, start gating the built-in tool names
+ * ({@link AiHubToolApprovalDefaults#DEFAULT_TOOL_NAMES}) plus four destructive-verb prefixes across every deployment
+ * the moment this ships — an operator opts in deliberately. The client's own escape hatch (the Tool Approvals settings
+ * page, which can write an {@code EXEMPT} rule to lift a default) sits behind the separate
+ * {@code ff-ai-hub-tool-approvals} feature flag, off by default; the two must be turned on together, or gating begins
+ * with no UI able to lift it. See {@code .agents/ai-hub.md}'s tool approval gate section.
+ * </p>
+ *
  * @version ee
  *
  * @author Ivica Cardic
  */
 @Component
-@ConditionalOnProperty(prefix = "bytechef.ai.hub", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(
+    name = {
+        "bytechef.ai.hub.enabled", "bytechef.ai.hub.tool-approval.enabled"
+    }, havingValue = "true")
 public class AiHubApprovalGate {
 
     private final AiHubToolApprovalPolicy policy;

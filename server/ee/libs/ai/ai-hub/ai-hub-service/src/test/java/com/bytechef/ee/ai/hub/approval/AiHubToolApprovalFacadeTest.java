@@ -21,6 +21,7 @@ import com.agui.core.message.UserMessage;
 import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.bytechef.ee.ai.hub.agent.AiHubChatStreamer;
+import com.bytechef.ee.ai.hub.agent.AiHubSpringAIAgent;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
@@ -70,6 +71,8 @@ class AiHubToolApprovalFacadeTest {
     private AiHubChatStreamer chatStreamer;
     private InFlightAiHubRunRegistry inFlightRunRegistry;
     private AiHubChatBindingToolCallbackResolver chatBindingResolver;
+    private AiHubSpringAIAgent askSpringAIAgent;
+    private AiHubSpringAIAgent buildSpringAIAgent;
     private ToolCallback sendEmailCallback;
     private PlatformTransactionManager transactionManager;
     private AiHubToolApprovalFacadeImpl facade;
@@ -95,6 +98,12 @@ class AiHubToolApprovalFacadeTest {
         AiHubGlobalToolCatalog buildGlobalToolCatalog =
             new AiHubGlobalToolCatalog("build-session", List.of(sendEmailCallback));
 
+        askSpringAIAgent = mock(AiHubSpringAIAgent.class);
+        buildSpringAIAgent = mock(AiHubSpringAIAgent.class);
+
+        when(askSpringAIAgent.pinnedToolCallbacks()).thenReturn(List.of());
+        when(buildSpringAIAgent.pinnedToolCallbacks()).thenReturn(List.of());
+
         LocalAgent buildAgent = mock(LocalAgent.class);
 
         when(buildAgent.getAgentId()).thenReturn("ai_hub_build");
@@ -118,8 +127,8 @@ class AiHubToolApprovalFacadeTest {
 
         facade = new AiHubToolApprovalFacadeImpl(
             approvalService, chatService, userService, chatStreamer, inFlightRunRegistry, chatBindingResolver,
-            askGlobalToolCatalog, buildGlobalToolCatalog, List.of(buildAgent), null, null, null,
-            new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
+            askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent, List.of(buildAgent),
+            null, null, null, new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
 
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken("ivica", "n/a", List.of()));
@@ -275,6 +284,40 @@ class AiHubToolApprovalFacadeTest {
             .get(0)).getContent();
 
         assertThat(content).contains("{\"sent\":true}");
+    }
+
+    /**
+     * Regression test for the pinned-tool gap: {@code findCallback} used to search only the chat-bound and global
+     * catalog populations, so a gated PINNED tool (e.g. the BUILD agent's {@code deleteProjectDeployment}, added
+     * directly to the agent's builder rather than the searchable catalog) could never be found again at resolve time.
+     * Approving it hit the {@code callbackOptional.isEmpty()} branch, flipped the row to {@code FAILED} with "no longer
+     * available in this chat", and the destructive action never ran — this test fails against that code because
+     * {@link #sendEmailCallback} is absent from BOTH catalogs and both {@code chatBindingResolver.resolve} results, and
+     * is registered ONLY on {@link #buildSpringAIAgent}'s pinned tool list.
+     */
+    @Test
+    void testApprovePinnedToolActuallyExecutes() {
+        ToolDefinition deleteDeploymentDefinition = mock(ToolDefinition.class);
+
+        when(deleteDeploymentDefinition.name()).thenReturn("deleteProjectDeployment");
+
+        ToolCallback deleteDeploymentCallback = mock(ToolCallback.class);
+
+        when(deleteDeploymentCallback.getToolDefinition()).thenReturn(deleteDeploymentDefinition);
+        when(buildSpringAIAgent.pinnedToolCallbacks()).thenReturn(List.of(deleteDeploymentCallback));
+
+        AiHubToolApproval approval = pendingApproval("deleteProjectDeployment", "BUILD");
+
+        when(deleteDeploymentCallback.call(eq(approval.getArguments()), any())).thenReturn("{\"deleted\":true}");
+
+        AiHubToolApprovalFacade.Resolution resolution = facade.resolve(WORKSPACE_ID, 99L, true, null);
+
+        assertThat(resolution.approval()
+            .getStatus()).isEqualTo(AiHubToolApproval.Status.APPROVED);
+        assertThat(resolution.approval()
+            .getExecutionError()).isNull();
+
+        verify(deleteDeploymentCallback).call(eq(approval.getArguments()), any());
     }
 
     @Test

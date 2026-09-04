@@ -1800,15 +1800,17 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
             aiHubChatsStore.getState().clearActivityState(currentChatId);
 
-            if (!result.resolveAiHubToolApproval.continuationStarted) {
-                return;
+            const {approval, continuationStarted} = result.resolveAiHubToolApproval;
+
+            if (continuationStarted) {
+                // A fresh assistant bubble so the continuation streams below the card instead of into it —
+                // mirrors resolveApproval's own placeholder below.
+                addMessage({content: '', role: 'assistant'});
+                aiHubChatsStore.getState().setActivityState(currentChatId, 'running');
+                attachToContinuation(currentChatId);
             }
 
-            // A fresh assistant bubble so the continuation streams below the card instead of into it — mirrors
-            // resolveApproval's own placeholder below.
-            addMessage({content: '', role: 'assistant'});
-            aiHubChatsStore.getState().setActivityState(currentChatId, 'running');
-            attachToContinuation(currentChatId);
+            return {executionError: approval.executionError, status: approval.status};
         },
         [addMessage, attachToContinuation, currentWorkspaceId, resolveToolApprovalMutation]
     );
