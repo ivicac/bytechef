@@ -343,6 +343,11 @@ const currentWorkspaceSettingsRoutes = {
         },
         {
             group: 'AI',
+            href: 'ai-hub/tool-approvals',
+            title: 'Tool Approvals',
+        },
+        {
+            group: 'AI',
             href: 'ai/agents',
             title: 'Agents',
         },
@@ -350,10 +355,6 @@ const currentWorkspaceSettingsRoutes = {
             group: 'AI',
             href: 'ai/memories',
             title: 'Memories',
-        },
-        {
-            href: 'ai-hub/tool-approvals',
-            title: 'Tool Approvals',
         },
     ],
 };
@@ -733,7 +734,7 @@ const platformSettingsRoutes = {
         {
             group: 'AI',
             href: 'ai/skills',
-            title: 'AI Skills',
+            title: 'Skills',
         },
         {
             href: 'mcp-server',

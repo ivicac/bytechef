@@ -22,7 +22,7 @@ interface SidebarContentLayoutProps {
      * AI Hub tasks-sidebar hover "peek". Independent of `leftSidebarOpen` so a page can overlay the
      * sidebar while its docked (space-reserving) form stays closed. */
     leftSidebarOverlay?: boolean;
-    leftSidebarWidth?: '56' | '64' | '72' | '96' | '112' | '128';
+    leftSidebarWidth?: '56' | '64' | '72' | '96' | '112';
     rightSidebarBody?: ReactNode;
     rightSidebarClass?: string;
     rightSidebarHeader?: ReactNode;
@@ -40,7 +40,6 @@ const leftSidebarWidths = {
     72: ['lg:w-72', 'lg:pl-72'],
     96: ['lg:w-96', 'lg:pl-96'],
     112: ['lg:w-[432px]', 'lg:pl-[432px]'],
-    128: ['lg:w-[512px]', 'lg:pl-[512px]'],
 };
 
 const rightSidebarWidths = {
