@@ -38,13 +38,15 @@ import org.springframework.ai.tool.ToolCallback;
  * the user attached.
  *
  * <p>
- * Defensive in three ways:
+ * Defensive in four ways:
  * </p>
  * <ul>
  * <li>Returns empty list when the workspace context lacks a thread id (no chat to resolve against).</li>
  * <li>Returns empty list when the chat row isn't found (race or stale id).</li>
  * <li>Skips individual bindings whose cluster element no longer exists in the catalog (component upgrade removed the
  * action) — log + continue so the rest still register.</li>
+ * <li>Catches and logs a resolution failure from either the external MCP server list or the AI skills list, so an
+ * unreachable server or a broken skill archive costs only that source's tools, not the whole turn.</li>
  * </ul>
  *
  * <p>
@@ -53,7 +55,9 @@ import org.springframework.ai.tool.ToolCallback;
  * ({@link AiHubMcpToolCallbackProvider}), and their AI skills ({@link AiHubSkillsToolProvider}) — joins in only when
  * the current sender IS that owner, per {@link AiHubToolInvocationContext#ownerUserId()} vs
  * {@link AiHubToolInvocationContext#userId()}. A participant's turn never sees any of the owner's three, and never sees
- * its own either — all three are always keyed off the chat's owner, not the sender.
+ * its own either — all three are always keyed off the chat's owner, not the sender. Within the chat-scoped/user-global
+ * pair, a tool configured at chat scope overrides the user-global one for the same (component, version, clusterElement)
+ * — more specific wins.
  * </p>
  *
  * @version ee
@@ -105,9 +109,6 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
         long userId = aiHubChat.getUserId();
         long workspaceId = chatService.getWorkspaceId(aiHubChat.getId());
 
-        // The agent sees the UNION of two tool sets: the chat's own attached tools and, only for the owner's own
-        // turn, the owner's globally "added connectors" (the Connectors page). A tool configured at chat scope
-        // overrides the user-global one for the same (component, version, clusterElement) — more specific wins.
         boolean senderIsOwner = Objects.equals(invocationContext.ownerUserId(), invocationContext.userId());
         List<AiHubChatToolBinding> chatBindings = chatToolFacade.listChatTools(aiHubChat.getId());
         List<AiHubChatToolBinding> userBindings =
@@ -145,9 +146,6 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
             }
         }
 
-        // External MCP server tools (the Connectors page "Custom MCP" section) — user-scoped rows, same gate as
-        // listUserTools above. Resolved defensively — a failure here must never break the turn, so the agent still
-        // gets the component-backed tools above.
         if (senderIsOwner) {
             try {
                 callbacks.addAll(mcpToolCallbackProvider.resolve(userId, workspaceId));
@@ -158,8 +156,6 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
             }
         }
 
-        // The user's AI skills, exposed as a single SkillsTool the agent can invoke (the composer slash-menu picks
-        // which) — user-scoped, same gate. Same defensive guard — a skills failure must not break the turn.
         if (senderIsOwner) {
             try {
                 callbacks.addAll(skillsToolCallbackProvider.resolve(userId));

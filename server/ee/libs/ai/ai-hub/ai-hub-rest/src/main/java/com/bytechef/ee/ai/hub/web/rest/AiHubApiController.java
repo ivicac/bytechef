@@ -20,6 +20,8 @@ import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatTurn;
+import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry;
+import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceEntry;
 import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
 import com.bytechef.ee.ai.hub.util.Mode;
@@ -29,7 +31,8 @@ import com.bytechef.platform.user.service.UserService;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Metrics;
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +58,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -97,13 +101,15 @@ public class AiHubApiController {
     private final UserService userService;
     private final WorkspaceFacade workspaceFacade;
     private final ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
+    private final AiHubPresenceRegistry presenceRegistry;
 
     @SuppressFBWarnings("EI")
     public AiHubApiController(
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
         List<LocalAgent> localAgents, AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy,
         UserService userService, WorkspaceFacade workspaceFacade,
-        ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
+        ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider,
+        AiHubPresenceRegistry presenceRegistry) {
 
         this.chatStreamer = chatStreamer;
         this.inFlightRunRegistry = inFlightRunRegistry;
@@ -114,6 +120,7 @@ public class AiHubApiController {
         this.userService = userService;
         this.workspaceFacade = workspaceFacade;
         this.toolApprovalServiceProvider = toolApprovalServiceProvider;
+        this.presenceRegistry = presenceRegistry;
     }
 
     @Validated
@@ -126,7 +133,12 @@ public class AiHubApiController {
 
         String verifiedThreadId = enforceThreadAccess(agUiParameters, userId, workspaceId);
 
-        Long ownerUserId = enforceTurnAvailableAndRecord(verifiedThreadId, userId, agUiParameters.getRunId());
+        enforceTurnAvailable(verifiedThreadId);
+
+        Optional<AiHubChat> verifiedChat = resolveVerifiedChat(verifiedThreadId);
+
+        Long ownerUserId = verifiedChat.map(AiHubChat::getUserId)
+            .orElse(null);
 
         supersedePendingApprovals(verifiedThreadId);
 
@@ -146,7 +158,11 @@ public class AiHubApiController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown agentId");
         }
 
-        return chatStreamer.runAgent(localAgent, agUiParameters, verifiedThreadId);
+        SseEmitter emitter = chatStreamer.runAgent(localAgent, agUiParameters, verifiedThreadId);
+
+        verifiedChat.ifPresent(chat -> chatService.recordTurn(chat.getId(), userId, agUiParameters.getRunId()));
+
+        return emitter;
     }
 
     /**
@@ -191,31 +207,109 @@ public class AiHubApiController {
      * environment switch to paint a "running" pulse on each chat that's actively streaming, not just the focused one.
      * Filtering against a caller-supplied id set scopes the answer to threads the user actually owns — without it, an
      * enumeration of every in-flight thread would leak cross-workspace state.
+     *
+     * @deprecated superseded by {@link #status}, which reports the same {@code inFlight} bit plus who is running the
+     *             turn, the message count, and the live presence roster. Kept for one release so a client already open
+     *             through a deploy does not break; delegates to {@link #status} and answers {@code false} for any
+     *             thread {@link #status} omits (unknown or not viewable), matching this endpoint's original shape.
      */
+    @Deprecated
     @GetMapping(value = "/ai/chat/ai_hub/in-flight")
     public Map<String, Boolean> inFlightStatus(@RequestParam("threadIds") List<String> threadIds) {
+        Map<String, ThreadStatus> statusByThreadId = status(threadIds);
+
+        return threadIds.stream()
+            .collect(Collectors.toMap(threadId -> threadId, threadId -> {
+                ThreadStatus threadStatus = statusByThreadId.get(threadId);
+
+                return threadStatus != null && threadStatus.inFlight();
+            }));
+    }
+
+    /**
+     * Reports, for each of the supplied {@code threadIds}, whether a run is currently in flight (and if so, who is
+     * running it), the chat's message count and last-update time, and who is currently present on the thread. Threads
+     * the caller cannot view are omitted from the result rather than reported as anything — the same shape
+     * {@link #inFlightStatus} used for an unknown id, and it keeps the endpoint from confirming a thread exists to a
+     * caller who cannot see it.
+     */
+    @GetMapping(value = "/ai/chat/ai_hub/status")
+    public Map<String, ThreadStatus> status(@RequestParam("threadIds") List<String> threadIds) {
         long userId = userService.getCurrentUser()
             .getId();
 
-        // Build the per-thread answer in one pass: each id is either (a) unknown to the registry → false, (b)
-        // not viewable by the caller → false (silently — same shape as not-in-flight), or (c) viewable by the
-        // caller and in flight → true. The not-viewable case is treated as not-in-flight rather than 403 so a
-        // malformed sidebar id list doesn't break the whole probe.
         Set<String> inFlight = new HashSet<>(inFlightRunRegistry.getInFlightThreadIds());
+        Map<String, ThreadStatus> statusByThreadId = new HashMap<>();
 
-        return threadIds.stream()
-            .collect(Collectors.toMap(
-                threadId -> threadId, threadId -> isViewableInFlightThread(threadId, userId, inFlight)));
-    }
+        for (String threadId : threadIds) {
+            Optional<AiHubChat> chatOptional = chatService.findByThreadIdViewable(threadId, userId);
 
-    private boolean isViewableInFlightThread(String threadId, long userId, Collection<String> inFlightThreadIds) {
-        if (!inFlightThreadIds.contains(threadId)) {
-            return false;
+            if (chatOptional.isEmpty()) {
+                continue;
+            }
+
+            AiHubChat chat = chatOptional.get();
+            boolean running = inFlight.contains(threadId);
+            Optional<AiHubChatTurn> latestTurn = running ? chatService.findLatestTurn(chat.getId()) : Optional.empty();
+
+            statusByThreadId.put(threadId, new ThreadStatus(
+                running, latestTurn.map(AiHubChatTurn::getUserId)
+                    .orElse(null),
+                latestTurn.flatMap(turn -> userService.fetchUser(turn.getUserId()))
+                    .map(User::getLogin)
+                    .orElse(null),
+                chat.getMessageCount(), toEpochMilli(chat.getUpdatedAt()), presenceRegistry.presence(threadId)));
         }
 
-        Optional<AiHubChat> chat = chatService.findByThreadId(threadId);
+        return statusByThreadId;
+    }
 
-        return chat.isPresent() && accessPolicy.canView(chat.get(), userId);
+    /**
+     * Records or clears the authenticated user's presence on {@code threadId}. Called by the client's presence
+     * heartbeat while a shared chat is open, and once more with {@code state = "LEFT"} when the client explicitly
+     * signals it is leaving (navigating away, closing the tab).
+     */
+    @PostMapping(value = "/ai/chat/ai_hub/{threadId}/presence")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void presence(@PathVariable("threadId") String threadId, @RequestBody PresenceRequest request) {
+        User user = userService.getCurrentUser();
+
+        enforceThreadViewable(threadId, user.getId());
+
+        if ("LEFT".equals(request.state())) {
+            presenceRegistry.leave(threadId, user.getId());
+
+            return;
+        }
+
+        presenceRegistry.heartbeat(
+            threadId, user.getId(), user.getLogin(), AiHubPresenceRegistry.PresenceState.valueOf(request.state()));
+    }
+
+    /**
+     * Converts a persisted {@code updated_at} column value to epoch millis for the REST response. {@code AiHubChat}
+     * stores timestamps as naive {@link LocalDateTime}; the UTC interpretation matches every other AI Hub REST/GraphQL
+     * surface that renders this column (see {@code AiHubChatGraphQlController.chatUpdatedAt}).
+     */
+    private static long toEpochMilli(LocalDateTime updatedAt) {
+        return updatedAt.toInstant(ZoneOffset.UTC)
+            .toEpochMilli();
+    }
+
+    /**
+     * Per-thread answer to the status poll. See {@link #status}.
+     */
+    public record ThreadStatus(
+        boolean inFlight, @Nullable Long runningUserId, @Nullable String runningUserName, int messageCount,
+        long updatedAt, List<PresenceEntry> presence) {
+    }
+
+    /**
+     * Request body for {@link #presence}. {@code state} is one of {@code AiHubPresenceRegistry.PresenceState}'s names
+     * ({@code VIEWING}, {@code TYPING}) or the sentinel {@code LEFT}, which is not a {@code PresenceState} value —
+     * {@code LEFT} means "remove my presence entry" rather than "I am present in this state".
+     */
+    public record PresenceRequest(String state) {
     }
 
     private AiHubChat enforceThreadViewable(String threadId, long userId) {
@@ -296,35 +390,31 @@ public class AiHubApiController {
     }
 
     /**
-     * Enforces the one-turn-in-flight-per-chat rule and records this turn's sender, returning the chat's owner id for
-     * downstream context injection. A no-op that returns {@code null} when {@code verifiedThreadId} is {@code null}
-     * (the very first turn, before any chat row exists) or the chat cannot be re-resolved (a benign race with a
-     * concurrent delete).
+     * Enforces the one-turn-in-flight-per-chat rule. A no-op when {@code verifiedThreadId} is {@code null} (the very
+     * first turn, before any chat row exists). Deliberately the first thing {@code chat} does after resolving the
+     * thread — it must reject a concurrent turn before any other work (context injection, agent resolution, the agent
+     * run itself) starts.
      *
      * @throws TurnInFlightException when another user's turn is already running on this thread
      */
-    private @Nullable Long enforceTurnAvailableAndRecord(
-        @Nullable String verifiedThreadId, long userId, String runId) {
-
+    private void enforceTurnAvailable(@Nullable String verifiedThreadId) {
         if (verifiedThreadId == null) {
-            return null;
+            return;
         }
 
         if (inFlightRunRegistry.isInFlight(verifiedThreadId)) {
             throw new TurnInFlightException(resolveRunningUser(verifiedThreadId));
         }
+    }
 
-        Optional<AiHubChat> chat = chatService.findByThreadId(verifiedThreadId);
-
-        if (chat.isEmpty()) {
-            return null;
-        }
-
-        AiHubChat row = chat.get();
-
-        chatService.recordTurn(row.getId(), userId, runId);
-
-        return row.getUserId();
+    /**
+     * Re-resolves the chat behind {@code verifiedThreadId} — {@link #chat} needs both the owner id (to inject into the
+     * authenticated context before the agent runs) and the chat id (to record the turn after it does), so callers hold
+     * onto this one lookup rather than resolving the chat twice. Empty when {@code verifiedThreadId} is {@code null}
+     * (the very first turn) or the chat can no longer be found (a benign race with a concurrent delete).
+     */
+    private Optional<AiHubChat> resolveVerifiedChat(@Nullable String verifiedThreadId) {
+        return verifiedThreadId == null ? Optional.empty() : chatService.findByThreadId(verifiedThreadId);
     }
 
     /**

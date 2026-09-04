@@ -107,6 +107,16 @@ public interface AiHubChatService {
      * {@link com.bytechef.ee.ai.hub.exception.NotFoundException} when the chat does not exist, does not live in
      * {@code requesterWorkspaceId}, or is not viewable by {@code requesterUserId} per
      * {@link AiHubChatAccessPolicy#canView}.
+     *
+     * <p>
+     * Turn rows zip onto {@code USER} events by position, oldest first, and that zip is trusted only when the chat's
+     * total turn-row count is at most its total {@code USER}-event count (the comparison is against the FULL
+     * transcript, not this call's rendered/capped slice, so a long chat that legitimately renders fewer than its total
+     * history is not mistaken for one with a surplus row). A turn-row surplus — which can only mean a phantom row from
+     * a run that registered and then died before writing anything — makes every {@code authorUserId} on this call
+     * {@code null} rather than risk zipping the remainder one position off and attributing a real turn to the wrong
+     * sender. Silence is the acceptable failure here; a confidently wrong name is not.
+     * </p>
      */
     List<AiHubChatMessage>
         loadMessages(long chatId, long requesterWorkspaceId, long requesterUserId);

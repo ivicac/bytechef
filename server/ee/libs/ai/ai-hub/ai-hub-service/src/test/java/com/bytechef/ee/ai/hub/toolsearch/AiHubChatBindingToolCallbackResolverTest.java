@@ -288,7 +288,6 @@ class AiHubChatBindingToolCallbackResolverTest {
         AiHubChatBindingToolCallbackResolver resolver = newResolver(
             chatService, chatToolFacade, clusterElementDefinitionService, connectionService);
 
-        // Sender (userId=2) differs from the owner (userId=1) supplied above.
         AiHubToolInvocationContext context = new AiHubToolInvocationContext(
             1L, 2L, (short) 0, "x", 0L, "thread-1", 1L);
 
@@ -325,7 +324,6 @@ class AiHubChatBindingToolCallbackResolverTest {
             chatService, chatToolFacade, clusterElementDefinitionService, connectionService, mcpToolCallbackProvider,
             skillsToolCallbackProvider);
 
-        // Sender (userId=2) differs from the owner (userId=1) supplied above.
         AiHubToolInvocationContext context = new AiHubToolInvocationContext(
             1L, 2L, (short) 0, "x", 0L, "thread-1", 1L);
 
