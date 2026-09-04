@@ -487,6 +487,16 @@ Current groups: automation Build / Deploy / Monitor / AI / Resources; embedded B
 Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
 Approval Tasks and Connect; embedded Connect alone.
 
+Both Build groups are Development-only. `shared/navigation/developmentOnlyRoutes.ts` is the one list
+pairing each authoring surface with the deployed one that replaces it (Projects → Deployments, Agents
+→ Agent Deployments, Integrations and Automations → Integration Instances); `App.tsx` hides the rows
+outside DEVELOPMENT and `useDevelopmentOnlyRouteGuard` redirects anyone standing on one. Both rules
+must come from that list — a row you cannot reach and a page you cannot leave are the same bug from
+opposite ends, and splitting them is how Projects once got the redirect while Agents got neither.
+Switching environment changes a store and navigates nowhere, so a route loader alone cannot see it;
+the loaders on `projects` and the embedded index exist only to spare the most common entry a flash.
+No edition test is needed — CE has no environment selector and never leaves DEVELOPMENT.
+
 ### Graph dispatcher canvas (Client)
 
 A `graph/v1` dispatcher renders as a free-form `graphFrame` box, not as a chain. `layoutGraphFrames`

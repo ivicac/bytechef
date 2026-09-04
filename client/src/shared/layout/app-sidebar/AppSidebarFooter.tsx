@@ -25,6 +25,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {
     BlendIcon,
     ChevronsUpDownIcon,
+    ClipboardCheckIcon,
     DiamondIcon,
     HelpCircleIcon,
     PlusIcon,
@@ -266,6 +267,19 @@ export function AppSidebarFooter() {
                             <span>Settings</span>
                         </div>
                     </DropdownMenuItem>
+
+                    {currentType === PlatformType.AUTOMATION && (
+                        <DropdownMenuItem
+                            className="cursor-pointer font-semibold"
+                            onClick={() => navigate('/automation/approval-tasks')}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <ClipboardCheckIcon className="size-5" />
+
+                                <span>Approval Tasks</span>
+                            </div>
+                        </DropdownMenuItem>
+                    )}
 
                     <DropdownMenuItem
                         className="cursor-pointer font-semibold"
