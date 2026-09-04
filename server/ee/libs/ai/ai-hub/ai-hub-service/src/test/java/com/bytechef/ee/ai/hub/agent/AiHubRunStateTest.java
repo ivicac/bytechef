@@ -25,7 +25,7 @@ class AiHubRunStateTest {
     void testInjectSetsEveryVerifiedKeyWhenThreadIdPresent() {
         State state = new State();
 
-        AiHubRunState.inject(state, 3L, 7L, "thread-1", 2L, "tenant-1");
+        AiHubRunState.inject(state, 3L, 7L, "thread-1", 2L, "tenant-1", 5L);
 
         Map<String, Object> stateMap = state.getState();
 
@@ -38,18 +38,20 @@ class AiHubRunStateTest {
         assertThat(stateMap.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID)).isEqualTo(2L);
         assertThat(stateMap.get(AiHubStateKeys.ENVIRONMENT_ID)).isEqualTo(2L);
         assertThat(stateMap.get(AiHubStateKeys.VERIFIED_TENANT_ID)).isEqualTo("tenant-1");
+        assertThat(stateMap.get(AiHubStateKeys.VERIFIED_OWNER_USER_ID)).isEqualTo(5L);
     }
 
     @Test
     void testInjectOmitsThreadKeysWhenThreadIdIsNull() {
         State state = new State();
 
-        AiHubRunState.inject(state, 3L, 7L, null, 0L, "tenant-1");
+        AiHubRunState.inject(state, 3L, 7L, null, 0L, "tenant-1", null);
 
         Map<String, Object> stateMap = state.getState();
 
         assertThat(stateMap).doesNotContainKey(AiHubStateKeys.VERIFIED_THREAD_ID);
         assertThat(stateMap).doesNotContainKey(AiHubStateKeys.THREAD_ID);
+        assertThat(stateMap).doesNotContainKey(AiHubStateKeys.VERIFIED_OWNER_USER_ID);
         assertThat(stateMap.get(AiHubStateKeys.AUTHENTICATED_USER_ID)).isEqualTo(3L);
         assertThat(stateMap.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID)).isEqualTo(7L);
     }

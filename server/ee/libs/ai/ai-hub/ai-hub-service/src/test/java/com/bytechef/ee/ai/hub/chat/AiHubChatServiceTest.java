@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatPatch;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
+import com.bytechef.ee.ai.hub.chat.repository.AiHubChatTurnRepository;
 import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.subagent.SubAgentSessionMemoryContributor;
@@ -59,6 +60,9 @@ class AiHubChatServiceTest {
 
     @Mock
     private AiHubChatRepository chatRepository;
+
+    @Mock
+    private AiHubChatTurnRepository turnRepository;
 
     @Mock
     private ObjectProvider<com.bytechef.ee.ai.hub.memory.AiHubSessionMemory> aiHubSessionMemoryProvider;
@@ -101,8 +105,8 @@ class AiHubChatServiceTest {
         // The optional tool-search and tool-approval ObjectProviders are left null (the delete path's index clear
         // and approval cleanup both guard on null) — the same shape the previous @InjectMocks wiring produced.
         chatService = new AiHubChatServiceImpl(
-            chatRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
-            aiHubSessionMemoryProvider, null, null, null);
+            chatRepository, turnRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry,
+            null, aiHubSessionMemoryProvider, null, null, null);
     }
 
     private static org.springframework.ai.session.SessionEvent sessionEvent(
@@ -817,8 +821,8 @@ class AiHubChatServiceTest {
      */
     private AiHubChatServiceImpl chatServiceWithResourceGrants() {
         return new AiHubChatServiceImpl(
-            chatRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
-            aiHubSessionMemoryProvider, null, null, resourceGrantServiceProvider);
+            chatRepository, turnRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry,
+            null, aiHubSessionMemoryProvider, null, null, resourceGrantServiceProvider);
     }
 
     /**
@@ -829,8 +833,8 @@ class AiHubChatServiceTest {
      */
     private AiHubChatServiceImpl grantedChatService() {
         return new AiHubChatServiceImpl(
-            chatRepository, new GrantedNonOwnerAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
-            aiHubSessionMemoryProvider, null, null, null);
+            chatRepository, turnRepository, new GrantedNonOwnerAccessPolicy(), jobFacade, jobRegistry,
+            inFlightRunRegistry, null, aiHubSessionMemoryProvider, null, null, null);
     }
 
     private static final class GrantedNonOwnerAccessPolicy implements AiHubChatAccessPolicy {
@@ -849,5 +853,108 @@ class AiHubChatServiceTest {
         public boolean canManage(AiHubChat chat, long userId) {
             return chat.getUserId() == userId;
         }
+    }
+
+    /**
+     * Pins {@code loadMessages}' attribution zip: turn rows are matched to {@code USER} events by their shared ordinal
+     * position, not by timestamp or content, so the middle {@code ASSISTANT} row must stay unattributed while the two
+     * {@code USER} rows around it pick up the two recorded turns in order.
+     */
+    @Test
+    void testLoadMessagesAssignsAuthorsByUserEventOrder() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        List<org.springframework.ai.session.SessionEvent> events = List.of(
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "a", Instant.ofEpochMilli(100)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.ASSISTANT, "b", Instant.ofEpochMilli(200)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "c", Instant.ofEpochMilli(300)));
+
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(events);
+
+        AiHubChatTurn firstTurn = new AiHubChatTurn(1L, 3L, "run-1");
+        AiHubChatTurn secondTurn = new AiHubChatTurn(1L, 4L, "run-2");
+
+        when(turnRepository.findAllByChatIdOrderByCreatedDateAsc(1L)).thenReturn(List.of(firstTurn, secondTurn));
+
+        List<AiHubChatMessage> messages = chatService.loadMessages(1L, WORKSPACE_ID, USER_ID);
+
+        assertThat(messages).hasSize(3);
+        assertThat(messages.get(0)
+            .authorUserId()).isEqualTo(3L);
+        assertThat(messages.get(1)
+            .authorUserId()).isNull();
+        assertThat(messages.get(2)
+            .authorUserId()).isEqualTo(4L);
+    }
+
+    /**
+     * A channel-born chat never goes through the REST dispatch path that calls {@code recordTurn}, so it has no turn
+     * rows at all. {@code loadMessages} must leave every {@code authorUserId} null rather than fail or default to the
+     * chat owner.
+     */
+    @Test
+    void testLoadMessagesWithoutTurnRowsLeavesAuthorsNull() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        List<org.springframework.ai.session.SessionEvent> events = List.of(
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "hello", Instant.ofEpochMilli(100)));
+
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(events);
+        when(turnRepository.findAllByChatIdOrderByCreatedDateAsc(1L)).thenReturn(List.of());
+
+        List<AiHubChatMessage> messages = chatService.loadMessages(1L, WORKSPACE_ID, USER_ID);
+
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0)
+            .authorUserId()).isNull();
+    }
+
+    /**
+     * Truncation must keep the turn history in step with the visible transcript it truncates, or a later turn is
+     * attributed against a row that no longer represents it. Four events (USER, ASSISTANT, USER, ASSISTANT) truncated
+     * from visible index 2 (the second USER event) keep only the first USER/ASSISTANT pair — one retained USER event —
+     * so the turn table must be trimmed to keep exactly one row.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testTruncateMessagesFromAlsoTruncatesTurns() {
+        AiHubChat chat = buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        List<org.springframework.ai.session.SessionEvent> events = List.of(
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "one", Instant.ofEpochMilli(100)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.ASSISTANT, "two", Instant.ofEpochMilli(200)),
+            sessionEvent(org.springframework.ai.chat.messages.MessageType.USER, "three", Instant.ofEpochMilli(300)),
+            sessionEvent(
+                org.springframework.ai.chat.messages.MessageType.ASSISTANT, "four", Instant.ofEpochMilli(400)));
+
+        when(sessionService.getEvents(THREAD_ID)).thenReturn(events);
+        when(sessionRepository.compactEvents(eq(THREAD_ID), eq(List.of()), any(), anyLong())).thenReturn(true);
+        when(chatRepository.save(any(AiHubChat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        int deleted = chatService.truncateMessagesFrom(1L, WORKSPACE_ID, USER_ID, 2);
+
+        assertThat(deleted).isEqualTo(2);
+        verify(turnRepository).deleteFromOrdinal(1L, 1);
+    }
+
+    @Test
+    void testRecordTurnInsertsARow() {
+        ArgumentCaptor<AiHubChatTurn> captor = ArgumentCaptor.forClass(AiHubChatTurn.class);
+
+        when(turnRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        chatService.recordTurn(1L, USER_ID, "run-123");
+
+        AiHubChatTurn saved = captor.getValue();
+
+        assertThat(saved.getChatId()).isEqualTo(1L);
+        assertThat(saved.getUserId()).isEqualTo(USER_ID);
+        assertThat(saved.getRunId()).isEqualTo("run-123");
     }
 }

@@ -22,7 +22,7 @@ import org.springframework.ai.chat.model.ToolContext;
  */
 public record AiHubToolInvocationContext(
     Long workspaceId, Long userId, Short sourceOrdinal, String lastUserPrompt, Long environmentId,
-    String threadId) {
+    String threadId, Long ownerUserId) {
 
     public static final String TOOL_CONTEXT_WORKSPACE_ID_KEY = "bytechef.assetFile.workspaceId";
     public static final String TOOL_CONTEXT_USER_ID_KEY = "bytechef.assetFile.userId";
@@ -30,15 +30,28 @@ public record AiHubToolInvocationContext(
     public static final String TOOL_CONTEXT_LAST_USER_PROMPT_KEY = "bytechef.assetFile.lastUserPrompt";
     public static final String TOOL_CONTEXT_ENVIRONMENT_ID_KEY = "bytechef.assetFile.environmentId";
     public static final String TOOL_CONTEXT_THREAD_ID_KEY = "bytechef.assetFile.threadId";
+    public static final String TOOL_CONTEXT_OWNER_USER_ID_KEY = "bytechef.assetFile.ownerUserId";
 
     /**
-     * Convenience overload that leaves {@code threadId} as {@code null}. Kept for tests that don't carry a thread id.
-     * Production code should pass {@code threadId} explicitly via the canonical 6-arg constructor.
+     * Convenience overload that leaves {@code threadId} and {@code ownerUserId} as {@code null}. Kept for tests that
+     * don't carry a thread id. Production code should pass both explicitly via the canonical 7-arg constructor.
      */
     public AiHubToolInvocationContext(
         Long workspaceId, Long userId, Short sourceOrdinal, String lastUserPrompt, Long environmentId) {
 
-        this(workspaceId, userId, sourceOrdinal, lastUserPrompt, environmentId, null);
+        this(workspaceId, userId, sourceOrdinal, lastUserPrompt, environmentId, null, null);
+    }
+
+    /**
+     * Convenience overload that leaves {@code ownerUserId} as {@code null}. Kept for the many existing call sites that
+     * predate {@code ownerUserId} and have no chat-owner value to supply. Production code that resolves a chat should
+     * prefer the canonical 7-arg constructor so tool callbacks can tell the chat owner apart from the current sender.
+     */
+    public AiHubToolInvocationContext(
+        Long workspaceId, Long userId, Short sourceOrdinal, String lastUserPrompt, Long environmentId,
+        String threadId) {
+
+        this(workspaceId, userId, sourceOrdinal, lastUserPrompt, environmentId, threadId, null);
     }
 
     /**
@@ -62,14 +75,15 @@ public record AiHubToolInvocationContext(
         String lastUserPrompt = asString(map.get(TOOL_CONTEXT_LAST_USER_PROMPT_KEY));
         Long environmentId = asLong(map.get(TOOL_CONTEXT_ENVIRONMENT_ID_KEY));
         String threadId = asString(map.get(TOOL_CONTEXT_THREAD_ID_KEY));
+        Long ownerUserId = asLong(map.get(TOOL_CONTEXT_OWNER_USER_ID_KEY));
 
         if (workspaceId == null && userId == null && sourceOrdinal == null && lastUserPrompt == null
-            && environmentId == null && threadId == null) {
+            && environmentId == null && threadId == null && ownerUserId == null) {
             return null;
         }
 
         return new AiHubToolInvocationContext(workspaceId, userId, sourceOrdinal, lastUserPrompt, environmentId,
-            threadId);
+            threadId, ownerUserId);
     }
 
     /**
@@ -117,6 +131,10 @@ public record AiHubToolInvocationContext(
 
         if (threadId != null) {
             map.put(TOOL_CONTEXT_THREAD_ID_KEY, threadId);
+        }
+
+        if (ownerUserId != null) {
+            map.put(TOOL_CONTEXT_OWNER_USER_ID_KEY, ownerUserId);
         }
 
         return map;

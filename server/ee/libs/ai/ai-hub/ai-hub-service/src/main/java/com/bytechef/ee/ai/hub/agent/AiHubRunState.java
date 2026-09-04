@@ -36,8 +36,8 @@ public final class AiHubRunState {
     }
 
     /**
-     * Writes the verified identity values into {@code state}. {@code threadId} is optional — omitted when no chat row
-     * exists yet (the very first turn); every other value is always written.
+     * Writes the verified identity values into {@code state}. {@code threadId} and {@code ownerUserId} are optional —
+     * both omitted when no chat row exists yet (the very first turn); every other value is always written.
      *
      * <p>
      * The plain (unprefixed) key aliases are defensively overwritten with the same verified values as their
@@ -47,7 +47,7 @@ public final class AiHubRunState {
      */
     public static void inject(
         State state, long userId, long workspaceId, @Nullable String threadId, long environmentId,
-        String tenantId) {
+        String tenantId, @Nullable Long ownerUserId) {
 
         state.set(AiHubStateKeys.AUTHENTICATED_USER_ID, userId);
         state.set(AiHubStateKeys.VERIFIED_WORKSPACE_ID, workspaceId);
@@ -57,6 +57,10 @@ public final class AiHubRunState {
         if (threadId != null) {
             state.set(AiHubStateKeys.VERIFIED_THREAD_ID, threadId);
             state.set(AiHubStateKeys.THREAD_ID, threadId);
+        }
+
+        if (ownerUserId != null) {
+            state.set(AiHubStateKeys.VERIFIED_OWNER_USER_ID, ownerUserId);
         }
 
         state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, environmentId);

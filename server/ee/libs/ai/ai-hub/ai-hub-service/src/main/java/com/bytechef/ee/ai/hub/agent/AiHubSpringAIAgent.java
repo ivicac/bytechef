@@ -531,9 +531,10 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         Short sourceOrdinal = Source.AI_HUB.toAgentSourceOrdinal();
         String lastUserPrompt = lastUserPrompt(input.messages());
         String threadId = state == null ? null : asString(state.get(AiHubStateKeys.VERIFIED_THREAD_ID));
+        Long ownerUserId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.VERIFIED_OWNER_USER_ID));
 
         return new AiHubToolInvocationContext(workspaceId, userId, sourceOrdinal, lastUserPrompt, environmentId,
-            threadId);
+            threadId, ownerUserId);
     }
 
     private static String asString(Object value) {

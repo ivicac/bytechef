@@ -24,6 +24,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -45,6 +46,15 @@ import org.springframework.ai.tool.ToolCallback;
  * <li>Skips individual bindings whose cluster element no longer exists in the catalog (component upgrade removed the
  * action) — log + continue so the rest still register.</li>
  * </ul>
+ *
+ * <p>
+ * A shared chat's capability set is the same for every reader: the chat's own attached tools are always in scope, but
+ * every user-scoped source — the owner's "added connectors" ({@code listUserTools}), their external MCP servers
+ * ({@link AiHubMcpToolCallbackProvider}), and their AI skills ({@link AiHubSkillsToolProvider}) — joins in only when
+ * the current sender IS that owner, per {@link AiHubToolInvocationContext#ownerUserId()} vs
+ * {@link AiHubToolInvocationContext#userId()}. A participant's turn never sees any of the owner's three, and never sees
+ * its own either — all three are always keyed off the chat's owner, not the sender.
+ * </p>
  *
  * @version ee
  *
@@ -95,11 +105,13 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
         long userId = aiHubChat.getUserId();
         long workspaceId = chatService.getWorkspaceId(aiHubChat.getId());
 
-        // The agent sees the UNION of two tool sets: the chat's own attached tools and the user's globally
-        // "added connectors" (the Connectors page). A tool configured at chat scope overrides the user-global
-        // one for the same (component, version, clusterElement) — more specific wins.
+        // The agent sees the UNION of two tool sets: the chat's own attached tools and, only for the owner's own
+        // turn, the owner's globally "added connectors" (the Connectors page). A tool configured at chat scope
+        // overrides the user-global one for the same (component, version, clusterElement) — more specific wins.
+        boolean senderIsOwner = Objects.equals(invocationContext.ownerUserId(), invocationContext.userId());
         List<AiHubChatToolBinding> chatBindings = chatToolFacade.listChatTools(aiHubChat.getId());
-        List<AiHubChatToolBinding> userBindings = chatToolFacade.listUserTools(userId, workspaceId);
+        List<AiHubChatToolBinding> userBindings =
+            senderIsOwner ? chatToolFacade.listUserTools(userId, workspaceId) : List.of();
 
         // …minus whatever this chat has switched off. The subtraction has to be explicit: listUserTools answers
         // "what has this user made available", which knows nothing about one chat, so without this the composer's
@@ -133,22 +145,28 @@ public class AiHubChatBindingToolCallbackResolver implements ChatToolBindingReso
             }
         }
 
-        // External MCP server tools (the Connectors page "Custom MCP" section). Resolved defensively — a failure
-        // here must never break the turn, so the agent still gets the component-backed tools above.
-        try {
-            callbacks.addAll(mcpToolCallbackProvider.resolve(userId, workspaceId));
-        } catch (RuntimeException exception) {
-            log.warn(
-                "MCP server tool resolution failed for user={}, workspace={}; continuing without MCP tools", userId,
-                workspaceId, exception);
+        // External MCP server tools (the Connectors page "Custom MCP" section) — user-scoped rows, same gate as
+        // listUserTools above. Resolved defensively — a failure here must never break the turn, so the agent still
+        // gets the component-backed tools above.
+        if (senderIsOwner) {
+            try {
+                callbacks.addAll(mcpToolCallbackProvider.resolve(userId, workspaceId));
+            } catch (RuntimeException exception) {
+                log.warn(
+                    "MCP server tool resolution failed for user={}, workspace={}; continuing without MCP tools",
+                    userId, workspaceId, exception);
+            }
         }
 
         // The user's AI skills, exposed as a single SkillsTool the agent can invoke (the composer slash-menu picks
-        // which). Same defensive guard — a skills failure must not break the turn.
-        try {
-            callbacks.addAll(skillsToolCallbackProvider.resolve(userId));
-        } catch (RuntimeException exception) {
-            log.warn("Skill tool resolution failed for user={}; continuing without skill tools", userId, exception);
+        // which) — user-scoped, same gate. Same defensive guard — a skills failure must not break the turn.
+        if (senderIsOwner) {
+            try {
+                callbacks.addAll(skillsToolCallbackProvider.resolve(userId));
+            } catch (RuntimeException exception) {
+                log.warn(
+                    "Skill tool resolution failed for user={}; continuing without skill tools", userId, exception);
+            }
         }
 
         return callbacks;

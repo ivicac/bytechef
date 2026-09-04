@@ -16,6 +16,7 @@ import com.bytechef.ee.ai.hub.approval.AiHubToolApprovalService;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
+import com.bytechef.ee.ai.hub.chat.repository.AiHubChatTurnRepository;
 import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
@@ -84,6 +85,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     private static final int MESSAGE_LIMIT = 500;
 
     private final AiHubChatRepository chatRepository;
+    private final AiHubChatTurnRepository turnRepository;
     private final AiHubChatAccessPolicy accessPolicy;
     private final Clock clock;
     private final JobFacade jobFacade;
@@ -104,7 +106,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubChatServiceImpl(
-        AiHubChatRepository chatRepository, AiHubChatAccessPolicy accessPolicy, JobFacade jobFacade,
+        AiHubChatRepository chatRepository, AiHubChatTurnRepository turnRepository,
+        AiHubChatAccessPolicy accessPolicy, JobFacade jobFacade,
         WorkflowChatJobRegistry jobRegistry, InFlightAiHubRunRegistry inFlightRunRegistry,
         ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider,
         ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider,
@@ -113,6 +116,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider) {
 
         this.chatRepository = chatRepository;
+        this.turnRepository = turnRepository;
         this.accessPolicy = accessPolicy;
         this.clock = Clock.systemUTC();
         this.jobFacade = jobFacade;
@@ -420,6 +424,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         List<SessionEvent> allEvents = sessionMemory.sessionService()
             .getEvents(chat.getThreadId());
 
+        List<AiHubChatTurn> turns = turnRepository.findAllByChatIdOrderByCreatedDateAsc(chat.getId());
+
         // Visible rows stay exactly the rows truncateMessagesFrom indexes over. The tool activity between two
         // visible rows (tool-calling assistant turns with blank text, tool responses) is attached to the PRECEDING
         // visible row as a JSON blob instead of extra rows, so the client can rebuild tool cards on reload without
@@ -455,10 +461,19 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         }
 
         List<AiHubChatMessage> messages = new ArrayList<>();
+        int userEventIndex = 0;
 
         for (int i = 0; i < visibleEvents.size(); i++) {
             SessionEvent event = visibleEvents.get(i);
             List<Map<String, String>> toolEvents = toolEventsPerRow.get(i);
+            Long authorUserId = null;
+
+            if (event.getMessageType() == MessageType.USER) {
+                authorUserId = userEventIndex < turns.size() ? turns.get(userEventIndex)
+                    .getUserId() : null;
+
+                userEventIndex++;
+            }
 
             messages.add(new AiHubChatMessage(
                 event.getMessageType()
@@ -466,7 +481,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
                 event.getMessage()
                     .getText(),
                 event.getTimestamp(),
-                toolEvents.isEmpty() ? null : JsonUtils.write(toolEvents)));
+                toolEvents.isEmpty() ? null : JsonUtils.write(toolEvents),
+                authorUserId));
         }
 
         return messages;
@@ -701,6 +717,16 @@ public class AiHubChatServiceImpl implements AiHubChatService {
             throw new ConflictException("The conversation changed while truncating; retry");
         }
 
+        int keptUserEvents = 0;
+
+        for (SessionEvent event : allEvents.subList(0, cutoffEventIndex)) {
+            if (isVisibleConversationEvent(event) && event.getMessageType() == MessageType.USER) {
+                keptUserEvents++;
+            }
+        }
+
+        turnRepository.deleteFromOrdinal(chatId, keptUserEvents);
+
         // Bump the chat's updatedAt so the sidebar re-sorts to the top — same convention every other
         // mutation here uses. messageCount is not authoritative for chat-memory rows (it tracks user-perceived
         // turns, not chat-memory entries) so we leave it untouched.
@@ -789,6 +815,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
             loadManageable(chatId, requesterWorkspaceId, requesterUserId);
 
         deleteApprovals(chatId);
+
+        turnRepository.deleteAllByChatId(chatId);
 
         // Delete the chat row first inside the @Transactional boundary; the chat-memory rows are deleted
         // afterCommit. Mirrors AssetFileFacadeImpl.scheduleBlobDeleteAfterCommit: a rollback restores the chat
@@ -903,6 +931,17 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     @Transactional(readOnly = true)
     public Optional<AiHubChat> findByThreadId(String threadId) {
         return chatRepository.findByThreadId(threadId);
+    }
+
+    @Override
+    public void recordTurn(long chatId, long userId, @Nullable String runId) {
+        turnRepository.save(new AiHubChatTurn(chatId, userId, runId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AiHubChatTurn> findLatestTurn(long chatId) {
+        return turnRepository.findFirstByChatIdOrderByCreatedDateDesc(chatId);
     }
 
     @Override

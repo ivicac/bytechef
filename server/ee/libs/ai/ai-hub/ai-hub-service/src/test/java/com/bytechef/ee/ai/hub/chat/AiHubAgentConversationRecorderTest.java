@@ -25,6 +25,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
+import com.bytechef.ee.ai.hub.chat.repository.AiHubChatTurnRepository;
 import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -113,7 +114,8 @@ class AiHubAgentConversationRecorderTest {
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         chatService = new AiHubChatServiceImpl(
-            chatRepository, new OwnerOnlyAccessPolicy(), mock(com.bytechef.atlas.execution.facade.JobFacade.class),
+            chatRepository, mock(AiHubChatTurnRepository.class), new OwnerOnlyAccessPolicy(),
+            mock(com.bytechef.atlas.execution.facade.JobFacade.class),
             mock(com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry.class),
             mock(com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider,
             null, null, null);
