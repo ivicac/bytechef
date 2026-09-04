@@ -7,6 +7,7 @@ import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPa
 import {flattenDefinitionTasks, isWorkflowTask} from './flattenDefinitionTasks';
 import {
     consumePendingDefinition,
+    drainPendingSaves,
     isWorkflowMutating,
     setPendingDefinition,
     setWorkflowMutating,
@@ -319,6 +320,8 @@ function fireToggleNodeDisabledMutation({
                         version: currentWorkflow.version,
                         workflowId,
                     });
+                } else {
+                    drainPendingSaves(workflowId);
                 }
             },
             onSuccess: (updatedWorkflow) => {

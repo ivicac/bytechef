@@ -22,7 +22,7 @@ import {resolveClusterRootId} from './resolveClusterRootId';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 import {forEachNestedTaskGroup} from './taskTraversalUtils';
-import {isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
+import {drainPendingSaves, isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
 
 interface HandleDeleteTaskProps {
     cancelWorkflowQueries: () => void;
@@ -412,6 +412,8 @@ export default function handleDeleteTask({
                 invalidatePreviousWorkflowNodeOutputsForWorkflow(queryClient, workflow.id!);
 
                 invalidateWorkflowQueries();
+
+                drainPendingSaves(workflow.id!);
             },
             onSuccess: (updatedWorkflow) => {
                 // Update the version from the server response so that the next mutation

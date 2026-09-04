@@ -6,6 +6,7 @@ import useWorkflowNodeDetailsPanelStore from '../../stores/useWorkflowNodeDetail
 import handleDeleteTrigger from '../handleDeleteTrigger';
 
 vi.mock('../../utils/workflowMutationGuard', () => ({
+    drainPendingSaves: vi.fn(),
     isWorkflowMutating: vi.fn().mockReturnValue(false),
     setWorkflowMutating: vi.fn(),
 }));

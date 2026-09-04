@@ -17,7 +17,7 @@ import placeAppendedTaskAfterPinnedPredecessor from './placeAppendedTaskAfterPin
 import placeInsertedTaskBetweenPinnedNeighbours from './placeInsertedTaskBetweenPinnedNeighbours';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import upsertTrigger from './upsertTrigger';
-import {isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
+import {drainPendingSaves, enqueuePendingSave, isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
 
 interface SaveWorkflowDefinitionProps {
     decorative?: boolean;
@@ -30,17 +30,33 @@ interface SaveWorkflowDefinitionProps {
     updatedWorkflowTasks?: Array<WorkflowTask>;
 }
 
-export default async function saveWorkflowDefinition({
-    decorative,
-    nodeData,
-    nodeIndex,
-    onSuccess,
-    placeholderId,
-    taskDispatcherContext,
-    updateWorkflowMutation,
-    updatedWorkflowTasks,
-}: SaveWorkflowDefinitionProps) {
+export default async function saveWorkflowDefinition(props: SaveWorkflowDefinitionProps) {
+    const {
+        decorative,
+        nodeData,
+        nodeIndex,
+        onSuccess,
+        placeholderId,
+        taskDispatcherContext,
+        updateWorkflowMutation,
+        updatedWorkflowTasks,
+    } = props;
+
     const {workflow} = useWorkflowDataStore.getState();
+
+    if (workflow.id && isWorkflowMutating(workflow.id)) {
+        if (updatedWorkflowTasks) {
+            console.warn('Dropped a workflow save with precomputed tasks while another save was in flight');
+
+            return;
+        }
+
+        enqueuePendingSave(workflow.id, () => {
+            saveWorkflowDefinition(props);
+        });
+
+        return;
+    }
 
     let workflowDefinition: WorkflowDefinitionType;
 
@@ -295,20 +311,9 @@ function executeWorkflowMutation({
     workflow,
     workflowDefinition,
 }: ExecuteWorkflowMutationProps) {
-    // A second edit arriving while the first is still in flight is DROPPED — silently, with no UI
-    // signal: the panel row the user just deleted simply stays. Rapid repeated edits used to be
-    // rare, but the graph surfaces (deleting transition rows, drawing transitions back to back)
-    // make them an ordinary gesture, so this is now reachable in normal use.
-    //
-    // The queue this wants is `saveWorkflowNodesPosition`'s: `setPendingDefinition` on the skip,
-    // `drainPendingDefinitionMutation` in `onSettled` (see `workflowMutationGuard`). It is NOT
-    // wired here because that queue carries a definition STRING and nothing else, while this path
-    // also carries `newTask` (optimistic task hydration, server-computed `clusterRoot`) and an
-    // `onSuccess` callback across 23 production call sites — a queued write would silently lose
-    // both. Making it safe means teaching the queue to carry them, for every caller at once;
-    // queueing only some callers would be worse than the drop, since the two halves would disagree
-    // about whether a skipped write is lost.
     if (isWorkflowMutating(workflow.id!)) {
+        console.warn('Dropped a workflow save that raced another save for the guard');
+
         return;
     }
 
@@ -363,6 +368,8 @@ function executeWorkflowMutation({
             },
             onSettled: () => {
                 setWorkflowMutating(workflow.id!, false);
+
+                drainPendingSaves(workflow.id!);
             },
             onSuccess: (updatedWorkflow) => {
                 useWorkflowDataStore.getState().setWorkflow({
