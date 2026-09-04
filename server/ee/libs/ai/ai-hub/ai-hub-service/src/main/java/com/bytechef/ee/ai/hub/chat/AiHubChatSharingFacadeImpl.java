@@ -10,6 +10,7 @@ package com.bytechef.ee.ai.hub.chat;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
+import com.bytechef.ee.ai.hub.metric.AiHubChatSharingMetrics;
 import com.bytechef.ee.automation.configuration.service.WorkspaceUserService;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -49,6 +50,7 @@ public class AiHubChatSharingFacadeImpl implements AiHubChatSharingFacade {
 
     private final @Nullable AiHubAuditPublisher auditPublisher;
     private final AiHubChatService chatService;
+    private final AiHubChatSharingMetrics sharingMetrics;
     private final ResourceVisibilityPolicyRegistry policyRegistry;
     private final ResourceGrantService resourceGrantService;
     private final UserService userService;
@@ -61,11 +63,13 @@ public class AiHubChatSharingFacadeImpl implements AiHubChatSharingFacade {
     @SuppressFBWarnings("EI")
     public AiHubChatSharingFacadeImpl(
         @Nullable AiHubAuditPublisher auditPublisher, AiHubChatService chatService,
-        ResourceVisibilityPolicyRegistry policyRegistry, ResourceGrantService resourceGrantService,
-        UserService userService, WorkspaceUserService workspaceUserService) {
+        AiHubChatSharingMetrics sharingMetrics, ResourceVisibilityPolicyRegistry policyRegistry,
+        ResourceGrantService resourceGrantService, UserService userService,
+        WorkspaceUserService workspaceUserService) {
 
         this.auditPublisher = auditPublisher;
         this.chatService = chatService;
+        this.sharingMetrics = sharingMetrics;
         this.policyRegistry = policyRegistry;
         this.resourceGrantService = resourceGrantService;
         this.userService = userService;
@@ -82,6 +86,8 @@ public class AiHubChatSharingFacadeImpl implements AiHubChatSharingFacade {
 
         AiHubChat chat = chatService.getManageable(chatId, workspaceId, currentUserId());
         AiHubChat updated = chatService.patchSharing(chat.getId(), visibility, participation);
+
+        sharingMetrics.recordShare(visibility.name());
 
         publish(AiHubAuditEvent.AI_HUB_CHAT_VISIBILITY_CHANGED, updated, Map.of(
             "visibility", visibility.name(), "participation", participation.name()));

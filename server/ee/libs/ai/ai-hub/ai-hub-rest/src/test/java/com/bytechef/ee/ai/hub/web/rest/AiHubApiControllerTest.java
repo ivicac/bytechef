@@ -32,6 +32,7 @@ import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatParticipation;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatTurn;
+import com.bytechef.ee.ai.hub.metric.AiHubChatSharingMetrics;
 import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry;
 import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceEntry;
 import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceState;
@@ -40,6 +41,8 @@ import com.bytechef.ee.ai.hub.web.rest.AiHubApiController.PresenceRequest;
 import com.bytechef.ee.ai.hub.web.rest.AiHubApiController.ThreadStatus;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -215,6 +219,35 @@ class AiHubApiControllerTest {
             });
 
         verify(chatService, never()).recordTurn(anyLong(), anyLong(), any());
+    }
+
+    /**
+     * {@code handleTurnInFlight} is the {@code @ExceptionHandler} Spring invokes to turn a thrown
+     * {@link TurnInFlightException} into the 409 response body — the actual rejection path a caller experiences.
+     */
+    @Test
+    void testHandleTurnInFlightRecordsATurnConflict() {
+        AiHubChatStreamer chatStreamer = mock(AiHubChatStreamer.class);
+        InFlightAiHubRunRegistry inFlightRunRegistry = mock(InFlightAiHubRunRegistry.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatAccessPolicy accessPolicy = mock(AiHubChatAccessPolicy.class);
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiHubApiController controller = newController(
+            chatStreamer, inFlightRunRegistry, List.of(), chatService, accessPolicy, userService, workspaceFacade,
+            mock(AiHubToolApprovalService.class), mock(AiHubPresenceRegistry.class),
+            buildSharingMetrics(meterRegistry));
+
+        TurnInFlightException exception = new TurnInFlightException(
+            new TurnInFlightException.RunningUser(OTHER_USER_ID, "alice"));
+
+        ResponseEntity<Map<String, Object>> response = controller.handleTurnInFlight(exception);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(meterRegistry.counter(AiHubChatSharingMetrics.TURN_CONFLICT_COUNTER)
+            .count()).isEqualTo(1.0);
     }
 
     /**
@@ -499,12 +532,23 @@ class AiHubApiControllerTest {
             toolApprovalService, mock(AiHubPresenceRegistry.class));
     }
 
-    @SuppressWarnings("unchecked")
     private static AiHubApiController newController(
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry, List<LocalAgent> localAgents,
         AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy, UserService userService,
         WorkspaceFacade workspaceFacade, AiHubToolApprovalService toolApprovalService,
         AiHubPresenceRegistry presenceRegistry) {
+
+        return newController(
+            chatStreamer, inFlightRunRegistry, localAgents, chatService, accessPolicy, userService, workspaceFacade,
+            toolApprovalService, presenceRegistry, buildSharingMetrics(new SimpleMeterRegistry()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AiHubApiController newController(
+        AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry, List<LocalAgent> localAgents,
+        AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy, UserService userService,
+        WorkspaceFacade workspaceFacade, AiHubToolApprovalService toolApprovalService,
+        AiHubPresenceRegistry presenceRegistry, AiHubChatSharingMetrics sharingMetrics) {
 
         ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider = mock(ObjectProvider.class);
 
@@ -513,7 +557,17 @@ class AiHubApiControllerTest {
 
         return new AiHubApiController(
             chatStreamer, inFlightRunRegistry, localAgents, chatService, accessPolicy, userService, workspaceFacade,
-            toolApprovalServiceProvider, presenceRegistry);
+            toolApprovalServiceProvider, presenceRegistry, sharingMetrics);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AiHubChatSharingMetrics buildSharingMetrics(MeterRegistry meterRegistry) {
+        ObjectProvider<MeterRegistry> meterRegistryProvider = mock(ObjectProvider.class);
+
+        lenient().when(meterRegistryProvider.getIfAvailable())
+            .thenReturn(meterRegistry);
+
+        return new AiHubChatSharingMetrics(meterRegistryProvider);
     }
 
     private static AgUiParameters buildAgUiParameters(long workspaceId, String threadId, String runId) {

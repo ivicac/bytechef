@@ -20,6 +20,7 @@ import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatTurn;
+import com.bytechef.ee.ai.hub.metric.AiHubChatSharingMetrics;
 import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry;
 import com.bytechef.ee.ai.hub.presence.AiHubPresenceRegistry.PresenceEntry;
 import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
@@ -102,6 +103,7 @@ public class AiHubApiController {
     private final WorkspaceFacade workspaceFacade;
     private final ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
     private final AiHubPresenceRegistry presenceRegistry;
+    private final AiHubChatSharingMetrics sharingMetrics;
 
     @SuppressFBWarnings("EI")
     public AiHubApiController(
@@ -109,7 +111,7 @@ public class AiHubApiController {
         List<LocalAgent> localAgents, AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy,
         UserService userService, WorkspaceFacade workspaceFacade,
         ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider,
-        AiHubPresenceRegistry presenceRegistry) {
+        AiHubPresenceRegistry presenceRegistry, AiHubChatSharingMetrics sharingMetrics) {
 
         this.chatStreamer = chatStreamer;
         this.inFlightRunRegistry = inFlightRunRegistry;
@@ -121,6 +123,7 @@ public class AiHubApiController {
         this.workspaceFacade = workspaceFacade;
         this.toolApprovalServiceProvider = toolApprovalServiceProvider;
         this.presenceRegistry = presenceRegistry;
+        this.sharingMetrics = sharingMetrics;
     }
 
     @Validated
@@ -541,6 +544,8 @@ public class AiHubApiController {
         body.put("error", "TURN_IN_FLIGHT");
         body.put("runningUserId", runningUser.userId());
         body.put("runningUserName", runningUser.userName());
+
+        sharingMetrics.recordTurnConflict();
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(body);

@@ -150,6 +150,132 @@ enabled deployment."). Hiding an empty cascade made a launcher read as unimpleme
 unpopulated. The separate CE-only `/automation/chats` page renders an **Agents** group from the same
 query above its per-project groups.
 
+### Shared chats and presence (EE)
+
+A chat can be shared with the workspace or with named people, follow-only or turn-taking, with a
+live presence roster. Spec: `docs/superpowers/specs/2026-09-02-ai-hub-shared-sessions-presence-design.md`.
+
+**Two additive columns, one deliberate departure from the platform rule.** `ai_hub_chat` carries
+`visibility` (`ResourceVisibility` ordinal, `PRIVATE`/`WORKSPACE` — no `ORGANIZATION`, a chat
+belongs to one workspace, `AiHubChatVisibilityPolicy`) and `participation`
+(`AiHubChatParticipation` ordinal, `VIEW`/`PARTICIPATE`). Both default to their zero ordinal on the
+entity (`PRIVATE`/`VIEW`), which is the opposite of "every resource is created WORKSPACE-visible" —
+see the cross-cutting rule in `CLAUDE.md`. The departure is deliberate: a chat is a person's working
+conversation, not shared infrastructure, and a `WORKSPACE` default would expose every member's
+chats to every other member the day the migration runs. `AiHubAgentConversationRecorder` overrides
+this for channel-born rows only, writing `visibility = WORKSPACE, participation = VIEW` at
+find-or-create — a Slack channel was never private to whoever happened to send the first message.
+Composer-created `AGENT_CHAT` rows (same kind, opposite default) never go through that path, so they
+keep the entity's `PRIVATE`/`VIEW` default; the recorder's `adoptChat` guard is what keeps the two
+apart (see "Channel-born agent conversations" above). `user_id` still means **owner** — it was not
+renamed, and "owner" is the word used everywhere in the new interfaces below.
+
+**`AiHubChatAccessPolicy`** (`canView`/`canParticipate`/`canManage`) replaces every
+`chat.getUserId() != userId` check in `AiHubChatServiceImpl`. `canView` is owner-or-admin, or
+`WORKSPACE` reach, or a `resource_grant` row, resolved through the registered
+`AiHubChatVisibilityProvider` (resource type `"AiHubChat"`) exactly like `ProjectVisibilityProvider`.
+`canParticipate` is `canView` plus `participation == PARTICIPATE` (owner/admin always pass).
+`canManage` is owner-or-admin only — sharing a chat never extends management rights to the people
+it is shared with.
+
+**`canManage`'s admin branch is not workspace-scoped, and that is deliberate but easy to
+misjudge.** `isOwnerOrAdmin` is `chat.getUserId() == userId || hasCurrentUserThisAuthority(ADMIN)` —
+the same instance-wide check every other owner-or-admin gate in AI Hub uses, with no check that the
+admin belongs to the chat's workspace. An instance admin can therefore manage, or resolve a tool
+approval on (`AiHubToolApprovalFacadeImpl.canResolve` delegates to this same `canManage`), a chat in
+a workspace they do not belong to at all. This is unchanged behavior carried forward, not a
+regression introduced by sharing — but because sharing routes through the one shared policy, a
+future fix to the workspace-membership gap applies to both call sites at once.
+
+**Owner-only tools depend on a nullable value, and an absent one fails closed but silently.** A
+shared chat's own attached tools are always in scope for every participant; the owner's three
+user-global sources — `listUserTools` connectors, external MCP servers, AI skills — join in only
+when `AiHubChatBindingToolCallbackResolver` sees `Objects.equals(invocationContext.ownerUserId(),
+invocationContext.userId())`. `ownerUserId` is threaded from `AiHubChat.getUserId()` through
+`AiHubRunState.inject` (`VERIFIED_OWNER_USER_ID`) into `AiHubToolInvocationContext`, and it is
+optional at every hop. `Objects.equals(null, x)` is `false` for any `x`, so a call site that omits
+it makes `senderIsOwner` false even for the owner's own turn — the owner then silently loses their
+own connectors/MCP servers/skills for that turn. Safe (never widens access), but invisible: nothing
+errors, the tool list is just smaller than the owner expects.
+
+**Attribution rides on event order, because the session store drops message metadata.**
+`AiHubChatServiceImpl.recordTurn` inserts one `ai_hub_chat_turn` row (`chatId`, `userId`, `runId`)
+per POST. `loadMessages` cannot stash `authorUserId` on the session event itself — Spring AI's
+session store persists only text and tool calls — so it zips the ordered `ai_hub_chat_turn` rows
+positionally against the transcript's USER-typed events: the Nth USER event is attributed to the
+Nth turn row. `reliableTurnAttribution = turns.size() <= totalUserEventCount` is the one guard
+against a corrupted zip (more turn rows than USER events would misattribute); when it trips,
+attribution is simply omitted rather than guessed.
+
+**Truncation must keep the two stores in step, and mostly does — by construction, not by a shared
+transaction.** `truncateMessagesFrom` first runs the session store's own compare-and-set
+(`sessionRepository.compactEvents`, optimistic on `eventVersion`), then computes `keptUserEvents`
+from the same cutoff and calls `turnRepository.deleteFromOrdinal(chatId, keptUserEvents)`, then
+bumps `chat.updatedAt`. For the default `jdbc` session-memory provider, `compactEvents` is backed by
+`JdbcSessionRepository`, which wraps its own `DataSourceTransactionManager` around the **same**
+`DataSource` the application's primary transaction manager uses (`AiHubConfiguration` builds it
+from the autowired `JdbcTemplate`, never a separate pool) — Spring's transaction synchronization is
+keyed by the `DataSource` resource itself, so that inner `TransactionTemplate` joins the ambient
+`@Transactional` transaction on `truncateMessagesFrom` rather than committing on its own. Concretely:
+if `deleteFromOrdinal` or the trailing `chatRepository.save` then throws, the **whole** physical
+transaction rolls back, taking the just-succeeded CAS with it — no orphaned turn rows, no
+truncated-but-unrecorded transcript. This guarantee is specific to the `jdbc` provider. On
+`redis`/`aws`/`in_memory` (`bytechef.ai.memory.provider`), `compactEvents` runs against a store
+Spring's relational transaction manager knows nothing about; a failure in the SQL statements that
+follow rolls back only the turn-table delete, leaving the session transcript already truncated while
+`ai_hub_chat_turn` still carries rows past the new cutoff.
+
+**The 500-row grant candidate window.** `listSharedWithMe`'s reach query (`findSharedByReach`,
+`WORKSPACE`-visible chats) is exact and unbounded by grants. Individually-granted `PRIVATE` chats
+are found by a second query, `findPrivateCandidates`, capped at `LIST_LIMIT * 5` = 500 of the
+workspace's most-recently-updated `PRIVATE` chats not owned by the caller; only that candidate set
+is then filtered through `resourceGrantService.filterGrantedResourceIds`. A grant on a `PRIVATE`
+chat that has fallen out of the 500 most-recently-updated private chats in the workspace is real
+(the `resource_grant` row exists, `aiHubChatGrants` still lists it) but invisible to "shared with
+me" — the chat simply never reaches the filter. This narrows as the workspace's private-chat
+volume grows; there is no paging fallback.
+
+**One turn in flight per chat, enforced by a dedicated exception — not `ConflictException`.**
+`AiHubApiController` checks `InFlightAiHubRunRegistry.isInFlight(threadId)` before starting a turn
+and throws `TurnInFlightException` (its own `RunningUser` record resolved from the chat's latest
+`AiHubChatTurn`) when another turn — the owner's or a participant's, whichever is not the caller —
+is already running. The controller's own `@ExceptionHandler(TurnInFlightException.class)` shapes a
+409 body `{"error": "TURN_IN_FLIGHT", ...}`. `ConflictException` is a different, pre-existing type
+reserved for the unrelated `threadId`-collision race in `AiHubChatServiceImpl.create` (and for a
+concurrent-truncation retry) — do not conflate the two when reading either call site.
+`AiHubChatSharingMetrics.recordTurnConflict()` increments `bytechef_ai_hub_chat_turn_conflict` on
+every rejection; `recordShare(visibility)` increments `bytechef_ai_hub_chat_share{visibility}` on
+every `setVisibility` call. Both landed with this feature; the presence gauge floated in earlier
+drafts of this work was deliberately dropped — a cache-backed per-thread map has no cheap way to
+produce a correct global count, so don't add one back thinking it was merely forgotten.
+
+**Presence** (`AiHubPresenceRegistry`) stores one cache entry per thread — a
+`HashMap<userId, PresenceEntry>` — behind the same Caffeine/Redis dual backend `WorkflowChatGuard`
+uses, so it is correct across instances. An entry expires after `PRESENCE_TTL_SECONDS` = 45s without
+a fresh heartbeat; the client heartbeats every 20s, so the TTL absorbs one missed cycle without
+flickering a still-present viewer off the roster. `heartbeat`/`leave` are read-modify-write over the
+whole per-thread map: two users heartbeating the same thread at once can have one write silently
+overwrite the other's, and this is accepted rather than locked — the loser's entry reappears on its
+own next heartbeat, well inside the TTL, so the worst case is a momentary gap, never a stuck or
+corrupted entry.
+
+**The status poll supersedes, and eventually replaces, the `in-flight` endpoint.**
+`GET .../ai_hub/status` reports, per thread, `inFlight` + who is running the turn + `messageCount` +
+`updatedAt` + the presence roster, and omits any thread the caller cannot view (never reports
+"unknown" vs "not viewable" — both look identical). `GET .../ai_hub/in-flight` is `@Deprecated`,
+delegates to `status`, and answers `false` for any thread `status` omits — kept for one release so a
+client already open through a deploy does not break, and slated for deletion the release after.
+
+**The attach stream does not survive a multi-instance deployment; the status poll does.** `status`
+reads presence and in-flight state from the shared cache/DB, so it answers correctly regardless of
+which instance serves the request. `attach` does not: `InFlightAiHubRunRegistry` holds a
+`Sinks.Many<BaseEvent>` per run, a stateful reactive primitive that cannot be serialized to Redis, so
+the registry is intentionally process-local (see its own Javadoc). A viewer whose `attach` request
+lands on an instance other than the one running the turn gets a 404 and falls back to a
+history-only render with a running pulse — the same thing a page reload already does today in a
+multi-instance deployment. This feature does not fix that gap or make it worse; it just means the
+gap now applies to a shared viewer's attach as well as the owner's own reload.
+
 ### Workflow-chat metrics
 
 - `bytechef_workflow_chat_turn{outcome}` — global counter. Outcomes: `sync`, `streaming`, `resume`,
