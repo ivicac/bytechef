@@ -1,0 +1,38 @@
+extend type Query {
+    """Users currently granted access to a chat beyond its owner. Owner-or-admin only."""
+    aiHubChatGrants(workspaceId: ID!, chatId: ID!): [Long!]!
+}
+
+extend type Mutation {
+    """Changes a chat's visibility and participation in one write. Owner-or-admin only; rejects a visibility
+    rung the chat resource type does not support."""
+    setAiHubChatVisibility(workspaceId: ID!, chatId: ID!, visibility: AiHubChatVisibility!, participation: AiHubChatParticipation!): AiHubChat!
+    """Grants a named workspace member access to a chat. The grantee must already be a member of the
+    workspace."""
+    grantAiHubChatAccess(workspaceId: ID!, chatId: ID!, userId: ID!): AiHubChat!
+    """Revokes a named user's access to a chat. No membership check runs — someone removed from the
+    workspace must still be revocable."""
+    revokeAiHubChatAccess(workspaceId: ID!, chatId: ID!, userId: ID!): AiHubChat!
+}
+
+"""Whether a person a chat has been shared with may only follow it live, or may also contribute turns."""
+enum AiHubChatParticipation {
+    VIEW
+    PARTICIPATE
+}
+
+# Deliberately narrower than the platform's ResourceVisibility (PRIVATE/WORKSPACE/ORGANIZATION), and
+# deliberately NOT that same enum re-declared here. AiHubChatVisibilityPolicy supports only PRIVATE and
+# WORKSPACE — a chat belongs to at most one workspace, so ORGANIZATION is not a rung a chat can ever
+# legally carry, and publishing it would advertise a value the server always rejects. Re-declaring the
+# platform enum instead was tried and rejected: verified empirically against this project's graphql-java
+# (25.0) that TypeDefinitionRegistry.merge() throws SchemaProblem (TypeRedefinitionError) on ANY duplicate
+# top-level type name, even a byte-for-byte identical redeclaration, and server-app depends on both this
+# module and the module that already declares ResourceVisibility (automation-configuration-graphql's
+# connection.graphqls) — redeclaring it here would have broken server-app's schema at startup.
+# AiHubChatVisibilityMapper converts to and from ResourceVisibility at the controller boundary; the
+# facade and service layers keep speaking the platform type.
+enum AiHubChatVisibility {
+    PRIVATE
+    WORKSPACE
+}

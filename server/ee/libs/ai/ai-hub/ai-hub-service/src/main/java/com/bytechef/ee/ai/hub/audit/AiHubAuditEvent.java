@@ -92,7 +92,33 @@ public enum AiHubAuditEvent {
      * Marked {@code strictAudit} — a rule change alters which tool calls are gated for the whole workspace, so a
      * missing audit trail is a compliance blind spot.
      */
-    AI_HUB_TOOL_APPROVAL_RULE_CHANGED(true);
+    AI_HUB_TOOL_APPROVAL_RULE_CHANGED(true),
+
+    /**
+     * A chat's visibility or participation setting changed. Payload: {@code chatId}, {@code workspaceId},
+     * {@code visibility}, {@code participation}. Emitted from {@code AiHubChatSharingFacadeImpl.setVisibility}.
+     *
+     * <p>
+     * Marked {@code strictAudit} — sharing a chat widens who can reach it, so a missing audit trail is a compliance
+     * blind spot.
+     */
+    AI_HUB_CHAT_VISIBILITY_CHANGED(true),
+
+    /**
+     * A named user was granted access to a chat. Payload: {@code chatId}, {@code workspaceId}, {@code granteeUserId}.
+     * Emitted from {@code AiHubChatSharingFacadeImpl.grantAccess}.
+     */
+    AI_HUB_CHAT_ACCESS_GRANTED(false),
+
+    /**
+     * A named user's access to a chat was revoked. Payload: {@code chatId}, {@code workspaceId}, {@code granteeUserId}.
+     * Emitted from {@code AiHubChatSharingFacadeImpl.revokeAccess}.
+     *
+     * <p>
+     * Marked {@code strictAudit} — revoking a grant narrows who can reach a chat, and a missing audit trail there is a
+     * compliance blind spot the same way granting access is.
+     */
+    AI_HUB_CHAT_ACCESS_REVOKED(true);
 
     private final boolean strictAudit;
 

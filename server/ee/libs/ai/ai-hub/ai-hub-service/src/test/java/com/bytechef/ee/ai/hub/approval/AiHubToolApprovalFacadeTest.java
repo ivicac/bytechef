@@ -25,6 +25,7 @@ import com.bytechef.ee.ai.hub.agent.AiHubSpringAIAgent;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.ee.ai.hub.chat.OwnerOnlyAccessPolicy;
 import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.metric.AiHubToolApprovalMetrics;
@@ -126,9 +127,10 @@ class AiHubToolApprovalFacadeTest {
         transactionManager = noopTransactionManager();
 
         facade = new AiHubToolApprovalFacadeImpl(
-            approvalService, chatService, userService, chatStreamer, inFlightRunRegistry, chatBindingResolver,
-            askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent, buildSpringAIAgent, List.of(buildAgent),
-            null, null, null, new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
+            new OwnerOnlyAccessPolicy(), approvalService, chatService, userService, chatStreamer,
+            inFlightRunRegistry, chatBindingResolver, askGlobalToolCatalog, buildGlobalToolCatalog, askSpringAIAgent,
+            buildSpringAIAgent, List.of(buildAgent), null, null, null,
+            new AiHubToolApprovalMetrics(emptyMeterRegistryProvider()), transactionManager, clock);
 
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken("ivica", "n/a", List.of()));

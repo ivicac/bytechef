@@ -22,16 +22,20 @@ import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
 import com.bytechef.ee.ai.hub.subagent.SubAgentSessionMemoryContributor;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.EnumOrdinals;
+import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import org.jspecify.annotations.Nullable;
@@ -89,12 +93,14 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     private final ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider;
     private final @Nullable AiHubAuditPublisher auditPublisher;
     private final @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
+    private final @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider;
 
     /**
-     * {@code toolApprovalServiceProvider} is nullable at both levels — the {@link ObjectProvider} itself, so the four
-     * hand-built test constructors predating the tool approval gate keep compiling with a plain {@code null} argument,
-     * and what it yields, so a deployment where the tool approval module is disabled still gets a working
-     * {@link AiHubChatServiceImpl}. {@link #deleteApprovals} guards on both.
+     * {@code toolApprovalServiceProvider} and {@code resourceGrantServiceProvider} are nullable at both levels — the
+     * {@link ObjectProvider} itself, so hand-built test constructors predating each feature keep compiling with a plain
+     * {@code null} argument, and what each yields, so a deployment where the tool approval module is disabled, or a CE
+     * deployment with no {@code ResourceGrantService} bean, still gets a working {@link AiHubChatServiceImpl}.
+     * {@link #deleteApprovals} and {@link #deleteGrants} each guard on both.
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubChatServiceImpl(
@@ -103,7 +109,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider,
         ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider,
         @Nullable AiHubAuditPublisher auditPublisher,
-        @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
+        @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider,
+        @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider) {
 
         this.chatRepository = chatRepository;
         this.accessPolicy = accessPolicy;
@@ -120,6 +127,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // doesn't supply the EE bean) degrade to a no-op; publishChatCreated/publishChatDeleted guard on null.
         this.auditPublisher = auditPublisher;
         this.toolApprovalServiceProvider = toolApprovalServiceProvider;
+        this.resourceGrantServiceProvider = resourceGrantServiceProvider;
     }
 
     private void publishChatCreated(AiHubChat chat) {
@@ -366,6 +374,38 @@ public class AiHubChatServiceImpl implements AiHubChatService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<AiHubChat> listSharedWithMe(long workspaceId, long userId, int environment) {
+        int active = AiHubChatStatus.ACTIVE.ordinal();
+        List<AiHubChat> shared = new ArrayList<>(
+            chatRepository.findSharedByReach(
+                workspaceId, userId, environment, active, ResourceVisibility.WORKSPACE.ordinal(), LIST_LIMIT));
+        ResourceGrantService resourceGrantService =
+            resourceGrantServiceProvider == null ? null : resourceGrantServiceProvider.getIfAvailable();
+
+        if (resourceGrantService != null) {
+            List<AiHubChat> candidates = chatRepository.findPrivateCandidates(
+                workspaceId, userId, environment, active, ResourceVisibility.PRIVATE.ordinal(), LIST_LIMIT * 5);
+            Set<Long> grantedIds = resourceGrantService.filterGrantedResourceIds(
+                AiHubChatVisibilityPolicy.RESOURCE_TYPE, userId,
+                candidates.stream()
+                    .map(AiHubChat::getId)
+                    .toList());
+
+            for (AiHubChat candidate : candidates) {
+                if (grantedIds.contains(candidate.getId())) {
+                    shared.add(candidate);
+                }
+            }
+        }
+
+        shared.sort(Comparator.comparing(AiHubChat::getUpdatedAt)
+            .reversed());
+
+        return shared.size() > LIST_LIMIT ? shared.subList(0, LIST_LIMIT) : shared;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<AiHubChatMessage> loadMessages(
         long chatId, long requesterWorkspaceId, long requesterUserId) {
 
@@ -538,6 +578,18 @@ public class AiHubChatServiceImpl implements AiHubChatService {
             chat.setStatus(chatPatch.status());
         }
 
+        chat.setUpdatedAt(LocalDateTime.now(clock));
+
+        return chatRepository.save(chat);
+    }
+
+    @Override
+    public AiHubChat patchSharing(long chatId, ResourceVisibility visibility, AiHubChatParticipation participation) {
+        AiHubChat chat = chatRepository.findById(chatId)
+            .orElseThrow(() -> new NotFoundException("AiHubChat not found"));
+
+        chat.setVisibility(visibility);
+        chat.setParticipation(participation);
         chat.setUpdatedAt(LocalDateTime.now(clock));
 
         return chatRepository.save(chat);
@@ -744,6 +796,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // failure leaves orphan messages (best-effort cleanup) instead of zombie chats the user can still see.
         chatRepository.delete(chat);
 
+        deleteGrants(chatId);
+
         publishChatDeleted(chat);
 
         scheduleChatMemoryDeleteAfterCommit(chat.getThreadId());
@@ -773,6 +827,27 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         }
 
         toolApprovalService.deleteByChat(chatId);
+    }
+
+    /**
+     * Deletes every named-user grant recorded against the chat. {@code resourceGrantServiceProvider} is nullable (both
+     * the provider itself, for hand-built test constructors and CE builds with no resource-grant module on the
+     * classpath, and what it yields, for a CE build that carries the module but not the {@code ResourceGrantService}
+     * bean), so both are guarded before use. {@code resource_id} is a polymorphic column with no foreign key, so a
+     * grant row would otherwise outlive its chat and could later collide with a recycled id.
+     */
+    private void deleteGrants(long chatId) {
+        if (resourceGrantServiceProvider == null) {
+            return;
+        }
+
+        ResourceGrantService resourceGrantService = resourceGrantServiceProvider.getIfAvailable();
+
+        if (resourceGrantService == null) {
+            return;
+        }
+
+        resourceGrantService.deleteGrants(AiHubChatVisibilityPolicy.RESOURCE_TYPE, chatId);
     }
 
     private void scheduleChatMemoryDeleteAfterCommit(String threadId) {

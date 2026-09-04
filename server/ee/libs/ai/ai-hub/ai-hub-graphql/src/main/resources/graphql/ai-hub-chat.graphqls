@@ -45,6 +45,22 @@ type AiHubChat {
     adopted by a new turn.
     """
     aiAgentId: Long
+    """
+    How far this chat reaches beyond its owner. PRIVATE (default) or WORKSPACE — a chat belongs to at
+    most one workspace, so there is no rung that reaches further, and none is offered here.
+    """
+    visibility: AiHubChatVisibility!
+    """
+    Whether a person this chat has been shared with may only follow it live (VIEW, default) or may
+    also contribute turns (PARTICIPATE).
+    """
+    participation: AiHubChatParticipation!
+    """The chat owner's user id, resolved off the row's userId column."""
+    ownerUserId: Long!
+    """The chat owner's login, or null if the user could not be resolved."""
+    ownerName: String
+    """Whether the current caller is this chat's owner."""
+    isOwner: Boolean!
 }
 
 enum AiHubChatKind {
@@ -91,6 +107,13 @@ extend type Query {
     (default {@code ACTIVE}).
     """
     aiHubChats(workspaceId: ID!, environment: Int!, status: AiHubChatStatus): [AiHubChat!]!
+
+    """
+    Lists chats other workspace members have shared with the caller: every WORKSPACE-visible chat in the
+    workspace plus any PRIVATE chat the caller has been individually granted, both restricted to chats
+    owned by someone else. Ordered by last update descending, same cap as aiHubChats.
+    """
+    aiHubSharedChats(workspaceId: ID!, environment: Int!): [AiHubChat!]!
 
     """
     Returns the message history for a chat. Ownership is verified at the service layer — a caller who

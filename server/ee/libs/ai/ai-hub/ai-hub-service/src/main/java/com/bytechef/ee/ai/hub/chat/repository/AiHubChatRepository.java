@@ -87,6 +87,34 @@ public interface AiHubChatRepository extends CrudRepository<AiHubChat, Long> {
         long workspaceId, long userId, int environment, Collection<Integer> kinds, int status, int limit);
 
     /**
+     * Chats another workspace member already reaches directly: {@code visibility = WORKSPACE}, owned by someone other
+     * than the caller. Paired with {@link #findPrivateCandidates} in {@code AiHubChatServiceImpl#listSharedWithMe} —
+     * this half needs no grant lookup, since workspace visibility already applies to every member.
+     */
+    @Query("""
+        SELECT cct.* FROM ai_hub_chat cct
+        WHERE cct.workspace_id = :workspaceId AND cct.user_id <> :userId AND cct.environment = :environment
+          AND cct.status = :status AND cct.visibility = :visibility
+        ORDER BY cct.updated_at DESC LIMIT :limit
+        """)
+    List<AiHubChat> findSharedByReach(
+        long workspaceId, long userId, int environment, int status, int visibility, int limit);
+
+    /**
+     * Candidate {@code PRIVATE} chats owned by other users, to be filtered down to the ones {@code userId} has been
+     * individually granted. The caller passes a window well beyond {@link #findSharedByReach}'s own limit — a grant on
+     * a chat outside this window is not listed; see {@code AiHubChatServiceImpl#listSharedWithMe}.
+     */
+    @Query("""
+        SELECT cct.* FROM ai_hub_chat cct
+        WHERE cct.workspace_id = :workspaceId AND cct.user_id <> :userId AND cct.environment = :environment
+          AND cct.status = :status AND cct.visibility = :privateVisibility
+        ORDER BY cct.updated_at DESC LIMIT :limit
+        """)
+    List<AiHubChat> findPrivateCandidates(
+        long workspaceId, long userId, int environment, int status, int privateVisibility, int limit);
+
+    /**
      * Inserts a channel-born agent chat, doing nothing when {@code thread_id} is already taken. Used by the
      * find-or-create recorder path: a busy channel can deliver two turns of the same conversation concurrently, and
      * both would then miss the preceding {@code findByThreadId} and race to insert the same {@code thread_id}.

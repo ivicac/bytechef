@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -27,6 +28,7 @@ import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
 import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -114,7 +116,7 @@ class AiHubAgentConversationRecorderTest {
             chatRepository, new OwnerOnlyAccessPolicy(), mock(com.bytechef.atlas.execution.facade.JobFacade.class),
             mock(com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry.class),
             mock(com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider,
-            null, null);
+            null, null, null);
 
         recorder = new AiHubAgentConversationRecorder(
             chatRepository, chatService, projectService, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
@@ -143,8 +145,8 @@ class AiHubAgentConversationRecorderTest {
         // The second turn found the row and did not attempt another insert — the opposite of
         // createAgentChatAiHubChat, which is deliberately always-new.
         verify(chatRepository, times(1)).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
     }
 
     @Test
@@ -157,8 +159,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, OTHER_AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, times(1)).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
 
         AiHubChat chat = storedChat.get();
 
@@ -178,8 +180,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
         verify(chatRepository, never()).save(any(AiHubChat.class));
 
         assertThat(composerChat.getAiAgentId()).isNull();
@@ -288,8 +290,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
         verify(chatRepository, never()).save(any(AiHubChat.class));
     }
 
@@ -300,8 +302,8 @@ class AiHubAgentConversationRecorderTest {
         recorder.recordTurn(agentConversation(WORKSPACE_ID + 1, AI_AGENT_ID, CREATOR_USER_ID));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
         verify(chatRepository, never()).findByThreadId(anyString());
     }
 
@@ -335,8 +337,8 @@ class AiHubAgentConversationRecorderTest {
                 WORKSPACE_ID, AI_AGENT_ID, CREATOR_USER_ID, CONVERSATION_ID, null, null, WORKFLOW_ID, null));
 
         verify(chatRepository, never()).insertAgentChatIfAbsent(
-            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-            anyInt());
+            anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+            eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal()));
     }
 
     @Test
@@ -413,8 +415,8 @@ class AiHubAgentConversationRecorderTest {
             .thenAnswer(invocation -> Optional.ofNullable(storedChat.get()));
         when(
             chatRepository.insertAgentChatIfAbsent(
-                anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(), anyInt(),
-                anyInt()))
+                anyLong(), anyString(), any(), anyInt(), anyInt(), anyInt(), anyLong(), anyLong(), any(),
+                eq(ResourceVisibility.WORKSPACE.ordinal()), eq(AiHubChatParticipation.VIEW.ordinal())))
                     .thenAnswer(invocation -> {
                         AiHubChat chat = chat(
                             AiHubChatKind.values()[invocation.getArgument(5, Integer.class)],

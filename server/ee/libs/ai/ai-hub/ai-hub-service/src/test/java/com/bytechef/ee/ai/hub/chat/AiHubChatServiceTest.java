@@ -27,10 +27,13 @@ import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.subagent.SubAgentSessionMemoryContributor;
 import com.bytechef.ee.ai.hub.tool.AiHubAgentType;
+import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -78,6 +81,12 @@ class AiHubChatServiceTest {
     @Mock
     private com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry inFlightRunRegistry;
 
+    @Mock
+    private ObjectProvider<ResourceGrantService> resourceGrantServiceProvider;
+
+    @Mock
+    private ResourceGrantService resourceGrantService;
+
     private AiHubChatServiceImpl chatService;
 
     @org.junit.jupiter.api.BeforeEach
@@ -93,7 +102,7 @@ class AiHubChatServiceTest {
         // and approval cleanup both guard on null) — the same shape the previous @InjectMocks wiring produced.
         chatService = new AiHubChatServiceImpl(
             chatRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
-            aiHubSessionMemoryProvider, null, null);
+            aiHubSessionMemoryProvider, null, null, null);
     }
 
     private static org.springframework.ai.session.SessionEvent sessionEvent(
@@ -138,6 +147,7 @@ class AiHubChatServiceTest {
         assertThat(result.getThreadId()).isEqualTo(THREAD_ID);
         assertThat(result.getStatus()).isEqualTo(AiHubChatStatus.ACTIVE);
         assertThat(result.getMessageCount()).isZero();
+        assertThat(result.getVisibility()).isEqualTo(ResourceVisibility.PRIVATE);
 
         verify(chatRepository).save(any(AiHubChat.class));
     }
@@ -428,6 +438,7 @@ class AiHubChatServiceTest {
         assertThat(result.getThreadId())
             .as("threadId must be a plain UUID so session-store events are isolated per chat")
             .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(result.getVisibility()).isEqualTo(ResourceVisibility.PRIVATE);
     }
 
     @Test
@@ -466,6 +477,7 @@ class AiHubChatServiceTest {
         assertThat(result.getThreadId())
             .as("threadId must be a plain UUID so session-store events are isolated per chat")
             .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(result.getVisibility()).isEqualTo(ResourceVisibility.PRIVATE);
     }
 
     private static AiHubChat buildChat(
@@ -732,6 +744,84 @@ class AiHubChatServiceTest {
     }
 
     /**
+     * Pins the union semantics of {@link AiHubChatServiceImpl#listSharedWithMe}: the {@code WORKSPACE}-reach half
+     * ({@code chat11}, {@code chat12}) is always included, and the {@code PRIVATE}-candidate half ({@code chat13},
+     * {@code chat14}) is narrowed down to the ids {@link ResourceGrantService#filterGrantedResourceIds} reports —
+     * {@code chat13} has no grant and must not appear. The merged result is re-sorted by {@code updatedAt} descending
+     * rather than trusting the two queries' independent orderings.
+     */
+    @Test
+    void testListSharedWithMeUnionsReachAndGrants() {
+        LocalDateTime now = LocalDateTime.now();
+
+        AiHubChat chat11 = buildChat(11L, OTHER_USER_ID, "thread-11", AiHubChatStatus.ACTIVE);
+        AiHubChat chat12 = buildChat(12L, OTHER_USER_ID, "thread-12", AiHubChatStatus.ACTIVE);
+        AiHubChat chat13 = buildChat(13L, OTHER_USER_ID, "thread-13", AiHubChatStatus.ACTIVE);
+        AiHubChat chat14 = buildChat(14L, OTHER_USER_ID, "thread-14", AiHubChatStatus.ACTIVE);
+
+        chat11.setUpdatedAt(now);
+        chat12.setUpdatedAt(now.minusMinutes(1));
+        chat13.setUpdatedAt(now.minusMinutes(2));
+        chat14.setUpdatedAt(now.minusMinutes(3));
+
+        when(
+            chatRepository.findSharedByReach(
+                WORKSPACE_ID, USER_ID, 0, AiHubChatStatus.ACTIVE.ordinal(), ResourceVisibility.WORKSPACE.ordinal(),
+                100))
+                    .thenReturn(List.of(chat11, chat12));
+        when(
+            chatRepository.findPrivateCandidates(
+                WORKSPACE_ID, USER_ID, 0, AiHubChatStatus.ACTIVE.ordinal(), ResourceVisibility.PRIVATE.ordinal(),
+                500))
+                    .thenReturn(List.of(chat13, chat14));
+        when(resourceGrantServiceProvider.getIfAvailable()).thenReturn(resourceGrantService);
+        when(
+            resourceGrantService.filterGrantedResourceIds(
+                AiHubChatVisibilityPolicy.RESOURCE_TYPE, USER_ID, List.of(13L, 14L)))
+                    .thenReturn(Set.of(14L));
+
+        List<AiHubChat> result = chatServiceWithResourceGrants().listSharedWithMe(WORKSPACE_ID, USER_ID, 0);
+
+        assertThat(result).extracting(AiHubChat::getId)
+            .containsExactly(11L, 12L, 14L);
+    }
+
+    /**
+     * On a CE deployment {@code resourceGrantServiceProvider.getIfAvailable()} returns {@code null} — the module has no
+     * bean to hand out. {@code listSharedWithMe} must degrade to the {@code WORKSPACE}-reach half alone rather than
+     * throwing, and must not spend a second query on private candidates it has no way to filter.
+     */
+    @Test
+    void testListSharedWithMeWithoutGrantServiceReturnsReachOnly() {
+        AiHubChat chat11 = buildChat(11L, OTHER_USER_ID, "thread-11", AiHubChatStatus.ACTIVE);
+
+        when(
+            chatRepository.findSharedByReach(
+                WORKSPACE_ID, USER_ID, 0, AiHubChatStatus.ACTIVE.ordinal(), ResourceVisibility.WORKSPACE.ordinal(),
+                100))
+                    .thenReturn(List.of(chat11));
+        when(resourceGrantServiceProvider.getIfAvailable()).thenReturn(null);
+
+        List<AiHubChat> result = chatServiceWithResourceGrants().listSharedWithMe(WORKSPACE_ID, USER_ID, 0);
+
+        assertThat(result).extracting(AiHubChat::getId)
+            .containsExactly(11L);
+        verify(chatRepository, never()).findPrivateCandidates(
+            anyLong(), anyLong(), anyInt(), anyInt(), anyInt(), anyInt());
+    }
+
+    /**
+     * Builds a service instance wired with a non-null {@code resourceGrantServiceProvider} — every other test
+     * constructor in this class passes a literal {@code null} for it, which only exercises the "module absent entirely"
+     * branch, not the "module present, bean unavailable" branch {@code getIfAvailable()} can also return.
+     */
+    private AiHubChatServiceImpl chatServiceWithResourceGrants() {
+        return new AiHubChatServiceImpl(
+            chatRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
+            aiHubSessionMemoryProvider, null, null, resourceGrantServiceProvider);
+    }
+
+    /**
      * Builds a service instance wired with a policy that grants {@code canView} unconditionally and follows the chat's
      * own {@link AiHubChatParticipation} for {@code canParticipate} — standing in for a workspace member the chat has
      * been shared with, without re-exercising {@link AiHubChatAccessPolicyImpl}'s own visibility-resolution logic
@@ -740,7 +830,7 @@ class AiHubChatServiceTest {
     private AiHubChatServiceImpl grantedChatService() {
         return new AiHubChatServiceImpl(
             chatRepository, new GrantedNonOwnerAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry, null,
-            aiHubSessionMemoryProvider, null, null);
+            aiHubSessionMemoryProvider, null, null, null);
     }
 
     private static final class GrantedNonOwnerAccessPolicy implements AiHubChatAccessPolicy {
