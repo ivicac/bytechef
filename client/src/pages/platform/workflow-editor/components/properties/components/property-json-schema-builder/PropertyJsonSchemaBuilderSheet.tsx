@@ -9,7 +9,6 @@ import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
 import CopilotPanel from '@/shared/components/copilot/CopilotPanel';
 import {SPACE} from '@/shared/constants';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {MessageCircleQuestionIcon, SparklesIcon} from 'lucide-react';
 import {VisuallyHidden} from 'radix-ui';
 import {Suspense, lazy, useCallback, useEffect, useRef, useState} from 'react';
@@ -54,10 +53,9 @@ const PropertyJsonSchemaBuilderSheet = ({
     const ai = useApplicationInfoStore((state) => state.ai);
     const responseSchemaNoteDismissed = useResponseSchemaNoteStore((state) => state.responseSchemaNoteDismissed);
     const setResponseSchemaNoteDismissed = useResponseSchemaNoteStore((state) => state.setResponseSchemaNoteDismissed);
-    const ff1570 = useFeatureFlagsStore()('ff-1570');
 
     const copilotAvailable = Boolean(
-        ai.copilot.enabled && ff1570 && workflowId && workflowNodeName && environmentId !== undefined
+        ai.copilot.enabled && workflowId && workflowNodeName && environmentId !== undefined
     );
 
     const handleSchemaChange = useCallback(
@@ -95,11 +93,6 @@ const PropertyJsonSchemaBuilderSheet = ({
         workflowNodeName,
     });
 
-    // The sheet's own close (the outside-click/Escape/close-icon path Radix drives through
-    // onOpenChange) bypasses handleCopilotClose entirely, since that only runs when the Copilot panel
-    // itself closes. Without this, opening Copilot inside the sheet and then closing the sheet directly
-    // pushes a conversation-stack entry that never gets popped. handleCopilotClose is token-guarded, so
-    // calling it here is a no-op on the (common) case where Copilot was never opened.
     const handleSheetOpenChange = useCallback(
         (open: boolean) => {
             if (!open) {
@@ -130,7 +123,11 @@ const PropertyJsonSchemaBuilderSheet = ({
                 onPointerDownOutside={(event) => event.preventDefault()}
             >
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <Tabs className="flex size-full flex-col gap-0" defaultValue="designer" onValueChange={handleTabChange}>
+                    <Tabs
+                        className="flex size-full flex-col gap-0"
+                        defaultValue="designer"
+                        onValueChange={handleTabChange}
+                    >
                         <header className="flex w-full shrink-0 items-center justify-between gap-x-3 rounded-t-md border-b border-stroke-neutral-primary bg-surface-neutral-primary p-3">
                             <div className="flex flex-col">
                                 <span className="text-lg font-semibold">
@@ -153,7 +150,7 @@ const PropertyJsonSchemaBuilderSheet = ({
                                     <Button
                                         aria-label="Copilot"
                                         icon={<SparklesIcon className="size-4" />}
-                                        onClick={handleCopilotOpen}
+                                        onClick={copilotPanelOpen ? handleCopilotClose : handleCopilotOpen}
                                         size="icon"
                                         variant="ghost"
                                     />

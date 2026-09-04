@@ -4,7 +4,7 @@ import {UpdateWorkflowMutationType, WorkflowDefinitionType} from '@/shared/types
 
 import useWorkflowDataStore, {WorkflowDataType, setWorkflowWithoutHistory} from '../stores/useWorkflowDataStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
-import {isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
+import {drainPendingSaves, isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
 
 interface HandleDeleteTriggerProps {
     cancelWorkflowQueries: () => void;
@@ -38,6 +38,8 @@ export default function handleDeleteTrigger({
     if (isWorkflowMutating(workflow.id!)) {
         return;
     }
+
+    useWorkflowNodeDetailsPanelStore.getState().removePendingSaveNodeName(triggerName);
 
     cancelWorkflowQueries();
 
@@ -84,6 +86,8 @@ export default function handleDeleteTrigger({
                 setWorkflowMutating(workflow.id!, false);
 
                 invalidateWorkflowQueries();
+
+                drainPendingSaves(workflow.id!);
             },
             onSuccess: (updatedWorkflow) => {
                 const currentWorkflow = useWorkflowDataStore.getState().workflow;

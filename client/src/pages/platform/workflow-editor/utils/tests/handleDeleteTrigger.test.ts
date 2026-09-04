@@ -7,6 +7,7 @@ import handleDeleteTrigger from '../handleDeleteTrigger';
 import {isWorkflowMutating, setWorkflowMutating} from '../workflowMutationGuard';
 
 vi.mock('../../utils/workflowMutationGuard', () => ({
+    drainPendingSaves: vi.fn(),
     isWorkflowMutating: vi.fn().mockReturnValue(false),
     setWorkflowMutating: vi.fn(),
 }));
