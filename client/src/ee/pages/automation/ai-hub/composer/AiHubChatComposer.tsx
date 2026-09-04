@@ -265,7 +265,7 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
     // keystroke, it reverts to VIEWING and clears the throttle, so the NEXT burst gets its own fresh
     // leading-edge announcement rather than staying suppressed by a throttle window from before the pause.
     const handleComposerChange = useCallback(() => {
-        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled, currentChatId)) {
             return;
         }
 
@@ -289,7 +289,7 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
 
             void sendPresence(chatId, 'VIEWING');
         }, TYPING_IDLE_MS);
-    }, [chatId, sharingEnabled]);
+    }, [chatId, currentChatId, sharingEnabled]);
 
     const handleAttachClick = () => {
         fileInputRef.current?.click();

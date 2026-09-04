@@ -370,8 +370,13 @@ export async function probeInFlightStatus(threadIds: ReadonlyArray<string>): Pro
 /**
  * Records or clears the caller's presence on {@code threadId}. Called on an interval while a shared chat is
  * open (heartbeat), on composer focus/typing (state {@code 'TYPING'}), and once more with {@code 'LEFT'} when
- * the client explicitly signals it is leaving (chat switch, unmount, tab close). Errors are swallowed — a
- * dropped heartbeat should not surface to the user; the next one due 20s later self-heals it.
+ * the client explicitly signals it is leaving (chat switch, unmount, tab close). A dropped heartbeat must not
+ * surface to the user — the next one due 20s later self-heals it — so it is only logged here.
+ *
+ * <p>The local try/catch is not what keeps a failure off screen: {@code useFetchInterceptor} patches
+ * {@code window.fetch} globally and toasts every non-2xx regardless of what the caller does with the response.
+ * Silence depends on this endpoint being listed in that module's {@code handlesErrorInline}, which is where the
+ * suppression actually lives.</p>
  */
 export async function sendPresence(threadId: string, state: 'LEFT' | 'TYPING' | 'VIEWING'): Promise<void> {
     try {
