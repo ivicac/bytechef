@@ -13,6 +13,9 @@ import {
     AiHubChatsDocument,
     AiHubChatsQuery,
     AiHubChatsQueryVariables,
+    AiHubSharedChatsDocument,
+    AiHubSharedChatsQuery,
+    AiHubSharedChatsQueryVariables,
     AiHubToolApprovalsDocument,
     AiHubToolApprovalsQuery,
     AiHubToolApprovalsQueryVariables,
@@ -104,6 +107,17 @@ function toArtifact(artifact: GraphQlArtifactType): AiHubChatArtifactI {
 export type ChatKindType = 'AGENT_CHAT' | 'STANDARD' | 'WORKFLOW_CHAT';
 
 /**
+ * How far a chat reaches beyond its owner. Deliberately narrower than the platform's
+ * {@code ResourceVisibilityValueType} (which also carries {@code ORGANIZATION}) — a chat belongs to at most one
+ * workspace, so {@code ORGANIZATION} is not a rung a chat can ever legally carry. See
+ * {@link AiHubChatShareDialog} for the narrowing this forces at the {@code ResourceVisibilityPicker} boundary.
+ */
+export type ChatVisibilityType = 'PRIVATE' | 'WORKSPACE';
+
+/** Whether a person a chat has been shared with may only follow it live, or may also contribute turns. */
+export type ChatParticipationType = 'PARTICIPATE' | 'VIEW';
+
+/**
  * Whether a chat's turns are served by the server's webhook bridge (messages forwarded to a workflow's
  * webhook trigger) rather than by the AI Hub's own LLM agent. Mirrors {@code AiHubChatKind#isWebhookBridged}.
  *
@@ -134,6 +148,8 @@ export interface AiHubChatI {
     autoTitled: boolean;
     createdAt: string;
     id: number;
+    /** Whether the current caller is this chat's owner. */
+    isOwner: boolean;
     /**
      * Discriminator for routing UI affordances. {@code STANDARD} → LLM-driven chat;
      * {@code WORKFLOW_CHAT} → bound to a specific workflow execution and bridged to the webhook executor
@@ -145,11 +161,25 @@ export interface AiHubChatI {
     kind: ChatKindType;
     lastPreview: string | null;
     messageCount: number;
+    /** The chat owner's login, or null if it could not be resolved. Null for the caller's own chats. */
+    ownerName: string | null;
+    /** The chat owner's user id, resolved off the row's userId column. */
+    ownerUserId: number;
+    /**
+     * Whether a person this chat has been shared with may only follow it live ({@code VIEW}, default) or may
+     * also contribute turns ({@code PARTICIPATE}).
+     */
+    participation: ChatParticipationType;
     status: ChatStatusType;
     threadId: string;
     title: string | null;
     updatedAt: string;
     userId: number;
+    /**
+     * How far this chat reaches beyond its owner. {@code PRIVATE} (default) or {@code WORKSPACE} — see
+     * {@link ChatVisibilityType}.
+     */
+    visibility: ChatVisibilityType;
     /**
      * Composite tenant+UUID string for a webhook-bridged chat ({@code WORKFLOW_CHAT} / composer-created
      * {@code AGENT_CHAT}); otherwise {@code null}. A channel-born {@code AGENT_CHAT} row — recorded when the
@@ -200,6 +230,13 @@ export function getChatDisplayTitle(
 }
 
 export interface AiHubChatMessageI {
+    // The author's login, resolved server-side from authorUserId, or null when it cannot be resolved (and
+    // always null for an ASSISTANT row — see authorUserId).
+    authorName: string | null;
+    // The id of the user who sent this row, resolved from the recorded turn at the same ordinal position
+    // among USER rows. Null for every ASSISTANT row, and for a USER row with no matching turn record (a
+    // channel-born chat, whose turns never go through the REST dispatch path that records them).
+    authorUserId: number | null;
     content: string;
     role: string;
     timestamp: string;
@@ -247,14 +284,19 @@ export function toChat(chat: GraphQlChatType): AiHubChatI {
         autoTitled: chat.autoTitled,
         createdAt: chat.createdAt != null ? new Date(Number(chat.createdAt)).toISOString() : '',
         id: Number(chat.id),
+        isOwner: chat.isOwner,
         kind,
         lastPreview: chat.lastPreview ?? null,
         messageCount: chat.messageCount,
+        ownerName: chat.ownerName ?? null,
+        ownerUserId: Number(chat.ownerUserId),
+        participation: chat.participation as ChatParticipationType,
         status: chat.status as ChatStatusType,
         threadId: chat.threadId,
         title: chat.title ?? null,
         updatedAt: chat.updatedAt != null ? new Date(Number(chat.updatedAt)).toISOString() : '',
         userId: Number(chat.userId),
+        visibility: chat.visibility as ChatVisibilityType,
         workflowExecutionId: chat.workflowExecutionId ?? null,
         workspaceId: Number(chat.workspaceId),
     };
@@ -296,6 +338,26 @@ export async function listChats({
     return result.aiHubChats.map(toChat);
 }
 
+/**
+ * Lists chats other workspace members have shared with the caller — every WORKSPACE-visible chat plus any
+ * PRIVATE chat the caller has been individually granted, both restricted to chats owned by someone else. See
+ * {@code aiHubSharedChats} on the server.
+ */
+export async function listSharedChats({
+    environment,
+    workspaceId,
+}: {
+    environment: number;
+    workspaceId: number;
+}): Promise<AiHubChatI[]> {
+    const result = await fetcher<AiHubSharedChatsQuery, AiHubSharedChatsQueryVariables>(AiHubSharedChatsDocument, {
+        environment,
+        workspaceId: String(workspaceId),
+    })();
+
+    return result.aiHubSharedChats.map(toChat);
+}
+
 export async function getChatMessages({
     chatId,
     workspaceId,
@@ -309,6 +371,8 @@ export async function getChatMessages({
     })();
 
     return result.aiHubChatMessages.map((message) => ({
+        authorName: message.authorName ?? null,
+        authorUserId: message.authorUserId != null ? Number(message.authorUserId) : null,
         content: message.content,
         role: message.role,
         timestamp: new Date(Number(message.timestamp)).toISOString(),

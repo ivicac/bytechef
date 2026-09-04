@@ -138,6 +138,21 @@ function buildRestoredToolParts(
 }
 
 /**
+ * Builds the `metadata.custom` payload {@link AiHubMessage}'s author label reads off a restored USER row —
+ * `authorUserId`/`authorName`, resolved server-side from the recorded turn (see the `aiHubChatMessages`
+ * query's fields of the same name). `undefined` when the server resolved neither (a channel-born chat's
+ * turns never go through the REST dispatch path that records them), so the message carries no `metadata` at
+ * all rather than one full of nulls.
+ */
+function buildAuthorMetadata(message: AiHubChatMessageI): ThreadMessageLike['metadata'] {
+    if (message.authorUserId == null && message.authorName == null) {
+        return undefined;
+    }
+
+    return {custom: {authorName: message.authorName, authorUserId: message.authorUserId}};
+}
+
+/**
  * Map the server transcript rows to thread messages, reattaching the persisted tool activity. Assistant rows
  * get their tool parts appended after the text; a USER row's tool activity (tool turns that ran before the
  * next assistant text landed) hoists into a synthetic assistant message right after it, since tool-call parts
@@ -164,7 +179,17 @@ function mapServerMessages(messages: AiHubChatMessageI[]): ThreadMessageLike[] {
         });
 
         if (clientRole !== 'assistant') {
-            mapped.push({content: serverMessage.content, role: clientRole} as ThreadMessageLike);
+            // A conditional spread rather than an unconditional `metadata: buildAuthorMetadata(...)` — the
+            // latter would set the key to `undefined` on every SYSTEM row and on a USER row with no
+            // resolvable author, which reads differently from "this message has no metadata at all" (the
+            // shape every message built via addMessage() during a live turn already has).
+            const authorMetadata = clientRole === 'user' ? buildAuthorMetadata(serverMessage) : undefined;
+
+            mapped.push({
+                content: serverMessage.content,
+                role: clientRole,
+                ...(authorMetadata ? {metadata: authorMetadata} : {}),
+            } as ThreadMessageLike);
 
             if (toolParts.length > 0) {
                 mapped.push({content: toolParts, role: 'assistant'} as ThreadMessageLike);
@@ -406,6 +431,41 @@ function buildArtifactLinkMessages(artifacts: AiHubChatArtifactI[]): ThreadMessa
 }
 
 /**
+ * Fetches a chat's history, artifacts, and tool approvals and maps them to the same
+ * {@code ThreadMessageLike[]} shape {@link useSwitchChat} loads into {@code aiHubStore.messages}. Extracted
+ * so the runtime provider's focused-chat poll (Task 8 — refetching the transcript when another
+ * participant's turn finishes while this client wasn't attached to it) can reuse the exact same
+ * fetch-and-map pipeline rather than a second, divergent one. Artifacts and tool approvals degrade to empty
+ * on their own failure — only the primary message fetch can reject this promise.
+ */
+export async function loadChatTranscript({
+    chatId,
+    workspaceId,
+}: {
+    chatId: number;
+    workspaceId: number;
+}): Promise<ThreadMessageLike[]> {
+    const [messages, artifacts, toolApprovals] = await Promise.all([
+        getChatMessages({chatId, workspaceId}),
+        getChatArtifacts({chatId, workspaceId}).catch((): AiHubChatArtifactI[] => []),
+        getToolApprovals({chatId, workspaceId}).catch((): AiHubToolApprovalI[] => []),
+    ]);
+
+    const toolApprovalsById = new Map(toolApprovals.map((approval) => [approval.id, approval]));
+
+    const mappedMessages: ThreadMessageLike[] = applyToolApprovalStatuses(
+        mapServerMessages(messages),
+        toolApprovalsById
+    );
+
+    // Chat memory persists only plain text, so the artifact link cards that streamed live are gone on
+    // reload. Rebuild them from the durable artifact rows and append after the transcript.
+    const artifactLinkMessages = buildArtifactLinkMessages(artifacts);
+
+    return [...mappedMessages, ...artifactLinkMessages];
+}
+
+/**
  * Returns whether the switch succeeded so callers can keep their dialog open on failure instead of closing
  * mid-error. The hook intentionally does NOT mutate command center/chat state on failure — a partial overwrite
  * would leave the user typing into a phantom thread; reportMutationError surfaces the failure as a toast and the
@@ -445,38 +505,13 @@ export function useSwitchChat() {
             navigate(`/automation/ai-hub/chats/${chat.id}`);
 
             try {
-                // Fetch history, artifacts, and tool approvals together. Artifacts back the link-card
-                // reconstruction below and tool approvals back applyToolApprovalStatuses; a failure in either
-                // must not break the (primary) message load, so both degrade to empty.
-                const [messages, artifacts, toolApprovals] = await Promise.all([
-                    getChatMessages({
-                        chatId: chat.id,
-                        workspaceId: currentWorkspaceId,
-                    }),
-                    getChatArtifacts({chatId: chat.id, workspaceId: currentWorkspaceId}).catch(
-                        (): AiHubChatArtifactI[] => []
-                    ),
-                    getToolApprovals({chatId: chat.id, workspaceId: currentWorkspaceId}).catch(
-                        (): AiHubToolApprovalI[] => []
-                    ),
-                ]);
-
-                const toolApprovalsById = new Map(toolApprovals.map((approval) => [approval.id, approval]));
-
-                const mappedMessages: ThreadMessageLike[] = applyToolApprovalStatuses(
-                    mapServerMessages(messages),
-                    toolApprovalsById
-                );
-
-                // Chat memory persists only plain text, so the artifact link cards that streamed live are gone
-                // on reload. Rebuild them from the durable artifact rows and append after the transcript.
-                const artifactLinkMessages = buildArtifactLinkMessages(artifacts);
+                const loadedMessages = await loadChatTranscript({chatId: chat.id, workspaceId: currentWorkspaceId});
 
                 // Apply only if the user is still on this chat — a slower fetch for chat A must not clobber
                 // the thread (or clear the loading flag) after the user has already clicked chat B.
                 if (aiHubStore.getState().chatId === chat.threadId) {
                     aiHubStore.setState({
-                        messages: [...mappedMessages, ...artifactLinkMessages],
+                        messages: loadedMessages,
                         messagesLoading: false,
                     });
                 }

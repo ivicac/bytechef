@@ -11,14 +11,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
+import AiHubChatShareDialog from '@/ee/pages/automation/ai-hub/chats/AiHubChatShareDialog';
 import {getChatDisplayTitle} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {type AiHubChatActionsI} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
 import {useEffect, useState} from 'react';
 
 type AiHubChatActionDialogsPropsType = Pick<
     AiHubChatActionsI,
-    'cancelDelete' | 'cancelRename' | 'confirmDelete' | 'deleteTarget' | 'renameTarget' | 'submitRename'
->;
+    | 'cancelDelete'
+    | 'cancelRename'
+    | 'cancelShare'
+    | 'confirmDelete'
+    | 'deleteTarget'
+    | 'renameTarget'
+    | 'shareTarget'
+    | 'submitRename'
+> & {
+    workspaceId: number;
+};
 
 /**
  * The confirm step for the two chat actions that need one. Rendered by whichever surface owns a
@@ -31,10 +41,13 @@ type AiHubChatActionDialogsPropsType = Pick<
 const AiHubChatActionDialogs = ({
     cancelDelete,
     cancelRename,
+    cancelShare,
     confirmDelete,
     deleteTarget,
     renameTarget,
+    shareTarget,
     submitRename,
+    workspaceId,
 }: AiHubChatActionDialogsPropsType) => {
     const [titleValue, setTitleValue] = useState('');
 
@@ -89,6 +102,14 @@ const AiHubChatActionDialogs = ({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Conditionally mounted rather than always-mounted-with-toggled-open like the two dialogs
+             * above: AiHubChatShareDialog requires a non-null chat, and its own grants/members queries
+             * only need to run for the lifetime of an actual share attempt. */}
+
+            {shareTarget && (
+                <AiHubChatShareDialog chat={shareTarget} onClose={cancelShare} open={true} workspaceId={workspaceId} />
+            )}
         </>
     );
 };

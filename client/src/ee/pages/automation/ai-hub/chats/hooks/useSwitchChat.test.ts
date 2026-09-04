@@ -46,14 +46,19 @@ const buildChat = (overrides: Partial<AiHubChatI> = {}): AiHubChatI => ({
     autoTitled: false,
     createdAt: '2026-04-01T00:00:00Z',
     id: 7,
+    isOwner: true,
     kind: 'STANDARD',
     lastPreview: null,
     messageCount: 0,
+    ownerName: null,
+    ownerUserId: 1,
+    participation: 'VIEW',
     status: 'ACTIVE',
     threadId: 'thread-target',
     title: 'Target',
     updatedAt: '2026-04-01T00:00:00Z',
     userId: 1,
+    visibility: 'PRIVATE',
     workflowExecutionId: null,
     workspaceId: 99,
     ...overrides,
@@ -88,7 +93,14 @@ describe('useSwitchChat', () => {
         });
 
         mockGetChatMessages.mockResolvedValue([
-            {content: 'hi', role: 'user', timestamp: '2026-04-01T00:00:00Z', toolEventsJson: null},
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'hi',
+                role: 'user',
+                timestamp: '2026-04-01T00:00:00Z',
+                toolEventsJson: null,
+            },
         ]);
 
         const {result} = renderHook(() => useSwitchChat());
@@ -106,10 +118,38 @@ describe('useSwitchChat', () => {
 
     it('maps user/assistant/system roles and filters tool', async () => {
         mockGetChatMessages.mockResolvedValue([
-            {content: 'hi', role: 'user', timestamp: '2026-04-01T00:00:00Z', toolEventsJson: null},
-            {content: 'hello', role: 'assistant', timestamp: '2026-04-01T00:00:01Z', toolEventsJson: null},
-            {content: 'sys', role: 'system', timestamp: '2026-04-01T00:00:02Z', toolEventsJson: null},
-            {content: 'tool-payload', role: 'tool', timestamp: '2026-04-01T00:00:03Z', toolEventsJson: null},
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'hi',
+                role: 'user',
+                timestamp: '2026-04-01T00:00:00Z',
+                toolEventsJson: null,
+            },
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'hello',
+                role: 'assistant',
+                timestamp: '2026-04-01T00:00:01Z',
+                toolEventsJson: null,
+            },
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'sys',
+                role: 'system',
+                timestamp: '2026-04-01T00:00:02Z',
+                toolEventsJson: null,
+            },
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'tool-payload',
+                role: 'tool',
+                timestamp: '2026-04-01T00:00:03Z',
+                toolEventsJson: null,
+            },
         ]);
 
         const {result} = renderHook(() => useSwitchChat());
@@ -126,14 +166,109 @@ describe('useSwitchChat', () => {
         ]);
     });
 
+    describe('author metadata (Task 8)', () => {
+        it('stamps metadata.custom.{authorName, authorUserId} on a restored USER row that carries them', async () => {
+            mockGetChatMessages.mockResolvedValue([
+                {
+                    authorName: 'ana',
+                    authorUserId: 2,
+                    content: 'hi',
+                    role: 'user',
+                    timestamp: '2026-04-01T00:00:00Z',
+                    toolEventsJson: null,
+                },
+            ]);
+
+            const {result} = renderHook(() => useSwitchChat());
+
+            await act(async () => {
+                await result.current(buildChat());
+            });
+
+            expect(aiHubStore.getState().messages).toEqual([
+                {
+                    content: 'hi',
+                    metadata: {custom: {authorName: 'ana', authorUserId: 2}},
+                    role: 'user',
+                },
+            ]);
+        });
+
+        it('leaves metadata unset on a restored USER row with no resolvable author (a channel-born chat)', async () => {
+            mockGetChatMessages.mockResolvedValue([
+                {
+                    authorName: null,
+                    authorUserId: null,
+                    content: 'hi',
+                    role: 'user',
+                    timestamp: '2026-04-01T00:00:00Z',
+                    toolEventsJson: null,
+                },
+            ]);
+
+            const {result} = renderHook(() => useSwitchChat());
+
+            await act(async () => {
+                await result.current(buildChat());
+            });
+
+            expect(aiHubStore.getState().messages[0]).not.toHaveProperty('metadata');
+        });
+
+        it('never stamps author metadata on an ASSISTANT row, even if the server sent authorUserId', async () => {
+            // authorUserId is always null for ASSISTANT rows per the server contract, but the client-side
+            // guard (clientRole === 'user') is what actually enforces "only user bubbles get an author
+            // label" — this pins that guard rather than trusting the server invariant alone.
+            mockGetChatMessages.mockResolvedValue([
+                {
+                    authorName: 'ana',
+                    authorUserId: 2,
+                    content: 'hello',
+                    role: 'assistant',
+                    timestamp: '2026-04-01T00:00:00Z',
+                    toolEventsJson: null,
+                },
+            ]);
+
+            const {result} = renderHook(() => useSwitchChat());
+
+            await act(async () => {
+                await result.current(buildChat());
+            });
+
+            expect(aiHubStore.getState().messages[0]).not.toHaveProperty('metadata');
+        });
+    });
+
     it('drops messages with unknown server roles instead of routing them', async () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
         mockGetChatMessages.mockResolvedValue([
-            {content: 'kept', role: 'user', timestamp: '2026-04-01T00:00:00Z', toolEventsJson: null},
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'kept',
+                role: 'user',
+                timestamp: '2026-04-01T00:00:00Z',
+                toolEventsJson: null,
+            },
             // role-drift: server shipped an unknown role; the silent-drop branch must not let it through
-            {content: 'dropped', role: 'TOOL_USE', timestamp: '2026-04-01T00:00:01Z', toolEventsJson: null},
-            {content: 'tool-payload', role: 'tool', timestamp: '2026-04-01T00:00:02Z', toolEventsJson: null},
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'dropped',
+                role: 'TOOL_USE',
+                timestamp: '2026-04-01T00:00:01Z',
+                toolEventsJson: null,
+            },
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'tool-payload',
+                role: 'tool',
+                timestamp: '2026-04-01T00:00:02Z',
+                toolEventsJson: null,
+            },
         ]);
 
         const {result} = renderHook(() => useSwitchChat());
@@ -177,7 +312,14 @@ describe('useSwitchChat', () => {
 
     it('returns true on success so the caller can keep the dialog open on failure', async () => {
         mockGetChatMessages.mockResolvedValue([
-            {content: 'hi', role: 'user', timestamp: '2026-04-01T00:00:00Z', toolEventsJson: null},
+            {
+                authorName: null,
+                authorUserId: null,
+                content: 'hi',
+                role: 'user',
+                timestamp: '2026-04-01T00:00:00Z',
+                toolEventsJson: null,
+            },
         ]);
 
         const {result} = renderHook(() => useSwitchChat());

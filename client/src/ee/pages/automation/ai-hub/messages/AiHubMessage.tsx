@@ -1,5 +1,7 @@
 import {TooltipIconButton} from '@/components/assistant-ui/tooltip-icon-button';
+import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import AiHubMessageContent from '@/ee/pages/automation/ai-hub/messages/AiHubMessageContent';
+import {useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {ActionBarPrimitive, ComposerPrimitive, MessagePrimitive, useAuiState} from '@assistant-ui/react';
 import {CheckIcon, CopyIcon, PencilIcon, RefreshCwIcon} from 'lucide-react';
 import {FC} from 'react';
@@ -98,6 +100,28 @@ const AiHubAssistantActionBar: FC = () => (
 
 const AiHubUserMessage: FC = () => {
     const content = useAuiState((state) => state.message.content);
+    // The provider stamps metadata.custom.{authorName, authorUserId} on each loaded user message from the
+    // aiHubChatMessages query's authorName/authorUserId fields (see useSwitchChat's mapServerMessages) —
+    // null for a message the current turn just sent locally, since that one has no server round-trip yet.
+    const authorName = useAuiState((state) => state.message.metadata?.custom?.authorName as string | undefined);
+    // Gate for the author label below: the EE visibility edition AND the ff-ai-hub-shared-chats flag
+    // must both be on. Without this, a chat that already received a second participant's turn before
+    // sharing was later disabled as a kill switch would keep showing author labels forever — derived
+    // purely from message history, with no other gate on this component — while every other sharing
+    // surface (the dialog, "Shared with me", the presence strip) has gone dark.
+    const sharingEnabled = useAiHubSharingEnabled();
+    // A boolean selector, not the raw messages array: subscribing to the whole array here would re-render
+    // every user bubble on every streamed token. Zustand only notifies subscribers when the selected value
+    // actually changes, so this only re-renders once the thread crosses the one-author line.
+    const hasMultipleAuthors = useAiHubStore((state) => {
+        const authorUserIds = new Set(
+            state.messages
+                .map((message) => (message.metadata?.custom?.authorUserId as number | undefined) ?? null)
+                .filter((authorUserId): authorUserId is number => authorUserId != null)
+        );
+
+        return authorUserIds.size > 1;
+    });
 
     const firstTextPart = content.find((part) => part.type === 'text');
     const firstTextValue = firstTextPart && 'text' in firstTextPart ? firstTextPart.text : undefined;
@@ -124,6 +148,18 @@ const AiHubUserMessage: FC = () => {
                 data-role="user"
             >
                 <div className="relative col-start-2 min-w-0">
+                    {/*
+                     * Solo chats (the overwhelming majority) show no label at all — this only appears once
+                     * the thread has messages from more than one distinct author, so a chat that was never
+                     * shared looks exactly as it always has.
+                     */}
+
+                    {sharingEnabled && hasMultipleAuthors && authorName && (
+                        <div className="mb-1 text-right text-xs text-muted-foreground" data-testid="message-author">
+                            {authorName}
+                        </div>
+                    )}
+
                     <div className="rounded-2xl bg-muted px-4 py-2 text-sm break-words text-foreground">
                         <AiHubMessageContent />
                     </div>

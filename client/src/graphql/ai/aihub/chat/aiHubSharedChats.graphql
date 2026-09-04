@@ -1,5 +1,5 @@
-mutation createAiHubChat($workspaceId: ID!, $environment: Int!, $threadId: String!) {
-    createAiHubChat(workspaceId: $workspaceId, environment: $environment, threadId: $threadId) {
+query aiHubSharedChats($workspaceId: ID!, $environment: Int!) {
+    aiHubSharedChats(workspaceId: $workspaceId, environment: $environment) {
         id
         workspaceId
         userId

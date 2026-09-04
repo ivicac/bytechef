@@ -1,25 +1,58 @@
 /**
- * Client-side adapter for the AI Hub's `/attach` and `/in-flight` endpoints. Lets the runtime provider
- * resume streaming after a page refresh and hydrate sidebar pulses for chats the user has running in other
- * threads.
+ * Client-side adapter for the AI Hub's `/attach`, `/status`, and `/presence` endpoints. Lets the runtime
+ * provider resume streaming after a page refresh, hydrate sidebar pulses for chats the user has running in
+ * other threads, and drive the presence heartbeat for shared chats.
  *
  * <p>
  * The matching server-side machinery lives in
+ * <code>server/ee/libs/ai/ai-hub/ai-hub-rest/src/main/java/com/bytechef/ee/ai/hub/web/rest/AiHubApiController.java</code>
+ * (the {@code status}/{@code presence} endpoints) and
  * <code>server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/agent/InFlightAiHubRunRegistry.java</code>
- * — see that file for the run-lifecycle and replay-buffer semantics this client relies on.
+ * (the run-lifecycle and replay-buffer semantics {@code attach} relies on).
  * </p>
  */
+import {getCookie} from '@/shared/util/cookie-utils';
 import {type AgentSubscriber, EventType} from '@ag-ui/client';
 
-const IN_FLIGHT_ENDPOINT = '/api/platform/internal/ai/chat/ai_hub/in-flight';
+const STATUS_ENDPOINT = '/api/platform/internal/ai/chat/ai_hub/status';
 
 // The probe passes every visible chat's threadId as a repeated `threadIds` query param. Sent as one
 // request, a large chat list overflows the servlet container's max request-line length and Tomcat
 // rejects it with an HTML 400 *before* the controller runs. Chunking keeps each URL comfortably under
 // common limits: at ~47 chars per id (`&threadIds=<uuid>`), 40 ids ≈ 1.9 KB of query string.
-const IN_FLIGHT_BATCH_SIZE = 40;
+const STATUS_BATCH_SIZE = 40;
 const ATTACH_ENDPOINT = (threadId: string) =>
     `/api/platform/internal/ai/chat/ai_hub/${encodeURIComponent(threadId)}/attach`;
+const PRESENCE_ENDPOINT = (threadId: string) =>
+    `/api/platform/internal/ai/chat/ai_hub/${encodeURIComponent(threadId)}/presence`;
+
+/**
+ * One user's presence on a thread, mirroring the server's {@code AiHubPresenceRegistry.PresenceEntry}.
+ * {@code lastSeen} arrives as an ISO-8601 instant string (Jackson's default {@code Instant} serialization —
+ * unlike {@code ThreadStatusI.updatedAt}, the server does not hand-convert this one to epoch millis), not a
+ * number.
+ */
+export interface PresenceEntryI {
+    lastSeen: string;
+    state: 'TYPING' | 'VIEWING';
+    userId: number;
+    userName: string;
+}
+
+/**
+ * Per-thread answer to the {@code /status} poll, mirroring the server's {@code AiHubApiController.ThreadStatus}
+ * record field for field: {@code inFlight, runningUserId, runningUserName, messageCount, updatedAt, presence}.
+ * A thread the caller cannot view (or that no longer exists) is omitted from the {@code /status} response map
+ * entirely rather than reported here with a falsy value — see {@link probeThreadStatus}.
+ */
+export interface ThreadStatusI {
+    inFlight: boolean;
+    messageCount: number;
+    presence: PresenceEntryI[];
+    runningUserId: number | null;
+    runningUserName: string | null;
+    updatedAt: number;
+}
 
 export interface AttachOptionsI {
     threadId: string;
@@ -263,50 +296,90 @@ export function attachToInFlightRun({onClose, subscriber, threadId}: AttachOptio
 }
 
 /**
- * Returns a `{threadId: boolean}` map. Threads missing from the response or not in flight resolve to
- * {@code false}. Network errors degrade silently to "no streams" — better to render a static history than
- * to surface a transient probe failure as a permanent block.
+ * Returns a `{threadId: ThreadStatusI}` map. A thread the caller cannot view, or that no longer exists, is
+ * omitted from the map entirely — never reported with a falsy/default status — so a missing key means "not
+ * yours, or gone", not "idle". Network errors degrade silently to "no statuses" — better to render a static
+ * history than to surface a transient probe failure as a permanent block.
  *
- * <p>Thread ids are probed in batches (see {@link IN_FLIGHT_BATCH_SIZE}) so a large chat list doesn't
- * overflow the request-line length limit. Batches run concurrently and each degrades independently: a
- * single failed batch contributes no entries rather than failing the whole probe.</p>
+ * <p>Thread ids are probed in batches (see {@link STATUS_BATCH_SIZE}) so a large chat list doesn't overflow
+ * the request-line length limit. Batches run concurrently and each degrades independently: a single failed
+ * batch contributes no entries rather than failing the whole probe.</p>
  */
-export async function probeInFlightStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, boolean>> {
+export async function probeThreadStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, ThreadStatusI>> {
     if (threadIds.length === 0) {
         return {};
     }
 
     const batches: Array<ReadonlyArray<string>> = [];
 
-    for (let index = 0; index < threadIds.length; index += IN_FLIGHT_BATCH_SIZE) {
-        batches.push(threadIds.slice(index, index + IN_FLIGHT_BATCH_SIZE));
+    for (let index = 0; index < threadIds.length; index += STATUS_BATCH_SIZE) {
+        batches.push(threadIds.slice(index, index + STATUS_BATCH_SIZE));
     }
 
-    const batchResults = await Promise.all(batches.map((batch) => probeInFlightBatch(batch)));
+    const batchResults = await Promise.all(batches.map((batch) => probeStatusBatch(batch)));
 
-    return Object.assign({}, ...batchResults) as Record<string, boolean>;
+    return Object.assign({}, ...batchResults) as Record<string, ThreadStatusI>;
 }
 
-async function probeInFlightBatch(threadIds: ReadonlyArray<string>): Promise<Record<string, boolean>> {
+async function probeStatusBatch(threadIds: ReadonlyArray<string>): Promise<Record<string, ThreadStatusI>> {
     const params = new URLSearchParams();
 
     threadIds.forEach((threadId) => params.append('threadIds', threadId));
 
     try {
-        const response = await fetch(`${IN_FLIGHT_ENDPOINT}?${params.toString()}`, {
+        const response = await fetch(`${STATUS_ENDPOINT}?${params.toString()}`, {
             credentials: 'include',
         });
 
         if (!response.ok) {
-            console.warn('[AiHub attach] probe returned non-OK status', response.status);
+            console.warn('[AiHub attach] status probe returned non-OK status', response.status);
 
             return {};
         }
 
-        return (await response.json()) as Record<string, boolean>;
+        return (await response.json()) as Record<string, ThreadStatusI>;
     } catch (error) {
-        console.warn('[AiHub attach] probe failed', error);
+        console.warn('[AiHub attach] status probe failed', error);
 
         return {};
+    }
+}
+
+/**
+ * Thin boolean projection of {@link probeThreadStatus} for callers that only care whether a run is in
+ * flight (the sidebar's pre-Task-8 probe, and its tests). A thread {@link probeThreadStatus} omits resolves
+ * to {@code false} here, matching this function's original (pre-`/status`) contract.
+ */
+export async function probeInFlightStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, boolean>> {
+    const statusByThreadId = await probeThreadStatus(threadIds);
+
+    return Object.fromEntries(
+        Object.entries(statusByThreadId).map(([threadId, status]) => [threadId, status.inFlight])
+    );
+}
+
+/**
+ * Records or clears the caller's presence on {@code threadId}. Called on an interval while a shared chat is
+ * open (heartbeat), on composer focus/typing (state {@code 'TYPING'}), and once more with {@code 'LEFT'} when
+ * the client explicitly signals it is leaving (chat switch, unmount, tab close). Errors are swallowed — a
+ * dropped heartbeat should not surface to the user; the next one due 20s later self-heals it.
+ */
+export async function sendPresence(threadId: string, state: 'LEFT' | 'TYPING' | 'VIEWING'): Promise<void> {
+    try {
+        const response = await fetch(PRESENCE_ENDPOINT(threadId), {
+            body: JSON.stringify({state}),
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': getCookie('XSRF-TOKEN') || '',
+            },
+            method: 'POST',
+        });
+
+        if (!response.ok) {
+            console.warn('[AiHub presence] heartbeat returned non-OK status', response.status);
+        }
+    } catch (error) {
+        console.warn('[AiHub presence] heartbeat failed', error);
     }
 }

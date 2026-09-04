@@ -57,11 +57,14 @@ export interface AiHubChatActionsI {
     archiveChat: (chat: AiHubChatI) => void;
     cancelDelete: () => void;
     cancelRename: () => void;
+    cancelShare: () => void;
     confirmDelete: () => void;
     deleteTarget: AiHubChatI | null;
     renameTarget: AiHubChatI | null;
     requestDelete: (chat: AiHubChatI) => void;
     requestRename: (chat: AiHubChatI) => void;
+    requestShare: (chat: AiHubChatI) => void;
+    shareTarget: AiHubChatI | null;
     submitRename: (title: string) => void;
     unarchiveChat: (chat: AiHubChatI) => void;
 }
@@ -78,6 +81,7 @@ export interface AiHubChatActionsI {
 export function useAiHubChatActions(): AiHubChatActionsI {
     const [renameTarget, setRenameTarget] = useState<AiHubChatI | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<AiHubChatI | null>(null);
+    const [shareTarget, setShareTarget] = useState<AiHubChatI | null>(null);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -164,11 +168,14 @@ export function useAiHubChatActions(): AiHubChatActionsI {
         archiveChat,
         cancelDelete: () => setDeleteTarget(null),
         cancelRename: () => setRenameTarget(null),
+        cancelShare: () => setShareTarget(null),
         confirmDelete,
         deleteTarget,
         renameTarget,
         requestDelete: setDeleteTarget,
         requestRename: setRenameTarget,
+        requestShare: setShareTarget,
+        shareTarget,
         submitRename,
         unarchiveChat,
     };

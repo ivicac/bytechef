@@ -4,5 +4,7 @@ query aiHubChatMessages($workspaceId: ID!, $id: ID!) {
         content
         timestamp
         toolEventsJson
+        authorUserId
+        authorName
     }
 }

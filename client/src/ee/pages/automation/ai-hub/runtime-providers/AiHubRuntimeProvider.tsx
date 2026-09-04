@@ -1,6 +1,8 @@
 import {createAiHubChat, generateAiHubChatTitle, patchChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
+import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import {AiHubChatsKeys} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {recordTabLessReferences} from '@/ee/pages/automation/ai-hub/chats/hooks/useRecordReferencedArtifacts';
+import {loadChatTranscript} from '@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat';
 import {useTruncateAiHubChatMessagesMutation} from '@/ee/pages/automation/ai-hub/chats/hooks/useTruncateChatMessages';
 import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
@@ -8,7 +10,10 @@ import {aiHubProgressStore} from '@/ee/pages/automation/ai-hub/progress/stores/u
 import {
     attachToInFlightRun,
     probeInFlightStatus,
+    probeThreadStatus,
+    sendPresence,
 } from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
+import {isAiHubSharingActiveForChat} from '@/ee/pages/automation/ai-hub/runtime-providers/isAiHubSharingActiveForChat';
 import {
     aiHubRunStateStore,
     isChatRunning,
@@ -306,6 +311,164 @@ interface SubagentProgressValueI {
     text: string;
 }
 
+/**
+ * The `runningUserId`/`runningUserName` pulled off a 409 TURN_IN_FLIGHT response body — see
+ * {@code AiHubApiController.handleTurnInFlight} for the server side.
+ */
+interface TurnInFlightBodyI {
+    runningUserId: number | null;
+    runningUserName: string | null;
+}
+
+/**
+ * Recognizes the server's 409 TURN_IN_FLIGHT response and extracts who is running the turn, from either
+ * shape the error can reach us in:
+ *  - The AG-UI SDK's HttpAgent throws an Error with `.status`/`.payload` set directly from the parsed JSON
+ *    body (the `agent.runAgent(...)` promise rejection caught in onNew/reRunAgentTurn's outer try/catch).
+ *  - The subscriber's `onRunErrorEvent` only ever sees a synthesized `{message, code}` — no `.payload` —
+ *    where `message` is the SDK's own `` `HTTP ${status}: ${body}` `` string, so the body has to be
+ *    recovered by slicing from the first `{` and parsing it.
+ * Returns null for every other error (including a syntactically-similar-looking but unrelated failure), so
+ * callers fall through to the ordinary error-bubble/toast path unchanged.
+ */
+export function parseTurnInFlightBody(
+    source: {message?: string; payload?: unknown} | null | undefined
+): TurnInFlightBodyI | null {
+    if (!source) {
+        return null;
+    }
+
+    const extractFromBody = (body: unknown): TurnInFlightBodyI | null => {
+        if (body == null || typeof body !== 'object' || (body as {error?: unknown}).error !== 'TURN_IN_FLIGHT') {
+            return null;
+        }
+
+        const typedBody = body as {runningUserId?: unknown; runningUserName?: unknown};
+
+        return {
+            runningUserId: typeof typedBody.runningUserId === 'number' ? typedBody.runningUserId : null,
+            runningUserName: typeof typedBody.runningUserName === 'string' ? typedBody.runningUserName : null,
+        };
+    };
+
+    const fromPayload = extractFromBody(source.payload);
+
+    if (fromPayload) {
+        return fromPayload;
+    }
+
+    if (typeof source.message !== 'string') {
+        return null;
+    }
+
+    const jsonStart = source.message.indexOf('{');
+
+    if (jsonStart < 0) {
+        return null;
+    }
+
+    try {
+        return extractFromBody(JSON.parse(source.message.slice(jsonStart)));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Merges a TURN_IN_FLIGHT response body into {@code threadStatus[threadId]}, preserving whatever
+ * `messageCount`/`presence`/`updatedAt` the last `/status` poll already resolved for this thread rather than
+ * zeroing them out — this is a targeted patch reacting to one rejected turn, not a fresh poll result.
+ */
+function applyTurnInFlightStatus(threadId: string, body: TurnInFlightBodyI): void {
+    const chatsState = aiHubChatsStore.getState();
+    const existingStatus = chatsState.threadStatus[threadId];
+
+    chatsState.setThreadStatus({
+        [threadId]: {
+            inFlight: true,
+            messageCount: existingStatus?.messageCount ?? 0,
+            presence: existingStatus?.presence ?? [],
+            runningUserId: body.runningUserId,
+            runningUserName: body.runningUserName,
+            updatedAt: existingStatus?.updatedAt ?? Date.now(),
+        },
+    });
+}
+
+/**
+ * Reads the marker {@link stampOptimisticTurnMarker} wrote onto a message, or `undefined` for a message
+ * that never carried one (every message loaded from the server, and every message added outside the
+ * TURN_IN_FLIGHT optimistic-append path).
+ */
+export function getOptimisticTurnMarker(message: ThreadMessageLike): string | undefined {
+    const marker = message.metadata?.custom?.optimisticTurnMarker;
+
+    return typeof marker === 'string' ? marker : undefined;
+}
+
+/**
+ * Tags a message as belonging to a specific optimistic-append attempt, so a TURN_IN_FLIGHT rollback can
+ * remove EXACTLY the message(s) it itself added — by identity, never by position. Position-based removal
+ * (slicing the last N entries off `state.messages`) is unsafe the moment anything else can rewrite the
+ * array between the optimistic append and the rollback, and something else can: the focused-chat poll
+ * replaces `messages` wholesale via its transcript refetch, and that refetch fires precisely when another
+ * participant's turn — the same one that made OUR turn ineligible — finishes and bumps messageCount. If
+ * that race lands between the append and the rollback, a positional slice would silently truncate the tail
+ * of the freshly-loaded REAL transcript instead of the two messages this call actually added. Filtering by
+ * marker instead is safe either way: if the tagged messages are still present, the filter removes exactly
+ * them; if a wholesale replace already discarded them, the filter is a no-op and the real transcript is
+ * left untouched.
+ */
+export function stampOptimisticTurnMarker(message: ThreadMessageLike, marker: string): ThreadMessageLike {
+    return {
+        ...message,
+        metadata: {...message.metadata, custom: {...message.metadata?.custom, optimisticTurnMarker: marker}},
+    };
+}
+
+/**
+ * Removes every message tagged with `marker` (see {@link stampOptimisticTurnMarker}) from the store, by
+ * identity rather than position — see that function's doc for the race this avoids.
+ */
+export function removeOptimisticTurnMessages(marker: string): void {
+    useAiHubStore.setState((state) => ({
+        messages: state.messages.filter((message) => getOptimisticTurnMarker(message) !== marker),
+    }));
+}
+
+/**
+ * A thread absent from a `/status` response is ambiguous on its own: {@link probeThreadStatus} degrades a
+ * transient network failure to the SAME empty result a genuine access loss (unshared, chat deleted)
+ * produces. Treating one miss as "access lost" would boot the user out of their own open chat on a single
+ * dropped request. Requiring several consecutive misses is the distinguishing signal — a real network blip
+ * self-heals within a tick or two, while a genuine loss of access stays missing forever — so the focused-chat
+ * poll tracks a running count via this pure reducer (a hit resets it, a miss increments it) rather than
+ * acting on any single response.
+ */
+export const FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES = 3;
+
+export function nextFocusedThreadMissCount(previousConsecutiveMisses: number, statusPresent: boolean): number {
+    return statusPresent ? 0 : previousConsecutiveMisses + 1;
+}
+
+/**
+ * The recovery for a focused chat the poll has concluded (via {@link FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES}
+ * consecutive misses) the caller no longer has access to — access was revoked, the owner unshared it, or the
+ * chat was deleted out from under them. Left silent, this would read exactly like "idle, nobody here" (the
+ * conflation the presence UI is built to avoid), so it surfaces explicitly and sends the user home, the same
+ * recovery {@code useAiHubChatActions.confirmDelete} already uses for a chat that vanished while the caller
+ * was viewing it.
+ */
+export function abandonFocusedChat({navigate}: {navigate: (path: string) => void}): void {
+    toast.error('You no longer have access to this chat.');
+
+    aiHubChatsStore.getState().setCurrentChatId(undefined);
+    useAiHubStore.getState().resetMessages();
+    useAiHubStore.getState().generateChatId();
+
+    navigate('/automation/ai-hub');
+}
+
 interface BuildSubscriberDepsI {
     addMessage: (message: ThreadMessageLike) => void;
     appendToLastAssistantMessage: (text: string) => void;
@@ -321,6 +484,14 @@ interface BuildSubscriberDepsI {
      * provider component, which calls {@code useNavigate()} at render time.
      */
     navigate?: (path: string) => void;
+    /**
+     * Fires instead of the ordinary red error bubble when the server rejects the turn with 409
+     * TURN_IN_FLIGHT (another participant's turn is already running on this thread). The caller uses this
+     * to update threadStatus and hand the user's typed text back to the composer — see
+     * AiHubRuntimeProvider's onNew/reRunAgentTurn for the concrete callback. Optional so tests that don't
+     * exercise this path can omit it.
+     */
+    onTurnInFlight?: (threadId: string, body: TurnInFlightBodyI) => void;
     onWorkflowMutated?: () => void;
     /**
      * Lifecycle hook fired when the AG-UI run terminates (RUN_FINISHED or RUN_ERROR). Used by the runtime
@@ -430,6 +601,7 @@ export const buildAiHubSubscriber = ({
     chatId: subscriberChatId,
     getLastUserMessage,
     navigate,
+    onTurnInFlight,
     onWorkflowMutated,
     runLifecycle,
     workflowStreamLifecycle,
@@ -555,14 +727,27 @@ export const buildAiHubSubscriber = ({
             // below. The cleanup (lifecycle + orphan tool-call termination) still runs so the composer settles.
             const userAborted = workflowStreamSignal?.aborted === true;
 
-            // Surface the server-side error inline as a distinct red callout bubble (see RunErrorMessage).
-            // Previously the bubble was left empty (just the copy/refresh icons rendered) because the error
-            // was only delivered via the toast rail + retry banner. Routing through addMessage with a
-            // data-run-error part keeps any partially-streamed assistant text visible above the error and
-            // renders the failure with red styling + an alert icon, distinct from a normal assistant reply.
-            // The drop-late-events guard mirrors the text handler: a stale runAgent from a previous chat
-            // must not stamp its error onto the new chat's transcript.
-            if (!userAborted && (subscriberChatId == null || useAiHubStore.getState().chatId === subscriberChatId)) {
+            // Another participant's turn was already running on this thread when the server rejected ours
+            // with 409 TURN_IN_FLIGHT — not a real failure, so skip both the red error bubble below and the
+            // ordinary retryable-error toast the outer catch in onNew/reRunAgentTurn would otherwise show.
+            // onTurnInFlight (when the caller supplied one) updates threadStatus and hands the user's typed
+            // text back to the composer.
+            const turnInFlightBody =
+                subscriberChatId != null ? parseTurnInFlightBody(event as {message?: string}) : null;
+
+            if (turnInFlightBody) {
+                onTurnInFlight?.(subscriberChatId!, turnInFlightBody);
+            } else if (
+                // Surface the server-side error inline as a distinct red callout bubble (see RunErrorMessage).
+                // Previously the bubble was left empty (just the copy/refresh icons rendered) because the error
+                // was only delivered via the toast rail + retry banner. Routing through addMessage with a
+                // data-run-error part keeps any partially-streamed assistant text visible above the error and
+                // renders the failure with red styling + an alert icon, distinct from a normal assistant reply.
+                // The drop-late-events guard mirrors the text handler: a stale runAgent from a previous chat
+                // must not stamp its error onto the new chat's transcript.
+                !userAborted &&
+                (subscriberChatId == null || useAiHubStore.getState().chatId === subscriberChatId)
+            ) {
                 const rawMessage = typeof event?.message === 'string' ? event.message.trim() : '';
                 const fallback = 'The agent run failed before completing this turn.';
                 const friendly = rawMessage.length > 0 ? humanizeAgentErrorMessage(rawMessage) : fallback;
@@ -1982,6 +2167,144 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 
+    // Whether chat sharing is on at all: the EE visibility edition AND the ff-ai-hub-shared-chats flag
+    // must both be true. The two effects below short-circuit entirely on this rather than only hiding
+    // their output — a flagged-off or CE deployment must generate neither the presence writes nor the
+    // extra per-focused-chat status poll, since both are network calls attributable to a feature the
+    // caller cannot see. This deliberately does NOT touch the mount-time resume-in-flight-run effect
+    // above (probeInFlightStatus) or the sidebar's own /status poll — both predate chat sharing and must
+    // keep working regardless of this flag.
+    const sharingEnabled = useAiHubSharingEnabled();
+
+    // Presence heartbeat: announces this client is viewing `chatId` to every other participant on a
+    // shared chat, via the same /presence endpoint the composer's typing debounce below also calls. Fires
+    // immediately on mount / chatId change (so a viewer who never types still shows up promptly) and every
+    // 20s after — matching the server's 45s presence-entry TTL with margin for a couple of missed beats.
+    // The cleanup sends 'LEFT' so a chat switch / unmount clears this client's entry right away rather than
+    // waiting out the TTL, which would otherwise leave a stale avatar on the strip for up to 45s.
+    useEffect(() => {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+            return;
+        }
+
+        void sendPresence(chatId, 'VIEWING');
+
+        const intervalHandle = setInterval(() => {
+            void sendPresence(chatId, 'VIEWING');
+        }, 20_000);
+
+        return () => {
+            clearInterval(intervalHandle);
+
+            void sendPresence(chatId, 'LEFT');
+        };
+    }, [chatId, sharingEnabled]);
+
+    // Focused-chat poll: the sidebar's own /status poll covers every VISIBLE chat every 20s, which is too
+    // slow for the one chat the user is actually looking at — another participant attaching a live turn
+    // to a shared chat, or finishing one while this client wasn't attached to it, should show up within a
+    // few seconds, not up to 20. Two things this poll reacts to that the sidebar's does not:
+    //  - inFlight flips true while THIS client isn't the one running it (isChatRunning is false) — attach,
+    //    the same way the mount-time effect above does for a run already in flight when the chat loads.
+    //  - messageCount grows past what's already loaded, while NOT in flight — another participant's turn
+    //    finished while this client wasn't attached to it (no subscriber ever streamed the reply in), so
+    //    refetch the transcript rather than leaving the reply invisible until the next manual chat switch.
+    useEffect(() => {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+            return;
+        }
+
+        let cancelled = false;
+        // null until the first successful poll resolves — a missing baseline must not read as "messageCount
+        // grew from 0", which would fire a spurious refetch on the very first tick.
+        let lastKnownMessageCount: number | null = null;
+        // See nextFocusedThreadMissCount's doc for why this is a running count rather than an
+        // act-on-the-first-miss check.
+        let consecutiveMisses = 0;
+
+        const pollFocusedThread = () => {
+            void probeThreadStatus([chatId]).then((statusByThreadId) => {
+                if (cancelled) {
+                    return;
+                }
+
+                const status = statusByThreadId[chatId];
+
+                consecutiveMisses = nextFocusedThreadMissCount(consecutiveMisses, status != null);
+
+                if (!status) {
+                    if (consecutiveMisses >= FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES) {
+                        cancelled = true;
+
+                        abandonFocusedChat({navigate});
+                    }
+
+                    return;
+                }
+
+                aiHubChatsStore.getState().setThreadStatus({[chatId]: status});
+
+                const isRunningLocally = isChatRunning(aiHubRunStateStore.getState(), chatId);
+
+                if (status.inFlight && !isRunningLocally) {
+                    // Mirrors the mount-time attach effect's own placeholder-reuse logic above — see its
+                    // comment for why a trailing ARRAY-content assistant (an artifact-link/tool-call card,
+                    // not partial reply text) must NOT be reused as the replay's write target.
+                    const currentMessages = useAiHubStore.getState().messages;
+                    const lastMessage = currentMessages[currentMessages.length - 1];
+                    const trailingTextAssistantPresent =
+                        lastMessage != null &&
+                        lastMessage.role === 'assistant' &&
+                        typeof lastMessage.content === 'string';
+
+                    if (!trailingTextAssistantPresent) {
+                        useAiHubStore.getState().addMessage({content: '', role: 'assistant'});
+                    }
+
+                    aiHubChatsStore.getState().clearActivityState(chatId);
+                    aiHubChatsStore.getState().setActivityState(chatId, 'running');
+
+                    attachToContinuation(chatId);
+                } else if (
+                    !status.inFlight &&
+                    lastKnownMessageCount != null &&
+                    status.messageCount > lastKnownMessageCount
+                ) {
+                    const currentChatIdNumeric = aiHubChatsStore.getState().currentChatId;
+
+                    if (currentChatIdNumeric != null && currentWorkspaceId != null) {
+                        void loadChatTranscript({
+                            chatId: currentChatIdNumeric,
+                            workspaceId: currentWorkspaceId,
+                        }).then((loadedMessages) => {
+                            // Apply only if still on this chat — a slow fetch racing a chat switch must not
+                            // clobber whatever the user has since switched to. Mirrors useSwitchChat's own
+                            // "still on this chat" guard.
+                            if (!cancelled && useAiHubStore.getState().chatId === chatId) {
+                                useAiHubStore.setState({messages: loadedMessages});
+                            }
+                        });
+                    }
+                }
+
+                lastKnownMessageCount = status.messageCount;
+            });
+        };
+
+        const intervalHandle = setInterval(pollFocusedThread, 5_000);
+
+        return () => {
+            cancelled = true;
+
+            clearInterval(intervalHandle);
+        };
+        // attachToContinuation is memoized (see the mount-time attach effect's own note above — same
+        // reasoning applies here); currentWorkspaceId only changes on a workspace switch, which already
+        // remounts this whole surface. Omitting both from deps avoids tearing down/recreating the interval
+        // on every render; the effect still re-fires when chatId itself changes, which is the whole point.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chatId, sharingEnabled]);
+
     const onNew = async (message: AppendMessage) => {
         if (message.content[0]?.type !== 'text') {
             throw new Error('Only text messages are supported');
@@ -2018,17 +2341,20 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
         aiChatRetryableErrorStore.getState().clearError();
 
+        // Generate the runId up front so a Stop click always has one to send, then mark the turn running
+        // BEFORE the (possibly multi-second) auto-create round-trip so the composer shows Stop immediately
+        // on send instead of staying on Send until createAiHubChat resolves. optimisticTurnMarker tags every
+        // message this call adds optimistically below (see stampOptimisticTurnMarker's doc), so a
+        // TURN_IN_FLIGHT rollback can remove exactly those messages by identity rather than by position.
+        const runId = getRandomId();
+        const optimisticTurnMarker = getRandomId();
+
         // Render the user's message immediately, BEFORE the (possibly slow) auto-create round-trip below.
         // AiHub.tsx flips from the home view to the thread view as soon as messages exist (not only once
         // the DB chat id arrives), so the switch feels instant instead of freezing the home page for the
         // few seconds createAiHubChat can take. On a create failure the catch below resets the messages,
         // reverting to the home view.
-        addMessage({content: input, role: 'user'});
-
-        // Generate the runId up front so a Stop click always has one to send, then mark the turn running
-        // BEFORE the (possibly multi-second) auto-create round-trip so the composer shows Stop immediately
-        // on send instead of staying on Send until createAiHubChat resolves.
-        const runId = getRandomId();
+        addMessage(stampOptimisticTurnMarker({content: input, role: 'user'}, optimisticTurnMarker));
 
         const turnStarted = await bootstrapAiHubTurnRunState({
             createChatIfNeeded: async () => {
@@ -2125,7 +2451,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
         aiHubComposerStore.getState().clear();
 
-        addMessage({content: '', role: 'assistant'});
+        addMessage(stampOptimisticTurnMarker({content: '', role: 'assistant'}, optimisticTurnMarker));
 
         // Capture the index of the assistant message we just appended so all tool calls in this turn
         // attach to it. Note: the user message was added first, then the assistant message.
@@ -2151,6 +2477,28 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             chatId,
             getLastUserMessage,
             navigate,
+            onTurnInFlight: (threadId, body) => {
+                applyTurnInFlightStatus(threadId, body);
+
+                // Roll back the two messages added optimistically above (the user bubble, then the empty
+                // assistant placeholder) and hand the drafted text back to the composer — but only if the
+                // user is still on THIS chat. TURN_IN_FLIGHT normally resolves within the same request/
+                // response cycle, but a fast chat switch in between must not restore this turn's draft.
+                // Mirrors the focused-chat poll's own "still on this chat" guard above.
+                if (useAiHubStore.getState().chatId !== threadId) {
+                    return;
+                }
+
+                // By identity (the marker stamped on them above), never by position: `messages` may
+                // already have been replaced wholesale by the focused-chat poll's transcript refetch (which
+                // fires precisely when another participant's turn — the one that just made ours ineligible
+                // — finishes) between the optimistic append and this rollback. See
+                // stampOptimisticTurnMarker's doc for why a positional slice would silently truncate the
+                // tail of the REAL transcript in that race instead of these two messages.
+                removeOptimisticTurnMessages(optimisticTurnMarker);
+
+                runtime.thread.composer.setText(input);
+            },
             onWorkflowMutated: handleWorkflowMutated,
             runLifecycle: {
                 // Fires on RUN_ERROR only. Aborts the per-turn workflow-stream AbortController so any
@@ -2208,8 +2556,18 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                 (error instanceof Error && error.name === 'AbortError') ||
                 turnController.signal.aborted;
 
-            if (isAbort) {
-                console.debug('AI Hub agent run aborted (caller cancel)');
+            // The subscriber's onRunErrorEvent already recognized 409 TURN_IN_FLIGHT (it sees the terminal
+            // RUN_ERROR event before this promise rejects) and did the real work — threadStatus update +
+            // handing the draft back to the composer. This catch's only remaining job for that case is to
+            // stay quiet: no toast, no retryable-banner entry, no "every running tool call failed" mark for
+            // a turn that never actually started server-side.
+            const isTurnInFlight =
+                parseTurnInFlightBody(error as {message?: string; payload?: unknown} | null | undefined) != null;
+
+            if (isAbort || isTurnInFlight) {
+                console.debug(
+                    isAbort ? 'AI Hub agent run aborted (caller cancel)' : 'AI Hub agent run deferred (turn in flight)'
+                );
             } else {
                 const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -2267,8 +2625,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         // Same race protection as onNew — see the localTurnStartedRef declaration.
         localTurnStartedRef.current = true;
 
-        // See onNew — publish the runId before the Stop button can appear.
+        // See onNew — publish the runId before the Stop button can appear. optimisticTurnMarker tags the
+        // placeholder added below, the same way, for the same reason (see stampOptimisticTurnMarker's doc).
         const runId = getRandomId();
+        const optimisticTurnMarker = getRandomId();
 
         aiHubRunStateStore.getState().setChatRunId(chatId, runId);
 
@@ -2281,7 +2641,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
         agent.setState(buildStateToSend(withCurrentChatLlmSelection({mode, workspaceId: currentWorkspaceId})));
 
-        addMessage({content: '', role: 'assistant'});
+        addMessage(stampOptimisticTurnMarker({content: '', role: 'assistant'}, optimisticTurnMarker));
 
         const assistantMessageIndex = useAiHubStore.getState().messages.length - 1;
 
@@ -2302,6 +2662,23 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             chatId,
             getLastUserMessage: () => lastUserInput,
             navigate,
+            onTurnInFlight: (threadId, body) => {
+                applyTurnInFlightStatus(threadId, body);
+
+                // Only the empty assistant placeholder was added above (onEdit already rewound the user
+                // message locally before calling reRunAgentTurn) — roll back that one message and hand the
+                // text back to the composer, mirroring onNew's TURN_IN_FLIGHT handling. Guarded the same
+                // way: skip if the user has since switched off this chat.
+                if (useAiHubStore.getState().chatId !== threadId) {
+                    return;
+                }
+
+                // By identity, never by position — see stampOptimisticTurnMarker's doc for the wholesale-
+                // replace race this avoids (identical reasoning to onNew's own TURN_IN_FLIGHT handling).
+                removeOptimisticTurnMessages(optimisticTurnMarker);
+
+                runtime.thread.composer.setText(lastUserInput);
+            },
             onWorkflowMutated: handleWorkflowMutated,
             runLifecycle: {
                 // Mirror onNew — abort the per-turn controller on RUN_ERROR so workflow streams stop.
@@ -2323,7 +2700,11 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                 (error instanceof Error && error.name === 'AbortError') ||
                 turnController.signal.aborted;
 
-            if (!isAbort) {
+            // See onNew's matching catch — the subscriber's onRunErrorEvent already handled TURN_IN_FLIGHT.
+            const isTurnInFlight =
+                parseTurnInFlightBody(error as {message?: string; payload?: unknown} | null | undefined) != null;
+
+            if (!isAbort && !isTurnInFlight) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
 
                 console.error('AI Hub agent run failed:', error);

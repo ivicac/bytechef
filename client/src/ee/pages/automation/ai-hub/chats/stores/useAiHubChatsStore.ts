@@ -1,3 +1,4 @@
+import {ThreadStatusI} from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 
@@ -47,6 +48,15 @@ interface AiHubChatsStateI {
     setCurrentChatId: (id: number | undefined) => void;
     setDraftLlmSelection: (provider: string | null, model: string | null) => void;
     setSearchTerm: (term: string) => void;
+    // Merges by thread id — a call with one thread's status leaves every other thread's entry (and
+    // chatActivity) untouched. The sidebar's poll and the runtime provider's TURN_IN_FLIGHT handling are the
+    // two writers; both pass a full ThreadStatusI per key, never a partial patch.
+    setThreadStatus: (statusByThreadId: Record<string, ThreadStatusI>) => void;
+    // Keyed by AG-UI thread id, like chatActivity — see that field's doc for why. A thread absent from this
+    // map means "not polled yet, or the last poll omitted it" (no view access, or the chat is gone) — NOT
+    // "idle with nobody present". Callers must branch on `threadId in threadStatus`, not on a falsy
+    // default, to tell the two apart.
+    threadStatus: Record<string, ThreadStatusI>;
     // Map of chatId -> error message. When non-empty for a given id, the sidebar shows a retry
     // affordance instead of leaving the chat labelled "Untitled" with no recovery path. The toast
     // shown at failure time is dismissable; this state is the durable signal that lets a user re-invoke
@@ -117,6 +127,7 @@ export const aiHubChatsStore = create<AiHubChatsStateI>()(
                 currentChatId: undefined,
                 draftLlmSelection: null,
                 searchTerm: '',
+                threadStatus: {},
                 titleGenerationFailures: {},
             }),
         searchTerm: '',
@@ -150,6 +161,11 @@ export const aiHubChatsStore = create<AiHubChatsStateI>()(
         setDraftLlmSelection: (provider, model) =>
             set({draftLlmSelection: provider == null && model == null ? null : {model, provider}}),
         setSearchTerm: (term) => set({searchTerm: term}),
+        setThreadStatus: (statusByThreadId) =>
+            set((state) => ({
+                threadStatus: {...state.threadStatus, ...statusByThreadId},
+            })),
+        threadStatus: {},
         titleGenerationFailures: {},
     }))
 );

@@ -16,5 +16,10 @@ query aiHubChats($workspaceId: ID!, $environment: Int!, $status: AiHubChatStatus
         projectDeploymentId
         autoTitled
         aiAgentId
+        visibility
+        participation
+        ownerUserId
+        ownerName
+        isOwner
     }
 }

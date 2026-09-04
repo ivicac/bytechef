@@ -2,6 +2,7 @@ import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {isChannelAgentChat, isWebhookBridgedChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
+import {useAiHubSharingEnabled} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubSharingEnabled';
 import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubComposer from '@/ee/pages/automation/ai-hub/composer/AiHubComposer';
@@ -16,6 +17,8 @@ import {
     aiHubComposerStore,
     useAiHubComposerStore,
 } from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
+import {sendPresence} from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
+import {isAiHubSharingActiveForChat} from '@/ee/pages/automation/ai-hub/runtime-providers/isAiHubSharingActiveForChat';
 import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {MODE, useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
@@ -23,11 +26,14 @@ import ChatToolChips from '@/ee/pages/automation/ai-hub/tools/ChatToolChips';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModeSwitch from '@/shared/components/ModeSwitch/ModeSwitch';
 import {usePushToTalk} from '@/shared/hooks/usePushToTalk';
+import {useVisibilityFeatureEnabled} from '@/shared/hooks/useVisibilityFeatureEnabled';
 import {useCancelAiHubRunMutation, useCancelWorkflowChatTurnMutation} from '@/shared/middleware/graphql';
+import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ComposerPrimitive, ThreadPrimitive, useAui} from '@assistant-ui/react';
 import {
     ArrowUpIcon,
+    EyeIcon,
     HexagonIcon,
     Loader2Icon,
     MicIcon,
@@ -64,6 +70,12 @@ const KIND_BADGE_CLASSES: Record<ReferencedResourceKindType, string> = {
     workflowExecution: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
 };
 
+// Typing presence tuning. TYPING fires on the leading edge of a burst and is then throttled to at
+// most one resend per THROTTLE_MS while the burst continues; VIEWING fires once IDLE_MS has passed with no
+// further keystroke. Equal values keep the two easy to reason about together — see handleComposerChange.
+const TYPING_THROTTLE_MS = 3_000;
+const TYPING_IDLE_MS = 3_000;
+
 interface AiHubChatComposerPropsI {
     /**
      * Optional pre-built LLM provider/model picker rendered as the first control in the composer's
@@ -82,6 +94,12 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
     // closes. Null whenever the picker was opened some other way (the "+" button), which must keep Radix's
     // ordinary behaviour of restoring focus to its trigger.
     const atMentionTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+    // Typing presence: 'TYPING' fires on the LEADING edge of a burst (the point of a typing
+    // indicator is "words are coming", so it has to announce as the person starts, not once they stop),
+    // throttled so a continuous burst doesn't resend it on every keystroke, and falls back to 'VIEWING'
+    // once the user has genuinely paused. See handleComposerChange below for how the two timers cooperate.
+    const typingThrottleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const typingIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const referencedResources = useAiHubComposerStore((state) => state.referencedResources);
     const resourcePickerOpen = useAiHubComposerStore((state) => state.resourcePickerOpen);
@@ -113,6 +131,35 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
     // offering the affordance at all. isWorkflowChat alone is NOT this gate: typing is the entire point of
     // a WORKFLOW_CHAT (and a composer-created AGENT_CHAT), so gating on it would break those.
     const isChannelBornChat = activeChat != null && isChannelAgentChat(activeChat);
+
+    // Shared-session composer states. A person the chat was shared with at VIEW (the default
+    // participation level) may follow it live but not contribute turns; an owner or workspace admin
+    // always keeps PARTICIPATE-equivalent access regardless of the chat's own participation setting. For
+    // the caller's OWN chats isOwner is always true, so this is false unconditionally for the (99% of
+    // chats) case that was never shared.
+    const {isAdmin} = useVisibilityFeatureEnabled();
+    // Gate for the sharing-derived composer states below and the typing/viewing presence heartbeat in
+    // handleComposerChange: the EE visibility edition AND the ff-ai-hub-shared-chats flag must both be
+    // on. A flagged-off caller sees today's composer exactly — no view-only notice, no others'-turn
+    // disable, and no presence pings.
+    const sharingEnabled = useAiHubSharingEnabled();
+    const isViewOnlyChat =
+        sharingEnabled && activeChat != null && activeChat.participation === 'VIEW' && !activeChat.isOwner && !isAdmin;
+
+    // The /status poll's per-thread entry — see useAiHubChatsStore's threadStatus doc for why a missing
+    // entry means "not polled yet / no access", not "idle". runningUserId is compared against the
+    // CALLER's own id (not this client's local isAgentRunning flag) because the turn in flight may belong
+    // to a different participant on a shared chat entirely — ThreadPrimitive.If running already covers
+    // the case where THIS client is the one running it.
+    const currentUserId = useAuthenticationStore((state) => state.account?.id);
+    const threadStatus = useAiHubChatsStore((state) =>
+        activeChat ? state.threadStatus[activeChat.threadId] : undefined
+    );
+    const isOthersTurnRunning =
+        sharingEnabled &&
+        threadStatus?.inFlight === true &&
+        threadStatus.runningUserId != null &&
+        threadStatus.runningUserId !== currentUserId;
 
     const cancelWorkflowChatTurnMutation = useCancelWorkflowChatTurnMutation();
     const cancelAiHubRunMutation = useCancelAiHubRunMutation();
@@ -182,6 +229,42 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
         chatId,
         aui,
     ]);
+
+    // Reports typing presence on a shared chat. A typing indicator exists to say "words are
+    // coming", so TYPING has to fire on the LEADING edge of a burst — the first keystroke after a pause —
+    // not only once the user stops (a debounce-only reading of this would announce TYPING just as the
+    // person goes idle, which is backwards). typingThrottleTimeoutRef, while set, marks "already announced
+    // for this burst"; it's what suppresses a resend on every keystroke and what reopens every
+    // TYPING_THROTTLE_MS to allow one during a long continuous burst. typingIdleTimeoutRef resets on every
+    // keystroke regardless and is what detects the pause: once TYPING_IDLE_MS passes with no further
+    // keystroke, it reverts to VIEWING and clears the throttle, so the NEXT burst gets its own fresh
+    // leading-edge announcement rather than staying suppressed by a throttle window from before the pause.
+    const handleComposerChange = useCallback(() => {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+            return;
+        }
+
+        if (!typingThrottleTimeoutRef.current) {
+            void sendPresence(chatId, 'TYPING');
+
+            typingThrottleTimeoutRef.current = setTimeout(() => {
+                typingThrottleTimeoutRef.current = null;
+            }, TYPING_THROTTLE_MS);
+        }
+
+        if (typingIdleTimeoutRef.current) {
+            clearTimeout(typingIdleTimeoutRef.current);
+        }
+
+        typingIdleTimeoutRef.current = setTimeout(() => {
+            if (typingThrottleTimeoutRef.current) {
+                clearTimeout(typingThrottleTimeoutRef.current);
+                typingThrottleTimeoutRef.current = null;
+            }
+
+            void sendPresence(chatId, 'VIEWING');
+        }, TYPING_IDLE_MS);
+    }, [chatId, sharingEnabled]);
 
     const handleAttachClick = () => {
         fileInputRef.current?.click();
@@ -286,6 +369,22 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
 
         previousChatIdRef.current = chatId;
     }, [aui, chatId]);
+
+    // Clears any pending typing-presence timers on chat switch / unmount — without this, a timer scheduled
+    // under the PREVIOUS chatId could still fire after the user has switched away, sending a stale-chat
+    // 'TYPING'/'VIEWING' heartbeat for a thread this client is no longer even looking at.
+    useEffect(
+        () => () => {
+            if (typingThrottleTimeoutRef.current) {
+                clearTimeout(typingThrottleTimeoutRef.current);
+            }
+
+            if (typingIdleTimeoutRef.current) {
+                clearTimeout(typingIdleTimeoutRef.current);
+            }
+        },
+        [chatId]
+    );
 
     // Radix restores focus to the popover's trigger on close — the "+" button. That is right when the "+"
     // button is what opened it, and wrong when '@' did: the user was mid-sentence, and handing them back a
@@ -506,14 +605,37 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
                                 but you can&apos;t reply from AI Hub.
                             </span>
                         </div>
+                    ) : isViewOnlyChat ? (
+                        // Same "replace, don't disable" reasoning as the channel-born notice above: a VIEW
+                        // participant has nowhere for a typed message to go either — the server's
+                        // enforceThreadAccess would reject the turn with 403 (canParticipate is false for
+                        // VIEW), so offering an enabled-looking input that always errors would be worse
+                        // than not offering one.
+                        <div
+                            className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground"
+                            data-testid="view-only-notice"
+                        >
+                            <EyeIcon aria-hidden className="size-4 shrink-0" />
+
+                            <span>
+                                You have view-only access to this chat — you can follow it live, but you can&apos;t send
+                                messages.
+                            </span>
+                        </div>
                     ) : (
                         <>
                             <ComposerPrimitive.Input
                                 aria-label="Message input"
                                 autoFocus
                                 className="max-h-32 min-h-12 w-full resize-none border-0 bg-transparent px-4 pt-2 pb-1 text-sm ring-0 outline-none placeholder:text-muted-foreground"
+                                disabled={isOthersTurnRunning}
+                                onChange={handleComposerChange}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Send a message..."
+                                placeholder={
+                                    isOthersTurnRunning
+                                        ? `${threadStatus?.runningUserName ?? 'Someone'}'s turn is running…`
+                                        : 'Send a message...'
+                                }
                                 rows={1}
                             />
 
