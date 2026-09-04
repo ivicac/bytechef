@@ -12,9 +12,22 @@
  * {@code stripLeakedToolMarkup} are their own small modules in this directory rather than living
  * inside the provider itself.
  *
+ * {@code persistedChatId} is {@code aiHubChatsStore}'s {@code currentChatId} — the database row id,
+ * which is {@code undefined} until {@code createAiHubChat} has returned one. A present {@code chatId}
+ * alone does not mean the server knows the thread: {@code useAiHubStore} generates a thread id up
+ * front, so a freshly opened "New Chat" carries one before any row exists, and both the {@code
+ * /presence} write and the {@code /status} read answer "unknown thread" for it — the former as a 404
+ * per heartbeat, the latter as an omission the focused-chat poll counts toward abandoning the chat.
+ * The two stores are always written together (see {@code useSwitchChat} and {@code
+ * createChatIfNeeded}), so the row id is a sound stand-in for "this thread exists server-side".
+ *
  * A user-defined type guard ({@code chatId is string}) rather than a plain boolean return, so a caller
  * that checks this before using {@code chatId} keeps the compiler's non-null narrowing.
  */
-export function isAiHubSharingActiveForChat(chatId: string | undefined, sharingEnabled: boolean): chatId is string {
-    return chatId != null && sharingEnabled;
+export function isAiHubSharingActiveForChat(
+    chatId: string | undefined,
+    sharingEnabled: boolean,
+    persistedChatId: number | undefined
+): chatId is string {
+    return chatId != null && sharingEnabled && persistedChatId != null;
 }

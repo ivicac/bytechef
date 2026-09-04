@@ -4,7 +4,7 @@ import {AiHubChatsKeys} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats'
 import {recordTabLessReferences} from '@/ee/pages/automation/ai-hub/chats/hooks/useRecordReferencedArtifacts';
 import {loadChatTranscript} from '@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat';
 import {useTruncateAiHubChatMessagesMutation} from '@/ee/pages/automation/ai-hub/chats/hooks/useTruncateChatMessages';
-import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {aiHubChatsStore, useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {aiHubProgressStore} from '@/ee/pages/automation/ai-hub/progress/stores/useAiHubProgressStore';
 import {
@@ -1897,6 +1897,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     const truncateChatMessagesMutation = useTruncateAiHubChatMessagesMutation();
     const toolCalls = useAiChatToolCallStore((state) => state.toolCalls);
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    // The persisted chat row id, undefined until this thread has actually been created server-side.
+    // isAiHubSharingActiveForChat needs it to tell a live shared chat from a home-page "New Chat"
+    // whose thread id exists only in this client.
+    const persistedChatId = useAiHubChatsStore((state) => state.currentChatId);
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
@@ -2279,7 +2283,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     // The cleanup sends 'LEFT' so a chat switch / unmount clears this client's entry right away rather than
     // waiting out the TTL, which would otherwise leave a stale avatar on the strip for up to 45s.
     useEffect(() => {
-        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled, persistedChatId)) {
             return;
         }
 
@@ -2294,7 +2298,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
             void sendPresence(chatId, 'LEFT');
         };
-    }, [chatId, sharingEnabled]);
+    }, [chatId, persistedChatId, sharingEnabled]);
 
     // Focused-chat poll: the sidebar's own /status poll covers every VISIBLE chat every 20s, which is too
     // slow for the one chat the user is actually looking at — another participant attaching a live turn
@@ -2310,7 +2314,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     // FOCUSED_THREAD_MAX_CONSECUTIVE_MISSES and FOCUSED_THREAD_MAX_CONSECUTIVE_ATTACH_FAILURES); this effect
     // carries the counters across ticks and performs whatever the decision names.
     useEffect(() => {
-        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled)) {
+        if (!isAiHubSharingActiveForChat(chatId, sharingEnabled, persistedChatId)) {
             return;
         }
 
@@ -2451,7 +2455,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         // remounts this whole surface. Omitting both from deps avoids tearing down/recreating the interval
         // on every render; the effect still re-fires when chatId itself changes, which is the whole point.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chatId, sharingEnabled]);
+    }, [chatId, persistedChatId, sharingEnabled]);
 
     const onNew = async (message: AppendMessage) => {
         if (message.content[0]?.type !== 'text') {

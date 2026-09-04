@@ -28,13 +28,27 @@ function isCsrfProtectedUrl(url: string): boolean {
 }
 
 /*
- * Some reads render their own error state inline and own the failure UX. The approval-form read,
- * for instance, shows a "Form no longer available" panel (see ApprovalForm.tsx) whenever its fetch
- * fails, so a global error toast on top of it is redundant and confusing. Suppress the toast for
- * those endpoints.
+ * Some requests own their own failure UX, or have none at all by design. A global error toast on top
+ * of either is noise the user can do nothing about, so it is suppressed for these endpoints:
+ *
+ *  - the approval-form read shows a "Form no longer available" panel (see ApprovalForm.tsx) whenever
+ *    its fetch fails, so a toast beside it is redundant and confusing;
+ *  - the AI Hub presence heartbeat is a background write with no rendered outcome — it fails whenever
+ *    a chat is deleted in another tab or a beat hits a network blip, and the next beat 20s later
+ *    self-heals it (see sendPresence in inFlightRunClient.ts);
+ *  - the AI Hub `/status` poll runs every few seconds for the focused chat and every 20s for the
+ *    sidebar, and degrades a failed batch to "no statuses" on purpose (see probeStatusBatch);
+ *    surfacing each failed tick would toast repeatedly for a condition the poll already recovers from.
+ *
+ * The AI Hub `/attach` stream needs no entry here: it is an EventSource, which never passes through
+ * the patched window.fetch.
  */
 function handlesErrorInline(url: string): boolean {
-    return url.includes('/approval-form/');
+    return (
+        url.includes('/approval-form/') ||
+        url.includes('/ai/chat/ai_hub/status') ||
+        /\/ai\/chat\/ai_hub\/[^/]+\/presence/.test(url)
+    );
 }
 
 /*
