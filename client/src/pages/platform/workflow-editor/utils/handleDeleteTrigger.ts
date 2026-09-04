@@ -39,6 +39,8 @@ export default function handleDeleteTrigger({
         return;
     }
 
+    useWorkflowNodeDetailsPanelStore.getState().removePendingSaveNodeName(triggerName);
+
     cancelWorkflowQueries();
 
     const updatedDefinition = JSON.stringify(
