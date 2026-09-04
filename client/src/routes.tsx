@@ -81,6 +81,7 @@ const ContextStoreSources = lazy(() => import('@/pages/automation/context-store/
 const ContextStores = lazy(() => import('@/pages/automation/context-store/ContextStores'));
 const AiAutoMemoriesPage = lazy(() => import('@/pages/automation/ai/memories/Memories'));
 const AiHubConnectorsPage = lazy(() => import('@/ee/pages/automation/ai-hub/context/AiHubConnectors'));
+const AiHubToolApprovalsPage = lazy(() => import('@/ee/pages/automation/ai-hub/settings/ToolApprovals'));
 const AiHubScheduledAgents = lazy(() => import('@/ee/pages/automation/ai-hub/scheduled/AiHubScheduledAgents'));
 
 const AiProviders = lazy(() => import('@/ee/pages/settings/platform/ai-providers/AiProviders'));
@@ -300,6 +301,20 @@ const currentWorkspaceSettingsRoutes = {
             ),
             path: 'ai/memories',
         },
+        // EE-only and behind ff-ai-hub-tool-approvals (see Settings.tsx's sidebarNavItems filter and the
+        // page's own useFeatureFlagsStore check) — a flagged-off or CE user should not reach this route.
+        {
+            element: (
+                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                    <EEVersion>
+                        <LazyLoadWrapper>
+                            <AiHubToolApprovalsPage />
+                        </LazyLoadWrapper>
+                    </EEVersion>
+                </PrivateRoute>
+            ),
+            path: 'ai-hub/tool-approvals',
+        },
     ],
     navItems: [
         {
@@ -332,6 +347,10 @@ const currentWorkspaceSettingsRoutes = {
         {
             href: 'ai/memories',
             title: 'AI Memories',
+        },
+        {
+            href: 'ai-hub/tool-approvals',
+            title: 'Tool Approvals',
         },
     ],
 };

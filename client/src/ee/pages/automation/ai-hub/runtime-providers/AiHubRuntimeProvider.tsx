@@ -34,7 +34,10 @@ import {
     useAiChatToolCallStore,
 } from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
 import {useSSE} from '@/shared/hooks/useSSE';
-import {useAppendAiHubChatAssistantMessageMutation} from '@/shared/middleware/graphql';
+import {
+    useAppendAiHubChatAssistantMessageMutation,
+    useResolveAiHubToolApprovalMutation,
+} from '@/shared/middleware/graphql';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -1106,6 +1109,13 @@ export const buildAiHubSubscriber = ({
                         content: [{data: dataPart.data, type: dataPart.type as `data-${string}`}],
                         role: 'assistant',
                     });
+
+                    // A gated tool call suspended instead of executing — mark the chat paused like
+                    // ask-workflow-question and approval_request do, so the sidebar shows "needs your answer
+                    // or approval" until someone resolves it through the card above.
+                    if (dataPart.type === 'data-tool-approval-request' && subscriberChatId != null) {
+                        aiHubChatsStore.getState().setActivityState(subscriberChatId, 'paused');
+                    }
                 }
             }
         },
@@ -1707,6 +1717,102 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
     const appendChatAssistantMessageMutation = useAppendAiHubChatAssistantMessageMutation();
 
+    // Shared by the attach-on-mount effect below (resuming a disconnected stream after a refresh) and
+    // resolveToolApproval below it (the fresh agent turn the server starts once a gated tool call is
+    // approved/rejected). Both call sites are themselves responsible for appending the trailing placeholder
+    // assistant message and setting the chat's activity state BEFORE calling this — this function owns only
+    // the part that must stay byte-for-byte identical between them: building the subscriber against that
+    // placeholder and opening the /attach EventSource. Extracted so the two call sites can never diverge.
+    const attachToContinuation = useCallback(
+        (threadId: string, signal?: AbortSignal) => {
+            aiHubRunStateStore.getState().setChatRunning(threadId, true);
+
+            const assistantMessageIndex = useAiHubStore.getState().messages.length - 1;
+
+            const attachSubscriber = buildAiHubSubscriber({
+                addMessage,
+                appendToLastAssistantMessage,
+                assistantMessageIndex,
+                // The user message that started this turn (or the tool-approval decision that resumed it) was
+                // already recorded before this attach opens, so surface "(resumed)" rather than a fabricated
+                // string — the retry banner's wording shouldn't mislead; the user can scroll up to see it.
+                chatId: threadId,
+                getLastUserMessage: () => '(resumed turn)',
+                navigate,
+                onWorkflowMutated: handleWorkflowMutated,
+                runLifecycle: {
+                    onSettle: () => aiHubRunStateStore.getState().setChatRunning(threadId, false),
+                },
+                // Workflow-stream lifecycle is a no-op here: a resumed runChatWorkflow turn whose sub-stream was
+                // already in flight when the client disconnected cannot be re-attached — that's a separate
+                // stream the bridge agent owns. The tool-call card still renders whatever output reached the
+                // buffer; only the live sub-stream continuation is lost. Phase 2 could extend the bridge to
+                // expose its own attach endpoint.
+                workflowStreamLifecycle: {
+                    onOpen: () => {
+                        // No-op: see comment above.
+                    },
+                    onSettle: () => {
+                        // No-op: see comment above.
+                    },
+                },
+                workflowStreamSignal: signal,
+            });
+
+            return attachToInFlightRun({
+                onClose: () => {
+                    aiHubRunStateStore.getState().setChatRunning(threadId, false);
+
+                    // Activity state is already cleared by onRunFinishedEvent / onRunErrorEvent inside the
+                    // subscriber; this is a defense-in-depth fallback for the case where the EventSource
+                    // closes for a non-terminal reason (network blip, server restart). Leaving the pulse
+                    // active in that case would look like the run is still going.
+                    aiHubChatsStore.getState().clearActivityState(threadId);
+                },
+                subscriber: attachSubscriber,
+                threadId,
+            });
+        },
+        [addMessage, appendToLastAssistantMessage, handleWorkflowMutated, navigate]
+    );
+
+    const resolveToolApprovalMutation = useResolveAiHubToolApprovalMutation();
+
+    // Resolves a gated AI Hub tool call through the resolveAiHubToolApproval mutation. Distinct from
+    // resolveApproval below: that one resumes a suspended WORKFLOW via the job-resume endpoint and streams
+    // the continuation over its own SSE connection opened by THIS component. Here the server starts a fresh
+    // agent turn on the same thread once the decision lands — so the continuation is attached the same way a
+    // disconnected-and-reconnected turn is, via attachToContinuation, rather than through a bespoke stream.
+    const resolveToolApproval = useCallback(
+        async (approvalId: number, approved: boolean, comment?: string) => {
+            const currentChatId = useAiHubStore.getState().chatId;
+
+            if (currentChatId == null || currentWorkspaceId == null) {
+                throw new Error('No active chat');
+            }
+
+            const result = await resolveToolApprovalMutation.mutateAsync({
+                approvalId: String(approvalId),
+                approved,
+                comment,
+                workspaceId: String(currentWorkspaceId),
+            });
+
+            aiHubChatsStore.getState().clearActivityState(currentChatId);
+
+            if (!result.resolveAiHubToolApproval.continuationStarted) {
+                return;
+            }
+
+            // A fresh assistant bubble so the continuation streams below the card instead of into it — mirrors
+            // resolveApproval's own placeholder below.
+            addMessage({content: '', role: 'assistant'});
+            aiHubChatsStore.getState().setActivityState(currentChatId, 'running');
+            attachToContinuation(currentChatId);
+        },
+        [addMessage, attachToContinuation, currentWorkspaceId, resolveToolApprovalMutation]
+    );
+
     // The returned promise settles from the resume request's HTTP outcome so the card only shows success on a 2xx.
     const resolveApproval = useCallback(
         (resumeId: string, payload: Record<string, unknown>) =>
@@ -1737,7 +1843,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         [addMessage]
     );
 
-    const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
+    const approvalResolution = useMemo(
+        () => ({resolveApproval, resolveToolApproval}),
+        [resolveApproval, resolveToolApproval]
+    );
 
     // Flush the continuation into the chat's chat memory when the resume stream ends, so the streamed text
     // survives a reload — the bridge only persists bridge-run turns, and this stream ran outside it.
@@ -1851,56 +1960,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                 useAiHubStore.getState().addMessage({content: '', role: 'assistant'});
             }
 
-            const assistantMessageIndex = useAiHubStore.getState().messages.length - 1;
-
-            aiHubRunStateStore.getState().setChatRunning(chatId, true);
             aiHubChatsStore.getState().clearActivityState(chatId);
             aiHubChatsStore.getState().setActivityState(chatId, 'running');
 
-            const attachSubscriber = buildAiHubSubscriber({
-                addMessage,
-                appendToLastAssistantMessage,
-                assistantMessageIndex,
-                // For attach replays the user message that started the turn was already in chat memory
-                // before the disconnect, so it's loaded via switchChat's getChatMessages. We surface
-                // "(resumed)" rather than a fabricated string so the retry banner's wording doesn't
-                // mislead — the user can scroll up to see their actual message.
-                chatId,
-                getLastUserMessage: () => '(resumed turn)',
-                navigate,
-                onWorkflowMutated: handleWorkflowMutated,
-                runLifecycle: {
-                    onSettle: () => aiHubRunStateStore.getState().setChatRunning(chatId, false),
-                },
-                // Workflow-stream lifecycle is a no-op on attach: a resumed runChatWorkflow turn whose
-                // sub-stream was already in flight when the client disconnected cannot be re-attached here
-                // — that's a separate stream the bridge agent owns. The tool-call card will still render
-                // whatever output reached the buffer; only the live sub-stream continuation is lost. Phase 2
-                // could extend the bridge to expose its own attach endpoint.
-                workflowStreamLifecycle: {
-                    onOpen: () => {
-                        // No-op: see comment above.
-                    },
-                    onSettle: () => {
-                        // No-op: see comment above.
-                    },
-                },
-                workflowStreamSignal: attachAbortController.signal,
-            });
-
-            disposeAttach = attachToInFlightRun({
-                onClose: () => {
-                    aiHubRunStateStore.getState().setChatRunning(chatId, false);
-
-                    // Activity state is already cleared by onRunFinishedEvent / onRunErrorEvent inside the
-                    // subscriber; this is a defense-in-depth fallback for the case where the EventSource
-                    // closes for a non-terminal reason (network blip, server restart). Leaving the pulse
-                    // active in that case would look like the run is still going.
-                    aiHubChatsStore.getState().clearActivityState(chatId);
-                },
-                subscriber: attachSubscriber,
-                threadId: chatId,
-            });
+            disposeAttach = attachToContinuation(chatId, attachAbortController.signal);
         })();
 
         return () => {
@@ -1910,9 +1973,10 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                 disposeAttach();
             }
         };
-        // addMessage / appendToLastAssistantMessage / navigate are stable from their hooks; omitting them
-        // from the dep array is intentional so the effect doesn't tear down + recreate the EventSource on
-        // every render. The effect MUST re-fire when chatId changes — that's the whole point.
+        // attachToContinuation is itself memoized on addMessage / appendToLastAssistantMessage /
+        // handleWorkflowMutated / navigate, all stable from their hooks; omitting it (and them) from the dep
+        // array is intentional so the effect doesn't tear down + recreate the EventSource on every render. The
+        // effect MUST re-fire when chatId changes — that's the whole point.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 

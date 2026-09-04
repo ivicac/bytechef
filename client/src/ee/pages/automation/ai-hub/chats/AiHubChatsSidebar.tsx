@@ -18,6 +18,7 @@ import {probeInFlightStatus} from '@/ee/pages/automation/ai-hub/runtime-provider
 import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
+import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ArchiveIcon,
@@ -38,6 +39,7 @@ import {
     PencilIcon,
     RadioTowerIcon,
     RotateCcwIcon,
+    ShieldCheckIcon,
     Trash2Icon,
     WorkflowIcon,
 } from 'lucide-react';
@@ -527,6 +529,8 @@ const AiHubChatsSidebar = () => {
 
     const isViewingArchived = activeFilter === 'ARCHIVED';
 
+    const isFeatureFlagEnabled = useFeatureFlagsStore();
+
     const {pathname} = useLocation();
 
     // Active-state predicates for the top-level menu items.
@@ -535,15 +539,18 @@ const AiHubChatsSidebar = () => {
     //   /automation/ai-hub/chats/<id> page, that chat's row in the list below already shows the active
     //   highlight — also lighting up "New Chat" would imply two simultaneous selections and visually
     //   conflate "start a fresh chat" with "currently on a chat".
-    // - Scheduled, Memories, Connectors, and Skills use exact prefix matches against their
-    //   canonical routes.
+    // - Scheduled, Memories, Connectors, Skills, and Tool approvals use exact prefix matches against
+    //   their canonical routes.
     const isOnNewChat = pathname === '/automation/ai-hub';
     const isOnMemories = pathname.startsWith('/automation/settings/ai/memories');
     const isOnConnectors = pathname.startsWith('/automation/settings/ai-hub/connectors');
     const isOnScheduled = pathname.startsWith('/automation/ai-hub/scheduled');
     const isOnSkills = pathname.startsWith('/automation/settings/ai/skills');
+    const isOnToolApprovals = pathname.startsWith('/automation/settings/ai-hub/tool-approvals');
 
-    const isOnMoreTarget = isOnMemories || isOnConnectors || isOnSkills;
+    const toolApprovalsEnabled = isFeatureFlagEnabled('ff-ai-hub-tool-approvals');
+
+    const isOnMoreTarget = isOnMemories || isOnConnectors || isOnSkills || (toolApprovalsEnabled && isOnToolApprovals);
 
     // `bg-accent` alone is the same shade as `hover:bg-accent`, so an "active" menu item is visually
     // indistinguishable from a hovered one — the user reads the row as not-selected. Mirror the active-chat
@@ -655,6 +662,15 @@ const AiHubChatsSidebar = () => {
                                 Skills
                             </Link>
                         </DropdownMenuItem>
+
+                        {toolApprovalsEnabled && (
+                            <DropdownMenuItem asChild>
+                                <Link to="/automation/settings/ai-hub/tool-approvals">
+                                    <ShieldCheckIcon />
+                                    Tool approvals
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
