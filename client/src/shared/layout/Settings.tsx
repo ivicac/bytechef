@@ -1,33 +1,18 @@
 import {PlatformType, usePlatformTypeStore} from '@/pages/home/stores/usePlatformTypeStore';
-import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
-import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav';
-import SettingsNavGroup, {SettingsNavGroupItemI} from '@/shared/layout/SettingsNavGroup';
+import SettingsSidebar from '@/shared/layout/settings-sidebar/SettingsSidebar';
+import {
+    SettingsSidebarNavItemI,
+    useSettingsSidebarSections,
+} from '@/shared/layout/settings-sidebar/useSettingsSidebarSections';
 import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
-import {ReactNode} from 'react';
-import {Outlet, useLocation} from 'react-router-dom';
-
-export interface SettingsNavItemI {
-    href?: string;
-    items?: SettingsNavItemI[];
-    title: string;
-}
+import {Outlet} from 'react-router-dom';
 
 interface SettingsProps {
-    sidebarNavItems: SettingsNavItemI[];
+    sidebarNavItems: SettingsSidebarNavItemI[];
     title?: string;
 }
-
-// Matched on whole path segments rather than a bare substring: `users` is a substring of
-// `workspace-users`, so on the workspace page both the workspace and the organization entry lit up
-// at once. A nested route still counts as inside its nav item, which is what the substring match
-// was giving us by accident.
-export const isNavItemCurrent = (pathname: string, href: string): boolean => {
-    const segmentPath = href.startsWith('/') ? href : `/${href}`;
-
-    return pathname === segmentPath || pathname.endsWith(segmentPath) || pathname.includes(`${segmentPath}/`);
-};
 
 const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
     const currentType = usePlatformTypeStore((state) => state.currentType);
@@ -38,9 +23,8 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
     const edition = useApplicationInfoStore((state) => state.application?.edition);
     const isFeatureFlagEnabled = useFeatureFlagsStore();
 
-    const location = useLocation();
-
-    const isNavItemVisible = (navItem: SettingsNavItemI) => {
+    // Flag filtering runs before grouping, so a group renders with whatever members survive their flags.
+    sidebarNavItems = sidebarNavItems.filter((navItem) => {
         if (navItem.href === 'components') {
             return isFeatureFlagEnabled('ff-1024') || isFeatureFlagEnabled('ff-207');
         }
@@ -88,60 +72,31 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
         }
 
         return true;
-    };
+    });
 
-    sidebarNavItems = sidebarNavItems
-        .filter(isNavItemVisible)
-        .map((navItem) => (navItem.items ? {...navItem, items: navItem.items.filter(isNavItemVisible)} : navItem))
-        .filter((navItem) => !navItem.items || navItem.items.length > 0);
-
-    const isHeading = (navItem: SettingsNavItemI) => navItem.href === undefined && navItem.items === undefined;
+    // A heading only labels the rows beneath it, so a flag that empties its section takes the heading
+    // with it: a heading survives only when the next surviving row is a real link. A grouped row counts
+    // as content here, which is what makes a group whose every member is hidden take its heading too.
+    const isHeading = (navItem: SettingsSidebarNavItemI) => navItem.href === undefined;
 
     sidebarNavItems = sidebarNavItems.filter(
         (navItem, index, visibleNavItems) =>
             !isHeading(navItem) || (visibleNavItems[index + 1] !== undefined && !isHeading(visibleNavItems[index + 1]))
     );
 
-    // A subgroup heading sits at the same level as a top-level one — same type scale, same
-    // indent — so a group reads consistently wherever it appears. `subgroup` only tightens the
-    // space above it, since a subgroup follows items it belongs with rather than opening a new
-    // section.
-    const navigationElements: ReactNode[] = sidebarNavItems.map((navItem) => {
-        if (navItem.items) {
-            return (
-                <SettingsNavGroup
-                    isCurrent={(href) => isNavItemCurrent(location.pathname, href)}
-                    items={navItem.items as SettingsNavGroupItemI[]}
-                    key={navItem.title}
-                    title={navItem.title}
-                />
-            );
-        }
-
-        if (navItem.href) {
-            return (
-                <LeftSidebarNavItem
-                    item={{
-                        current: isNavItemCurrent(location.pathname, navItem.href),
-                        name: navItem.title,
-                    }}
-                    key={navItem.href}
-                    toLink={navItem.href}
-                />
-            );
-        }
-
-        return (
-            <h3 className="px-2 pt-4 pb-1 text-sm font-semibold text-muted-foreground first:pt-0" key={navItem.title}>
-                {navItem.title}
-            </h3>
-        );
-    });
+    const {isCurrent, openSection, sections} = useSettingsSidebarSections(sidebarNavItems);
 
     return (
         <LayoutContainer
-            leftSidebarBody={<LeftSidebarNav body={navigationElements} />}
-            leftSidebarHeader={<Header position="sidebar" title={title} />}
+            leftSidebarBody={
+                <SettingsSidebar isCurrent={isCurrent} openSection={openSection} sections={sections} title={title} />
+            }
+            // The aside snaps between widths while the content padding transitions, so give the width the
+            // same 300ms as the padding — otherwise the sidebar jumps and the page glides after it.
+            leftSidebarClass="transition-[width] duration-300 ease-in-out"
+            // 512px is two 256px columns: the submenu matches the width of a sidebar anywhere else in the
+            // app, and the pair sits flush with the aside's edge rather than floating inside it.
+            leftSidebarWidth={openSection ? '128' : '64'}
         >
             <div className="size-full">
                 <Outlet />

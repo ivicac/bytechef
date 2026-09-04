@@ -1,9 +1,10 @@
-import {render, screen, userEvent} from '@/shared/util/test-utils';
+import {SettingsSidebarNavItemI} from '@/shared/layout/settings-sidebar/useSettingsSidebarSections';
+import {render, screen} from '@/shared/util/test-utils';
 import {ReactNode} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-import Settings, {SettingsNavItemI} from './Settings';
+import Settings from './Settings';
 
 const hoisted = vi.hoisted(() => ({
     enabledFeatureFlags: [] as string[],
@@ -25,21 +26,16 @@ vi.mock('@/shared/stores/useFeatureFlagsStore', () => ({
     useFeatureFlagsStore: () => (featureFlag: string) => hoisted.enabledFeatureFlags.includes(featureFlag),
 }));
 
-const renderSettings = (sidebarNavItems: SettingsNavItemI[], pathname = '/') =>
+const renderSettings = (sidebarNavItems: SettingsSidebarNavItemI[], pathname = '/') =>
     render(
         <MemoryRouter initialEntries={[pathname]}>
             <Settings sidebarNavItems={sidebarNavItems} />
         </MemoryRouter>
     );
 
-const aiNavGroup: SettingsNavItemI = {
-    items: [
-        {href: 'ai-providers', title: 'Providers'},
-        {href: 'ai/skills', title: 'Skills'},
-    ],
-    title: 'AI',
-};
-
+// What Settings still owns after the sidebar moved out: which rows a feature flag leaves standing, and
+// the headings that lose their reason to exist along with them. The two columns themselves are covered
+// by settings-sidebar/SettingsSidebar.test.tsx.
 describe('Settings', () => {
     beforeEach(() => {
         hoisted.enabledFeatureFlags = [];
@@ -81,49 +77,26 @@ describe('Settings', () => {
         expect(screen.getByText('Users')).toBeInTheDocument();
     });
 
-    it('opens the nav group holding the current route', () => {
-        renderSettings([{title: 'Organization'}, aiNavGroup], '/automation/settings/ai/skills');
-
-        expect(screen.getByRole('link', {name: 'Providers'})).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'Skills'})).toBeInTheDocument();
-    });
-
-    it('keeps a nav group closed while the current route sits outside it', () => {
-        renderSettings([{title: 'Organization'}, aiNavGroup], '/automation/settings/users');
-
-        expect(screen.getByRole('button', {name: 'AI'})).toBeInTheDocument();
-        expect(screen.queryByRole('link', {name: 'Providers'})).not.toBeInTheDocument();
-    });
-
-    it('opens a closed nav group when its parent row is clicked', async () => {
-        renderSettings([{title: 'Organization'}, aiNavGroup], '/automation/settings/users');
-
-        await userEvent.click(screen.getByRole('button', {name: 'AI'}));
-
-        expect(screen.getByRole('link', {name: 'Providers'})).toBeInTheDocument();
-    });
-
-    it('marks a collapsed nav group as current so closing it does not lose the you-are-here mark', async () => {
-        renderSettings([{title: 'Organization'}, aiNavGroup], '/automation/settings/ai/skills');
-
-        const groupRow = screen.getByRole('button', {name: 'AI'});
-
-        expect(groupRow).not.toHaveClass('bg-accent');
-
-        await userEvent.click(groupRow);
-
-        expect(groupRow).toHaveClass('bg-accent');
-    });
-
-    it('drops a nav group whose every entry is hidden by a feature flag', () => {
+    it('drops a group row whose every entry is hidden by a feature flag', () => {
         renderSettings([
             {title: 'Organization'},
             {href: 'users', title: 'Users'},
-            {items: [{href: 'components', title: 'Components'}], title: 'AI'},
+            {group: 'AI', href: 'components', title: 'Components'},
         ]);
 
         expect(screen.queryByText('AI')).not.toBeInTheDocument();
         expect(screen.queryByText('Components')).not.toBeInTheDocument();
+        expect(screen.getByText('Users')).toBeInTheDocument();
+    });
+
+    it('hides a section heading whose only item is a group hidden by a feature flag', () => {
+        renderSettings([
+            {href: 'users', title: 'Users'},
+            {title: 'Organization'},
+            {group: 'AI', href: 'components', title: 'Components'},
+        ]);
+
+        expect(screen.queryByText('Organization')).not.toBeInTheDocument();
         expect(screen.getByText('Users')).toBeInTheDocument();
     });
 });
