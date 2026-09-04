@@ -201,4 +201,35 @@ class ResourceVisibilityResolverImplTest {
 
         verify(resourceGrantService, never()).filterGrantedResourceIds(anyString(), anyLong(), any());
     }
+
+    /**
+     * {@code workspaceId} is accepted and never read: this resolver answers "is this resource's visibility rung wide
+     * enough, or is it granted to me", NOT "am I in that workspace". Visibility is a <em>precondition</em>, and the
+     * membership half of the contract lives in {@code PermissionServiceImpl#hasResourceScope}, which pairs
+     * {@code isResourceVisible} with {@code hasWorkspaceScope}.
+     *
+     * <p>
+     * This is worth pinning rather than leaving to the parameter list, because the signature reads as though the
+     * workspace were being enforced, and a caller that consults this resolver ALONE therefore silently turns
+     * {@code WORKSPACE} into "any authenticated user in the tenant". That is exactly the hole
+     * {@code AiHubChatAccessPolicyImpl.canView} shipped with — hence its own
+     * {@code workspaceUserService.fetchWorkspaceUser} check ahead of this call, and hence this test, so the next caller
+     * finds the precondition documented as executable rather than having to rediscover it.
+     * </p>
+     */
+    @Test
+    void testWorkspaceIdIsAcceptedButNeverRead() {
+        List<VisibilityRecord> candidates =
+            List.of(new VisibilityRecord(10L, ResourceVisibility.WORKSPACE, "ivica"));
+
+        // Two workspaces the caller has no established relationship with either way; the answer is identical, and
+        // identical to the WORKSPACE_ID case above, because the argument is never consulted.
+        assertThat(resolver.filterVisibleIds(CONNECTION, WORKSPACE_ID, candidates)).containsExactly(10L);
+        assertThat(resolver.filterVisibleIds(CONNECTION, 4242L, candidates)).containsExactly(10L);
+        assertThat(resolver.filterVisibleIds(CONNECTION, -1L, candidates)).containsExactly(10L);
+
+        // Not even "who is asking" is resolved for a WORKSPACE record, let alone which workspace they belong to.
+        verify(currentUserResolver, never()).fetchCurrentUserId();
+        verify(resourceGrantService, never()).filterGrantedResourceIds(anyString(), anyLong(), any());
+    }
 }

@@ -2,7 +2,7 @@ import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav';
 import SettingsNavGroup, {SettingsNavGroupItemI} from '@/shared/layout/SettingsNavGroup';
-import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
+import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useEffect, useMemo} from 'react';
 import {Outlet, useLocation} from 'react-router-dom';
@@ -13,7 +13,7 @@ export interface SettingsNavItemI {
     title: string;
 }
 
-const isCurrentHref = (pathname: string, href: string) => {
+export const isNavItemCurrent = (pathname: string, href: string): boolean => {
     if (href.startsWith('/')) {
         return pathname === href || pathname.startsWith(`${href}/`);
     }
@@ -29,6 +29,8 @@ interface SettingsProps {
 const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
     const billingEnabled = useApplicationInfoStore((state) => state.billing.enabled);
     const mcpServerEnabled = useApplicationInfoStore((state) => state.ai.mcp.server.enabled);
+    const aiHubEnabled = useApplicationInfoStore((state) => state.ai.hub.enabled);
+    const edition = useApplicationInfoStore((state) => state.application?.edition);
     const isFeatureFlagEnabled = useFeatureFlagsStore();
 
     const location = useLocation();
@@ -36,10 +38,6 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
     const isNavItemVisible = (navItem: SettingsNavItemI) => {
         if (navItem.href === 'components') {
             return isFeatureFlagEnabled('ff-1024') || isFeatureFlagEnabled('ff-207');
-        }
-
-        if (navItem.href?.includes('/account/appearance')) {
-            return isFeatureFlagEnabled('ff-445');
         }
 
         if (navItem.href === 'git-configuration') {
@@ -62,8 +60,12 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
             return billingEnabled;
         }
 
+        // The page is EE-only (its route is wrapped in EEVersion) and reads AI Hub GraphQL, which only
+        // exists where the hub module is on — so both conditions are the row's real reachability, not a
+        // rollout switch. Without them a CE or hub-off instance would offer a nav row leading to a page
+        // with no server behind it.
         if (navItem.href === 'ai-hub/tool-approvals') {
-            return isFeatureFlagEnabled('ff-ai-hub-tool-approvals');
+            return edition === EditionType.EE && aiHubEnabled;
         }
 
         return true;
@@ -85,7 +87,7 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
         () =>
             sidebarNavItems
                 .flatMap((navItem) => navItem.items ?? [navItem])
-                .filter((navItem) => navItem.href && isCurrentHref(location.pathname, navItem.href))
+                .filter((navItem) => navItem.href && isNavItemCurrent(location.pathname, navItem.href))
                 .sort((navItem, otherNavItem) => otherNavItem.href!.length - navItem.href!.length)[0],
         [location.pathname, sidebarNavItems]
     );
@@ -106,7 +108,7 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
                         if (navItem.items) {
                             return (
                                 <SettingsNavGroup
-                                    isCurrent={(href) => location.pathname.includes(href)}
+                                    isCurrent={(href) => isNavItemCurrent(location.pathname, href)}
                                     items={navItem.items as SettingsNavGroupItemI[]}
                                     key={navItem.title}
                                     title={navItem.title}
