@@ -58,6 +58,9 @@ public class AiHubChatTool {
     @Column("enabled")
     private boolean enabled = true;
 
+    @Column("requires_approval")
+    private boolean requiresApproval;
+
     @CreatedBy
     @Column("created_by")
     private String createdBy;
@@ -124,6 +127,14 @@ public class AiHubChatTool {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isRequiresApproval() {
+        return requiresApproval;
+    }
+
+    public void setRequiresApproval(boolean requiresApproval) {
+        this.requiresApproval = requiresApproval;
     }
 
     public String getCreatedBy() {

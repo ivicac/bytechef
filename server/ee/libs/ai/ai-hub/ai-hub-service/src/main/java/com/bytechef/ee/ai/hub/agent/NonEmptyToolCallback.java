@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.hub.agent;
 
+import com.bytechef.component.ai.llm.tool.DelegatingToolCallback;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -33,7 +34,7 @@ import org.springframework.ai.tool.definition.ToolDefinition;
  *
  * @author Ivica Cardic
  */
-public final class NonEmptyToolCallback implements ToolCallback {
+public final class NonEmptyToolCallback implements DelegatingToolCallback {
 
     private static final Logger log = LoggerFactory.getLogger(NonEmptyToolCallback.class);
 
@@ -70,6 +71,11 @@ public final class NonEmptyToolCallback implements ToolCallback {
     @Override
     public ToolDefinition getToolDefinition() {
         return delegate.getToolDefinition();
+    }
+
+    @Override
+    public ToolCallback getDelegate() {
+        return delegate;
     }
 
     @Override

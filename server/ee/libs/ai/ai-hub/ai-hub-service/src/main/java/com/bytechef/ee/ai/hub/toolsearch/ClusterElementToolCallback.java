@@ -176,6 +176,18 @@ public class ClusterElementToolCallback implements ToolCallback {
             .build();
     }
 
+    public String getComponentName() {
+        return componentName;
+    }
+
+    public int getComponentVersion() {
+        return componentVersion;
+    }
+
+    public @Nullable Long getPinnedConnectionId() {
+        return pinnedConnectionId;
+    }
+
     @Override
     public String call(String toolInput) {
         return call(toolInput, null);

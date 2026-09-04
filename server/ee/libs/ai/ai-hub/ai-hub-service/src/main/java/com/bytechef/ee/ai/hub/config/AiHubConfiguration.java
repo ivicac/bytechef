@@ -47,6 +47,7 @@ import com.bytechef.ee.ai.hub.agent.WebhookBridgeAgent;
 import com.bytechef.ee.ai.hub.agent.WebhookResumeRegistry;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatGuard;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry;
+import com.bytechef.ee.ai.hub.approval.AiHubApprovalGate;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatArtifactService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
@@ -250,6 +251,7 @@ public class AiHubConfiguration {
         ObjectProvider<LlmUsageRecorder> llmUsageRecorderProvider,
         ObjectProvider<AiGuardrails> aiGuardrailsProvider, ObjectProvider<MeterRegistry> meterRegistryProvider,
         ObjectProvider<WorkspaceSystemPrompts> workspaceSystemPromptsProvider,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider,
         AiHubToolAttachMetrics aiHubToolAttachMetrics, JsonMapper jsonMapper,
         IntelligentToolCatalog intelligentToolCatalog)
         throws AGUIException {
@@ -373,6 +375,10 @@ public class AiHubConfiguration {
 
         chatBindingToolCallbackResolverProvider.ifAvailable(builder::chatToolBindingResolver);
 
+        // Tool approval gate. Bean is only present when the AI Hub module is enabled; absent → every tool call
+        // executes immediately, unchanged behaviour.
+        approvalGateProvider.ifAvailable(builder::approvalGate);
+
         // Per-task LLM model override. Bean is only present when AI Gateway is enabled; absent → no
         // override capability, agents fall back to workspace default ChatClient (unchanged behaviour).
         overrideChatClientResolverProvider.ifAvailable(builder::overrideChatClientResolver);
@@ -439,6 +445,7 @@ public class AiHubConfiguration {
         ObjectProvider<LlmUsageRecorder> llmUsageRecorderProvider,
         ObjectProvider<AiGuardrails> aiGuardrailsProvider, ObjectProvider<MeterRegistry> meterRegistryProvider,
         ObjectProvider<WorkspaceSystemPrompts> workspaceSystemPromptsProvider,
+        ObjectProvider<AiHubApprovalGate> approvalGateProvider,
         AiHubToolAttachMetrics aiHubToolAttachMetrics, JsonMapper jsonMapper,
         IntelligentToolCatalog intelligentToolCatalog)
         throws AGUIException {
@@ -573,6 +580,10 @@ public class AiHubConfiguration {
 
         chatBindingToolCallbackResolverProvider.ifAvailable(buildBuilder::chatToolBindingResolver);
         overrideChatClientResolverProvider.ifAvailable(buildBuilder::overrideChatClientResolver);
+
+        // Tool approval gate. Bean is only present when the AI Hub module is enabled; absent → every tool call
+        // executes immediately, unchanged behaviour.
+        approvalGateProvider.ifAvailable(buildBuilder::approvalGate);
 
         // Per-turn token metering into ai_llm_usage (source = AI_HUB). Absent recorder → advisor logs only.
         llmUsageRecorderProvider.ifAvailable(buildBuilder::llmUsageRecorder);
