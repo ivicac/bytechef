@@ -8,12 +8,18 @@
 package com.bytechef.ee.ai.hub.approval;
 
 import com.bytechef.ee.ai.hub.approval.repository.AiHubToolApprovalRepository;
+import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
+import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
+import com.bytechef.ee.ai.hub.metric.AiHubToolApprovalMetrics;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -32,6 +38,8 @@ public class AiHubToolApprovalServiceImpl implements AiHubToolApprovalService {
     private static final Duration DEFAULT_EXPIRY = Duration.ofHours(24);
 
     private final AiHubToolApprovalRepository repository;
+    private final AiHubToolApprovalMetrics metrics;
+    private final @Nullable AiHubAuditPublisher auditPublisher;
     private final Clock clock;
 
     /**
@@ -40,12 +48,20 @@ public class AiHubToolApprovalServiceImpl implements AiHubToolApprovalService {
      * failing context startup.
      */
     @Autowired
-    public AiHubToolApprovalServiceImpl(AiHubToolApprovalRepository repository) {
-        this(repository, Clock.systemUTC());
+    public AiHubToolApprovalServiceImpl(
+        AiHubToolApprovalRepository repository, AiHubToolApprovalMetrics metrics,
+        @Nullable AiHubAuditPublisher auditPublisher) {
+
+        this(repository, metrics, auditPublisher, Clock.systemUTC());
     }
 
-    AiHubToolApprovalServiceImpl(AiHubToolApprovalRepository repository, Clock clock) {
+    AiHubToolApprovalServiceImpl(
+        AiHubToolApprovalRepository repository, AiHubToolApprovalMetrics metrics,
+        @Nullable AiHubAuditPublisher auditPublisher, Clock clock) {
+
         this.repository = repository;
+        this.metrics = metrics;
+        this.auditPublisher = auditPublisher;
         this.clock = clock;
     }
 
@@ -58,7 +74,27 @@ public class AiHubToolApprovalServiceImpl implements AiHubToolApprovalService {
                 .plus(DEFAULT_EXPIRY));
         }
 
-        return repository.save(approval);
+        AiHubToolApproval saved = repository.save(approval);
+
+        publishRequested(saved);
+
+        return saved;
+    }
+
+    private void publishRequested(AiHubToolApproval approval) {
+        if (auditPublisher == null) {
+            return;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+
+        data.put("approvalId", approval.getId());
+        data.put("chatId", approval.getChatId());
+        data.put("toolName", approval.getToolName());
+        data.put("componentName", approval.getComponentName());
+        data.put("requestedByUserId", approval.getRequestedByUserId());
+
+        auditPublisher.publish(AiHubAuditEvent.AI_HUB_TOOL_APPROVAL_REQUESTED, data);
     }
 
     @Override
@@ -97,6 +133,8 @@ public class AiHubToolApprovalServiceImpl implements AiHubToolApprovalService {
             pendingApproval.setDecidedAt(now);
 
             repository.save(pendingApproval);
+
+            metrics.record("superseded");
         }
 
         return pendingApprovals.size();

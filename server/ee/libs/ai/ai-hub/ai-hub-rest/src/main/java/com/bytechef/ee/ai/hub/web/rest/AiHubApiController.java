@@ -13,14 +13,15 @@ import com.agui.server.spring.AgUiParameters;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.ai.hub.agent.AiHubChatStreamer;
+import com.bytechef.ee.ai.hub.agent.AiHubRunState;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
+import com.bytechef.ee.ai.hub.approval.AiHubToolApprovalService;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
 import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -33,8 +34,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -88,12 +91,14 @@ public class AiHubApiController {
     private final AiHubChatService chatService;
     private final UserService userService;
     private final WorkspaceFacade workspaceFacade;
+    private final ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
 
     @SuppressFBWarnings("EI")
     public AiHubApiController(
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
         List<LocalAgent> localAgents, AiHubChatService chatService,
-        UserService userService, WorkspaceFacade workspaceFacade) {
+        UserService userService, WorkspaceFacade workspaceFacade,
+        ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
 
         this.chatStreamer = chatStreamer;
         this.inFlightRunRegistry = inFlightRunRegistry;
@@ -102,6 +107,7 @@ public class AiHubApiController {
         this.chatService = chatService;
         this.userService = userService;
         this.workspaceFacade = workspaceFacade;
+        this.toolApprovalServiceProvider = toolApprovalServiceProvider;
     }
 
     @Validated
@@ -113,6 +119,8 @@ public class AiHubApiController {
         long workspaceId = enforceWorkspaceAccess(agUiParameters, userId);
 
         String verifiedThreadId = enforceThreadOwnership(agUiParameters, userId, workspaceId);
+
+        supersedePendingApprovals(verifiedThreadId);
 
         injectAuthenticatedContext(agUiParameters, userId, workspaceId, verifiedThreadId);
 
@@ -284,10 +292,11 @@ public class AiHubApiController {
      * Writes the verified identity values into reserved keys on the AG-UI state. The agent's
      * {@code buildInvocationContext} reads from these server-controlled keys (not from the original request fields), so
      * the {@code AiHubToolInvocationContext} carried into tool callbacks is constructed from authenticated-session data
-     * — not from user-controlled request body.
+     * — not from user-controlled request body. Delegates the actual key-writing to {@link AiHubRunState#inject}, shared
+     * with the tool-approval resolution facade's continuation turn.
      */
     private void injectAuthenticatedContext(
-        AgUiParameters agUiParameters, long userId, long workspaceId, String verifiedThreadId) {
+        AgUiParameters agUiParameters, long userId, long workspaceId, @Nullable String verifiedThreadId) {
 
         State state = agUiParameters.getState();
 
@@ -296,30 +305,38 @@ public class AiHubApiController {
             agUiParameters.setState(state);
         }
 
-        state.set(AiHubStateKeys.AUTHENTICATED_USER_ID, userId);
-        state.set(AiHubStateKeys.VERIFIED_WORKSPACE_ID, workspaceId);
+        long environmentId = AiHubRunState.clampEnvironmentId(readLong(agUiParameters, AiHubStateKeys.ENVIRONMENT_ID));
 
-        // Defensively overwrite the unverified key paths with verified values so a future regression that reads
-        // state.workspaceId or state.userId still gets server-controlled data.
-        state.set(AiHubStateKeys.WORKSPACE_ID, workspaceId);
-        state.set(AiHubStateKeys.USER_ID, userId);
+        AiHubRunState.inject(
+            state, userId, workspaceId, verifiedThreadId, environmentId, TenantContext.getCurrentTenantId());
+    }
 
-        if (verifiedThreadId != null) {
-            state.set(AiHubStateKeys.VERIFIED_THREAD_ID, verifiedThreadId);
-            state.set(AiHubStateKeys.THREAD_ID, verifiedThreadId);
+    /**
+     * Marks every pending tool approval on the resolved chat as {@code SUPERSEDED} before the new turn runs. A pending
+     * approval belongs to the tool call that raised it, and that call's continuation never runs once a fresh user
+     * message starts a new turn — leaving the row {@code PENDING} would let a stale approval card resolve against a
+     * conversation state that has already moved on. A no-op when no chat resolves yet (first turn) or the tool approval
+     * module is disabled.
+     */
+    private void supersedePendingApprovals(@Nullable String verifiedThreadId) {
+        if (verifiedThreadId == null) {
+            return;
         }
 
-        Long rawEnvironmentId = readLong(agUiParameters, AiHubStateKeys.ENVIRONMENT_ID);
+        AiHubToolApprovalService toolApprovalService = toolApprovalServiceProvider.getIfAvailable();
 
-        long environmentId =
-            rawEnvironmentId != null && rawEnvironmentId >= 0 && rawEnvironmentId < Environment.values().length
-                ? rawEnvironmentId
-                : 0L;
+        if (toolApprovalService == null) {
+            return;
+        }
 
-        state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, environmentId);
-        state.set(AiHubStateKeys.ENVIRONMENT_ID, environmentId);
+        Optional<AiHubChat> chat = chatService.findByThreadId(verifiedThreadId);
 
-        state.set(AiHubStateKeys.VERIFIED_TENANT_ID, TenantContext.getCurrentTenantId());
+        if (chat.isEmpty()) {
+            return;
+        }
+
+        toolApprovalService.supersedePending(chat.get()
+            .getId());
     }
 
     /**

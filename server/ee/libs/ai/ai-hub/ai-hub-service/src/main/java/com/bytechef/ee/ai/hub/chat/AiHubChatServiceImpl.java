@@ -12,6 +12,7 @@ import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry;
+import com.bytechef.ee.ai.hub.approval.AiHubToolApprovalService;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditEvent;
 import com.bytechef.ee.ai.hub.audit.AiHubAuditPublisher;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
@@ -85,14 +86,22 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     private final ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider;
     private final ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider;
     private final @Nullable AiHubAuditPublisher auditPublisher;
+    private final @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
 
+    /**
+     * {@code toolApprovalServiceProvider} is nullable at both levels — the {@link ObjectProvider} itself, so the four
+     * hand-built test constructors predating the tool approval gate keep compiling with a plain {@code null} argument,
+     * and what it yields, so a deployment where the tool approval module is disabled still gets a working
+     * {@link AiHubChatServiceImpl}. {@link #deleteApprovals} guards on both.
+     */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubChatServiceImpl(
         AiHubChatRepository chatRepository, JobFacade jobFacade, WorkflowChatJobRegistry jobRegistry,
         InFlightAiHubRunRegistry inFlightRunRegistry,
         ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider,
         ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider,
-        @Nullable AiHubAuditPublisher auditPublisher) {
+        @Nullable AiHubAuditPublisher auditPublisher,
+        @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
 
         this.chatRepository = chatRepository;
         this.clock = Clock.systemUTC();
@@ -107,6 +116,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // Nullable so unit tests constructing this impl without an audit publisher (and any deployment that
         // doesn't supply the EE bean) degrade to a no-op; publishChatCreated/publishChatDeleted guard on null.
         this.auditPublisher = auditPublisher;
+        this.toolApprovalServiceProvider = toolApprovalServiceProvider;
     }
 
     private void publishChatCreated(AiHubChat chat) {
@@ -723,6 +733,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         AiHubChat chat =
             loadAndCheckOwnership(chatId, requesterWorkspaceId, requesterUserId);
 
+        deleteApprovals(chatId);
+
         // Delete the chat row first inside the @Transactional boundary; the chat-memory rows are deleted
         // afterCommit. Mirrors AssetFileFacadeImpl.scheduleBlobDeleteAfterCommit: a rollback restores the chat
         // row consistently with no orphan messages possible from a rolled-back delete, and a post-commit chat-memory
@@ -738,6 +750,26 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // row is still alive. On commit, the session entries are dropped so the vector store doesn't accumulate
         // orphans for every deleted chat.
         scheduleChatToolSessionClear(chatId);
+    }
+
+    /**
+     * Deletes every tool approval recorded for the chat, matching how {@code ai_hub_chat_tool} rows are cleaned up.
+     * {@code toolApprovalServiceProvider} is nullable (both the provider itself, for the four hand-built test
+     * constructors, and what it yields, for a deployment where the tool approval module is disabled), so both are
+     * guarded before use.
+     */
+    private void deleteApprovals(long chatId) {
+        if (toolApprovalServiceProvider == null) {
+            return;
+        }
+
+        AiHubToolApprovalService toolApprovalService = toolApprovalServiceProvider.getIfAvailable();
+
+        if (toolApprovalService == null) {
+            return;
+        }
+
+        toolApprovalService.deleteByChat(chatId);
     }
 
     private void scheduleChatMemoryDeleteAfterCommit(String threadId) {
