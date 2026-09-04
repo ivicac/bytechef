@@ -41,8 +41,12 @@ This revises the earlier `2026-05-06-workspace-relation-tables-design.md` for ne
 A resource wired to this model carries a `visibility` column typed `ResourceVisibility` (`PRIVATE <
 WORKSPACE < ORGANIZATION`, in `platform-api`, ordinals pinned by `ResourceVisibilityTest`). Every
 resource is created **WORKSPACE-visible** — shared with its workspace unless its owner withholds it.
-The model is resource-agnostic. Wired so far: **connections** (`PRIVATE`/`WORKSPACE`/`ORGANIZATION`)
-and **projects** (`PRIVATE`/`WORKSPACE`; `ProjectVisibilityPolicy`, column `project.visibility`).
+The model is resource-agnostic. Wired so far: **connections** (`PRIVATE`/`WORKSPACE`/`ORGANIZATION`),
+**projects** (`PRIVATE`/`WORKSPACE`; `ProjectVisibilityPolicy`, column `project.visibility`), and
+**AI Hub chats** (`PRIVATE`/`WORKSPACE`; `AiHubChatVisibilityPolicy`, column `ai_hub_chat.visibility`
+— the one type created **`PRIVATE`**, not `WORKSPACE`, because a chat is a person's working
+conversation rather than shared infrastructure; see `.agents/ai-hub.md`'s "Shared chats and
+presence" for the full departure and its channel-born exception).
 Workflows, project workflows, project deployments and jobs have **no column** — they inherit the
 project's reach at check time via `ResourceVisibilityProvider`s whose `visibilityResourceType()`
 returns `"Project"` and whose record id is the project id, so grants resolve against
