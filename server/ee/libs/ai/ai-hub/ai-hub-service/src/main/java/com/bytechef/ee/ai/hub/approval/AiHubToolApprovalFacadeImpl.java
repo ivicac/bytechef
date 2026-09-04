@@ -360,7 +360,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         List<ToolCallback> chatCallbacks = chatBindingResolver.resolve(
             new AiHubToolInvocationContext(
                 chat.getWorkspaceId(), userId, Source.AI_HUB.toAgentSourceOrdinal(), null,
-                (long) approval.getEnvironment(), chat.getThreadId()));
+                (long) approval.getEnvironment(), chat.getThreadId(), chat.getUserId()));
 
         Optional<ToolCallback> chatCallback = findByName(chatCallbacks, approval.getToolName());
 
@@ -398,7 +398,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
         Map<String, Object> toolContext = new HashMap<>(
             new AiHubToolInvocationContext(
                 chat.getWorkspaceId(), userId, Source.AI_HUB.toAgentSourceOrdinal(), null,
-                (long) approval.getEnvironment(), chat.getThreadId())
+                (long) approval.getEnvironment(), chat.getThreadId(), chat.getUserId())
                     .toToolContext());
 
         toolContext.putAll(
@@ -460,7 +460,7 @@ public class AiHubToolApprovalFacadeImpl implements AiHubToolApprovalFacade {
 
         AiHubRunState.inject(
             state, userId, chat.getWorkspaceId(), chat.getThreadId(), approval.getEnvironment(),
-            TenantContext.getCurrentTenantId());
+            TenantContext.getCurrentTenantId(), chat.getUserId());
 
         AgUiParameters parameters = new AgUiParameters();
 

@@ -410,6 +410,20 @@ public class AiHubChatGraphQlController {
             .toEpochMilli();
     }
 
+    @SchemaMapping(typeName = "AiHubChatMessage", field = "authorName")
+    @Nullable
+    public String messageAuthorName(AiHubChatMessage message) {
+        Long authorUserId = message.authorUserId();
+
+        if (authorUserId == null) {
+            return null;
+        }
+
+        return userService.fetchUser(authorUserId)
+            .map(User::getLogin)
+            .orElse(null);
+    }
+
     public record AiHubChatPatchInput(
         long id, long workspaceId, @Nullable String title, @Nullable String lastPreview,
         @Nullable Integer messageCount, @Nullable AiHubChatStatus status) {

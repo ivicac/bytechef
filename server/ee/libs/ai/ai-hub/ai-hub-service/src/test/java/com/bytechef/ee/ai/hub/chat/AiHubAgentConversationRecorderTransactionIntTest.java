@@ -17,6 +17,7 @@ import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry;
 import com.bytechef.ee.ai.hub.chat.repository.AiHubChatRepository;
+import com.bytechef.ee.ai.hub.chat.repository.AiHubChatTurnRepository;
 import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
@@ -162,8 +163,9 @@ public class AiHubAgentConversationRecorderTransactionIntTest {
             AiHubChatRepository chatRepository, ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider) {
 
             return new AiHubChatServiceImpl(
-                chatRepository, new OwnerOnlyAccessPolicy(), mock(JobFacade.class), mock(WorkflowChatJobRegistry.class),
-                mock(InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider, null, null, null);
+                chatRepository, mock(AiHubChatTurnRepository.class), new OwnerOnlyAccessPolicy(), mock(JobFacade.class),
+                mock(WorkflowChatJobRegistry.class), mock(InFlightAiHubRunRegistry.class), null,
+                aiHubSessionMemoryProvider, null, null, null);
         }
 
         @Bean

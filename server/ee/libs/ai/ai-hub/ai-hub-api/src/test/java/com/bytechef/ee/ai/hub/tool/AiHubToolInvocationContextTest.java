@@ -33,6 +33,19 @@ class WorkspaceInvocationContextTest {
     }
 
     @Test
+    void testRoundTripPreservesOwnerUserId() {
+        AiHubToolInvocationContext original =
+            new AiHubToolInvocationContext(42L, 99L, (short) 3, "hello", 0L, "thread-1", 7L);
+
+        ToolContext toolContext = new ToolContext(original.toToolContext());
+
+        AiHubToolInvocationContext restored = AiHubToolInvocationContext.fromToolContext(toolContext);
+
+        assertThat(restored).isEqualTo(original);
+        assertThat(restored.ownerUserId()).isEqualTo(7L);
+    }
+
+    @Test
     void testFromEmptyToolContextReturnsNull() {
         assertThat(AiHubToolInvocationContext.fromToolContext(null)).isNull();
         assertThat(AiHubToolInvocationContext.fromToolContext(new ToolContext(Map.of()))).isNull();

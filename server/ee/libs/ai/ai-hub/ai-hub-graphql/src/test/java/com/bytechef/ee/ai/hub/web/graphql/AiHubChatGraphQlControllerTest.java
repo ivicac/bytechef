@@ -24,6 +24,7 @@ import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatArtifactService;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatPatch;
 import com.bytechef.ee.ai.hub.chat.AiHubChatStatus;
 import com.bytechef.ee.ai.hub.chat.TitleGenerationService;
@@ -32,6 +33,7 @@ import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -523,6 +525,44 @@ class AiHubChatGraphQlControllerTest {
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);
 
         assertThat(controller.chatVisibility(chat)).isEqualTo(AiHubChatVisibility.WORKSPACE);
+    }
+
+    @Test
+    void testMessageAuthorNameResolvesTheAuthorsLogin() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User author = mock(User.class);
+
+        when(author.getLogin()).thenReturn("participant");
+        when(userService.fetchUser(31L)).thenReturn(Optional.of(author));
+
+        AiHubChatMessage message = new AiHubChatMessage("USER", "hi", Instant.EPOCH, null, 31L);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.messageAuthorName(message)).isEqualTo("participant");
+    }
+
+    @Test
+    void testMessageAuthorNameReturnsNullWhenAuthorUserIdIsNull() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChatMessage message = new AiHubChatMessage("ASSISTANT", "hi", Instant.EPOCH, null, null);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.messageAuthorName(message)).isNull();
+        verify(userService, never()).fetchUser(anyLong());
     }
 
     private static Workspace buildWorkspace(long id) {

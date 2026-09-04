@@ -162,6 +162,12 @@ public interface AiHubChatService {
      * same millisecond, which is rare but possible under load.
      * </p>
      *
+     * <p>
+     * Also truncates the chat's {@link AiHubChatTurn} history so attribution stays in step with the transcript: the
+     * count of {@code USER} events retained in the kept prefix becomes the number of turn rows kept, and every turn row
+     * past that ordinal is deleted.
+     * </p>
+     *
      * @param chatId               the chat whose history to truncate
      * @param requesterWorkspaceId workspace of the calling user (workspace + participability check)
      * @param requesterUserId      the calling user (participability check)
@@ -226,6 +232,26 @@ public interface AiHubChatService {
      * need the workspace / user owning the current turn without the caller having to supply userId.
      */
     Optional<AiHubChat> findByThreadId(String threadId);
+
+    /**
+     * Records that {@code userId} sent the turn started by {@code runId} on {@code chatId}. Called once per dispatched
+     * turn, right before the agent runs, so the row's insertion order matches the session-memory event order — the one
+     * invariant {@link #loadMessages} relies on to zip turn rows back onto {@code USER} events by position rather than
+     * by timestamp.
+     *
+     * <p>
+     * Runs no access check of its own; the caller ({@code AiHubApiController}) has already verified the sender may
+     * participate in the chat before reaching this method.
+     * </p>
+     */
+    void recordTurn(long chatId, long userId, @Nullable String runId);
+
+    /**
+     * Returns the most recently recorded turn for {@code chatId}, or empty when no turn has ever been recorded (a
+     * channel-born chat, or a chat with no turns yet). Used to name the user whose turn is currently in flight when a
+     * second sender's request collides with it.
+     */
+    Optional<AiHubChatTurn> findLatestTurn(long chatId);
 
     /**
      * Returns the workspace id from the given chat's {@code workspace_id} column. Callers that need the workspace and
@@ -371,11 +397,23 @@ public interface AiHubChatService {
      * after this row and before the next visible row — the client rebuilds tool-call cards and interactive tool-result
      * cards (e.g. askUserQuestion) from it on reload. It is deliberately an attachment to an existing visible row
      * rather than extra rows so the visible-row indexes that {@code truncateMessagesFrom} maps stay unchanged.
+     *
+     * <p>
+     * {@code authorUserId} is the id of the user who sent this row, resolved from the {@link AiHubChatTurn} recorded at
+     * the same ordinal position among {@code USER} events. {@code null} for every {@code ASSISTANT} row and for a
+     * {@code USER} row with no matching turn record (a channel-born chat, whose turns never go through the REST
+     * dispatch path that records them).
+     * </p>
      */
-    record AiHubChatMessage(String role, String content, Instant timestamp, String toolEventsJson) {
+    record AiHubChatMessage(
+        String role, String content, Instant timestamp, String toolEventsJson, @Nullable Long authorUserId) {
+
+        public AiHubChatMessage(String role, String content, Instant timestamp, String toolEventsJson) {
+            this(role, content, timestamp, toolEventsJson, null);
+        }
 
         public AiHubChatMessage(String role, String content, Instant timestamp) {
-            this(role, content, timestamp, null);
+            this(role, content, timestamp, null, null);
         }
     }
 }

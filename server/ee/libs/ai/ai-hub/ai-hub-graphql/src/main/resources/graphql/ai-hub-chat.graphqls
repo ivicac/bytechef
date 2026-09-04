@@ -89,6 +89,14 @@ type AiHubChatMessage {
     cards and interactive tool-result cards (askUserQuestion, etc.) from it on reload.
     """
     toolEventsJson: String
+    """
+    The id of the user who sent this row, resolved from the recorded turn at the same ordinal position among
+    USER rows. Null for every ASSISTANT row, and for a USER row with no matching turn record (a channel-born
+    chat, whose turns never go through the REST dispatch path that records them).
+    """
+    authorUserId: Long
+    """The author's login, resolved from authorUserId, or null when it cannot be resolved."""
+    authorName: String
 }
 
 input AiHubChatPatchInput {

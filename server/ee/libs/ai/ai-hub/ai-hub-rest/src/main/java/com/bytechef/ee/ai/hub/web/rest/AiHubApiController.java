@@ -17,16 +17,20 @@ import com.bytechef.ee.ai.hub.agent.AiHubRunState;
 import com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.ai.hub.approval.AiHubToolApprovalService;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
+import com.bytechef.ee.ai.hub.chat.AiHubChatAccessPolicy;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.ee.ai.hub.chat.AiHubChatTurn;
 import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Metrics;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +93,7 @@ public class AiHubApiController {
     private final AiHubChatStreamer chatStreamer;
     private final InFlightAiHubRunRegistry inFlightRunRegistry;
     private final AiHubChatService chatService;
+    private final AiHubChatAccessPolicy accessPolicy;
     private final UserService userService;
     private final WorkspaceFacade workspaceFacade;
     private final ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
@@ -96,7 +101,7 @@ public class AiHubApiController {
     @SuppressFBWarnings("EI")
     public AiHubApiController(
         AiHubChatStreamer chatStreamer, InFlightAiHubRunRegistry inFlightRunRegistry,
-        List<LocalAgent> localAgents, AiHubChatService chatService,
+        List<LocalAgent> localAgents, AiHubChatService chatService, AiHubChatAccessPolicy accessPolicy,
         UserService userService, WorkspaceFacade workspaceFacade,
         ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider) {
 
@@ -105,6 +110,7 @@ public class AiHubApiController {
         this.localAgentMap = localAgents.stream()
             .collect(Collectors.toMap(LocalAgent::getAgentId, localAgent -> localAgent));
         this.chatService = chatService;
+        this.accessPolicy = accessPolicy;
         this.userService = userService;
         this.workspaceFacade = workspaceFacade;
         this.toolApprovalServiceProvider = toolApprovalServiceProvider;
@@ -118,11 +124,13 @@ public class AiHubApiController {
 
         long workspaceId = enforceWorkspaceAccess(agUiParameters, userId);
 
-        String verifiedThreadId = enforceThreadOwnership(agUiParameters, userId, workspaceId);
+        String verifiedThreadId = enforceThreadAccess(agUiParameters, userId, workspaceId);
+
+        Long ownerUserId = enforceTurnAvailableAndRecord(verifiedThreadId, userId, agUiParameters.getRunId());
 
         supersedePendingApprovals(verifiedThreadId);
 
-        injectAuthenticatedContext(agUiParameters, userId, workspaceId, verifiedThreadId);
+        injectAuthenticatedContext(agUiParameters, userId, workspaceId, verifiedThreadId, ownerUserId);
 
         Mode mode = resolveMode(agUiParameters);
 
@@ -157,7 +165,7 @@ public class AiHubApiController {
         long userId = userService.getCurrentUser()
             .getId();
 
-        AiHubChat chat = enforceThreadOwnershipForAttach(threadId, userId);
+        AiHubChat chat = enforceThreadViewable(threadId, userId);
 
         Optional<SseEmitter> emitterOptional = chatStreamer.attachToRun(threadId);
 
@@ -190,28 +198,27 @@ public class AiHubApiController {
             .getId();
 
         // Build the per-thread answer in one pass: each id is either (a) unknown to the registry → false, (b)
-        // owned by someone other than the caller → false (silently — same shape as not-in-flight), or (c) the
-        // caller's own and in flight → true. The owner-mismatch case is treated as not-in-flight rather than
-        // 403 so a malformed sidebar id list doesn't break the whole probe.
+        // not viewable by the caller → false (silently — same shape as not-in-flight), or (c) viewable by the
+        // caller and in flight → true. The not-viewable case is treated as not-in-flight rather than 403 so a
+        // malformed sidebar id list doesn't break the whole probe.
         Set<String> inFlight = new HashSet<>(inFlightRunRegistry.getInFlightThreadIds());
 
         return threadIds.stream()
-            .collect(
-                Collectors.toMap(threadId -> threadId, threadId -> isOwnedInFlightThread(threadId, userId, inFlight)));
+            .collect(Collectors.toMap(
+                threadId -> threadId, threadId -> isViewableInFlightThread(threadId, userId, inFlight)));
     }
 
-    private boolean isOwnedInFlightThread(String threadId, long userId, Collection<String> inFlightThreadIds) {
+    private boolean isViewableInFlightThread(String threadId, long userId, Collection<String> inFlightThreadIds) {
         if (!inFlightThreadIds.contains(threadId)) {
             return false;
         }
 
         Optional<AiHubChat> chat = chatService.findByThreadId(threadId);
 
-        return chat.isPresent() && chat.get()
-            .getUserId() == userId;
+        return chat.isPresent() && accessPolicy.canView(chat.get(), userId);
     }
 
-    private AiHubChat enforceThreadOwnershipForAttach(String threadId, long userId) {
+    private AiHubChat enforceThreadViewable(String threadId, long userId) {
         if (threadId == null || threadId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing threadId");
         }
@@ -224,7 +231,7 @@ public class AiHubApiController {
 
         AiHubChat row = chat.get();
 
-        if (row.getUserId() != userId) {
+        if (!accessPolicy.canView(row, userId)) {
             throw new ResponseStatusException(
                 HttpStatus.FORBIDDEN, "AiHubChat is not accessible to the current user");
         }
@@ -254,11 +261,11 @@ public class AiHubApiController {
     }
 
     /**
-     * Verifies that the resolved {@link AiHubChat} belongs to the authenticated user AND lives in the requested
-     * workspace. Returns the verified thread id, or {@code null} when none was supplied or no chat exists yet (first
-     * turn).
+     * Verifies that the resolved {@link AiHubChat} may receive a turn from the authenticated user (owner, admin, or a
+     * participant the chat has been shared with at {@code PARTICIPATE}) AND lives in the requested workspace. Returns
+     * the verified thread id, or {@code null} when none was supplied or no chat exists yet (first turn).
      */
-    private String enforceThreadOwnership(AgUiParameters agUiParameters, long userId, long workspaceId) {
+    private String enforceThreadAccess(AgUiParameters agUiParameters, long userId, long workspaceId) {
         String threadId = agUiParameters.getThreadId();
 
         if (threadId == null || threadId.isBlank()) {
@@ -280,12 +287,72 @@ public class AiHubApiController {
 
         AiHubChat row = chat.get();
 
-        if (row.getUserId() != userId || chatService.getWorkspaceId(row.getId()) != workspaceId) {
+        if (!accessPolicy.canParticipate(row, userId) || chatService.getWorkspaceId(row.getId()) != workspaceId) {
             throw new ResponseStatusException(
                 HttpStatus.FORBIDDEN, "AiHubChat is not accessible to the current user");
         }
 
         return threadId;
+    }
+
+    /**
+     * Enforces the one-turn-in-flight-per-chat rule and records this turn's sender, returning the chat's owner id for
+     * downstream context injection. A no-op that returns {@code null} when {@code verifiedThreadId} is {@code null}
+     * (the very first turn, before any chat row exists) or the chat cannot be re-resolved (a benign race with a
+     * concurrent delete).
+     *
+     * @throws TurnInFlightException when another user's turn is already running on this thread
+     */
+    private @Nullable Long enforceTurnAvailableAndRecord(
+        @Nullable String verifiedThreadId, long userId, String runId) {
+
+        if (verifiedThreadId == null) {
+            return null;
+        }
+
+        if (inFlightRunRegistry.isInFlight(verifiedThreadId)) {
+            throw new TurnInFlightException(resolveRunningUser(verifiedThreadId));
+        }
+
+        Optional<AiHubChat> chat = chatService.findByThreadId(verifiedThreadId);
+
+        if (chat.isEmpty()) {
+            return null;
+        }
+
+        AiHubChat row = chat.get();
+
+        chatService.recordTurn(row.getId(), userId, runId);
+
+        return row.getUserId();
+    }
+
+    /**
+     * Resolves the user whose turn is currently running on {@code threadId}, for the {@link TurnInFlightException}
+     * body. Falls back to a fully-null {@link TurnInFlightException.RunningUser} when the chat or its latest turn can
+     * no longer be resolved (a benign race with a concurrent delete) or the running user's login cannot be looked up.
+     */
+    private TurnInFlightException.RunningUser resolveRunningUser(String threadId) {
+        Optional<AiHubChat> chat = chatService.findByThreadId(threadId);
+
+        if (chat.isEmpty()) {
+            return new TurnInFlightException.RunningUser(null, null);
+        }
+
+        Optional<AiHubChatTurn> latestTurn = chatService.findLatestTurn(chat.get()
+            .getId());
+
+        if (latestTurn.isEmpty()) {
+            return new TurnInFlightException.RunningUser(null, null);
+        }
+
+        long runningUserId = latestTurn.get()
+            .getUserId();
+        String runningUserName = userService.fetchUser(runningUserId)
+            .map(User::getLogin)
+            .orElse(null);
+
+        return new TurnInFlightException.RunningUser(runningUserId, runningUserName);
     }
 
     /**
@@ -296,7 +363,8 @@ public class AiHubApiController {
      * with the tool-approval resolution facade's continuation turn.
      */
     private void injectAuthenticatedContext(
-        AgUiParameters agUiParameters, long userId, long workspaceId, @Nullable String verifiedThreadId) {
+        AgUiParameters agUiParameters, long userId, long workspaceId, @Nullable String verifiedThreadId,
+        @Nullable Long ownerUserId) {
 
         State state = agUiParameters.getState();
 
@@ -308,7 +376,8 @@ public class AiHubApiController {
         long environmentId = AiHubRunState.clampEnvironmentId(readLong(agUiParameters, AiHubStateKeys.ENVIRONMENT_ID));
 
         AiHubRunState.inject(
-            state, userId, workspaceId, verifiedThreadId, environmentId, TenantContext.getCurrentTenantId());
+            state, userId, workspaceId, verifiedThreadId, environmentId, TenantContext.getCurrentTenantId(),
+            ownerUserId);
     }
 
     /**
@@ -371,6 +440,20 @@ public class AiHubApiController {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST, "Unknown mode: " + stringMode, exception);
         }
+    }
+
+    @ExceptionHandler(TurnInFlightException.class)
+    public ResponseEntity<Map<String, Object>> handleTurnInFlight(TurnInFlightException exception) {
+        TurnInFlightException.RunningUser runningUser = exception.getRunningUser();
+
+        Map<String, Object> body = new HashMap<>();
+
+        body.put("error", "TURN_IN_FLIGHT");
+        body.put("runningUserId", runningUser.userId());
+        body.put("runningUserName", runningUser.userName());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(body);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

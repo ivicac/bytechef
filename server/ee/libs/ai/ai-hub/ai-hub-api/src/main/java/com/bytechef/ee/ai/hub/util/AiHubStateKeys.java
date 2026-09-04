@@ -55,6 +55,16 @@ public final class AiHubStateKeys {
     public static final String VERIFIED_ENVIRONMENT_ID = "__verifiedEnvironmentId";
 
     /**
+     * The id of the chat's owner, placed by the controller alongside the other verified keys whenever a
+     * {@link #VERIFIED_THREAD_ID} resolves to an existing chat. Distinct from {@link #AUTHENTICATED_USER_ID}: once a
+     * chat can be shared, the two diverge for a participant's turn — {@code AUTHENTICATED_USER_ID} is always the
+     * current sender, this key is always the chat's owner. Tool callbacks that must not leak the owner's user-global
+     * resources (connectors, MCP servers, skills) to a participant compare the two rather than assuming the sender is
+     * always the owner. Absent on the very first turn, before any chat row exists.
+     */
+    public static final String VERIFIED_OWNER_USER_ID = "__verifiedOwnerUserId";
+
+    /**
      * The current tenant id captured from {@link com.bytechef.tenant.TenantContext} by the controller at request time
      * and written into the server-controlled state. Downstream worker threads that execute tool callbacks outside the
      * original request thread can restore the tenant via

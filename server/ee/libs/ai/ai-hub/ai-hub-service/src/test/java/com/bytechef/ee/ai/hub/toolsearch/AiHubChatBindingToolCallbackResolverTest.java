@@ -12,6 +12,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
@@ -186,6 +188,12 @@ class AiHubChatBindingToolCallbackResolverTest {
      * from {@code listChatTools} only, and the user-global tools would otherwise still stream in through
      * {@code listUserTools} — the toggle would look like it worked and change nothing the agent sees.
      * </p>
+     *
+     * <p>
+     * The invocation context's sender matches the chat's owner (both id 1), so the owner-vs-participant gate passes and
+     * this test exercises the disabled-connector subtraction alone;
+     * {@link #testResolveOmitsUserConnectorsForANonOwnerSender} covers the gate itself.
+     * </p>
      */
     @Test
     void testResolveDropsUserConnectorsTheChatSwitchedOff() {
@@ -246,7 +254,7 @@ class AiHubChatBindingToolCallbackResolverTest {
         when(chatToolFacade.listUserTools(1L, 10L)).thenReturn(List.of(slackBinding, githubBinding));
 
         AiHubToolInvocationContext context = new AiHubToolInvocationContext(
-            1L, 10L, (short) 0, "x", 0L, "thread-1");
+            1L, 1L, (short) 0, "x", 0L, "thread-1", 1L);
 
         List<ToolCallback> callbacks = resolver.resolve(context);
 
@@ -254,6 +262,120 @@ class AiHubChatBindingToolCallbackResolverTest {
         assertThat(callbacks.getFirst()
             .getToolDefinition()
             .name()).isEqualTo("github_createIssue");
+    }
+
+    /**
+     * A participant's turn (sender != chat owner) must not receive the owner's user-global connectors, even though the
+     * owner has one available and the chat itself has none of its own. Companion to
+     * {@link #testResolveDropsUserConnectorsTheChatSwitchedOff}, which pins the same union path for the owner's own
+     * turn.
+     */
+    @Test
+    void testResolveOmitsUserConnectorsForANonOwnerSender() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ConnectionService connectionService = mock(ConnectionService.class);
+
+        AiHubChat chat = mock(AiHubChat.class);
+        when(chat.getId()).thenReturn(7L);
+        when(chat.getUserId()).thenReturn(1L);
+        when(chatService.findByThreadId("thread-1")).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(7L)).thenReturn(10L);
+
+        when(chatToolFacade.listChatTools(7L)).thenReturn(List.of());
+
+        AiHubChatBindingToolCallbackResolver resolver = newResolver(
+            chatService, chatToolFacade, clusterElementDefinitionService, connectionService);
+
+        // Sender (userId=2) differs from the owner (userId=1) supplied above.
+        AiHubToolInvocationContext context = new AiHubToolInvocationContext(
+            1L, 2L, (short) 0, "x", 0L, "thread-1", 1L);
+
+        List<ToolCallback> callbacks = resolver.resolve(context);
+
+        assertThat(callbacks).isEmpty();
+        verify(chatToolFacade, never()).listUserTools(anyLong(), anyLong());
+    }
+
+    /**
+     * Extends the owner-vs-participant gate beyond connectors: an external MCP server row is scoped to (userId,
+     * workspaceId) ({@code AiHubMcpServerFacadeImpl#listMcpServers} queries {@code findAllByUserIdAndWorkspaceId}) and
+     * an AI skill is scoped to its creator's login ({@link AiHubSkillsToolProvider#resolve}) — both exactly as personal
+     * as a connector, so a participant's turn must not reach either. Constructs the resolver directly (not via
+     * {@link #newResolver}) so the MCP and skills mocks can be verified.
+     */
+    @Test
+    void testResolveOmitsMcpAndSkillToolsForANonOwnerSender() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ConnectionService connectionService = mock(ConnectionService.class);
+        AiHubMcpToolCallbackProvider mcpToolCallbackProvider = mock(AiHubMcpToolCallbackProvider.class);
+        AiHubSkillsToolProvider skillsToolCallbackProvider = mock(AiHubSkillsToolProvider.class);
+
+        AiHubChat chat = mock(AiHubChat.class);
+        when(chat.getId()).thenReturn(7L);
+        when(chat.getUserId()).thenReturn(1L);
+        when(chatService.findByThreadId("thread-1")).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(7L)).thenReturn(10L);
+        when(chatToolFacade.listChatTools(7L)).thenReturn(List.of());
+
+        AiHubChatBindingToolCallbackResolver resolver = new AiHubChatBindingToolCallbackResolver(
+            chatService, chatToolFacade, clusterElementDefinitionService, connectionService, mcpToolCallbackProvider,
+            skillsToolCallbackProvider);
+
+        // Sender (userId=2) differs from the owner (userId=1) supplied above.
+        AiHubToolInvocationContext context = new AiHubToolInvocationContext(
+            1L, 2L, (short) 0, "x", 0L, "thread-1", 1L);
+
+        List<ToolCallback> callbacks = resolver.resolve(context);
+
+        assertThat(callbacks).isEmpty();
+        verify(chatToolFacade, never()).listUserTools(anyLong(), anyLong());
+        verify(mcpToolCallbackProvider, never()).resolve(anyLong(), anyLong());
+        verify(skillsToolCallbackProvider, never()).resolve(anyLong());
+    }
+
+    /**
+     * Counterpart to {@link #testResolveOmitsMcpAndSkillToolsForANonOwnerSender}: when the owner is the one sending the
+     * turn, both user-scoped sources join the chat-scoped tools as before.
+     */
+    @Test
+    void testResolveIncludesMcpAndSkillToolsForTheOwnersOwnTurn() {
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        AiHubChatToolFacade chatToolFacade = mock(AiHubChatToolFacade.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+        ConnectionService connectionService = mock(ConnectionService.class);
+        AiHubMcpToolCallbackProvider mcpToolCallbackProvider = mock(AiHubMcpToolCallbackProvider.class);
+        AiHubSkillsToolProvider skillsToolCallbackProvider = mock(AiHubSkillsToolProvider.class);
+
+        AiHubChat chat = mock(AiHubChat.class);
+        when(chat.getId()).thenReturn(7L);
+        when(chat.getUserId()).thenReturn(1L);
+        when(chatService.findByThreadId("thread-1")).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(7L)).thenReturn(10L);
+        when(chatToolFacade.listChatTools(7L)).thenReturn(List.of());
+        when(chatToolFacade.listUserTools(1L, 10L)).thenReturn(List.of());
+
+        ToolCallback mcpCallback = mock(ToolCallback.class);
+
+        when(mcpToolCallbackProvider.resolve(1L, 10L)).thenReturn(List.of(mcpCallback));
+
+        ToolCallback skillCallback = mock(ToolCallback.class);
+
+        when(skillsToolCallbackProvider.resolve(1L)).thenReturn(List.of(skillCallback));
+
+        AiHubChatBindingToolCallbackResolver resolver = new AiHubChatBindingToolCallbackResolver(
+            chatService, chatToolFacade, clusterElementDefinitionService, connectionService, mcpToolCallbackProvider,
+            skillsToolCallbackProvider);
+
+        AiHubToolInvocationContext context = new AiHubToolInvocationContext(
+            1L, 1L, (short) 0, "x", 0L, "thread-1", 1L);
+
+        List<ToolCallback> callbacks = resolver.resolve(context);
+
+        assertThat(callbacks).containsExactlyInAnyOrder(mcpCallback, skillCallback);
     }
 
     private static AiHubChatBindingToolCallbackResolver newResolver(
