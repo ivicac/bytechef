@@ -337,16 +337,19 @@ const currentWorkspaceSettingsRoutes = {
             title: 'Variables',
         },
         {
+            group: 'AI',
             href: 'ai-hub/connectors',
-            title: 'AI Hub Connectors',
+            title: 'Hub Connectors',
         },
         {
+            group: 'AI',
             href: 'ai/agents',
-            title: 'AI Agents',
+            title: 'Agents',
         },
         {
+            group: 'AI',
             href: 'ai/memories',
-            title: 'AI Memories',
+            title: 'Memories',
         },
         {
             href: 'ai-hub/tool-approvals',
