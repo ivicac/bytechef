@@ -89,6 +89,7 @@ import saveTaskDispatcherSubtaskFieldChange from '../../utils/saveTaskDispatcher
 import saveWorkflowDefinition from '../../utils/saveWorkflowDefinition';
 import {getTaskDispatcherTask} from '../../utils/taskDispatcherConfig';
 import isActionDefinitionFresh from './isActionDefinitionFresh';
+import {resolveDisplayConditionsQueryTarget} from './resolveDisplayConditionsQueryTarget';
 import {resolveMissingRequiredPropertiesRefetch} from './resolveMissingRequiredPropertiesRefetch';
 import resolveNodeConnectionFields from './resolveNodeConnectionFields';
 
@@ -145,7 +146,7 @@ export default function useWorkflowNodeDetailsPanel({
         activeTab,
         currentNode,
         operationChangeInProgress,
-        pendingSaveNodeName,
+        pendingSaveNodeNames,
         setActiveTab,
         setCurrentNode,
         setOperationChangeInProgress,
@@ -155,7 +156,7 @@ export default function useWorkflowNodeDetailsPanel({
             activeTab: state.activeTab,
             currentNode: state.currentNode,
             operationChangeInProgress: state.operationChangeInProgress,
-            pendingSaveNodeName: state.pendingSaveNodeName,
+            pendingSaveNodeNames: state.pendingSaveNodeNames,
             setActiveTab: state.setActiveTab,
             setCurrentNode: state.setCurrentNode,
             setOperationChangeInProgress: state.setOperationChangeInProgress,
@@ -366,17 +367,24 @@ export default function useWorkflowNodeDetailsPanel({
         !!currentNode && !!currentNode.taskDispatcher
     );
 
+    // The node details panel opens optimistically for a freshly added node, before the add-node save
+    const awaitingFirstSave = !!currentNodeName && pendingSaveNodeNames.has(currentNodeName);
+
+    const displayConditionsQueryTarget = resolveDisplayConditionsQueryTarget({
+        activeTab,
+        awaitingFirstSave,
+        currentClusterElementName,
+        currentNodeClusterElementType: currentNode?.clusterElementType,
+        currentNodeName,
+    });
+
     const displayConditionsQuery = useGetWorkflowNodeParameterDisplayConditionsQuery(
         {
             environmentId: currentEnvironmentId,
             id: workflow.id!,
             workflowNodeName: currentNodeName!,
         },
-        activeTab === 'properties' &&
-            !!currentNodeName &&
-            currentNodeName !== 'manual' &&
-            currentNodeName !== currentClusterElementName &&
-            !currentNode?.clusterElementType
+        displayConditionsQueryTarget === 'regular'
     );
 
     const clusterElementDisplayConditionsQuery = useGetClusterElementParameterDisplayConditionsQuery(
@@ -387,12 +395,7 @@ export default function useWorkflowNodeDetailsPanel({
             id: workflow.id!,
             workflowNodeName: mainClusterRootName as string,
         },
-        activeTab === 'properties' &&
-            !!currentNode &&
-            !!currentNodeName &&
-            currentNodeName !== 'manual' &&
-            currentNodeName === currentClusterElementName &&
-            !!currentNode.clusterElementType
+        !!currentNode && displayConditionsQueryTarget === 'cluster'
     );
 
     const {data: workflowNodeParameterDisplayConditions} = displayConditionsQuery;
@@ -417,7 +420,7 @@ export default function useWorkflowNodeDetailsPanel({
                 !!currentNodeName &&
                 currentNodeName !== 'manual' &&
                 currentNodeName !== currentClusterElementName &&
-                currentNodeName !== pendingSaveNodeName &&
+                !awaitingFirstSave &&
                 !currentNode?.clusterElementType,
         }
     );
@@ -440,7 +443,7 @@ export default function useWorkflowNodeDetailsPanel({
                 !!currentNodeName &&
                 currentNodeName !== 'manual' &&
                 currentNodeName === currentClusterElementName &&
-                currentNodeName !== pendingSaveNodeName &&
+                !awaitingFirstSave &&
                 !!currentNode.clusterElementType,
         }
     );
@@ -1222,7 +1225,7 @@ export default function useWorkflowNodeDetailsPanel({
             currentNodeName,
             currentClusterElementName,
             currentNode?.clusterElementType,
-            pendingSaveNodeName
+            awaitingFirstSave
         );
 
         if (refetchTarget === 'cluster') {
@@ -1236,7 +1239,7 @@ export default function useWorkflowNodeDetailsPanel({
         currentNodeName,
         currentClusterElementName,
         currentNode?.clusterElementType,
-        pendingSaveNodeName,
+        awaitingFirstSave,
     ]);
 
     // Arm the errors loading cue when an operation switch starts.
@@ -1525,6 +1528,7 @@ export default function useWorkflowNodeDetailsPanel({
     return {
         activeDisplayConditionsQuery,
         activeTab,
+        awaitingFirstSave,
         currentActionDefinition,
         currentComponentDefinition,
         currentNode,

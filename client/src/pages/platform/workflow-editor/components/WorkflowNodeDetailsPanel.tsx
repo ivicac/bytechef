@@ -52,6 +52,7 @@ const WorkflowNodeDetailsPanel = ({
     const {
         activeDisplayConditionsQuery,
         activeTab,
+        awaitingFirstSave,
         currentActionDefinition,
         currentComponentDefinition,
         currentNode,
@@ -349,7 +350,9 @@ const WorkflowNodeDetailsPanel = ({
                                     )}
 
                                     {activeTab === 'properties' &&
-                                        (!operationDataMissing && displayedOperationProperties?.length ? (
+                                        (!operationDataMissing &&
+                                        displayedOperationProperties?.length &&
+                                        !awaitingFirstSave ? (
                                             <Properties
                                                 customClassName="p-4"
                                                 displayConditionsQuery={activeDisplayConditionsQuery}

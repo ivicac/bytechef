@@ -32,7 +32,10 @@ import getFormattedName from '../utils/getFormattedName';
 import getParametersWithDefaultValues from '../utils/getParametersWithDefaultValues';
 import {getTask} from '../utils/getTask';
 import getTaskDispatcherContext from '../utils/getTaskDispatcherContext';
-import handleComponentAddedSuccess, {openNodeDetailsPanelForNewNode} from '../utils/handleComponentAddedSuccess';
+import handleComponentAddedSuccess, {
+    handleComponentAddedError,
+    openNodeDetailsPanelForNewNode,
+} from '../utils/handleComponentAddedSuccess';
 import handleTaskDispatcherSubtaskOperationClick from '../utils/handleTaskDispatcherSubtaskOperationClick';
 import processClusterElementsHierarchy from '../utils/processClusterElementsHierarchy';
 import {resolveClusterRootId} from '../utils/resolveClusterRootId';
@@ -207,6 +210,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
             saveWorkflowDefinition({
                 nodeData,
                 nodeIndex,
+                onError: () => handleComponentAddedError({nodeData}),
                 onSuccess: () =>
                     handleComponentAddedSuccess({
                         nodeData,

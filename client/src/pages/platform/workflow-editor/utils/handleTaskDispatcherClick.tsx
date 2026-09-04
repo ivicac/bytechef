@@ -15,7 +15,10 @@ import InlineSVG from 'react-inlinesvg';
 import {WorkflowDataType} from '../stores/useWorkflowDataStore';
 import calculateNodeInsertIndex from './calculateNodeInsertIndex';
 import getFormattedName from './getFormattedName';
-import handleComponentAddedSuccess, {openNodeDetailsPanelForNewNode} from './handleComponentAddedSuccess';
+import handleComponentAddedSuccess, {
+    handleComponentAddedError,
+    openNodeDetailsPanelForNewNode,
+} from './handleComponentAddedSuccess';
 import saveWorkflowDefinition from './saveWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 
@@ -139,6 +142,7 @@ export default async function handleTaskDispatcherClick({
             workflowNodeName,
         },
         nodeIndex,
+        onError: () => handleComponentAddedError({nodeData: newNodeData}),
         onSuccess: () =>
             handleComponentAddedSuccess({
                 nodeData: newNodeData,
