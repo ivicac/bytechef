@@ -65,6 +65,16 @@ public class RemoteJobServiceController {
 
     @RequestMapping(
         method = RequestMethod.GET,
+        value = "/get-child-job-ids/{parentJobId}",
+        produces = {
+            "application/json"
+        })
+    public ResponseEntity<List<Long>> getChildJobIds(@PathVariable long parentJobId) {
+        return ResponseEntity.ok(jobService.getChildJobIds(parentJobId));
+    }
+
+    @RequestMapping(
+        method = RequestMethod.GET,
         value = "/get-stale-jobs",
         produces = {
             "application/json"
