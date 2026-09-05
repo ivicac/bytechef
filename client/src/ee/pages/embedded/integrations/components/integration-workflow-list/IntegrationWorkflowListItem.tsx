@@ -132,7 +132,7 @@ const IntegrationWorkflowListItem = ({
 
     return (
         <li
-            className="flex items-center justify-between rounded-md px-3 py-1 hover:bg-destructive-foreground"
+            className="flex items-center justify-between rounded-md px-3 py-1 hover:bg-surface-neutral-primary-hover"
             key={workflow.id}
         >
             <Link
