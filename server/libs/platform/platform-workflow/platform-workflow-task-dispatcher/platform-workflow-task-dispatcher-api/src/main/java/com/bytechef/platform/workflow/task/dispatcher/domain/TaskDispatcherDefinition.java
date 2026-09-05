@@ -77,11 +77,8 @@ public final class TaskDispatcherDefinition {
             OptionalUtils.orElse(taskDispatcherDefinition.getTaskProperties(), List.of()),
             valueProperty -> (Property) Property.toProperty(valueProperty));
         this.title = OptionalUtils.orElse(taskDispatcherDefinition.getTitle(), taskDispatcherDefinition.getName());
-        this.variablePropertiesDefined =
-            OptionalUtils.mapOrElse(
-                taskDispatcherDefinition.getVariableProperties(), variableProperties -> true, false) ||
-                OptionalUtils.mapOrElse(
-                    taskDispatcherDefinition.getOutputDefinition(), outputDefinition -> true, false);
+        this.variablePropertiesDefined = OptionalUtils.mapOrElse(
+            taskDispatcherDefinition.getVariableProperties(), variableProperties -> true, false);
         this.version = taskDispatcherDefinition.getVersion();
     }
 
