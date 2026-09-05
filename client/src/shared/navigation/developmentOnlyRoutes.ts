@@ -21,6 +21,7 @@ interface DevelopmentOnlyRouteI {
 const DEVELOPMENT_ONLY_ROUTES: DevelopmentOnlyRouteI[] = [
     {fallbackHref: '/automation/deployments', href: '/automation/projects'},
     {fallbackHref: '/automation/agent-deployments', href: '/automation/agents'},
+    {fallbackHref: '/automation/data-sync-deployments', href: '/automation/data-syncs'},
     {fallbackHref: '/embedded/configurations', href: '/embedded/integrations'},
     {fallbackHref: '/embedded/configurations', href: '/embedded/automation-workflows'},
 ];
