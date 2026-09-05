@@ -62,6 +62,9 @@ const A2aServers = lazy(() => import('@/pages/automation/a2a-servers/A2aServers'
 const Agents = lazy(() => import('@/pages/automation/agents/Agents'));
 const AgentDetail = lazy(() => import('@/pages/automation/agents/AgentDetail'));
 const AgentDeployments = lazy(() => import('@/pages/automation/agent-deployments/AgentDeployments'));
+const DataSyncs = lazy(() => import('@/pages/automation/data-syncs/DataSyncs'));
+const DataSyncDetail = lazy(() => import('@/pages/automation/data-syncs/DataSyncDetail'));
+const DataSyncDeployments = lazy(() => import('@/pages/automation/data-sync-deployments/DataSyncDeployments'));
 const McpServers = lazy(() => import('@/pages/automation/mcp-servers/McpServers'));
 const Notifications = lazy(() => import('@/pages/settings/platform/notifications/Notifications'));
 const WorkflowAlerts = lazy(() => import('@/pages/settings/platform/workflow-alerts/WorkflowAlerts'));
@@ -1011,6 +1014,16 @@ export const getRouter = (queryClient: QueryClient) =>
                                     path: 'agent-deployments',
                                 },
                                 {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper hasLeftSidebar>
+                                                <DataSyncDeployments />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'data-sync-deployments',
+                                },
+                                {
                                     children: [
                                         {
                                             index: true,
@@ -1084,6 +1097,26 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'agents/:agentId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper hasLeftSidebar>
+                                                <DataSyncs />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'data-syncs',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper hasLeftSidebar>
+                                                <DataSyncDetail />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'data-syncs/:dataSyncId',
                                 },
                                 {
                                     element: (
