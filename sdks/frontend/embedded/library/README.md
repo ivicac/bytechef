@@ -30,7 +30,7 @@ Requires `react` and `react-dom` >= 19.2.3 as peer dependencies.
 
 ### AutomationHub
 
-Embeds the end-user Automation Hub in an iframe: an Automations tab (the published template catalog plus the user's own automations) and a Connections tab, with the workflow builder as an internal route reached from the Automations tab.
+Embeds the end-user Automation Hub in an iframe: an Automations tab (the published template catalog, each card carrying the user's activation state) and a Connections tab, with the workflow builder as an internal route reached from the Automations tab.
 
 ```tsx
 <AutomationHub
