@@ -159,4 +159,65 @@ public class OrphanedJobRecoveryMonitorTest {
 
         verify(jobService, never()).update(any());
     }
+
+    @Test
+    public void testSkipsJobWithSuspendedChildJob() {
+        mockChildJob(Job.Status.STOPPED);
+
+        OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
+
+        monitor.recoverOrphanedJobs();
+
+        verify(taskExecutionService, never()).update(any());
+        verify(jobService, never()).update(any());
+        verify(eventPublisher, never()).publishEvent(any(JobStatusApplicationEvent.class));
+    }
+
+    @Test
+    public void testSkipsJobWithRunningChildJob() {
+        mockChildJob(Job.Status.STARTED);
+
+        OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
+
+        monitor.recoverOrphanedJobs();
+
+        verify(jobService, never()).update(any());
+    }
+
+    @Test
+    public void testRecoversJobWhoseChildJobsAreAllTerminal() {
+        mockChildJob(Job.Status.COMPLETED);
+
+        OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
+
+        monitor.recoverOrphanedJobs();
+
+        verify(job).setStatus(Job.Status.FAILED);
+        verify(jobService).update(job);
+    }
+
+    @Test
+    public void testRecoversJobWhenChildJobLookupIsUnsupported() {
+        when(jobService.getChildJobIds(1L)).thenThrow(new UnsupportedOperationException());
+
+        OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
+
+        monitor.recoverOrphanedJobs();
+
+        verify(job).setStatus(Job.Status.FAILED);
+        verify(jobService).update(job);
+    }
+
+    private void mockChildJob(Job.Status status) {
+        Job childJob = mock(Job.class);
+
+        when(childJob.getStatus()).thenReturn(status);
+
+        when(jobService.getChildJobIds(1L)).thenReturn(List.of(2L));
+        when(jobService.getJobs(List.of(2L))).thenReturn(List.of(childJob));
+    }
 }
