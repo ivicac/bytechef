@@ -203,6 +203,8 @@ export default function useWorkflowNodeDetailsPanel({
 
     const variables = useWorkflowVariables();
 
+    const setDataPillPanelHasContent = useDataPillPanelStore((state) => state.setDataPillPanelHasContent);
+
     const queryClient = useQueryClient();
 
     useRefreshAfterLookupFailure({
@@ -1410,8 +1412,10 @@ export default function useWorkflowNodeDetailsPanel({
     }, [calculatedDataPills, setDataPills]);
 
     useEffect(() => {
-        setDataPillPanelHasContent(hasDataPillPanelContent(workflowNodeOutputs, currentNode?.name, workflow.inputs));
-    }, [currentNode?.name, setDataPillPanelHasContent, workflow.inputs, workflowNodeOutputs]);
+        setDataPillPanelHasContent(
+            hasDataPillPanelContent(workflowNodeOutputs, currentNode?.name, workflow.inputs) || !!variables?.length
+        );
+    }, [currentNode?.name, setDataPillPanelHasContent, variables, workflow.inputs, workflowNodeOutputs]);
 
     // Set sample outputs only when the calculated sample outputs change
     useEffect(() => {
