@@ -68,8 +68,6 @@ public class WorkflowCallAiAgentTool {
 
     static final String ERROR_ALREADY_SUSPENDED = SubflowToolSupport.alreadySuspendedError(TOOL_LABEL);
 
-    static final String ERROR_AGENT_IS_SUBFLOW = SubflowToolSupport.ERROR_AGENT_IS_SUBFLOW;
-
     static final String ERROR_RESOLVE_FAILED_PREFIX = SubflowToolSupport.ERROR_RESOLVE_FAILED_PREFIX;
 
     /** Distinct from {@link #ERROR_RESOLVE_FAILED_PREFIX}: this one covers agentUuid -> workflow resolution. */

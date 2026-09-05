@@ -69,7 +69,6 @@ class WorkflowCallWorkflowToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         doAnswer(invocation -> {
             suspendRef.set(invocation.getArgument(0));
@@ -154,44 +153,6 @@ class WorkflowCallWorkflowToolTest {
     }
 
     /**
-     * C1 regression test: the spec calls out the agent-is-itself-a-sub-workflow case as the v1 edge case that
-     * <strong>must never silently swallow</strong>, because silent swallowing is the exact bug #5055. If the tool
-     * suspends in this case, the eventual {@code resumeJob} on the agent hits {@code JobServiceImpl
-     * .resumeToStatusStarted}'s {@code parentTaskExecutionId == null} assertion and the agent is parked forever. The
-     * tool must detect this and return an LLM-readable error <em>without</em> suspending.
-     */
-    @Test
-    void testToolReturnsErrorWhenAgentIsItselfASubflow() throws Exception {
-        SubflowDataSource subflowDataSource = mock(SubflowDataSource.class);
-        SubflowResolver subflowResolver = mock(SubflowResolver.class);
-
-        TestAgentContext agentContext = mock(TestAgentContext.class);
-
-        when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(42L);
-
-        ClusterElementContextAware context = mock(
-            ClusterElementContextAware.class,
-            withSettings().extraInterfaces(ClusterElementContext.class));
-
-        when(context.getAgentActionContext()).thenReturn(agentContext);
-
-        ToolFunction toolFunction = getToolFunction(subflowDataSource, subflowResolver);
-
-        Object result = toolFunction.apply(
-            MockParametersFactory.create(Map.of("workflowUuid", "uuid-1")),
-            MockParametersFactory.create(Map.of()),
-            (ClusterElementContext) context);
-
-        assertEquals(WorkflowCallWorkflowTool.ERROR_AGENT_IS_SUBFLOW, result);
-
-        // Critical: the tool MUST NOT call suspend in this case. If it does, the agent parks forever (silent-park
-        // failure), which is the exact regression class #5055 was filed against.
-
-        verify(agentContext, never()).suspend(any());
-    }
-
-    /**
      * I4: when {@code SubflowResolver.resolveSubflow} throws (workflow missing / unpublished / trigger removed), the
      * tool must surface this to the LLM as a tool-result error rather than letting the exception escape to Spring AI.
      * Per the spec's Error-handling table.
@@ -207,7 +168,6 @@ class WorkflowCallWorkflowToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         ClusterElementContextAware context = mock(
             ClusterElementContextAware.class,

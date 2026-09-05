@@ -60,14 +60,12 @@ public class WorkflowCallWorkflowTool {
 
     // Error tokens returned to the LLM. Extracted as constants so tests can assert by equality (not substring),
     // and so callers downstream can branch on them without parsing free-form text. Text/logic shared with
-    // WorkflowCallAgentTool lives in SubflowToolSupport — these are kept as same-valued fields on this class so the
+    // WorkflowCallAiAgentTool lives in SubflowToolSupport — these are kept as same-valued fields on this class so the
     // existing tests referencing WorkflowCallWorkflowTool.ERROR_* by name keep compiling and passing unchanged.
 
     static final String ERROR_NOT_AGENT_CONTEXT = SubflowToolSupport.notAgentContextError(TOOL_LABEL);
 
     static final String ERROR_ALREADY_SUSPENDED = SubflowToolSupport.alreadySuspendedError(TOOL_LABEL);
-
-    static final String ERROR_AGENT_IS_SUBFLOW = SubflowToolSupport.ERROR_AGENT_IS_SUBFLOW;
 
     static final String ERROR_RESOLVE_FAILED_PREFIX = SubflowToolSupport.ERROR_RESOLVE_FAILED_PREFIX;
 

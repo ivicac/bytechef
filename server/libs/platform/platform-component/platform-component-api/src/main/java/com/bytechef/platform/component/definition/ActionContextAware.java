@@ -91,18 +91,6 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
     Long getJobPrincipalWorkflowId();
 
     /**
-     * Retrieves the parent task execution id of the current job, if the job runs as a sub-workflow of another job.
-     * Returns {@code null} for top-level jobs (the common case) and for editor-environment / in-process invocations
-     * with no persisted Atlas Job. The agent-tool sub-workflow bridge ({@code WorkflowCallWorkflowTool}) uses this to
-     * fail fast when the agent itself runs as a sub-workflow, because a job with {@code parentTaskExecutionId != null}
-     * cannot be resumed (see {@code JobServiceImpl.resumeToStatusStarted}).
-     *
-     * @return the parent task execution id, or {@code null} when the job is top-level or unavailable
-     */
-    @Nullable
-    Long getParentTaskExecutionId();
-
-    /**
      * Retrieves the parent Atlas Job's static metadata map. Phase 17b: surfaces the workflow-level metadata so actions
      * can read platform-injected, trigger-time {@code JobParameter} overrides stored under the reserved
      * {@code __jobParameters} key. The dataStream task action uses this to fold {@code datastream.mode} /
