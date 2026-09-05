@@ -28,6 +28,7 @@ import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,7 +43,17 @@ import org.springframework.scheduling.annotation.Scheduled;
  * Detects and recovers jobs orphaned by a crashed worker or coordinator. Workers publish a heartbeat for every
  * in-flight task execution (bumping the STARTED row's last-modified timestamp), so a job is considered orphaned only
  * when the job row AND every non-terminal task execution of that job have gone stale — a long-running task on a live
- * worker keeps its row fresh, and a control-flow parent task is kept alive transitively by its children's heartbeats.
+ * worker keeps its row fresh, and a control-flow parent task is kept alive transitively by the heartbeats of its own
+ * job's task executions.
+ *
+ * <p>
+ * A job waiting on a sub-workflow is exempt regardless of staleness. A {@code subflow/v1} task is dispatched by the
+ * coordinator, so no worker ever heartbeats it, and the child's task executions belong to a different job — nothing
+ * keeps the waiting parent's rows fresh. Worse, a child that suspends for an approval or a wait may legitimately sit
+ * idle for an unbounded human wait. A job with a non-terminal child job is therefore never treated as orphaned; when
+ * the child does reach a terminal state, {@code SubflowJobStatusEventListener} propagates that to the parent task
+ * through the normal completion path.
+ * </p>
  *
  * <p>
  * Recovery marks the orphaned task executions and the job {@code FAILED} (firing the normal job-status fan-out:
@@ -65,6 +76,9 @@ public class OrphanedJobRecoveryMonitor {
     private static final Logger log = LoggerFactory.getLogger(OrphanedJobRecoveryMonitor.class);
 
     public static final String AUTO_RECOVERY_ATTEMPTS = "autoRecoveryAttempts";
+
+    private static final Set<Job.Status> NON_TERMINAL_JOB_STATUSES = EnumSet.of(
+        Job.Status.CREATED, Job.Status.STARTED, Job.Status.STOPPED);
 
     private final boolean autoResume;
     private final ApplicationEventPublisher eventPublisher;
@@ -142,6 +156,32 @@ public class OrphanedJobRecoveryMonitor {
         }
     }
 
+    private boolean hasNonTerminalChildJob(long jobId) {
+        List<Long> childJobIds;
+
+        try {
+            childJobIds = jobService.getChildJobIds(jobId);
+        } catch (UnsupportedOperationException exception) {
+            if (log.isTraceEnabled()) {
+                log.trace("Child-job lookup is not supported in this deployment", exception);
+            }
+
+            return false;
+        }
+
+        if (childJobIds.isEmpty()) {
+            return false;
+        }
+
+        for (Job childJob : jobService.getJobs(childJobIds)) {
+            if (NON_TERMINAL_JOB_STATUSES.contains(childJob.getStatus())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void recoverJob(long jobId, Instant cutoff) {
         Job job = jobService.getJob(jobId);
 
@@ -168,6 +208,10 @@ public class OrphanedJobRecoveryMonitor {
                     .isAfter(cutoff));
 
         if (anyFresh) {
+            return;
+        }
+
+        if (hasNonTerminalChildJob(jobId)) {
             return;
         }
 
