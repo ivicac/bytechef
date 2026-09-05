@@ -30,10 +30,12 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -75,7 +77,7 @@ class WorkflowTestConfigurationTest {
     void testEveryTaskDispatcherOnClasspathIsRegistered() {
         Set<String> registeredClassNames = workflowTestConfiguration
             .getTaskDispatcherResolverFactories(
-                mock(ContextService.class), mock(CounterService.class), mock(Evaluator.class),
+                emptyObjectProvider(), mock(ContextService.class), mock(CounterService.class), mock(Evaluator.class),
                 mock(ApplicationEventPublisher.class), mock(JobService.class), mock(SubflowResolver.class),
                 mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class))
             .stream()
@@ -108,5 +110,10 @@ class WorkflowTestConfigurationTest {
     @SuppressWarnings("unchecked")
     private static TaskDispatcher<? super Task> mockTaskDispatcher() {
         return mock(TaskDispatcher.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<CallableAiAgentDataSource> emptyObjectProvider() {
+        return mock(ObjectProvider.class);
     }
 }
