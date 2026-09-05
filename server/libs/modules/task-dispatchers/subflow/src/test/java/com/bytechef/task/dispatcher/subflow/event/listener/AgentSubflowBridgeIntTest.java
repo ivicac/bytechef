@@ -390,12 +390,6 @@ class AgentSubflowBridgeIntTest {
 
         resumeListener.onApplicationEvent(new JobStatusApplicationEvent(firstSubflowJobId, Job.Status.COMPLETED));
 
-        assertFalse(
-            jobService.getJob(agentJobId)
-                .getMetadata()
-                .containsKey(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID),
-            "Resuming the agent must clear the launched-sub-workflow marker");
-
         launchedJobParameters.set(null);
 
         suspendAgentForSubflow(taskExecutionService, agentJobId, encodeWorkflowId(FAST_SUBFLOW), "second");
@@ -403,6 +397,11 @@ class AgentSubflowBridgeIntTest {
         launcher.onApplicationEvent(new JobStatusApplicationEvent(agentJobId, Job.Status.STOPPED));
 
         assertNotNull(launchedJobParameters.get(), "The second bridged call on the same agent job must launch");
+        assertNotEquals(
+            firstSubflowJobId, ((Number) jobService.getJob(agentJobId)
+                .getMetadata()
+                .get(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID)).longValue(),
+            "The second launch must be recorded in place of the first");
     }
 
     private static void suspendAgentForSubflow(
