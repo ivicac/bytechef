@@ -39,6 +39,9 @@ export interface DeployableAgentI {
 
 interface ProjectDialogBasicStepProps {
     agentOptions?: DeployableAgentI[];
+    /** Label for the entity picker shown in place of the Project combo box when `agentOptions` is given.
+     *  Defaults to 'Agent' so the agent pages' existing behavior stays unchanged. */
+    agentOptionsLabel?: string;
     basicStepTab: 'new-deployment' | 'change-version';
     changeProjectVersion: boolean;
     control: Control<ProjectDeployment>;
@@ -55,6 +58,7 @@ interface ProjectDialogBasicStepProps {
 
 const ProjectDeploymentDialogBasicStep = ({
     agentOptions,
+    agentOptionsLabel = 'Agent',
     basicStepTab,
     changeProjectVersion,
     control,
@@ -182,7 +186,7 @@ const ProjectDeploymentDialogBasicStep = ({
                     name="projectId"
                     render={({field}) => (
                         <FormItem>
-                            <FormLabel>{agentOptions ? 'Agent' : 'Project'}</FormLabel>
+                            <FormLabel>{agentOptions ? agentOptionsLabel : 'Project'}</FormLabel>
 
                             <FormControl>
                                 {agentOptions ? (
