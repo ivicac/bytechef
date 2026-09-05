@@ -111,6 +111,24 @@ public final class AutomationMethodSecurityExpressionRoot
     }
 
     /**
+     * Returns {@code true} when the caller is an embedded connected user — an end user of a vendor's product, not a
+     * ByteChef user. It says only WHICH KIND of principal is calling and nothing about what that principal may touch,
+     * so it is never sufficient on its own: every method that admits it also runs its own ownership check for the
+     * connected user (see {@code ConnectedUserIntegrationInstanceFacadeImpl.isOwnedByConnectedUser}). Widening a gate
+     * with this and nothing else would let ANY connected user in the tenant through.
+     *
+     * <p>
+     * Deliberately NOT bypassed under skip mode, unlike the built-ins above: skip mode arms nothing for a principal
+     * {@link ResourceMembershipResolver} governs, and answering "yes, a connected user" for a caller that is not one
+     * would widen every expression this appears in.
+     */
+    public boolean isConnectedUser() {
+        ResourceMembershipResolver resourceMembershipResolver = resourceMembershipResolverProvider.getIfAvailable();
+
+        return resourceMembershipResolver != null && resourceMembershipResolver.governsCurrentPrincipal();
+    }
+
+    /**
      * Returns {@code true} if the current user owns the resource of {@code resourceType} identified by {@code id},
      * resolved via the registered {@code ResourceOwnershipResolver}. Bypassed (returns {@code true}) under embedded
      * skip-checks mode, except for a connected user.
