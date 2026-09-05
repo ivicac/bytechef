@@ -15,9 +15,11 @@ import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {useAiAgentQuery} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
 import {useEffect, useMemo} from 'react';
+import {twMerge} from 'tailwind-merge';
 
 export interface AgentDetailContentPropsI {
     agentId: string;
+    className?: string;
 }
 
 /**
@@ -34,8 +36,14 @@ export interface AgentDetailContentPropsI {
  * cache dedupes the network call against the page's own fetch of the same id (used for the header /
  * test-chat panel), so this is not an extra round trip.
  * </p>
+ *
+ * <p>
+ * The default width cap suits the routed page, where the composition sits in a full-width column. A host that
+ * already constrains the composition itself — the Call AI Agent dialog — passes {@code className} to lift the
+ * cap, so the sections fill the host instead of leaving gutters inside it.
+ * </p>
  */
-const AgentDetailContent = ({agentId}: AgentDetailContentPropsI) => {
+const AgentDetailContent = ({agentId, className}: AgentDetailContentPropsI) => {
     const queryClient = useQueryClient();
 
     const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
@@ -66,7 +74,7 @@ const AgentDetailContent = ({agentId}: AgentDetailContentPropsI) => {
                 // stretched, the sections overflow past its padding box and the bottom padding lands above
                 // the overflow rather than after it.
                 <Tabs
-                    className="mx-auto w-full max-w-(--breakpoint-md) self-start p-4"
+                    className={twMerge('mx-auto w-full max-w-(--breakpoint-md) self-start p-4', className)}
                     defaultValue="agent"
                     key={agent.id}
                 >
