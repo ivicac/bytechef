@@ -1,5 +1,6 @@
 import {
     ActivityIcon,
+    ArrowLeftRightIcon,
     BotIcon,
     BotMessageSquareIcon,
     BoxesIcon,
@@ -16,6 +17,7 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
+    RefreshCwIcon,
     RocketIcon,
     RouterIcon,
     ServerIcon,
@@ -54,6 +56,7 @@ export const automationNavigation: NavigationItemI[] = [
         name: 'Projects',
     },
     {group: 'Build', href: '/automation/agents', icon: BotIcon, name: 'Agents'},
+    {group: 'Build', href: '/automation/data-syncs', icon: ArrowLeftRightIcon, name: 'Data Syncs'},
     {href: '/automation/connections', icon: Link2Icon, name: 'Connect'},
     {
         group: 'Deploy',
@@ -66,6 +69,12 @@ export const automationNavigation: NavigationItemI[] = [
         href: '/automation/agent-deployments',
         icon: BotMessageSquareIcon,
         name: 'Agents',
+    },
+    {
+        group: 'Deploy',
+        href: '/automation/data-sync-deployments',
+        icon: RefreshCwIcon,
+        name: 'Data Syncs',
     },
     {
         group: 'Deploy',
