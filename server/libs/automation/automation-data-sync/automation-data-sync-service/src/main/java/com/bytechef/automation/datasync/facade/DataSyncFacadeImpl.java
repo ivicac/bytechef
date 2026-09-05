@@ -18,9 +18,13 @@ package com.bytechef.automation.datasync.facade;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
@@ -39,17 +43,22 @@ import com.bytechef.automation.datasync.exception.DataSyncErrorType;
 import com.bytechef.automation.datasync.service.DataSyncElementService;
 import com.bytechef.automation.datasync.service.DataSyncService;
 import com.bytechef.automation.datasync.util.DataSyncWorkflowGenerator;
+import com.bytechef.commons.util.MapUtils;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -311,61 +320,264 @@ public class DataSyncFacadeImpl implements DataSyncFacade {
         regenerateAndSaveWorkflow(dataSyncService.getDataSync(element.getDataSyncId()));
     }
 
-    // Task 4 fills these in; the bodies below are the compile-only versions.
-
     @Override
     @PreAuthorize("hasPermission(#id, 'DataSync', 'DATA_SYNC_PUBLISH')")
     @Transactional
     public int publishDataSync(long id, @Nullable String description) {
-        throw new UnsupportedOperationException("Task 4");
+        DataSync dataSync = dataSyncService.getDataSync(id);
+
+        validateForPublish(dataSync);
+
+        // The draft must reflect the Data Sync's current rows before it is duplicated into the new published
+        // version, or the published snapshot could lag the rows it was just validated against.
+        regenerateAndSaveWorkflow(dataSync);
+
+        return publishProjectVersion(dataSync.getProjectId(), description);
     }
 
     @Override
     @PreAuthorize("hasPermission(#id, 'DataSync', 'DATA_SYNC_VIEW')")
     @Transactional(readOnly = true)
     public List<DataSyncVersionDTO> getDataSyncVersions(long id) {
-        throw new UnsupportedOperationException("Task 4");
+        DataSync dataSync = dataSyncService.getDataSync(id);
+        Project project = projectService.getProject(dataSync.getProjectId());
+
+        return project.getProjectVersions()
+            .stream()
+            .sorted(Comparator.comparingInt(ProjectVersion::getVersion)
+                .reversed())
+            .map(projectVersion -> new DataSyncVersionDTO(
+                projectVersion.getVersion(), projectVersion.getDescription(), projectVersion.getPublishedDate(),
+                String.valueOf(projectVersion.getStatus())))
+            .toList();
     }
 
     @Override
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DATA_SYNC_VIEW')")
     @Transactional(readOnly = true)
     public List<DataSyncDeploymentDTO> getDataSyncDeployments(long workspaceId) {
-        throw new UnsupportedOperationException("Task 4");
+        List<DataSyncDeploymentDTO> deployments = new ArrayList<>();
+
+        for (DataSync dataSync : visibleDataSyncs(workspaceId)) {
+            for (Environment environment : Environment.values()) {
+                projectDeploymentService.fetchProjectDeployment(dataSync.getProjectId(), environment)
+                    .ifPresent(projectDeployment -> deployments.add(toDeploymentDTO(dataSync, projectDeployment)));
+            }
+        }
+
+        return deployments;
     }
 
+    /**
+     * Not {@code @Transactional}: {@code ProjectDeploymentFacadeImpl.createProjectDeploymentWorkflowJob} is declared
+     * {@code Propagation.NEVER}, so an enclosing transaction here would make it throw.
+     */
     @Override
     @PreAuthorize("hasPermission(#id, 'DataSync', 'DATA_SYNC_EDIT')")
     public long runDataSyncDeployment(long id, long projectDeploymentId) {
-        throw new UnsupportedOperationException("Task 4");
+        DataSync dataSync = dataSyncService.getDataSync(id);
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
+
+        if (!Objects.equals(projectDeployment.getProjectId(), dataSync.getProjectId())) {
+            throw new ConfigurationException(
+                "Deployment " + projectDeploymentId + " does not belong to Data Sync " + id,
+                DataSyncErrorType.DEPLOYMENT_NOT_OWNED);
+        }
+
+        if (!projectDeployment.isEnabled()) {
+            throw new ConfigurationException(
+                "Deployment " + projectDeploymentId + " is disabled", DataSyncErrorType.DEPLOYMENT_DISABLED);
+        }
+
+        String workflowId = getVersionWorkflowId(dataSync.getProjectId(), projectDeployment.getProjectVersion());
+
+        return projectDeploymentFacade.createProjectDeploymentWorkflowJob(projectDeploymentId, workflowId);
     }
 
     @Override
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DATA_SYNC_VIEW')")
     @Transactional(readOnly = true)
     public List<Tag> getDataSyncTags(long workspaceId) {
-        throw new UnsupportedOperationException("Task 4");
+        List<Long> tagIds = visibleDataSyncs(workspaceId)
+            .stream()
+            .map(DataSync::getTagIds)
+            .flatMap(List::stream)
+            .distinct()
+            .toList();
+
+        return tagService.getTags(tagIds);
     }
 
     @Override
     @PreAuthorize("hasPermission(#id, 'DataSync', 'DATA_SYNC_EDIT')")
     @Transactional
     public void updateDataSyncTags(long id, List<Tag> tags) {
-        throw new UnsupportedOperationException("Task 4");
+        List<Tag> savedTags = tags == null || tags.isEmpty() ? List.of() : tagService.save(tags);
+
+        dataSyncService.update(id, savedTags.stream()
+            .map(Tag::getId)
+            .toList());
     }
 
+    /**
+     * No filter of its own: it aggregates over {@link #getDataSyncDeployments}, which is already filtered through
+     * {@link #visibleDataSyncs}.
+     */
     @Override
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DATA_SYNC_VIEW')")
     @Transactional(readOnly = true)
     public List<Tag> getDataSyncDeploymentTags(long workspaceId) {
-        throw new UnsupportedOperationException("Task 4");
+        List<Long> tagIds = getDataSyncDeployments(workspaceId)
+            .stream()
+            .map(DataSyncDeploymentDTO::tags)
+            .flatMap(List::stream)
+            .map(Tag::getId)
+            .distinct()
+            .toList();
+
+        return tagService.getTags(tagIds);
     }
 
     @Override
     @PreAuthorize("hasPermission(#id, 'DataSync', 'DATA_SYNC_EDIT')")
     @Transactional
     public void updateDataSyncDeploymentTags(long id, long projectDeploymentId, List<Tag> tags) {
-        throw new UnsupportedOperationException("Task 4");
+        DataSync dataSync = dataSyncService.getDataSync(id);
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
+
+        if (!Objects.equals(projectDeployment.getProjectId(), dataSync.getProjectId())) {
+            throw new ConfigurationException(
+                "Deployment " + projectDeploymentId + " does not belong to Data Sync " + id,
+                DataSyncErrorType.DEPLOYMENT_NOT_OWNED);
+        }
+
+        List<Tag> savedTags = tags == null || tags.isEmpty() ? List.of() : tagService.save(tags);
+
+        projectDeploymentService.update(projectDeploymentId, savedTags.stream()
+            .map(Tag::getId)
+            .toList());
+    }
+
+    // --- publish validation -------------------------------------------------------------------------------------
+
+    private void validateForPublish(DataSync dataSync) {
+        List<DataSyncElement> elements = dataSyncElementService.getByDataSyncId(dataSync.getId());
+
+        DataSyncElement source = elements.stream()
+            .filter(element -> element.getKind() == Kind.SOURCE)
+            .findFirst()
+            .orElseThrow(() -> new ConfigurationException(
+                "Data Sync " + dataSync.getId() + " has no source", DataSyncErrorType.SOURCE_MISSING));
+
+        DataSyncElement destination = elements.stream()
+            .filter(element -> element.getKind() == Kind.DESTINATION)
+            .findFirst()
+            .orElseThrow(() -> new ConfigurationException(
+                "Data Sync " + dataSync.getId() + " has no destination", DataSyncErrorType.DESTINATION_MISSING));
+
+        for (DataSyncElement element : List.of(source, destination)) {
+            if (element.getConnectionId() != null) {
+                continue;
+            }
+
+            ComponentDefinition componentDefinition = componentDefinitionService.getComponentDefinition(
+                element.getComponentName(), element.getComponentVersion());
+
+            if (componentDefinition != null && componentDefinition.isConnectionRequired()) {
+                throw new ConfigurationException(
+                    "Element " + element.getKind() + " of Data Sync " + dataSync.getId() + " needs a connection",
+                    DataSyncErrorType.ELEMENT_CONNECTION_MISSING);
+            }
+        }
+
+        if (dataSync.getTriggerType() == TriggerType.SCHEDULE) {
+            String expression = MapUtils.getString(
+                dataSync.getTriggerParameters(), DataSyncWorkflowGenerator.TRIGGER_PARAMETER_EXPRESSION, "");
+
+            if (expression.isBlank()) {
+                throw new ConfigurationException(
+                    "Data Sync " + dataSync.getId() + " is scheduled but has no cron expression",
+                    DataSyncErrorType.SCHEDULE_EXPRESSION_MISSING);
+            }
+        }
+    }
+
+    // --- publish --------------------------------------------------------------------------------------------------
+
+    /**
+     * Publishes {@code projectId}'s current draft version and duplicates every one of its workflows into the new
+     * version, the same replicated {@code ProjectFacadeImpl.publishProject} body {@code AiAgentFacadeImpl} uses, rather
+     * than delegating to {@code ProjectFacade.publishProject} — that facade method is gated for user-visible projects
+     * and would reject the caller on a Data Sync's hidden backing project.
+     */
+    private int publishProjectVersion(long projectId, @Nullable String description) {
+        int oldProjectVersion = projectService.getProject(projectId)
+            .getLastProjectVersion();
+
+        List<ProjectWorkflow> oldProjectWorkflows = projectWorkflowService.getProjectWorkflows(
+            projectId, oldProjectVersion);
+
+        int newProjectVersion = projectService.publishProject(projectId, description, false);
+
+        for (ProjectWorkflow oldProjectWorkflow : oldProjectWorkflows) {
+            String oldWorkflowId = oldProjectWorkflow.getWorkflowId();
+
+            Workflow duplicatedWorkflow = workflowService.duplicateWorkflow(oldWorkflowId);
+
+            oldProjectWorkflow.setProjectVersion(newProjectVersion);
+            oldProjectWorkflow.setWorkflowId(duplicatedWorkflow.getId());
+
+            projectWorkflowService.publishWorkflow(projectId, oldProjectVersion, oldWorkflowId, oldProjectWorkflow);
+
+            workflowTestConfigurationService.updateWorkflowId(oldWorkflowId, duplicatedWorkflow.getId());
+            workflowNodeTestOutputService.updateWorkflowId(oldWorkflowId, duplicatedWorkflow.getId());
+        }
+
+        return newProjectVersion;
+    }
+
+    // --- deployments ----------------------------------------------------------------------------------------------
+
+    private DataSyncDeploymentDTO toDeploymentDTO(DataSync dataSync, ProjectDeployment projectDeployment) {
+        List<ProjectDeploymentWorkflow> projectDeploymentWorkflows =
+            projectDeploymentWorkflowService.getProjectDeploymentWorkflows(projectDeployment.getId());
+
+        String workflowId = projectDeploymentWorkflows.isEmpty()
+            ? getVersionWorkflowId(dataSync.getProjectId(), projectDeployment.getProjectVersion())
+            : projectDeploymentWorkflows.get(0)
+                .getWorkflowId();
+
+        return new DataSyncDeploymentDTO(
+            projectDeployment.getId(), projectDeployment.getName(), dataSync.getId(), dataSync.getTitle(),
+            dataSync.getProjectId(), (int) projectDeployment.getEnvironmentId(), projectDeployment.isEnabled(),
+            projectDeployment.getProjectVersion(), dataSync.getTriggerType(), workflowId,
+            tagService.getTags(projectDeployment.getTagIds()),
+            getLastExecutionDate(projectDeployment.getId(), projectDeploymentWorkflows));
+    }
+
+    /**
+     * The deployment's most recent finished run, derived exactly as {@code AiAgentFacadeImpl} derives its own: the last
+     * job recorded against the deployment for its workflows. A Data Sync deploys a single generated workflow, so this
+     * is that workflow's last run.
+     */
+    private @Nullable Instant getLastExecutionDate(
+        long projectDeploymentId, List<ProjectDeploymentWorkflow> projectDeploymentWorkflows) {
+
+        List<String> workflowIds = projectDeploymentWorkflows.stream()
+            .map(ProjectDeploymentWorkflow::getWorkflowId)
+            .toList();
+
+        if (workflowIds.isEmpty()) {
+            return null;
+        }
+
+        return principalJobService.fetchLastWorkflowJobId(projectDeploymentId, workflowIds, PlatformType.AUTOMATION)
+            .map(jobId -> {
+                Job job = jobService.getJob(jobId);
+
+                return job.getEndDate();
+            })
+            .orElse(null);
     }
 
     // --- draft regeneration -----------------------------------------------------------------------------------

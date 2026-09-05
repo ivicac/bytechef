@@ -24,28 +24,37 @@ import com.bytechef.atlas.configuration.repository.WorkflowCrudRepository;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.repository.ProjectDeploymentRepository;
+import com.bytechef.automation.configuration.repository.ProjectDeploymentWorkflowRepository;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.datasync.config.AutomationDataSyncIntTestConfiguration;
 import com.bytechef.automation.datasync.domain.DataSync.TriggerType;
 import com.bytechef.automation.datasync.domain.DataSyncElement;
 import com.bytechef.automation.datasync.domain.DataSyncElement.Kind;
 import com.bytechef.automation.datasync.dto.DataSyncDTO;
+import com.bytechef.automation.datasync.dto.DataSyncDeploymentDTO;
+import com.bytechef.automation.datasync.dto.DataSyncVersionDTO;
 import com.bytechef.automation.datasync.exception.DataSyncErrorType;
 import com.bytechef.automation.datasync.repository.DataSyncElementRepository;
 import com.bytechef.automation.datasync.repository.DataSyncRepository;
 import com.bytechef.automation.datasync.util.DataSyncWorkflowGenerator;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTestConfiguration;
 import com.bytechef.platform.configuration.domain.WorkflowTestConfigurationConnection;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
+import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +62,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -72,6 +82,9 @@ class DataSyncFacadeIntTest {
 
     @Autowired
     private ProjectService projectService;
+
+    @Autowired
+    private ProjectWorkflowService projectWorkflowService;
 
     @Autowired
     private WorkflowService workflowService;
@@ -95,10 +108,19 @@ class DataSyncFacadeIntTest {
     private ProjectDeploymentRepository projectDeploymentRepository;
 
     @Autowired
+    private ProjectDeploymentWorkflowRepository projectDeploymentWorkflowRepository;
+
+    @Autowired
     private WorkflowCrudRepository workflowCrudRepository;
 
     @Autowired
     private WorkspaceRepository workspaceRepository;
+
+    @Autowired
+    private ComponentDefinitionService componentDefinitionService;
+
+    @Autowired
+    private ProjectDeploymentFacade projectDeploymentFacade;
 
     private long workspaceId;
 
@@ -111,6 +133,12 @@ class DataSyncFacadeIntTest {
 
     @AfterEach
     void afterEach() {
+        // componentDefinitionService and projectDeploymentFacade are context-scoped Mockito mocks (see
+        // AutomationDataSyncIntTestConfiguration), so per-test stubbing would otherwise leak into every later test
+        // sharing the same Spring context.
+        Mockito.reset(componentDefinitionService, projectDeploymentFacade);
+
+        projectDeploymentWorkflowRepository.deleteAll();
         projectDeploymentRepository.deleteAll();
         dataSyncElementRepository.deleteAll();
         dataSyncRepository.deleteAll();
@@ -296,6 +324,220 @@ class DataSyncFacadeIntTest {
         assertThat(projectRepository.findById(projectId)).isEmpty();
     }
 
+    @Test
+    void testPublishRefusesWithoutSource() {
+        DataSyncDTO dataSyncDTO = dataSyncFacade.createDataSync("Sync", null, workspaceId);
+        long id = dataSyncDTO.dataSync()
+            .getId();
+
+        dataSyncFacade.setDataSyncElement(id, Kind.DESTINATION, "postgresql", 1, "insert", Map.of(), 2L);
+
+        assertThatThrownBy(() -> dataSyncFacade.publishDataSync(id, null))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.SOURCE_MISSING.getErrorKey()));
+    }
+
+    @Test
+    void testPublishRefusesWithoutDestination() {
+        DataSyncDTO dataSyncDTO = dataSyncFacade.createDataSync("Sync", null, workspaceId);
+        long id = dataSyncDTO.dataSync()
+            .getId();
+
+        dataSyncFacade.setDataSyncElement(id, Kind.SOURCE, "csvFile", 1, "read", Map.of(), 1L);
+
+        assertThatThrownBy(() -> dataSyncFacade.publishDataSync(id, null))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.DESTINATION_MISSING.getErrorKey()));
+    }
+
+    @Test
+    void testPublishRefusesMissingRequiredConnection() {
+        long id = createFullyConfigured();
+
+        DataSyncElement source = elementOf(id, Kind.SOURCE);
+
+        dataSyncFacade.updateDataSyncElement(source.getId(), Map.of(), null);
+
+        ComponentDefinition csvFile = Mockito.mock(ComponentDefinition.class);
+
+        Mockito.when(csvFile.isConnectionRequired())
+            .thenReturn(true);
+        Mockito.when(componentDefinitionService.getComponentDefinition("csvFile", 1))
+            .thenReturn(csvFile);
+
+        assertThatThrownBy(() -> dataSyncFacade.publishDataSync(id, null))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.ELEMENT_CONNECTION_MISSING.getErrorKey()));
+    }
+
+    @Test
+    void testPublishRefusesScheduleWithoutExpression() {
+        long id = createFullyConfigured();
+
+        dataSyncFacade.updateDataSyncTrigger(id, TriggerType.SCHEDULE, Map.of("timezone", "UTC"));
+
+        assertThatThrownBy(() -> dataSyncFacade.publishDataSync(id, null))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.SCHEDULE_EXPRESSION_MISSING.getErrorKey()));
+    }
+
+    @Test
+    void testPublishMintsVersionAndClearsUnpublishedChanges() {
+        long id = createFullyConfigured();
+
+        int version = dataSyncFacade.publishDataSync(id, "first");
+
+        DataSyncDTO published = dataSyncFacade.getDataSync(id);
+
+        // publishDataSync returns the newly-minted DRAFT version number, exactly as AiAgentFacadeImpl.publishAgent
+        // does (see AiAgentFacadeIntTest.testPublishAgentWithGatedToolPublishesApprovalGateDeliveringOverChat's
+        // assertThat(newVersion).isEqualTo(2)) — Project.publish() advances the draft and returns that new number,
+        // not the version it just marked PUBLISHED.
+        assertThat(version).isEqualTo(2);
+        assertThat(published.lastPublishedVersion()).isEqualTo(1);
+        assertThat(published.unpublishedChanges()).isFalse();
+        assertThat(dataSyncFacade.getDataSyncVersions(id)).extracting(DataSyncVersionDTO::version)
+            .containsExactly(2, 1);
+
+        dataSyncFacade.updateDataSyncTrigger(id, TriggerType.SCHEDULE, Map.of("expression", "0 9 * * ?"));
+
+        assertThat(dataSyncFacade.getDataSync(id)
+            .unpublishedChanges()).isTrue();
+    }
+
+    @Test
+    void testDeploymentsListAndRunNow() {
+        long id = createFullyConfigured();
+
+        dataSyncFacade.publishDataSync(id, null);
+
+        long projectId = dataSyncFacade.getDataSync(id)
+            .dataSync()
+            .getProjectId();
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setName("deploy");
+        projectDeployment.setProjectId(projectId);
+        projectDeployment.setProjectVersion(1);
+        projectDeployment.setEnvironment(Environment.PRODUCTION);
+        projectDeployment.setEnabled(true);
+        projectDeployment.setUuid(UUID.randomUUID());
+
+        ProjectDeployment savedProjectDeployment = projectDeploymentRepository.save(projectDeployment);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setProjectDeploymentId(savedProjectDeployment.getId());
+        projectDeploymentWorkflow.setWorkflowId(publishedWorkflowId(projectId));
+        projectDeploymentWorkflow.setEnabled(true);
+
+        projectDeploymentWorkflowRepository.save(projectDeploymentWorkflow);
+
+        List<DataSyncDeploymentDTO> deployments = dataSyncFacade.getDataSyncDeployments(workspaceId);
+
+        assertThat(deployments).singleElement()
+            .satisfies(deployment -> {
+                assertThat(deployment.dataSyncId()).isEqualTo(id);
+                assertThat(deployment.triggerType()).isEqualTo(TriggerType.MANUAL);
+                assertThat(deployment.workflowId()).isNotBlank();
+            });
+
+        Mockito.when(projectDeploymentFacade.createProjectDeploymentWorkflowJob(
+            Mockito.eq(savedProjectDeployment.getId()), Mockito.eq(publishedWorkflowId(projectId))))
+            .thenReturn(99L);
+
+        assertThat(dataSyncFacade.runDataSyncDeployment(id, savedProjectDeployment.getId())).isEqualTo(99L);
+    }
+
+    @Test
+    void testRunNowRefusesDisabledDeployment() {
+        long id = createFullyConfigured();
+
+        dataSyncFacade.publishDataSync(id, null);
+
+        long projectId = dataSyncFacade.getDataSync(id)
+            .dataSync()
+            .getProjectId();
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setName("deploy");
+        projectDeployment.setProjectId(projectId);
+        projectDeployment.setProjectVersion(1);
+        projectDeployment.setEnvironment(Environment.PRODUCTION);
+        projectDeployment.setEnabled(false);
+        projectDeployment.setUuid(UUID.randomUUID());
+
+        ProjectDeployment saved = projectDeploymentRepository.save(projectDeployment);
+
+        assertThatThrownBy(() -> dataSyncFacade.runDataSyncDeployment(id, saved.getId()))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.DEPLOYMENT_DISABLED.getErrorKey()));
+    }
+
+    @Test
+    void testRunNowRefusesForeignDeployment() {
+        long id = createFullyConfigured();
+        long otherId = createFullyConfigured();
+
+        dataSyncFacade.publishDataSync(otherId, null);
+
+        long otherProjectId = dataSyncFacade.getDataSync(otherId)
+            .dataSync()
+            .getProjectId();
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setName("deploy");
+        projectDeployment.setProjectId(otherProjectId);
+        projectDeployment.setProjectVersion(1);
+        projectDeployment.setEnvironment(Environment.PRODUCTION);
+        projectDeployment.setEnabled(true);
+        projectDeployment.setUuid(UUID.randomUUID());
+
+        ProjectDeployment saved = projectDeploymentRepository.save(projectDeployment);
+
+        assertThatThrownBy(() -> dataSyncFacade.runDataSyncDeployment(id, saved.getId()))
+            .isInstanceOf(ConfigurationException.class)
+            .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(DataSyncErrorType.DEPLOYMENT_NOT_OWNED.getErrorKey()));
+    }
+
+    @Test
+    void testUpdateDeploymentTagsRefusesForeignDeployment() {
+        long id = createFullyConfigured();
+        long otherId = createFullyConfigured();
+
+        dataSyncFacade.publishDataSync(otherId, null);
+
+        long otherProjectId = dataSyncFacade.getDataSync(otherId)
+            .dataSync()
+            .getProjectId();
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setName("deploy");
+        projectDeployment.setProjectId(otherProjectId);
+        projectDeployment.setProjectVersion(1);
+        projectDeployment.setEnvironment(Environment.PRODUCTION);
+        projectDeployment.setEnabled(true);
+        projectDeployment.setUuid(UUID.randomUUID());
+
+        ProjectDeployment saved = projectDeploymentRepository.save(projectDeployment);
+
+        assertThatThrownBy(
+            () -> dataSyncFacade.updateDataSyncDeploymentTags(id, saved.getId(), List.of(new Tag("urgent"))))
+                .isInstanceOf(ConfigurationException.class)
+                .satisfies(exception -> assertThat(((ConfigurationException) exception).getErrorKey())
+                    .isEqualTo(DataSyncErrorType.DEPLOYMENT_NOT_OWNED.getErrorKey()));
+    }
+
     private long createFullyConfigured() {
         DataSyncDTO dataSyncDTO = dataSyncFacade.createDataSync("Sync", null, workspaceId);
         long id = dataSyncDTO.dataSync()
@@ -324,5 +566,10 @@ class DataSyncFacadeIntTest {
 
         return JsonUtils.read(workflowService.getWorkflow(draftWorkflowId)
             .getDefinition(), new TypeReference<>() {});
+    }
+
+    private String publishedWorkflowId(long projectId) {
+        return projectWorkflowService.getProjectWorkflowIds(projectId, 1)
+            .get(0);
     }
 }
