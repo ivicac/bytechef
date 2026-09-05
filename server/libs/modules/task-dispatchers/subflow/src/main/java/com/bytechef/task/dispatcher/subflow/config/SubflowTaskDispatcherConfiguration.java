@@ -29,6 +29,7 @@ import com.bytechef.task.dispatcher.subflow.SubflowTaskDispatcher;
 import com.bytechef.task.dispatcher.subflow.event.listener.AgentSubflowLauncher;
 import com.bytechef.task.dispatcher.subflow.event.listener.AgentSubflowResumeListener;
 import com.bytechef.task.dispatcher.subflow.event.listener.SubflowJobStatusEventListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,10 +70,12 @@ public class SubflowTaskDispatcherConfiguration {
 
         @Bean
         AgentSubflowLauncher agentSubflowLauncher(
-            ChildJobPrincipalFactory childJobPrincipalFactory, JobService jobService,
+            ChildJobPrincipalFactory childJobPrincipalFactory, JobFacade jobFacade, JobService jobService,
+            @Value("${bytechef.workflow.execution.agent.max-subflow-depth:10}") int maxSubflowDepth,
             TaskExecutionService taskExecutionService) {
 
-            return new AgentSubflowLauncher(childJobPrincipalFactory, jobService, taskExecutionService);
+            return new AgentSubflowLauncher(
+                childJobPrincipalFactory, jobFacade, jobService, maxSubflowDepth, taskExecutionService);
         }
 
         @Bean
