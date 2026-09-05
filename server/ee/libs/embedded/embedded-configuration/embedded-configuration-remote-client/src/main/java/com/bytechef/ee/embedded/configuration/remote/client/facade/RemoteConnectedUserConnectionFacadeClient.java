@@ -37,18 +37,6 @@ public class RemoteConnectedUserConnectionFacadeClient implements ConnectedUserC
     }
 
     @Override
-    public List<ConnectionDTO> getConnections(
-        Long connectedUserId, @Nullable String componentName, List<Long> connectionIds) {
-
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void reauthorizeConnectedUserConnection(long connectedUserId, long connectionId, Map<String, ?> parameters) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public List<ConnectionDTO> getConnectedUserConnections(
         long connectedUserId, @Nullable String componentName, List<Long> connectionIds) {
 

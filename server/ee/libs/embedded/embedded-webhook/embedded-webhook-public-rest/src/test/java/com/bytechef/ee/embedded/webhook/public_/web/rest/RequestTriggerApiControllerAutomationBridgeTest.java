@@ -776,7 +776,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates = Arrays.stream(workflowUuids)
             .map(
                 workflowUuid -> new ConnectedUserWorkflowTemplateDTO(
-                    workflowUuid, "Label", "Description", null, List.of(), List.of(), null))
+                    workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null))
             .toList();
 
         AutomationWorkflowProjectDTO project = new AutomationWorkflowProjectDTO(

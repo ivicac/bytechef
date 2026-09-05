@@ -16,7 +16,10 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.JsonUtils;
@@ -30,8 +33,10 @@ import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,6 +79,15 @@ class ConnectedUserProjectFacadeWorkflowListTest {
     @Mock
     private JobService jobService;
 
+    // The list now reports each automation's stored input values, so it reaches the deployment. Left
+    // unstubbed on purpose: Mockito answers `Optional.empty()`, which is exactly the
+    // never-published case these tests describe.
+    @Mock
+    private ProjectDeploymentService projectDeploymentService;
+
+    @Mock
+    private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
+
     @Mock
     private ProjectService projectService;
 
@@ -93,8 +107,9 @@ class ConnectedUserProjectFacadeWorkflowListTest {
         facade = new ConnectedUserProjectFacadeImpl(
             automationWorkflowProjectFacade, null, null, connectedUserCodeWorkflowReferenceFacade,
             connectedUserProjectWorkflowManager, null, connectedUserProjectWorkflowService, connectedUserService,
-            null, null, null, null, null, jobService, null, null, null, null, null, projectService, null,
-            projectWorkflowService, workflowComponentResolver, null, workflowService, null, null);
+            null, null, null, null, null, jobService, null, null, projectDeploymentService,
+            projectDeploymentWorkflowService, null, projectService, null, projectWorkflowService,
+            workflowComponentResolver, null, workflowService, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
@@ -110,7 +125,10 @@ class ConnectedUserProjectFacadeWorkflowListTest {
 
         project.setId(20L);
 
-        when(projectService.getProject(20L)).thenReturn(project);
+        // Overridden by testGetConnectedUserProjectWorkflowsReportsPublishedLabelRatherThanDraftLabel, which needs a
+        // project carrying a published version -- lenient so that override does not fail strict-stubbing checks here.
+        lenient().when(projectService.getProject(20L))
+            .thenReturn(project);
 
         // Overridden by testGetConnectedUserProjectWorkflowsCarriesCopiedFromWorkflowUuidOnCopyRowsOnly, which needs
         // a non-empty copy-mode workflow list -- lenient so that override doesn't fail strict-stubbing checks here.
@@ -136,7 +154,7 @@ class ConnectedUserProjectFacadeWorkflowListTest {
 
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
             "cat-1", "Sync leads", "d", null, List.of(),
-            List.of(new ConnectedUserWorkflowTemplateDTO.Component("slack", "Slack", "icon")), null);
+            List.of(new ConnectedUserWorkflowTemplateDTO.Component("slack", "Slack", "icon")), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
             1L, "Catalog", "desc", null, List.of(), true, 1, 1, List.of(template), null, true);
@@ -190,6 +208,65 @@ class ConnectedUserProjectFacadeWorkflowListTest {
         assertThat(connectedUserProjectWorkflowDTO.workflow()
             .getLabel()).isEqualTo("cat-gone");
         assertThat(connectedUserProjectWorkflowDTO.components()).isEmpty();
+    }
+
+    @Test
+    void testGetConnectedUserProjectWorkflowsReportsPublishedLabelRatherThanDraftLabel() {
+        UUID workflowUuid = UUID.randomUUID();
+
+        Project project = new Project();
+
+        project.setId(20L);
+        project.setProjectVersions(
+            List.of(new ProjectVersion(1, ProjectVersion.Status.PUBLISHED.ordinal(), Instant.now(), null),
+                new ProjectVersion(2)));
+
+        when(projectService.getProject(20L)).thenReturn(project);
+
+        ProjectWorkflow draftProjectWorkflow = new ProjectWorkflow(50L);
+
+        draftProjectWorkflow.setProjectVersion(2);
+        draftProjectWorkflow.setWorkflowId("wf-draft");
+        draftProjectWorkflow.setUuid(workflowUuid);
+
+        ProjectWorkflow publishedProjectWorkflow = new ProjectWorkflow(49L);
+
+        publishedProjectWorkflow.setProjectVersion(1);
+        publishedProjectWorkflow.setWorkflowId("wf-published");
+        publishedProjectWorkflow.setUuid(workflowUuid);
+
+        when(projectWorkflowService.getProjectWorkflows(eq(20L), eq(2))).thenReturn(List.of(draftProjectWorkflow));
+        when(projectWorkflowService.getProjectWorkflows(eq(20L), eq(1))).thenReturn(List.of(publishedProjectWorkflow));
+
+        when(workflowService.getWorkflows(List.of("wf-draft")))
+            .thenReturn(List.of(new Workflow(
+                "wf-draft", JsonUtils.write(Map.of("label", "Half-typed draft", "description", "Draft description")),
+                Workflow.Format.JSON)));
+        when(workflowService.getWorkflows(List.of("wf-published")))
+            .thenReturn(List.of(new Workflow(
+                "wf-published",
+                JsonUtils.write(Map.of("label", "Published name", "description", "Published description")),
+                Workflow.Format.JSON)));
+
+        ConnectedUserProjectWorkflow copyEntity = new ConnectedUserProjectWorkflow();
+
+        copyEntity.setId(200L);
+
+        when(connectedUserProjectWorkflowService.getConnectedUserProjectWorkflow(10L, 50L)).thenReturn(copyEntity);
+
+        when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(7L)).thenReturn(List.of());
+
+        List<ConnectedUserProjectWorkflowDTO> result =
+            facade.getConnectedUserProjectWorkflows(EXTERNAL_USER_ID, Environment.PRODUCTION);
+
+        assertThat(result).hasSize(1);
+
+        ConnectedUserProjectWorkflowDTO connectedUserProjectWorkflowDTO = result.getFirst();
+
+        assertThat(connectedUserProjectWorkflowDTO.workflow()
+            .getLabel()).isEqualTo("Published name");
+        assertThat(connectedUserProjectWorkflowDTO.workflow()
+            .getDescription()).isEqualTo("Published description");
     }
 
     @Test

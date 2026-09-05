@@ -26,6 +26,7 @@ public record ConnectedUserProjectWorkflowDTO(
     long id, long connectedUserId, boolean enabled, Instant lastExecutionDate, long projectId, WorkflowDTO workflow,
     String workflowUuid, Integer workflowVersion, Kind kind, String catalogWorkflowUuid,
     String copiedFromWorkflowUuid, boolean dangling, List<ConnectedUserWorkflowTemplateDTO.Component> components,
+    List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues,
     @Nullable String staticWebhookUrl) {
 
     /**
@@ -50,10 +51,21 @@ public record ConnectedUserProjectWorkflowDTO(
         List<ConnectedUserWorkflowTemplateDTO.Component> components,
         List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
         this(
+            connectedUserId, connectedUserProjectWorkflow, enabled, lastExecutionDate, projectWorkflow, workflow,
+            components, List.of(), Map.of());
+    }
+
+    public ConnectedUserProjectWorkflowDTO(
+        long connectedUserId, ConnectedUserProjectWorkflow connectedUserProjectWorkflow, boolean enabled,
+        Instant lastExecutionDate, ProjectWorkflow projectWorkflow, WorkflowDTO workflow,
+        List<ConnectedUserWorkflowTemplateDTO.Component> components,
+        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+
+        this(
             connectedUserProjectWorkflow.getId(), connectedUserId, enabled, lastExecutionDate,
             projectWorkflow.getProjectId(), workflow, projectWorkflow.getUuidAsString(),
             connectedUserProjectWorkflow.getWorkflowVersion(), Kind.COPY, null,
-            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, null);
+            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, inputs, inputValues, null);
     }
 
     /**
@@ -63,10 +75,18 @@ public record ConnectedUserProjectWorkflowDTO(
         long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
 
+        return ofReference(connectedUserId, reference, catalogWorkflow, components, List.of(), Map.of());
+    }
+
+    public static ConnectedUserProjectWorkflowDTO ofReference(
+        long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
+        List<ConnectedUserWorkflowTemplateDTO.Component> components,
+        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+
         return new ConnectedUserProjectWorkflowDTO(
             reference.getId(), connectedUserId, reference.isEnabled(), null, 0L, catalogWorkflow,
             reference.getCatalogWorkflowUuid(), reference.getWorkflowVersion(), Kind.REFERENCE,
-            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, null);
+            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, inputs, inputValues, null);
     }
 
     /**
@@ -77,6 +97,6 @@ public record ConnectedUserProjectWorkflowDTO(
     public ConnectedUserProjectWorkflowDTO withStaticWebhookUrl(@Nullable String staticWebhookUrl) {
         return new ConnectedUserProjectWorkflowDTO(
             id, connectedUserId, enabled, lastExecutionDate, projectId, workflow, workflowUuid, workflowVersion, kind,
-            catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, staticWebhookUrl);
+            catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues, staticWebhookUrl);
     }
 }
