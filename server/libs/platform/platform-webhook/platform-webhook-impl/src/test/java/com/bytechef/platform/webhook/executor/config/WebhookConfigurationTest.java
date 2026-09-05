@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 
 import com.bytechef.atlas.configuration.domain.Task;
 import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandler;
+import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandlerFactory;
 import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcher;
 import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcherResolver;
 import com.bytechef.atlas.execution.service.ContextService;
@@ -29,11 +30,15 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -72,12 +77,29 @@ class WebhookConfigurationTest {
     }
 
     @Test
+    void testSyncChainStartsWithSuspendRejectingHandler() {
+        List<TaskCompletionHandlerFactory> taskCompletionHandlerFactories = webhookConfiguration
+            .getSyncTaskCompletionHandlerFactories(
+                mock(ContextService.class), mock(ApplicationEventPublisher.class), mock(CounterService.class),
+                mock(Evaluator.class), mock(JobService.class), mock(TaskExecutionService.class),
+                mock(TaskFileStorage.class));
+
+        TaskCompletionHandlerFactory firstTaskCompletionHandlerFactory = taskCompletionHandlerFactories.getFirst();
+
+        assertThat(
+            firstTaskCompletionHandlerFactory.createTaskCompletionHandler(
+                mock(TaskCompletionHandler.class), mockTaskDispatcher()))
+                    .isInstanceOf(SyncExecutionSuspendRejectingTaskCompletionHandler.class);
+    }
+
+    @Test
     void testEveryTaskDispatcherOnClasspathIsRegistered() {
         Set<String> registeredClassNames = webhookConfiguration
             .getTaskDispatcherResolverFactories(
-                mock(ChildJobPrincipalFactory.class), mock(ContextService.class), mock(CounterService.class),
-                mock(ApplicationEventPublisher.class), mock(Evaluator.class), mock(JobService.class),
-                mock(SubflowResolver.class), mock(TaskExecutionService.class), mock(TaskFileStorage.class))
+                emptyObjectProvider(), mock(ChildJobPrincipalFactory.class), mock(ContextService.class),
+                mock(CounterService.class), mock(ApplicationEventPublisher.class), mock(Evaluator.class),
+                mock(JobService.class), mock(SubflowResolver.class), mock(TaskExecutionService.class),
+                mock(TaskFileStorage.class))
             .stream()
             .map(
                 taskDispatcherResolverFactory -> taskDispatcherResolverFactory.createTaskDispatcherResolver(
@@ -108,5 +130,10 @@ class WebhookConfigurationTest {
     @SuppressWarnings("unchecked")
     private static TaskDispatcher<? super Task> mockTaskDispatcher() {
         return mock(TaskDispatcher.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<CallableAiAgentDataSource> emptyObjectProvider() {
+        return mock(ObjectProvider.class);
     }
 }

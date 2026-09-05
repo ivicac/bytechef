@@ -63,6 +63,7 @@ import com.bytechef.platform.job.sync.simulation.WorkflowSimulationFacade;
 import com.bytechef.platform.job.sync.simulation.WorkflowSimulationFacadeImpl;
 import com.bytechef.platform.variable.WorkflowVariablesResolver;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
 import com.bytechef.platform.workflow.test.coordinator.task.dispatcher.SimulationTaskDispatcherPreSendProcessor;
@@ -74,6 +75,7 @@ import com.bytechef.platform.workflow.test.facade.TestWorkflowExecutorImpl;
 import com.bytechef.task.dispatcher.approval.WaitForApprovalTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.BranchTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.completion.BranchTaskCompletionHandler;
+import com.bytechef.task.dispatcher.callaiagent.CallAiAgentTaskDispatcher;
 import com.bytechef.task.dispatcher.condition.ConditionTaskDispatcher;
 import com.bytechef.task.dispatcher.condition.completion.ConditionTaskCompletionHandler;
 import com.bytechef.task.dispatcher.each.EachTaskDispatcher;
@@ -125,6 +127,7 @@ public class WorkflowTestConfiguration {
 
     @Bean
     TestWorkflowExecutor testWorkflowExecutor(
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider,
         ComponentDefinitionService componentDefinitionService, Environment environment, Evaluator evaluator,
         ApplicationEventPublisher eventPublisher, ObjectMapper objectMapper, SubflowResolver subflowResolver,
         TaskDispatcherDefinitionService taskDispatcherDefinitionService,
@@ -160,8 +163,9 @@ public class WorkflowTestConfiguration {
                     new TestTaskDispatcherPreSendProcessor(
                         jobService, workflowNodeOutputFacade, workflowTestConfigurationService)),
                 getTaskDispatcherResolverFactories(
-                    contextService, counterService, evaluator, coordinatorEventPublisher, jobService,
-                    subflowResolver, taskExecutionService, taskFileStorage, workflowService),
+                    callableAiAgentDataSourceProvider, contextService, counterService, evaluator,
+                    coordinatorEventPublisher, jobService, subflowResolver, taskExecutionService, taskFileStorage,
+                    workflowService),
                 taskExecutionService, syncWorkerExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService),
             taskDispatcherDefinitionService, taskExecutionService, taskFileStorage, workflowService,
             workflowNodeOutputFacade, workflowTestConfigurationService, workflowVariablesResolverObjectProvider);
@@ -169,8 +173,10 @@ public class WorkflowTestConfiguration {
 
     @Bean
     WorkflowSimulationFacade workflowSimulationFacade(
-        Environment environment, Evaluator evaluator, ObjectMapper objectMapper, SubflowResolver subflowResolver,
-        TaskExecutor taskExecutor, TaskHandlerRegistry taskHandlerRegistry,
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider,
+        Environment environment, Evaluator evaluator, ApplicationEventPublisher eventPublisher,
+        ObjectMapper objectMapper, SubflowResolver subflowResolver,
+        @Qualifier("syncWorkerExecutor") TaskExecutor syncWorkerExecutor, TaskHandlerRegistry taskHandlerRegistry,
         WorkflowService workflowService) {
 
         ContextService contextService = new ContextServiceImpl(new InMemoryContextRepository());
@@ -187,7 +193,7 @@ public class WorkflowTestConfiguration {
         ApplicationEventPublisher coordinatorEventPublisher = createEventPublisher(asyncMessageBroker);
 
         JobSyncExecutor jobSyncExecutor = new JobSyncExecutor(
-            contextService, evaluator, jobService, 1000, asyncMessageBroker,
+            contextService, evaluator, eventPublisher, jobService, 1000, asyncMessageBroker,
             getApplicationEventListeners(
                 evaluator, coordinatorEventPublisher, jobService, taskExecutionService, taskFileStorage),
             getTaskCompletionHandlerFactories(
@@ -195,9 +201,10 @@ public class WorkflowTestConfiguration {
             getTaskDispatcherAdapterFactories(evaluator),
             List.of(new SimulationTaskDispatcherPreSendProcessor(jobService)),
             getTaskDispatcherResolverFactories(
-                contextService, counterService, evaluator, coordinatorEventPublisher, jobService, subflowResolver,
-                taskExecutionService, taskFileStorage, workflowService),
-            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService);
+                callableAiAgentDataSourceProvider, contextService, counterService, evaluator,
+                coordinatorEventPublisher, jobService, subflowResolver, taskExecutionService, taskFileStorage,
+                workflowService),
+            taskExecutionService, syncWorkerExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService);
 
         return new WorkflowSimulationFacadeImpl(jobSyncExecutor, taskExecutionService);
     }
@@ -270,9 +277,10 @@ public class WorkflowTestConfiguration {
     }
 
     List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
-        ContextService contextService, CounterService counterService, Evaluator evaluator,
-        ApplicationEventPublisher eventPublisher, JobService jobService, SubflowResolver subflowResolver,
-        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage, WorkflowService workflowService) {
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider, ContextService contextService,
+        CounterService counterService, Evaluator evaluator, ApplicationEventPublisher eventPublisher,
+        JobService jobService, SubflowResolver subflowResolver, TaskExecutionService taskExecutionService,
+        TaskFileStorage taskFileStorage, WorkflowService workflowService) {
 
         JobFacade jobFacade = new JobFacadeImpl(
             eventPublisher, contextService, jobService, taskExecutionService, taskFileStorage, workflowService);
@@ -292,6 +300,9 @@ public class WorkflowTestConfiguration {
         return List.of(
             (taskDispatcher) -> new BranchTaskDispatcher(
                 contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
+            (taskDispatcher) -> new CallAiAgentTaskDispatcher(
+                childJobPrincipalFactory, callableAiAgentDataSourceProvider.getIfAvailable(), jobService,
+                subflowResolver),
             (taskDispatcher) -> new ConditionTaskDispatcher(
                 contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
             (taskDispatcher) -> new ControlTaskDispatcher(eventPublisher),
