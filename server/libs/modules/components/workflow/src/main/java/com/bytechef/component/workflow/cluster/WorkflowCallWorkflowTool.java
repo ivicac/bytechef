@@ -29,6 +29,7 @@ import com.bytechef.component.definition.ClusterElementDefinition.PropertiesFunc
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
 import com.bytechef.component.definition.ai.agent.ToolFunction;
+import com.bytechef.component.workflow.subflow.sync.SubflowSyncExecutor;
 import com.bytechef.definition.BaseOutputDefinition;
 import com.bytechef.definition.BaseProperty;
 import com.bytechef.definition.BaseProperty.BaseValueProperty;
@@ -55,16 +56,9 @@ public class WorkflowCallWorkflowTool {
 
     private static final String TOOL_LABEL = "Call Workflow";
 
-    // Error tokens returned to the LLM. Extracted as constants so tests can assert by equality (not substring),
-    // and so callers downstream can branch on them without parsing free-form text. Text/logic shared with
-    // WorkflowCallAgentTool lives in SubflowToolSupport — these are kept as same-valued fields on this class so the
-    // existing tests referencing WorkflowCallWorkflowTool.ERROR_* by name keep compiling and passing unchanged.
-
     static final String ERROR_NOT_AGENT_CONTEXT = SubflowToolSupport.notAgentContextError(TOOL_LABEL);
 
     static final String ERROR_ALREADY_SUSPENDED = SubflowToolSupport.alreadySuspendedError(TOOL_LABEL);
-
-    static final String ERROR_AGENT_IS_SUBFLOW = SubflowToolSupport.ERROR_AGENT_IS_SUBFLOW;
 
     static final String ERROR_RESOLVE_FAILED_PREFIX = SubflowToolSupport.ERROR_RESOLVE_FAILED_PREFIX;
 
@@ -72,7 +66,8 @@ public class WorkflowCallWorkflowTool {
     }
 
     public static ClusterElementDefinition<ToolFunction> of(
-        SubflowDataSource subflowDataSource, SubflowResolver subflowResolver) {
+        SubflowDataSource subflowDataSource, SubflowResolver subflowResolver,
+        SubflowSyncExecutor subflowSyncExecutor) {
 
         return ComponentDsl.<ToolFunction>clusterElement("callWorkflow")
             .title("Call Workflow")
@@ -86,43 +81,52 @@ public class WorkflowCallWorkflowTool {
                     .required(true),
                 dynamicProperties(INPUTS, getPropertiesFunction(subflowDataSource))
                     .description("The input parameters for the sub-workflow.")
-                    .propertiesLookupDependsOn(WORKFLOW_UUID)
-                    .properties(getPropertiesFunction(subflowDataSource)))
-            .object(() -> getToolFunction(subflowResolver))
+                    .propertiesLookupDependsOn(WORKFLOW_UUID))
+            .object(() -> getToolFunction(subflowResolver, subflowSyncExecutor))
             .output(getOutputFunction(subflowDataSource));
     }
 
-    private static ToolFunction getToolFunction(SubflowResolver subflowResolver) {
+    private static ToolFunction getToolFunction(
+        SubflowResolver subflowResolver, SubflowSyncExecutor subflowSyncExecutor) {
+
         return (inputParameters, connectionParameters, context) -> {
-            ActionContextAware actionContextAware;
-
-            try {
-                actionContextAware = SubflowToolSupport.requireGuardsPassed(context, TOOL_LABEL);
-            } catch (SubflowToolSupport.GuardFailure guardFailure) {
-                return guardFailure.getMessage();
-            }
-
             String workflowUuid = inputParameters.getRequiredString(WORKFLOW_UUID);
             Map<String, ?> inputs = inputParameters.getMap(INPUTS, Collections.emptyMap());
 
-            boolean editorEnvironment = context.isEditorEnvironment();
+            if (context.isEditorEnvironment()) {
+                return SubflowToolSupport.executeSynchronously(
+                    subflowSyncExecutor, workflowUuid, inputs, true,
+                    SubflowToolSupport.findCallerJobId(context, "callWorkflow"));
+            }
 
-            // Resolution can throw -- e.g., workflow missing/unpublished, trigger removed. Per the design spec's
-            // Error handling table, this must surface to the LLM as a tool-result error, not escape to Spring AI.
+            ActionContextAware actionContextAware;
+
+            switch (SubflowToolSupport.checkAgentContext(context, "callWorkflow", TOOL_LABEL)) {
+                case SubflowToolSupport.AgentContextCheck.Rejected rejected -> {
+                    return rejected.error();
+                }
+                case SubflowToolSupport.AgentContextCheck.Passed passed -> actionContextAware =
+                    passed.actionContextAware();
+            }
+
+            if (SubflowToolSupport.isSyncJob(actionContextAware, subflowSyncExecutor)) {
+                return SubflowToolSupport.executeSynchronously(
+                    subflowSyncExecutor, workflowUuid, inputs, false, actionContextAware.getJobId());
+            }
 
             Subflow subflow;
 
             try {
-                subflow = subflowResolver.resolveSubflow(workflowUuid, NEW_WORKFLOW_CALL, editorEnvironment);
+                subflow = subflowResolver.resolveSubflow(workflowUuid, NEW_WORKFLOW_CALL, false);
             } catch (RuntimeException exception) {
                 log.warn(
-                    "Sub-workflow resolution failed for uuid={} (jobId={}): {}",
-                    workflowUuid, actionContextAware.getJobId(), exception.getMessage());
+                    "Sub-workflow resolution failed for uuid={} (jobId={})", workflowUuid,
+                    actionContextAware.getJobId(), exception);
 
-                return ERROR_RESOLVE_FAILED_PREFIX + exception.getMessage();
+                return ERROR_RESOLVE_FAILED_PREFIX + SubflowToolSupport.describe(exception);
             }
 
-            return SubflowToolSupport.suspendForSubflow(actionContextAware, subflow, inputs, editorEnvironment);
+            return SubflowToolSupport.suspendForSubflow(actionContextAware, subflow, inputs);
         };
     }
 

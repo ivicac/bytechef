@@ -27,6 +27,7 @@ import static com.bytechef.platform.component.constant.WorkflowConstants.NEW_WOR
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ai.agent.ToolFunction;
+import com.bytechef.component.workflow.subflow.sync.SubflowSyncExecutor;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource.ResolvedAiAgent;
@@ -55,6 +56,8 @@ public class WorkflowCallAiAgentTool {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowCallAiAgentTool.class);
 
+    private static final String CLUSTER_ELEMENT_NAME = "callAiAgent";
+
     private static final String TOOL_LABEL = "Call AI Agent";
 
     static final String AGENT_UUID = "agentUuid";
@@ -68,8 +71,6 @@ public class WorkflowCallAiAgentTool {
 
     static final String ERROR_ALREADY_SUSPENDED = SubflowToolSupport.alreadySuspendedError(TOOL_LABEL);
 
-    static final String ERROR_AGENT_IS_SUBFLOW = SubflowToolSupport.ERROR_AGENT_IS_SUBFLOW;
-
     static final String ERROR_RESOLVE_FAILED_PREFIX = SubflowToolSupport.ERROR_RESOLVE_FAILED_PREFIX;
 
     /** Distinct from {@link #ERROR_RESOLVE_FAILED_PREFIX}: this one covers agentUuid -> workflow resolution. */
@@ -79,9 +80,10 @@ public class WorkflowCallAiAgentTool {
     }
 
     public static ClusterElementDefinition<ToolFunction> of(
-        CallableAiAgentDataSource callableAgentDataSource, SubflowResolver subflowResolver) {
+        CallableAiAgentDataSource callableAgentDataSource, SubflowResolver subflowResolver,
+        SubflowSyncExecutor subflowSyncExecutor) {
 
-        return ComponentDsl.<ToolFunction>clusterElement("callAiAgent")
+        return ComponentDsl.<ToolFunction>clusterElement(CLUSTER_ELEMENT_NAME)
             .title("Call AI Agent")
             .description("Calls another (published) agent as an AI agent tool.")
             .type(TOOLS)
@@ -120,19 +122,22 @@ public class WorkflowCallAiAgentTool {
                     .description(
                         "Optional memory-thread key passed to the called agent. Left blank, the sub-agent starts " +
                             "(or continues) whatever thread its own conversationId input resolves to."))
-            .object(() -> getToolFunction(callableAgentDataSource, subflowResolver));
+            .object(() -> getToolFunction(callableAgentDataSource, subflowResolver, subflowSyncExecutor));
     }
 
     private static ToolFunction getToolFunction(
-        CallableAiAgentDataSource callableAgentDataSource, SubflowResolver subflowResolver) {
+        CallableAiAgentDataSource callableAgentDataSource, SubflowResolver subflowResolver,
+        SubflowSyncExecutor subflowSyncExecutor) {
 
         return (inputParameters, connectionParameters, context) -> {
             ActionContextAware actionContextAware;
 
-            try {
-                actionContextAware = SubflowToolSupport.requireGuardsPassed(context, TOOL_LABEL);
-            } catch (SubflowToolSupport.GuardFailure guardFailure) {
-                return guardFailure.getMessage();
+            switch (SubflowToolSupport.checkAgentContext(context, CLUSTER_ELEMENT_NAME, TOOL_LABEL)) {
+                case SubflowToolSupport.AgentContextCheck.Rejected rejected -> {
+                    return rejected.error();
+                }
+                case SubflowToolSupport.AgentContextCheck.Passed passed -> actionContextAware =
+                    passed.actionContextAware();
             }
 
             String agentUuid = inputParameters.getRequiredString(AGENT_UUID);
@@ -157,6 +162,20 @@ public class WorkflowCallAiAgentTool {
                 return ERROR_AGENT_RESOLVE_FAILED_PREFIX + exception.getMessage();
             }
 
+            Map<String, Object> inputs = new HashMap<>();
+
+            inputs.put(MESSAGE, message);
+
+            if (conversationId != null && !conversationId.isBlank()) {
+                inputs.put(CONVERSATION_ID, conversationId);
+            }
+
+            if (editorEnvironment || SubflowToolSupport.isSyncJob(actionContextAware, subflowSyncExecutor)) {
+                return SubflowToolSupport.executeSynchronously(
+                    subflowSyncExecutor, resolvedAgent.workflowUuid(), inputs, editorEnvironment,
+                    actionContextAware.getJobId());
+            }
+
             Subflow subflow;
 
             // resolvedAgent.description() is intentionally unused here -- ResolvedAiAgent mirrors the
@@ -171,18 +190,10 @@ public class WorkflowCallAiAgentTool {
                     agentUuid, resolvedAgent.name(), resolvedAgent.workflowUuid(), actionContextAware.getJobId(),
                     exception.getMessage());
 
-                return ERROR_RESOLVE_FAILED_PREFIX + exception.getMessage();
+                return ERROR_RESOLVE_FAILED_PREFIX + SubflowToolSupport.describe(exception);
             }
 
-            Map<String, Object> inputs = new HashMap<>();
-
-            inputs.put(MESSAGE, message);
-
-            if (conversationId != null && !conversationId.isBlank()) {
-                inputs.put(CONVERSATION_ID, conversationId);
-            }
-
-            return SubflowToolSupport.suspendForSubflow(actionContextAware, subflow, inputs, editorEnvironment);
+            return SubflowToolSupport.suspendForSubflow(actionContextAware, subflow, inputs);
         };
     }
 
