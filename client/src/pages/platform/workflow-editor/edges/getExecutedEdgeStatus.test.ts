@@ -46,6 +46,36 @@ describe('getExecutedEdgeStatus', () => {
         ).toBe('COMPLETED');
     });
 
+    it('colors plumbing out of a dispatcher that failed through a nested child', () => {
+        // A condition whose branch child failed is itself reported FAILED, so every edge leaving it --
+        // its own edge into the top ghost, and the ghost's edge into the child -- has a FAILED source.
+        const states = {condition_1: {status: 'FAILED' as const}, condition_2: {status: 'FAILED' as const}};
+
+        expect(
+            getExecutedEdgeStatus(taskNode('condition_1'), ghostNode('condition_1', 'condition-top-ghost'), states)
+        ).toBe('FAILED');
+
+        expect(
+            getExecutedEdgeStatus(ghostNode('condition_1', 'condition-top-ghost'), taskNode('condition_2'), states)
+        ).toBe('FAILED');
+    });
+
+    it('keeps the sibling branch of a failed dispatcher gray', () => {
+        const states = {condition_1: {status: 'FAILED' as const}, condition_2: {status: 'FAILED' as const}};
+
+        expect(
+            getExecutedEdgeStatus(ghostNode('condition_1', 'condition-top-ghost'), taskNode('logger_2'), states)
+        ).toBeUndefined();
+    });
+
+    it('colors a completed child of a dispatcher that failed later in the same branch', () => {
+        const states = {condition_1: {status: 'FAILED' as const}, logger_5: {status: 'COMPLETED' as const}};
+
+        expect(
+            getExecutedEdgeStatus(ghostNode('condition_1', 'condition-top-ghost'), taskNode('logger_5'), states)
+        ).toBe('COMPLETED');
+    });
+
     it('keeps the untaken branch gray: child without state into an executed ghost', () => {
         const states = {condition_1: {status: 'COMPLETED' as const}};
 

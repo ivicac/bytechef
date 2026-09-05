@@ -21,6 +21,12 @@ export function resolveTestStateNodeName(node?: Node): string | undefined {
  * the untaken side of a condition gray: its bottom-ghost resolves to the (executed) dispatcher, but the untaken
  * branch child never ran, so child->ghost edges stay neutral.
  *
+ * "Ran" means COMPLETED **or** FAILED on the source side, not COMPLETED alone. A task dispatcher whose nested
+ * child fails is itself reported FAILED, and its ghost nodes borrow that status, so demanding COMPLETED there
+ * broke the red trail at the dispatcher's own boundary: `condition_1 -> top ghost -> condition_2` went gray
+ * between two red nodes. Widening the source cannot light an untaken branch, because the target still has to
+ * have run.
+ *
  * Returns 'FAILED' when the traversal reached a failed node so the incoming edge can match the node's red state.
  */
 function resolveNodeStatus(
@@ -138,7 +144,7 @@ export default function getExecutedEdgeStatus(
 
     const sourceStatus = resolveNodeStatus(sourceNode, workflowTestNodeStates);
 
-    if (sourceStatus !== 'COMPLETED') {
+    if (sourceStatus !== 'COMPLETED' && sourceStatus !== 'FAILED') {
         return undefined;
     }
 
