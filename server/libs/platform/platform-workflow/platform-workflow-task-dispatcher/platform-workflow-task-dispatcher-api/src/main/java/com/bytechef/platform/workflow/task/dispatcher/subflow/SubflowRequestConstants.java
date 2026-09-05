@@ -32,6 +32,13 @@ public final class SubflowRequestConstants {
     /** Key in the agent job's metadata holding the launched sub-workflow job id (idempotency guard). */
     public static final String LAUNCHED_SUBFLOW_JOB_ID = "__bytechef_launched_subflow_job_id__";
 
+    /**
+     * Key in a bridge-launched job's metadata holding how many bridge hops separate it from the top-level run. Absent
+     * on a top-level job (depth 0); each bridged launch stores its parent's value plus one, bounding agent chains that
+     * no save-time check can see.
+     */
+    public static final String SUBFLOW_DEPTH = "__bytechef_subflow_depth__";
+
     private SubflowRequestConstants() {
     }
 }

@@ -323,7 +323,7 @@ class AgentSubflowBridgeIntTest {
             jobService, launchedJobParameters);
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, new NoOpJobFacade(), jobService, 10, taskExecutionService);
 
         launcher.onApplicationEvent(new JobStatusApplicationEvent(agentJobId, Job.Status.STOPPED));
 
@@ -368,7 +368,7 @@ class AgentSubflowBridgeIntTest {
             jobService, launchedJobParameters);
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, new NoOpJobFacade(), jobService, 10, taskExecutionService);
         AgentSubflowResumeListener resumeListener = new AgentSubflowResumeListener(
             new NoOpJobFacade(), jobService, taskExecutionService, taskFileStorage);
 
