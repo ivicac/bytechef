@@ -17,7 +17,6 @@
 package com.bytechef.platform.component.context;
 
 import com.bytechef.atlas.coordinator.event.TaskProgressedApplicationEvent;
-import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Approval.Links;
@@ -431,29 +430,6 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
         }
 
         return jobMetadata;
-    }
-
-    @Override
-    @Nullable
-    public Long getParentTaskExecutionId() {
-        // No persisted Atlas Job in editor-environment / in-process invocations -- treat as top-level.
-        if (jobId == null || jobService == null) {
-            return null;
-        }
-
-        try {
-            return jobService.fetchJob(jobId)
-                .map(Job::getParentTaskExecutionId)
-                .orElse(null);
-        } catch (RuntimeException ex) {
-            // Mirror the recovery shape of getJobMetadata: a transient lookup failure must not break perform().
-            // The reader (WorkflowCallWorkflowTool) interprets null as "top-level", which is the safe direction --
-            // the guard fails open (suspend proceeds) rather than closed (block a legitimate top-level agent).
-            log.warn(
-                "Failed to load job {} for ActionContextAware.getParentTaskExecutionId: {}", jobId, ex.getMessage());
-
-            return null;
-        }
     }
 
     @Override
