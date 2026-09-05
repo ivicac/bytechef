@@ -11,6 +11,7 @@ dependencies {
     testImplementation(project(":server:libs:atlas:atlas-worker:atlas-worker-impl"))
     testImplementation(project(":server:libs:core:message:message-broker:message-broker-memory"))
     testImplementation(project(":server:libs:core:tenant:tenant-api"))
+    testImplementation(project(":server:libs:modules:task-dispatchers:map"))
     testImplementation(project(":server:libs:modules:task-dispatchers:parallel"))
     testImplementation(project(":server:libs:modules:task-dispatchers:suspend"))
     testImplementation(project(":server:libs:platform:platform-job-sync"))
