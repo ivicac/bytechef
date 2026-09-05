@@ -30,6 +30,8 @@ interface DescriptionTabProps {
 }
 
 const DescriptionTab = ({nodeDefinition, updateWorkflowMutation}: DescriptionTabProps) => {
+    const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+
     const {currentNode, setCurrentNode} = useWorkflowNodeDetailsPanelStore(
         useShallow((state) => ({
             currentNode: state.currentNode,
@@ -42,9 +44,6 @@ const DescriptionTab = ({nodeDefinition, updateWorkflowMutation}: DescriptionTab
             workflow: state.workflow,
         }))
     );
-
-    const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
-
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
     const handleLabelChange = useDebouncedCallback((event: ChangeEvent<HTMLInputElement>) => {

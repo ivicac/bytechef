@@ -38,10 +38,12 @@ export interface ConnectionI {
     readonly id?: number;
     readonly lastModifiedBy?: string;
     readonly lastModifiedDate?: Date;
+    /** True when the platform provisioned the credential rather than the user; it is not ours to rewrite. */
     readonly managed?: boolean;
     name: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters: {[key: string]: any};
+    /** Embedded only; forced to false everywhere else. See `Connection.shared` on the generated models. */
     shared?: boolean;
     tags?: Array<Tag>;
     version?: number;
@@ -99,6 +101,12 @@ export interface WorkflowEditorStateI extends WorkflowReadOnlyStateI {
     // automation project flow (e.g. embedded integrations) until CW-B wires the embedded equivalent.
     codeWorkflow?: boolean;
     codeWorkflowLanguage?: string;
+    // Whether a connection created from this editor can carry a visibility. Absent means yes (the
+    // automation editors). The embedded builder sets it false: a connected user's connection belongs
+    // to that user and to no workspace, and `ConnectedUserConnectionFacadeImpl` forces it unshared on
+    // create — so a Visibility picker there offers a choice the server discards, and the connection
+    // comes back PRIVATE whatever was ticked.
+    connectionVisibilitySupported?: boolean;
     deleteClusterElementParameterMutation: UseMutationResult<
         DeleteClusterElementParameter200Response,
         Error,
