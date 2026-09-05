@@ -121,6 +121,10 @@ type SubflowDataType = {
     subflowId: string;
 };
 
+type CallAiAgentDataType = {
+    callAiAgentId: string;
+};
+
 type TerminateDataType = {
     terminateId: string;
 };
@@ -194,6 +198,7 @@ export type NodeDataType = {
     branchData?: BranchDataType;
     branchId?: string;
     branchIndex?: number;
+    callAiAgentData?: CallAiAgentDataType;
     caseKey?: string | number;
     clusterElements?: ClusterElementsType | Array<ClusterElementDefinitionBasic>;
     clusterElementName?: string;
@@ -235,11 +240,27 @@ export type NodeDataType = {
      * elements are drawn inside. Unlike `graphFrame` this does not mark a separate container node —
      * the root is its elements' React Flow parent already, so the root itself is the box.
      */
-    clusterFrame?: {clusterRootId: string; height: number; width: number};
+    clusterFrame?: {
+        clusterRootId: string;
+        /**
+         * Where the root card sits inside the box. Members left of, or above, the card push it in so
+         * they still land inside the border, and the drag-stop handler subtracts this again before
+         * persisting a member's position — the stored value stays measured from the card.
+         */
+        contentOrigin: {x: number; y: number};
+        height: number;
+        width: number;
+    };
     graphId?: string;
     /** Present only on the `graphStart` pill node. */
     graphStart?: {graphId: string};
     icon?: ReactNode;
+    /**
+     * Set only on the execution-detail read-only canvas: whether this node is disabled or sits
+     * under a disabled ancestor, computed once in `useLayout.tsx` from the executed workflow
+     * version's tasks (that canvas has no live store-backed workflow to derive it from at
+     * render time the way `WorkflowNode.tsx` does via `useDisabledTaskNames`).
+     */
     isEffectivelyDisabled?: boolean;
     isNestedClusterRoot?: boolean;
     label?: string;
@@ -279,6 +300,15 @@ export type NodeDataType = {
     terminateData?: TerminateDataType;
     terminateId?: string;
     title?: string;
+    /**
+     * Present only on a cluster ELEMENT's node data (never on the root's own). Set once, at the
+     * outermost `createClusterElementNodes` call, and threaded UNCHANGED through every recursion --
+     * unlike `parentClusterRootId`, which is rebound to the immediate parent at each nesting level.
+     * An element nested two or more levels deep (a tool that is itself a cluster root, containing its
+     * own cluster-root element) needs this to resolve back to a real `WorkflowTask` entry: only the
+     * outermost root is addressable via `getTask`/`workflowTasks` -- a nested root lives inside its
+     * parent's `clusterElements`, not in `workflowTasks`.
+     */
     topLevelClusterRootId?: string;
     trigger?: boolean;
     type?: string;
@@ -426,6 +456,7 @@ export type UpdateWorkflowMutationType = UseMutationResult<Workflow, Error, Upda
 export type TaskDispatcherContextType = {
     branchIndex?: number;
     branchId?: string;
+    callAiAgentId?: string;
     caseKey?: string | number;
     conditionCase?: 'caseTrue' | 'caseFalse';
     conditionId?: string;
