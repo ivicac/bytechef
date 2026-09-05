@@ -79,7 +79,12 @@ public class RemoteJobServiceClient implements JobService {
 
     @Override
     public List<Long> getChildJobIds(long parentJobId) {
-        throw new UnsupportedOperationException();
+        return loadBalancedRestClient.get(
+            uriBuilder -> uriBuilder
+                .host(EXECUTION_APP)
+                .path(JOB_SERVICE + "/get-child-job-ids/{parentJobId}")
+                .build(parentJobId),
+            new ParameterizedTypeReference<>() {});
     }
 
     @Override
