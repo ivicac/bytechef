@@ -32,6 +32,7 @@ import com.bytechef.atlas.worker.task.handler.TaskDispatcherAdapterFactory;
 import com.bytechef.atlas.worker.task.handler.TaskHandler;
 import com.bytechef.atlas.worker.task.handler.TaskHandlerRegistry;
 import com.bytechef.atlas.worker.task.handler.TaskHandlerResolver;
+import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.component.map.MapTaskDispatcherAdapterTaskHandler;
 import com.bytechef.component.map.constant.MapConstants;
 import com.bytechef.evaluator.Evaluator;
@@ -42,17 +43,21 @@ import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.job.sync.file.storage.InMemoryTaskFileStorage;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry;
+import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutorImpl;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowSyncExecutor;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
 import com.bytechef.task.dispatcher.approval.WaitForApprovalTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.BranchTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.completion.BranchTaskCompletionHandler;
+import com.bytechef.task.dispatcher.callaiagent.CallAiAgentTaskDispatcher;
 import com.bytechef.task.dispatcher.condition.ConditionTaskDispatcher;
 import com.bytechef.task.dispatcher.condition.completion.ConditionTaskCompletionHandler;
 import com.bytechef.task.dispatcher.each.EachTaskDispatcher;
@@ -92,21 +97,19 @@ public class WebhookConfiguration {
     private static final int UNLIMITED_TASK_EXECUTIONS = -1;
 
     /**
-     * Completion timeout, in seconds, for synchronous webhook execution.
+     * Fallback completion timeout, in seconds, for synchronous webhook execution. Each run passes its own plan-capped
+     * timeout, so this only applies to callers that do not.
      */
-    private static final long SYNC_EXECUTION_TIMEOUT = 300;
-
-    @Bean
-    SseStreamBridgeRegistry sseStreamBridgeRegistry(ObjectProvider<JobResumeFacade> jobResumeFacadeProvider) {
-        return new SseStreamBridgeRegistry(jobResumeFacadeProvider.getIfAvailable());
-    }
+    private static final long SYNC_EXECUTION_TIMEOUT = JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT.toSeconds();
 
     @Bean
     WebhookWorkflowExecutor webhookExecutor(
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider,
         ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
         CounterService counterService, TaskFileStorage durableTaskFileStorage, Environment environment,
         Evaluator evaluator, ApplicationEventPublisher eventPublisher,
-        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, PrincipalJobFacade principalJobFacade,
+        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
+        PrincipalJobFacade principalJobFacade,
         JobService jobService, List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
         SseStreamBridgeRegistry sseStreamBridgeRegistry, SubflowResolver subflowResolver,
         TaskExecutionService taskExecutionService, @Qualifier("syncWorkerExecutor") TaskExecutor syncWorkerExecutor,
@@ -117,9 +120,9 @@ public class WebhookConfiguration {
         TaskFileStorage syncJobTaskFileStorage = new InMemoryTaskFileStorage(durableTaskFileStorage);
 
         JobSyncExecutor jobSyncExecutor = createJobSyncExecutor(
-            childJobPrincipalFactory, contextService, counterService, environment, evaluator, jobService,
-            taskDispatcherPreSendProcessors, subflowResolver, taskExecutionService, syncWorkerExecutor,
-            taskHandlerRegistry, syncJobTaskFileStorage, SYNC_EXECUTION_TIMEOUT, workflowService);
+            callableAiAgentDataSourceProvider, childJobPrincipalFactory, contextService, counterService, environment,
+            evaluator, jobService, taskDispatcherPreSendProcessors, subflowResolver, taskExecutionService,
+            syncWorkerExecutor, taskHandlerRegistry, syncJobTaskFileStorage, SYNC_EXECUTION_TIMEOUT, workflowService);
 
         return new WebhookWorkflowExecutorImpl(
             evaluator, eventPublisher, jobPrincipalAccessorRegistry, jobSyncExecutor, principalJobFacade,
@@ -133,6 +136,7 @@ public class WebhookConfiguration {
      * sub-flow executor needs an {@link EphemeralWorkflowService} in its place.
      */
     private JobSyncExecutor createJobSyncExecutor(
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider,
         ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
         CounterService counterService, Environment environment, Evaluator evaluator, JobService jobService,
         List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors, SubflowResolver subflowResolver,
@@ -147,14 +151,21 @@ public class WebhookConfiguration {
             contextService, evaluator, jobService, UNLIMITED_TASK_EXECUTIONS, asyncMessageBroker,
             getAdditionalApplicationEventListeners(
                 evaluator, coordinatorEventPublisher, jobService, taskExecutionService, syncJobTaskFileStorage),
-            getTaskCompletionHandlerFactories(
-                contextService, counterService, evaluator, taskExecutionService, syncJobTaskFileStorage),
+            getSyncTaskCompletionHandlerFactories(
+                contextService, coordinatorEventPublisher, counterService, evaluator, jobService, taskExecutionService,
+                syncJobTaskFileStorage),
             getTaskDispatcherAdapterFactories(evaluator), taskDispatcherPreSendProcessors,
             getTaskDispatcherResolverFactories(
-                childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
-                jobService, subflowResolver, taskExecutionService, syncJobTaskFileStorage),
+                callableAiAgentDataSourceProvider, childJobPrincipalFactory, contextService, counterService,
+                coordinatorEventPublisher, evaluator, jobService, subflowResolver, taskExecutionService,
+                syncJobTaskFileStorage),
             taskExecutionService, taskExecutor, taskHandlerRegistry, syncJobTaskFileStorage, timeout,
             workflowService);
+    }
+
+    @Bean
+    SseStreamBridgeRegistry sseStreamBridgeRegistry(ObjectProvider<JobResumeFacade> jobResumeFacadeProvider) {
+        return new SseStreamBridgeRegistry(jobResumeFacadeProvider.getIfAvailable());
     }
 
     private static ApplicationEventPublisher createEventPublisher(MessageBroker messageBroker) {
@@ -165,6 +176,21 @@ public class WebhookConfiguration {
 
             messageBroker.send(((MessageEvent<?>) event).getRoute(), event);
         };
+    }
+
+    List<TaskCompletionHandlerFactory> getSyncTaskCompletionHandlerFactories(
+        ContextService contextService, ApplicationEventPublisher eventPublisher, CounterService counterService,
+        Evaluator evaluator, JobService jobService, TaskExecutionService taskExecutionService,
+        TaskFileStorage taskFileStorage) {
+
+        TaskCompletionHandlerFactory suspendRejectingTaskCompletionHandlerFactory =
+            (taskCompletionHandler, taskDispatcher) -> new SyncExecutionSuspendRejectingTaskCompletionHandler(
+                eventPublisher, jobService, taskExecutionService);
+
+        return CollectionUtils.concat(
+            List.of(suspendRejectingTaskCompletionHandlerFactory),
+            getTaskCompletionHandlerFactories(
+                contextService, counterService, evaluator, taskExecutionService, taskFileStorage));
     }
 
     List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
@@ -222,6 +248,7 @@ public class WebhookConfiguration {
     }
 
     List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
+        ObjectProvider<CallableAiAgentDataSource> callableAiAgentDataSourceProvider,
         ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
         CounterService counterService, ApplicationEventPublisher eventPublisher,
         Evaluator evaluator, JobService jobService, SubflowResolver subflowResolver,
@@ -230,6 +257,9 @@ public class WebhookConfiguration {
         return List.of(
             (taskDispatcher) -> new BranchTaskDispatcher(
                 contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
+            (taskDispatcher) -> new CallAiAgentTaskDispatcher(
+                childJobPrincipalFactory, callableAiAgentDataSourceProvider.getIfAvailable(), jobService,
+                subflowResolver),
             (taskDispatcher) -> new ConditionTaskDispatcher(
                 contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
             (taskDispatcher) -> new EachTaskDispatcher(
