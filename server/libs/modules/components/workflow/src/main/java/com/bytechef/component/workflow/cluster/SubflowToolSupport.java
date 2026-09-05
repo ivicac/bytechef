@@ -33,22 +33,18 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Shared guard-then-suspend machinery for the AI-agent tools that hand off to a durable sub-workflow call
- * ({@link WorkflowCallWorkflowTool}, {@link WorkflowCallAgentTool}) — every such tool must run the same three guards
- * (agent context present, no suspend already pending this turn, the calling agent is not itself a sub-workflow) before
- * it may suspend, and the same {@link PendingSubflowRequest}-carrying suspend at the end. Each tool supplies its own
- * {@code toolLabel} (e.g. {@code "Call Workflow"}, {@code "Call Agent"}) so the LLM-facing error text and log lines
- * name the right tool, and keeps its own error constants (equal to what this class produces) so existing tests that
- * assert against those constants by name keep compiling and passing unchanged.
+ * ({@link WorkflowCallWorkflowTool}, {@link WorkflowCallAiAgentTool}) — every such tool must run the same two guards
+ * (agent context present, no suspend already pending this turn) before it may suspend, and the same
+ * {@link PendingSubflowRequest}-carrying suspend at the end. Each tool supplies its own {@code toolLabel} (e.g.
+ * {@code "Call Workflow"}, {@code "Call AI Agent"}) so the LLM-facing error text and log lines name the right tool, and
+ * keeps its own error constants (equal to what this class produces) so existing tests that assert against those
+ * constants by name keep compiling and passing unchanged.
  *
  * @author Ivica Cardic
  */
 final class SubflowToolSupport {
 
     private static final Logger log = LoggerFactory.getLogger(SubflowToolSupport.class);
-
-    /** Generic — no tool name embedded, so both tools can share the literal value verbatim. */
-    static final String ERROR_AGENT_IS_SUBFLOW =
-        "Error: calling a sub-workflow as a tool is not supported when the agent itself runs as a sub-workflow.";
 
     /** Generic — no tool name embedded, so both tools can share the literal value verbatim. */
     static final String ERROR_RESOLVE_FAILED_PREFIX =
@@ -82,9 +78,9 @@ final class SubflowToolSupport {
     }
 
     /**
-     * Runs the three suspend guards in order, logging and throwing {@link GuardFailure} (carrying the exact
-     * LLM-readable error string to return) on the first one that fails. Never suspends itself — the caller suspends
-     * once it has also resolved whatever it needs to resolve.
+     * Runs the two suspend guards in order, logging and throwing {@link GuardFailure} (carrying the exact LLM-readable
+     * error string to return) on the first one that fails. Never suspends itself — the caller suspends once it has also
+     * resolved whatever it needs to resolve.
      *
      * @throws GuardFailure if any guard fails
      */
@@ -103,20 +99,6 @@ final class SubflowToolSupport {
                 actionContextAware.getJobId());
 
             throw new GuardFailure(alreadySuspendedError(toolLabel));
-        }
-
-        // The agent is itself a sub-workflow (parentTaskExecutionId != null). JobServiceImpl.resumeToStatusStarted
-        // asserts parentTaskExecutionId == null, so a later resumeJob on the agent would throw and the agent would be
-        // parked forever -- exactly the silent-park failure mode #5055 was filed against. Fail fast with an
-        // LLM-readable error instead of suspending into an irrecoverable state.
-
-        if (actionContextAware.getParentTaskExecutionId() != null) {
-            log.warn(
-                "{} tool invoked from an agent that itself runs as a sub-workflow (jobId={}, "
-                    + "parentTaskExecutionId={}); refusing to suspend",
-                toolLabel, actionContextAware.getJobId(), actionContextAware.getParentTaskExecutionId());
-
-            throw new GuardFailure(ERROR_AGENT_IS_SUBFLOW);
         }
 
         return actionContextAware;

@@ -72,7 +72,6 @@ class WorkflowCallAiAgentToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         doAnswer(invocation -> {
             suspendRef.set(invocation.getArgument(0));
@@ -130,7 +129,6 @@ class WorkflowCallAiAgentToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         AtomicReference<ActionContext.Suspend> suspendRef = new AtomicReference<>();
 
@@ -208,39 +206,6 @@ class WorkflowCallAiAgentToolTest {
         assertEquals(WorkflowCallAiAgentTool.ERROR_NOT_AGENT_CONTEXT, result);
     }
 
-    /**
-     * Same C1-class regression coverage as {@code WorkflowCallWorkflowToolTest}: the tool must detect that the calling
-     * agent is itself a sub-workflow and return an LLM-readable error WITHOUT suspending, or the eventual
-     * {@code resumeJob} on the agent parks it forever (bug class #5055).
-     */
-    @Test
-    void testToolReturnsErrorWhenAgentIsItselfASubflow() throws Exception {
-        CallableAiAgentDataSource callableAgentDataSource = mock(CallableAiAgentDataSource.class);
-        SubflowResolver subflowResolver = mock(SubflowResolver.class);
-
-        TestAgentContext agentContext = mock(TestAgentContext.class);
-
-        when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(42L);
-
-        ClusterElementContextAware context = mock(
-            ClusterElementContextAware.class,
-            withSettings().extraInterfaces(ClusterElementContext.class));
-
-        when(context.getAgentActionContext()).thenReturn(agentContext);
-
-        ToolFunction toolFunction = getToolFunction(callableAgentDataSource, subflowResolver);
-
-        Object result = toolFunction.apply(
-            MockParametersFactory.create(Map.of("agentUuid", "agent-uuid-1", "message", "hi")),
-            MockParametersFactory.create(Map.of()),
-            (ClusterElementContext) context);
-
-        assertEquals(WorkflowCallAiAgentTool.ERROR_AGENT_IS_SUBFLOW, result);
-
-        verify(agentContext, never()).suspend(any());
-    }
-
     @Test
     void testToolReturnsErrorWhenAgentResolutionFails() throws Exception {
         CallableAiAgentDataSource callableAgentDataSource = mock(CallableAiAgentDataSource.class);
@@ -252,7 +217,6 @@ class WorkflowCallAiAgentToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         ClusterElementContextAware context = mock(
             ClusterElementContextAware.class,
@@ -292,7 +256,6 @@ class WorkflowCallAiAgentToolTest {
         TestAgentContext agentContext = mock(TestAgentContext.class);
 
         when(agentContext.getSuspend()).thenReturn(null);
-        when(agentContext.getParentTaskExecutionId()).thenReturn(null);
 
         ClusterElementContextAware context = mock(
             ClusterElementContextAware.class,
