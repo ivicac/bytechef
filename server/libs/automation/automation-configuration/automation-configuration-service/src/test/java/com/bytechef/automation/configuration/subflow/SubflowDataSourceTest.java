@@ -489,19 +489,17 @@ class SubflowDataSourceTest {
     }
 
     @Test
-    void testGetSubWorkflowsPresentsAgentProjectWorkflowAsAgent() {
+    void testGetSubWorkflowsExcludesAgentProjectWorkflows() {
         ProjectWorkflow projectWorkflow = mock(ProjectWorkflow.class);
 
         when(projectWorkflow.getWorkflowId()).thenReturn(WORKFLOW_ID);
         when(projectWorkflow.getProjectId()).thenReturn(1L);
-        when(projectWorkflow.getUuidAsString()).thenReturn(WORKFLOW_UUID);
 
         when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(List.of(projectWorkflow));
 
         Workflow workflow = mock(Workflow.class);
 
         when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
-        when(workflow.getLabel()).thenReturn("My Agent");
 
         WorkflowTrigger callableTrigger = mock(WorkflowTrigger.class);
 
@@ -519,16 +517,12 @@ class SubflowDataSourceTest {
             List<SubflowEntry> result =
                 subflowDataSource.getSubWorkflows(PlatformType.AUTOMATION, WorkflowConstants.NEW_WORKFLOW_CALL, null);
 
-            assertEquals(1, result.size());
-            assertEquals(WORKFLOW_UUID, result.getFirst()
-                .workflowUuid());
-            assertEquals("Agent > My Agent", result.getFirst()
-                .name());
+            assertTrue(result.isEmpty());
         }
     }
 
     @Test
-    void testGetSubWorkflowsExcludesOtherSystemProjectWorkflows() {
+    void testGetSubWorkflowsExcludesKnowledgeBaseProjectWorkflows() {
         ProjectWorkflow projectWorkflow = mock(ProjectWorkflow.class);
 
         when(projectWorkflow.getWorkflowId()).thenReturn(WORKFLOW_ID);

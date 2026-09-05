@@ -144,27 +144,12 @@ class SubflowDataSourceImpl implements SubflowDataSource {
                     continue;
                 }
 
-                String workflowLabel = workflow.getLabel() == null ? "Unnamed Workflow" : workflow.getLabel();
-                String name;
-
                 if (SystemProjects.isSystemProject(project)) {
-                    if (project.getName()
-                        .startsWith(SystemProjects.AI_AGENT_NAME_PREFIX)) {
-
-                        // Published agents are backed by a hidden __AI_AGENT__ project whose generated workflow is
-                        // deliberately callable from this picker — present it as an agent rather than leaking the
-                        // internal project name.
-                        name = "Agent > " + workflowLabel;
-                    } else {
-
-                        // Every other system project's workflows are internal to their owning feature; none happen
-                        // to expose a newWorkflowCall trigger today, but skip them defensively so a future one
-                        // cannot leak into this picker.
-                        continue;
-                    }
-                } else {
-                    name = project.getName() + " > " + workflowLabel;
+                    continue;
                 }
+
+                String workflowLabel = workflow.getLabel() == null ? "Unnamed Workflow" : workflow.getLabel();
+                String name = project.getName() + " > " + workflowLabel;
 
                 if (lowerCaseSearch == null || lowerCaseSearch.isEmpty() ||
                     name.toLowerCase()
