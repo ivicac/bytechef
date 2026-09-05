@@ -2,10 +2,13 @@ import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {ReactFlowProvider} from '@xyflow/react';
 import {ReactNode} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
+import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
 import AiAgentNode from './AiAgentNode';
 
 // Mutable slice of the workflow data store so each test can supply its own definition.
@@ -140,6 +143,8 @@ describe('AiAgentNode', () => {
     beforeEach(() => {
         workflowDataStoreState.definition = '{"tasks": []}';
         workflowEditorStoreState.clusterRootComponentDefinitions = {};
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
     });
 
     it('renders muted when the agent task carries its own disabled flag', () => {
@@ -170,6 +175,40 @@ describe('AiAgentNode', () => {
         expect(nodeClassName(container)).toContain('opacity-50');
         expect(nodeClassName(container)).toContain('grayscale');
         expect(screen.queryByTitle(DISABLED_BADGE_TITLE)).not.toBeInTheDocument();
+    });
+});
+
+describe('AiAgentNode expand control', () => {
+    beforeEach(() => {
+        workflowDataStoreState.definition = '{"tasks": []}';
+        workflowEditorStoreState.clusterRootComponentDefinitions = {};
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
+    });
+
+    it('offers no expand control on a root that is not collapsed', () => {
+        renderNode();
+
+        expect(screen.queryByRole('button', {name: 'Expand cluster elements'})).not.toBeInTheDocument();
+    });
+
+    it('offers no expand control in dialog mode, where no root has a box to expand', () => {
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterFrameCollapsedStore.getState().setClusterFrameCollapsed('workflow-1', 'aiAgent_1', true);
+
+        renderNode();
+
+        expect(screen.queryByRole('button', {name: 'Expand cluster elements'})).not.toBeInTheDocument();
+    });
+
+    it('expands the root it is clicked on, clearing the stored collapse', async () => {
+        useClusterFrameCollapsedStore.getState().setClusterFrameCollapsed('workflow-1', 'aiAgent_1', true);
+
+        renderNode();
+
+        await userEvent.click(screen.getByRole('button', {name: 'Expand cluster elements'}));
+
+        expect(useClusterFrameCollapsedStore.getState().collapsedByWorkflowId).toEqual({});
     });
 });
 
