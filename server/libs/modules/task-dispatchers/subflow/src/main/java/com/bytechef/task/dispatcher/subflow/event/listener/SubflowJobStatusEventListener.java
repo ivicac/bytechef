@@ -88,13 +88,11 @@ public class SubflowJobStatusEventListener implements ApplicationEventListener {
             switch (status) {
                 case CREATED, STARTED -> {
                 }
-                case STOPPED, CANCELLED -> {
-                    TaskExecution subflowTaskExecution = taskExecutionService.getTaskExecution(
-                        job.getParentTaskExecutionId());
-
-                    eventPublisher.publishEvent(
-                        new StopJobEvent(Objects.requireNonNull(subflowTaskExecution.getJobId())));
-
+                case CANCELLED -> stopParentJob(job);
+                case STOPPED -> {
+                    if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) == null) {
+                        stopParentJob(job);
+                    }
                 }
                 case FAILED -> {
                     TaskExecution erroredTaskExecution = taskExecutionService.getTaskExecution(
@@ -134,6 +132,12 @@ public class SubflowJobStatusEventListener implements ApplicationEventListener {
                 default -> throw new IllegalArgumentException("Unknown status=%s".formatted(status));
             }
         }
+    }
+
+    private void stopParentJob(Job job) {
+        TaskExecution subflowTaskExecution = taskExecutionService.getTaskExecution(job.getParentTaskExecutionId());
+
+        eventPublisher.publishEvent(new StopJobEvent(Objects.requireNonNull(subflowTaskExecution.getJobId())));
     }
 
     private Optional<Object> getCallableResponseOutput(Job job) {
