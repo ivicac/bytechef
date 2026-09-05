@@ -14,14 +14,25 @@ import {Trash2Icon, XIcon} from 'lucide-react';
 
 interface DeleteAlertDialogProps {
     open: boolean;
+    confirmLabel?: string;
     description?: string;
     isPending?: boolean;
     nodeName?: string;
     onCancel: () => void;
     onDelete: () => void;
+    title?: string;
 }
 
-const DeleteAlertDialog = ({description, isPending, nodeName, onCancel, onDelete, open}: DeleteAlertDialogProps) => {
+const DeleteAlertDialog = ({
+    confirmLabel,
+    description,
+    isPending,
+    nodeName,
+    onCancel,
+    onDelete,
+    open,
+    title,
+}: DeleteAlertDialogProps) => {
     const isNodeDeleteDialog = !!nodeName;
 
     return (
@@ -29,7 +40,7 @@ const DeleteAlertDialog = ({description, isPending, nodeName, onCancel, onDelete
             <AlertDialogContent onEscapeKeyDown={onCancel}>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        {isNodeDeleteDialog ? `Delete node ${nodeName}?` : 'Are you absolutely sure?'}
+                        {title ?? (isNodeDeleteDialog ? `Delete node ${nodeName}?` : 'Are you absolutely sure?')}
                     </AlertDialogTitle>
 
                     <AlertDialogDescription>
@@ -61,7 +72,7 @@ const DeleteAlertDialog = ({description, isPending, nodeName, onCancel, onDelete
                     >
                         {isPending ? <LoadingIcon /> : isNodeDeleteDialog && <Trash2Icon />}
 
-                        {isNodeDeleteDialog ? 'Delete node' : 'Delete'}
+                        {confirmLabel ?? (isNodeDeleteDialog ? 'Delete node' : 'Delete')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
