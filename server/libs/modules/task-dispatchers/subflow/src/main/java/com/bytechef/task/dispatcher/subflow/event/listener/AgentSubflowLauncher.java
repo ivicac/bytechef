@@ -35,6 +35,7 @@ import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowRequestCons
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,16 +92,25 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
 
         Job agentJob = jobService.getJob(agentJobId);
 
-        if (agentJob.getMetadata()
-            .containsKey(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID)) {
+        Optional<TaskExecution> suspendedTaskExecution = taskExecutionService.fetchLastJobTaskExecution(agentJobId);
 
-            return; // already launched (broker redelivery)
+        if (suspendedTaskExecution.isEmpty()) {
+            return;
         }
 
-        PendingSubflowRequest request = extractPendingSubflowRequest(agentJobId);
+        TaskExecution taskExecution = suspendedTaskExecution.get();
+
+        PendingSubflowRequest request = extractPendingSubflowRequest(taskExecution);
 
         if (request == null) {
             return; // an ordinary stop -- nothing to do
+        }
+
+        Long launchedForTaskExecutionId = MapUtils.getLong(
+            agentJob.getMetadata(), SubflowRequestConstants.LAUNCHED_FOR_TASK_EXECUTION_ID);
+
+        if (Objects.equals(launchedForTaskExecutionId, taskExecution.getId())) {
+            return; // already launched (broker redelivery)
         }
 
         int depth = MapUtils.getInteger(agentJob.getMetadata(), SubflowRequestConstants.SUBFLOW_DEPTH, 0) + 1;
@@ -133,6 +143,7 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
         Map<String, Object> agentJobMetadata = new HashMap<>(agentJob.getMetadata());
 
         agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID, subflowJobId);
+        agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_FOR_TASK_EXECUTION_ID, taskExecution.getId());
 
         agentJob.setMetadata(agentJobMetadata);
 
@@ -166,15 +177,8 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
             Map.of("error", tooDeepError(maxDepth)));
     }
 
-    private PendingSubflowRequest extractPendingSubflowRequest(long agentJobId) {
-        Optional<TaskExecution> taskExecution = taskExecutionService.fetchLastJobTaskExecution(agentJobId);
-
-        if (taskExecution.isEmpty()) {
-            return null;
-        }
-
-        Map<String, ?> metadata = taskExecution.get()
-            .getMetadata();
+    private static PendingSubflowRequest extractPendingSubflowRequest(TaskExecution taskExecution) {
+        Map<String, ?> metadata = taskExecution.getMetadata();
 
         Suspend suspend = MapUtils.get(metadata, MetadataConstants.SUSPEND, Suspend.class);
 
