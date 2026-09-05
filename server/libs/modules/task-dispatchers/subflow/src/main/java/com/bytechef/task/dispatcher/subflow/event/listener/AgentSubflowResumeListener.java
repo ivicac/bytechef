@@ -26,25 +26,31 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.commons.util.ConvertUtils;
+import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ActionDefinition.CallableResponse;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
-import com.bytechef.platform.workflow.task.dispatcher.subflow.AgentSubflowLink;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowRequestConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Coordinator listener for the agent-tool durable sub-workflow bridge. When a sub-workflow job launched by
+ * {@link AgentSubflowLauncher} reaches a terminal state, resumes the suspended agent job with the sub-workflow result
+ * (or an LLM-readable error).
+ *
  * @author Ivica Cardic
  */
 public class AgentSubflowResumeListener implements ApplicationEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(AgentSubflowResumeListener.class);
 
-    private final AgentJobResumer agentJobResumer;
+    private final JobFacade jobFacade;
     private final JobService jobService;
     private final TaskExecutionService taskExecutionService;
     private final TaskFileStorage taskFileStorage;
@@ -54,7 +60,7 @@ public class AgentSubflowResumeListener implements ApplicationEventListener {
         JobFacade jobFacade, JobService jobService, TaskExecutionService taskExecutionService,
         TaskFileStorage taskFileStorage) {
 
-        this.agentJobResumer = new AgentJobResumer(jobFacade, jobService);
+        this.jobFacade = jobFacade;
         this.jobService = jobService;
         this.taskExecutionService = taskExecutionService;
         this.taskFileStorage = taskFileStorage;
@@ -68,102 +74,119 @@ public class AgentSubflowResumeListener implements ApplicationEventListener {
 
         Job.Status status = jobStatusApplicationEvent.getStatus();
 
-        if (status != Job.Status.COMPLETED && status != Job.Status.FAILED && status != Job.Status.CANCELLED &&
-            status != Job.Status.STOPPED) {
-
-            return;
-        }
-
-        if (status == Job.Status.STOPPED && jobStatusApplicationEvent.isSuspended()) {
+        if (status != Job.Status.COMPLETED && status != Job.Status.FAILED) {
             return;
         }
 
         Job subflowJob = jobService.getJob(jobStatusApplicationEvent.getJobId());
 
-        Optional<AgentSubflowLink> agentSubflowLinkOptional = AgentSubflowLink.fromMetadata(subflowJob.getMetadata());
+        Object agentJobIdObject = subflowJob.getMetadata()
+            .get(SubflowRequestConstants.AGENT_JOB_ID);
 
-        if (agentSubflowLinkOptional.isEmpty()) {
+        if (agentJobIdObject == null) {
+            return; // not an agent-initiated sub-workflow
+        }
+
+        long agentJobId = ((Number) agentJobIdObject).longValue();
+
+        Job agentJob = jobService.getJob(agentJobId);
+
+        if (agentJob.getStatus() != Job.Status.STOPPED) {
+            log.warn(
+                "Agent job {} is {} (expected STOPPED) when sub-workflow job {} terminated; skipping resume",
+                agentJobId, agentJob.getStatus(), subflowJob.getId());
+
             return;
         }
 
-        AgentSubflowLink agentSubflowLink = agentSubflowLinkOptional.get();
+        Map<String, ?> resumeData = status == Job.Status.COMPLETED
+            ? buildCompletedResumeData(subflowJob)
+            : buildFailedResumeData(subflowJob);
 
-        long agentJobId = agentSubflowLink.agentJobId();
-        String agentJobResumeId = agentSubflowLink.agentJobResumeId();
+        Map<String, Object> agentJobMetadata = new HashMap<>(agentJob.getMetadata());
 
-        SubflowOutcome subflowOutcome = switch (status) {
-            case COMPLETED -> buildCompletedOutcome(subflowJob);
-            case FAILED -> new SubflowOutcome.Failed(
-                "Sub-workflow '%s' failed: %s".formatted(describeSubflow(subflowJob), getErrorMessage(subflowJob)));
-            default -> new SubflowOutcome.Failed(
-                "Sub-workflow '%s' was %s before it finished".formatted(
-                    describeSubflow(subflowJob), status == Job.Status.CANCELLED ? "cancelled" : "stopped"));
-        };
+        agentJobMetadata.remove(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID);
 
-        if (agentJobResumer.resume(agentJobId, agentJobResumeId, subflowOutcome) && log.isDebugEnabled()) {
+        agentJob.setMetadata(agentJobMetadata);
+
+        jobService.update(agentJob);
+
+        jobFacade.resumeJob(
+            agentJobId, MapUtils.getLong(agentJobMetadata, MetadataConstants.TASK_EXECUTION_RESUME_ID), resumeData);
+
+        if (log.isDebugEnabled()) {
             log.debug("Resumed agent job {} after sub-workflow job {} {}", agentJobId, subflowJob.getId(), status);
         }
     }
 
-    private SubflowOutcome buildCompletedOutcome(Job subflowJob) {
-        try {
-            Optional<Object> callableOutput = getCallableResponseOutput(subflowJob);
-
-            if (callableOutput.isPresent()) {
-                return new SubflowOutcome.Completed(callableOutput.get());
-            }
-
-            return new SubflowOutcome.Completed(
-                subflowJob.getOutputs() == null ? null : taskFileStorage.readJobOutputs(subflowJob.getOutputs()));
-        } catch (RuntimeException exception) {
-            log.error("Failed to read the outputs of sub-workflow job {}", subflowJob.getId(), exception);
-
-            return new SubflowOutcome.Failed(
-                "Sub-workflow '%s' completed but its result could not be read: %s".formatted(
-                    describeSubflow(subflowJob), exception.getMessage()));
-        }
-    }
-
-    private String getErrorMessage(Job subflowJob) {
-        List<TaskExecution> taskExecutions;
+    private Map<String, ?> buildCompletedResumeData(Job subflowJob) {
+        Optional<Object> callableOutput;
 
         try {
-            taskExecutions = taskExecutionService.getJobTaskExecutions(Objects.requireNonNull(subflowJob.getId()));
+            callableOutput = getCallableResponseOutput(subflowJob);
         } catch (RuntimeException exception) {
-            log.error("Failed to read the task executions of sub-workflow job {}", subflowJob.getId(), exception);
+            // CALLABLE_RESPONSE metadata was present but extraction failed (e.g., schema drift, IO failure).
+            // Do NOT silently fall back to job outputs -- the agent would see the wrong payload and the LLM
+            // would reason on garbage. This is the silent-corruption failure mode #5055 was filed against;
+            // surface it as an LLM-readable error instead.
 
-            taskExecutions = List.of();
+            log.error(
+                "Failed to extract callable response output from sub-workflow job {} -- "
+                    + "agent will be resumed with an error payload to avoid silent data corruption",
+                subflowJob.getId(), exception);
+
+            return Map.of(
+                "error", "Sub-workflow '%s' completed but its result could not be read: %s"
+                    .formatted(describeSubflow(subflowJob), exception.getMessage()));
         }
 
-        for (int index = taskExecutions.size() - 1; index >= 0; index--) {
-            TaskExecution taskExecution = taskExecutions.get(index);
+        Object output = callableOutput.orElseGet(() -> subflowJob.getOutputs() == null
+            ? Map.of()
+            : taskFileStorage.readJobOutputs(subflowJob.getOutputs()));
 
-            ExecutionError executionError = taskExecution.getError();
-
-            if (taskExecution.getStatus() == TaskExecution.Status.FAILED && executionError != null &&
-                executionError.getMessage() != null) {
-
-                return executionError.getMessage();
-            }
+        if (output == null) {
+            return Map.of();
         }
 
-        ExecutionError jobError = subflowJob.getError();
+        if (output instanceof Map<?, ?> map) {
+            @SuppressWarnings("unchecked")
+            Map<String, ?> typed = (Map<String, ?>) map;
 
-        return jobError != null && jobError.getMessage() != null ? jobError.getMessage() : "unknown error";
+            return typed;
+        }
+
+        return Map.of("result", output);
     }
 
+    private static Map<String, ?> buildFailedResumeData(Job subflowJob) {
+        ExecutionError error = subflowJob.getError();
+        String reason = error != null && error.getMessage() != null ? error.getMessage() : "unknown error";
+
+        return Map.of(
+            "error", "Sub-workflow '%s' failed: %s".formatted(describeSubflow(subflowJob), reason));
+    }
+
+    /**
+     * Returns a human-readable identifier for the sub-workflow. {@link Job#getWorkflowId()} is a base64-encoded id that
+     * is not LLM-actionable; preferring it when no better label is available is still better than nothing.
+     */
     private static String describeSubflow(Job subflowJob) {
-        String workflowId = subflowJob.getWorkflowId();
-
-        return workflowId == null ? "unknown" : workflowId;
+        return subflowJob.getWorkflowId() != null ? subflowJob.getWorkflowId() : "unknown";
     }
 
+    /**
+     * Returns the unwrapped {@code CallableResponse.output()} when the sub-workflow's last task execution carries a
+     * {@code CALLABLE_RESPONSE} metadata marker, or {@code Optional.empty()} when the marker is absent. Differs from
+     * the previous implementation in NOT catching extraction failures -- when the marker is present, extraction failure
+     * is a real defect and must propagate to the caller, which surfaces it to the LLM as an error tool-result instead
+     * of silently substituting raw job outputs.
+     */
     private Optional<Object> getCallableResponseOutput(Job job) {
         Optional<TaskExecution> lastTaskExecution = taskExecutionService.fetchLastJobTaskExecution(
             Objects.requireNonNull(job.getId()));
 
         if (lastTaskExecution.isEmpty()) {
-            return Optional.empty();
+            return Optional.empty(); // no task executions (e.g., trivial workflow) -- legitimate absence
         }
 
         TaskExecution taskExecution = lastTaskExecution.get();
@@ -171,7 +194,7 @@ public class AgentSubflowResumeListener implements ApplicationEventListener {
         if (!taskExecution.getMetadata()
             .containsKey(MetadataConstants.CALLABLE_RESPONSE)) {
 
-            return Optional.empty();
+            return Optional.empty(); // no callable response marker -- legitimate absence, fall through to job outputs
         }
 
         CallableResponse callableResponse = ConvertUtils.convertValue(
