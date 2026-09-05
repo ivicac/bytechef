@@ -19,6 +19,7 @@ package com.bytechef.platform.component.definition;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.constant.PlatformType;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -82,6 +83,14 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
     String getResumeUrl();
 
     /**
+     * Retrieves the unique identifier associated with the job principal.
+     *
+     * @return the job principal ID as a {@link Long}, or {@code null} if no job principal ID is set.
+     */
+    @Nullable
+    Long getJobPrincipalId();
+
+    /**
      * Retrieves the identifier of the workflow associated with the job principal.
      *
      * @return the workflow identifier as a {@link Long}, or {@code null} if no workflow is associated with the job
@@ -89,18 +98,6 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
      */
     @Nullable
     Long getJobPrincipalWorkflowId();
-
-    /**
-     * Retrieves the parent task execution id of the current job, if the job runs as a sub-workflow of another job.
-     * Returns {@code null} for top-level jobs (the common case) and for editor-environment / in-process invocations
-     * with no persisted Atlas Job. The agent-tool sub-workflow bridge ({@code WorkflowCallWorkflowTool}) uses this to
-     * fail fast when the agent itself runs as a sub-workflow, because a job with {@code parentTaskExecutionId != null}
-     * cannot be resumed (see {@code JobServiceImpl.resumeToStatusStarted}).
-     *
-     * @return the parent task execution id, or {@code null} when the job is top-level or unavailable
-     */
-    @Nullable
-    Long getParentTaskExecutionId();
 
     /**
      * Retrieves the parent Atlas Job's static metadata map. Phase 17b: surfaces the workflow-level metadata so actions
@@ -116,6 +113,14 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
      * </p>
      */
     Map<String, Object> getJobMetadata();
+
+    /**
+     * Retrieves the platform type for the current context.
+     *
+     * @return the {@link PlatformType} if available,
+     */
+    @Nullable
+    PlatformType getPlatformType();
 
     /**
      * Get the public URL for webhook callbacks and external service integrations.
