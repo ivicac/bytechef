@@ -3,6 +3,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import useDataSyncMapping from '@/pages/automation/data-syncs/hooks/useDataSyncMapping';
 import {DataSync} from '@/shared/middleware/graphql';
 import {PlusIcon, SparklesIcon, Trash2Icon} from 'lucide-react';
+import {useMemo} from 'react';
 
 interface DataSyncMappingStepProps {
     dataSync: DataSync;
@@ -12,6 +13,15 @@ interface DataSyncMappingStepProps {
  * The Mapping wizard step. Deliberately not a rendering of the processor's property form — see
  * useDataSyncMapping's own doc comment for why the field options must come from the workflow-node options
  * endpoint instead. This component is a two-column table over the two option lists that hook resolves.
+ *
+ * Some source/destination component pairs never auto-detect any fields at all (the field mapper's own
+ * `dynamicProperties` declaration exists for exactly this case). Rendering the usual pickers for such a pair
+ * would show two permanently-empty dropdowns with no explanation, and auto-map's "no matching fields" toast
+ * would read as if the fields merely failed to line up rather than never having been discoverable in the
+ * first place — there is nowhere else in this step to fix that. `fieldsUnavailable` catches it: both option
+ * lists finished loading (`!optionsLoading`) and both came back empty. It intentionally does NOT fire on a
+ * PARTIAL result (one side populated, the other not) — that is a different, narrower situation this fix does
+ * not attempt to characterize on its own.
  */
 export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps) {
     const {
@@ -23,9 +33,15 @@ export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps
         handleRemoveMapping,
         hasSourceAndDestination,
         mappings,
+        optionsLoading,
         processor,
         sourceOptions,
     } = useDataSyncMapping({dataSync});
+
+    const fieldsUnavailable = useMemo(
+        () => !optionsLoading && sourceOptions.length === 0 && destinationOptions.length === 0,
+        [destinationOptions, optionsLoading, sourceOptions]
+    );
 
     return (
         <div className="space-y-6 py-4">
@@ -41,7 +57,16 @@ export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps
                 <p className="text-sm text-muted-foreground">Configure a source and a destination first.</p>
             )}
 
-            {processor && (
+            {processor && optionsLoading && <p className="text-sm text-muted-foreground">Loading available fields…</p>}
+
+            {processor && !optionsLoading && fieldsUnavailable && (
+                <p className="text-sm text-muted-foreground">
+                    This source and destination don&apos;t expose their fields automatically, so mapping them isn&apos;t
+                    supported here yet.
+                </p>
+            )}
+
+            {processor && !optionsLoading && !fieldsUnavailable && (
                 <>
                     <div className="flex items-center gap-2">
                         <Button

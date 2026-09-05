@@ -1,5 +1,5 @@
 import Button from '@/components/Button/Button';
-import {TOTAL_STEPS} from '@/pages/automation/data-syncs/components/wizard/DataSyncWizard';
+import {TOTAL_STEPS} from '@/pages/automation/data-syncs/utils/dataSyncWizardSteps';
 import {CheckIcon, ChevronLeftIcon, ChevronRightIcon} from 'lucide-react';
 
 interface DataSyncWizardFooterProps {

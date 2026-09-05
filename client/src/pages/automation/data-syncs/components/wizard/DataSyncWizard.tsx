@@ -5,13 +5,10 @@ import DataSyncTestStep from '@/pages/automation/data-syncs/components/wizard/Da
 import DataSyncTriggerStep from '@/pages/automation/data-syncs/components/wizard/DataSyncTriggerStep';
 import DataSyncWizardFooter from '@/pages/automation/data-syncs/components/wizard/DataSyncWizardFooter';
 import {findElement} from '@/pages/automation/data-syncs/utils/dataSyncElements';
+import {STEP_LABELS, TOTAL_STEPS} from '@/pages/automation/data-syncs/utils/dataSyncWizardSteps';
 import {DataSync, DataSyncElementKind} from '@/shared/middleware/graphql';
 import {useCallback, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-
-export const TOTAL_STEPS = 5;
-
-const STEP_LABELS = ['Trigger', 'Source', 'Destination', 'Mapping', 'Test'];
 
 interface DataSyncWizardProps {
     dataSync: DataSync;
