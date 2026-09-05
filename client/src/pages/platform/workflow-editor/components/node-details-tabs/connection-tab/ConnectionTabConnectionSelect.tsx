@@ -79,6 +79,7 @@ const ConnectionTabConnectionSelect = ({
     const {
         ConnectionKeys,
         connectionTagsQueryKey,
+        connectionVisibilitySupported,
         useCreateConnectionMutation,
         useGetComponentDefinitionsQuery,
         useGetConnectionTagsQuery,
@@ -276,7 +277,17 @@ const ConnectionTabConnectionSelect = ({
         [ConnectionKeys, handleValueChange, key, queryClient]
     );
 
+    // Absent means supported — only the embedded builder, whose connections belong to a connected
+    // user rather than to a workspace, opts out. There the visibility every connection carries is
+    // the storage default rather than anything anyone chose, so grouping and badging by it labels
+    // every row "Private" and says nothing.
+    const visibilityShown = connectionVisibilitySupported !== false;
+
     const groupedConnections = useMemo(() => {
+        if (!visibilityShown) {
+            return [{connections: componentConnections ?? [], label: undefined, visibility: 'ALL'}];
+        }
+
         const visibilityOrder: Array<'ORGANIZATION' | 'PRIVATE' | 'WORKSPACE'> = [
             'PRIVATE',
             'WORKSPACE',
@@ -300,7 +311,7 @@ const ConnectionTabConnectionSelect = ({
             .filter((group) => group.connections.length > 0);
 
         return groups;
-    }, [componentConnections]);
+    }, [componentConnections, visibilityShown]);
 
     useEffect(() => {
         const workflowConnectionId = workflowTestConfigurationConnection?.connectionId;
@@ -366,7 +377,7 @@ const ConnectionTabConnectionSelect = ({
                 >
                     <div className="flex w-full min-w-0 space-x-2">
                         {componentConnections && componentConnections.length > 0 && (
-                            <div className="min-w-0 flex-1 bg-content-onsurface-primary">
+                            <div className="min-w-0 flex-1 bg-surface-neutral-primary">
                                 <SelectTrigger className="min-w-0 overflow-hidden text-left [&>span]:block [&>span]:min-w-0 [&>span]:flex-1 [&>span]:overflow-hidden">
                                     <SelectValue placeholder="Choose Connection..." />
                                 </SelectTrigger>
@@ -417,9 +428,11 @@ const ConnectionTabConnectionSelect = ({
 
                         {groupedConnections.map((group) => (
                             <SelectGroup key={group.visibility}>
-                                <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase">
-                                    {group.label}
-                                </SelectLabel>
+                                {group.label && (
+                                    <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase">
+                                        {group.label}
+                                    </SelectLabel>
+                                )}
 
                                 {group.connections.map((connection) => (
                                     <SelectItem
@@ -438,7 +451,7 @@ const ConnectionTabConnectionSelect = ({
                                                 <EnvironmentBadge environmentId={+connection.environmentId!} />
                                             </span>
 
-                                            {connection.visibility && (
+                                            {visibilityShown && connection.visibility && (
                                                 <span className="shrink-0">
                                                     <ResourceVisibilityBadge visibility={connection.visibility} />
                                                 </span>
@@ -488,6 +501,7 @@ const ConnectionTabConnectionSelect = ({
                     connectionsQueryKey={ConnectionKeys!.connections}
                     onClose={() => setShowConnectionDialog(false)}
                     onConnectionCreate={handleOnConnectionCreate}
+                    showVisibility={visibilityShown}
                     useCreateConnectionMutation={useCreateConnectionMutation}
                     useGetConnectionTagsQuery={useGetConnectionTagsQuery!}
                 />

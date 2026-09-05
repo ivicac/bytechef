@@ -83,13 +83,13 @@ const DataPillPanel = ({className, loading, previousComponentDefinitions, workfl
     const sharedClasses =
         'z-10 w-screen max-w-data-pill-panel-width overflow-hidden border border-stroke-neutral-secondary bg-background';
     const defaultPositionClasses = twMerge(
-        'absolute top-[9px] bottom-6 animate-[slideInFromRight_300ms_ease-out] rounded-md',
+        'absolute top-[15px] bottom-6 animate-[slideInFromRight_300ms_ease-out] rounded-md',
         copilotLayoutShifted ? 'right-[524px]' : 'right-[536px]'
     );
 
     return (
         <div className={twMerge(sharedClasses, className || defaultPositionClasses)}>
-            <div className="flex h-full flex-col divide-y divide-gray-100 bg-white">
+            <div className="flex h-full flex-col divide-y divide-stroke-neutral-secondary bg-surface-neutral-primary">
                 <header className="flex h-20 shrink-0 content-center items-center p-4 text-lg font-medium">
                     <div className="flex items-center self-start">
                         <span>Data Pill Panel</span>

@@ -177,7 +177,7 @@ const SubPropertyPopover = ({
                                 <span className="font-medium">Type</span>
 
                                 {typeOptions[0] && (
-                                    <span className="inline-flex w-full rounded-md bg-white">
+                                    <span className="inline-flex w-full rounded-md bg-surface-neutral-primary">
                                         {typeOptions[0].value}
                                     </span>
                                 )}
