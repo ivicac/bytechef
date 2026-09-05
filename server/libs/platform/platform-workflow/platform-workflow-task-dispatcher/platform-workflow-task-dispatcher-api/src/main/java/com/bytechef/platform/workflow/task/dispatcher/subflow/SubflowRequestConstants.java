@@ -29,8 +29,17 @@ public final class SubflowRequestConstants {
     /** Key in the sub-workflow job's metadata holding the agent job id (a {@code Long}). */
     public static final String AGENT_JOB_ID = "__bytechef_agent_job_id__";
 
-    /** Key in the agent job's metadata holding the launched sub-workflow job id (idempotency guard). */
+    /** Key in the agent job's metadata holding the most recently launched sub-workflow job id. */
     public static final String LAUNCHED_SUBFLOW_JOB_ID = "__bytechef_launched_subflow_job_id__";
+
+    /**
+     * Key in the agent job's metadata holding the id of the suspended task execution that
+     * {@link #LAUNCHED_SUBFLOW_JOB_ID} was launched for. The launcher skips a STOPPED event whose suspended task
+     * execution carries this id: a redelivery of an already-served suspend, whether it arrives before or after the
+     * agent is resumed. A later suspend has a new task execution id and launches normally, so the key never needs
+     * clearing.
+     */
+    public static final String LAUNCHED_FOR_TASK_EXECUTION_ID = "__bytechef_launched_for_task_execution_id__";
 
     /**
      * Key in a bridge-launched job's metadata holding how many bridge hops separate it from the top-level run. Absent

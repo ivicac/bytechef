@@ -91,6 +91,7 @@ class AgentSubflowLauncherTest {
 
         TaskExecution suspendedTask = new TaskExecution();
 
+        suspendedTask.setId(55L);
         suspendedTask.setMetadata(Map.of(MetadataConstants.SUSPEND, suspend));
 
         when(taskExecutionService.fetchLastJobTaskExecution(agentJobId)).thenReturn(Optional.of(suspendedTask));
@@ -107,6 +108,9 @@ class AgentSubflowLauncherTest {
         verify(childJobPrincipalFactory).createPrincipalLinkedJob(
             eq(agentJobId), jobParametersDTOArgumentCaptor.capture());
         verify(jobService).update(agentJob);
+
+        assertThat(agentJob.getMetadata(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID)).isEqualTo(200L);
+        assertThat(agentJob.getMetadata(SubflowRequestConstants.LAUNCHED_FOR_TASK_EXECUTION_ID)).isEqualTo(55L);
 
         JobParametersDTO jobParametersDTO = jobParametersDTOArgumentCaptor.getValue();
 
@@ -136,20 +140,33 @@ class AgentSubflowLauncherTest {
     }
 
     @Test
-    void testIdempotentWhenAlreadyLaunched() {
-        Job agentJob = new Job();
+    void testSkipsARedeliveredStopForTheSuspendAlreadyLaunched() {
+        Map<String, Object> agentJobMetadata = new HashMap<>();
 
-        agentJob.setId(100L);
-        agentJob.setMetadata(Map.of(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID, 200L));
+        agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID, 200L);
+        agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_FOR_TASK_EXECUTION_ID, 55L);
 
-        when(jobService.getJob(100L)).thenReturn(agentJob);
+        stubSuspendedAgent(100L, agentJobMetadata);
 
-        AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskExecutionService);
-
-        launcher.onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+        newLauncher(MAX_DEPTH).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
 
         verify(childJobPrincipalFactory, never()).createPrincipalLinkedJob(anyLong(), any());
+    }
+
+    @Test
+    void testLaunchesAgainForANewSuspendDespiteAnEarlierRecordedLaunch() {
+        Map<String, Object> agentJobMetadata = new HashMap<>();
+
+        agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_SUBFLOW_JOB_ID, 200L);
+        agentJobMetadata.put(SubflowRequestConstants.LAUNCHED_FOR_TASK_EXECUTION_ID, 54L);
+
+        stubSuspendedAgent(100L, agentJobMetadata);
+
+        when(childJobPrincipalFactory.createPrincipalLinkedJob(eq(100L), any())).thenReturn(201L);
+
+        newLauncher(MAX_DEPTH).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+
+        verify(childJobPrincipalFactory).createPrincipalLinkedJob(eq(100L), any());
     }
 
     /**
@@ -177,6 +194,7 @@ class AgentSubflowLauncherTest {
 
         TaskExecution suspendedTask = new TaskExecution();
 
+        suspendedTask.setId(55L);
         suspendedTask.setMetadata(Map.of(MetadataConstants.SUSPEND, suspend));
 
         when(taskExecutionService.fetchLastJobTaskExecution(agentJobId)).thenReturn(Optional.of(suspendedTask));
@@ -279,6 +297,7 @@ class AgentSubflowLauncherTest {
 
         TaskExecution suspendedTask = new TaskExecution();
 
+        suspendedTask.setId(55L);
         suspendedTask.setMetadata(
             Map.of(
                 MetadataConstants.SUSPEND,
