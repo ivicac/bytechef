@@ -1,0 +1,3 @@
+mutation publishDataSync($id: ID!, $description: String) {
+    publishDataSync(id: $id, description: $description)
+}
