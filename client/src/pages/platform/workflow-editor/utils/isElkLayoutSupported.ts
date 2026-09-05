@@ -5,9 +5,9 @@ import {Node} from '@xyflow/react';
 import {LayoutEngineType} from '../stores/useLayoutEngineStore';
 
 // Dispatchers the ELK engine lays out as compound frames (every task
-// dispatcher with children). Childless dispatchers (loopBreak, subflow,
-// terminate) own no children and lay out as plain chain nodes, so they are
-// supported without frames.
+// dispatcher with children). Childless dispatchers (callAiAgent, loopBreak,
+// subflow, terminate) own no children and lay out as plain chain nodes, so
+// they are supported without frames.
 export const ELK_FRAME_DISPATCHER_COMPONENT_NAMES = [
     'branch',
     'condition',
