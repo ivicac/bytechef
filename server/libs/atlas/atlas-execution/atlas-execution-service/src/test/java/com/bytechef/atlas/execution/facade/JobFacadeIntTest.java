@@ -208,6 +208,26 @@ public class JobFacadeIntTest {
             .getStatus()).isEqualTo(Job.Status.STARTED);
     }
 
+    @Test
+    public void testResumeToStatusStartedResumesSuspendedSubflowChild() {
+        Job parentJob = jobRepository.save(newJob());
+        long parentJobId = Validate.notNull(parentJob.getId(), "id");
+
+        TaskExecution parentTaskExecution = taskExecutionRepository.save(newTaskExecution(parentJobId, null));
+        long parentTaskExecutionId = Validate.notNull(parentTaskExecution.getId(), "id");
+
+        Job job = newJob();
+
+        job.setParentTaskExecutionId(parentTaskExecutionId);
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        assertThat(jobService.resumeToStatusStarted(jobId)
+            .getStatus()).isEqualTo(Job.Status.STARTED);
+    }
+
     private static Job newJob() {
         Job job = new Job();
 
