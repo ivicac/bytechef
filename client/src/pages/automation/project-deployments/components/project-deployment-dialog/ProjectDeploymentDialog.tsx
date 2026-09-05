@@ -50,6 +50,10 @@ import getWorkflowComponentConnections, {buildDeploymentWorkflows} from './proje
 
 interface ProjectDeploymentDialogProps {
     agentOptions?: DeployableAgentI[];
+    /** Label for the entity picker shown in place of the Project combo box when `agentOptions` is given.
+     *  Defaults to 'Agent' (via ProjectDeploymentDialogBasicStep) so the agent pages' existing behavior
+     *  stays unchanged. */
+    agentOptionsLabel?: string;
     changeProjectVersion?: boolean;
     environmentEditable?: boolean;
     filterWorkflowUuids?: string[];
@@ -66,6 +70,7 @@ interface ProjectDeploymentDialogProps {
 
 const ProjectDeploymentDialog = ({
     agentOptions,
+    agentOptionsLabel,
     changeProjectVersion = false,
     environmentEditable = false,
     filterWorkflowUuids,
@@ -287,6 +292,7 @@ const ProjectDeploymentDialog = ({
                 showTabs && !tabInitialized ? null : (
                     <ProjectDeploymentDialogBasicStep
                         agentOptions={agentOptions}
+                        agentOptionsLabel={agentOptionsLabel}
                         basicStepTab={basicStepTab}
                         changeProjectVersion={effectiveChangeProjectVersion}
                         control={control}
