@@ -19,9 +19,12 @@ interface DataSyncMappingStepProps {
  * would show two permanently-empty dropdowns with no explanation, and auto-map's "no matching fields" toast
  * would read as if the fields merely failed to line up rather than never having been discoverable in the
  * first place — there is nowhere else in this step to fix that. `fieldsUnavailable` catches it: both option
- * lists finished loading (`!optionsLoading`) and both came back empty. It intentionally does NOT fire on a
- * PARTIAL result (one side populated, the other not) — that is a different, narrower situation this fix does
- * not attempt to characterize on its own.
+ * lists finished loading (`!optionsLoading`), the fetch did not itself fail (`!optionsLoadFailed`), and both
+ * came back empty. It intentionally does NOT fire on a PARTIAL result (one side populated, the other not) —
+ * that is a different, narrower situation this fix does not attempt to characterize on its own. A REJECTED
+ * fetch is a distinct, transient situation from a genuinely capability-less pair, and is worded as such —
+ * saying "these fields aren't supported" about a network error would contradict the error toast firing right
+ * beside it.
  */
 export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps) {
     const {
@@ -33,14 +36,15 @@ export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps
         handleRemoveMapping,
         hasSourceAndDestination,
         mappings,
+        optionsLoadFailed,
         optionsLoading,
         processor,
         sourceOptions,
     } = useDataSyncMapping({dataSync});
 
     const fieldsUnavailable = useMemo(
-        () => !optionsLoading && sourceOptions.length === 0 && destinationOptions.length === 0,
-        [destinationOptions, optionsLoading, sourceOptions]
+        () => !optionsLoading && !optionsLoadFailed && sourceOptions.length === 0 && destinationOptions.length === 0,
+        [destinationOptions, optionsLoadFailed, optionsLoading, sourceOptions]
     );
 
     return (
@@ -59,14 +63,20 @@ export default function DataSyncMappingStep({dataSync}: DataSyncMappingStepProps
 
             {processor && optionsLoading && <p className="text-sm text-muted-foreground">Loading available fields…</p>}
 
-            {processor && !optionsLoading && fieldsUnavailable && (
+            {processor && !optionsLoading && optionsLoadFailed && (
+                <p className="text-sm text-muted-foreground">
+                    Couldn&apos;t load the source and destination fields. Try again in a moment.
+                </p>
+            )}
+
+            {processor && !optionsLoading && !optionsLoadFailed && fieldsUnavailable && (
                 <p className="text-sm text-muted-foreground">
                     This source and destination don&apos;t expose their fields automatically, so mapping them isn&apos;t
                     supported here yet.
                 </p>
             )}
 
-            {processor && !optionsLoading && !fieldsUnavailable && (
+            {processor && !optionsLoading && !optionsLoadFailed && !fieldsUnavailable && (
                 <>
                     <div className="flex items-center gap-2">
                         <Button

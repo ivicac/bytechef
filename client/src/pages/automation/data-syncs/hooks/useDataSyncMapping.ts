@@ -56,6 +56,16 @@ interface UseDataSyncMappingProps {
  * declaration covers this) do not auto-detect fields at all, and without this flag both states render as the
  * same empty pickers. `sourceOptions`/`destinationOptions` start as `[]` before the fetch even begins, so their
  * length alone can never distinguish "not loaded yet" from "loaded and genuinely empty" — only this flag can.
+ * It is seeded to `!!processor` rather than `false`, and `lastProcessorIdRef` re-derives it synchronously
+ * during render (not only from the fetch effect, which runs after paint) the moment the processor's identity
+ * changes — otherwise the very render on which a lazily-created processor first appears would paint with
+ * `optionsLoading` still `false` and both option lists still `[]`, which reads exactly like "fetched, and
+ * genuinely empty", one frame before the effect has a chance to say otherwise.
+ *
+ * `optionsLoadFailed` exists for the same reason on the opposite side: the fetch's `finally` always clears
+ * `optionsLoading` even on a REJECTED promise, so a transient network failure would otherwise leave both
+ * option lists empty and read identically to "fetched, and genuinely empty" — a permanent-sounding claim about
+ * a transient error, and one that contradicts the error toast already firing right beside it.
  */
 export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) {
     const processor = findElement(dataSync, DataSyncElementKind.Processor);
@@ -69,9 +79,22 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
     const [sourceOptions, setSourceOptions] = useState<FieldOptionI[]>([]);
     const [destinationOptions, setDestinationOptions] = useState<FieldOptionI[]>([]);
     const [autoMapping, setAutoMapping] = useState(false);
-    const [optionsLoading, setOptionsLoading] = useState(false);
+    const [optionsLoading, setOptionsLoading] = useState(!!processor);
+    const [optionsLoadFailed, setOptionsLoadFailed] = useState(false);
 
     const processorCreationRequestedRef = useRef(false);
+    const lastProcessorIdRef = useRef(processor?.id);
+
+    // Adjusts optionsLoading synchronously, during render, the moment the processor's identity changes —
+    // see this hook's own doc comment for why waiting for the fetch effect below (which only runs after
+    // paint) leaves one render painting the misleading "fields unavailable" message first.
+    if (processor?.id !== lastProcessorIdRef.current) {
+        lastProcessorIdRef.current = processor?.id;
+
+        if (processor) {
+            setOptionsLoading(true);
+        }
+    }
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
@@ -211,6 +234,7 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
         let cancelled = false;
 
         setOptionsLoading(true);
+        setOptionsLoadFailed(false);
 
         Promise.all([loadOptions('mappings[0].sourceField'), loadOptions('mappings[0].destinationField')])
             .then(([sourceFields, destinationFields]) => {
@@ -221,6 +245,8 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
             })
             .catch(() => {
                 if (!cancelled) {
+                    setOptionsLoadFailed(true);
+
                     toast.error('Could not load the source and destination fields');
                 }
             })
@@ -247,6 +273,7 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
         handleRemoveMapping,
         hasSourceAndDestination,
         mappings,
+        optionsLoadFailed,
         optionsLoading,
         processor,
         sourceOptions,

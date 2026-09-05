@@ -94,6 +94,29 @@ describe('DataSyncMappingStep', () => {
         expect(screen.queryByLabelText('Source field 1')).not.toBeInTheDocument();
     });
 
+    it('reports a transient failure instead of a permanent capability limit when the fetch is rejected', async () => {
+        // Regression coverage for the minor fix: the options fetch's `finally` clears the loading flag even on
+        // a REJECTED promise, so without a dedicated failure flag this would render the same
+        // "doesn't expose their fields" message a genuine capability gap gets — a permanent-sounding claim
+        // about what was actually a transient error, contradicting the error toast firing right beside it.
+        getOptionsMock.mockRejectedValue(new Error('network error'));
+
+        renderStep([source, destination, processor]);
+
+        await waitFor(() => {
+            expect(
+                screen.getByText("Couldn't load the source and destination fields. Try again in a moment.")
+            ).toBeInTheDocument();
+        });
+
+        expect(
+            screen.queryByText(
+                "This source and destination don't expose their fields automatically, so mapping them isn't supported here yet."
+            )
+        ).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', {name: 'Auto-map matching fields'})).not.toBeInTheDocument();
+    });
+
     it('renders the mapping pickers once fields are actually available', async () => {
         getOptionsMock.mockImplementation(({propertyName}: {propertyName: string}) =>
             Promise.resolve(propertyName.endsWith('sourceField') ? [{value: 'email'}] : [{value: 'email_address'}])
