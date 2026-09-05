@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.configuration.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -28,26 +29,33 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserConnectionService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
-import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.security.web.authentication.EmbeddedApiKeyAuthenticationToken;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.domain.McpComponent;
+import com.bytechef.platform.mcp.domain.McpServer;
+import com.bytechef.platform.mcp.domain.McpTool;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,22 +90,30 @@ class ConnectedUserResourceMembershipResolverTest {
     private static final long OTHER_USERS_PROJECT_DEPLOYMENT_ID = 302L;
     private static final long CONNECTED_USER_PROJECT_ID = 1L;
     private static final long INTEGRATION_INSTANCE_CONFIGURATION_ID = 500L;
-    private static final long OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID = 501L;
-    private static final long DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID = 502L;
+    private static final long EMBEDDED_MCP_SERVER_ID = 600L;
+    private static final long AUTOMATION_MCP_SERVER_ID = 601L;
+    private static final long EMBEDDED_MCP_COMPONENT_ID = 610L;
+    private static final long EMBEDDED_MCP_TOOL_ID = 620L;
+    private static final long OTHER_MCP_TOOL_ID = 621L;
 
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private ConnectedUserConnectionService connectedUserConnectionService;
     private ConnectedUserProjectService connectedUserProjectService;
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private ConnectedUserService connectedUserService;
+    private ConnectionService connectionService;
     private IntegrationInstanceService integrationInstanceService;
     private JobService jobService;
+    private McpComponentService mcpComponentService;
+    private McpServerService mcpServerService;
+    private McpToolService mcpToolService;
     private PrincipalJobService principalJobService;
     private ProjectDeploymentService projectDeploymentService;
     private ProjectService projectService;
-    private IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService;
     private ProjectWorkflowService projectWorkflowService;
     private ConnectedUserResourceMembershipResolver resolver;
+
+    private final Map<Long, Environment> connectionEnvironments = new HashMap<>();
 
     private MockedStatic<SecurityUtils> securityUtilsMock;
 
@@ -110,9 +126,12 @@ class ConnectedUserResourceMembershipResolverTest {
         connectedUserProjectService = mock(ConnectedUserProjectService.class);
         connectedUserProjectWorkflowService = mock(ConnectedUserProjectWorkflowService.class);
         connectedUserService = mock(ConnectedUserService.class);
-        integrationInstanceConfigurationWorkflowService = mock(IntegrationInstanceConfigurationWorkflowService.class);
+        connectionService = mock(ConnectionService.class);
         integrationInstanceService = mock(IntegrationInstanceService.class);
         jobService = mock(JobService.class);
+        mcpComponentService = mock(McpComponentService.class);
+        mcpServerService = mock(McpServerService.class);
+        mcpToolService = mock(McpToolService.class);
         principalJobService = mock(PrincipalJobService.class);
         projectDeploymentService = mock(ProjectDeploymentService.class);
         projectService = mock(ProjectService.class);
@@ -121,13 +140,13 @@ class ConnectedUserResourceMembershipResolverTest {
         // Real, not mocked: a mocked union would let this resolver's tests pass while it and
         // ConnectedUserConnectionFacadeImpl -- which lists from the same class -- disagree about what is entitled.
         ConnectedUserConnectionMembership connectedUserConnectionMembership = new ConnectedUserConnectionMembership(
-            connectedUserConnectionService, integrationInstanceConfigurationWorkflowService,
-            integrationInstanceService);
+            connectedUserConnectionService, connectionService, integrationInstanceService);
 
         resolver = new ConnectedUserResourceMembershipResolver(
             automationWorkflowProjectFacade, connectedUserConnectionMembership, connectedUserProjectService,
-            connectedUserProjectWorkflowService, connectedUserService, jobService, principalJobService,
-            projectDeploymentService, projectService, projectWorkflowService);
+            connectedUserProjectWorkflowService, connectedUserService, jobService, mcpComponentService,
+            mcpServerService, mcpToolService, principalJobService, projectDeploymentService, projectService,
+            projectWorkflowService);
 
         securityUtilsMock = mockStatic(SecurityUtils.class);
 
@@ -138,6 +157,15 @@ class ConnectedUserResourceMembershipResolverTest {
             .thenReturn(Optional.of(connectedUser()));
         lenient().when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(Optional.of(connectedUserProject()));
+        lenient().when(connectionService.getConnections(anyList()))
+            .thenAnswer(invocation -> {
+                List<Long> connectionIds = invocation.getArgument(0);
+
+                return connectionIds.stream()
+                    .map(connectionId -> connection(
+                        connectionId, connectionEnvironments.getOrDefault(connectionId, Environment.PRODUCTION)))
+                    .toList();
+            });
     }
 
     @AfterEach
@@ -156,7 +184,7 @@ class ConnectedUserResourceMembershipResolverTest {
         SecurityContextHolder.getContext()
             .setAuthentication(
                 new EmbeddedApiKeyAuthenticationToken(
-                    environment.ordinal(), new User(EXTERNAL_USER_ID, "", List.of())));
+                    environment.ordinal(), CONNECTED_USER_ID, new User(EXTERNAL_USER_ID, "", List.of()), true));
     }
 
     // -- Ticket 1051 fix round: the environment comes from the principal ------------------------------------------
@@ -196,22 +224,6 @@ class ConnectedUserResourceMembershipResolverTest {
     void testPrincipalWithoutAnApiKeyTokenIsNotGoverned() {
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken(EXTERNAL_USER_ID, "n/a", List.of()));
-
-        assertThat(resolver.governsCurrentPrincipal()).isFalse();
-        assertThat(resolver.resolve(OWN_PROJECT_ID, "Project", "PROJECT_DELETE")).isEqualTo(Decision.NOT_APPLICABLE);
-    }
-
-    /**
-     * The guard reads {@code fetchEnvironmentId()}, not {@code getEnvironmentId()}, so an api-key token whose provider
-     * built it without an environment is "unknown" rather than a confident DEVELOPMENT. Were it read the other way,
-     * this principal would be governed and resolved against whatever connected user happens to share its external id in
-     * DEVELOPMENT -- someone else's memberships answering for it.
-     */
-    @Test
-    void testApiKeyTokenWithoutAnEnvironmentIsNotGoverned() {
-        SecurityContextHolder.getContext()
-            .setAuthentication(
-                new EmbeddedApiKeyAuthenticationToken(new User(EXTERNAL_USER_ID, "", List.of())));
 
         assertThat(resolver.governsCurrentPrincipal()).isFalse();
         assertThat(resolver.resolve(OWN_PROJECT_ID, "Project", "PROJECT_DELETE")).isEqualTo(Decision.NOT_APPLICABLE);
@@ -316,6 +328,146 @@ class ConnectedUserResourceMembershipResolverTest {
         assertThat(resolver.resolve(OWN_PROJECT_ID, "Project", "PROJECT_DELETE")).isEqualTo(Decision.DENIED);
     }
 
+    // -- Data tables and knowledge bases ------------------------------------------------------------------------
+
+    /**
+     * Pins a deliberate omission rather than an oversight.
+     *
+     * <p>
+     * {@code WorkspaceDataTableFacadeImpl} and {@code WorkspaceKnowledgeBaseFacadeImpl} both carry
+     * {@code hasPermission(#id, 'DataTable'|'KnowledgeBase', ...)}, so a connected user reaching them arrives here,
+     * falls to the {@code default} arm as {@code NOT_APPLICABLE}, and -- because this principal IS governed --
+     * {@code ResourceMembershipDecider} maps that to {@code DENY}.
+     *
+     * <p>
+     * That denial is correct. The per-account ownership design gives connected users data tables and knowledge bases at
+     * RUNTIME only, through the owner filter in the services; managing them is the vendor admin's job, through the
+     * embedded console. Adding cases here would be a GRANT with no surface asking for one.
+     *
+     * <p>
+     * If a connected-user-facing API is ever built, this test is the place that says what changing these two answers
+     * means.
+     */
+    @Test
+    void testResolveDeniesDataTableAndKnowledgeBaseForAConnectedUser() {
+        assertThat(resolver.resolve(1L, "DataTable", "DATA_TABLE_VIEW")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "DataTable", "DATA_TABLE_EDIT")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "KnowledgeBase", "KNOWLEDGE_BASE_VIEW")).isEqualTo(Decision.NOT_APPLICABLE);
+        assertThat(resolver.resolve(1L, "KnowledgeBase", "KNOWLEDGE_BASE_EDIT")).isEqualTo(Decision.NOT_APPLICABLE);
+    }
+
+    // -- McpServer ---------------------------------------------------------------------------------------------
+
+    @Test
+    void testResolveMcpServerGrantedForViewOnAnEmbeddedServer() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpServerGrantedForViewWhenTheConnectedUserHasNoProjectYet() {
+        stubEmbeddedMcpServer();
+
+        when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.PRODUCTION))
+            .thenReturn(Optional.empty());
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForEveryOtherScopeOnAnEmbeddedServer() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_EDIT")).isEqualTo(Decision.DENIED);
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_DELETE")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForAServerOutsideTheEmbeddedCatalog() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(AUTOMATION_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForNonNumericId() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve("not-a-number", "McpServer", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    private void stubEmbeddedMcpServer() {
+        when(mcpServerService.getMcpServers(PlatformType.EMBEDDED))
+            .thenReturn(List.of(mcpServer(EMBEDDED_MCP_SERVER_ID)));
+    }
+
+    private static McpServer mcpServer(long id) {
+        McpServer mcpServer = new McpServer("embedded", PlatformType.EMBEDDED, Environment.PRODUCTION, true);
+
+        mcpServer.setId(id);
+
+        return mcpServer;
+    }
+
+    // -- McpTool -----------------------------------------------------------------------------------------------
+
+    @Test
+    void testResolveMcpToolGrantedForViewOnAToolOfAnEmbeddedServer() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpToolGrantedForViewWhenTheConnectedUserHasNoProjectYet() {
+        stubEmbeddedMcpTool();
+
+        when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.PRODUCTION))
+            .thenReturn(Optional.empty());
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForEveryOtherScopeOnAToolOfAnEmbeddedServer() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_EDIT")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForAToolOutsideTheEmbeddedCatalog() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(OTHER_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForNonNumericId() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve("not-a-number", "McpTool", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    private void stubEmbeddedMcpTool() {
+        stubEmbeddedMcpServer();
+
+        McpComponent mcpComponent = new McpComponent();
+
+        mcpComponent.setId(EMBEDDED_MCP_COMPONENT_ID);
+        mcpComponent.setMcpServerId(EMBEDDED_MCP_SERVER_ID);
+
+        when(mcpComponentService.getMcpServerMcpComponents(EMBEDDED_MCP_SERVER_ID)).thenReturn(List.of(mcpComponent));
+
+        McpTool mcpTool = new McpTool();
+
+        mcpTool.setId(EMBEDDED_MCP_TOOL_ID);
+        mcpTool.setMcpComponentId(EMBEDDED_MCP_COMPONENT_ID);
+
+        when(mcpToolService.getMcpComponentMcpTools(EMBEDDED_MCP_COMPONENT_ID)).thenReturn(List.of(mcpTool));
+    }
+
     // -- Project -----------------------------------------------------------------------------------------------
 
     @Test
@@ -334,26 +486,27 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * The gap this arm closes. {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the
+     * The gap this arm closes. {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the
      * reference's {@code ProjectDeployment} on the CATALOG project, so the {@code projectId} reaching
      * {@code ProjectDeploymentServiceImpl.create}'s {@code DEPLOYMENT_PUSH} gate is the tenant admin's, not this
      * caller's -- and until this arm existed the ownership test denied it, 403ing first-use provisioning before the
      * automation-hub enable toggle was ever reachable.
      */
     @Test
-    void testResolveProjectGrantedForDeploymentPushOnAVisibleCatalogProject() {
-        stubVisibleCatalogProject();
+    void testResolveProjectGrantedForDeploymentPushOnAVisibleAutomationWorkflowProject() {
+        stubVisibleAutomationWorkflowProject();
 
         assertThat(resolver.resolve(OTHER_PROJECT_ID, "Project", "DEPLOYMENT_PUSH")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * The entitlement is the catalog listing's, so a catalog project this connected user's permission expression hides
-     * grants nothing -- the same predicate {@code validateCatalogWorkflowTemplateVisible} applies, so a project granted
-     * here can never be one that facade would then refuse to provision from.
+     * The entitlement is the automation workflow listing's, so a automation workflow project this connected user's
+     * permission expression hides grants nothing -- the same predicate
+     * {@code validateAutomationWorkflowTemplateVisible} applies, so a project granted here can never be one that facade
+     * would then refuse to provision from.
      */
     @Test
-    void testResolveProjectDeniedForDeploymentPushOnAnInvisibleCatalogProject() {
+    void testResolveProjectDeniedForDeploymentPushOnAnInvisibleAutomationWorkflowProject() {
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of());
 
@@ -364,12 +517,12 @@ class ConnectedUserResourceMembershipResolverTest {
      * The allowlist guard, and the one that matters most here.
      * {@link #testResolveProjectGrantedForEveryScopeOnOwnProject} shows the OWNED branch grants every verb; an entitled
      * branch behaving the same way would hand every connected user {@code PROJECT_DELETE}, {@code WORKFLOW_EDIT} and
-     * the rest on the tenant admin's catalog project, and a GRANT here returns ahead of the tenant-admin check and RBAC
-     * so nothing downstream would refuse it. Only {@code DEPLOYMENT_PUSH} is offered.
+     * the rest on the tenant admin's automation workflow project, and a GRANT here returns ahead of the tenant-admin
+     * check and RBAC so nothing downstream would refuse it. Only {@code DEPLOYMENT_PUSH} is offered.
      */
     @Test
-    void testResolveProjectDeniedForEveryOtherScopeOnAVisibleCatalogProject() {
-        stubVisibleCatalogProject();
+    void testResolveProjectDeniedForEveryOtherScopeOnAVisibleAutomationWorkflowProject() {
+        stubVisibleAutomationWorkflowProject();
 
         assertThat(resolver.resolve(OTHER_PROJECT_ID, "Project", "PROJECT_DELETE")).isEqualTo(Decision.DENIED);
         assertThat(resolver.resolve(OTHER_PROJECT_ID, "Project", "PROJECT_SETTINGS")).isEqualTo(Decision.DENIED);
@@ -384,11 +537,12 @@ class ConnectedUserResourceMembershipResolverTest {
 
     /**
      * The allowlist is an allowlist. A scope token added to any of the three enums {@code 'Project'} is checked against
-     * -- which is what an unrecognised token looks like to this class -- must not inherit the catalog arm by default.
+     * -- which is what an unrecognised token looks like to this class -- must not inherit the automation workflow arm
+     * by default.
      */
     @Test
-    void testResolveProjectDeniesAnUnrecognisedScopeOnAVisibleCatalogProject() {
-        stubVisibleCatalogProject();
+    void testResolveProjectDeniesAnUnrecognisedScopeOnAVisibleAutomationWorkflowProject() {
+        stubVisibleAutomationWorkflowProject();
 
         assertThat(resolver.resolve(OTHER_PROJECT_ID, "Project", "PROJECT_SOME_FUTURE_VERB"))
             .isEqualTo(Decision.DENIED);
@@ -414,22 +568,22 @@ class ConnectedUserResourceMembershipResolverTest {
     /**
      * Presence in the listing is not enough. {@code AutomationWorkflowProjectFacadeImpl.getPublishedProjects()} maps
      * every marked project and hands back an EMPTY template list rather than dropping the project when nothing is
-     * published yet, so a presence-only predicate would grant {@code DEPLOYMENT_PUSH} on a catalog project with no
-     * referencable workflow at all.
+     * published yet, so a presence-only predicate would grant {@code DEPLOYMENT_PUSH} on a automation workflow project
+     * with no referencable workflow at all.
      */
     @Test
-    void testResolveProjectDeniedForACatalogProjectWithNoVisibleTemplate() {
-        AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), false, 1, null, List.of(), null, false);
+    void testResolveProjectDeniedForAAutomationWorkflowProjectWithNoVisibleTemplate() {
+        AutomationWorkflowProjectDTO automationWorkflowProject = new AutomationWorkflowProjectDTO(
+            OTHER_PROJECT_ID, "Automation workflow", "", null, List.of(), false, 1, null, List.of(), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(catalogProject));
+            .thenReturn(List.of(automationWorkflowProject));
 
         assertThat(resolver.resolve(OTHER_PROJECT_ID, "Project", "DEPLOYMENT_PUSH")).isEqualTo(Decision.DENIED);
     }
 
     /**
-     * A scope the catalog arm cannot satisfy must not pay for the catalog listing either.
+     * A scope the automation workflow arm cannot satisfy must not pay for the automation workflow listing either.
      */
     @Test
     void testResolveProjectSkipsTheCatalogListingForANonProvisioningScope() {
@@ -439,27 +593,28 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * An admin-owned catalog project on {@code OTHER_PROJECT_ID}, carrying one template this connected user can see in
-     * the permission-filtered published listing.
+     * An admin-owned automation workflow project on {@code OTHER_PROJECT_ID}, carrying one template this connected user
+     * can see in the permission-filtered published listing.
      */
-    private void stubVisibleCatalogProject() {
+    private void stubVisibleAutomationWorkflowProject() {
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
             UUID.randomUUID()
                 .toString(),
-            "Template", "", null, List.of(), List.of(), null);
+            "Template", "", null, List.of(), List.of(), List.of(), null);
 
-        AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+        AutomationWorkflowProjectDTO automationWorkflowProject = new AutomationWorkflowProjectDTO(
+            OTHER_PROJECT_ID, "Automation workflow", "", null, List.of(), true, 1, 1, List.of(template), null, false,
+            true);
 
         lenient().when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(catalogProject));
+            .thenReturn(List.of(automationWorkflowProject));
     }
 
     // -- ProjectDeployment ---------------------------------------------------------------------------------------
 
     /**
-     * The live broken flow this arm closes. {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.enableReference} --
-     * reached from the automation-hub enable toggle {@code AutomationRow.tsx} renders on every row, reference-kind ones
+     * The live broken flow this arm closes. {@code ConnectedUserWorkflowReferenceFacadeImpl.enableReference} -- reached
+     * from the automation-hub enable toggle {@code AutomationRow.tsx} renders on every row, reference-kind ones
      * included -- calls {@code ProjectDeploymentFacade.enableProjectDeploymentWorkflow(projectDeploymentId, ...)},
      * gated {@code hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')}. Before this arm
      * {@code 'ProjectDeployment'} hit the resolver's {@code default} case and answered NOT_APPLICABLE, which
@@ -489,10 +644,10 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * The widening's boundary. Another connected user's reference deployment on the SAME catalog project is not in
-     * either source, so it stays denied -- and it is a deployment id an attacker can guess, since these are dense
-     * sequential longs. A GRANT here would return ahead of the tenant-admin check and RBAC and let one connected user
-     * enable, disable or delete another's automation.
+     * The widening's boundary. Another connected user's reference deployment on the SAME automation workflow project is
+     * not in either source, so it stays denied -- and it is a deployment id an attacker can guess, since these are
+     * dense sequential longs. A GRANT here would return ahead of the tenant-admin check and RBAC and let one connected
+     * user enable, disable or delete another's automation.
      */
     @Test
     void testResolveProjectDeploymentDeniedForAnotherConnectedUsersDeployment() {
@@ -548,9 +703,9 @@ class ConnectedUserResourceMembershipResolverTest {
 
     /**
      * Deployment {@value #OWN_PROJECT_DEPLOYMENT_ID} deploys the caller's own project (the copy path); deployment
-     * {@value #OWN_REFERENCE_PROJECT_DEPLOYMENT_ID} is the caller's own reference deployment on the admin's catalog
-     * project. Deployment {@value #OTHER_USERS_PROJECT_DEPLOYMENT_ID} belongs to a different connected user of that
-     * same catalog project and is stubbed into neither source.
+     * {@value #OWN_REFERENCE_PROJECT_DEPLOYMENT_ID} is the caller's own reference deployment on the admin's automation
+     * workflow project. Deployment {@value #OTHER_USERS_PROJECT_DEPLOYMENT_ID} belongs to a different connected user of
+     * that same automation workflow project and is stubbed into neither source.
      */
     private void stubOwnProjectDeployments() {
         when(projectDeploymentService.getProjectDeployments(OWN_PROJECT_ID))
@@ -630,50 +785,24 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * The grant this ticket restores. A connection bound at the CONFIGURATION level is inherited by every connected
-     * user whose instance derives from that configuration; it is on neither the user's own instance nor their own
-     * connections, so before this it resolved DENIED while the picker happily listed it.
+     * The grant this ticket restores. A connection a tenant admin marked {@code shared} is inherited by every connected
+     * user in the environment; it is on neither the user's own instance nor their own connections, so before this it
+     * resolved DENIED while the picker happily listed it.
      */
     @Test
-    void testResolveConnectionGrantedViaIntegrationInstanceConfiguration() {
-        when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
+    void testResolveConnectionGrantedViaSharedConnection() {
+        when(connectedUserConnectionService.getSharedConnectionIds()).thenReturn(Set.of(78L));
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * A configuration the caller has no instance for is never consulted, so its connections are not theirs. One
-     * configuration serves many connected users; enumerating configurations rather than the caller's own instances
-     * would grant each of them the others' connections.
+     * The environment axis. Shared connections are not environment-scoped on their own, so every entitled id is
+     * filtered by the connection's own environment: a DEVELOPMENT caller never reaches a connection shared in
+     * PRODUCTION. Reopening this would reintroduce, through a new door, the cross-environment hole this ticket closed.
      */
     @Test
-    void testResolveConnectionDeniedForAConfigurationTheUserHasNoInstanceFor() {
-        when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
-
-        assertThat(resolver.resolve(999L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.DENIED);
-
-        verify(integrationInstanceConfigurationWorkflowService, never())
-            .getIntegrationInstanceConfigurationWorkflows(List.of(OTHER_INTEGRATION_INSTANCE_CONFIGURATION_ID));
-    }
-
-    /**
-     * The environment axis, which source 3 inherits rather than re-applies. The instance lookup is environment-scoped,
-     * so a DEVELOPMENT caller's instances carry only DEVELOPMENT configuration ids: the PRODUCTION twin's configuration
-     * is never walked and its connection is denied. Reopening this would reintroduce, through a new door, the
-     * cross-environment hole this ticket closed.
-     */
-    @Test
-    void testResolveConnectionDeniedForTheSameConfigurationFamilyInAnotherEnvironment() {
+    void testResolveConnectionDeniedForASharedConnectionFromAnotherEnvironment() {
         authenticateAsConnectedUser(Environment.DEVELOPMENT);
 
         when(connectedUserService.fetchConnectedUser(EXTERNAL_USER_ID, Environment.DEVELOPMENT))
@@ -681,37 +810,25 @@ class ConnectedUserResourceMembershipResolverTest {
         when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.DEVELOPMENT))
             .thenReturn(Optional.of(connectedUserProject()));
 
-        when(
-            integrationInstanceService.getConnectedUserIntegrationInstances(
-                CONNECTED_USER_ID, Environment.DEVELOPMENT))
-                    .thenReturn(
-                        List.of(integrationInstance(77L, DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(DEVELOPMENT_INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(88L)));
+        when(connectedUserConnectionService.getSharedConnectionIds()).thenReturn(Set.of(78L, 88L));
+
+        connectionEnvironments.put(78L, Environment.DEVELOPMENT);
+        connectionEnvironments.put(88L, Environment.PRODUCTION);
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(88L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.DENIED);
-
-        verify(integrationInstanceConfigurationWorkflowService, never())
-            .getIntegrationInstanceConfigurationWorkflows(List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID));
     }
 
     /**
      * A shared connection is one you may USE, not one you may rename, retag or delete. Ticket 1051 widened this
-     * resolver's set from ownership to entitlement, which silently turned every configuration-level connection into one
-     * any attached connected user could mutate: the decider is consulted BEFORE {@code hasResourceScope}, and a GRANT
-     * here returns ahead of the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}}
-     * -- gated {@code CONNECTION_EDIT} -- would have taken it.
+     * resolver's set from ownership to entitlement, which silently turned every shared connection into one any
+     * connected user in the environment could mutate: the decider is consulted BEFORE {@code hasResourceScope}, and a
+     * GRANT here returns ahead of the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/
+     * {id}} -- gated {@code CONNECTION_EDIT} -- would have taken it.
      */
     @Test
-    void testResolveConnectionDeniedForAMutatingScopeOnAConfigurationSharedConnection() {
-        stubConfigurationSharedConnection();
+    void testResolveConnectionDeniedForAMutatingScopeOnASharedConnection() {
+        stubSharedConnection();
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_USE")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_VIEW")).isEqualTo(Decision.GRANTED);
@@ -725,7 +842,7 @@ class ConnectedUserResourceMembershipResolverTest {
      */
     @Test
     void testResolveConnectionGrantedForAMutatingScopeOnAnOwnedConnection() {
-        stubConfigurationSharedConnection();
+        stubSharedConnection();
 
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_EDIT")).isEqualTo(Decision.GRANTED);
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_DELETE")).isEqualTo(Decision.GRANTED);
@@ -738,23 +855,30 @@ class ConnectedUserResourceMembershipResolverTest {
      */
     @Test
     void testResolveConnectionDeniesAnUnrecognisedScopeOnASharedConnection() {
-        stubConfigurationSharedConnection();
+        stubSharedConnection();
 
         assertThat(resolver.resolve(78L, "Connection", "CONNECTION_SOME_FUTURE_VERB")).isEqualTo(Decision.DENIED);
         assertThat(resolver.resolve(77L, "Connection", "CONNECTION_SOME_FUTURE_VERB")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * Connection 77 is on the caller's own instance (OWNED); connection 78 is bound at that instance's configuration
-     * (ENTITLED but not owned).
+     * Connection 77 is on the caller's own instance (OWNED); connection 78 is marked {@code shared} (ENTITLED but not
+     * owned).
      */
-    private void stubConfigurationSharedConnection() {
+    private void stubSharedConnection() {
         when(integrationInstanceService.getConnectedUserIntegrationInstances(CONNECTED_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(integrationInstance(77L, INTEGRATION_INSTANCE_CONFIGURATION_ID)));
-        when(
-            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-                List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                    .thenReturn(List.of(integrationInstanceConfigurationWorkflow(78L)));
+        when(connectedUserConnectionService.getSharedConnectionIds()).thenReturn(Set.of(78L));
+    }
+
+    private static Connection connection(long id, Environment environment) {
+        Connection connection = new Connection();
+
+        connection.setEnvironmentId(environment.ordinal());
+        connection.setId(id);
+        connection.setType(PlatformType.EMBEDDED);
+
+        return connection;
     }
 
     private static IntegrationInstance integrationInstance(
@@ -766,15 +890,6 @@ class ConnectedUserResourceMembershipResolverTest {
         integrationInstance.setIntegrationInstanceConfigurationId(integrationInstanceConfigurationId);
 
         return integrationInstance;
-    }
-
-    private static IntegrationInstanceConfigurationWorkflow integrationInstanceConfigurationWorkflow(
-        long connectionId) {
-
-        IntegrationInstanceConfigurationWorkflowConnection workflowConnection =
-            new IntegrationInstanceConfigurationWorkflowConnection(connectionId, "connection", "node");
-
-        return new IntegrationInstanceConfigurationWorkflow(List.of(workflowConnection), Map.of(), "workflow-1");
     }
 
     // -- Workflow --------------------------------------------------------------------------------------------------
@@ -803,22 +918,22 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     @Test
-    void testResolveWorkflowGrantedForAVisibleCatalogTemplate() {
-        stubVisibleCatalogWorkflow();
+    void testResolveWorkflowGrantedForAVisibleAutomationWorkflowTemplate() {
+        stubVisibleAutomationWorkflow();
 
         assertThat(resolver.resolve("workflow-1", "Workflow", "WORKFLOW_VIEW")).isEqualTo(Decision.GRANTED);
     }
 
     /**
-     * The catalog arm is ENTITLEMENT, not ownership: the template belongs to the tenant admin and this caller merely
-     * SEES it in the published listing. Editing it would rewrite the template every other connected user of that
-     * catalog gets, and deleting it would take it away from all of them. Before the split, being able to see a template
-     * answered GRANTED for both -- and a GRANT here returns ahead of the tenant-admin check and RBAC, so nothing
-     * downstream would have refused it.
+     * The automation workflow arm is ENTITLEMENT, not ownership: the template belongs to the tenant admin and this
+     * caller merely SEES it in the published listing. Editing it would rewrite the template every other connected user
+     * of that automation workflow gets, and deleting it would take it away from all of them. Before the split, being
+     * able to see a template answered GRANTED for both -- and a GRANT here returns ahead of the tenant-admin check and
+     * RBAC, so nothing downstream would have refused it.
      */
     @Test
-    void testResolveWorkflowDeniedForAMutatingScopeOnAVisibleCatalogTemplate() {
-        stubVisibleCatalogWorkflow();
+    void testResolveWorkflowDeniedForAMutatingScopeOnAVisibleAutomationWorkflowTemplate() {
+        stubVisibleAutomationWorkflow();
 
         assertThat(resolver.resolve("workflow-1", "Workflow", "WORKFLOW_EDIT")).isEqualTo(Decision.DENIED);
         assertThat(resolver.resolve("workflow-1", "Workflow", "WORKFLOW_DELETE")).isEqualTo(Decision.DENIED);
@@ -827,9 +942,9 @@ class ConnectedUserResourceMembershipResolverTest {
     /**
      * The narrowing must not over-deny, and this is the test that matters most: a workflow in the caller's OWN
      * ConnectedUserProject stays editable and deletable. That is the embedded builder's whole surface --
-     * {@code ConnectedUserProjectFacadeImpl.copyWorkflowTemplate} copies a catalog template into the connected user's
-     * own project before it is ever edited -- so a regression here would break the builder rather than merely
-     * tightening the catalog.
+     * {@code ConnectedUserProjectFacadeImpl.copyWorkflowTemplate} copies a automation workflow template into the
+     * connected user's own project before it is ever edited -- so a regression here would break the builder rather than
+     * merely tightening the automation workflows.
      */
     @Test
     void testResolveWorkflowGrantedForEveryScopeOnOwnProject() {
@@ -849,21 +964,21 @@ class ConnectedUserResourceMembershipResolverTest {
 
     /**
      * The allowlist is an allowlist. A scope token added to {@code WorkflowPermissionScope} later -- which is what an
-     * unrecognised token looks like to this class -- must not inherit the catalog arm by default.
+     * unrecognised token looks like to this class -- must not inherit the automation workflow arm by default.
      */
     @Test
-    void testResolveWorkflowDeniesAnUnrecognisedScopeOnAVisibleCatalogTemplate() {
-        stubVisibleCatalogWorkflow();
+    void testResolveWorkflowDeniesAnUnrecognisedScopeOnAVisibleAutomationWorkflowTemplate() {
+        stubVisibleAutomationWorkflow();
 
         assertThat(resolver.resolve("workflow-1", "Workflow", "WORKFLOW_SOME_FUTURE_VERB")).isEqualTo(Decision.DENIED);
     }
 
     /**
-     * A scope the catalog arm cannot satisfy must not pay for the catalog listing either.
+     * A scope the automation workflow arm cannot satisfy must not pay for the automation workflow listing either.
      */
     @Test
     void testResolveWorkflowSkipsTheCatalogListingForAMutatingScope() {
-        stubVisibleCatalogWorkflow();
+        stubVisibleAutomationWorkflow();
 
         assertThat(resolver.resolve("workflow-1", "Workflow", "WORKFLOW_EDIT")).isEqualTo(Decision.DENIED);
 
@@ -876,33 +991,34 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * Workflow "workflow-1" is an admin-owned published catalog template ({@code OTHER_PROJECT_ID}) that this connected
-     * user can see in the catalog listing.
+     * Workflow "workflow-1" is an admin-owned published automation workflow template ({@code OTHER_PROJECT_ID}) that
+     * this connected user can see in the automation workflow listing.
      */
-    private void stubVisibleCatalogWorkflow() {
+    private void stubVisibleAutomationWorkflow() {
         Project otherProject = new Project();
 
         otherProject.setId(OTHER_PROJECT_ID);
 
         UUID templateUuid = UUID.randomUUID();
 
-        ProjectWorkflow catalogProjectWorkflow = mock(ProjectWorkflow.class);
+        ProjectWorkflow automationWorkflowProjectWorkflow = mock(ProjectWorkflow.class);
 
-        lenient().when(catalogProjectWorkflow.getUuidAsString())
+        lenient().when(automationWorkflowProjectWorkflow.getUuidAsString())
             .thenReturn(templateUuid.toString());
 
         when(projectService.fetchWorkflowProject("workflow-1")).thenReturn(Optional.of(otherProject));
         lenient().when(projectWorkflowService.fetchWorkflowProjectWorkflow("workflow-1"))
-            .thenReturn(Optional.of(catalogProjectWorkflow));
+            .thenReturn(Optional.of(automationWorkflowProjectWorkflow));
 
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
-            templateUuid.toString(), "Template", "", null, List.of(), List.of(), null);
+            templateUuid.toString(), "Template", "", null, List.of(), List.of(), List.of(), null);
 
-        AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+        AutomationWorkflowProjectDTO automationWorkflowProject = new AutomationWorkflowProjectDTO(
+            OTHER_PROJECT_ID, "Automation workflow", "", null, List.of(), true, 1, 1, List.of(template), null, false,
+            true);
 
         lenient().when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(catalogProject));
+            .thenReturn(List.of(automationWorkflowProject));
     }
 
     // -- Job -------------------------------------------------------------------------------------------------------
@@ -949,15 +1065,15 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * The catalog arm has to stay open for {@code EXECUTION_VIEW}, because a connected user's own run of a REFERENCED
-     * catalog workflow is a job on the catalog workflow id itself:
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference} provisions a {@code ProjectDeployment}
-     * on the catalog project and runs the catalog workflow directly, with no copy taken. Denying it would hide a user's
-     * own executions from them.
+     * The automation workflow arm has to stay open for {@code EXECUTION_VIEW}, because a connected user's own run of a
+     * REFERENCED automation workflow is a job on the automation workflow id itself:
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference} provisions a {@code ProjectDeployment} on
+     * the automation workflow project and runs the automation workflow directly, with no copy taken. Denying it would
+     * hide a user's own executions from them.
      */
     @Test
-    void testResolveJobGrantedForAReadScopeOnACatalogWorkflow() {
-        stubCatalogWorkflowJob();
+    void testResolveJobGrantedForAReadScopeOnAAutomationWorkflow() {
+        stubAutomationWorkflowJob();
 
         assertThat(resolver.resolve(321L, "Job", "EXECUTION_VIEW")).isEqualTo(Decision.GRANTED);
     }
@@ -965,12 +1081,12 @@ class ConnectedUserResourceMembershipResolverTest {
     /**
      * {@code EXECUTION_DELETE} is a write ({@code LogFileStorageImpl.deleteLogs}) on an execution of somebody else's
      * template, so it is outside the job allowlist. Note the allowlist consulted here is
-     * {@code CATALOG_READABLE_EXECUTION_SCOPES}, NOT the {@code Workflow} one -- a Job carries
+     * {@code AUTOMATION_WORKFLOW_READABLE_EXECUTION_SCOPES}, NOT the {@code Workflow} one -- a Job carries
      * {@code ExecutionPermissionScope} tokens, and reusing the workflow set would have denied the test above too.
      */
     @Test
-    void testResolveJobDeniedForAMutatingScopeOnACatalogWorkflow() {
-        stubCatalogWorkflowJob();
+    void testResolveJobDeniedForAMutatingScopeOnAAutomationWorkflow() {
+        stubAutomationWorkflowJob();
 
         assertThat(resolver.resolve(321L, "Job", "EXECUTION_DELETE")).isEqualTo(Decision.DENIED);
     }
@@ -979,27 +1095,27 @@ class ConnectedUserResourceMembershipResolverTest {
      * The job allowlist is an allowlist too.
      */
     @Test
-    void testResolveJobDeniesAnUnrecognisedScopeOnACatalogWorkflow() {
-        stubCatalogWorkflowJob();
+    void testResolveJobDeniesAnUnrecognisedScopeOnAAutomationWorkflow() {
+        stubAutomationWorkflowJob();
 
         assertThat(resolver.resolve(321L, "Job", "EXECUTION_SOME_FUTURE_VERB")).isEqualTo(Decision.DENIED);
     }
 
     /**
-     * Job 321 is the CALLER'S OWN run of the admin-owned catalog workflow "workflow-1" -- the shape a referenced
-     * catalog workflow produces: the run carries the caller's own reference {@code ProjectDeployment} as its
-     * {@code AUTOMATION} principal id, because {@code getOrCreateReference} provisions that deployment on the catalog
-     * project and runs the catalog workflow id itself, with no copy taken.
+     * Job 321 is the CALLER'S OWN run of the admin-owned automation workflow "workflow-1" -- the shape a referenced
+     * automation workflow produces: the run carries the caller's own reference {@code ProjectDeployment} as its
+     * {@code AUTOMATION} principal id, because {@code getOrCreateReference} provisions that deployment on the
+     * automation workflows project and runs the automation workflow id itself, with no copy taken.
      */
-    private void stubCatalogWorkflowJob() {
-        stubCatalogWorkflowJob(321L, OWN_REFERENCE_PROJECT_DEPLOYMENT_ID);
+    private void stubAutomationWorkflowJob() {
+        stubAutomationWorkflowJob(321L, OWN_REFERENCE_PROJECT_DEPLOYMENT_ID);
     }
 
     /**
      * As above, but naming the {@code ProjectDeployment} the run was created under, so a test can stub a run of the
-     * SAME catalog template belonging to a different connected user.
+     * SAME automation workflow template belonging to a different connected user.
      */
-    private void stubCatalogWorkflowJob(long jobId, long jobPrincipalId) {
+    private void stubAutomationWorkflowJob(long jobId, long jobPrincipalId) {
         Job job = mock(Job.class);
 
         lenient().when(job.getWorkflowId())
@@ -1010,33 +1126,33 @@ class ConnectedUserResourceMembershipResolverTest {
             .thenReturn(Optional.of(jobPrincipalId));
 
         stubOwnProjectDeployments();
-        stubVisibleCatalogWorkflow();
+        stubVisibleAutomationWorkflow();
     }
 
     /**
-     * The narrowing. Job 400 ran the SAME visible catalog template as the caller's own job 321, but under a DIFFERENT
-     * connected user's reference {@code ProjectDeployment}. Before this, {@code EXECUTION_VIEW} on it was GRANTED
-     * purely because the caller could see the template -- a within-tenant cross-user read of another connected user's
-     * job inputs, outputs and logs ({@code ProjectWorkflowExecutionFacadeImpl.getJobTaskExecutions},
+     * The narrowing. Job 400 ran the SAME visible automation workflow template as the caller's own job 321, but under a
+     * DIFFERENT connected user's reference {@code ProjectDeployment}. Before this, {@code EXECUTION_VIEW} on it was
+     * GRANTED purely because the caller could see the template -- a within-tenant cross-user read of another connected
+     * user's job inputs, outputs and logs ({@code ProjectWorkflowExecutionFacadeImpl.getJobTaskExecutions},
      * {@code LogFileStorageImpl}), and one whose id is a dense sequential long. Reference deployments are provisioned
-     * per (catalog project, connected user), so the other user's run carries a principal id the caller's set does not
-     * contain.
+     * per (automation workflow project, connected user), so the other user's run carries a principal id the caller's
+     * set does not contain.
      */
     @Test
-    void testResolveJobDeniedForAnotherConnectedUsersRunOfTheSameCatalogWorkflow() {
-        stubCatalogWorkflowJob(400L, OTHER_USERS_PROJECT_DEPLOYMENT_ID);
+    void testResolveJobDeniedForAnotherConnectedUsersRunOfTheSameAutomationWorkflow() {
+        stubAutomationWorkflowJob(400L, OTHER_USERS_PROJECT_DEPLOYMENT_ID);
 
         assertThat(resolver.resolve(400L, "Job", "EXECUTION_VIEW")).isEqualTo(Decision.DENIED);
     }
 
     /**
      * The over-deny guard for the narrowing, and the one that matters most: a job the caller DID cause -- their own
-     * reference deployment's run of the catalog workflow -- stays readable. Denying it would hide users' own executions
-     * from them, which is the trap the residual note warned about.
+     * reference deployment's run of the automation workflow -- stays readable. Denying it would hide users' own
+     * executions from them, which is the trap the residual note warned about.
      */
     @Test
-    void testResolveJobGrantedForTheCallersOwnRunOfACatalogWorkflow() {
-        stubCatalogWorkflowJob();
+    void testResolveJobGrantedForTheCallersOwnRunOfAAutomationWorkflow() {
+        stubAutomationWorkflowJob();
 
         assertThat(resolver.resolve(321L, "Job", "EXECUTION_VIEW")).isEqualTo(Decision.GRANTED);
     }
@@ -1044,14 +1160,15 @@ class ConnectedUserResourceMembershipResolverTest {
     /**
      * A job with no {@code PrincipalJob} row -- an editor or test run, which {@code TestWorkflowExecutorImpl} starts
      * through {@code JobSyncExecutor} without registering a principal -- is not attributable to anybody, so it is
-     * denied on the catalog arm. This costs a connected user nothing: starting a test is gated
-     * {@code hasWorkflowScopeInEnvironment(#id, 'WORKFLOW_EDIT', ...)}, and {@code WORKFLOW_EDIT} on a catalog template
-     * is already denied by {@link #testResolveWorkflowDeniedForAMutatingScopeOnAVisibleCatalogTemplate}, so no
-     * connected user can produce a principal-less job on a catalog workflow in the first place.
+     * denied on the automation workflow arm. This costs a connected user nothing: starting a test is gated
+     * {@code hasWorkflowScopeInEnvironment(#id, 'WORKFLOW_EDIT', ...)}, and {@code WORKFLOW_EDIT} on a automation
+     * workflow template is already denied by
+     * {@link #testResolveWorkflowDeniedForAMutatingScopeOnAVisibleAutomationWorkflowTemplate}, so no connected user can
+     * produce a principal-less job on a automation workflow in the first place.
      */
     @Test
     void testResolveJobDeniedForACatalogRunWithNoPrincipal() {
-        stubCatalogWorkflowJob();
+        stubAutomationWorkflowJob();
 
         when(principalJobService.fetchJobPrincipalId(321L, PlatformType.AUTOMATION)).thenReturn(Optional.empty());
 
@@ -1090,11 +1207,11 @@ class ConnectedUserResourceMembershipResolverTest {
      * connected user's automation-bridge run is an {@code AUTOMATION} row whose principal id is a
      * {@code projectDeploymentId} -- the same convention {@code ConnectedUserProjectTaskDispatcherPreSendProcessor}
      * relies on. Asking for {@code EMBEDDED} would answer from the integration-instance-configuration id space instead,
-     * where the caller's deployment ids mean nothing, and would silently deny every catalog read.
+     * where the caller's deployment ids mean nothing, and would silently deny every automation workflow read.
      */
     @Test
     void testResolveJobReadsThePrincipalInTheAutomationIdSpace() {
-        stubCatalogWorkflowJob();
+        stubAutomationWorkflowJob();
 
         assertThat(resolver.resolve(321L, "Job", "EXECUTION_VIEW")).isEqualTo(Decision.GRANTED);
 
@@ -1103,13 +1220,13 @@ class ConnectedUserResourceMembershipResolverTest {
     }
 
     /**
-     * Ownership of the run is checked BEFORE the catalog listing, so a job that is not the caller's does not pay for
-     * {@code getPublishedProjects} -- the same shape as
+     * Ownership of the run is checked BEFORE the automation workflow listing, so a job that is not the caller's does
+     * not pay for {@code getPublishedProjects} -- the same shape as
      * {@link #testResolveWorkflowSkipsTheCatalogListingForAMutatingScope}, one predicate later.
      */
     @Test
     void testResolveJobSkipsTheCatalogListingForAnotherUsersRun() {
-        stubCatalogWorkflowJob(400L, OTHER_USERS_PROJECT_DEPLOYMENT_ID);
+        stubAutomationWorkflowJob(400L, OTHER_USERS_PROJECT_DEPLOYMENT_ID);
 
         assertThat(resolver.resolve(400L, "Job", "EXECUTION_VIEW")).isEqualTo(Decision.DENIED);
 

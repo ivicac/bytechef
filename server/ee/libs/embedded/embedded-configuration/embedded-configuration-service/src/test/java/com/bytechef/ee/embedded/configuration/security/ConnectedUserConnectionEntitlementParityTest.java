@@ -9,9 +9,12 @@ package com.bytechef.ee.embedded.configuration.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.execution.service.JobService;
@@ -21,26 +24,27 @@ import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacadeImpl;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserConnectionService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
-import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.security.web.authentication.EmbeddedApiKeyAuthenticationToken;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -64,9 +68,10 @@ import org.springframework.security.core.userdetails.User;
  *
  * <p>
  * The parity is over the READ scopes, and deliberately so: the picker lists what the caller may see and use, and the
- * resolver's grant for a mutating scope is narrower on purpose -- a configuration-level connection is shared with every
- * connected user on that configuration, so it is listed but not theirs to change. That narrowing is pinned in
- * {@code ConnectedUserResourceMembershipResolverTest}; what belongs here is that listing and read authorization agree.
+ * resolver's grant for a mutating scope is narrower on purpose -- a connection a tenant admin marked {@code shared} is
+ * offered to every connected user in that environment, so it is listed but not theirs to change. That narrowing is
+ * pinned in {@code ConnectedUserResourceMembershipResolverTest}; what belongs here is that listing and read
+ * authorization agree.
  *
  * @version ee
  *
@@ -85,6 +90,10 @@ class ConnectedUserConnectionEntitlementParityTest {
     private static final long FOREIGN_CONNECTION_ID = 99L;
 
     private ConnectedUserConnectionFacadeImpl facade;
+    private ConnectedUserConnectionMembership connectedUserConnectionMembership;
+    private ConnectedUserConnectionService connectedUserConnectionService;
+    private ConnectionService connectionService;
+    private IntegrationInstanceService integrationInstanceService;
     private ConnectedUserResourceMembershipResolver resolver;
 
     private MockedStatic<SecurityUtils> securityUtilsMock;
@@ -94,29 +103,36 @@ class ConnectedUserConnectionEntitlementParityTest {
         SecurityContextHolder.getContext()
             .setAuthentication(
                 new EmbeddedApiKeyAuthenticationToken(
-                    Environment.PRODUCTION.ordinal(), new User(EXTERNAL_USER_ID, "", List.of())));
+                    Environment.PRODUCTION.ordinal(), CONNECTED_USER_ID, new User(EXTERNAL_USER_ID, "", List.of()),
+                    true));
 
         securityUtilsMock = mockStatic(SecurityUtils.class);
 
         securityUtilsMock.when(SecurityUtils::fetchCurrentUserLogin)
             .thenReturn(Optional.of(EXTERNAL_USER_ID));
 
-        ConnectedUserConnectionService connectedUserConnectionService = mock(ConnectedUserConnectionService.class);
+        connectedUserConnectionService = mock(ConnectedUserConnectionService.class);
         ConnectedUserProjectService connectedUserProjectService = mock(ConnectedUserProjectService.class);
         ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
         ConnectionFacade connectionFacade = mock(ConnectionFacade.class);
-        IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService =
-            mock(IntegrationInstanceConfigurationWorkflowService.class);
-        IntegrationInstanceService integrationInstanceService = mock(IntegrationInstanceService.class);
+        connectionService = mock(ConnectionService.class);
+        integrationInstanceService = mock(IntegrationInstanceService.class);
 
         when(integrationInstanceService.getConnectedUserIntegrationInstances(
             CONNECTED_USER_ID, Environment.PRODUCTION))
                 .thenReturn(List.of(integrationInstance()));
         when(connectedUserConnectionService.getConnectionIds(CONNECTED_USER_ID))
             .thenReturn(List.of(OWN_CREATED_CONNECTION_ID));
-        when(integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflows(
-            List.of(INTEGRATION_INSTANCE_CONFIGURATION_ID)))
-                .thenReturn(List.of(integrationInstanceConfigurationWorkflow()));
+        when(connectedUserConnectionService.getSharedConnectionIds())
+            .thenReturn(Set.of(CONFIGURATION_SHARED_CONNECTION_ID));
+        when(connectionService.getConnections(anyList()))
+            .thenAnswer(invocation -> {
+                List<Long> connectionIds = invocation.getArgument(0);
+
+                return connectionIds.stream()
+                    .map(ConnectedUserConnectionEntitlementParityTest::connection)
+                    .toList();
+            });
 
         ConnectedUser connectedUser = mock(ConnectedUser.class);
 
@@ -142,9 +158,8 @@ class ConnectedUserConnectionEntitlementParityTest {
                     .toList();
             });
 
-        ConnectedUserConnectionMembership connectedUserConnectionMembership = new ConnectedUserConnectionMembership(
-            connectedUserConnectionService, integrationInstanceConfigurationWorkflowService,
-            integrationInstanceService);
+        connectedUserConnectionMembership = new ConnectedUserConnectionMembership(
+            connectedUserConnectionService, connectionService, integrationInstanceService);
 
         facade = new ConnectedUserConnectionFacadeImpl(
             connectedUserConnectionMembership, connectedUserConnectionService, connectedUserService, connectionFacade);
@@ -152,6 +167,7 @@ class ConnectedUserConnectionEntitlementParityTest {
         resolver = new ConnectedUserResourceMembershipResolver(
             mock(AutomationWorkflowProjectFacade.class), connectedUserConnectionMembership, connectedUserProjectService,
             mock(ConnectedUserProjectWorkflowService.class), connectedUserService, mock(JobService.class),
+            mock(McpComponentService.class), mock(McpServerService.class), mock(McpToolService.class),
             mock(PrincipalJobService.class), mock(ProjectDeploymentService.class), mock(ProjectService.class),
             mock(ProjectWorkflowService.class));
     }
@@ -218,6 +234,48 @@ class ConnectedUserConnectionEntitlementParityTest {
             .isEqualTo(Decision.DENIED);
     }
 
+    /**
+     * The case the deleted configuration-binding derivation could not express: a connection no configuration binds -- a
+     * vendor's house connection -- reaches a connected user with no integration instance at all.
+     */
+    @Test
+    void testSharedConnectionReachesConnectedUserWithNoIntegrationInstance() {
+        when(integrationInstanceService.getConnectedUserIntegrationInstances(1L, Environment.PRODUCTION))
+            .thenReturn(List.of());
+        when(connectedUserConnectionService.getConnectionIds(1L)).thenReturn(List.of());
+        when(connectedUserConnectionService.getSharedConnectionIds()).thenReturn(Set.of(50L));
+
+        Set<Long> connectionIds = connectedUserConnectionMembership.getConnectionIds(1L, Environment.PRODUCTION);
+
+        assertThat(connectionIds).containsExactly(50L);
+    }
+
+    @Test
+    void testSharedConnectionIsNotOwned() {
+        when(integrationInstanceService.getConnectedUserIntegrationInstances(1L, Environment.PRODUCTION))
+            .thenReturn(List.of());
+        when(connectedUserConnectionService.getConnectionIds(1L)).thenReturn(List.of(7L));
+
+        Set<Long> ownedConnectionIds = connectedUserConnectionMembership.getOwnedConnectionIds(
+            1L, Environment.PRODUCTION);
+
+        assertThat(ownedConnectionIds).containsExactly(7L);
+
+        verify(connectedUserConnectionService, never()).getSharedConnectionIds();
+    }
+
+    @Test
+    void testOwnedAndSharedAreUnioned() {
+        when(integrationInstanceService.getConnectedUserIntegrationInstances(1L, Environment.PRODUCTION))
+            .thenReturn(List.of(integrationInstance(3L)));
+        when(connectedUserConnectionService.getConnectionIds(1L)).thenReturn(List.of(7L));
+        when(connectedUserConnectionService.getSharedConnectionIds()).thenReturn(Set.of(50L));
+
+        Set<Long> connectionIds = connectedUserConnectionMembership.getConnectionIds(1L, Environment.PRODUCTION);
+
+        assertThat(connectionIds).containsExactlyInAnyOrder(3L, 7L, 50L);
+    }
+
     private Set<Long> shownConnectionIds() {
         return facade.getConnections(CONNECTED_USER_ID, null, List.of())
             .stream()
@@ -244,11 +302,21 @@ class ConnectedUserConnectionEntitlementParityTest {
         return integrationInstance;
     }
 
-    private static IntegrationInstanceConfigurationWorkflow integrationInstanceConfigurationWorkflow() {
-        IntegrationInstanceConfigurationWorkflowConnection workflowConnection =
-            new IntegrationInstanceConfigurationWorkflowConnection(
-                CONFIGURATION_SHARED_CONNECTION_ID, "connection", "node");
+    private static IntegrationInstance integrationInstance(long connectionId) {
+        IntegrationInstance integrationInstance = new IntegrationInstance();
 
-        return new IntegrationInstanceConfigurationWorkflow(List.of(workflowConnection), Map.of(), "workflow-1");
+        integrationInstance.setConnectionId(connectionId);
+
+        return integrationInstance;
+    }
+
+    private static Connection connection(long id) {
+        Connection connection = new Connection();
+
+        connection.setEnvironmentId(Environment.PRODUCTION.ordinal());
+        connection.setId(id);
+        connection.setType(PlatformType.EMBEDDED);
+
+        return connection;
     }
 }
