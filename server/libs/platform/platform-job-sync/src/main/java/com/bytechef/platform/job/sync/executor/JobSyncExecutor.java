@@ -872,9 +872,7 @@ public class JobSyncExecutor {
 
     private void waitForJobCompletion(long jobId) {
         // The latch has to be registered before the status is read: a completion landing in between would count down
-        // a latch that does not exist yet, and the one created afterwards would then never be counted down. The
-        // task-execution check below is what normally rescues that window, but a job with no task executions at all -
-        // a workflow whose every task is disabled - falls straight through it into an unbounded await.
+        // a latch that does not exist yet, and the one created afterwards would then never be counted down.
         CountDownLatch latch = jobCompletionLatches.computeIfAbsent(getKey(jobId), id -> new CountDownLatch(1));
 
         Job job = jobService.getJob(jobId);
@@ -885,26 +883,6 @@ public class JobSyncExecutor {
             jobCompletionLatches.remove(getKey(jobId));
 
             return;
-        }
-
-        try {
-            Optional<TaskExecution> lastTaskExecutionOptional = taskExecutionService.fetchLastJobTaskExecution(jobId);
-
-            if (lastTaskExecutionOptional.isPresent()) {
-                TaskExecution taskExecution = lastTaskExecutionOptional.get();
-
-                TaskExecution.Status status = taskExecution.getStatus();
-
-                if (status.isTerminated()) {
-                    jobCompletionLatches.remove(getKey(jobId));
-
-                    return;
-                }
-            }
-        } catch (Exception exception) {
-            if (log.isTraceEnabled()) {
-                log.trace(exception.getMessage(), exception);
-            }
         }
 
         try {
