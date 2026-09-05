@@ -1,4 +1,5 @@
 import {Input} from '@/components/Input/Input';
+import DataSyncsLeftSidebarDropdownMenu from '@/pages/automation/data-syncs/components/DataSyncsLeftSidebarDropdownMenu';
 import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav';
@@ -90,6 +91,16 @@ const DataSyncsLeftSidebarNav = ({
                                         filterMode
                                             ? `?dataSyncId=${dataSync.id}`
                                             : `/automation/data-syncs/${dataSync.id}`
+                                    }
+                                    trailing={
+                                        <DataSyncsLeftSidebarDropdownMenu
+                                            current={dataSync.id === currentDataSyncId}
+                                            dataSync={{
+                                                description: dataSync.description,
+                                                id: dataSync.id,
+                                                title: dataSync.title,
+                                            }}
+                                        />
                                     }
                                 />
                             ))
