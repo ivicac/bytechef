@@ -262,6 +262,13 @@ invisible in the file you edited and only shows on screen.
 - Use `useMemo` for computed values instead of IIFEs in JSX
 - Prefer `||` over `??` for JSX fallbacks (e.g., `trigger || defaultTrigger`)
 
+### Zustand subscriptions (Client)
+- Never call a store hook without a selector (`useWorkflowDataStore()`) in the workflow editor tree. A bare
+  call re-renders on every write to that store, and the editor's node details panel writes `sampleOutputs`
+  from an effect whose input is recomputed on each render. In the embedded builder root that pairing was a
+  "Maximum update depth exceeded" loop the moment a node was added. Select what you need through `useShallow`,
+  or a single field with `(state) => state.field`.
+
 ### React Hook Ordering (Client)
 - Order hooks in components/custom hooks: `useState` → `useRef` → custom store hooks → other custom hooks → derived values/`useMemo`/`useCallback` → `useEffect` → `return`
 - All `useEffect` calls go last, immediately before the `return` statement
@@ -592,6 +599,14 @@ These are the parts that apply outside their own area, so they stay here:
   dependency is not enough — `WorkflowTestConfigurationTest`/`WebhookConfigurationTest` scan
   `com.bytechef.task.dispatcher` and fail when a dispatcher or completion handler on the classpath is
   missing from either list.
+- **The embedded iframes load their HTML entries by file name, with hash routing.** The SDK points
+  `EmbeddedWorkflowBuilder` at `/workflow-builder.html#/embedded/builder/<uuid>` and `AutomationHub` at
+  `/automation-hub.html#/embedded/hub`, and both entries (`src/ee/workflow-builder.tsx`,
+  `src/ee/automation-hub.tsx`) use `createHashRouter`. That is what lets the Vite dev server serve them
+  with no rewrite: an extension-less `/embedded/...` URL falls back to `index.html`, whose session check
+  bounces the iframe to `/login`. `SpaWebFilter`'s `/embedded/builder/**` and `/embedded/hub` forwards
+  only serve legacy links and have no dev counterpart, so a new embedded entry must follow the same
+  `.html#` shape rather than lean on them.
 - **A specialist subagent is for multi-step reasoning over a domain**, not for hiding the number of
   CRUD tools in one. Self-contained CRUD goes flat (on the AI Hub, pinned or catalog-demoted; on Copilot and MCP, just registered — tool search exists only on the hub).
 
