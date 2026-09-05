@@ -759,10 +759,9 @@ const useWorkflowEditorCanvas = ({
     }, [workflowUuid]);
 
     useInitialViewport({
-        canvasHeight,
         enabled: !fitViewOnLoad && !fitViewOnWorkflowChange,
         getViewportOffsetX,
-        workflowUuid,
+        workflowId,
     });
 
     useEffect(() => {
@@ -770,7 +769,9 @@ const useWorkflowEditorCanvas = ({
             return;
         }
 
-        fitView({maxZoom: 1, minZoom: 0.2, padding: 0.2});
+        // Extra room at the top so the graph does not start flush against the canvas border;
+        // fitting to the full height put the trigger right on it.
+        fitView({maxZoom: 1, minZoom: 0.2, padding: {bottom: 0.2, left: 0.2, right: 0.2, top: '72px'}});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fitViewOnWorkflowChange, nodesInitialized, workflowUuid, customCanvasWidth]);
 
