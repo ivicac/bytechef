@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.workflow.task.dispatcher.service;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.workflow.task.dispatcher.TaskDispatcherDefinitionRegistry;
+import com.bytechef.platform.workflow.task.dispatcher.definition.OutputDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.definition.PropertiesDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.definition.Property;
 import com.bytechef.platform.workflow.task.dispatcher.definition.TaskDispatcherDefinition;
@@ -52,10 +54,16 @@ class TaskDispatcherDefinitionServiceTest {
     private Property.DynamicPropertiesProperty dynamicPropertiesProperty;
 
     @Mock
+    private OutputDefinition outputDefinition;
+
+    @Mock
     private PropertiesDataSource propertiesDataSource;
 
     @Mock
     private Property.StringProperty stringProperty;
+
+    @Mock
+    private TaskDispatcherDefinition.VariablePropertiesFunction variablePropertiesFunction;
 
     private TaskDispatcherDefinitionServiceImpl taskDispatcherDefinitionService;
 
@@ -142,5 +150,42 @@ class TaskDispatcherDefinitionServiceTest {
                 "subflow", 1, "workflowUuid", "search"));
 
         assertInstanceOf(RuntimeException.class, exception.getCause());
+    }
+
+    @Test
+    void testVariablePropertiesDefinedIsFalseWhenOnlyAnOutputDefinitionIsPresent() {
+        when(taskDispatcherDefinitionRegistry.getTaskDispatcherDefinition("subflow", 1))
+            .thenReturn(taskDispatcherDefinition);
+        when(taskDispatcherDefinition.getName()).thenReturn("subflow");
+        when(taskDispatcherDefinition.getOutputDefinition()).thenReturn(Optional.of(outputDefinition));
+
+        com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition definition =
+            taskDispatcherDefinitionService.getTaskDispatcherDefinition("subflow", 1);
+
+        assertTrue(definition.isOutputDefined());
+        assertFalse(definition.isVariablePropertiesDefined());
+    }
+
+    @Test
+    void testVariablePropertiesDefinedIsTrueWhenVariablePropertiesArePresent() {
+        when(taskDispatcherDefinitionRegistry.getTaskDispatcherDefinition("loop", 1))
+            .thenReturn(taskDispatcherDefinition);
+        when(taskDispatcherDefinition.getName()).thenReturn("loop");
+        when(taskDispatcherDefinition.getVariableProperties()).thenReturn(Optional.of(variablePropertiesFunction));
+
+        com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition definition =
+            taskDispatcherDefinitionService.getTaskDispatcherDefinition("loop", 1);
+
+        assertTrue(definition.isVariablePropertiesDefined());
+    }
+
+    @Test
+    void testDynamicOutputStaysDefinedForADispatcherThatOnlyDefinesOutput() {
+        when(taskDispatcherDefinitionRegistry.getTaskDispatcherDefinition("subflow", 1))
+            .thenReturn(taskDispatcherDefinition);
+        when(taskDispatcherDefinition.getName()).thenReturn("subflow");
+        when(taskDispatcherDefinition.getOutputDefinition()).thenReturn(Optional.of(outputDefinition));
+
+        assertTrue(taskDispatcherDefinitionService.isDynamicOutputDefined("subflow", 1));
     }
 }
