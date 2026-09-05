@@ -1,3 +1,4 @@
+import {useWorkflowExecutionOverlay} from '../providers/workflowExecutionOverlayContext';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore, {type WorkflowTestNodeStateI} from '../stores/useWorkflowEditorStore';
 
@@ -12,11 +13,20 @@ const EMPTY_WORKFLOW_TEST_NODE_STATES: Record<string, WorkflowTestNodeStateI> = 
  *
  * The states survive navigating away and back, which is what keeps a parent workflow colored across a
  * round trip into one of its subflows.
+ *
+ * Under a `WorkflowExecutionOverlayContext` provider (a read-only canvas showing a stored execution) the
+ * states come from that execution instead, and the editor's test run is ignored.
  */
 export default function useWorkflowTestNodeStates(): Record<string, WorkflowTestNodeStateI> {
     const workflowId = useWorkflowDataStore((state) => state.workflow.id);
     const workflowTestNodeStates = useWorkflowEditorStore((state) => state.workflowTestNodeStates);
     const workflowTestNodeStatesWorkflowId = useWorkflowEditorStore((state) => state.workflowTestNodeStatesWorkflowId);
+
+    const workflowExecutionOverlay = useWorkflowExecutionOverlay();
+
+    if (workflowExecutionOverlay) {
+        return workflowExecutionOverlay.nodeStates;
+    }
 
     if (workflowTestNodeStatesWorkflowId === undefined || workflowTestNodeStatesWorkflowId !== workflowId) {
         return EMPTY_WORKFLOW_TEST_NODE_STATES;

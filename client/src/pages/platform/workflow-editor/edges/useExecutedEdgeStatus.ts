@@ -1,10 +1,13 @@
 import {useMemo} from 'react';
 
+import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
+import useTakenEmptyConditionCases from '../hooks/useTakenEmptyConditionCases';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
+import {useWorkflowExecutionOverlay} from '../providers/workflowExecutionOverlayContext';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import collectGraphNodeExecutions from './collectGraphNodeExecutions';
-import getExecutedEdgeStatus from './getExecutedEdgeStatus';
+import getExecutedEdgeStatus, {bypassDisabledEdgeEndpoints, isConditionPlaceholderNode} from './getExecutedEdgeStatus';
 
 /** The transition a `graphTransition` edge draws, and the graph whose routing history decides it. */
 export interface GraphTransitionEdgeIdentityI {
@@ -27,20 +30,32 @@ export default function useExecutedEdgeStatus(
     edgeId: string,
     graphTransition?: GraphTransitionEdgeIdentityI
 ): 'COMPLETED' | 'FAILED' | undefined {
+    const edges = useWorkflowDataStore((state) => state.edges);
     const nodes = useWorkflowDataStore((state) => state.nodes);
     // The selector returns a constant `undefined` for the edge types that will never ask for a
     // graph's routing history — every other edge on the canvas. They still subscribe to the store
     // (for `workflowTestNodeStates` below), but this slice can no longer re-render them.
-    const workflowTestExecution = useWorkflowEditorStore((state) =>
-        graphTransition ? state.workflowTestExecution : undefined
+    const testTaskExecutions = useWorkflowEditorStore((state) =>
+        graphTransition ? state.workflowTestExecution?.job?.taskExecutions : undefined
     );
+    const workflowExecutionOverlay = useWorkflowExecutionOverlay();
     const workflowTestNodeStates = useWorkflowTestNodeStates();
+    const disabledTaskNames = useDisabledTaskNames();
 
     const sourceNodeId = edgeId.split('=>')[0];
     const targetNodeId = edgeId.split('=>')[1];
 
     const sourceNode = nodes.find((node) => node.id === sourceNodeId);
     const targetNode = nodes.find((node) => node.id === targetNodeId);
+
+    // Only an edge into or out of a condition's empty-case placeholder needs to know which empty cases the run took.
+    const takenEmptyConditionCases = useTakenEmptyConditionCases(
+        isConditionPlaceholderNode(sourceNode) || isConditionPlaceholderNode(targetNode)
+    );
+
+    // A read-only canvas showing a stored execution routes its transitions by that execution, never by
+    // whatever the editor last test-ran.
+    const taskExecutions = workflowExecutionOverlay ? workflowExecutionOverlay.taskExecutions : testTaskExecutions;
 
     // Read out as fields so the memo below can be keyed on them rather than on the transition
     // object: an edge component rebuilds that literal on every render, so depending on it directly
@@ -57,12 +72,24 @@ export default function useExecutedEdgeStatus(
             transitionFrom !== undefined && transitionGraphId !== undefined && transitionTo !== undefined
                 ? {
                       from: transitionFrom,
-                      nodeExecutions: collectGraphNodeExecutions(workflowTestExecution, transitionGraphId),
+                      nodeExecutions: collectGraphNodeExecutions(taskExecutions, transitionGraphId),
                       to: transitionTo,
                   }
                 : undefined,
-        [transitionFrom, transitionGraphId, transitionTo, workflowTestExecution]
+        [taskExecutions, transitionFrom, transitionGraphId, transitionTo]
     );
 
-    return getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates, graphTransitionExecution);
+    const executedEdgeEndpoints = bypassDisabledEdgeEndpoints(sourceNode, targetNode, {
+        disabledTaskNames,
+        edges,
+        nodes,
+    });
+
+    return getExecutedEdgeStatus(
+        executedEdgeEndpoints.sourceNode,
+        executedEdgeEndpoints.targetNode,
+        workflowTestNodeStates,
+        graphTransitionExecution,
+        takenEmptyConditionCases
+    );
 }

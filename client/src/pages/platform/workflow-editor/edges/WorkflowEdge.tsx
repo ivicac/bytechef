@@ -8,6 +8,7 @@ import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
 import WorkflowNodesPopoverMenu from '../components/WorkflowNodesPopoverMenu';
+import useWorkflowIsRunning from '../hooks/useWorkflowIsRunning';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
@@ -157,7 +158,7 @@ export default function WorkflowEdge({
     const copiedNode = useWorkflowEditorStore((state) => state.copiedNode);
     const copiedWorkflowId = useWorkflowEditorStore((state) => state.copiedWorkflowId);
 
-    const workflowIsRunning = useWorkflowEditorStore((state) => state.workflowIsRunning);
+    const workflowIsRunning = useWorkflowIsRunning();
     const workflowTestNodeStates = useWorkflowTestNodeStates();
 
     const executedEdgeStatus = getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates);
