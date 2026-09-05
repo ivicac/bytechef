@@ -16,12 +16,14 @@
 
 package com.bytechef.platform.component.context;
 
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.TriggerContext;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.datastream.ClusterElementResolverFunction;
 import com.bytechef.platform.component.log.EditorLogFileStorage;
 import com.bytechef.platform.component.log.LogFileStorage;
@@ -54,6 +56,12 @@ public class ContextFactoryImpl implements ContextFactory {
     private final EditorLogFileStorage editorLogFileStorage;
     private final EditorTempFileStorage editorTempFileStorage;
     private final ApplicationEventPublisher eventPublisher;
+    /**
+     * Phase 17b: lazy provider so app variants that don't include atlas-execution's JobService (e.g. lightweight EE
+     * microservices that just need ActionContext for ad-hoc tool runs) still wire this factory. When the bean is
+     * absent, {@link ActionContextAware#getJobMetadata()} returns {@code Map.of()}.
+     */
+    private final ObjectProvider<JobService> jobServiceProvider;
     private final LogFileStorage logFileStorage;
     private final TempFileStorage tempFileStorage;
     private final TriggerLogFileStorage triggerLogFileStorage;
@@ -64,14 +72,15 @@ public class ContextFactoryImpl implements ContextFactory {
     public ContextFactoryImpl(
         ApplicationContext applicationContext, ApplicationProperties applicationProperties, CacheManager cacheManager,
         DataStorage dataStorage, EditorLogFileStorage editorLogFileStorage, EditorTempFileStorage editorTempFileStorage,
-        ApplicationEventPublisher eventPublisher, ObjectProvider<ApprovalTokens> approvalTokensProvider,
-        LogFileStorage logFileStorage, TempFileStorage tempFileStorage, Tracer tracer,
-        TriggerLogFileStorage triggerLogFileStorage) {
+        ApplicationEventPublisher eventPublisher, ObjectProvider<JobService> jobServiceProvider,
+        ObjectProvider<ApprovalTokens> approvalTokensProvider, LogFileStorage logFileStorage,
+        TempFileStorage tempFileStorage, Tracer tracer, TriggerLogFileStorage triggerLogFileStorage) {
 
         this.applicationContext = applicationContext;
         this.approvalTokensProvider = approvalTokensProvider;
         this.cacheManager = cacheManager;
         this.dataStorage = dataStorage;
+        this.jobServiceProvider = jobServiceProvider;
         this.editorLogFileStorage = editorLogFileStorage;
         this.editorTempFileStorage = editorTempFileStorage;
         this.eventPublisher = eventPublisher;
@@ -93,7 +102,7 @@ public class ContextFactoryImpl implements ContextFactory {
             .builder(
                 componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
                 eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment),
-                approvalTokensProvider.getIfAvailable())
+                jobServiceProvider.getIfAvailable(), approvalTokensProvider.getIfAvailable())
             .componentConnection(componentConnection)
             .environmentId(environmentId)
             .jobId(jobId)
@@ -120,7 +129,8 @@ public class ContextFactoryImpl implements ContextFactory {
         @Nullable ComponentConnection componentConnection, boolean editorEnvironment) {
 
         return createClusterElementContext(
-            componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment, null);
+            componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment,
+            (ClusterElementResolverFunction) null);
     }
 
     @Override
@@ -138,6 +148,26 @@ public class ContextFactoryImpl implements ContextFactory {
             .componentConnection(componentConnection)
             .logFileStorageWriter(getLogFileStorageWriter(editorEnvironment))
             .publicUrl(publicUrl)
+            .build();
+    }
+
+    @Override
+    public ClusterElementContext createClusterElementContext(
+        String componentName, int componentVersion, String clusterElementName,
+        @Nullable ComponentConnection componentConnection, boolean editorEnvironment,
+        @Nullable ActionContext agentActionContext) {
+
+        return ClusterElementContextImpl
+            .builder(
+                componentName, componentVersion, clusterElementName, editorEnvironment, cacheManager, dataStorage,
+                eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment))
+            .agentActionContext(agentActionContext)
+            .approvalTokens(approvalTokensProvider.getIfAvailable())
+            .componentConnection(componentConnection)
+            .logFileStorageWriter(getLogFileStorageWriter(editorEnvironment))
+            .publicUrl(publicUrl)
+            .suspendTarget(
+                agentActionContext instanceof ActionContextAware actionContextAware ? actionContextAware : null)
             .build();
     }
 
