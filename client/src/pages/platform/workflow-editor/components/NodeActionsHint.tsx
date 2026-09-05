@@ -33,6 +33,12 @@ const NodeActionsHint = () => {
     }
 
     return (
+        // Floats over the canvas, inside its rounded border, rather than taking a layout row above
+        // it: the hint belongs to the canvas, and a row outside put it on the page ground where it
+        // read as part of the header. Overlapping the first node — which is what moved it out
+        // originally — is no longer possible, because `CANVAS_TOP_INSET` starts the graph well
+        // below this. That inset is not this component's to spend, though: if it ever shrinks,
+        // check this still clears the trigger.
         <Panel className="m-2" position="top-center">
             <div className="flex items-center gap-2 rounded-md border border-stroke-neutral-tertiary bg-surface-main px-3 py-1.5 shadow-sm">
                 <MousePointerClickIcon className="size-4 shrink-0 text-content-neutral-secondary" />
