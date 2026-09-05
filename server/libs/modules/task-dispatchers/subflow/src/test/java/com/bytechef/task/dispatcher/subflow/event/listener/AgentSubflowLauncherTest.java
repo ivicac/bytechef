@@ -30,6 +30,7 @@ import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
+import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.component.definition.ActionContext;
@@ -57,8 +58,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 })
 class AgentSubflowLauncherTest {
 
+    private static final int MAX_DEPTH = 10;
+
     @Mock
     private ChildJobPrincipalFactory childJobPrincipalFactory;
+
+    @Mock
+    private JobFacade jobFacade;
 
     @Mock
     private JobService jobService;
@@ -91,7 +97,7 @@ class AgentSubflowLauncherTest {
         when(childJobPrincipalFactory.createPrincipalLinkedJob(eq(agentJobId), any())).thenReturn(200L);
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskExecutionService);
 
         launcher.onApplicationEvent(new JobStatusApplicationEvent(agentJobId, Job.Status.STOPPED));
 
@@ -122,7 +128,7 @@ class AgentSubflowLauncherTest {
         when(taskExecutionService.fetchLastJobTaskExecution(100L)).thenReturn(Optional.empty());
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskExecutionService);
 
         launcher.onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
 
@@ -139,7 +145,7 @@ class AgentSubflowLauncherTest {
         when(jobService.getJob(100L)).thenReturn(agentJob);
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskExecutionService);
 
         launcher.onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
 
@@ -181,7 +187,7 @@ class AgentSubflowLauncherTest {
             .update(agentJob);
 
         AgentSubflowLauncher launcher = new AgentSubflowLauncher(
-            childJobPrincipalFactory, jobService, taskExecutionService);
+            childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskExecutionService);
 
         assertThrows(
             IllegalStateException.class,
@@ -191,5 +197,104 @@ class AgentSubflowLauncherTest {
         // metadata-update failure, which would let broker redelivery launch a SECOND sub-workflow.
 
         verify(childJobPrincipalFactory).createPrincipalLinkedJob(eq(agentJobId), any());
+    }
+
+    @Test
+    void testStampsIncrementedDepthOnLaunchedSubflow() {
+        stubSuspendedAgent(100L, new HashMap<>());
+
+        when(childJobPrincipalFactory.createPrincipalLinkedJob(eq(100L), any())).thenReturn(200L);
+
+        newLauncher(MAX_DEPTH).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+
+        assertThat(captureLaunchedJobParameters().getMetadata())
+            .containsEntry(SubflowRequestConstants.SUBFLOW_DEPTH, 1);
+    }
+
+    @Test
+    void testCarriesDepthForwardFromTheCallingJob() {
+        Map<String, Object> agentJobMetadata = new HashMap<>();
+
+        agentJobMetadata.put(SubflowRequestConstants.SUBFLOW_DEPTH, 3);
+
+        stubSuspendedAgent(100L, agentJobMetadata);
+
+        when(childJobPrincipalFactory.createPrincipalLinkedJob(eq(100L), any())).thenReturn(200L);
+
+        newLauncher(MAX_DEPTH).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+
+        assertThat(captureLaunchedJobParameters().getMetadata())
+            .containsEntry(SubflowRequestConstants.SUBFLOW_DEPTH, 4);
+    }
+
+    @Test
+    void testRefusesAndResumesTheAgentWhenDepthWouldBeExceeded() {
+        Map<String, Object> agentJobMetadata = new HashMap<>();
+
+        agentJobMetadata.put(SubflowRequestConstants.SUBFLOW_DEPTH, 2);
+        agentJobMetadata.put(MetadataConstants.TASK_EXECUTION_RESUME_ID, 7L);
+
+        Job agentJob = stubSuspendedAgent(100L, agentJobMetadata);
+
+        agentJob.setStatus(Job.Status.STOPPED);
+
+        newLauncher(2).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+
+        verify(childJobPrincipalFactory, never()).createPrincipalLinkedJob(anyLong(), any());
+        verify(jobFacade).resumeJob(100L, 7L, Map.of("error", AgentSubflowLauncher.tooDeepError(2)));
+    }
+
+    @Test
+    void testDoesNotResumeTwiceWhenTheRefusedStopEventIsRedelivered() {
+        Map<String, Object> agentJobMetadata = new HashMap<>();
+
+        agentJobMetadata.put(SubflowRequestConstants.SUBFLOW_DEPTH, 2);
+        agentJobMetadata.put(MetadataConstants.TASK_EXECUTION_RESUME_ID, 7L);
+
+        Job agentJob = stubSuspendedAgent(100L, agentJobMetadata);
+
+        agentJob.setStatus(Job.Status.STARTED);
+
+        newLauncher(2).onApplicationEvent(new JobStatusApplicationEvent(100L, Job.Status.STOPPED));
+
+        verify(childJobPrincipalFactory, never()).createPrincipalLinkedJob(anyLong(), any());
+        verify(jobFacade, never()).resumeJob(anyLong(), anyLong(), any());
+    }
+
+    private AgentSubflowLauncher newLauncher(int maxDepth) {
+        return new AgentSubflowLauncher(
+            childJobPrincipalFactory, jobFacade, jobService, maxDepth, taskExecutionService);
+    }
+
+    private Job stubSuspendedAgent(long agentJobId, Map<String, Object> agentJobMetadata) {
+        PendingSubflowRequest request = new PendingSubflowRequest(
+            "wf-99", "newWorkflowCall", Map.of("amount", 5), false, PlatformType.AUTOMATION);
+
+        Job agentJob = new Job();
+
+        agentJob.setId(agentJobId);
+        agentJob.setMetadata(agentJobMetadata);
+
+        when(jobService.getJob(agentJobId)).thenReturn(agentJob);
+
+        TaskExecution suspendedTask = new TaskExecution();
+
+        suspendedTask.setMetadata(
+            Map.of(
+                MetadataConstants.SUSPEND,
+                new ActionContext.Suspend(Map.of(SubflowRequestConstants.PENDING_SUBFLOW, request), null)));
+
+        when(taskExecutionService.fetchLastJobTaskExecution(agentJobId)).thenReturn(Optional.of(suspendedTask));
+
+        return agentJob;
+    }
+
+    private JobParametersDTO captureLaunchedJobParameters() {
+        ArgumentCaptor<JobParametersDTO> jobParametersDTOArgumentCaptor =
+            ArgumentCaptor.forClass(JobParametersDTO.class);
+
+        verify(childJobPrincipalFactory).createPrincipalLinkedJob(anyLong(), jobParametersDTOArgumentCaptor.capture());
+
+        return jobParametersDTOArgumentCaptor.getValue();
     }
 }
