@@ -16,6 +16,11 @@
 
 package com.bytechef.platform.webhook.web.rest;
 
+import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.facade.JobFacade;
+import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.commons.util.MapUtils;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.webhook.annotation.ConditionalOnWebhook;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
@@ -23,6 +28,7 @@ import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
@@ -78,36 +84,16 @@ public class ApprovalController {
         """;
 
     private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
-    private final JobResumeFacade jobResumeFacade;
+    private final JobFacade jobFacade;
+    private final JobService jobService;
 
     @SuppressFBWarnings("EI")
     public ApprovalController(
-        ObjectProvider<ApprovalTokens> approvalTokensProvider, JobResumeFacade jobResumeFacade) {
+        ObjectProvider<ApprovalTokens> approvalTokensProvider, JobFacade jobFacade, JobService jobService) {
 
         this.approvalTokensProvider = approvalTokensProvider;
-        this.jobResumeFacade = jobResumeFacade;
-    }
-
-    @SuppressFBWarnings(
-        value = "VA_FORMAT_STRING_USES_NEWLINE",
-        justification = "HTML page text block; the line separator inside the markup is irrelevant to rendering")
-    @GetMapping(value = "/approvals/{id}", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> confirm(@PathVariable String id) {
-        Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
-
-        if (approvalIdOptional.isEmpty()) {
-            return htmlResponse(HttpStatus.BAD_REQUEST, "This approval link is not valid.");
-        }
-
-        ApprovalId approvalId = approvalIdOptional.get();
-
-        String page = approvalId.isApproved()
-            ? CONFIRMATION_PAGE.formatted("approval", "approve", "Approve")
-            : CONFIRMATION_PAGE.formatted("rejection", "reject", "Reject");
-
-        return ResponseEntity.ok()
-            .contentType(MediaType.TEXT_HTML)
-            .body(page);
+        this.jobFacade = jobFacade;
+        this.jobService = jobService;
     }
 
     // CSRF-exempt: the path token is the capability, and the GET only renders this confirmation form
@@ -150,11 +136,31 @@ public class ApprovalController {
                 .build();
         }
 
-        return ResponseEntity.status(getStatus(outcome))
-            .build();
+        return TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
+            resume(approvalId);
+
+            return ResponseEntity.noContent()
+                .build();
+        });
     }
 
-    private Optional<ApprovalId> parseApprovalId(String id) {
+    private void resume(ApprovalId approvalId) {
+        long jobId = approvalId.getJobId();
+
+        Job job = jobService.getJob(jobId);
+
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null && taskExecutionResumeId != null) {
+            jobFacade.resumeJob(jobId, taskExecutionResumeId, Map.of("approved", approvalId.isApproved()));
+
+            return;
+        }
+
+        jobFacade.resumeApproval(jobId, approvalId.getUuidAsString(), approvalId.isApproved());
+    }
+
+    private Optional<String> resolveInnerToken(String id) {
         ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
 
         if (approvalTokens == null) {
