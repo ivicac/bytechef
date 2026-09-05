@@ -1,0 +1,3 @@
+mutation updateDataSyncDeploymentTags($input: UpdateDataSyncDeploymentTagsInput!) {
+    updateDataSyncDeploymentTags(input: $input)
+}

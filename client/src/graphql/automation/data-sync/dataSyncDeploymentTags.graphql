@@ -1,0 +1,6 @@
+query dataSyncDeploymentTags($workspaceId: ID!) {
+    dataSyncDeploymentTags(workspaceId: $workspaceId) {
+        id
+        name
+    }
+}

@@ -1,0 +1,3 @@
+mutation updateDataSyncTags($input: UpdateDataSyncTagsInput!) {
+    updateDataSyncTags(input: $input)
+}

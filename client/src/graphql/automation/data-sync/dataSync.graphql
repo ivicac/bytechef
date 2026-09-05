@@ -1,0 +1,32 @@
+query dataSync($id: ID!) {
+    dataSync(id: $id) {
+        id
+        name
+        title
+        description
+        workspaceId
+        projectId
+        uuid
+        triggerType
+        triggerParameters
+        elements {
+            id
+            kind
+            componentName
+            componentVersion
+            operationName
+            parameters
+            connectionId
+        }
+        tags {
+            id
+            name
+        }
+        unpublishedChanges
+        lastPublishedVersion
+        publishedDate
+        lastModifiedDate
+        draftWorkflowId
+        visibility
+    }
+}
