@@ -77,7 +77,7 @@ const ConnectedUserSheetPanelIntegrationListItem = ({
     return (
         <Collapsible className="mb-2 rounded border border-border/50" key={connectedUserIntegrationInstance.id}>
             {componentDefinition && (
-                <div className="flex items-center justify-between rounded-md px-3 py-1 hover:bg-destructive-foreground">
+                <div className="flex items-center justify-between rounded-md px-3 py-1 hover:bg-surface-neutral-primary-hover">
                     <CollapsibleTrigger className="flex-1 py-3">
                         <div className="flex flex-col items-start justify-center gap-y-2">
                             <div className="flex min-h-8 flex-1 items-center gap-1">
