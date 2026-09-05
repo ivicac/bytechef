@@ -41,8 +41,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.redis.connection.DefaultMessage;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -71,7 +71,7 @@ class SseStreamMessageBrokerConfigurerConfigurationTest {
             .opsForStream();
 
         RedisListenerEndpointRegistrar redisListenerEndpointRegistrar = new RedisListenerEndpointRegistrar(
-            redisMessageDeserializer, stringRedisTemplate, mock(TaskExecutor.class));
+            mock(RedisConnectionFactory.class), redisMessageDeserializer, stringRedisTemplate);
 
         List<MessageBrokerConfigurer<?>> messageBrokerConfigurers = List.of(
             new SseStreamMessageBrokerConfigurerConfiguration().sseStreamMessageBrokerConfigurer(
