@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.facade;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,6 +34,14 @@ public interface ConnectedUserConnectionFacade {
      */
     List<ConnectionDTO> getConnections(
         Long connectedUserId, @Nullable String componentName, List<Long> connectionIds);
+
+    /**
+     * The ids of the connections the connected user OWNS, a subset of what {@link #getConnections} returns. The
+     * difference is the connections a tenant admin marked shared: entitled to every connected user in the environment,
+     * and modifiable by none of them. Callers rendering a connection list need this to avoid offering reconnect or
+     * delete on a connection the server will refuse to change.
+     */
+    Set<Long> getOwnedConnectionIds(long connectedUserId);
 
     /**
      * Replaces the credentials of a connection owned by the connected user, keeping its id. Throws

@@ -16,6 +16,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -133,6 +134,13 @@ public class RemoteConnectedUserProjectFacadeClient implements ConnectedUserProj
     @Override
     public String updateProjectWorkflow(
         String externalUserId, String workflowUuid, String prompt, Environment environment, boolean generate) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateProjectWorkflowInputs(
+        String externalUserId, String workflowUuid, Map<String, ?> inputs, Long environmentId) {
 
         throw new UnsupportedOperationException();
     }

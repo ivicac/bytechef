@@ -13,6 +13,7 @@ import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @version ee
@@ -23,7 +24,8 @@ import java.util.List;
 public record ConnectedUserProjectWorkflowDTO(
     long id, long connectedUserId, boolean enabled, Instant lastExecutionDate, long projectId, WorkflowDTO workflow,
     String workflowUuid, Integer workflowVersion, Kind kind, String catalogWorkflowUuid,
-    String copiedFromWorkflowUuid, boolean dangling, List<ConnectedUserWorkflowTemplateDTO.Component> components) {
+    String copiedFromWorkflowUuid, boolean dangling, List<ConnectedUserWorkflowTemplateDTO.Component> components,
+    List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
 
     /**
      * {@code COPY} when the workflow is the connected user's own editable copy; {@code REFERENCE} when it points at a
@@ -42,10 +44,21 @@ public record ConnectedUserProjectWorkflowDTO(
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
 
         this(
+            connectedUserId, connectedUserProjectWorkflow, enabled, lastExecutionDate, projectWorkflow, workflow,
+            components, List.of(), Map.of());
+    }
+
+    public ConnectedUserProjectWorkflowDTO(
+        long connectedUserId, ConnectedUserProjectWorkflow connectedUserProjectWorkflow, boolean enabled,
+        Instant lastExecutionDate, ProjectWorkflow projectWorkflow, WorkflowDTO workflow,
+        List<ConnectedUserWorkflowTemplateDTO.Component> components,
+        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+
+        this(
             connectedUserProjectWorkflow.getId(), connectedUserId, enabled, lastExecutionDate,
             projectWorkflow.getProjectId(), workflow, projectWorkflow.getUuidAsString(),
             connectedUserProjectWorkflow.getWorkflowVersion(), Kind.COPY, null,
-            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components);
+            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, inputs, inputValues);
     }
 
     /**
@@ -55,9 +68,17 @@ public record ConnectedUserProjectWorkflowDTO(
         long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
 
+        return ofReference(connectedUserId, reference, catalogWorkflow, components, List.of(), Map.of());
+    }
+
+    public static ConnectedUserProjectWorkflowDTO ofReference(
+        long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
+        List<ConnectedUserWorkflowTemplateDTO.Component> components,
+        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+
         return new ConnectedUserProjectWorkflowDTO(
             reference.getId(), connectedUserId, reference.isEnabled(), null, 0L, catalogWorkflow,
             reference.getCatalogWorkflowUuid(), reference.getWorkflowVersion(), Kind.REFERENCE,
-            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components);
+            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, inputs, inputValues);
     }
 }
