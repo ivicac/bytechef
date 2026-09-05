@@ -1,5 +1,5 @@
 import {getGraphNodeName} from '@/shared/components/workflow-executions/util/toGraphNodeVisits';
-import {TaskExecution, WorkflowTestExecution} from '@/shared/middleware/platform/workflow/test';
+import {TaskExecution} from '@/shared/middleware/platform/workflow/test';
 
 import {GraphNodeExecutionI} from './getExecutedEdgeStatus';
 
@@ -45,10 +45,10 @@ function findTaskExecution(taskExecutions: TaskExecution[], workflowNodeName: st
  * either way.
  */
 export default function collectGraphNodeExecutions(
-    workflowTestExecution: WorkflowTestExecution | undefined,
+    taskExecutions: TaskExecution[] | undefined,
     graphId: string
 ): GraphNodeExecutionI[] {
-    const graphTaskExecution = findTaskExecution(workflowTestExecution?.job?.taskExecutions ?? [], graphId);
+    const graphTaskExecution = findTaskExecution(taskExecutions ?? [], graphId);
 
     return (graphTaskExecution?.children ?? []).map((child) => ({
         // `__node` is the dispatcher's own stamp and the authority; the task's name matches it for
@@ -58,7 +58,9 @@ export default function collectGraphNodeExecutions(
         // match no transition endpoint, and `getExecutedGraphTransitionStatus` rejects an empty
         // `from`/`to` so it cannot.
         nodeName: getGraphNodeName(child) ?? child.workflowTask?.name ?? '',
-        startDate: child.startDate,
+        // A graph inside a loop is reached through `iterations`, which the generated converters leave as
+        // raw JSON — its dates are still ISO strings there, and the rule sorts on `getTime()`.
+        startDate: child.startDate ? new Date(child.startDate) : undefined,
         status: child.status,
     }));
 }
