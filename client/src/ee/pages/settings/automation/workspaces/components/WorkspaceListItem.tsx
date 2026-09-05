@@ -74,7 +74,7 @@ const WorkspaceListItem = ({workspace}: WorkspaceListItemProps) => {
 
     return (
         <li className="mb-2 rounded border border-border/50" key={workspace.id}>
-            <div className="flex items-center justify-between rounded-md bg-surface-neutral-primary px-3 py-3 hover:bg-destructive-foreground">
+            <div className="flex items-center justify-between rounded-md bg-surface-neutral-primary px-3 py-3 hover:bg-surface-neutral-primary-hover">
                 <div className="flex flex-1 flex-col items-start space-y-1">
                     <span className="text-base font-semibold">{workspace.name}</span>
 

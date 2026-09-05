@@ -128,7 +128,7 @@ const AgentDeploymentListItem = ({deployment, remainingTags}: AgentDeploymentLis
                 is not repeated per row — the page header's environment select already scopes the whole list. */}
 
             <div
-                className="flex w-full cursor-pointer items-center justify-between rounded-md px-3 hover:bg-destructive-foreground"
+                className="flex w-full cursor-pointer items-center justify-between rounded-md px-3 hover:bg-surface-neutral-primary-hover"
                 onClick={handleClick}
             >
                 <div className="flex flex-1 items-center py-3">

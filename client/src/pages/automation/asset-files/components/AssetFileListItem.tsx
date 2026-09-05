@@ -140,7 +140,7 @@ const AssetFileListItem = ({file, onDelete, onRename, remainingTags}: AssetFileL
 
     return (
         <div
-            className="group mb-2 flex w-full cursor-pointer items-center justify-between rounded border border-border/50 px-3 hover:bg-destructive-foreground"
+            className="group mb-2 flex w-full cursor-pointer items-center justify-between rounded border border-border/50 px-3 hover:bg-surface-neutral-primary-hover"
             data-testid={`asset-file-list-item-${file.id}`}
             onClick={handleRowClick}
         >

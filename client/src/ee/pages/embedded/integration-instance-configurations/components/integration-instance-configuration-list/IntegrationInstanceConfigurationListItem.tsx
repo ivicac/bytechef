@@ -127,7 +127,7 @@ const IntegrationInstanceConfigurationListItem = ({
     return (
         <>
             <div
-                className="flex w-full cursor-pointer items-center justify-between rounded-md px-3 hover:bg-destructive-foreground"
+                className="flex w-full cursor-pointer items-center justify-between rounded-md px-3 hover:bg-surface-neutral-primary-hover"
                 onClick={(event) => handleIntegrationInstanceConfigurationListItemClick(event)}
             >
                 <div className="flex flex-1 items-center py-3 group-data-[state='open']:border-none">

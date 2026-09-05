@@ -45,7 +45,7 @@ const ConnectedUserProjectWorkflowListItem = ({
 
     return (
         <>
-            <li className="mb-2 flex items-center justify-between rounded border border-border/50 p-3 hover:bg-destructive-foreground">
+            <li className="mb-2 flex items-center justify-between rounded border border-border/50 p-3 hover:bg-surface-neutral-primary-hover">
                 <div className="flex min-h-8 min-w-0 flex-1 items-center">
                     <span className="truncate text-sm font-semibold">
                         {connectedUserProjectWorkflow.workflow.label}
