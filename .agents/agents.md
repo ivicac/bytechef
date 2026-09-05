@@ -363,19 +363,15 @@ LLM fills it via the tool's own function-calling schema, and a `conversationId` 
 invocation from a given parent conversation lands in the same chat-memory thread — left unset, the
 sub-workflow's `workflowCall` trigger's `conversationId` field is whatever (if anything) the LLM
 happens to fill in on the tool call, pooling every invocation of that sub-agent across every parent
-conversation into one shared thread. The only hard server-side guard is **cycle prevention**:
+conversation into one shared thread. The only server-side guard is **cycle prevention**:
 `AiAgentFacadeImpl.validateSubAgentReference`/`isReachable` walks the SUB_AGENT reference graph and
 rejects a reference that would create a cycle (`AiAgentErrorType.SUB_AGENT_CYCLE`, including
-self-reference) — arbitrarily deep acyclic chains are NOT blocked by this check. The practical
-"1-level nesting" limit instead comes from the shared subflow-tool runtime behavior
-(`SubflowToolSupport`, `ERROR_AGENT_IS_SUBFLOW`, used by both `WorkflowCallWorkflowTool` and
-`WorkflowCallAiAgentTool`): an agent already running as a subflow refuses to suspend for a further
-nested tool call. This is surfaced as a **save-time warning only, never a hard block** —
-client-side in `AgentSubAgentsCard.tsx` ("This agent has sub-agents of its own; they won't be
-callable when it runs as a sub-agent"). See the spec's "Sub-agent semantics (inherited from
-callWorkflow)" section for the full rationale (still applicable — `callAiAgent` shares the same
-durable-subflow-suspend runtime as `callWorkflow`, just with an agent-uuid-keyed resolution step in
-front of it).
+self-reference). Acyclic chains nest to any depth: a sub-agent's own sub-agent and `callWorkflow`
+tools work whether the sub-agent was reached through the bridge (top-level job linked by
+`AGENT_JOB_ID` metadata) or launched as a real `subflow/v1` child, because a subflow child can
+suspend and resume (`docs/superpowers/specs/2026-09-05-resumable-subflows-design.md`). `callAiAgent`
+shares the durable-subflow-suspend runtime with `callWorkflow`, just with an agent-uuid-keyed
+resolution step in front of it.
 
 **Dedicated canvas element.** `callAiAgent` (`WorkflowCallAiAgentTool`, in the `workflow` component
 beside `callWorkflow`) is also a first-class TOOLS cluster element a user can add directly to any
@@ -798,9 +794,8 @@ duplicates each workflow into a new version (never in-place). `__triggerName`
 (`JobInputConstants.TRIGGER_NAME_INPUT`) is a platform-wide reserved job input, and any
 `__`-prefixed input/node name in a hand-authored workflow is rejected by
 `WorkflowValidatorFacade.validateNoReservedInputNames`/`validateNoReservedNodeNames`. Sub-agents
-wire in via `workflow/v1/callAiAgent`; only cycles are hard-blocked, deeper-than-1-level nesting
-is a save-time warning only (`callAiAgent` itself refuses to suspend when already running as a
-subflow). HITL is two INDEPENDENT singleton element rows, both surfaced as Settings-tab switches
+wire in via `workflow/v1/callAiAgent`; only cycles are blocked, and acyclic chains nest to any
+depth. HITL is two INDEPENDENT singleton element rows, both surfaced as Settings-tab switches
 that are off by default because absence of the row IS off: `KIND_APPROVAL_TOOL` emits the platform's
 `approval/v1/requestApproval` LLM-invocable tool directly into the tools array (never inside the
 gate), and `KIND_APPROVAL_GATE` is the agent-level MASTER SWITCH for per-tool gating — with no such
