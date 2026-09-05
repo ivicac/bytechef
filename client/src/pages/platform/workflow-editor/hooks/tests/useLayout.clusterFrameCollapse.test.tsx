@@ -4,6 +4,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useClusterElementsViewModeStore from '../../stores/useClusterElementsViewModeStore';
 import useClusterFrameCollapsedStore from '../../stores/useClusterFrameCollapsedStore';
+import useLayoutEngineStore from '../../stores/useLayoutEngineStore';
 import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useLayout from '../useLayout';
 
@@ -64,6 +65,7 @@ function renderLayout() {
 
 describe('useLayout skips the box for a collapsed cluster root', () => {
     beforeEach(() => {
+        useLayoutEngineStore.getState().setLayoutEngine('dagre');
         useClusterElementsViewModeStore.getState().setClusterElementsViewMode('box');
         useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
 
