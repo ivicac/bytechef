@@ -1,6 +1,6 @@
 import {type Edge, type Node} from '@xyflow/react';
 
-import getExecutedEdgeStatus from '../edges/getExecutedEdgeStatus';
+import getExecutedEdgeStatus, {bypassDisabledEdgeEndpoints} from '../edges/getExecutedEdgeStatus';
 import {WorkflowTestNodeStateI} from '../stores/useWorkflowEditorStore';
 
 type GhostBarStatusType = WorkflowTestNodeStateI['status'] | undefined;
@@ -11,6 +11,7 @@ export interface GhostBarSideStatusesI {
 }
 
 interface ResolveGhostBarSideStatusesProps {
+    disabledTaskNames?: Set<string>;
     edges: Edge[];
     fallbackStatus: GhostBarStatusType;
     ghostNodeId: string;
@@ -21,6 +22,7 @@ interface ResolveGhostBarSideStatusesProps {
 
 /** Resolves the executed status of each half of a task dispatcher ghost bar. */
 export default function resolveGhostBarSideStatuses({
+    disabledTaskNames = new Set(),
     edges,
     fallbackStatus,
     ghostNodeId,
@@ -43,25 +45,25 @@ export default function resolveGhostBarSideStatuses({
             return fallbackStatus;
         }
 
-        let sideStatus: GhostBarStatusType;
-
         for (const sideEdge of sideEdges) {
-            const edgeStatus = getExecutedEdgeStatus(
+            const edgeEndpoints = bypassDisabledEdgeEndpoints(
                 nodesById.get(sideEdge.source),
                 nodesById.get(sideEdge.target),
+                {disabledTaskNames, edges, nodes}
+            );
+
+            const edgeStatus = getExecutedEdgeStatus(
+                edgeEndpoints.sourceNode,
+                edgeEndpoints.targetNode,
                 workflowTestNodeStates
             );
 
-            if (edgeStatus === 'FAILED') {
-                return 'FAILED';
-            }
-
             if (edgeStatus === 'COMPLETED') {
-                sideStatus = 'COMPLETED';
+                return 'COMPLETED';
             }
         }
 
-        return sideStatus;
+        return undefined;
     };
 
     return {

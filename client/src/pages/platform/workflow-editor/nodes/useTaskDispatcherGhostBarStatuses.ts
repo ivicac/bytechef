@@ -1,6 +1,7 @@
 import {useMemo} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
+import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import resolveGhostBarSideStatuses, {GhostBarSideStatusesI} from './resolveGhostBarSideStatuses';
@@ -19,6 +20,7 @@ export default function useTaskDispatcherGhostBarStatuses(
         }))
     );
 
+    const disabledTaskNames = useDisabledTaskNames();
     const workflowTestNodeStates = useWorkflowTestNodeStates();
 
     const fallbackStatus = useTaskDispatcherGhostStatus(data);
@@ -26,6 +28,7 @@ export default function useTaskDispatcherGhostBarStatuses(
     return useMemo(
         () =>
             resolveGhostBarSideStatuses({
+                disabledTaskNames,
                 edges,
                 fallbackStatus,
                 ghostNodeId: id,
@@ -33,6 +36,6 @@ export default function useTaskDispatcherGhostBarStatuses(
                 nodes,
                 workflowTestNodeStates,
             }),
-        [edges, fallbackStatus, id, isBottomGhost, nodes, workflowTestNodeStates]
+        [disabledTaskNames, edges, fallbackStatus, id, isBottomGhost, nodes, workflowTestNodeStates]
     );
 }

@@ -1,10 +1,11 @@
 import {useMemo} from 'react';
 
+import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import collectGraphNodeExecutions from './collectGraphNodeExecutions';
-import getExecutedEdgeStatus from './getExecutedEdgeStatus';
+import getExecutedEdgeStatus, {bypassDisabledEdgeEndpoints} from './getExecutedEdgeStatus';
 
 /** The transition a `graphTransition` edge draws, and the graph whose routing history decides it. */
 export interface GraphTransitionEdgeIdentityI {
@@ -27,6 +28,7 @@ export default function useExecutedEdgeStatus(
     edgeId: string,
     graphTransition?: GraphTransitionEdgeIdentityI
 ): 'COMPLETED' | 'FAILED' | undefined {
+    const edges = useWorkflowDataStore((state) => state.edges);
     const nodes = useWorkflowDataStore((state) => state.nodes);
     // The selector returns a constant `undefined` for the edge types that will never ask for a
     // graph's routing history — every other edge on the canvas. They still subscribe to the store
@@ -35,6 +37,7 @@ export default function useExecutedEdgeStatus(
         graphTransition ? state.workflowTestExecution : undefined
     );
     const workflowTestNodeStates = useWorkflowTestNodeStates();
+    const disabledTaskNames = useDisabledTaskNames();
 
     const sourceNodeId = edgeId.split('=>')[0];
     const targetNodeId = edgeId.split('=>')[1];
@@ -64,5 +67,16 @@ export default function useExecutedEdgeStatus(
         [transitionFrom, transitionGraphId, transitionTo, workflowTestExecution]
     );
 
-    return getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates, graphTransitionExecution);
+    const executedEdgeEndpoints = bypassDisabledEdgeEndpoints(sourceNode, targetNode, {
+        disabledTaskNames,
+        edges,
+        nodes,
+    });
+
+    return getExecutedEdgeStatus(
+        executedEdgeEndpoints.sourceNode,
+        executedEdgeEndpoints.targetNode,
+        workflowTestNodeStates,
+        graphTransitionExecution
+    );
 }
