@@ -44,4 +44,86 @@ describe('applyHubTheme', () => {
 
         expect(root.style.getPropertyValue('--radius')).toBe('');
     });
+
+    it('repaints the hub surfaces a vendor names, leaving the rest at their shipped defaults', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({activeBorderColor: '#eeeeff', enableColor: '#123456', surfaceColor: '#fafafa'}, root);
+
+        expect(root.style.getPropertyValue('--hub-surface')).toBe('#fafafa');
+        expect(root.style.getPropertyValue('--hub-active-border')).toBe('#eeeeff');
+        expect(root.style.getPropertyValue('--hub-enable')).toBe('#123456');
+
+        // One colour, not a ramp: the hover shade follows rather than being computed, because a
+        // derived shade would be wrong for every colour that is not simple hex.
+        expect(root.style.getPropertyValue('--hub-enable-hover')).toBe('#123456');
+
+        // Untouched roles are left alone so the stylesheet's defaults still apply.
+        expect(root.style.getPropertyValue('--hub-card')).toBe('');
+        expect(root.style.getPropertyValue('--hub-disable')).toBe('');
+    });
+
+    it('ignores a surface colour the browser cannot vouch for', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({surfaceColor: 'not-a-colour'}, root);
+
+        expect(root.style.getPropertyValue('--hub-surface')).toBe('');
+    });
+
+    // The hub's own chrome is only half of what a vendor embeds -- the builder opens on the same
+    // surface. Its tokens are bare HSL triplets consumed as `hsl(var(--token))`, so a vendor's
+    // '#0b1220' has to be converted; writing the hex straight in would yield `hsl(#0b1220)`, which
+    // is invalid and silently drops the whole declaration.
+    it('carries the surface roles into the builder tokens as HSL triplets', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({cardColor: '#ffffff', surfaceColor: '#000000'}, root);
+
+        expect(root.style.getPropertyValue('--hub-surface')).toBe('#000000');
+        expect(root.style.getPropertyValue('--hub-card')).toBe('#ffffff');
+
+        // The canvas and the panels on it are the "card" in the builder; the ground around it is
+        // the surface.
+        expect(root.style.getPropertyValue('--background')).toBe('0 0% 100%');
+        expect(root.style.getPropertyValue('--surface-neutral-primary')).toBe('0 0% 100%');
+        expect(root.style.getPropertyValue('--surface-main')).toBe('0 0% 0%');
+    });
+
+    it('carries primaryColor to the brand surface the builder buttons paint with', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({primaryColor: '#1071e5'}, root);
+
+        expect(root.style.getPropertyValue('--surface-brand-primary')).toBe('213 87% 48%');
+    });
+
+    it('leaves the builder tokens alone for a colour it cannot convert to a triplet', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({surfaceColor: 'rebeccapurple'}, root);
+
+        // jsdom cannot resolve a named colour here, and a token that would end up `hsl(rebeccapurple)`
+        // is worse than one left at its shipped value.
+        expect(root.style.getPropertyValue('--surface-main')).toBe('');
+    });
+
+    it('lets cssVariables reach anything the named roles do not cover, and correct what they do', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({cssVariables: {'--hub-surface': '#000000', '--radius': '2rem'}, surfaceColor: '#ffffff'}, root);
+
+        // Applied last on purpose, so the escape hatch can override a named role rather than
+        // silently losing to it.
+        expect(root.style.getPropertyValue('--hub-surface')).toBe('#000000');
+        expect(root.style.getPropertyValue('--radius')).toBe('2rem');
+    });
+
+    it('refuses a cssVariables key that is not a custom property', () => {
+        const root = document.createElement('div');
+
+        applyHubTheme({cssVariables: {position: 'absolute'}}, root);
+
+        expect(root.style.getPropertyValue('position')).toBe('');
+    });
 });

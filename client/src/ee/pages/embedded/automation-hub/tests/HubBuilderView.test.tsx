@@ -2,7 +2,7 @@ import {HubBuilderContext} from '@/ee/pages/embedded/automation-hub/hubBuilderCo
 import {AutomationHubKeys} from '@/ee/pages/embedded/automation-hub/queries/automationHub.queries';
 import {useAutomationHubStore} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {useContext} from 'react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
@@ -37,7 +37,15 @@ vi.mock('@/ee/pages/embedded/automation-hub/queries/automationHub.queries', asyn
 function WorkflowBuilderProbe() {
     const hubContext = useContext(HubBuilderContext);
 
-    return <div data-testid="workflow-builder-probe">{hubContext?.sharedConnectionIds.join(',')}</div>;
+    return (
+        <div data-testid="workflow-builder-probe">
+            <span data-testid="shared-connection-ids">{hubContext?.sharedConnectionIds.join(',')}</span>
+
+            <button onClick={hubContext?.onBack} type="button">
+                Back to automations
+            </button>
+        </div>
+    );
 }
 
 vi.mock('@/ee/pages/embedded/workflow-builder/WorkflowBuilder', () => ({
@@ -73,9 +81,11 @@ describe('HubBuilderView', () => {
             </QueryClientProvider>
         );
 
-        expect(screen.getByTestId('workflow-builder-probe')).toHaveTextContent('3,4');
+        expect(screen.getByTestId('shared-connection-ids')).toHaveTextContent('3,4');
     });
 
+    // The back control is rendered by the BUILDER's own header, from `onBack` on the context, so the
+    // hub contributes no header row of its own — the workflow's name is on screen once, not twice.
     it('navigates back to the hub and invalidates the automations query on back click', async () => {
         const user = userEvent.setup();
         const queryClient = new QueryClient();
@@ -97,7 +107,11 @@ describe('HubBuilderView', () => {
         expect(navigateMock).toHaveBeenCalledWith('/embedded/hub');
     });
 
-    it("renders the automation's label in the top bar", () => {
+    it('returns to the catalog when the workflow will not load, so a stale route is escapable', async () => {
+        // The hub restores the route it was on across a host refresh, and the automation may have
+        // been deleted since. There is no tab strip in the builder, so it has to leave by itself.
+        useGetWorkflowQueryMock.mockReturnValue({data: undefined, error: new Error('not found')});
+
         render(
             <QueryClientProvider client={new QueryClient()}>
                 <MemoryRouter initialEntries={['/embedded/hub/builder/wf-1']}>
@@ -108,6 +122,20 @@ describe('HubBuilderView', () => {
             </QueryClientProvider>
         );
 
-        expect(screen.getByText('Sync leads')).toBeInTheDocument();
+        await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/embedded/hub', {replace: true}));
+    });
+
+    it('stays put while the workflow loads cleanly', () => {
+        render(
+            <QueryClientProvider client={new QueryClient()}>
+                <MemoryRouter initialEntries={['/embedded/hub/builder/wf-1']}>
+                    <Routes>
+                        <Route element={<HubBuilderView />} path="/embedded/hub/builder/:workflowUuid" />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        );
+
+        expect(navigateMock).not.toHaveBeenCalled();
     });
 });

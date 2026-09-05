@@ -96,7 +96,14 @@ const HubConnectionDialog = ({
     });
     const {data: componentDefinitions} = useGetComponentDefinitionsQuery({connectionDefinitions: true});
 
-    const componentTitle = componentDefinition?.title || componentName;
+    // ConnectionDialog seeds its selected component and form defaults from `componentDefinition`
+    // once, at mount. Mounting it while the definition is still loading leaves it with nothing to
+    // seed -- no icon, no authorization fields -- until the dialog is closed and reopened.
+    if (!componentDefinition) {
+        return null;
+    }
+
+    const componentTitle = componentDefinition.title || componentName;
 
     return (
         <ConnectionDialog

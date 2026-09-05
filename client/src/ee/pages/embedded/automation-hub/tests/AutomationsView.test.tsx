@@ -1,6 +1,6 @@
 import {useAutomationHubStore} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import {AutomationWorkflowProject, ConnectedUserProjectWorkflow} from '@/ee/shared/middleware/embedded/public';
-import {fireEvent, render, screen, within} from '@testing-library/react';
+import {render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
@@ -15,6 +15,7 @@ const {
     deprovisionMutateMock,
     navigateMock,
     setEnabledMutateMock,
+    updateInputsMutateAsyncMock,
     useGetAutomationsQueryMock,
     useGetTemplateProjectsQueryMock,
 } = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ const {
     deprovisionMutateMock: vi.fn(),
     navigateMock: vi.fn(),
     setEnabledMutateMock: vi.fn(),
+    updateInputsMutateAsyncMock: vi.fn(),
     useGetAutomationsQueryMock: vi.fn(),
     useGetTemplateProjectsQueryMock: vi.fn(),
 }));
@@ -40,9 +42,10 @@ vi.mock('@/ee/pages/embedded/automation-hub/queries/automationHub.queries', () =
 
 vi.mock('@/ee/pages/embedded/automation-hub/mutations/automationHub.mutations', () => ({
     useCreateBlankAutomationMutation: () => ({mutate: createBlankMutateMock}),
-    useDeleteAutomationMutation: () => ({mutate: deleteAutomationMutateMock}),
-    useDeprovisionReferenceMutation: () => ({mutate: deprovisionMutateMock}),
+    useDeleteAutomationMutation: () => ({mutateAsync: deleteAutomationMutateMock}),
+    useDeprovisionReferenceMutation: () => ({mutateAsync: deprovisionMutateMock}),
     useSetAutomationEnabledMutation: () => ({mutate: setEnabledMutateMock}),
+    useUpdateAutomationInputsMutation: () => ({mutateAsync: updateInputsMutateAsyncMock}),
 }));
 
 vi.mock('react-inlinesvg', () => ({
@@ -93,6 +96,7 @@ const copyAutomation: ConnectedUserProjectWorkflow = {
     kind: 'COPY',
     label: 'Sync leads',
     workflowUuid: 'copy-uuid',
+    workflowVersion: 3,
 };
 
 const referenceAutomation: ConnectedUserProjectWorkflow = {
@@ -112,6 +116,7 @@ const blankAutomation: ConnectedUserProjectWorkflow = {
     kind: 'COPY',
     label: 'Weekly digest',
     workflowUuid: 'blank-uuid',
+    workflowVersion: 1,
 };
 
 const danglingReferenceAutomation: ConnectedUserProjectWorkflow = {
@@ -158,14 +163,23 @@ describe('AutomationsView', () => {
             isLoading: false,
         });
 
+        localStorage.clear();
+
+        // Every field a test can flip is reset here: zustand merges `setState`, so a store field
+        // left set by one test would otherwise leak into the next.
         useAutomationHubStore.setState({
             connectionDialogAllowed: true,
+            defaultLayout: 'grid',
             includeComponents: undefined,
             initialized: true,
+            layoutSwitcherAllowed: true,
             sharedConnectionIds: [],
             tabs: {automations: true, connections: true, newWorkflow: true},
             theme: {},
         });
+
+        deleteAutomationMutateMock.mockResolvedValue(undefined);
+        deprovisionMutateMock.mockResolvedValue(undefined);
 
         createBlankMutateMock.mockImplementation(
             (_variables: undefined, options?: {onSuccess?: (workflowUuid: string) => void}) => {
@@ -175,38 +189,288 @@ describe('AutomationsView', () => {
     });
 
     describe('template grid', () => {
-        it('groups templates under their project heading with a description', () => {
+        it('renders every published template in one flat grid, without project headings', () => {
             renderView();
 
-            expect(screen.getByRole('heading', {level: 2, name: 'Sales'})).toBeInTheDocument();
-            expect(screen.getByText('Templates for the sales team')).toBeInTheDocument();
-            expect(screen.getByRole('heading', {level: 2, name: 'Support'})).toBeInTheDocument();
-            expect(screen.getByText('Templates for the support team')).toBeInTheDocument();
+            expect(screen.queryByRole('heading', {level: 2, name: 'Sales'})).not.toBeInTheDocument();
+            expect(screen.queryByText('Templates for the sales team')).not.toBeInTheDocument();
 
             expect(screen.getByText('Sync new leads into the CRM')).toBeInTheDocument();
             expect(screen.getByText('Send new lead updates to Slack')).toBeInTheDocument();
             expect(screen.getByText('Triage a new support ticket')).toBeInTheDocument();
         });
 
-        it('filters cards by label via the search box', async () => {
+        it('shows each template component as an icon on its card', () => {
+            renderView();
+
+            expect(within(templateCard('Slack sync')).getByTitle('Slack')).toBeInTheDocument();
+            expect(within(templateCard('Sync leads')).queryByTitle('Slack')).not.toBeInTheDocument();
+        });
+
+        it('shows automations that match no published template as cards after the template cards', () => {
+            renderView();
+
+            const titles = screen.getAllByRole('heading', {level: 3}).map((heading) => heading.textContent);
+
+            expect(titles).toEqual(['Sync leads', 'Slack sync', 'Triage ticket', 'Weekly digest', 'Retired sync']);
+        });
+
+        it('heads the automations that match no template with My Automations, after the templates', () => {
+            renderView();
+
+            const heading = screen.getByRole('heading', {level: 2, name: 'My Automations'});
+
+            // The heading spans the grid, so the group it introduces always begins its own row.
+            expect(heading.className).toContain('col-span-full');
+
+            expect(heading.compareDocumentPosition(screen.getByText('Slack sync'))).toBe(
+                Node.DOCUMENT_POSITION_PRECEDING
+            );
+            expect(heading.compareDocumentPosition(screen.getByText('Weekly digest'))).toBe(
+                Node.DOCUMENT_POSITION_FOLLOWING
+            );
+        });
+
+        it('drops the My Automations section entirely when New Automation is disabled', () => {
+            useAutomationHubStore.setState({tabs: {automations: true, connections: true, newWorkflow: false}});
+
+            renderView();
+
+            expect(screen.queryByRole('heading', {name: 'My Automations'})).not.toBeInTheDocument();
+            expect(screen.queryByText('Weekly digest')).not.toBeInTheDocument();
+            expect(screen.queryByText('Retired sync')).not.toBeInTheDocument();
+
+            // The catalog itself is untouched.
+            expect(screen.getByText('Slack sync')).toBeInTheDocument();
+        });
+
+        it('omits the heading when every automation matches a published template', () => {
+            useGetAutomationsQueryMock.mockReturnValue({
+                data: [copyAutomation, referenceAutomation],
+                error: null,
+                isLoading: false,
+            });
+
+            renderView();
+
+            expect(screen.queryByRole('heading', {name: 'My Automations'})).not.toBeInTheDocument();
+        });
+
+        it('shows the deployed version on an activated template and on a from-scratch card', () => {
+            renderView();
+
+            expect(within(templateCard('Sync leads')).getByText('V3')).toBeInTheDocument();
+            expect(within(templateCard('Weekly digest')).getByText('V1')).toBeInTheDocument();
+        });
+
+        it('shows no version on an automation that has never been published', () => {
+            renderView();
+
+            // `referenceAutomation` and the dangling one carry no `workflowVersion`: nothing has
+            // been deployed for them, so there is no version to state.
+            expect(within(templateCard('Triage ticket')).queryByText(/^V\d+$/)).not.toBeInTheDocument();
+            expect(within(templateCard('Retired sync')).queryByText(/^V\d+$/)).not.toBeInTheDocument();
+        });
+
+        it('shows no version on a template the user has not activated', () => {
+            renderView();
+
+            expect(within(templateCard('Slack sync')).queryByText(/^V\d+$/)).not.toBeInTheDocument();
+        });
+
+        it('will not let an unpublished copy be enabled from its card, and says why', () => {
+            useGetAutomationsQueryMock.mockReturnValue({
+                data: [{...blankAutomation, enabled: false, workflowVersion: undefined}],
+                error: null,
+                isLoading: false,
+            });
+
+            renderView();
+
+            const statusButton = within(templateCard('Weekly digest')).getByRole('button', {
+                name: 'Enable Weekly digest',
+            });
+
+            expect(statusButton).toBeDisabled();
+            expect(statusButton).toHaveAttribute('title', expect.stringMatching(/publish/i));
+        });
+
+        it('still enables a REFERENCE that carries no version, which is never published', async () => {
             const user = userEvent.setup();
 
             renderView();
 
-            await user.type(screen.getByPlaceholderText(/search templates/i), 'sync');
+            // A reference points at the shared catalog workflow; it is provisioned rather than
+            // published, so an absent version says nothing about whether it can run.
+            await user.click(within(templateCard('Triage ticket')).getByRole('button', {name: 'Enable Triage ticket'}));
 
-            expect(screen.getByText('Sync new leads into the CRM')).toBeInTheDocument();
-            expect(screen.getByText('Send new lead updates to Slack')).toBeInTheDocument();
-            expect(screen.queryByText('Triage a new support ticket')).not.toBeInTheDocument();
-            expect(screen.queryByRole('heading', {level: 2, name: 'Support'})).not.toBeInTheDocument();
+            expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: true, workflowUuid: 'ref-uuid'});
         });
 
-        it('shows an empty state when there are no template projects', () => {
-            useGetTemplateProjectsQueryMock.mockReturnValue({data: [], error: null, isLoading: false});
+        it('names the status control after the action it performs, in the colour of that action', () => {
+            renderView();
+
+            // The button is the action, not a status readout: a running automation offers the red
+            // "Disable", a stopped one the green "Enable". The card's own tint is what says which
+            // state it is currently in.
+            const disable = within(templateCard('Weekly digest')).getByRole('button', {name: 'Disable Weekly digest'});
+
+            expect(disable).toHaveTextContent('Disable');
+
+            // Through a token, not a literal: this is one of the colours a vendor's `theme` prop
+            // can replace, so the class has to resolve at runtime rather than be baked in.
+            expect(disable.className).toContain('bg-(--hub-disable)');
+
+            const enable = within(templateCard('Triage ticket')).getByRole('button', {name: 'Enable Triage ticket'});
+
+            expect(enable).toHaveTextContent('Enable');
+            expect(enable.className).toContain('bg-(--hub-enable)');
+        });
+
+        it('offers a toggle, Customize and Remove on a from-scratch COPY automation card', async () => {
+            const user = userEvent.setup();
 
             renderView();
 
-            expect(screen.getByText(/no templates/i)).toBeInTheDocument();
+            const card = templateCard('Weekly digest');
+
+            await user.click(within(card).getByRole('button', {name: 'Disable Weekly digest'}));
+
+            expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: false, workflowUuid: 'blank-uuid'});
+
+            await user.click(within(card).getByRole('button', {name: 'Weekly digest actions'}));
+            await user.click(screen.getByRole('menuitem', {name: /customize/i}));
+
+            expect(navigateMock).toHaveBeenCalledWith('/embedded/hub/builder/blank-uuid');
+
+            await user.click(within(card).getByRole('button', {name: 'Weekly digest actions'}));
+            await user.click(screen.getByRole('menuitem', {name: /remove/i}));
+            await user.click(screen.getByRole('button', {name: 'Remove'}));
+
+            expect(deleteAutomationMutateMock).toHaveBeenCalledWith('blank-uuid');
+        });
+
+        it('marks a dangling reference as needing attention, disables its toggle and offers only Remove', async () => {
+            const user = userEvent.setup();
+
+            renderView();
+
+            const card = templateCard('Retired sync');
+
+            expect(within(card).getByText('Needs attention')).toBeInTheDocument();
+            expect(within(card).getByRole('button', {name: 'Disable Retired sync'})).toBeDisabled();
+
+            await user.click(within(card).getByRole('button', {name: 'Retired sync actions'}));
+
+            expect(screen.queryByRole('menuitem', {name: /customize/i})).not.toBeInTheDocument();
+
+            await user.click(screen.getByRole('menuitem', {name: /remove/i}));
+            await user.click(screen.getByRole('button', {name: 'Remove'}));
+
+            expect(deprovisionMutateMock).toHaveBeenCalledWith('withdrawn-uuid');
+            expect(deleteAutomationMutateMock).not.toHaveBeenCalled();
+        });
+
+        it('narrows the grid to activated and from-scratch automations behind the Active chip', async () => {
+            const user = userEvent.setup();
+
+            renderView();
+
+            // The filter is a single-select group, like the layout switcher beside it, so its
+            // options are radios rather than independent buttons — a viewer can never end up with
+            // neither All nor Active chosen.
+            expect(screen.getByRole('radio', {name: 'All'})).toBeChecked();
+
+            await user.click(screen.getByRole('radio', {name: 'Active'}));
+
+            expect(screen.getByRole('radio', {name: 'Active'})).toBeChecked();
+            expect(screen.getByRole('radio', {name: 'All'})).not.toBeChecked();
+
+            expect(screen.queryByText('Slack sync')).not.toBeInTheDocument();
+            expect(screen.getByText('Sync leads')).toBeInTheDocument();
+            expect(screen.getByText('Triage ticket')).toBeInTheDocument();
+            expect(screen.getByText('Weekly digest')).toBeInTheDocument();
+            expect(screen.getByText('Retired sync')).toBeInTheDocument();
+
+            await user.click(screen.getByRole('radio', {name: 'All'}));
+
+            expect(screen.getByText('Slack sync')).toBeInTheDocument();
+        });
+
+        it('narrows again to only what is running behind the Enabled chip', async () => {
+            const user = userEvent.setup();
+
+            renderView();
+
+            await user.click(screen.getByRole('radio', {name: 'Enabled'}));
+
+            // Active means the user has taken it up; Enabled means it is actually switched on. An
+            // automation they own but stopped is the first and not the second, which is the whole
+            // reason the two chips are not one.
+            expect(screen.getByText('Sync leads')).toBeInTheDocument();
+            expect(screen.getByText('Retired sync')).toBeInTheDocument();
+            expect(screen.getByText('Weekly digest')).toBeInTheDocument();
+
+            expect(screen.queryByText('Triage ticket')).not.toBeInTheDocument();
+            expect(screen.queryByText('Slack sync')).not.toBeInTheDocument();
+        });
+
+        it('switches between the grid and list layouts and remembers the choice', async () => {
+            const user = userEvent.setup();
+
+            renderView();
+
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'grid');
+
+            await user.click(screen.getByRole('radio', {name: 'List view'}));
+
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'list');
+            expect(localStorage.getItem('automationHub.catalogLayout')).toBe('list');
+
+            await user.click(screen.getByRole('radio', {name: 'Grid view'}));
+
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'grid');
+        });
+
+        it("starts on the vendor's default layout when the viewer has made no choice of their own", () => {
+            useAutomationHubStore.setState({defaultLayout: 'list'});
+
+            renderView();
+
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'list');
+        });
+
+        it("keeps the viewer's stored layout over the vendor default while the switcher is offered", () => {
+            localStorage.setItem('automationHub.catalogLayout', 'grid');
+
+            useAutomationHubStore.setState({defaultLayout: 'list'});
+
+            renderView();
+
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'grid');
+        });
+
+        it("hides the switcher and pins the vendor's layout when the switcher is not allowed", () => {
+            // A choice stored while the switcher was on must not outlive it: the vendor has since
+            // said which layout their users get, and there is no control left to change it back.
+            localStorage.setItem('automationHub.catalogLayout', 'grid');
+
+            useAutomationHubStore.setState({defaultLayout: 'list', layoutSwitcherAllowed: false});
+
+            renderView();
+
+            expect(screen.queryByRole('radio', {name: 'Grid view'})).not.toBeInTheDocument();
+            expect(screen.queryByRole('radio', {name: 'List view'})).not.toBeInTheDocument();
+            expect(screen.getByTestId('automations-catalog')).toHaveAttribute('data-layout', 'list');
+        });
+
+        it('shows an empty state when the user has neither templates nor automations', () => {
+            useGetTemplateProjectsQueryMock.mockReturnValue({data: [], error: null, isLoading: false});
+            useGetAutomationsQueryMock.mockReturnValue({data: [], error: null, isLoading: false});
+
+            renderView();
+
+            expect(screen.getByText(/no automations found/i)).toBeInTheDocument();
         });
 
         it('shows a loading indicator while the hub queries are loading', () => {
@@ -242,14 +506,14 @@ describe('AutomationsView', () => {
             expect(screen.getByText('Unable to load automations')).toBeInTheDocument();
         });
 
-        it('offers "Use template" on an unused template and calls onActivate with the template and project kind', async () => {
+        it('offers "Use" on an unused template and calls onActivate with the template and project kind', async () => {
             const user = userEvent.setup();
 
             renderView();
 
             const card = templateCard('Slack sync');
 
-            await user.click(within(card).getByRole('button', {name: 'Use template'}));
+            await user.click(within(card).getByRole('button', {name: 'Use'}));
 
             expect(onActivate).toHaveBeenCalledTimes(1);
             expect(onActivate).toHaveBeenCalledWith(salesProject.workflowTemplates![1], 'COPY');
@@ -262,9 +526,9 @@ describe('AutomationsView', () => {
 
             const card = templateCard('Sync leads');
 
-            expect(within(card).queryByRole('button', {name: 'Use template'})).not.toBeInTheDocument();
+            expect(within(card).queryByRole('button', {name: 'Use'})).not.toBeInTheDocument();
 
-            await user.click(within(card).getByRole('switch'));
+            await user.click(within(card).getByRole('button', {name: 'Disable Sync leads'}));
 
             expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: false, workflowUuid: 'copy-uuid'});
 
@@ -281,9 +545,9 @@ describe('AutomationsView', () => {
 
             const card = templateCard('Triage ticket');
 
-            expect(within(card).queryByRole('button', {name: 'Use template'})).not.toBeInTheDocument();
+            expect(within(card).queryByRole('button', {name: 'Use'})).not.toBeInTheDocument();
 
-            await user.click(within(card).getByRole('switch'));
+            await user.click(within(card).getByRole('button', {name: 'Enable Triage ticket'}));
 
             expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: true, workflowUuid: 'ref-uuid'});
 
@@ -300,7 +564,7 @@ describe('AutomationsView', () => {
 
             await user.click(within(templateCard('Sync leads')).getByRole('button', {name: 'Sync leads actions'}));
             await user.click(screen.getByRole('menuitem', {name: /remove/i}));
-            await user.click(screen.getByRole('button', {name: 'Delete'}));
+            await user.click(screen.getByRole('button', {name: 'Remove'}));
 
             expect(deleteAutomationMutateMock).toHaveBeenCalledWith('copy-uuid');
             expect(deprovisionMutateMock).not.toHaveBeenCalled();
@@ -315,7 +579,7 @@ describe('AutomationsView', () => {
                 within(templateCard('Triage ticket')).getByRole('button', {name: 'Triage ticket actions'})
             );
             await user.click(screen.getByRole('menuitem', {name: /remove/i}));
-            await user.click(screen.getByRole('button', {name: 'Delete'}));
+            await user.click(screen.getByRole('button', {name: 'Remove'}));
 
             expect(deprovisionMutateMock).toHaveBeenCalledWith('wf-3');
             expect(deleteAutomationMutateMock).not.toHaveBeenCalled();
@@ -330,180 +594,56 @@ describe('AutomationsView', () => {
 
             renderView();
 
-            expect(within(templateCard('Sync leads')).getByRole('button', {name: 'Use template'})).toBeDisabled();
+            expect(within(templateCard('Sync leads')).getByRole('button', {name: 'Use'})).toBeDisabled();
         });
     });
 
-    describe('your automations', () => {
-        it('lists only automations that do not match a published template', () => {
-            renderView();
-
-            const section = screen.getByRole('region', {name: 'Your automations'});
-
-            expect(within(section).getByRole('row', {name: /Weekly digest/})).toBeInTheDocument();
-            expect(within(section).getByRole('row', {name: /Retired sync/})).toBeInTheDocument();
-            expect(within(section).queryByRole('row', {name: /Sync leads/})).not.toBeInTheDocument();
-            expect(within(section).queryByRole('row', {name: /Triage ticket/})).not.toBeInTheDocument();
-        });
-
-        it('marks a dangling reference as needing attention', () => {
-            renderView();
-
-            const danglingRow = screen.getByRole('row', {name: /Retired sync/});
-
-            expect(within(danglingRow).getByText('Needs attention')).toBeInTheDocument();
-            expect(within(screen.getByRole('row', {name: /Weekly digest/})).getByText('Enabled')).toBeInTheDocument();
-        });
-
-        it('offers no working enable toggle on a dangling reference, leaving Delete as the only action', async () => {
+    describe('removal', () => {
+        it('keeps the confirmation open with a busy Remove until the removal settles', async () => {
             const user = userEvent.setup();
 
-            renderView();
+            let finishRemoval: () => void = () => undefined;
 
-            const danglingRow = screen.getByRole('row', {name: /Retired sync/});
-
-            // A dangling reference points at a withdrawn catalog workflow: enabling it fails
-            // server-side with nothing on screen to explain it (spec §3 and Risks and notes).
-            expect(within(danglingRow).getByRole('switch')).toBeDisabled();
-
-            fireEvent.click(within(danglingRow).getByRole('switch'));
-
-            expect(setEnabledMutateMock).not.toHaveBeenCalled();
-
-            expect(within(danglingRow).getByText('Needs attention')).toBeInTheDocument();
-
-            await user.click(within(danglingRow).getByRole('button', {name: 'Automation actions'}));
-
-            expect(screen.getByRole('menuitem', {name: /delete/i})).toBeInTheDocument();
-        });
-
-        it('hides the section entirely when every automation matches a published template', () => {
-            useGetAutomationsQueryMock.mockReturnValue({
-                data: [copyAutomation, referenceAutomation],
-                error: null,
-                isLoading: false,
-            });
-
-            renderView();
-
-            expect(screen.queryByRole('region', {name: 'Your automations'})).not.toBeInTheDocument();
-        });
-
-        it('lists every automation beyond the first matching one template, so none is hidden', async () => {
-            useGetAutomationsQueryMock.mockReturnValue({
-                data: [copyAutomation, {...copyAutomation, label: 'Sync leads 2', workflowUuid: 'copy-uuid-2'}],
-                error: null,
-                isLoading: false,
-            });
-
-            renderView();
-
-            const section = screen.getByRole('region', {name: 'Your automations'});
-
-            // The header row plus exactly one data row: the first copy took the card, the second
-            // fell through here rather than disappearing.
-            expect(within(section).getAllByRole('row')).toHaveLength(2);
-            expect(within(section).getByRole('row', {name: /Sync leads 2/})).toBeInTheDocument();
-
-            await userEvent.setup().click(within(templateCard('Sync leads')).getByRole('switch'));
-
-            expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: false, workflowUuid: 'copy-uuid'});
-        });
-
-        it('keeps a dangling reference out of its template card even when that template is still published', () => {
-            useGetAutomationsQueryMock.mockReturnValue({
-                data: [{...referenceAutomation, dangling: true, label: 'Triage ticket'}],
-                error: null,
-                isLoading: false,
-            });
-
-            renderView();
-
-            const section = screen.getByRole('region', {name: 'Your automations'});
-
-            expect(within(section).getByText('Needs attention')).toBeInTheDocument();
-            expect(
-                within(templateCard('Triage a new support ticket')).getByRole('button', {name: 'Use template'})
-            ).toBeInTheDocument();
-        });
-
-        it('offers "Open in builder" only on the COPY row menu', async () => {
-            const user = userEvent.setup();
+            deleteAutomationMutateMock.mockReturnValue(
+                new Promise<void>((resolve) => {
+                    finishRemoval = resolve;
+                })
+            );
 
             renderView();
 
             await user.click(
-                within(screen.getByRole('row', {name: /Weekly digest/})).getByRole('button', {
-                    name: 'Automation actions',
-                })
+                within(templateCard('Weekly digest')).getByRole('button', {name: 'Weekly digest actions'})
             );
+            await user.click(screen.getByRole('menuitem', {name: /remove/i}));
 
-            expect(screen.getByRole('menuitem', {name: /open in builder/i})).toBeInTheDocument();
+            const removeButton = screen.getByRole('button', {name: 'Remove'});
 
-            await user.keyboard('{Escape}');
-
-            await user.click(
-                within(screen.getByRole('row', {name: /Retired sync/})).getByRole('button', {
-                    name: 'Automation actions',
-                })
-            );
-
-            expect(screen.queryByRole('menuitem', {name: /open in builder/i})).not.toBeInTheDocument();
-        });
-
-        it('toggles a row enabled switch by calling the setEnabled mutation', async () => {
-            const user = userEvent.setup();
-
-            renderView();
-
-            await user.click(within(screen.getByRole('row', {name: /Weekly digest/})).getByRole('switch'));
-
-            expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: false, workflowUuid: 'blank-uuid'});
-        });
-
-        it('deletes a COPY automation via useDeleteAutomationMutation after confirming', async () => {
-            const user = userEvent.setup();
-
-            renderView();
-
-            await user.click(
-                within(screen.getByRole('row', {name: /Weekly digest/})).getByRole('button', {
-                    name: 'Automation actions',
-                })
-            );
-            await user.click(screen.getByRole('menuitem', {name: /delete/i}));
-            await user.click(screen.getByRole('button', {name: 'Delete'}));
+            await user.click(removeButton);
 
             expect(deleteAutomationMutateMock).toHaveBeenCalledWith('blank-uuid');
-            expect(deprovisionMutateMock).not.toHaveBeenCalled();
-        });
 
-        it('deprovisions a REFERENCE automation by its catalog workflow uuid after confirming', async () => {
-            const user = userEvent.setup();
+            // Still on screen, and neither button can be pressed again, so a slow delete cannot be
+            // fired twice or dismissed as though it had finished.
+            expect(removeButton).toBeInTheDocument();
+            expect(removeButton).toBeDisabled();
+            expect(screen.getByRole('button', {name: 'Cancel'})).toBeDisabled();
 
-            renderView();
+            finishRemoval();
 
-            await user.click(
-                within(screen.getByRole('row', {name: /Retired sync/})).getByRole('button', {
-                    name: 'Automation actions',
-                })
-            );
-            await user.click(screen.getByRole('menuitem', {name: /delete/i}));
-            await user.click(screen.getByRole('button', {name: 'Delete'}));
-
-            expect(deprovisionMutateMock).toHaveBeenCalledWith('withdrawn-uuid');
-            expect(deleteAutomationMutateMock).not.toHaveBeenCalled();
+            await waitFor(() => expect(screen.queryByRole('button', {name: 'Remove'})).not.toBeInTheDocument());
         });
     });
 
     describe('new automation', () => {
-        it('hides the "New automation" button when the newWorkflow tab is disabled, keeping the page heading', () => {
+        it('hides the "New Automation" button when the newWorkflow tab is disabled, keeping the view toggle', () => {
             useAutomationHubStore.setState({tabs: {automations: true, connections: true, newWorkflow: false}});
 
             renderView();
 
-            expect(screen.queryByRole('button', {name: 'New automation'})).not.toBeInTheDocument();
-            expect(screen.getByRole('heading', {level: 1, name: 'Automations'})).toBeInTheDocument();
+            expect(screen.queryByRole('button', {name: 'New Automation'})).not.toBeInTheDocument();
+            expect(screen.getByPlaceholderText(/search templates/i)).toBeInTheDocument();
+            expect(screen.getByRole('radio', {name: 'Grid view'})).toBeInTheDocument();
         });
 
         it('creates a blank automation and navigates to its builder on success', async () => {
@@ -511,19 +651,112 @@ describe('AutomationsView', () => {
 
             renderView();
 
-            await user.click(screen.getByRole('button', {name: 'New automation'}));
+            await user.click(screen.getByRole('button', {name: 'New Automation'}));
 
             expect(createBlankMutateMock).toHaveBeenCalled();
             expect(navigateMock).toHaveBeenCalledWith('/embedded/hub/builder/new-workflow-uuid');
         });
 
-        it('still offers the "New automation" button when the user has no automations at all', () => {
+        it('still offers the "New Automation" button when the user has no automations at all', () => {
             useGetAutomationsQueryMock.mockReturnValue({data: [], error: null, isLoading: false});
 
             renderView();
 
-            expect(screen.getByRole('button', {name: 'New automation'})).toBeInTheDocument();
-            expect(screen.queryByRole('region', {name: 'Your automations'})).not.toBeInTheDocument();
+            expect(screen.getByRole('button', {name: 'New Automation'})).toBeInTheDocument();
+        });
+    });
+
+    // The label and description come from the LATEST version of the workflow, so a rename or an
+    // edited description made in the builder shows on the card. Reading the published version
+    // instead would leave the card stating text the viewer had already changed.
+    describe('card text', () => {
+        it('shows the description the viewer last saved on their own automation', () => {
+            useGetAutomationsQueryMock.mockReturnValue({
+                data: [{...copyAutomation, description: 'Copies new leads into Airtable'}],
+                isLoading: false,
+            });
+
+            renderView();
+
+            expect(screen.getByText('Copies new leads into Airtable')).toBeInTheDocument();
+        });
+
+        it('prefers the activated automation label over the catalog template it came from', () => {
+            useGetAutomationsQueryMock.mockReturnValue({
+                data: [{...copyAutomation, description: 'My own notes', label: 'My renamed automation'}],
+                isLoading: false,
+            });
+
+            renderView();
+
+            // The catalog template this was copied from keeps its own name; the card shows the
+            // viewer's.
+            expect(screen.getByText('My renamed automation')).toBeInTheDocument();
+            expect(screen.getByText('My own notes')).toBeInTheDocument();
+        });
+    });
+
+    describe('automation settings', () => {
+        const automationWithInputs: ConnectedUserProjectWorkflow = {
+            ...copyAutomation,
+            inputValues: {sheetName: 'Leads'},
+            inputs: [{label: 'Spreadsheet name', name: 'sheetName', required: true, type: 'STRING'}],
+        };
+
+        // An automation runs for months; the answer that was right on activation day stops being
+        // right, and the wizard is not reachable again once the automation exists.
+        it('offers Settings and saves a changed value through the same endpoint the wizard uses', async () => {
+            const user = userEvent.setup();
+
+            useGetAutomationsQueryMock.mockReturnValue({data: [automationWithInputs], isLoading: false});
+            updateInputsMutateAsyncMock.mockResolvedValue(undefined);
+
+            renderView();
+
+            await user.click(screen.getByRole('button', {name: 'Sync leads actions'}));
+            await user.click(screen.getByRole('menuitem', {name: /settings/i}));
+
+            const field = screen.getByLabelText(/Spreadsheet name/);
+
+            expect(field).toHaveValue('Leads');
+
+            await user.clear(field);
+            await user.type(field, 'Prospects');
+            await user.click(screen.getByRole('button', {name: 'Save'}));
+
+            await waitFor(() =>
+                expect(updateInputsMutateAsyncMock).toHaveBeenCalledWith({
+                    inputs: {sheetName: 'Prospects'},
+                    workflowUuid: 'copy-uuid',
+                })
+            );
+        });
+
+        it('withholds Settings from an automation whose workflow declares no inputs', async () => {
+            const user = userEvent.setup();
+
+            useGetAutomationsQueryMock.mockReturnValue({data: [copyAutomation], isLoading: false});
+
+            renderView();
+
+            await user.click(screen.getByRole('button', {name: 'Sync leads actions'}));
+
+            expect(screen.queryByRole('menuitem', {name: /settings/i})).not.toBeInTheDocument();
+            expect(screen.getByRole('menuitem', {name: /remove/i})).toBeInTheDocument();
+        });
+
+        it('refuses to save while a required value is blank', async () => {
+            const user = userEvent.setup();
+
+            useGetAutomationsQueryMock.mockReturnValue({data: [automationWithInputs], isLoading: false});
+
+            renderView();
+
+            await user.click(screen.getByRole('button', {name: 'Sync leads actions'}));
+            await user.click(screen.getByRole('menuitem', {name: /settings/i}));
+            await user.clear(screen.getByLabelText(/Spreadsheet name/));
+
+            expect(screen.getByRole('button', {name: 'Save'})).toBeDisabled();
         });
     });
 });

@@ -12,10 +12,22 @@ describe('initialActivationState', () => {
         expect(state.step).toBe('connect');
     });
 
-    it('skips connect and starts on configure when there are no required components', () => {
+    it('skips connect and starts on activate when there is nothing at all to ask', () => {
         const state = initialActivationState('REFERENCE', []);
 
+        expect(state.step).toBe('activate');
+    });
+
+    it('starts on configure when the template declares inputs but needs no connections', () => {
+        const state = initialActivationState('REFERENCE', [], [{name: 'sheetName', required: true}]);
+
         expect(state.step).toBe('configure');
+    });
+
+    it('still starts on connect when both are needed', () => {
+        const state = initialActivationState('COPY', ['slack'], [{name: 'sheetName'}]);
+
+        expect(state.step).toBe('connect');
     });
 });
 
@@ -39,14 +51,14 @@ describe('activationReducer', () => {
         });
         const afterNextWithBothSelected = activationReducer(afterBothSelections, {type: 'NEXT'});
 
-        expect(afterNextWithBothSelected.step).toBe('configure');
+        expect(afterNextWithBothSelected.step).toBe('activate');
     });
 
     it('returns to connect and highlights the offending component on MISSING_CONNECTION', () => {
         const state = {
             ...initialActivationState('REFERENCE', ['slack']),
             selections: {slack: 1},
-            step: 'configure' as const,
+            step: 'activate' as const,
             workflowUuid: 'catalog-uuid',
         };
 
@@ -57,42 +69,24 @@ describe('activationReducer', () => {
         expect(nextState.workflowUuid).toBeUndefined();
     });
 
-    it('records the workflow uuid from COPIED without leaving configure', () => {
-        const state = {...initialActivationState('COPY', []), step: 'configure' as const};
+    it('records the workflow uuid from COPIED without leaving activate', () => {
+        const state = {...initialActivationState('COPY', []), step: 'activate' as const};
 
         const nextState = activationReducer(state, {type: 'COPIED', workflowUuid: 'copy-uuid'});
 
-        expect(nextState.step).toBe('configure');
+        expect(nextState.step).toBe('activate');
         expect(nextState.workflowUuid).toBe('copy-uuid');
     });
 
-    it('records the workflow uuid from PROVISIONED without leaving configure', () => {
-        const state = {...initialActivationState('REFERENCE', []), step: 'configure' as const};
+    it('records the workflow uuid activation switched on, alongside the step, on ACTIVATED', () => {
+        const state = {...initialActivationState('COPY', []), step: 'activate' as const};
 
-        const nextState = activationReducer(state, {type: 'PROVISIONED', workflowUuid: 'catalog-uuid'});
+        // The uuid arrives WITH the success rather than earlier: nothing exists on the server until
+        // Activate has run, and a failed run rolls back whatever it made.
+        const nextState = activationReducer(state, {type: 'ACTIVATED', workflowUuid: 'copy-uuid'});
 
-        expect(nextState.step).toBe('configure');
-        expect(nextState.workflowUuid).toBe('catalog-uuid');
-    });
-
-    it('advances from configure to activate once a workflowUuid is set', () => {
-        const state = {
-            ...initialActivationState('COPY', []),
-            step: 'configure' as const,
-            workflowUuid: 'copy-uuid',
-        };
-
-        const nextState = activationReducer(state, {type: 'NEXT'});
-
-        expect(nextState.step).toBe('activate');
-    });
-
-    it('does not advance from configure without a workflowUuid', () => {
-        const state = {...initialActivationState('COPY', []), step: 'configure' as const};
-
-        const nextState = activationReducer(state, {type: 'NEXT'});
-
-        expect(nextState.step).toBe('configure');
+        expect(nextState.step).toBe('done');
+        expect(nextState.workflowUuid).toBe('copy-uuid');
     });
 
     it('moves to done on ACTIVATED', () => {
@@ -102,7 +96,7 @@ describe('activationReducer', () => {
             workflowUuid: 'copy-uuid',
         };
 
-        const nextState = activationReducer(state, {type: 'ACTIVATED'});
+        const nextState = activationReducer(state, {type: 'ACTIVATED', workflowUuid: 'copy-uuid'});
 
         expect(nextState.step).toBe('done');
     });
@@ -151,19 +145,19 @@ describe('activationReducer', () => {
         expect(nextState.highlightedComponent).toBe('slack');
     });
 
-    it('does not go back from configure when there were no required components to connect', () => {
+    it('does not go back from activate when there were no required components to connect', () => {
         const state = initialActivationState('REFERENCE', []);
 
         const nextState = activationReducer(state, {type: 'BACK'});
 
-        expect(nextState.step).toBe('configure');
+        expect(nextState.step).toBe('activate');
     });
 
-    it('returns to connect from configure when there were required components', () => {
+    it('returns to connect from activate when there were required components', () => {
         const state = {
             ...initialActivationState('COPY', ['slack']),
             selections: {slack: 1},
-            step: 'configure' as const,
+            step: 'activate' as const,
         };
 
         const nextState = activationReducer(state, {type: 'BACK'});
@@ -171,23 +165,11 @@ describe('activationReducer', () => {
         expect(nextState.step).toBe('connect');
     });
 
-    it('returns to configure from activate on BACK', () => {
-        const state = {
-            ...initialActivationState('COPY', []),
-            step: 'activate' as const,
-            workflowUuid: 'copy-uuid',
-        };
-
-        const nextState = activationReducer(state, {type: 'BACK'});
-
-        expect(nextState.step).toBe('configure');
-    });
-
     it('tracks the most recently reported component across repeated MISSING_CONNECTION actions', () => {
         const state = {
             ...initialActivationState('REFERENCE', ['slack', 'github']),
             selections: {github: 2, slack: 1},
-            step: 'configure' as const,
+            step: 'activate' as const,
             workflowUuid: 'catalog-uuid',
         };
 
@@ -218,7 +200,7 @@ describe('activationReducer', () => {
 
         expect(afterFailure.error).toBe('Activation failed');
 
-        const afterRetry = activationReducer(afterFailure, {type: 'ACTIVATED'});
+        const afterRetry = activationReducer(afterFailure, {type: 'ACTIVATED', workflowUuid: 'copy-uuid'});
 
         expect(afterRetry.error).toBeUndefined();
         expect(afterRetry.step).toBe('done');
@@ -234,7 +216,7 @@ describe('activationReducer', () => {
         const nextState = activationReducer(state, {type: 'NEXT'});
 
         expect(nextState.error).toBeUndefined();
-        expect(nextState.step).toBe('configure');
+        expect(nextState.step).toBe('activate');
     });
 
     it('does not clear a stale error when NEXT is a no-op', () => {
@@ -248,8 +230,9 @@ describe('activationReducer', () => {
 
     it('clears a stale error when BACK actually moves the step', () => {
         const state = {
-            ...initialActivationState('COPY', []),
+            ...initialActivationState('COPY', ['slack']),
             error: 'stale error',
+            selections: {slack: 1},
             step: 'activate' as const,
             workflowUuid: 'copy-uuid',
         };
@@ -257,7 +240,7 @@ describe('activationReducer', () => {
         const nextState = activationReducer(state, {type: 'BACK'});
 
         expect(nextState.error).toBeUndefined();
-        expect(nextState.step).toBe('configure');
+        expect(nextState.step).toBe('connect');
     });
 
     it('does not clear a stale error when BACK is a no-op', () => {
@@ -273,22 +256,10 @@ describe('activationReducer', () => {
         const state = {
             ...initialActivationState('COPY', []),
             error: 'stale error',
-            step: 'configure' as const,
+            step: 'activate' as const,
         };
 
         const nextState = activationReducer(state, {type: 'COPIED', workflowUuid: 'copy-uuid'});
-
-        expect(nextState.error).toBeUndefined();
-    });
-
-    it('clears a stale error on PROVISIONED', () => {
-        const state = {
-            ...initialActivationState('REFERENCE', []),
-            error: 'stale error',
-            step: 'configure' as const,
-        };
-
-        const nextState = activationReducer(state, {type: 'PROVISIONED', workflowUuid: 'catalog-uuid'});
 
         expect(nextState.error).toBeUndefined();
     });
@@ -297,7 +268,7 @@ describe('activationReducer', () => {
         const provisioned = {
             ...initialActivationState('REFERENCE', ['slack']),
             selections: {slack: 1},
-            step: 'configure' as const,
+            step: 'activate' as const,
             workflowUuid: 'catalog-uuid',
         };
 
@@ -325,7 +296,7 @@ describe('activationReducer', () => {
 
         const afterNext = activationReducer(afterNewSelection, {type: 'NEXT'});
 
-        expect(afterNext.step).toBe('configure');
+        expect(afterNext.step).toBe('activate');
     });
 });
 
@@ -342,13 +313,6 @@ describe('canProceed', () => {
         const withBothSelections = {...state, selections: {github: 2, slack: 1}};
 
         expect(canProceed(withBothSelections)).toBe(true);
-    });
-
-    it('requires a workflowUuid on configure', () => {
-        const state = {...initialActivationState('COPY', []), step: 'configure' as const};
-
-        expect(canProceed(state)).toBe(false);
-        expect(canProceed({...state, workflowUuid: 'copy-uuid'})).toBe(true);
     });
 
     it('is always true on activate', () => {
@@ -371,5 +335,69 @@ describe('canProceed', () => {
         };
 
         expect(canProceed(state)).toBe(false);
+    });
+});
+
+describe('configure step', () => {
+    const inputs = [
+        {name: 'sheetName', required: true},
+        {label: 'Rows', name: 'rowLimit'},
+    ];
+
+    it('advances connect -> configure -> activate when the template declares inputs', () => {
+        const connected = {
+            ...initialActivationState('COPY', ['slack'], inputs),
+            selections: {slack: 1},
+        };
+
+        const afterFirstNext = activationReducer(connected, {type: 'NEXT'});
+
+        expect(afterFirstNext.step).toBe('configure');
+
+        const withValue = activationReducer(afterFirstNext, {
+            name: 'sheetName',
+            type: 'SET_INPUT_VALUE',
+            value: 'Leads',
+        });
+
+        expect(activationReducer(withValue, {type: 'NEXT'}).step).toBe('activate');
+    });
+
+    it('holds on configure until every required input has a non-blank value', () => {
+        const state = initialActivationState('REFERENCE', [], inputs);
+
+        expect(canProceed(state)).toBe(false);
+
+        // Whitespace is not an answer -- it would be stored and read back as an empty value.
+        const blank = activationReducer(state, {name: 'sheetName', type: 'SET_INPUT_VALUE', value: '   '});
+
+        expect(canProceed(blank)).toBe(false);
+
+        const filled = activationReducer(state, {name: 'sheetName', type: 'SET_INPUT_VALUE', value: 'Leads'});
+
+        expect(canProceed(filled)).toBe(true);
+    });
+
+    it('does not require an optional input', () => {
+        const state = initialActivationState('REFERENCE', [], [{name: 'rowLimit'}]);
+
+        expect(canProceed(state)).toBe(true);
+    });
+
+    // BACK walks the same skips forward took: a step that was never shown is not somewhere to go back to.
+    it('goes back from activate to configure, and from configure to connect only when connect was shown', () => {
+        const withBoth = {
+            ...initialActivationState('COPY', ['slack'], inputs),
+            step: 'activate' as const,
+        };
+
+        const backOnce = activationReducer(withBoth, {type: 'BACK'});
+
+        expect(backOnce.step).toBe('configure');
+        expect(activationReducer(backOnce, {type: 'BACK'}).step).toBe('connect');
+
+        const inputsOnly = {...initialActivationState('REFERENCE', [], inputs), step: 'configure' as const};
+
+        expect(activationReducer(inputsOnly, {type: 'BACK'}).step).toBe('configure');
     });
 });
