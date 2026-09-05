@@ -17,7 +17,6 @@
 package com.bytechef.platform.component.context;
 
 import com.bytechef.atlas.coordinator.event.TaskProgressedApplicationEvent;
-import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Approval.Links;
@@ -112,7 +111,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
         this.tracer = builder.tracer;
 
         if (builder.jobId != null && builder.publicUrl != null) {
-            this.approval = new ApprovalImpl(builder.jobId, builder.publicUrl, builder.approvalTokens);
+            this.approval = new ApprovalImpl(tenantId, builder.jobId, builder.publicUrl, builder.approvalTokens);
         }
 
         this.data = new DataImpl(
@@ -367,9 +366,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             this.jobResumeId = currentJobResumeId;
         }
 
-        // The stored JOB_RESUME_ID metadata (getJobResumeId) stays the unsigned inner value for the stored-uuid match;
-        // only the URL carries the HMAC-signed wrapper.
-        return publicUrl + "/job/resume/" + toResumeToken(this.jobResumeId);
+        return currentJobResumeId;
     }
 
     @Override
@@ -485,29 +482,6 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
 
     @Override
     @Nullable
-    public Long getParentTaskExecutionId() {
-        // No persisted Atlas Job in editor-environment / in-process invocations -- treat as top-level.
-        if (jobId == null || jobService == null) {
-            return null;
-        }
-
-        try {
-            return jobService.fetchJob(jobId)
-                .map(Job::getParentTaskExecutionId)
-                .orElse(null);
-        } catch (RuntimeException ex) {
-            // Mirror the recovery shape of getJobMetadata: a transient lookup failure must not break perform().
-            // The reader (WorkflowCallWorkflowTool) interprets null as "top-level", which is the safe direction --
-            // the guard fails open (suspend proceeds) rather than closed (block a legitimate top-level agent).
-            log.warn(
-                "Failed to load job {} for ActionContextAware.getParentTaskExecutionId: {}", jobId, ex.getMessage());
-
-            return null;
-        }
-    }
-
-    @Override
-    @Nullable
     public PlatformType getPlatformType() {
         return type;
     }
@@ -559,16 +533,16 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             .build();
     }
 
-    private record ApprovalImpl(long jobId, String publicUrl, @Nullable ApprovalTokens approvalTokens)
-        implements Approval {
+    private record ApprovalImpl(
+        String tenantId, long jobId, String publicUrl, @Nullable ApprovalTokens approvalTokens) implements Approval {
 
         @Override
         public Links generateLinks() {
             String url = "%s/approvals/%s";
 
             return new Links(
-                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(jobId, true))),
-                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(jobId, false))));
+                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(tenantId, jobId, true))),
+                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(tenantId, jobId, false))));
         }
 
         private String toApprovalToken(ApprovalId approvalId) {
