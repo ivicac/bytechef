@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":server:libs:modules:components:map"))
     implementation(project(":server:libs:modules:task-dispatchers:approval"))
     implementation(project(":server:libs:modules:task-dispatchers:branch"))
+    implementation(project(":server:libs:modules:task-dispatchers:call-ai-agent"))
     implementation(project(":server:libs:modules:task-dispatchers:condition"))
     implementation(project(":server:libs:modules:task-dispatchers:each"))
     implementation(project(":server:libs:modules:task-dispatchers:fork-join"))
@@ -29,5 +30,12 @@ dependencies {
     implementation(project(":server:libs:modules:task-dispatchers:parallel"))
     implementation(project(":server:libs:modules:task-dispatchers:subflow"))
 
+    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-resource"))
+    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
+    testImplementation(project(":server:libs:atlas:atlas-execution:atlas-execution-repository:atlas-execution-repository-memory"))
+    testImplementation(project(":server:libs:atlas:atlas-file-storage:atlas-file-storage-impl"))
+    testImplementation(project(":server:libs:core:evaluator:evaluator-impl"))
+    testImplementation(project(":server:libs:core:file-storage:file-storage-base64-service"))
     testImplementation(project(":server:libs:platform:platform-coordinator"))
+    testImplementation(project(":server:libs:test:test-support"))
 }
