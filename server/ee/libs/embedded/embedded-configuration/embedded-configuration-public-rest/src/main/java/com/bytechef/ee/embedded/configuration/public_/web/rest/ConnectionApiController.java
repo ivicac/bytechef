@@ -29,6 +29,7 @@ import com.bytechef.platform.security.util.SecurityUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -82,11 +83,13 @@ public class ConnectionApiController implements ConnectionApi {
 
         ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
+        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
+
         return ResponseEntity.ok(
             connectedUserConnectionFacade
                 .getConnections(connectedUser.getId(), componentName, connectionIds == null ? List.of() : connectionIds)
                 .stream()
-                .map(connectionDTO -> conversionService.convert(connectionDTO, ConnectionModel.class))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
                 .toList());
     }
 
@@ -96,11 +99,13 @@ public class ConnectionApiController implements ConnectionApi {
 
         ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
+        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
+
         return ResponseEntity.ok(
             connectedUserConnectionFacade
                 .getConnections(connectedUser.getId(), componentName, connectionIds == null ? List.of() : connectionIds)
                 .stream()
-                .map(connectionDTO -> conversionService.convert(connectionDTO, ConnectionModel.class))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
                 .toList());
     }
 
@@ -108,11 +113,34 @@ public class ConnectionApiController implements ConnectionApi {
     public ResponseEntity<List<ConnectionModel>> getAllFrontendConnections(EnvironmentModel xEnvironment) {
         ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
+        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
+
         return ResponseEntity.ok(
             connectedUserConnectionFacade.getConnections(connectedUser.getId(), null, List.of())
                 .stream()
-                .map(connectionDTO -> conversionService.convert(connectionDTO, ConnectionModel.class))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
                 .toList());
+    }
+
+    /**
+     * Reports the two facts a client needs, which are independent of each other and were briefly conflated here:
+     * {@code shared} is the tenant admin's own flag on the connection, and {@code editable} is whether THIS connected
+     * user owns it.
+     * <p>
+     * Deriving {@code shared} from "not owned" made a connection that is both owned AND shared report itself as not
+     * shared -- the admin ticked Shared and the end user's list said otherwise. {@code editable} carries the ownership
+     * half instead: {@code ConnectedUserConnectionFacadeImpl.requireOwned} refuses to reauthorize or delete a
+     * connection the user does not own, and without this the client offers actions the server then rejects.
+     */
+    private ConnectionModel toConnectionModel(ConnectionDTO connectionDTO, Set<Long> ownedConnectionIds) {
+        ConnectionModel connectionModel = conversionService.convert(connectionDTO, ConnectionModel.class);
+
+        if (connectionModel != null) {
+            connectionModel.setShared(connectionDTO.shared());
+            connectionModel.setEditable(ownedConnectionIds.contains(connectionDTO.id()));
+        }
+
+        return connectionModel;
     }
 
     @Override

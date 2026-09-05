@@ -119,7 +119,7 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
     private static AutomationWorkflowProjectDTO catalogProject(String... workflowUuids) {
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates = Stream.of(workflowUuids)
             .map(workflowUuid -> new ConnectedUserWorkflowTemplateDTO(
-                workflowUuid, "Label", "Description", null, List.of(), List.of(), null))
+                workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null))
             .toList();
 
         return new AutomationWorkflowProjectDTO(
