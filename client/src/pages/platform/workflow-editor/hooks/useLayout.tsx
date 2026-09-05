@@ -29,6 +29,7 @@ import {useShallow} from 'zustand/react/shallow';
 import {useStoreWithEqualityFn} from 'zustand/traditional';
 
 import useClusterElementNodes from '../../cluster-element-editor/hooks/useClusterElementNodes';
+import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
 import useDataPillPanelStore from '../stores/useDataPillPanelStore';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useLayoutEngineStore from '../stores/useLayoutEngineStore';
@@ -382,6 +383,11 @@ export default function useLayout({
 
     const clusterElementsViewMode = useClusterElementsViewMode();
 
+    const workflowId = useWorkflowDataStore((state) => state.workflow.id);
+    const collapsedClusterRootIds = useClusterFrameCollapsedStore((state) =>
+        workflowId ? state.collapsedByWorkflowId[workflowId] : undefined
+    );
+
     // `layoutNodes` (the canvas node array) exists only inside the layout effect below, built fresh
     // from `tasks` on every run -- so this reads `tasks` directly instead, rather than duplicating
     // that construction here just to get ids the effect could derive on its own. A task counts as a
@@ -394,9 +400,11 @@ export default function useLayout({
     const boxModeClusterRootIds = useMemo(
         () =>
             clusterElementsViewMode === 'box'
-                ? (tasks ?? []).filter((task) => task.clusterRoot).map((task) => task.name)
+                ? (tasks ?? [])
+                      .filter((task) => task.clusterRoot && !collapsedClusterRootIds?.[task.name])
+                      .map((task) => task.name)
                 : [],
-        [clusterElementsViewMode, tasks]
+        [clusterElementsViewMode, collapsedClusterRootIds, tasks]
     );
 
     const {definitionsReady, edgesByRootId, nodesByRootId} = useClusterElementNodes(boxModeClusterRootIds);
