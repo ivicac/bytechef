@@ -70,17 +70,46 @@ describe('useDataSyncMapping', () => {
         );
 
         expect(setElementMock).toHaveBeenCalledTimes(1);
-        expect(setElementMock).toHaveBeenCalledWith({
-            input: {
-                componentName: 'dataStreamProcessor',
-                componentVersion: 1,
-                connectionId: null,
-                dataSyncId: '10',
-                kind: DataSyncElementKind.Processor,
-                operationName: 'fieldMapper',
-                parameters: {mappings: []},
+        expect(setElementMock).toHaveBeenCalledWith(
+            {
+                input: {
+                    componentName: 'dataStreamProcessor',
+                    componentVersion: 1,
+                    connectionId: null,
+                    dataSyncId: '10',
+                    kind: DataSyncElementKind.Processor,
+                    operationName: 'fieldMapper',
+                    parameters: {mappings: []},
+                },
             },
+            {onError: expect.any(Function)}
+        );
+    });
+
+    it('resets the creation guard on a failed create so the next render can retry', () => {
+        // Isolated from the previous test's call count: vitest does not clear mocks between tests in this
+        // file, so this test owns its own baseline via mockReset (calls AND the implementation below).
+        setElementMock.mockReset();
+        setElementMock.mockImplementation((_input: unknown, options?: {onError?: () => void}) => {
+            options?.onError?.();
         });
+
+        const {rerender} = renderHook(
+            () =>
+                useDataSyncMapping({
+                    dataSync: {draftWorkflowId: 'wf', elements: [source, destination], id: '10'} as never,
+                }),
+            {wrapper}
+        );
+
+        expect(setElementMock).toHaveBeenCalledTimes(1);
+
+        // The processor row never came back (the mutation failed), so a second render with the same
+        // "source and destination configured, no processor yet" state must be able to retry the create —
+        // proving the guard ref was cleared rather than left permanently set after the failure.
+        rerender();
+
+        expect(setElementMock).toHaveBeenCalledTimes(2);
     });
 
     it('auto-maps fields present on both sides and saves them', async () => {

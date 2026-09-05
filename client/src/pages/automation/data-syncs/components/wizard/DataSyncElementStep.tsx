@@ -40,6 +40,13 @@ const COPY: Record<DataSyncElementKind, {description: string; title: string}> = 
  * isn't a field the wizard exposes a way to unset once chosen — it isn't clear that it should be given a
  * component that declares a connection almost always needs one — and that's a UX call worth its own follow-up
  * rather than a silent addition here.
+ *
+ * `hasConnection` is derived from `selectedComponentName` (the component the user is CURRENTLY picking), while
+ * `element` is the previously SAVED row — picking an operation is the only thing that replaces it. Between
+ * choosing a new component and choosing its operation, those two disagree: the select would render gated only
+ * on the OLD element's saved connection value while reflecting the NEW component's `hasConnection`. The extra
+ * `element.componentName === selectedComponentName` guard below closes that window, so the picker never shows a
+ * stale component's connection under a newly-picked one's label.
  */
 export default function DataSyncElementStep({dataSync, kind}: DataSyncElementStepProps) {
     const {
@@ -111,7 +118,7 @@ export default function DataSyncElementStep({dataSync, kind}: DataSyncElementSte
                 </fieldset>
             )}
 
-            {element && hasConnection && (
+            {element && element.componentName === selectedComponentName && hasConnection && (
                 <fieldset className="flex flex-col gap-2 border-0 p-0">
                     <label className="text-sm font-medium" htmlFor={`${idPrefix}-connection-select`}>
                         Connection

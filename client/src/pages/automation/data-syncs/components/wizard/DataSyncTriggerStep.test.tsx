@@ -91,6 +91,51 @@ describe('DataSyncTriggerStep', () => {
         );
     });
 
+    it('restores the schedule when toggled back within the debounce window', async () => {
+        // Regression test for the bug where switching Manual -> Scheduled inside the 600ms debounce window
+        // left the sync MANUAL forever while the UI kept showing "Scheduled": useDebouncedSave's internal
+        // baseline was only updated when a scheduled save actually FIRED, so cancelling the Manual save's
+        // own (no-op) timeout by switching back never updated that baseline, and the reverted-to schedule
+        // read as "no change" and was silently dropped.
+        const user = userEvent.setup();
+
+        renderStep(DataSyncTriggerType.Schedule, {
+            expression: '0 9 * * ?',
+            frequencyKind: 'DAILY',
+            timeOfDay: '09:00',
+            timezone: 'UTC',
+        });
+
+        await user.click(screen.getByLabelText('Manual'));
+
+        expect(mutateMock).toHaveBeenCalledWith({
+            input: {id: '10', triggerParameters: null, triggerType: DataSyncTriggerType.Manual},
+        });
+
+        mutateMock.mockClear();
+
+        // Well within the 600ms debounce window — proving the revert itself, not merely waiting it out.
+        await user.click(screen.getByLabelText('Scheduled'));
+
+        await waitFor(
+            () => {
+                expect(mutateMock).toHaveBeenCalledWith({
+                    input: {
+                        id: '10',
+                        triggerParameters: expect.objectContaining({
+                            expression: '0 9 * * ?',
+                            frequencyKind: 'DAILY',
+                            timeOfDay: '09:00',
+                            timezone: 'UTC',
+                        }),
+                        triggerType: DataSyncTriggerType.Schedule,
+                    },
+                });
+            },
+            {timeout: 3000}
+        );
+    });
+
     it('never persists a stored cadence that fails validation', async () => {
         // WEEKLY with no dayOfWeek is invalid from the first render — no interaction is needed to reach this
         // state, which keeps the assertion below free of any race against the debounce window itself.

@@ -46,7 +46,16 @@ interface UseDataSyncMappingProps {
  * — a re-render, a refetch of `dataSync`, or a slow in-flight mutation could otherwise re-enter the effect
  * before the server's new row comes back and is reflected in `processor`, which would attempt a second create
  * and hit the server's one-row-per-kind unique constraint. The ref is set synchronously before the mutation is
- * even dispatched, so there is no window where a second effect run could slip through.
+ * even dispatched, so there is no window where a second effect run could slip through. On failure the `onError`
+ * callback below clears the ref, the same way the original `useDataStreamMapping`'s equivalent guard resets
+ * unconditionally in a `finally` block — without it, a transient failure would leave the Mapping step unable
+ * to retry until the user navigated away and back (remounting the hook with a fresh ref).
+ *
+ * `optionsLoading` exists so the step can tell "still fetching the field lists" apart from "fetched them and
+ * both came back empty" — some source/destination component pairs (the field mapper's `dynamicProperties`
+ * declaration covers this) do not auto-detect fields at all, and without this flag both states render as the
+ * same empty pickers. `sourceOptions`/`destinationOptions` start as `[]` before the fetch even begins, so their
+ * length alone can never distinguish "not loaded yet" from "loaded and genuinely empty" — only this flag can.
  */
 export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) {
     const processor = findElement(dataSync, DataSyncElementKind.Processor);
@@ -60,6 +69,7 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
     const [sourceOptions, setSourceOptions] = useState<FieldOptionI[]>([]);
     const [destinationOptions, setDestinationOptions] = useState<FieldOptionI[]>([]);
     const [autoMapping, setAutoMapping] = useState(false);
+    const [optionsLoading, setOptionsLoading] = useState(false);
 
     const processorCreationRequestedRef = useRef(false);
 
@@ -173,17 +183,24 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
 
         processorCreationRequestedRef.current = true;
 
-        setElementMutation.mutate({
-            input: {
-                componentName: PROCESSOR_COMPONENT_NAME,
-                componentVersion: PROCESSOR_COMPONENT_VERSION,
-                connectionId: null,
-                dataSyncId: dataSync.id,
-                kind: DataSyncElementKind.Processor,
-                operationName: PROCESSOR_OPERATION_NAME,
-                parameters: {mappings: []},
+        setElementMutation.mutate(
+            {
+                input: {
+                    componentName: PROCESSOR_COMPONENT_NAME,
+                    componentVersion: PROCESSOR_COMPONENT_VERSION,
+                    connectionId: null,
+                    dataSyncId: dataSync.id,
+                    kind: DataSyncElementKind.Processor,
+                    operationName: PROCESSOR_OPERATION_NAME,
+                    parameters: {mappings: []},
+                },
             },
-        });
+            {
+                onError: () => {
+                    processorCreationRequestedRef.current = false;
+                },
+            }
+        );
     }, [dataSync.id, hasSourceAndDestination, processor, setElementMutation]);
 
     useEffect(() => {
@@ -192,6 +209,8 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
         }
 
         let cancelled = false;
+
+        setOptionsLoading(true);
 
         Promise.all([loadOptions('mappings[0].sourceField'), loadOptions('mappings[0].destinationField')])
             .then(([sourceFields, destinationFields]) => {
@@ -203,6 +222,11 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
             .catch(() => {
                 if (!cancelled) {
                     toast.error('Could not load the source and destination fields');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setOptionsLoading(false);
                 }
             });
 
@@ -223,6 +247,7 @@ export default function useDataSyncMapping({dataSync}: UseDataSyncMappingProps) 
         handleRemoveMapping,
         hasSourceAndDestination,
         mappings,
+        optionsLoading,
         processor,
         sourceOptions,
     };

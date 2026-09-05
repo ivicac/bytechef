@@ -60,7 +60,10 @@ const DataSyncListItem = ({dataSync}: DataSyncListItemProps) => {
         {enabled: currentWorkspaceId != null}
     );
 
-    const {data: componentDefinitions} = useGetComponentDefinitionsQuery({actionDefinitions: true});
+    const {data: componentDefinitions} = useGetComponentDefinitionsQuery({
+        actionDefinitions: true,
+        clusterElementDefinitions: true,
+    });
 
     const deleteDataSyncMutation = useDeleteDataSyncMutation({
         onError: (error) => {
