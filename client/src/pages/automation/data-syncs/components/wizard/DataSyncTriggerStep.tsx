@@ -16,7 +16,7 @@ import useDebouncedSave from '@/pages/automation/data-syncs/hooks/useDebouncedSa
 import invalidateDataSyncQueries from '@/pages/automation/data-syncs/utils/invalidateDataSyncQueries';
 import {DataSync, DataSyncTriggerType, useUpdateDataSyncTriggerMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {useMemo, useState} from 'react';
+import {useMemo, useRef, useState} from 'react';
 
 interface DataSyncTriggerStepProps {
     dataSync: Pick<DataSync, 'id' | 'triggerParameters' | 'triggerType'>;
@@ -27,10 +27,22 @@ const DEFAULT_CADENCE: AgentScheduleCadenceI = {frequencyKind: 'DAILY', timeOfDa
 /**
  * Step 1 of the wizard: run the sync on demand, or on a schedule.
  *
- * Switching to Manual saves immediately, since there is nothing further to configure. A schedule only saves
- * once its cadence passes validateAgentScheduleCadence — an invalid cadence stays on screen with its errors
- * instead of being written, and the debounce below never even schedules a save for it (scheduleToSave is
- * null in that case, and useDebouncedSave's JSON comparison treats consecutive nulls as no change).
+ * Switching to Manual saves immediately, since there is nothing further to configure. Switching to Scheduled
+ * saves immediately too, mirroring that — as long as the current cadence already passes
+ * validateAgentScheduleCadence — instead of relying on the debounced path below for that first write. Without
+ * this, toggling Scheduled -> Manual -> Scheduled within the 600ms debounce window left the row MANUAL on the
+ * server forever: useDebouncedSave's baseline is only ever updated when a scheduled save actually FIRES (see
+ * its own doc comment), so cancelling the Manual save's own pending (no-op) timeout by switching back to
+ * Scheduled restored a value equal to that still-stale baseline, which read as "no change" and silently
+ * dropped the save. Writing the toggle-to-Scheduled case immediately sidesteps that comparison entirely
+ * instead of trying to make it aware of every revert.
+ *
+ * `lastImmediateWriteRef` then collapses the debounced value to null for exactly the render right after that
+ * immediate write (the same technique useDataSyncElementStep uses for its own post-mutation echo — see its
+ * `candidateValuesToSave`/`valuesToSave` split), so useDebouncedSave does not also fire a redundant, otherwise
+ * harmless duplicate save for the value that was just persisted. An invalid cadence still never saves at all:
+ * scheduleToSave/candidateScheduleToSave are null in that case, and the debounced path is untouched for every
+ * subsequent cadence edit.
  */
 export default function DataSyncTriggerStep({dataSync}: DataSyncTriggerStepProps) {
     const storedParameters = (dataSync.triggerParameters ?? {}) as Record<string, unknown>;
@@ -43,6 +55,8 @@ export default function DataSyncTriggerStep({dataSync}: DataSyncTriggerStepProps
     const [timezone, setTimezone] = useState<string>(String(storedParameters.timezone ?? 'UTC'));
     const [triggerType, setTriggerType] = useState<DataSyncTriggerType>(dataSync.triggerType);
 
+    const lastImmediateWriteRef = useRef<string>('');
+
     const queryClient = useQueryClient();
 
     const updateTriggerMutation = useUpdateDataSyncTriggerMutation({
@@ -54,13 +68,21 @@ export default function DataSyncTriggerStep({dataSync}: DataSyncTriggerStepProps
     const cadenceErrors = useMemo(() => validateAgentScheduleCadence(cadence), [cadence]);
 
     // Only a valid schedule is worth saving; an invalid one stays on screen with its errors until fixed.
-    const scheduleToSave = useMemo(() => {
+    const candidateScheduleToSave = useMemo(() => {
         if (triggerType !== DataSyncTriggerType.Schedule || Object.keys(cadenceErrors).length > 0) {
             return null;
         }
 
         return {...toCadenceParameters(cadence), expression: toCronExpression(cadence), timezone};
     }, [cadence, cadenceErrors, timezone, triggerType]);
+
+    // Collapsed to null whenever it matches the value an immediate toggle-to-Scheduled write (below) just
+    // persisted — see this component's own doc comment for why that write exists and why this collapse keeps
+    // it from fighting the debounced path.
+    const scheduleToSave =
+        candidateScheduleToSave && JSON.stringify(candidateScheduleToSave) === lastImmediateWriteRef.current
+            ? null
+            : candidateScheduleToSave;
 
     useDebouncedSave(scheduleToSave, (triggerParameters) => {
         if (triggerParameters) {
@@ -79,7 +101,21 @@ export default function DataSyncTriggerStep({dataSync}: DataSyncTriggerStepProps
             updateTriggerMutation.mutate({
                 input: {id: dataSync.id, triggerParameters: null, triggerType: DataSyncTriggerType.Manual},
             });
+
+            return;
         }
+
+        if (Object.keys(cadenceErrors).length > 0) {
+            return;
+        }
+
+        const scheduleParameters = {...toCadenceParameters(cadence), expression: toCronExpression(cadence), timezone};
+
+        lastImmediateWriteRef.current = JSON.stringify(scheduleParameters);
+
+        updateTriggerMutation.mutate({
+            input: {id: dataSync.id, triggerParameters: scheduleParameters, triggerType: DataSyncTriggerType.Schedule},
+        });
     };
 
     return (
