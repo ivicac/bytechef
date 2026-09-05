@@ -36,7 +36,7 @@ class AutomationWorkflowProjectGraphQlControllerTest {
         ConnectedUserWorkflowTemplateDTO workflowTemplateOne = new ConnectedUserWorkflowTemplateDTO(
             "wf-uuid-1", "Workflow One", "First workflow", "2026-05-22T10:00:00Z",
             List.of(new ConnectedUserWorkflowTemplateDTO.Component("manual", "Manual Trigger", "manual-icon")),
-            List.of(new ConnectedUserWorkflowTemplateDTO.Component("gmail", "Gmail", "gmail-icon")), null);
+            List.of(new ConnectedUserWorkflowTemplateDTO.Component("gmail", "Gmail", "gmail-icon")), List.of(), null);
 
         AutomationWorkflowProjectDTO projectOne =
             new AutomationWorkflowProjectDTO(1L, "Project One", "First project", null, List.of(), true, 5, 2,

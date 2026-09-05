@@ -424,6 +424,19 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
             project.permissionExpression(), project.codeWorkflowProject());
     }
 
+    /**
+     * The values a connected user is asked for before the automation runs. {@code Workflow.Input#extensions} is left
+     * behind on purpose: it carries authoring metadata for the builder, and this DTO reaches a vendor's page.
+     */
+    private static List<ConnectedUserWorkflowTemplateDTO.Input> toInputs(Workflow workflow) {
+        List<Workflow.Input> inputs = workflow.getInputs();
+
+        return inputs.stream()
+            .map(input -> new ConnectedUserWorkflowTemplateDTO.Input(
+                input.name(), input.label(), input.type(), input.required()))
+            .toList();
+    }
+
     private static String normalizePermissionExpression(String permissionExpression) {
         return StringUtils.isBlank(permissionExpression) ? null : permissionExpression.trim();
     }
@@ -476,7 +489,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                     projectWorkflow.getWorkflowId(), workflow.getLabel(), workflow.getDescription(),
                     Objects.toString(workflow.getLastModifiedDate(), null),
                     workflowComponentResolver.getTriggerComponents(workflow),
-                    workflowComponentResolver.getTaskComponents(workflow), projectWorkflow.getPermissionExpression());
+                    workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
+                    projectWorkflow.getPermissionExpression());
             })
             .filter(Objects::nonNull)
             .toList();
@@ -514,7 +528,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                         projectWorkflow.getUuidAsString(), workflow.getLabel(), workflow.getDescription(),
                         Objects.toString(workflow.getLastModifiedDate(), null),
                         workflowComponentResolver.getTriggerComponents(workflow),
-                        workflowComponentResolver.getTaskComponents(workflow),
+                        workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
                         projectWorkflow.getPermissionExpression());
                 })
                 .filter(Objects::nonNull)

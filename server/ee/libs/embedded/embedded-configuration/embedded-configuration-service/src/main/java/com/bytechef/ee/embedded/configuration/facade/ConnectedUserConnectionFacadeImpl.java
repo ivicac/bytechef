@@ -140,6 +140,14 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
         connectionFacade.replaceAuthorizationParameters(connectionId, parameters);
     }
 
+    @Override
+    public Set<Long> getOwnedConnectionIds(long connectedUserId) {
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserId);
+
+        return connectedUserConnectionMembership.getOwnedConnectionIds(
+            connectedUser.getId(), connectedUser.getEnvironment());
+    }
+
     /**
      * Entitlement is not ownership, and this check is the reason the difference matters. A shared connection is
      * entitled to every connected user in the environment, so it now appears in {@link #getConnections}; deleting or

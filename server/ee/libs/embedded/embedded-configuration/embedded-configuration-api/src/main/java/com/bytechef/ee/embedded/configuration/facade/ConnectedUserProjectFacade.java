@@ -12,6 +12,7 @@ import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDT
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -56,6 +57,14 @@ public interface ConnectedUserProjectFacade {
 
     void updateProjectWorkflow(
         String externalUserId, String workflowUuid, String definition, Environment environment);
+
+    /**
+     * Stores the input values a connected user supplied for one of their own workflows, on the project deployment that
+     * runs it. The workflow must already be published -- there is no deployment before that -- which is why the hub's
+     * activation writes these between publishing and enabling.
+     */
+    void updateProjectWorkflowInputs(
+        String externalUserId, String workflowUuid, Map<String, ?> inputs, Long environmentId);
 
     String updateProjectWorkflow(
         String externalUserId, String workflowUuid, String prompt, Environment environment, boolean generate);

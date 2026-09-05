@@ -648,7 +648,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             500L, "Catalog", "", null, List.of(), true, 1, 1,
             List.of(
                 new ConnectedUserWorkflowTemplateDTO(
-                    workflowUuid, "Label", "Description", null, List.of(), List.of(), null)),
+                    workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null)),
             null, true);
     }
 

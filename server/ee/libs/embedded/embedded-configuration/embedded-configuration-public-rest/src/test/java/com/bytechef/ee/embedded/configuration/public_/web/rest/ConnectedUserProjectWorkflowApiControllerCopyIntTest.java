@@ -88,7 +88,35 @@ public class ConnectedUserProjectWorkflowApiControllerCopyIntTest {
                 .expectStatus()
                 .isOk()
                 .expectBody(String.class)
-                .isEqualTo(newWorkflowUuid);
+                .isEqualTo("\"" + newWorkflowUuid + "\"");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com")
+    public void testCreateFrontendProjectWorkflowReturnsWorkflowUuidAsJsonString() {
+        String newWorkflowUuid = "new-workflow-uuid-777";
+
+        when(connectedUserProjectFacade.createProjectWorkflow(
+            eq("user@example.com"), eq("{}"), any(Environment.class)))
+                .thenReturn(newWorkflowUuid);
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflows")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"definition\":\"{}\"}")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectHeader()
+                .contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody(String.class)
+                .isEqualTo("\"" + newWorkflowUuid + "\"");
         } catch (Exception exception) {
             Assertions.fail(exception);
         }
