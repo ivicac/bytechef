@@ -98,18 +98,6 @@ public class RemoteJobServiceClient implements JobService {
     }
 
     @Override
-    public List<Job> getStaleJobs(Job.Status status, java.time.Instant lastModifiedDateBefore) {
-        return loadBalancedRestClient.get(
-            uriBuilder -> uriBuilder
-                .host(EXECUTION_APP)
-                .path(JOB_SERVICE + "/get-stale-jobs")
-                .queryParam("status", status.name())
-                .queryParam("lastModifiedDateBefore", lastModifiedDateBefore.toString())
-                .build(),
-            new ParameterizedTypeReference<>() {});
-    }
-
-    @Override
     public List<Job> getChildJobs(List<Long> parentTaskExecutionIds) {
         throw new UnsupportedOperationException();
     }
