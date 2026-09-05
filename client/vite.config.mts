@@ -23,6 +23,7 @@ export default ({mode}) => {
                 input: {
                     automationHub: resolve(import.meta.dirname, 'automation-hub.html'),
                     connect: resolve(import.meta.dirname, 'connect.html'),
+                    integrationMarketplace: resolve(import.meta.dirname, 'integration-marketplace.html'),
                     main: resolve(import.meta.dirname, 'index.html'),
                     workflowBuilder: resolve(import.meta.dirname, 'workflow-builder.html'),
                 },
