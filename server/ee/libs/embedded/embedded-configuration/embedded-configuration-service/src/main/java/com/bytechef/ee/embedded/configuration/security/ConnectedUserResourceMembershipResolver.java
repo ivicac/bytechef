@@ -27,6 +27,10 @@ import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.domain.McpServer;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
@@ -46,13 +50,13 @@ import org.springframework.stereotype.Component;
  * the {@link ConnectedUserProject} the request's caller owns, the {@code ProjectDeployment}s that project and the
  * caller's own {@link ConnectedUserProjectWorkflow} reference rows point at, the {@code Connection}s
  * {@link ConnectedUserConnectionMembership} entitles them to, and (for {@code Workflow} and {@code Project}) the
- * published catalog {@link AutomationWorkflowProjectFacade} would show the same caller.
+ * published automation workflow {@link AutomationWorkflowProjectFacade} would show the same caller.
  *
  * <p>
- * Three of those are ENTITLEMENT rather than ownership -- a configuration-level shared connection, an admin-owned
- * catalog template, and the admin-owned catalog PROJECT a reference is provisioned against -- and all three are
- * therefore answered per-scope: usable, readable and referencable, not mutable. See
- * {@link #resolve(Serializable, String, String)}.
+ * Three of those are ENTITLEMENT rather than ownership -- a connection a tenant admin marked {@code shared} in this
+ * environment, an admin-owned automation workflow template, and the admin-owned automation workflow PROJECT a reference
+ * is provisioned against -- and all three are therefore answered per-scope: usable, readable and referencable, not
+ * mutable. See {@link #resolve(Serializable, String, String)}.
  *
  * <p>
  * As of ticket 1051 Stage 2 this resolver's answer is authoritative. For a connected user it governs, a {@code DENIED}
@@ -134,51 +138,53 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
     private static final String PROJECT_WORKFLOW = "ProjectWorkflow";
     private static final String CONNECTION = "Connection";
     private static final String JOB = "Job";
+    private static final String MCP_SERVER = "McpServer";
+    private static final String MCP_TOOL = "McpTool";
 
     /**
-     * The {@code Connection} scopes a CONFIGURATION-LEVEL shared connection may satisfy. Deliberately an ALLOWLIST: a
-     * scope token added to {@code ConnectionPermissionScope} later must fall back to the owned set until somebody
-     * decides otherwise, rather than silently inheriting the wider one because nobody remembered to block-list it.
+     * The {@code Connection} scopes a connection flagged {@code shared} may satisfy. Deliberately an ALLOWLIST: a scope
+     * token added to {@code ConnectionPermissionScope} later must fall back to the owned set until somebody decides
+     * otherwise, rather than silently inheriting the wider one because nobody remembered to block-list it.
      */
     private static final Set<String> SHAREABLE_CONNECTION_SCOPES = Set.of("CONNECTION_VIEW", "CONNECTION_USE");
 
     /**
-     * The {@code Workflow} scopes an admin-owned CATALOG template may satisfy for a connected user who merely SEES it
-     * in the published listing. {@code WorkflowPermissionScope} has four values and this is the only read one:
-     * {@code WORKFLOW_EDIT} and {@code WORKFLOW_DELETE} act on the tenant admin's template, and {@code WORKFLOW_CREATE}
-     * is a write too -- it is only ever checked against a {@code Project}, never a {@code Workflow}, so it cannot reach
-     * this set today, and listing it would advertise a grant nothing asks for.
+     * The {@code Workflow} scopes an admin-owned AUTOMATION WORKFLOW template may satisfy for a connected user who
+     * merely SEES it in the published listing. {@code WorkflowPermissionScope} has four values and this is the only
+     * read one: {@code WORKFLOW_EDIT} and {@code WORKFLOW_DELETE} act on the tenant admin's template, and
+     * {@code WORKFLOW_CREATE} is a write too -- it is only ever checked against a {@code Project}, never a
+     * {@code Workflow}, so it cannot reach this set today, and listing it would advertise a grant nothing asks for.
      *
      * <p>
      * Deliberately an ALLOWLIST, for the same reason as {@link #SHAREABLE_CONNECTION_SCOPES}.
      */
-    private static final Set<String> CATALOG_READABLE_WORKFLOW_SCOPES = Set.of("WORKFLOW_VIEW");
+    private static final Set<String> AUTOMATION_WORKFLOW_READABLE_WORKFLOW_SCOPES = Set.of("WORKFLOW_VIEW");
 
     /**
      * The {@code Job} equivalent, and a SEPARATE set rather than a reuse: a {@code Job} is checked with
      * {@code ExecutionPermissionScope} tokens, which is a different enum from the one above, so a shared allowlist
-     * would deny every job check the moment the catalog arm started consulting it.
+     * would deny every job check the moment the automation workflow arm started consulting it.
      *
      * <p>
-     * {@code EXECUTION_VIEW} has to be in it. {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference}
-     * provisions a {@code ProjectDeployment} on the CATALOG project and runs the catalog workflow id itself -- the
-     * connected user gets no copy -- so a connected user's own run of a referenced catalog workflow produces a job
-     * whose {@code workflowId} is the catalog workflow's. Dropping it would hide those runs from the user who caused
-     * them. {@code EXECUTION_DELETE} is a write ({@code LogFileStorageImpl.deleteLogs}) and stays out.
+     * {@code EXECUTION_VIEW} has to be in it. {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference}
+     * provisions a {@code ProjectDeployment} on the AUTOMATION WORKFLOW project and runs the automation workflow id
+     * itself -- the connected user gets no copy -- so a connected user's own run of a referenced automation workflow
+     * produces a job whose {@code workflowId} is the automation workflow's. Dropping it would hide those runs from the
+     * user who caused them. {@code EXECUTION_DELETE} is a write ({@code LogFileStorageImpl.deleteLogs}) and stays out.
      *
      * <p>
-     * Membership of this set selects the catalog arm; it does not by itself grant. {@link #resolveJob} then requires
-     * the run to be the CALLER'S OWN, because a visible catalog template is shared by every connected user entitled to
-     * see it and the workflow id alone cannot tell their runs apart.
+     * Membership of this set selects the automation workflow arm; it does not by itself grant. {@link #resolveJob} then
+     * requires the run to be the CALLER'S OWN, because a visible automation workflow template is shared by every
+     * connected user entitled to see it and the workflow id alone cannot tell their runs apart.
      */
-    private static final Set<String> CATALOG_READABLE_EXECUTION_SCOPES = Set.of("EXECUTION_VIEW");
+    private static final Set<String> AUTOMATION_WORKFLOW_READABLE_EXECUTION_SCOPES = Set.of("EXECUTION_VIEW");
 
     /**
-     * The {@code Project} scopes a REFERENCABLE catalog project may satisfy for a connected user who can see it in the
-     * published listing. One token, and it has to be there:
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the reference's
-     * {@code ProjectDeployment} on the CATALOG project, and {@code ProjectDeploymentServiceImpl.create} -- the only
-     * {@code hasPermission} gate anywhere on that call chain -- is
+     * The {@code Project} scopes a REFERENCABLE automation workflow project may satisfy for a connected user who can
+     * see it in the published listing. One token, and it has to be there:
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the reference's
+     * {@code ProjectDeployment} on the AUTOMATION WORKFLOW project, and {@code ProjectDeploymentServiceImpl.create} --
+     * the only {@code hasPermission} gate anywhere on that call chain -- is
      * {@code hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')}. Without this set FIRST-USE
      * provisioning 403s, and the enable toggle behind it is unreachable for any reference not created before the gate
      * could deny it.
@@ -186,7 +192,7 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * <p>
      * Deliberately an ALLOWLIST, for the same reason as {@link #SHAREABLE_CONNECTION_SCOPES}, and doubly so here:
      * {@link #resolveProject}'s owned branch grants EVERY scope, so an entitled branch that did the same would hand
-     * every connected user every verb on the tenant admin's catalog project -- {@code PROJECT_DELETE},
+     * every connected user every verb on the tenant admin's automation workflow project -- {@code PROJECT_DELETE},
      * {@code PROJECT_SETTINGS}, {@code WORKFLOW_CREATE}, {@code WORKFLOW_EDIT}, {@code WORKFLOW_DELETE} and
      * {@code DEPLOYMENT_PULL} are all live {@code 'Project'}-keyed tokens, and a GRANT here returns ahead of the
      * tenant-admin check and RBAC.
@@ -214,8 +220,8 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * against their own reference deployment can change {@code name}, {@code description}, {@code enabled},
      * {@code projectVersion} and {@code tagIds}. Defensible -- it is their own row, {@code projectId} is never
      * persisted from the request, and no other connected user's deployment is in reach -- but the worst case is worth
-     * naming: pinning their own reference to a different published catalog version, or renaming it so the next
-     * {@code fetchProjectDeploymentByName} provisions a second row alongside it.</li>
+     * naming: pinning their own reference to a different published automation workflow version, or renaming it so the
+     * next {@code fetchProjectDeploymentByName} provisions a second row alongside it.</li>
      * </ol>
      *
      * <p>
@@ -238,10 +244,20 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * tenant admin's expression against {@code metadata}, {@code email} and {@code name} read off the connected-user
      * row -- all of which the connected user can set on themselves through
      * {@code PUT /api/embedded/v1/&#123;externalUserId&#125;}. That is pre-existing and not widened here (the
-     * {@code Workflow} and {@code Job} catalog arms already rest on it), but it is precisely why a wider allowlist
-     * later would be dangerous: the caller has partial influence over whether they are inside the entitled set.
+     * {@code Workflow} and {@code Job} automation workflow arms already rest on it), but it is precisely why a wider
+     * allowlist later would be dangerous: the caller has partial influence over whether they are inside the entitled
+     * set.
      */
-    private static final Set<String> CATALOG_PROVISIONABLE_PROJECT_SCOPES = Set.of("DEPLOYMENT_PUSH");
+    private static final Set<String> AUTOMATION_WORKFLOW_PROVISIONABLE_PROJECT_SCOPES = Set.of("DEPLOYMENT_PUSH");
+
+    /**
+     * The only scope a connected user is entitled to on an {@link PlatformType#EMBEDDED} MCP server and on the tools
+     * hanging off it. Those servers are tenant automation workflow objects the user's integration instances attach to,
+     * and the connected-user facades read a server to learn whether it is enabled and a tool to learn its name before
+     * surfacing either -- a read, never an edit, and never the server's secret key, which sits behind its own
+     * tenant-admin gate.
+     */
+    private static final Set<String> AUTOMATION_WORKFLOW_READABLE_MCP_SCOPES = Set.of("MCP_VIEW");
 
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final ConnectedUserConnectionMembership connectedUserConnectionMembership;
@@ -249,6 +265,9 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private final ConnectedUserService connectedUserService;
     private final JobService jobService;
+    private final McpComponentService mcpComponentService;
+    private final McpServerService mcpServerService;
+    private final McpToolService mcpToolService;
     private final PrincipalJobService principalJobService;
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectService projectService;
@@ -260,7 +279,8 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         ConnectedUserConnectionMembership connectedUserConnectionMembership,
         ConnectedUserProjectService connectedUserProjectService,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
-        ConnectedUserService connectedUserService, JobService jobService, PrincipalJobService principalJobService,
+        ConnectedUserService connectedUserService, JobService jobService, McpComponentService mcpComponentService,
+        McpServerService mcpServerService, McpToolService mcpToolService, PrincipalJobService principalJobService,
         ProjectDeploymentService projectDeploymentService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
@@ -270,6 +290,9 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
         this.connectedUserService = connectedUserService;
         this.jobService = jobService;
+        this.mcpComponentService = mcpComponentService;
+        this.mcpServerService = mcpServerService;
+        this.mcpToolService = mcpToolService;
         this.principalJobService = principalJobService;
         this.projectDeploymentService = projectDeploymentService;
         this.projectService = projectService;
@@ -369,10 +392,13 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         // ConnectedUserProject and what hangs off it, and owning a resource entitles you to every verb on it, so the
         // answer genuinely does not depend on whether the caller asked WORKFLOW_VIEW or WORKFLOW_EDIT.
         //
-        // PROJECT was in that list until the catalog arm was added to resolveProject. Its FIRST branch is still pure
-        // ownership and still grants every scope; its second grants the admin-owned CATALOG project a reference is
+        // PROJECT was in that list until the automation workflow arm was added to resolveProject. Its FIRST branch is
+        // still pure
+        // ownership and still grants every scope; its second grants the admin-owned AUTOMATION WORKFLOW project a
+        // reference is
         // provisioned against, which is entitlement, so it is offered only for
-        // CATALOG_PROVISIONABLE_PROJECT_SCOPES -- a single token, because the owned branch's "every verb" would
+        // AUTOMATION_WORKFLOW_PROVISIONABLE_PROJECT_SCOPES -- a single token, because the owned branch's "every verb"
+        // would
         // otherwise become every verb on the tenant admin's project.
         //
         // PROJECT_DEPLOYMENT takes no scope for a second reason on top of that one, and it is the reason an allowlist
@@ -390,19 +416,24 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         // the check that made the statement true is resolveConnection. Do not restore the simplification.
         //
         // WORKFLOW is ownership for its FIRST branch (a workflow of the caller's own project) and entitlement for its
-        // second: isVisibleCatalogWorkflow grants an admin-owned catalog template on the strength of the caller being
+        // second: isVisibleAutomationWorkflow grants an admin-owned automation workflow template on the strength of the
+        // caller being
         // able to SEE it in the published listing. Same shape as a shared connection, one resource type over, so the
-        // same fix -- the entitled branch is offered only for the scopes in CATALOG_READABLE_WORKFLOW_SCOPES, and the
+        // same fix -- the entitled branch is offered only for the scopes in
+        // AUTOMATION_WORKFLOW_READABLE_WORKFLOW_SCOPES, and the
         // owned branch keeps granting every scope. JOB asks the same two questions and therefore needs the treatment
         // too, with its OWN allowlist: a Job is checked with ExecutionPermissionScope tokens, so reusing the Workflow
         // set there would deny every job check outright.
         //
         // For JOB the scope allowlist is necessary but not sufficient, and resolveJob adds the second half rather than
-        // delegating to resolveWorkflow: a catalog template is shared by every connected user entitled to see it, so
-        // "any job of workflow X" spans all of their runs. EXECUTION_VIEW selects the catalog arm; ownership of the
+        // delegating to resolveWorkflow: a automation workflow template is shared by every connected user entitled to
+        // see it, so
+        // "any job of workflow X" spans all of their runs. EXECUTION_VIEW selects the automation workflow arm;
+        // ownership of the
         // RUN -- the job's AUTOMATION principal id against the caller's own ProjectDeployment ids -- then decides it.
         //
-        // The catalog-arm decision is taken HERE rather than inside resolveWorkflow, so that the resource type and the
+        // The automation workflows-arm decision is taken HERE rather than inside resolveWorkflow, so that the resource
+        // type and the
         // scope enum it is checked against are chosen together at one site. Passing a raw scope string down and
         // matching it against a single set is how the two enums would get conflated.
         Optional<String> externalUserId = SecurityUtils.fetchCurrentUserLogin();
@@ -449,6 +480,13 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.NOT_APPLICABLE;
         }
 
+        if (MCP_SERVER.equals(resourceType) || MCP_TOOL.equals(resourceType)) {
+            // Resolved ahead of the project lookup on purpose: listing integrations is the first thing a connected
+            // user does, before anything has provisioned a ConnectedUserProject, and that listing reads MCP servers
+            // and their tools.
+            return MCP_SERVER.equals(resourceType) ? resolveMcpServer(id, scope) : resolveMcpTool(id, scope);
+        }
+
         Optional<ConnectedUserProject> connectedUserProject = connectedUserProjectService.fetchConnectUserProject(
             externalUserId, environment);
 
@@ -459,16 +497,16 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         return switch (resourceType) {
             case PROJECT -> resolveProject(
                 id, connectedUserProject.get(), externalUserId, environment,
-                CATALOG_PROVISIONABLE_PROJECT_SCOPES.contains(scope));
+                AUTOMATION_WORKFLOW_PROVISIONABLE_PROJECT_SCOPES.contains(scope));
             case WORKFLOW -> resolveWorkflow(
                 id, connectedUserProject.get(), externalUserId, environment,
-                CATALOG_READABLE_WORKFLOW_SCOPES.contains(scope));
+                AUTOMATION_WORKFLOW_READABLE_WORKFLOW_SCOPES.contains(scope));
             case PROJECT_DEPLOYMENT -> resolveProjectDeployment(id, connectedUserProject.get());
             case PROJECT_WORKFLOW -> resolveProjectWorkflow(id, connectedUserProject.get());
             case CONNECTION -> resolveConnection(id, connectedUserProject.get(), environment, scope);
             case JOB -> resolveJob(
                 id, connectedUserProject.get(), externalUserId, environment,
-                CATALOG_READABLE_EXECUTION_SCOPES.contains(scope));
+                AUTOMATION_WORKFLOW_READABLE_EXECUTION_SCOPES.contains(scope));
             default -> Decision.NOT_APPLICABLE;
         };
     }
@@ -481,20 +519,20 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      *
      * <p>
      * The second is ENTITLEMENT, and it closes the last authorization gap of ticket 1051:
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the reference's
-     * {@code ProjectDeployment} on the admin-owned CATALOG project, so the {@code projectId} reaching
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference} provisions the reference's
+     * {@code ProjectDeployment} on the admin-owned AUTOMATION WORKFLOW project, so the {@code projectId} reaching
      * {@code ProjectDeploymentServiceImpl.create}'s gate is one this caller does not own. Until this branch existed the
      * ownership test was the whole answer, {@code ResourceMembershipDecider} mapped it to DENY, and the resolver is
      * consulted ahead of the skip check, so {@code @SkipAutomationAuthorization} on the reference facade did not rescue
      * it -- FIRST-USE provisioning of a reference 403'd before the automation-hub enable toggle was ever reachable.
      *
      * <p>
-     * The entitled branch is offered ONLY for {@link #CATALOG_PROVISIONABLE_PROJECT_SCOPES}; see that field for why
-     * widening the ownership test instead would have been the worse hole.
+     * The entitled branch is offered ONLY for {@link #AUTOMATION_WORKFLOW_PROVISIONABLE_PROJECT_SCOPES}; see that field
+     * for why widening the ownership test instead would have been the worse hole.
      */
     private Decision resolveProject(
         Serializable id, ConnectedUserProject connectedUserProject, String externalUserId, Environment environment,
-        boolean catalogEntitlementApplies) {
+        boolean automationWorkflowEntitlementApplies) {
 
         if (!(id instanceof Number number)) {
             return Decision.DENIED;
@@ -506,18 +544,18 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.GRANTED;
         }
 
-        if (!catalogEntitlementApplies) {
+        if (!automationWorkflowEntitlementApplies) {
             return Decision.DENIED;
         }
 
-        return isReferencableCatalogProject(projectId, externalUserId, environment)
+        return isReferencableAutomationWorkflowProject(projectId, externalUserId, environment)
             ? Decision.GRANTED : Decision.DENIED;
     }
 
     /**
-     * Whether {@code projectId} is a catalog project this connected user could legitimately provision a reference
-     * against, read from the same permission-filtered listing
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.validateCatalogWorkflowTemplateVisible} gates provisioning on
+     * Whether {@code projectId} is a automation workflow project this connected user could legitimately provision a
+     * reference against, read from the same permission-filtered listing
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.validateAutomationWorkflowTemplateVisible} gates provisioning on
      * -- so this predicate cannot grant a project OUTSIDE the listing that facade gates on. Not an equivalence, and the
      * difference is deliberate: this predicate is PROJECT-level while that check is UUID-level, so this can grant on
      * project P while the facade still refuses one particular template of P. Harmless, because the facade's check runs
@@ -526,26 +564,27 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * <p>
      * That listing is narrower than "any project of the tenant admin's" in three ways at once, and all three matter:
      * {@code AutomationWorkflowProjectFacadeImpl} restricts it to projects whose name carries the
-     * {@code EMBEDDED_AUTOMATION} marker (created only through the embedded admin catalog API) in the DEFAULT
-     * workspace, then filters them through {@code EmbeddedPermissionEvaluator} against THIS connected user, then
-     * filters each project's templates the same way. An ordinary automation project can never appear in it.
+     * {@code EMBEDDED_AUTOMATION} marker (created only through the embedded admin automation workflow API) in the
+     * DEFAULT workspace, then filters them through {@code EmbeddedPermissionEvaluator} against THIS connected user,
+     * then filters each project's templates the same way. An ordinary automation project can never appear in it.
      *
      * <p>
      * At least one VISIBLE template is required, not merely the project's presence.
      * {@code AutomationWorkflowProjectFacadeImpl.getPublishedProjects()} maps every marked project, handing back an
      * empty template list rather than dropping the project when nothing is published yet -- so presence alone would
-     * grant {@code DEPLOYMENT_PUSH} on a catalog project that has no referencable workflow at all. Requiring a visible
-     * template cannot over-deny on the path this exists for: {@code getOrCreateReference} resolves the catalog project
-     * id FROM a template it has already checked is visible, so by the time the gate is reached the list is non-empty by
-     * construction.
+     * grant {@code DEPLOYMENT_PUSH} on a automation workflow project that has no referencable workflow at all.
+     * Requiring a visible template cannot over-deny on the path this exists for: {@code getOrCreateReference} resolves
+     * the automation workflow project id FROM a template it has already checked is visible, so by the time the gate is
+     * reached the list is non-empty by construction.
      *
      * <p>
      * Cost, so nobody rediscovers it as a surprise: a {@code 'Project'} + {@code DEPLOYMENT_PUSH} check on a project
-     * the caller does NOT own now runs the whole catalog listing. That is not a new class of problem --
-     * {@link #isVisibleCatalogWorkflow} already pays the same listing for {@code WORKFLOW_VIEW}, which is far more
+     * the caller does NOT own now runs the whole automation workflow listing. That is not a new class of problem --
+     * {@link #isVisibleAutomationWorkflow} already pays the same listing for {@code WORKFLOW_VIEW}, which is far more
      * frequent -- and the owned branch still returns before reaching here, so no ordinary embedded request pays it.
      */
-    private boolean isReferencableCatalogProject(long projectId, String externalUserId, Environment environment) {
+    private boolean
+        isReferencableAutomationWorkflowProject(long projectId, String externalUserId, Environment environment) {
         List<AutomationWorkflowProjectDTO> publishedProjects = automationWorkflowProjectFacade
             .getPublishedProjects(externalUserId, environment);
 
@@ -556,7 +595,7 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
 
     /**
      * The arm that closes a LIVE broken flow rather than a theoretical one.
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.enableReference} calls
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.enableReference} calls
      * {@code ProjectDeploymentFacade.enableProjectDeploymentWorkflow(projectDeploymentId, workflowId, enable)}, which
      * is gated {@code hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')}. Until this arm
      * existed {@code 'ProjectDeployment'} fell to the {@code default} case of
@@ -577,9 +616,10 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * deployment of it is this caller's. {@link #resolveProject} already grants every scope on the project itself;
      * denying its deployment would be the same over-deny one level down.</li>
      * <li>The {@code projectDeploymentId} recorded on the caller's own {@code ConnectedUserProjectWorkflow} rows -- the
-     * reference path. That deployment sits on the admin's CATALOG project, so source 1 cannot see it, but the row is
-     * provisioned per (catalog project, connected user) and named {@code __EMBEDDED__<externalUserId>__<ENV>}: no other
-     * connected user shares it, and enabling, disabling or deleting it affects only this caller's own runs.</li>
+     * reference path. That deployment sits on the admin's AUTOMATION WORKFLOW project, so source 1 cannot see it, but
+     * the row is provisioned per (automation workflow project, connected user) and named
+     * {@code __EMBEDDED__<externalUserId>__<ENV>}: no other connected user shares it, and enabling, disabling or
+     * deleting it affects only this caller's own runs.</li>
      * </ol>
      *
      * <p>
@@ -588,6 +628,53 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * user id; source 2 is keyed by that same row's id, so both are environment-scoped by construction --
      * {@code fetchConnectUserProject} joins {@code connected_user} on the environment carried by the PRINCIPAL.
      */
+    private Decision resolveMcpServer(Serializable id, String scope) {
+        if (!(id instanceof Number number)) {
+            return Decision.DENIED;
+        }
+
+        if (!AUTOMATION_WORKFLOW_READABLE_MCP_SCOPES.contains(scope)) {
+            return Decision.DENIED;
+        }
+
+        long mcpServerId = number.longValue();
+
+        boolean embeddedMcpServer = getEmbeddedMcpServers()
+            .stream()
+            .anyMatch(mcpServer -> Objects.equals(mcpServer.getId(), mcpServerId));
+
+        return embeddedMcpServer ? Decision.GRANTED : Decision.DENIED;
+    }
+
+    private Decision resolveMcpTool(Serializable id, String scope) {
+        if (!(id instanceof Number number)) {
+            return Decision.DENIED;
+        }
+
+        if (!AUTOMATION_WORKFLOW_READABLE_MCP_SCOPES.contains(scope)) {
+            return Decision.DENIED;
+        }
+
+        long mcpToolId = number.longValue();
+
+        // Walked from the server down because the by-id tool read is the gated call that lands here; the per-server
+        // component and per-component tool listings carry no gate.
+        boolean embeddedMcpTool = getEmbeddedMcpServers()
+            .stream()
+            .flatMap(mcpServer -> mcpComponentService.getMcpServerMcpComponents(mcpServer.getId())
+                .stream())
+            .flatMap(mcpComponent -> mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())
+                .stream())
+            .anyMatch(mcpTool -> Objects.equals(mcpTool.getId(), mcpToolId));
+
+        return embeddedMcpTool ? Decision.GRANTED : Decision.DENIED;
+    }
+
+    private List<McpServer> getEmbeddedMcpServers() {
+        // getMcpServers(PlatformType) carries no gate, unlike the by-id read whose gate lands here.
+        return mcpServerService.getMcpServers(PlatformType.EMBEDDED);
+    }
+
     private Decision resolveProjectDeployment(Serializable id, ConnectedUserProject connectedUserProject) {
         if (!(id instanceof Number number)) {
             return Decision.DENIED;
@@ -605,9 +692,9 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      *
      * <p>
      * A reference row's {@code projectDeploymentId} is nullable -- it is set only by
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference}, so every copy-mode row carries null --
-     * and a null must be skipped rather than added, or the set would answer "yes" to a null-keyed lookup that means
-     * "this row has no deployment at all".
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference}, so every copy-mode row carries null -- and
+     * a null must be skipped rather than added, or the set would answer "yes" to a null-keyed lookup that means "this
+     * row has no deployment at all".
      */
     private Set<Long> getOwnProjectDeploymentIds(ConnectedUserProject connectedUserProject) {
         Set<Long> projectDeploymentIds = new HashSet<>();
@@ -660,12 +747,12 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      *
      * <p>
      * Which of the two sets applies depends on the scope, because they answer different questions. The wider one is
-     * ENTITLEMENT and includes the connections bound at the caller's integration instance configurations -- shared with
-     * every connected user on that configuration, and therefore usable but not theirs to change. The narrower one is
+     * ENTITLEMENT and includes every connection a tenant admin marked {@code shared} in the caller's environment --
+     * offered to every connected user there, and therefore usable but not theirs to change. The narrower one is
      * OWNERSHIP. Granting a mutating scope from the wider set would let one connected user rename, retag or delete the
-     * tenant admin's connection out from under every other user of that configuration, and it is live rather than
-     * theoretical: this decider is consulted BEFORE {@code hasResourceScope}, and a GRANT here returns ahead of the
-     * tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}} would have taken it.
+     * tenant admin's connection out from under every other connected user in that environment, and it is live rather
+     * than theoretical: this decider is consulted BEFORE {@code hasResourceScope}, and a GRANT here returns ahead of
+     * the tenant-admin check and RBAC, so {@code PUT /api/automation/internal/connections/{id}} would have taken it.
      */
     private Decision resolveConnection(
         Serializable id, ConnectedUserProject connectedUserProject, Environment environment, String scope) {
@@ -689,30 +776,30 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * <p>
      * The first is OWNERSHIP -- the workflow belongs to the caller's own {@link ConnectedUserProject} -- and grants
      * every scope, because owning a workflow does entitle you to edit and delete it. That covers the embedded builder:
-     * {@code ConnectedUserProjectFacadeImpl.copyWorkflowTemplate} copies a catalog template into the connected user's
-     * OWN project before it is ever edited, so the builder's editing surfaces never present a catalog workflow id to a
-     * {@code WORKFLOW_EDIT} gate.
+     * {@code ConnectedUserProjectFacadeImpl.copyWorkflowTemplate} copies a automation workflow template into the
+     * connected user's OWN project before it is ever edited, so the builder's editing surfaces never present a
+     * automation workflow id to a {@code WORKFLOW_EDIT} gate.
      *
      * <p>
-     * The second is ENTITLEMENT: {@link #isVisibleCatalogWorkflow} grants an admin-owned published template because the
-     * caller can SEE it, which its own javadoc describes as being able to READ it. {@code WORKFLOW_EDIT} and
-     * {@code WORKFLOW_DELETE} are live tokens on this resource type, so before {@code catalogEntitlementApplies} the
-     * ability to see a template in the catalog listing answered GRANTED for editing and deleting the tenant admin's
-     * copy of it -- an edit every other connected user of that catalog would then inherit, and a delete that would take
-     * the template away from all of them. Same entitlement-mistaken-for-ownership defect as the shared connection, and
-     * live for the same reason: at the four {@code 'Workflow'}/{@code 'Job'}-carrying consumers listed on this class, a
-     * GRANT returned ahead of the tenant-admin check and RBAC, and at
-     * {@code AutomationMethodSecurityExpressionRoot.hasWorkflowScopeInEnvironment} the mere absence of a DENY fell
-     * through to a skip mode that granted any workflow id in the tenant.
+     * The second is ENTITLEMENT: {@link #isVisibleAutomationWorkflow} grants an admin-owned published template because
+     * the caller can SEE it, which its own javadoc describes as being able to READ it. {@code WORKFLOW_EDIT} and
+     * {@code WORKFLOW_DELETE} are live tokens on this resource type, so before
+     * {@code automationWorkflowEntitlementApplies} the ability to see a template in the automation workflow listing
+     * answered GRANTED for editing and deleting the tenant admin's copy of it -- an edit every other connected user of
+     * that automation workflow would then inherit, and a delete that would take the template away from all of them.
+     * Same entitlement-mistaken-for-ownership defect as the shared connection, and live for the same reason: at the
+     * four {@code 'Workflow'}/{@code 'Job'}-carrying consumers listed on this class, a GRANT returned ahead of the
+     * tenant-admin check and RBAC, and at {@code AutomationMethodSecurityExpressionRoot.hasWorkflowScopeInEnvironment}
+     * the mere absence of a DENY fell through to a skip mode that granted any workflow id in the tenant.
      *
      * <p>
      * The flag is computed by the caller from the allowlist matching the resource type's own scope enum; see
-     * {@link #resolve(Serializable, String, String)}. Skipping the catalog probe when it cannot grant anything also
-     * keeps the {@code getPublishedProjects} listing off every mutating check.
+     * {@link #resolve(Serializable, String, String)}. Skipping the automation workflows probe when it cannot grant
+     * anything also keeps the {@code getPublishedProjects} listing off every mutating check.
      */
     private Decision resolveWorkflow(
         Serializable id, ConnectedUserProject connectedUserProject, String externalUserId, Environment environment,
-        boolean catalogEntitlementApplies) {
+        boolean automationWorkflowEntitlementApplies) {
 
         if (!(id instanceof String workflowId)) {
             return Decision.DENIED;
@@ -722,17 +809,18 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.GRANTED;
         }
 
-        if (!catalogEntitlementApplies) {
+        if (!automationWorkflowEntitlementApplies) {
             return Decision.DENIED;
         }
 
-        return isVisibleCatalogWorkflow(workflowId, externalUserId, environment) ? Decision.GRANTED : Decision.DENIED;
+        return isVisibleAutomationWorkflow(workflowId, externalUserId, environment) ? Decision.GRANTED
+            : Decision.DENIED;
     }
 
     /**
      * The OWNERSHIP branch of {@link #resolveWorkflow}, extracted because {@link #resolveJob} asks the same question
      * and must answer it identically -- a job of a workflow in the caller's own project is theirs under every scope,
-     * and that is the guard a narrowing of the catalog arm must not disturb.
+     * and that is the guard a narrowing of the automation workflow arm must not disturb.
      */
     private boolean isOwnProjectWorkflow(String workflowId, ConnectedUserProject connectedUserProject) {
         Optional<Project> project = projectService.fetchWorkflowProject(workflowId);
@@ -747,13 +835,13 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
     }
 
     /**
-     * Mirrors {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.validateCatalogWorkflowTemplateVisible}: a connected
-     * user may legitimately read an admin-owned catalog workflow outside their own project, provided the catalog
-     * listing {@link AutomationWorkflowProjectFacade#getPublishedProjects(String, Environment)} would show them.
-     * Matched by the workflow's stable template uuid rather than its (republish-churning) workflow id, the same key the
-     * catalog listing itself uses.
+     * Mirrors {@code ConnectedUserWorkflowReferenceFacadeImpl.validateAutomationWorkflowTemplateVisible}: a connected
+     * user may legitimately read an admin-owned automation workflow outside their own project, provided the automation
+     * workflows listing {@link AutomationWorkflowProjectFacade#getPublishedProjects(String, Environment)} would show
+     * them. Matched by the workflow's stable template uuid rather than its (republish-churning) workflow id, the same
+     * key the automation workflow listing itself uses.
      */
-    private boolean isVisibleCatalogWorkflow(String workflowId, String externalUserId, Environment environment) {
+    private boolean isVisibleAutomationWorkflow(String workflowId, String externalUserId, Environment environment) {
         Optional<ProjectWorkflow> projectWorkflow = projectWorkflowService.fetchWorkflowProjectWorkflow(workflowId);
 
         if (projectWorkflow.isEmpty()) {
@@ -780,22 +868,22 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * every scope -- plus one predicate {@link #resolveWorkflow} has no use for.
      *
      * <p>
-     * The catalog arm has to stay open for {@code EXECUTION_VIEW}, because a connected user's run of a REFERENCED
-     * catalog workflow is a job on the catalog workflow id itself: {@code getOrCreateReference} provisions a
-     * {@code ProjectDeployment} on the CATALOG project and runs the catalog workflow with no copy taken (see
-     * {@link #CATALOG_READABLE_EXECUTION_SCOPES}). Denying the arm outright would hide users' own executions from them,
-     * so it is narrowed rather than closed.
+     * The automation workflow arm has to stay open for {@code EXECUTION_VIEW}, because a connected user's run of a
+     * REFERENCED automation workflow is a job on the automation workflow id itself: {@code getOrCreateReference}
+     * provisions a {@code ProjectDeployment} on the AUTOMATION WORKFLOW project and runs the automation workflow with
+     * no copy taken (see {@link #AUTOMATION_WORKFLOW_READABLE_EXECUTION_SCOPES}). Denying the arm outright would hide
+     * users' own executions from them, so it is narrowed rather than closed.
      *
      * <p>
-     * Narrowed by OWNERSHIP OF THE RUN, which the workflow id alone cannot express: a visible catalog template is
-     * shared by every connected user entitled to see it, so "any job of workflow X" spans all of their runs at once.
-     * {@code PrincipalJobService.fetchJobPrincipalId(jobId, PlatformType.AUTOMATION)} answers the run's
+     * Narrowed by OWNERSHIP OF THE RUN, which the workflow id alone cannot express: a visible automation workflow
+     * template is shared by every connected user entitled to see it, so "any job of workflow X" spans all of their runs
+     * at once. {@code PrincipalJobService.fetchJobPrincipalId(jobId, PlatformType.AUTOMATION)} answers the run's
      * {@code PrincipalJob.principalId}, which for {@code AUTOMATION} is the {@code projectDeploymentId} the run was
      * created under -- {@code ProjectDeploymentFacadeImpl.createProjectDeploymentWorkflowJob} passes exactly that id to
      * {@code PrincipalJobFacade.createJob}, and {@code ConnectedUserProjectTaskDispatcherPreSendProcessor} reads it
      * back the same way. Intersecting it with {@link #getOwnProjectDeploymentIds} answers "is this the caller's own
-     * run?" -- reference deployments are provisioned per (catalog project, connected user), so a run of the same
-     * template by a different connected user carries a different principal id and is now DENIED.
+     * run?" -- reference deployments are provisioned per (automation workflow project, connected user), so a run of the
+     * same template by a different connected user carries a different principal id and is now DENIED.
      *
      * <p>
      * Subflows inherit the answer for free: {@code PrincipalJobFacadeImpl.createChildJob} copies the parent's principal
@@ -805,18 +893,18 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * A job with NO {@code PrincipalJob} row -- an editor or test run, which {@code TestWorkflowExecutorImpl} starts
      * through {@code JobSyncExecutor} without registering a principal -- is denied on this arm rather than waved
      * through. That costs a connected user nothing: starting a test is gated
-     * {@code hasWorkflowScopeInEnvironment(#id, 'WORKFLOW_EDIT', ...)}, and {@code WORKFLOW_EDIT} on a catalog template
-     * is already DENIED by {@link #CATALOG_READABLE_WORKFLOW_SCOPES}, so no connected user can produce a principal-less
-     * job on a catalog workflow. Their own project's test runs are unaffected: those take the OWNED branch above, which
-     * never consults this predicate.
+     * {@code hasWorkflowScopeInEnvironment(#id, 'WORKFLOW_EDIT', ...)}, and {@code WORKFLOW_EDIT} on a automation
+     * workflow template is already DENIED by {@link #AUTOMATION_WORKFLOW_READABLE_WORKFLOW_SCOPES}, so no connected
+     * user can produce a principal-less job on a automation workflow. Their own project's test runs are unaffected:
+     * those take the OWNED branch above, which never consults this predicate.
      *
      * <p>
-     * The ownership test runs BEFORE {@link #isVisibleCatalogWorkflow} because it is the cheaper of the two -- two
+     * The ownership test runs BEFORE {@link #isVisibleAutomationWorkflow} because it is the cheaper of the two -- two
      * keyed reads against the {@code getPublishedProjects} listing -- and because it is the stronger predicate.
      */
     private Decision resolveJob(
         Serializable id, ConnectedUserProject connectedUserProject, String externalUserId, Environment environment,
-        boolean catalogEntitlementApplies) {
+        boolean automationWorkflowEntitlementApplies) {
 
         if (!(id instanceof Number number)) {
             return Decision.DENIED;
@@ -837,7 +925,7 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.GRANTED;
         }
 
-        if (!catalogEntitlementApplies) {
+        if (!automationWorkflowEntitlementApplies) {
             return Decision.DENIED;
         }
 
@@ -845,7 +933,8 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.DENIED;
         }
 
-        return isVisibleCatalogWorkflow(workflowId, externalUserId, environment) ? Decision.GRANTED : Decision.DENIED;
+        return isVisibleAutomationWorkflow(workflowId, externalUserId, environment) ? Decision.GRANTED
+            : Decision.DENIED;
     }
 
     /**

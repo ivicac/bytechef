@@ -112,6 +112,49 @@ class AutomationMethodSecurityExpressionRootTest {
     }
 
     @Test
+    void testIsConnectedUserWhenTheResolverGovernsTheCaller() {
+        ResourceMembershipResolver resourceMembershipResolver = mock(ResourceMembershipResolver.class);
+
+        when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(resourceMembershipResolver);
+        when(resourceMembershipResolver.governsCurrentPrincipal()).thenReturn(true);
+
+        assertThat(root.isConnectedUser()).isTrue();
+    }
+
+    @Test
+    void testIsConnectedUserForAByteChefUser() {
+        ResourceMembershipResolver resourceMembershipResolver = mock(ResourceMembershipResolver.class);
+
+        when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(resourceMembershipResolver);
+        when(resourceMembershipResolver.governsCurrentPrincipal()).thenReturn(false);
+
+        assertThat(root.isConnectedUser()).isFalse();
+    }
+
+    @Test
+    void testIsConnectedUserInCommunityEditionWhereNoResolverIsRegistered() {
+        when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(null);
+
+        assertThat(root.isConnectedUser()).isFalse();
+    }
+
+    /**
+     * The other built-ins short-circuit to {@code true} under skip mode; this one must not. Skip mode arms nothing for
+     * a principal the resolver governs, so answering "yes, a connected user" for a caller that is not one would widen
+     * every expression it appears in.
+     */
+    @Test
+    void testIsConnectedUserIsNotShortCircuitedUnderSkipChecks() throws Throwable {
+        when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(null);
+
+        AutomationAuthorizationContext.callSkippingChecks(() -> {
+            assertThat(root.isConnectedUser()).isFalse();
+
+            return null;
+        });
+    }
+
+    @Test
     void testIsResourceOwnerShortCircuitsUnderSkipChecks() throws Throwable {
         AutomationAuthorizationContext.callSkippingChecks(() -> {
             assertThat(root.isResourceOwner(9L, "ApiKey")).isTrue();
