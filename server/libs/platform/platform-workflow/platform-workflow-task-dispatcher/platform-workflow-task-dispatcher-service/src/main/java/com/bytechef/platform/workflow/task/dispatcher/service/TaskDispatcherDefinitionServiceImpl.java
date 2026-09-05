@@ -209,6 +209,7 @@ public class TaskDispatcherDefinitionServiceImpl implements TaskDispatcherDefini
             componentName, componentVersion);
 
         return taskDispatcherDefinition.isOutputFunctionDefined() ||
-            taskDispatcherDefinition.isVariablePropertiesDefined();
+            taskDispatcherDefinition.isVariablePropertiesDefined() ||
+            taskDispatcherDefinition.isOutputDefined();
     }
 }
