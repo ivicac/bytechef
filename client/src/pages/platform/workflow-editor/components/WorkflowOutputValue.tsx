@@ -23,7 +23,7 @@ const WorkflowOutputValue = ({
 
                     return (
                         <div
-                            className="flex items-center rounded-full border bg-gray-100 px-2 py-0.5"
+                            className="flex items-center rounded-full border bg-surface-neutral-secondary px-2 py-0.5"
                             key={`${partValue}_${index}`}
                         >
                             <InlineSVG className="mr-2 size-4" src={componentIcon} />

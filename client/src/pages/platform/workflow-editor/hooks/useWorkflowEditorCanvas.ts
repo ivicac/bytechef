@@ -83,6 +83,29 @@ interface UseWorkflowEditorCanvasParamsI {
     taskDispatcherDefinitions: TaskDispatcherDefinitionBasic[];
 }
 
+/**
+ * On-screen gap between the canvas's top edge and the topmost node, so the graph does not start
+ * flush against the border.
+ *
+ * Applied against that node's own coordinate rather than as a bare viewport offset, because the
+ * graph's origin is not its top edge: the layout engine places the first node at a different y per
+ * workflow, so a fixed offset yields a different visible gap each time and cannot be corrected by
+ * tuning the number.
+ *
+ * `NodeActionsHint` floats over the top of the canvas and relies on this to clear it, so shrinking
+ * this value means checking the hint no longer overlaps the first node.
+ */
+const CANVAS_TOP_INSET = 120;
+
+/**
+ * The node types the placement measures against: the ones representing a step the viewer actually
+ * sees at the top of the graph. The rest of the canvas is excluded on purpose — the add-step
+ * placeholders and dispatcher ghosts sit BELOW the graph and can be on the canvas a frame before
+ * the real nodes are (measuring them pushed the trigger a further ~40px down on a slow load than on
+ * a fast one), and a sticky note can be dragged anywhere at all, including far above the graph.
+ */
+const PLACEMENT_NODE_TYPES = ['clusterRoot', 'graphFrame', 'readonly', 'triggerPlaceholder', 'workflow'];
+
 const useWorkflowEditorCanvas = ({
     componentDefinitions,
     customCanvasWidth,
@@ -121,7 +144,16 @@ const useWorkflowEditorCanvas = ({
     );
     const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
 
-    const {fitView, getInternalNode, screenToFlowPosition, setViewport} = useReactFlow();
+    const {fitView, getInternalNode, getNodes, screenToFlowPosition, setViewport} = useReactFlow();
+
+    // False until the canvas has been positioned once, which is what keeps the first placement from
+    // animating.
+    const viewportPlacedRef = useRef(false);
+
+    // The workflow whose graph has already been placed. `nodesInitialized` flips back to false
+    // whenever a node is added, so without this the placement effect would re-run and slide the
+    // canvas out from under the node the user just added.
+    const placedWorkflowIdRef = useRef<string | undefined>(undefined);
 
     // True once React Flow has measured every node's dimensions — fitView is a no-op before this, so we
     // gate the embedded fit-to-view on it (see the fitViewOnWorkflowChange effect below).
@@ -882,29 +914,62 @@ const useWorkflowEditorCanvas = ({
             setCurrentWorkflowUuid(workflowUuid);
         }
 
-        if (fitViewOnWorkflowChange) {
+        // Keyed on `workflowId` rather than `workflowUuid`: the embedded builder's workflow carries
+        // no uuid, so gating the placement on one skipped it there entirely and left the canvas at
+        // React Flow's default viewport — which is why tuning the clearance appeared to do nothing.
+        //
+        // Node positions are only readable once React Flow has laid the graph out, and the
+        // placement is per workflow: `nodesInitialized` goes false again on every node add.
+        if (fitViewOnWorkflowChange || !workflowId || !nodesInitialized || placedWorkflowIdRef.current === workflowId) {
             return;
         }
+
+        // Top-level nodes only — a child node's `position` is relative to its parent frame.
+        const placementNodes = getNodes().filter(
+            (node) => !node.parentId && PLACEMENT_NODE_TYPES.includes(node.type ?? '')
+        );
+
+        // `nodesInitialized` can go true on a frame holding only placeholders, before the graph
+        // itself is on the canvas. Leaving the per-workflow slot unclaimed lets this run again when
+        // the real nodes arrive, rather than anchoring the viewport to a placeholder.
+        if (placementNodes.length === 0) {
+            return;
+        }
+
+        placedWorkflowIdRef.current = workflowId;
+
+        const topNodeY = Math.min(...placementNodes.map((node) => node.position.y));
 
         setViewport(
             {
                 x: 0,
-                y: 0,
+                // Translates the graph so its topmost node lands the inset below the canvas's
+                // top edge.
+                y: CANVAS_TOP_INSET - (Number.isFinite(topNodeY) ? topNodeY : 0),
                 zoom: 1,
             },
             {
-                duration: 500,
+                // Instant the first time, animated afterwards. Moving BETWEEN workflows benefits
+                // from the slide — it shows the canvas being repositioned rather than swapped —
+                // but on the first placement there is nothing to move from, so the animation reads
+                // as the whole flow sliding into place every time the editor is opened or the page
+                // refreshed.
+                duration: viewportPlacedRef.current ? 500 : 0,
             }
         );
+
+        viewportPlacedRef.current = true;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workflowUuid]);
+    }, [workflowId, workflowUuid, nodesInitialized]);
 
     useEffect(() => {
         if (!fitViewOnWorkflowChange || !nodesInitialized) {
             return;
         }
 
-        fitView({maxZoom: 1, minZoom: 0.2, padding: 0.2});
+        // Extra room at the top so the graph does not start flush against the canvas border;
+        // fitting to the full height put the trigger right on it.
+        fitView({maxZoom: 1, minZoom: 0.2, padding: {bottom: 0.2, left: 0.2, right: 0.2, top: '72px'}});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fitViewOnWorkflowChange, nodesInitialized, workflowUuid, customCanvasWidth]);
 

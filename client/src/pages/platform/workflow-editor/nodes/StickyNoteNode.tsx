@@ -22,6 +22,12 @@ import {
     updateStickyNote,
 } from '../utils/stickyNoteUtils';
 
+/*
+ * Literal palette colours on purpose, and deliberately exempt from the editor's dark-mode
+ * tokenisation: a note's colour is content its author chose, not chrome that follows the theme — a
+ * yellow note stays yellow in dark mode, and `isDarkBackground` contrasts the text against THAT
+ * colour rather than against the app's. Tokenising these would repaint every note ever written.
+ */
 const STICKY_NOTE_COLOR_CLASSES: Record<WorkflowStickyNotePresetColorType, {container: string; swatch: string}> = {
     blue: {container: 'border-blue-200 bg-blue-100', swatch: 'bg-blue-200'},
     gray: {container: 'border-gray-200 bg-gray-100', swatch: 'bg-gray-300'},

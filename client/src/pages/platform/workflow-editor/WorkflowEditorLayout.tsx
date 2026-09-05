@@ -272,7 +272,7 @@ const WorkflowEditorLayout = ({
         <ReactFlowProvider>
             <div
                 className={twMerge(
-                    'relative mx-3 mb-3 flex w-full',
+                    'relative mx-3 mt-1.5 mb-3 flex w-full',
                     leftSidebarOpen && 'ml-0',
                     copilotLayoutShifted && 'mr-0'
                 )}
