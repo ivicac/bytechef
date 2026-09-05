@@ -118,8 +118,6 @@ public abstract class AbstractWebhookTriggerController {
         }
 
         if (webhookTriggerFlags.workflowSyncExecution()) {
-            // The job runs on the distributed coordinator; the future completes when it reaches a terminal status,
-            // so the controller can stay non-blocking (async-servlet) while the workflow runs.
             return webhookWorkflowExecutor.executeSync(workflowExecutionId, webhookRequest)
                 .thenApply(outputs -> {
                     if (outputs instanceof Map<?, ?> responseMap &&
