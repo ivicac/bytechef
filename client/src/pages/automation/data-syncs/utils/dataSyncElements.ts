@@ -15,7 +15,13 @@ export function findElement<T extends ElementLikeI>(
     return (dataSync.elements ?? []).find((element): element is T => element != null && element.kind === kind);
 }
 
-/** The lowercase key the generated workflow uses for this slot — also the `clusterElementsCount` key. */
+/**
+ * The lowercase key the generated workflow uses for this slot — e.g. the node name `source_1` (see
+ * {@link elementNodeName}). This is NOT the `clusterElementsCount` key: that map is keyed by the cluster
+ * element type's UPPERCASE name (`SOURCE` / `DESTINATION`), reachable via
+ * `convertNameToSnakeCase(elementKindKey(kind))`. A filter written against this function's own lowercase
+ * output would silently match nothing and yield an empty picker with no error.
+ */
 export function elementKindKey(kind: DataSyncElementKind): 'destination' | 'processor' | 'source' {
     if (kind === DataSyncElementKind.Source) {
         return 'source';
