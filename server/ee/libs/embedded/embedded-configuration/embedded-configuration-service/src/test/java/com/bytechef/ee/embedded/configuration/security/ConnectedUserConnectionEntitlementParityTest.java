@@ -39,6 +39,9 @@ import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.List;
@@ -155,6 +158,7 @@ class ConnectedUserConnectionEntitlementParityTest {
         resolver = new ConnectedUserResourceMembershipResolver(
             mock(AutomationWorkflowProjectFacade.class), connectedUserConnectionMembership, connectedUserProjectService,
             mock(ConnectedUserProjectWorkflowService.class), connectedUserService, mock(JobService.class),
+            mock(McpComponentService.class), mock(McpServerService.class), mock(McpToolService.class),
             mock(PrincipalJobService.class), mock(ProjectDeploymentService.class), mock(ProjectService.class),
             mock(ProjectWorkflowService.class));
     }
