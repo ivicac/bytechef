@@ -75,9 +75,11 @@ import {
     extractClusterElementComponentOperations,
 } from '../../../cluster-element-editor/utils/clusterElementsUtils';
 import useWorkflowVariables from '../../hooks/useWorkflowVariables';
+import useDataPillPanelStore from '../../stores/useDataPillPanelStore';
 import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../../stores/useWorkflowNodeDetailsPanelStore';
+import getDataPillPanelNodeOutputs from '../../utils/getDataPillPanelNodeOutputs';
 import getDataPillsFromProperties from '../../utils/getDataPillsFromProperties';
 import getOutputSchemaFromWorkflowNodeOutput from '../../utils/getOutputSchemaFromWorkflowNodeOutput';
 import getParametersWithDefaultValues from '../../utils/getParametersWithDefaultValues';
@@ -181,6 +183,8 @@ export default function useWorkflowNodeDetailsPanel({
     );
 
     const variables = useWorkflowVariables();
+
+    const setDataPillPanelHasContent = useDataPillPanelStore((state) => state.setDataPillPanelHasContent);
 
     const queryClient = useQueryClient();
 
@@ -1279,6 +1283,12 @@ export default function useWorkflowNodeDetailsPanel({
             setDataPills(calculatedDataPills);
         }
     }, [calculatedDataPills, setDataPills]);
+
+    useEffect(() => {
+        const hasNodeOutputs = getDataPillPanelNodeOutputs(workflowNodeOutputs ?? [], currentNode?.name).length > 0;
+
+        setDataPillPanelHasContent(hasNodeOutputs || !!workflow.inputs?.length || !!variables?.length);
+    }, [currentNode?.name, setDataPillPanelHasContent, variables, workflow.inputs, workflowNodeOutputs]);
 
     // Set sample outputs only when the calculated sample outputs change
     useEffect(() => {
