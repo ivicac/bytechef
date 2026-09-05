@@ -1,5 +1,6 @@
 import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
+import {HubBuilderContext} from '@/ee/pages/embedded/automation-hub/hubBuilderContext';
 import OutputPanelButton from '@/ee/pages/embedded/workflow-builder/components/workflow-builder-header/components/OutputButton';
 import PublishPopover from '@/ee/pages/embedded/workflow-builder/components/workflow-builder-header/components/PublishPopover';
 import WorkflowActionsButton from '@/ee/pages/embedded/workflow-builder/components/workflow-builder-header/components/WorkflowActionsButton';
@@ -12,8 +13,8 @@ import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.
 import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {onlineManager, useIsFetching, useQueryClient} from '@tanstack/react-query';
-import {EditIcon} from 'lucide-react';
-import {RefObject} from 'react';
+import {ArrowLeftIcon, EditIcon} from 'lucide-react';
+import {RefObject, useContext} from 'react';
 import {PanelImperativeHandle} from 'react-resizable-panels';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -58,6 +59,8 @@ const WorkflowBuilderHeader = ({
         projectId,
     });
 
+    const hubBuilderContext = useContext(HubBuilderContext);
+
     const isOnline = onlineManager.isOnline();
 
     // if (!project) {
@@ -67,6 +70,25 @@ const WorkflowBuilderHeader = ({
     return (
         <header className="flex items-center justify-between bg-transparent px-3 py-2.5">
             <div className="flex items-center gap-2">
+                {/* Only the hub supplies this: inside the hub the builder is a route with nowhere
+                    else to go back to, and putting the control here rather than in a bar above
+                    keeps the workflow's name on screen once. */}
+
+                {hubBuilderContext?.onBack && (
+                    <Button
+                        aria-label="Back to automations"
+                        // Cancels the icon button's own 10px padding so the ARROW ITSELF starts
+                        // exactly where the canvas below it starts: header `px-3` and canvas `mx-3`
+                        // are the same 12px from the page gutter, and this removes the only
+                        // difference left between them. Holds at any gutter width.
+                        className="-ml-2.5"
+                        icon={<ArrowLeftIcon />}
+                        onClick={hubBuilderContext.onBack}
+                        size="icon"
+                        variant="ghost"
+                    />
+                )}
+
                 <div>{workflow.label}</div>
 
                 <div></div>

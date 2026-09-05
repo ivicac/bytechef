@@ -1,13 +1,17 @@
+import {AutomationHubThemeI} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import {useEffect, useRef} from 'react';
 
 export interface EmbedInitParamsI {
     connectionDialogAllowed?: boolean;
+    defaultLayout?: 'grid' | 'list';
+    editWorkflowAllowed?: boolean;
     environment?: string;
     includeComponents?: string[];
     jwtToken?: string;
+    layoutSwitcherAllowed?: boolean;
     sharedConnectionIds?: number[];
     tabs?: {automations?: boolean; connections?: boolean; newWorkflow?: boolean};
-    theme?: {borderRadius?: string; fontFamily?: string; mode?: 'dark' | 'light'; primaryColor?: string};
+    theme?: AutomationHubThemeI;
 }
 
 /**

@@ -26,6 +26,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {useContext, useEffect, useRef, useState} from 'react';
 import {PanelImperativeHandle} from 'react-resizable-panels';
 import {useParams} from 'react-router-dom';
+import {useShallow} from 'zustand/react/shallow';
 
 export const useWorkflowBuilder = () => {
     const [initialized, setInitialized] = useState(false);
@@ -33,16 +34,32 @@ export const useWorkflowBuilder = () => {
 
     const hubContext = useContext(HubBuilderContext);
 
-    const {setWorkflow, workflow} = useWorkflowDataStore();
-    const {setShowConnectionNote} = useConnectionNoteStore();
-    const {setDataPillPanelOpen} = useDataPillPanelStore();
-    const {setRightSidebarOpen} = useRightSidebarStore();
-    const {setShowBottomPanelOpen, setShowEditWorkflowDialog} = useWorkflowEditorStore();
+    const {setWorkflow, workflow} = useWorkflowDataStore(
+        useShallow((state) => ({
+            setWorkflow: state.setWorkflow,
+            workflow: state.workflow,
+        }))
+    );
+    const setShowConnectionNote = useConnectionNoteStore((state) => state.setShowConnectionNote);
+    const setDataPillPanelOpen = useDataPillPanelStore((state) => state.setDataPillPanelOpen);
+    const setRightSidebarOpen = useRightSidebarStore((state) => state.setRightSidebarOpen);
+    const {setShowBottomPanelOpen, setShowEditWorkflowDialog} = useWorkflowEditorStore(
+        useShallow((state) => ({
+            setShowBottomPanelOpen: state.setShowBottomPanelOpen,
+            setShowEditWorkflowDialog: state.setShowEditWorkflowDialog,
+        }))
+    );
     const {
         reset: workflowNodeDetailsPanelStoreReset,
         setConnectionDialogAllowed,
         setWorkflowNodeDetailsPanelOpen,
-    } = useWorkflowNodeDetailsPanelStore();
+    } = useWorkflowNodeDetailsPanelStore(
+        useShallow((state) => ({
+            reset: state.reset,
+            setConnectionDialogAllowed: state.setConnectionDialogAllowed,
+            setWorkflowNodeDetailsPanelOpen: state.setWorkflowNodeDetailsPanelOpen,
+        }))
+    );
 
     const bottomResizablePanelRef = useRef<PanelImperativeHandle>(null);
 
