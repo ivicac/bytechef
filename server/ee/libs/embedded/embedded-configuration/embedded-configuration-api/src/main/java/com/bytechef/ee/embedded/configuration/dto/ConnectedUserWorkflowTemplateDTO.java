@@ -18,8 +18,20 @@ import java.util.List;
 @SuppressFBWarnings("EI")
 public record ConnectedUserWorkflowTemplateDTO(
     String workflowUuid, String label, String description, String lastModifiedDate,
-    List<Component> triggers, List<Component> components, String permissionExpression) {
+    List<Component> triggers, List<Component> components, List<Input> inputs, String permissionExpression) {
 
     public record Component(String name, String title, String icon) {
+    }
+
+    /**
+     * A value the connected user supplies before the automation runs, declared by the template workflow itself. The
+     * hub's activation wizard renders one field per entry and writes the answers to the connected user's own project
+     * deployment; a template that declares none skips that step entirely.
+     *
+     * <p>
+     * Deliberately NOT the whole of {@code Workflow.Input}: its {@code extensions} map is authoring metadata for the
+     * builder, and this record crosses into a vendor's page.
+     */
+    public record Input(String name, String label, String type, boolean required) {
     }
 }

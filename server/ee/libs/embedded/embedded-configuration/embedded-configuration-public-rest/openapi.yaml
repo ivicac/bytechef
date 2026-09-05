@@ -623,10 +623,6 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-          content:
-            application/json:
-              schema:
-                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -657,16 +653,43 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-          content:
-            application/json:
-              schema:
-                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/MissingConnectionError"
+      security:
+        - jwtBearerAuth: [ ]
+  /automation/workflows/{workflowUuid}/inputs:
+    put:
+      description: "Store the input values the connected user supplied for a workflow."
+      summary: "Store workflow input values"
+      tags:
+        - "connected-user-project-workflow"
+      operationId: "updateFrontendProjectWorkflowInputs"
+      parameters:
+        - name: "X-Environment"
+          description: "The environment."
+          in: "header"
+          required: false
+          schema:
+            $ref: '#/components/schemas/Environment'
+        - name: "workflowUuid"
+          description: "The workflow uuid."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkflowInputsRequest"
+        required: true
+      responses:
+        "204":
+          description: "Successful operation."
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/publish:
@@ -1187,10 +1210,6 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-          content:
-            application/json:
-              schema:
-                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -1485,10 +1504,6 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-          content:
-            application/json:
-              schema:
-                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -1525,16 +1540,49 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-          content:
-            application/json:
-              schema:
-                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/MissingConnectionError"
+      security:
+        - bearerAuth: [ ]
+  /{externalUserId}/automation/workflows/{workflowUuid}/inputs:
+    put:
+      description: "Store the input values a connected user supplied for a workflow."
+      summary: "Store workflow input values"
+      tags:
+        - "connected-user-project-workflow"
+      operationId: "updateProjectWorkflowInputs"
+      parameters:
+        - name: "X-Environment"
+          description: "The environment."
+          in: "header"
+          required: false
+          schema:
+            $ref: '#/components/schemas/Environment'
+        - name: "externalUserId"
+          description: "The external user id."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "workflowUuid"
+          description: "The workflow uuid."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkflowInputsRequest"
+        required: true
+      responses:
+        "204":
+          description: "Successful operation."
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/publish:
@@ -2067,6 +2115,15 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectComponent"
+        inputs:
+          description: "The values the connected user is asked for before this workflow runs."
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowInput"
+        inputValues:
+          description: "The values the connected user has already supplied, keyed by input name."
+          type: "object"
+          additionalProperties: true
     Connection:
       description: "Contains all required information to open a connection to a service defined by componentName parameter"
       type: "object"
@@ -2096,6 +2153,16 @@ components:
           description: "The created date."
           type: "string"
           format: "date-time"
+        shared:
+          description: "Whether a tenant admin marked this connection shared with every connected user in the\
+            \ environment. Shared and owned are independent: a connected user may own a connection the admin also\
+            \ shared, and can still modify that one -- see `editable`."
+          type: "boolean"
+        editable:
+          description: "Whether THIS connected user may reconnect or delete the connection, which is true only of the\
+            \ ones they own. A shared connection they do not own is listed and selectable but never modifiable: it\
+            \ belongs to the tenant admin who shared it, and changing it would act on every connected user at once."
+          type: "boolean"
     CreateConnectionRequest:
       type: "object"
       required:
@@ -2534,6 +2601,37 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectComponent"
+        inputs:
+          description: "The values the connected user is asked for before this workflow runs."
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowInput"
+    UpdateWorkflowInputsRequest:
+      type: "object"
+      description: "The input values a connected user supplied for a workflow."
+      required:
+        - "inputs"
+      properties:
+        inputs:
+          description: "Input values keyed by input name. An absent key clears that input."
+          type: "object"
+          additionalProperties: true
+    AutomationWorkflowProjectWorkflowInput:
+      type: "object"
+      description: "A value the connected user supplies before a catalog workflow runs."
+      properties:
+        name:
+          description: "The name of the input, and the key its value is stored under."
+          type: "string"
+        label:
+          description: "The label shown to the connected user."
+          type: "string"
+        type:
+          description: "The input type, e.g. STRING, NUMBER or BOOLEAN."
+          type: "string"
+        required:
+          description: "Whether a value must be supplied."
+          type: "boolean"
     AutomationWorkflowProjectComponent:
       type: "object"
       description: "A component used in a catalog workflow."
