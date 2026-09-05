@@ -1,13 +1,15 @@
 import {
     WireNodeConnectionRequestI,
     useCopyTemplateMutation,
+    useDeleteAutomationMutation,
     useDeprovisionReferenceMutation,
     useProvisionReferenceMutation,
     usePublishAutomationMutation,
     useSetAutomationEnabledMutation,
+    useUpdateAutomationInputsMutation,
     useWireNodeConnectionMutation,
 } from '@/ee/pages/embedded/automation-hub/mutations/automationHub.mutations';
-import {useGetWorkflowQuery} from '@/ee/pages/embedded/automation-hub/queries/automationHub.queries';
+import {useFetchWorkflow} from '@/ee/pages/embedded/automation-hub/queries/automationHub.queries';
 import {
     ActivationActionType,
     ActivationStateI,
@@ -21,10 +23,11 @@ import {
     ResponseError,
 } from '@/ee/shared/middleware/embedded/public';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
-import {Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
+import {Dispatch, useCallback, useMemo, useReducer, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 
 const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
+const UNREADABLE_DEFINITION_MESSAGE = 'The copied automation could not be read.';
 const WIRING_ERROR_MESSAGE = 'Your accounts could not be connected to this automation. Please try again.';
 
 interface WorkflowNodeI {
@@ -46,13 +49,10 @@ interface WorkflowNodeConnectionI {
 export interface ActivationFlowI {
     activate: () => Promise<void>;
     busy: boolean;
-    configure: () => Promise<void>;
     dispatch: Dispatch<ActivationActionType>;
+    editWorkflow: () => Promise<void>;
     openInBuilder: () => void;
-    retryWiring: () => Promise<void>;
     state: ActivationStateI;
-    wiringComplete: boolean;
-    wiringFailed: boolean;
 }
 
 /**
@@ -70,6 +70,10 @@ const toErrorMessage = (error: unknown): string => {
 /**
  * Both the provision and the enable endpoints report a connection they could not auto-wire as a
  * `MissingConnectionError` body on a 409; anything else is a plain failure.
+ *
+ * Call this AT MOST ONCE per error: reading the body consumes the response stream, so a second
+ * call on the same error throws and silently degrades a missing-connection 409 into an opaque
+ * failure. `activate` reads it once and passes the answer to everything that needs it.
  */
 const readMissingConnectionComponentName = async (error: unknown): Promise<string | undefined> => {
     if (!(error instanceof ResponseError) || error.response.status !== 409) {
@@ -209,19 +213,30 @@ export const useRequiredComponents = (template: AutomationWorkflowProjectWorkflo
 };
 
 /**
- * Owns the activation reducer plus every mutation the three wizard steps drive, and branches the
- * two catalog kinds:
+ * Owns the activation reducer plus every mutation the wizard drives.
  *
- * - `COPY` copies the template into the connected user's own project, wires the selected
- *   connections onto the copy's nodes, and must PUBLISH the copy before enabling it —
- *   `enableProjectWorkflow` refuses a copy that is not in the active deployment.
+ * Walking the wizard writes NOTHING. The connect and configure steps only collect and show the
+ * user's choices; the entire server-side sequence runs behind the Activate button, so closing the
+ * dialog at any earlier point leaves the connected user's account exactly as it was. That is a
+ * deliberate reversal of the original flow, which copied the template the moment the user left the
+ * connect step and left a disabled automation behind on every abandoned wizard.
+ *
+ * The two catalog kinds branch inside that one click:
+ *
+ * - `COPY` copies the template into the connected user's own project, reads the copy back to learn
+ *   which nodes to wire, wires the selected connections onto them, and must PUBLISH the copy
+ *   before enabling it — `enableProjectWorkflow` refuses a copy that is not in the active
+ *   deployment. Publishing snapshots the workflow's connections into the deployment, which is why
+ *   the wiring PUTs are awaited in order rather than fired off in parallel: publishing while one
+ *   is still in flight produces an enabled deployment with a partial connection list that only
+ *   fails at run time.
  * - `REFERENCE` provisions a reference against the shared catalog workflow, which auto-wires by
  *   component match, and enables it directly.
  *
- * Wiring is awaited rather than fired and forgotten: `publishProjectWorkflow` snapshots the
- * workflow's connections into the deployment, so publishing while a wiring PUT is still in flight —
- * or after one failed — produces an enabled deployment with a partial connection list that only
- * fails at run time. `wiringComplete` therefore gates the configure step's Next button.
+ * Because the chain can fail partway, every failure rolls back whatever that run created — a copy
+ * is deleted, a reference row is de-provisioned — so a failed activation is indistinguishable from
+ * one that never started. The single exception is a copy the user opened in the builder: they
+ * asked for that workflow to exist and may have edited it, so it outlives the wizard.
  */
 export const useActivationFlow = (
     template: AutomationWorkflowProjectWorkflowTemplate,
@@ -229,191 +244,159 @@ export const useActivationFlow = (
     requiredComponents: string[]
 ): ActivationFlowI => {
     const [pending, setPending] = useState(false);
-    const [wiredKey, setWiredKey] = useState<string>();
-    const [wiringRejected, setWiringRejected] = useState(false);
-    const [wiringPending, setWiringPending] = useState(false);
 
     const copiedWorkflowUuidRef = useRef<string>(undefined);
-    const referenceRowExistsRef = useRef(false);
-    const reportedDefinitionErrorRef = useRef<string>(undefined);
-    const unreadableDefinitionRef = useRef<string>(undefined);
-    const wiringRequestsRef = useRef<WireNodeConnectionRequestI[]>([]);
-    const wiringRunRef = useRef(0);
-    const wiringStartedKeyRef = useRef<string>(undefined);
 
-    const [state, dispatch] = useReducer(activationReducer, initialActivationState(kind, requiredComponents));
+    // The generated model makes every field optional; an input without a name has no key to store a
+    // value under, so it cannot be asked for and is dropped rather than rendered as a nameless box.
+    const templateInputs = useMemo(
+        () =>
+            (template.inputs ?? [])
+                .filter((input): input is typeof input & {name: string} => !!input.name)
+                .map(({label, name, required, type}) => ({label, name, required, type})),
+        [template.inputs]
+    );
+
+    const [state, dispatch] = useReducer(
+        activationReducer,
+        initialActivationState(kind, requiredComponents, templateInputs)
+    );
 
     const navigate = useNavigate();
 
+    const fetchWorkflow = useFetchWorkflow();
+
     const {mutateAsync: copyTemplate} = useCopyTemplateMutation();
+    const {mutateAsync: deleteAutomation} = useDeleteAutomationMutation();
     const {mutateAsync: deprovisionReference} = useDeprovisionReferenceMutation();
     const {mutateAsync: provisionReference} = useProvisionReferenceMutation();
     const {mutateAsync: publishAutomation} = usePublishAutomationMutation();
+    const {mutateAsync: updateAutomationInputs} = useUpdateAutomationInputsMutation();
     const {mutateAsync: setAutomationEnabled} = useSetAutomationEnabledMutation();
     const {mutateAsync: wireNodeConnection} = useWireNodeConnectionMutation();
 
-    const {
-        data: copiedWorkflow,
-        error: copiedWorkflowError,
-        refetch: refetchCopiedWorkflow,
-    } = useGetWorkflowQuery(kind === 'COPY' ? state.workflowUuid : undefined);
-
     const templateUuid = template.id!;
 
-    const wiringKey = useMemo(
-        () => (state.workflowUuid ? `${state.workflowUuid}:${JSON.stringify(state.selections)}` : undefined),
-        [state.selections, state.workflowUuid]
-    );
+    /**
+     * Reads the copy back and puts the chosen accounts onto its nodes. Reading and wiring are one
+     * unit as far as the user is concerned — both exist only to attach the accounts they picked,
+     * and neither can produce a missing-connection 409, which comes from provision and enable — so
+     * they collapse onto one message. An unreadable definition keeps its own, because "we could
+     * not connect your accounts" would be actively misleading about a copy that is malformed.
+     */
+    const wireCopiedWorkflow = useCallback(
+        async (workflowUuid: string) => {
+            let definitionJson: string | undefined;
 
-    // A COPY is only ready to publish once its connections are actually on the workflow. A
-    // REFERENCE is auto-wired server-side and has nothing to wait for.
-    const wiringComplete = kind !== 'COPY' || !state.workflowUuid || wiredKey === wiringKey;
+            try {
+                const workflow = await fetchWorkflow(workflowUuid);
 
-    // A definition that never arrived is as blocking as a rejected PUT, and just as retryable — the
-    // configure step would otherwise sit on "Connecting your accounts…" forever with no way out.
-    const wiringFailed = wiringRejected || (kind === 'COPY' && !!state.workflowUuid && !!copiedWorkflowError);
-
-    const runWiring = useCallback(
-        async (key: string, requests: WireNodeConnectionRequestI[]) => {
-            // Nothing cancels an in-flight run, so a superseded one must not write any state: the
-            // user can change a selection while the previous key's PUTs are still going, and an
-            // older run finishing last would otherwise strand `wiredKey` on the stale key —
-            // blocking Next with no failure to explain it and no retry on screen.
-            const runId = wiringRunRef.current + 1;
-
-            wiringRunRef.current = runId;
-
-            const isCurrentRun = () => wiringRunRef.current === runId;
-
-            setWiringRejected(false);
-
-            if (requests.length === 0) {
-                setWiredKey(key);
-
-                return;
+                definitionJson = workflow.definition;
+            } catch {
+                throw new Error(WIRING_ERROR_MESSAGE);
             }
 
-            setWiringPending(true);
+            let definition: WorkflowDefinitionI;
+
+            try {
+                definition = JSON.parse(definitionJson || '') as WorkflowDefinitionI;
+            } catch {
+                throw new Error(UNREADABLE_DEFINITION_MESSAGE);
+            }
 
             try {
                 // Sequential rather than parallel: these all PUT onto the same workflow, and a
                 // deterministic order makes a partial failure easy to reason about.
-                for (const request of requests) {
+                for (const request of buildWiringRequests(definition, state.selections, workflowUuid)) {
                     await wireNodeConnection(request);
-
-                    if (!isCurrentRun()) {
-                        return;
-                    }
                 }
-
-                setWiredKey(key);
             } catch {
-                if (isCurrentRun()) {
-                    setWiringRejected(true);
-
-                    dispatch({error: WIRING_ERROR_MESSAGE, type: 'FAILED'});
-                }
-            } finally {
-                if (isCurrentRun()) {
-                    setWiringPending(false);
-                }
+                throw new Error(WIRING_ERROR_MESSAGE);
             }
         },
-        [wireNodeConnection]
+        [fetchWorkflow, state.selections, wireNodeConnection]
     );
 
-    const retryWiring = useCallback(async () => {
-        const startedKey = wiringStartedKeyRef.current;
-
-        // Wiring never got as far as issuing a PUT — the copied workflow's definition is what
-        // failed to load. Reload it and let the wiring effect pick up from there.
-        if (!startedKey || startedKey !== wiringKey) {
-            setWiringRejected(false);
-
-            reportedDefinitionErrorRef.current = undefined;
-            unreadableDefinitionRef.current = undefined;
-            wiringStartedKeyRef.current = undefined;
-
-            await refetchCopiedWorkflow();
-
-            return;
-        }
-
-        await runWiring(startedKey, wiringRequestsRef.current);
-    }, [refetchCopiedWorkflow, runWiring, wiringKey]);
-
-    const configure = useCallback(async () => {
+    const activate = useCallback(async () => {
         setPending(true);
 
-        try {
-            if (kind === 'COPY') {
-                // Reuse the copy this wizard already made. `configure` runs again whenever the
-                // reducer clears `workflowUuid` (a missing-connection 409 does exactly that), and
-                // copying a second time would leave an orphaned automation behind.
-                const workflowUuid = copiedWorkflowUuidRef.current || (await copyTemplate(templateUuid));
+        // What this run has created so far, and therefore what it owes the account back if the
+        // rest of the chain fails. A copy the user opened in the builder is already in
+        // `copiedWorkflowUuidRef` and never lands in `createdWorkflowUuid`, which is exactly what
+        // exempts it from the rollback.
+        let createdWorkflowUuid: string | undefined;
+        let provisionAttempted = false;
+        let provisionSucceeded = false;
 
-                copiedWorkflowUuidRef.current = workflowUuid;
+        const undoPartialActivation = async (missingConnection: boolean) => {
+            try {
+                if (kind === 'REFERENCE') {
+                    // `getOrCreateReference` is
+                    // `@Transactional(noRollbackFor = MissingConnectionException.class)`, so the
+                    // 409 is the one provision failure that keeps its disabled row. Every other
+                    // provision failure already rolled its row back, and de-provisioning then
+                    // answers WORKFLOW_NOT_FOUND.
+                    if (provisionSucceeded || (provisionAttempted && missingConnection)) {
+                        await deprovisionReference(templateUuid);
+                    }
+                } else if (createdWorkflowUuid) {
+                    await deleteAutomation(createdWorkflowUuid);
 
-                dispatch({type: 'COPIED', workflowUuid});
-            } else {
-                // Only two outcomes leave a reference row behind: a successful provision, and a
-                // missing-connection 409 — `getOrCreateReference` is
-                // `@Transactional(noRollbackFor = MissingConnectionException.class)` precisely so
-                // that case keeps its disabled row. Every OTHER failure rolls the row back, and
-                // de-provisioning then throws WORKFLOW_NOT_FOUND, which would dead-end every
-                // subsequent retry. So the flag is armed by those two outcomes only — never by the
-                // mere fact that an attempt was made, and never read off
-                // `state.highlightedComponent`, which the user's re-selection clears.
-                if (referenceRowExistsRef.current) {
-                    await deprovisionReference(templateUuid);
-
-                    referenceRowExistsRef.current = false;
+                    copiedWorkflowUuidRef.current = undefined;
                 }
+            } catch {
+                // A rollback that fails leaves the same orphan every abandoned wizard used to
+                // leave. There is nothing further to try, and the activation failure is the one
+                // the user needs to read.
+            }
+        };
+
+        try {
+            let workflowUuid: string;
+
+            if (kind === 'COPY') {
+                if (copiedWorkflowUuidRef.current) {
+                    workflowUuid = copiedWorkflowUuidRef.current;
+                } else {
+                    workflowUuid = await copyTemplate(templateUuid);
+
+                    copiedWorkflowUuidRef.current = workflowUuid;
+                    createdWorkflowUuid = workflowUuid;
+                }
+
+                await wireCopiedWorkflow(workflowUuid);
+
+                await publishAutomation(workflowUuid);
+            } else {
+                provisionAttempted = true;
 
                 await provisionReference(templateUuid);
 
-                referenceRowExistsRef.current = true;
-
-                dispatch({type: 'PROVISIONED', workflowUuid: templateUuid});
+                provisionSucceeded = true;
+                workflowUuid = templateUuid;
             }
-        } catch (error) {
-            const missingConnectionComponentName = await readMissingConnectionComponentName(error);
 
-            if (missingConnectionComponentName) {
-                referenceRowExistsRef.current = kind === 'REFERENCE';
-
-                dispatch({componentName: missingConnectionComponentName, type: 'MISSING_CONNECTION'});
-            } else {
-                dispatch({error: toErrorMessage(error), type: 'FAILED'});
-            }
-        } finally {
-            setPending(false);
-        }
-    }, [copyTemplate, deprovisionReference, kind, provisionReference, templateUuid]);
-
-    const activate = useCallback(async () => {
-        const workflowUuid = state.workflowUuid;
-
-        if (!workflowUuid) {
-            return;
-        }
-
-        setPending(true);
-
-        try {
-            if (kind === 'COPY') {
-                await publishAutomation(workflowUuid);
+            // After publish, before enable: the inputs live on the project deployment publishing
+            // creates, and the workflow should not start running before it has the values it was
+            // asked for.
+            if (state.inputs.length > 0) {
+                await updateAutomationInputs({inputs: state.inputValues, workflowUuid});
             }
 
             await setAutomationEnabled({enabled: true, workflowUuid});
 
-            dispatch({type: 'ACTIVATED'});
+            dispatch({type: 'ACTIVATED', workflowUuid});
         } catch (error) {
+            // Read once, before the rollback: consuming the response body twice would turn a
+            // missing-connection 409 into an opaque failure, and the rollback needs the answer to
+            // decide whether the server kept the reference row.
+            const missingConnectionComponentName = await readMissingConnectionComponentName(error);
+
+            await undoPartialActivation(missingConnectionComponentName !== undefined);
+
             // `doEnableProjectWorkflow` reports a connection it could not resolve with the same
             // 409 body the provision path uses, so an enable-time miss drives the same highlight
             // loop instead of an opaque failure message.
-            const missingConnectionComponentName = await readMissingConnectionComponentName(error);
-
             if (missingConnectionComponentName) {
                 dispatch({componentName: missingConnectionComponentName, type: 'MISSING_CONNECTION'});
             } else {
@@ -422,114 +405,74 @@ export const useActivationFlow = (
         } finally {
             setPending(false);
         }
-    }, [kind, publishAutomation, setAutomationEnabled, state.workflowUuid]);
+    }, [
+        copyTemplate,
+        deleteAutomation,
+        deprovisionReference,
+        kind,
+        provisionReference,
+        publishAutomation,
+        setAutomationEnabled,
+        state.inputValues,
+        state.inputs.length,
+        updateAutomationInputs,
+        templateUuid,
+        wireCopiedWorkflow,
+    ]);
 
     const openInBuilder = useCallback(() => {
         navigate(`/embedded/hub/builder/${state.workflowUuid}`);
     }, [navigate, state.workflowUuid]);
 
-    useEffect(() => {
-        const workflowUuid = state.workflowUuid;
-
-        if (kind !== 'COPY' || !workflowUuid || !wiringKey || !copiedWorkflow?.definition) {
+    /**
+     * Opens the copy in the builder from any step, and so makes the copy first — the one place
+     * where the wizard writes before Activate, because there is no way to open a builder on a
+     * workflow that does not exist. It is an explicit request rather than a side effect of walking
+     * the wizard, which is why the copy it makes survives a later failed activation.
+     *
+     * It reuses `copiedWorkflowUuidRef` because the server rejects a second copy of one template
+     * for one connected user with a unique-constraint violation, so copying again would 500 rather
+     * than produce a second automation.
+     *
+     * Offered for a COPY only. A REFERENCE points at the shared catalog workflow itself, which the
+     * connected user must never edit.
+     */
+    const editWorkflow = useCallback(async () => {
+        if (kind !== 'COPY') {
             return;
         }
 
-        // Keyed on the selections as well as the copy, so going Back and picking a different
-        // account re-wires the copy instead of silently keeping the first choice; an unchanged
-        // selection never issues the same PUT twice. `state.step` is a dependency so that
-        // re-entering the configure step after the reset below genuinely re-runs the wiring, even
-        // when the user re-picked the very same connection.
-        if (wiringStartedKeyRef.current === wiringKey) {
+        const existingWorkflowUuid = state.workflowUuid || copiedWorkflowUuidRef.current;
+
+        if (existingWorkflowUuid) {
+            navigate(`/embedded/hub/builder/${existingWorkflowUuid}`);
+
             return;
         }
 
-        // A definition that already failed to parse is not retried on sight: `copiedWorkflow` is a
-        // fresh object on every query render, so without this the effect would re-enter — and
-        // re-dispatch — forever. `retryWiring` clears the ref, which is what makes Try again reload.
-        if (unreadableDefinitionRef.current === copiedWorkflow.definition) {
-            return;
-        }
-
-        let definition: WorkflowDefinitionI;
+        setPending(true);
 
         try {
-            definition = JSON.parse(copiedWorkflow.definition) as WorkflowDefinitionI;
-        } catch {
-            unreadableDefinitionRef.current = copiedWorkflow.definition;
+            const workflowUuid = await copyTemplate(templateUuid);
 
-            // `wiringRejected` is what makes `wiringFailed` true, and without it the configure step
-            // rendered "Connecting your accounts…" forever underneath this very banner. The wiring
-            // key stays UNCLAIMED so `retryWiring` takes its reload branch — there are no requests
-            // to re-issue, the definition itself is what has to come back.
-            setWiringRejected(true);
+            copiedWorkflowUuidRef.current = workflowUuid;
 
-            dispatch({error: 'The copied automation could not be read.', type: 'FAILED'});
+            dispatch({type: 'COPIED', workflowUuid});
 
-            return;
+            navigate(`/embedded/hub/builder/${workflowUuid}`);
+        } catch (error) {
+            dispatch({error: toErrorMessage(error), type: 'FAILED'});
+        } finally {
+            setPending(false);
         }
-
-        wiringStartedKeyRef.current = wiringKey;
-
-        wiringRequestsRef.current = buildWiringRequests(definition, state.selections, workflowUuid);
-
-        void runWiring(wiringKey, wiringRequestsRef.current);
-    }, [copiedWorkflow, kind, runWiring, state.selections, state.step, state.workflowUuid, wiringKey]);
-
-    // Declared AFTER the wiring effect on purpose: on the render where the step becomes `connect`
-    // the wiring effect runs first and still sees its own key, so clearing the key here cannot
-    // kick off a wiring run while the user is still choosing accounts.
-    useEffect(() => {
-        if (state.step !== 'connect' || !wiringFailed) {
-            return;
-        }
-
-        // Back from a failed wiring clears `state.error` and unmounts the configure step's Try
-        // again button, so without this the wizard would sit on the connect step with nothing to
-        // explain itself and nothing able to re-run the wiring — an identical re-selection
-        // produces an identical key and short-circuits the effect above.
-        wiringStartedKeyRef.current = undefined;
-
-        // Re-armed alongside it: BACK clears `state.error`, so leaving these set would bring the
-        // user back to a configure step carrying a Try again button and nothing that says why.
-        reportedDefinitionErrorRef.current = undefined;
-        unreadableDefinitionRef.current = undefined;
-
-        setWiringRejected(false);
-    }, [state.step, wiringFailed]);
-
-    useEffect(() => {
-        // Scoped to the configure step: BACK clears `state.error` on purpose, and re-reporting on
-        // the connect step would put a banner next to accounts the user is being asked to re-pick.
-        if (kind !== 'COPY' || state.step !== 'configure' || !state.workflowUuid || !copiedWorkflowError) {
-            return;
-        }
-
-        // Reported once per copy: a failed query re-renders with a fresh Error instance, and
-        // dispatching on every one of those would spin the reducer forever. `wiringFailed` stays
-        // derived from the live error, so Try again remains on screen either way, and the retry
-        // clears this ref so a second failure is reported again.
-        if (reportedDefinitionErrorRef.current === state.workflowUuid) {
-            return;
-        }
-
-        reportedDefinitionErrorRef.current = state.workflowUuid;
-
-        dispatch({error: WIRING_ERROR_MESSAGE, type: 'FAILED'});
-        // `state.step` is a dependency so that RETURNING to the configure step re-reports a still
-        // failing load: the reset effect above cleared the ref, and nothing else in this list
-        // changes on a BACK/NEXT round trip.
-    }, [copiedWorkflowError, kind, state.step, state.workflowUuid]);
+    }, [copyTemplate, kind, navigate, state.workflowUuid, templateUuid]);
 
     return {
         activate,
-        busy: pending || wiringPending,
-        configure,
+        busy: pending,
         dispatch,
+        editWorkflow,
         openInBuilder,
-        retryWiring,
         state,
-        wiringComplete,
-        wiringFailed,
     };
 };

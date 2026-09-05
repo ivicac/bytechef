@@ -7,7 +7,8 @@ import {
     Connection,
     ConnectionApi,
 } from '@/ee/shared/middleware/embedded/public';
-import {useQuery} from '@tanstack/react-query';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
+import {useCallback} from 'react';
 
 export const AutomationHubKeys = {
     automations: ['automationHub', 'automations'] as const,
@@ -72,3 +73,23 @@ export const useGetWorkflowQuery = (workflowUuid?: string) =>
         queryFn: () => new ConnectedUserProjectWorkflowApi().getFrontendProjectWorkflow({workflowUuid: workflowUuid!}),
         queryKey: AutomationHubKeys.workflow(workflowUuid!),
     });
+
+/**
+ * The imperative counterpart of {@link useGetWorkflowQuery}, for the one caller that needs a
+ * workflow in the middle of a sequence rather than as render state: activation copies a template
+ * and must read the copy back to learn which nodes to wire, all within one click. Going through
+ * the query client rather than the API directly keeps the result in the same cache entry the
+ * builder view reads.
+ */
+export const useFetchWorkflow = () => {
+    const queryClient = useQueryClient();
+
+    return useCallback(
+        (workflowUuid: string) =>
+            queryClient.fetchQuery<ConnectedUserProjectWorkflow>({
+                queryFn: () => new ConnectedUserProjectWorkflowApi().getFrontendProjectWorkflow({workflowUuid}),
+                queryKey: AutomationHubKeys.workflow(workflowUuid),
+            }),
+        [queryClient]
+    );
+};

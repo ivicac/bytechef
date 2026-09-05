@@ -9,6 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {useAutomationHubStore} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import ActivateStep from '@/ee/pages/embedded/automation-hub/wizard/ActivateStep';
 import ConfigureStep from '@/ee/pages/embedded/automation-hub/wizard/ConfigureStep';
 import ConnectAccountsStep from '@/ee/pages/embedded/automation-hub/wizard/ConnectAccountsStep';
@@ -19,7 +20,6 @@ import {
     AutomationWorkflowProjectWorkflowTemplate,
 } from '@/ee/shared/middleware/embedded/public';
 import {useMemo} from 'react';
-import {twMerge} from 'tailwind-merge';
 
 const REQUIRED_COMPONENTS_ERROR_MESSAGE = 'This automation could not be set up. Please try again.';
 
@@ -37,15 +37,25 @@ interface ActivationWizardContentProps {
 }
 
 const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: ActivationWizardContentProps) => {
-    const {activate, busy, configure, dispatch, openInBuilder, retryWiring, state, wiringComplete, wiringFailed} =
-        useActivationFlow(template, kind, requiredComponents);
-
-    const steps = useMemo(
-        () => (requiredComponents.length === 0 ? STEPS.filter(({step}) => step !== 'connect') : STEPS),
-        [requiredComponents.length]
+    const {activate, busy, dispatch, editWorkflow, openInBuilder, state} = useActivationFlow(
+        template,
+        kind,
+        requiredComponents
     );
 
-    const currentStepIndex = useMemo(() => steps.findIndex(({step}) => step === state.step), [state.step, steps]);
+    // Which steps this template actually has. A step nobody can answer is dropped: connect when no
+    // component needs a connection, configure when the template declares no inputs. There is no
+    // progress indicator -- the dialog is small enough that the footer's Back/Next/Activate say
+    // where you are -- but the list still decides whether Back has anywhere to go.
+    const steps = useMemo(
+        () =>
+            STEPS.filter(
+                ({step}) =>
+                    (step !== 'connect' || requiredComponents.length > 0) &&
+                    (step !== 'configure' || state.inputs.length > 0)
+            ),
+        [requiredComponents.length, state.inputs.length]
+    );
 
     // A fresh missing-connection highlight supersedes any earlier failure message: the reducer
     // deliberately leaves `error` in place on MISSING_CONNECTION, so rendering both would put a
@@ -53,27 +63,12 @@ const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: 
     // hidden while a retry is in flight.
     const errorShown = !!state.error && !state.highlightedComponent && !busy;
 
-    const backShown = state.step === 'activate' || (state.step === 'configure' && requiredComponents.length > 0);
+    const editWorkflowAllowed = useAutomationHubStore((state) => state.editWorkflowAllowed);
+
+    const backShown = state.step !== 'connect' && steps[0]?.step !== state.step;
 
     return (
         <>
-            <ol className="flex items-center gap-2 text-sm" data-testid="activation-wizard-stepper">
-                {steps.map(({label, step}, index) => (
-                    <li className="flex items-center gap-2" key={step}>
-                        {index > 0 && <span className="text-muted-foreground">/</span>}
-
-                        <span
-                            className={twMerge(
-                                'text-muted-foreground',
-                                (state.step === 'done' || index <= currentStepIndex) && 'font-medium text-foreground'
-                            )}
-                        >
-                            {label}
-                        </span>
-                    </li>
-                ))}
-            </ol>
-
             {errorShown && (
                 <Alert variant="destructive">
                     <AlertDescription>{state.error}</AlertDescription>
@@ -82,24 +77,16 @@ const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: 
 
             {state.step === 'connect' && <ConnectAccountsStep dispatch={dispatch} state={state} template={template} />}
 
-            {state.step === 'configure' && (
-                <ConfigureStep
-                    busy={busy}
-                    onConfigure={configure}
-                    onRetryWiring={retryWiring}
-                    state={state}
-                    template={template}
-                    wiringComplete={wiringComplete}
-                    wiringFailed={wiringFailed}
-                />
-            )}
+            {state.step === 'configure' && <ConfigureStep dispatch={dispatch} state={state} />}
 
-            {(state.step === 'activate' || state.step === 'done') && <ActivateStep state={state} template={template} />}
+            {(state.step === 'activate' || state.step === 'done') && (
+                <ActivateStep busy={busy} state={state} template={template} />
+            )}
 
             <DialogFooter>
                 {state.step === 'done' ? (
                     <>
-                        {kind === 'COPY' && (
+                        {kind === 'COPY' && editWorkflowAllowed && (
                             <Button label="Open in builder" onClick={openInBuilder} variant="outline" />
                         )}
 
@@ -107,6 +94,10 @@ const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: 
                     </>
                 ) : (
                     <>
+                        {kind === 'COPY' && editWorkflowAllowed && (
+                            <Button disabled={busy} label="Edit workflow" onClick={editWorkflow} variant="outline" />
+                        )}
+
                         {backShown && (
                             <Button
                                 disabled={busy}
@@ -120,15 +111,7 @@ const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: 
                             <Button disabled={busy} label="Activate" onClick={activate} />
                         ) : (
                             <Button
-                                disabled={
-                                    busy ||
-                                    // Scoped to the configure step: this is the shared Next
-                                    // button, and gating it on the connect step too would leave a
-                                    // failed wiring stranding the user there with no banner (BACK
-                                    // clears it) and no Try again (it lives in the configure step).
-                                    (state.step === 'configure' && !wiringComplete) ||
-                                    !canProceed(state)
-                                }
+                                disabled={busy || !canProceed(state)}
                                 label="Next"
                                 onClick={() => dispatch({type: 'NEXT'})}
                             />
@@ -147,7 +130,14 @@ interface ActivationWizardProps {
 }
 
 /**
- * The three-step activation wizard: connect accounts → configure → activate.
+ * The activation wizard: connect accounts → configure → activate, with either of the first two
+ * dropped when the template gives it nothing to ask. A template that needs no connections and
+ * declares no inputs opens straight on Activate.
+ *
+ * Configure earns its place only now that there is somewhere to put the answers: it used to render
+ * the same review as the Activate step because the public API had no endpoint that persisted
+ * per-user input values. `updateFrontendProjectWorkflowInputs` is that endpoint, and Activate calls
+ * it after publishing — the values live on the project deployment publishing creates.
  *
  * The required-component lookup is resolved BEFORE the flow mounts, because the reducer's initial
  * step is derived from it exactly once: mounting the flow against a still-loading (and therefore
@@ -163,8 +153,9 @@ interface ActivationWizardProps {
  * state and `copiedWorkflowUuidRef`, so a subsequent "Try again" would copy the template a second
  * time.
  *
- * Closing the dialog after step 2 leaves a disabled automation behind — honest state, which the
- * user can enable from its template card — so there is deliberately no cleanup on close.
+ * Closing the dialog before Activate leaves nothing behind: the wizard writes only inside the
+ * Activate click, and a failure there rolls back whatever it managed to create. The one exception
+ * is a copy made by "Edit workflow", which the user asked for explicitly.
  */
 const ActivationWizard = ({kind, onClose, template}: ActivationWizardProps) => {
     const {isError, isLoading, refetch, requiredComponents} = useRequiredComponents(template);

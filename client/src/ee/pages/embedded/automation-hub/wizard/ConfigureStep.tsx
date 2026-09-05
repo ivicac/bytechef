@@ -1,86 +1,55 @@
-import Button from '@/components/Button/Button';
-import LoadingDots from '@/components/LoadingDots';
-import SelectedConnectionsList from '@/ee/pages/embedded/automation-hub/wizard/SelectedConnectionsList';
-import {ActivationStateI} from '@/ee/pages/embedded/automation-hub/wizard/activationReducer';
-import {AutomationWorkflowProjectWorkflowTemplate} from '@/ee/shared/middleware/embedded/public';
-import {useEffect, useRef} from 'react';
+import {Input} from '@/components/Input/Input';
+import {Label} from '@/components/ui/label';
+import {ActivationActionType, ActivationStateI} from '@/ee/pages/embedded/automation-hub/wizard/activationReducer';
+import {Dispatch} from 'react';
 
 interface ConfigureStepProps {
-    busy: boolean;
-    onConfigure: () => void;
-    onRetryWiring: () => void;
+    dispatch: Dispatch<ActivationActionType>;
     state: ActivationStateI;
-    template: AutomationWorkflowProjectWorkflowTemplate;
-    wiringComplete: boolean;
-    wiringFailed: boolean;
 }
 
-/**
- * Step 2: runs the copy (COPY) or the provision (REFERENCE) the moment it is shown, then reports
- * what the automation ended up with. There is deliberately no inputs form in v1 — the public
- * frontend API has no endpoint that persists per-user workflow input values, so inputs are
- * configured in the builder after activation (spec §4 and §8).
- *
- * A COPY also has to have its connections wired onto the copied workflow here, and the step stays
- * un-advanceable until that settles — publishing an unwired copy produces a deployment that only
- * fails at run time.
- */
-const ConfigureStep = ({
-    busy,
-    onConfigure,
-    onRetryWiring,
-    state,
-    template,
-    wiringComplete,
-    wiringFailed,
-}: ConfigureStepProps) => {
-    const configureStartedRef = useRef(false);
-
-    useEffect(() => {
-        if (state.workflowUuid || state.error || configureStartedRef.current) {
-            return;
-        }
-
-        configureStartedRef.current = true;
-
-        onConfigure();
-    }, [onConfigure, state.error, state.workflowUuid]);
-
-    if (!state.workflowUuid) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-8" data-testid="configure-step-pending">
-                {state.error && !busy ? (
-                    <Button label="Try again" onClick={onConfigure} variant="outline" />
-                ) : (
-                    <LoadingDots />
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-4">
-            {template.description && <p className="text-sm text-muted-foreground">{template.description}</p>}
-
-            {state.requiredComponents.length > 0 && (
-                <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Connected accounts</h3>
-
-                    <SelectedConnectionsList state={state} template={template} />
-                </div>
-            )}
-
-            {wiringFailed && !busy ? (
-                <Button label="Try again" onClick={onRetryWiring} variant="outline" />
-            ) : (
-                <p className="text-sm text-muted-foreground">
-                    {wiringComplete
-                        ? 'You can fine-tune this automation in the builder once it is running.'
-                        : 'Connecting your accounts…'}
-                </p>
-            )}
-        </div>
-    );
+const INPUT_TYPE_ATTRIBUTES: Record<string, string> = {
+    DATE: 'date',
+    DATE_TIME: 'datetime-local',
+    EMAIL: 'email',
+    INTEGER: 'number',
+    NUMBER: 'number',
+    TIME: 'time',
+    URL: 'url',
 };
+
+/**
+ * The values the template asks its user for, one field per declared workflow input.
+ *
+ * Only reached when the template declares inputs — `initialActivationState` skips straight past it
+ * otherwise, the same way the connect step is skipped when no component needs a connection. Nothing
+ * is written here: the answers ride on the reducer until Activate publishes the automation and then
+ * stores them on the project deployment that publishing created.
+ */
+const ConfigureStep = ({dispatch, state}: ConfigureStepProps) => (
+    <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">This automation needs a few details before it can run.</p>
+
+        {state.inputs.map((input) => (
+            <div className="flex flex-col gap-1.5" key={input.name}>
+                <Label htmlFor={`activation-input-${input.name}`}>
+                    {input.label || input.name}
+
+                    {input.required && <span className="ml-0.5 text-destructive">*</span>}
+                </Label>
+
+                <Input
+                    id={`activation-input-${input.name}`}
+                    onChange={(event) =>
+                        dispatch({name: input.name, type: 'SET_INPUT_VALUE', value: event.target.value})
+                    }
+                    required={input.required}
+                    type={INPUT_TYPE_ATTRIBUTES[input.type ?? ''] ?? 'text'}
+                    value={`${state.inputValues[input.name] ?? ''}`}
+                />
+            </div>
+        ))}
+    </div>
+);
 
 export default ConfigureStep;

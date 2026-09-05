@@ -48,7 +48,7 @@ export interface SetAutomationEnabledRequestI {
 export const useSetAutomationEnabledMutation = () => {
     const queryClient = useQueryClient();
 
-    return useMutation<object, Error, SetAutomationEnabledRequestI>({
+    return useMutation<void, Error, SetAutomationEnabledRequestI>({
         mutationFn: ({enabled, workflowUuid}) =>
             enabled
                 ? new ConnectedUserProjectWorkflowApi().enableFrontendProjectWorkflow({workflowUuid})
@@ -85,6 +85,20 @@ export const usePublishAutomationMutation = () => {
         },
     });
 };
+
+/**
+ * Stores the values the connected user typed on the wizard's Configure step. It runs AFTER publish,
+ * because the inputs live on the project deployment that publishing creates -- there is nothing to
+ * write them to before that.
+ */
+export const useUpdateAutomationInputsMutation = () =>
+    useMutation<void, Error, {inputs: Record<string, unknown>; workflowUuid: string}>({
+        mutationFn: ({inputs, workflowUuid}) =>
+            new ConnectedUserProjectWorkflowApi().updateFrontendProjectWorkflowInputs({
+                updateWorkflowInputsRequest: {inputs},
+                workflowUuid,
+            }),
+    });
 
 export const useCreateBlankAutomationMutation = () => {
     const queryClient = useQueryClient();

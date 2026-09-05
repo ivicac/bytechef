@@ -14,7 +14,7 @@ import {ThemeProvider} from '@/shared/providers/theme-provider';
 import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {StrictMode} from 'react';
-import {RouterProvider, createBrowserRouter} from 'react-router-dom';
+import {RouterProvider, createHashRouter} from 'react-router-dom';
 
 const container = document.getElementById('root') as HTMLDivElement;
 const root = createRoot(container);
@@ -24,7 +24,7 @@ const queryClient = new QueryClient();
 // resolves in the background — the same first-paint win the workflow builder entry relies on.
 applicationInfoStore.getState().getApplicationInfo();
 
-const router = createBrowserRouter([
+const router = createHashRouter([
     {
         children: [
             {
@@ -45,11 +45,14 @@ const router = createBrowserRouter([
                         ),
                         path: 'connections',
                     },
+                    // Nested under the layout rather than a sibling of it: the hub's title and tab
+                    // strip stay on screen while a workflow is being edited, so the builder reads
+                    // as a section of the hub rather than a separate application it hands off to.
+                    {element: <HubBuilderView />, path: 'builder/:workflowUuid'},
                 ],
                 element: <AutomationHubLayout />,
                 path: 'hub',
             },
-            {element: <HubBuilderView />, path: 'hub/builder/:workflowUuid'},
         ],
         element: <EmbeddedAutomationHubApp />,
         path: '/embedded',
@@ -59,7 +62,7 @@ const router = createBrowserRouter([
 root.render(
     <StrictMode>
         <I18n>
-            <ThemeProvider defaultTheme="light">
+            <ThemeProvider defaultTheme="light" persist={false}>
                 <QueryClientProvider client={queryClient}>
                     <TooltipProvider>
                         <RouterProvider router={router} />

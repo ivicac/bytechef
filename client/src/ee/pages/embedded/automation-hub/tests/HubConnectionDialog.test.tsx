@@ -121,6 +121,24 @@ describe('HubConnectionDialog', () => {
         expect(screen.getByTestId('connection')).toHaveTextContent('');
     });
 
+    it('waits for the component definition before mounting the dialog, so a first open never seeds it with nothing', () => {
+        useGetComponentDefinitionQueryMock.mockReturnValue({data: undefined, error: null, isLoading: true});
+
+        const {rerender} = render(<HubConnectionDialog componentName="slack" onClose={vi.fn()} />);
+
+        expect(screen.queryByTestId('connection-dialog')).not.toBeInTheDocument();
+
+        useGetComponentDefinitionQueryMock.mockReturnValue({
+            data: {icon: '<svg/>', name: 'slack', title: 'Slack'},
+            error: null,
+            isLoading: false,
+        });
+
+        rerender(<HubConnectionDialog componentName="slack" onClose={vi.fn()} />);
+
+        expect(screen.getByTestId('connection-dialog')).toBeInTheDocument();
+    });
+
     it('filters the component picker to connection-capable components', () => {
         render(<HubConnectionDialog componentName="slack" onClose={vi.fn()} />);
 

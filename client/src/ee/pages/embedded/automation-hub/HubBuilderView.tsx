@@ -1,11 +1,9 @@
-import Button from '@/components/Button/Button';
 import {HubBuilderContext} from '@/ee/pages/embedded/automation-hub/hubBuilderContext';
 import {AutomationHubKeys, useGetWorkflowQuery} from '@/ee/pages/embedded/automation-hub/queries/automationHub.queries';
 import {useAutomationHubStore} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import WorkflowBuilder from '@/ee/pages/embedded/workflow-builder/WorkflowBuilder';
 import {useQueryClient} from '@tanstack/react-query';
-import {ArrowLeftIcon} from 'lucide-react';
-import {useMemo} from 'react';
+import {useCallback, useEffect, useMemo} from 'react';
 import {useNavigate, useParams} from 'react-router-dom';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -34,40 +32,41 @@ const HubBuilderView = () => {
 
     const queryClient = useQueryClient();
 
-    const {data: automation} = useGetWorkflowQuery(workflowUuid);
+    const {error: workflowError} = useGetWorkflowQuery(workflowUuid);
 
-    // `useWorkflowBuilder`'s effect depends on this context value by identity, so a fresh object
-    // per render would re-run it on every render of this component — inert today only because
-    // `useShallow` keeps the selected values referentially stable.
-    const hubBuilderContextValue = useMemo(
-        () => ({connectionDialogAllowed, includeComponents, sharedConnectionIds}),
-        [connectionDialogAllowed, includeComponents, sharedConnectionIds]
-    );
-
-    const handleBackClick = () => {
+    // Declared BEFORE the context value that closes over it: a `const` referenced from the memo's
+    // factory above its own initialisation throws `Cannot access 'handleBackClick' before
+    // initialization`, because the factory runs during that render (see CLAUDE.md's temporal
+    // dead zone note).
+    const handleBackClick = useCallback(() => {
         queryClient.invalidateQueries({queryKey: AutomationHubKeys.automations});
 
         navigate('/embedded/hub');
-    };
+    }, [navigate, queryClient]);
+
+    // `useWorkflowBuilder`'s effect depends on this context value by identity, so a fresh object
+    // per render would re-run it on every render of this component — inert today only because
+    // `useShallow` keeps the selected values referentially stable and `handleBackClick` is
+    // memoized.
+    const hubBuilderContextValue = useMemo(
+        () => ({connectionDialogAllowed, includeComponents, onBack: handleBackClick, sharedConnectionIds}),
+        [connectionDialogAllowed, handleBackClick, includeComponents, sharedConnectionIds]
+    );
+
+    // The route can outlive the workflow: the hub restores the route it was on across a host
+    // refresh, and the automation may have been deleted since. The builder has no tab strip to
+    // navigate away with, so a workflow that will not load has to return the viewer itself rather
+    // than leave them on an empty canvas with no way out.
+    useEffect(() => {
+        if (workflowError) {
+            navigate('/embedded/hub', {replace: true});
+        }
+    }, [navigate, workflowError]);
 
     return (
         <HubBuilderContext.Provider value={hubBuilderContextValue}>
-            <div className="flex size-full flex-col">
-                <div className="flex items-center gap-2 border-b px-4 py-2">
-                    <Button
-                        aria-label="Back to automations"
-                        icon={<ArrowLeftIcon />}
-                        onClick={handleBackClick}
-                        size="icon"
-                        variant="ghost"
-                    />
-
-                    <span className="text-sm font-medium">{automation?.label}</span>
-                </div>
-
-                <div className="relative flex-1">
-                    <WorkflowBuilder />
-                </div>
+            <div className="relative size-full">
+                <WorkflowBuilder />
             </div>
         </HubBuilderContext.Provider>
     );

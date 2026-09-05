@@ -2,6 +2,7 @@ import Button from '@/components/Button/Button';
 import DeleteAlertDialog from '@/components/DeleteAlertDialog';
 import LoadingDots from '@/components/LoadingDots';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import {Badge} from '@/components/ui/badge';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {useDeleteHubConnectionMutation} from '@/ee/pages/embedded/automation-hub/mutations/automationHub.mutations';
@@ -96,9 +97,7 @@ const ConnectionsView = () => {
     }
 
     return (
-        <div className="flex size-full flex-col gap-8 overflow-y-auto p-6">
-            <h1 className="text-lg font-semibold">Connections</h1>
-
+        <div className="flex size-full flex-col gap-4 overflow-y-auto">
             {connectionsError && (
                 <Alert variant="destructive">
                     <AlertTitle>Unable to load connections</AlertTitle>
@@ -111,7 +110,7 @@ const ConnectionsView = () => {
                 (!connections?.length ? (
                     <p className="text-sm text-muted-foreground">You have not connected any accounts yet.</p>
                 ) : (
-                    <Table>
+                    <Table className="[&_td:first-child]:pl-3 [&_th]:h-8 [&_th:first-child]:pl-3">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
@@ -120,7 +119,9 @@ const ConnectionsView = () => {
 
                                 <TableHead>Created</TableHead>
 
-                                <TableHead />
+                                <TableHead className="text-center">Shared</TableHead>
+
+                                <TableHead className="w-px" />
                             </TableRow>
                         </TableHeader>
 
@@ -156,38 +157,53 @@ const ConnectionsView = () => {
                                                     : ''}
                                             </TableCell>
 
-                                            <TableCell>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            aria-label="Connection actions"
-                                                            icon={<EllipsisVerticalIcon />}
-                                                            size="icon"
-                                                            variant="ghost"
-                                                        />
-                                                    </DropdownMenuTrigger>
+                                            <TableCell className="text-center">
+                                                {connection.shared ? (
+                                                    <Badge variant="outline">Shared</Badge>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
 
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => setReconnectingConnection(connection)}
-                                                        >
-                                                            <RefreshCwIcon /> Reconnect
-                                                        </DropdownMenuItem>
+                                            <TableCell className="w-px text-right">
+                                                {/* Withheld on a connection this user does not own: the server
+                                                    refuses to reauthorize or delete one, so offering the actions
+                                                    would promise something it then rejects. Independent of `shared`
+                                                    -- an owned connection the admin also shared stays editable. */}
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => setDeletingConnection(connection)}
-                                                            variant="destructive"
-                                                        >
-                                                            <Trash2Icon /> Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                {connection.editable !== false && (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                aria-label="Connection actions"
+                                                                icon={<EllipsisVerticalIcon />}
+                                                                size="icon"
+                                                                variant="ghost"
+                                                            />
+                                                        </DropdownMenuTrigger>
+
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() => setReconnectingConnection(connection)}
+                                                            >
+                                                                <RefreshCwIcon /> Reconnect
+                                                            </DropdownMenuItem>
+
+                                                            <DropdownMenuItem
+                                                                onClick={() => setDeletingConnection(connection)}
+                                                                variant="destructive"
+                                                            >
+                                                                <Trash2Icon /> Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                )}
                                             </TableCell>
                                         </TableRow>
 
                                         {deleteError?.connectionId === connection.id && (
                                             <TableRow>
-                                                <TableCell colSpan={4}>
+                                                <TableCell colSpan={5}>
                                                     <Alert variant="destructive">
                                                         <AlertDescription>{deleteError.message}</AlertDescription>
                                                     </Alert>
@@ -202,6 +218,7 @@ const ConnectionsView = () => {
                 ))}
 
             <DeleteAlertDialog
+                confirmLabel="Remove"
                 description={
                     deletingConnection
                         ? `This will remove "${deletingConnection.name}". This action cannot be undone.`
@@ -211,6 +228,7 @@ const ConnectionsView = () => {
                 onCancel={() => setDeletingConnection(undefined)}
                 onDelete={handleDeleteConfirm}
                 open={!!deletingConnection}
+                title="Remove connection?"
             />
 
             {reconnectingConnection?.componentName && (

@@ -79,10 +79,10 @@ describe('ConnectionsView', () => {
         });
     });
 
-    it('renders its own page heading', () => {
+    it('renders no page heading of its own, because the tab already names the section', () => {
         renderView();
 
-        expect(screen.getByRole('heading', {level: 1, name: 'Connections'})).toBeInTheDocument();
+        expect(screen.queryByRole('heading', {name: 'Connections'})).not.toBeInTheDocument();
     });
 
     it('shows a row per connection with its name and component title', () => {
@@ -106,7 +106,7 @@ describe('ConnectionsView', () => {
             within(screen.getByRole('row', {name: /My Slack/})).getByRole('button', {name: 'Connection actions'})
         );
         await user.click(screen.getByRole('menuitem', {name: /delete/i}));
-        await user.click(screen.getByRole('button', {name: 'Delete'}));
+        await user.click(screen.getByRole('button', {name: 'Remove'}));
 
         expect(deleteHubConnectionMutateMock).toHaveBeenCalledWith(1, expect.anything());
     });
@@ -131,7 +131,7 @@ describe('ConnectionsView', () => {
             within(screen.getByRole('row', {name: /My Slack/})).getByRole('button', {name: 'Connection actions'})
         );
         await user.click(screen.getByRole('menuitem', {name: /delete/i}));
-        await user.click(screen.getByRole('button', {name: 'Delete'}));
+        await user.click(screen.getByRole('button', {name: 'Remove'}));
 
         expect(await screen.findByText('This connection is still used by an enabled automation.')).toBeInTheDocument();
     });
@@ -151,7 +151,7 @@ describe('ConnectionsView', () => {
             within(screen.getByRole('row', {name: /My Slack/})).getByRole('button', {name: 'Connection actions'})
         );
         await user.click(screen.getByRole('menuitem', {name: /delete/i}));
-        await user.click(screen.getByRole('button', {name: 'Delete'}));
+        await user.click(screen.getByRole('button', {name: 'Remove'}));
 
         expect(await screen.findByText('Unable to delete this connection. Please try again.')).toBeInTheDocument();
         expect(screen.queryByText('This connection is still used by an enabled automation.')).not.toBeInTheDocument();
@@ -168,5 +168,69 @@ describe('ConnectionsView', () => {
         await user.click(screen.getByRole('menuitem', {name: /reconnect/i}));
 
         expect(screen.getByTestId('hub-connection-dialog')).toHaveTextContent('reconnect:hubspot:2');
+    });
+
+    // `shared` is the tenant admin's flag and `editable` is ownership; the two are independent, and
+    // deriving one from the other made an owned-and-shared connection report itself as not shared.
+    it('marks an owned connection the admin also shared, and still lets its owner act on it', () => {
+        useGetConnectionsQueryMock.mockReturnValue({
+            data: [
+                {
+                    componentName: 'slack',
+                    createdDate: new Date('2025-01-02'),
+                    editable: true,
+                    id: 1,
+                    name: 'My Slack',
+                    shared: true,
+                },
+            ],
+            error: null,
+            isLoading: false,
+        });
+
+        renderView();
+
+        expect(within(screen.getByRole('row', {name: /My Slack/})).getByText('Shared')).toBeInTheDocument();
+        expect(
+            within(screen.getByRole('row', {name: /My Slack/})).getByRole('button', {name: 'Connection actions'})
+        ).toBeInTheDocument();
+    });
+
+    it('offers no actions on a connection this user does not own', async () => {
+        const user = userEvent.setup();
+
+        useGetConnectionsQueryMock.mockReturnValue({
+            data: [
+                {componentName: 'slack', createdDate: new Date('2025-01-02'), editable: true, id: 1, name: 'My Slack'},
+                {
+                    componentName: 'slack',
+                    createdDate: new Date('2025-01-02'),
+                    editable: false,
+                    id: 2,
+                    name: 'Team Slack',
+                    shared: true,
+                },
+            ],
+            error: null,
+            isLoading: false,
+        });
+
+        renderView();
+
+        // The server refuses to reauthorize or delete a shared connection — it belongs to the
+        // tenant admin who shared it, and changing it would act on every connected user at once.
+        // Offering the menu would be offering actions that can only fail.
+        const sharedRow = screen.getByRole('row', {name: /Team Slack/});
+
+        expect(within(sharedRow).queryByRole('button', {name: 'Connection actions'})).not.toBeInTheDocument();
+        expect(within(sharedRow).getByText('Shared')).toBeInTheDocument();
+
+        // The user's OWN connection still has its menu — asserted last, because opening a Radix
+        // dropdown marks the rest of the page inert and the shared row would no longer be found.
+        const ownedRow = screen.getByRole('row', {name: /My Slack/});
+
+        await user.click(within(ownedRow).getByRole('button', {name: 'Connection actions'}));
+
+        expect(screen.getByRole('menuitem', {name: /reconnect/i})).toBeInTheDocument();
     });
 });
