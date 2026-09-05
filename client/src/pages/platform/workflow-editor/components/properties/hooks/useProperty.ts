@@ -7,8 +7,8 @@ import {
     getInitialPropertyValueState,
     propertyValueReducer,
 } from '@/pages/platform/workflow-editor/components/properties/hooks/propertyValueReducer';
+import useOpenDataPillPanel from '@/pages/platform/workflow-editor/hooks/useOpenDataPillPanel';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
-import useDataPillPanelStore from '@/pages/platform/workflow-editor/stores/useDataPillPanelStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
@@ -117,7 +117,6 @@ type UsePropertyReturnType = {
     resetOnModeChangeRef: RefObject<boolean>;
     selectValue: string;
     setControlledFromAi: Dispatch<SetStateAction<boolean | undefined>>;
-    setDataPillPanelOpen: (open: boolean) => void;
     setIsFormulaMode: Dispatch<SetStateAction<boolean>>;
     setLookupDependsOnValues: Dispatch<SetStateAction<Array<unknown> | undefined>>;
     setSelectValue: (value: string) => void;
@@ -228,7 +227,7 @@ export const useProperty = ({
             workflowNodeDetailsPanelOpen: state.workflowNodeDetailsPanelOpen,
         }))
     );
-    const setDataPillPanelOpen = useDataPillPanelStore((state) => state.setDataPillPanelOpen);
+    const openDataPillPanel = useOpenDataPillPanel();
     const workflow = useWorkflowDataStore((state) => state.workflow);
 
     const isToolsClusterElement = !hideFromAi && (toolsMode || currentNode?.clusterElementType === 'tools');
@@ -802,7 +801,7 @@ export const useProperty = ({
                     setFocusedInput(editorRef.current);
 
                     if (workflowNodeDetailsPanelOpen) {
-                        setDataPillPanelOpen(true);
+                        openDataPillPanel();
                     }
                 }
             }, 50);
@@ -998,7 +997,7 @@ export const useProperty = ({
                 editorRef.current?.commands.focus();
 
                 if (workflowNodeDetailsPanelOpen) {
-                    setDataPillPanelOpen(true);
+                    openDataPillPanel();
                 }
             }, 50);
         }
@@ -1796,7 +1795,6 @@ export const useProperty = ({
         resetOnModeChangeRef,
         selectValue,
         setControlledFromAi,
-        setDataPillPanelOpen,
         setIsFormulaMode,
         setLookupDependsOnValues,
         setSelectValue,
