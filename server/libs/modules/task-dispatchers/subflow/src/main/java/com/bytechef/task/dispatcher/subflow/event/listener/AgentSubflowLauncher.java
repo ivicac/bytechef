@@ -22,6 +22,7 @@ import com.bytechef.atlas.coordinator.event.listener.ApplicationEventListener;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
+import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
@@ -50,17 +51,30 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
     private static final Logger log = LoggerFactory.getLogger(AgentSubflowLauncher.class);
 
     private final ChildJobPrincipalFactory childJobPrincipalFactory;
+    private final JobFacade jobFacade;
     private final JobService jobService;
+    private final int maxDepth;
     private final TaskExecutionService taskExecutionService;
 
     @SuppressFBWarnings("EI2")
     public AgentSubflowLauncher(
-        ChildJobPrincipalFactory childJobPrincipalFactory, JobService jobService,
+        ChildJobPrincipalFactory childJobPrincipalFactory, JobFacade jobFacade, JobService jobService, int maxDepth,
         TaskExecutionService taskExecutionService) {
 
         this.childJobPrincipalFactory = childJobPrincipalFactory;
+        this.jobFacade = jobFacade;
         this.jobService = jobService;
+        this.maxDepth = maxDepth;
         this.taskExecutionService = taskExecutionService;
+    }
+
+    /**
+     * The LLM-facing refusal returned to the calling agent when its chain of bridged sub-workflow calls would exceed
+     * {@code maxDepth}. Public so callers and tests can assert against it by name rather than by substring.
+     */
+    public static String tooDeepError(int maxDepth) {
+        return "Error: the chain of agent-to-agent calls exceeded the maximum nesting depth of " + maxDepth
+            + "; the target agent may call back into an agent already running in this chain.";
     }
 
     @Override
@@ -89,13 +103,23 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
             return; // an ordinary stop -- nothing to do
         }
 
+        int depth = MapUtils.getInteger(agentJob.getMetadata(), SubflowRequestConstants.SUBFLOW_DEPTH, 0) + 1;
+
+        if (depth > maxDepth) {
+            refuseTooDeep(agentJobId, agentJob, depth);
+
+            return;
+        }
+
         Map<String, Object> subflowInputs = new HashMap<>();
 
         subflowInputs.put(request.inputsName(), request.inputs());
         subflowInputs.put(JobInputConstants.TRIGGER_NAME_INPUT, request.inputsName());
 
         JobParametersDTO jobParametersDTO = new JobParametersDTO(
-            request.workflowId(), subflowInputs, Map.of(SubflowRequestConstants.AGENT_JOB_ID, agentJobId));
+            request.workflowId(), subflowInputs,
+            Map.of(
+                SubflowRequestConstants.AGENT_JOB_ID, agentJobId, SubflowRequestConstants.SUBFLOW_DEPTH, depth));
 
         long subflowJobId = childJobPrincipalFactory.createPrincipalLinkedJob(agentJobId, jobParametersDTO);
 
@@ -126,6 +150,20 @@ public class AgentSubflowLauncher implements ApplicationEventListener {
         if (log.isDebugEnabled()) {
             log.debug("Launched sub-workflow job {} for suspended agent job {}", subflowJobId, agentJobId);
         }
+    }
+
+    private void refuseTooDeep(long agentJobId, Job agentJob, int depth) {
+        if (agentJob.getStatus() != Job.Status.STOPPED) {
+            return;
+        }
+
+        log.warn(
+            "Refusing to launch a sub-workflow for agent job {}: depth {} would exceed the maximum of {}", agentJobId,
+            depth, maxDepth);
+
+        jobFacade.resumeJob(
+            agentJobId, MapUtils.getLong(agentJob.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID),
+            Map.of("error", tooDeepError(maxDepth)));
     }
 
     private PendingSubflowRequest extractPendingSubflowRequest(long agentJobId) {
