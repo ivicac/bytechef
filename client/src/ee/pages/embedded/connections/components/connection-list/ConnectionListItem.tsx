@@ -97,7 +97,7 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
     return (
         <li className="mb-2 rounded border border-border/50" key={connection.id}>
             <>
-                <div className="group flex items-center rounded-md bg-surface-neutral-primary px-3 hover:bg-destructive-foreground">
+                <div className="group flex items-center rounded-md bg-surface-neutral-primary px-3 hover:bg-surface-neutral-primary-hover">
                     <div className="flex flex-1 items-center py-3">
                         <div className="flex-1">
                             <div className="flex min-h-8 items-center justify-between">
