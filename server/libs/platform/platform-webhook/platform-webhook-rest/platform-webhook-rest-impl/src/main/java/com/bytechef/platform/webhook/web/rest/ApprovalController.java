@@ -17,11 +17,16 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.facade.JobFacade;
+import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.commons.util.MapUtils;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -43,11 +48,13 @@ public class ApprovalController {
 
     private final ApprovalTokens approvalTokens;
     private final JobFacade jobFacade;
+    private final JobService jobService;
 
     @SuppressFBWarnings("EI")
-    public ApprovalController(ApprovalTokens approvalTokens, JobFacade jobFacade) {
+    public ApprovalController(ApprovalTokens approvalTokens, JobFacade jobFacade, JobService jobService) {
         this.approvalTokens = approvalTokens;
         this.jobFacade = jobFacade;
+        this.jobService = jobService;
     }
 
     /**
@@ -66,10 +73,26 @@ public class ApprovalController {
         ApprovalId approvalId = ApprovalId.parse(innerToken);
 
         return TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
-            jobFacade.resumeApproval(approvalId.getJobId(), approvalId.getUuidAsString(), approvalId.isApproved());
+            resume(approvalId);
 
             return ResponseEntity.noContent()
                 .build();
         });
+    }
+
+    private void resume(ApprovalId approvalId) {
+        long jobId = approvalId.getJobId();
+
+        Job job = jobService.getJob(jobId);
+
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null && taskExecutionResumeId != null) {
+            jobFacade.resumeJob(jobId, taskExecutionResumeId, Map.of("approved", approvalId.isApproved()));
+
+            return;
+        }
+
+        jobFacade.resumeApproval(jobId, approvalId.getUuidAsString(), approvalId.isApproved());
     }
 }
