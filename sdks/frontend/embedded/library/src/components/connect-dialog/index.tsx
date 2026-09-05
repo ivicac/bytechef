@@ -109,6 +109,11 @@ interface UseConnectDialogProps {
     integrationInstanceId?: string;
     jwtToken: string;
     mapObjectFields?: MapObjectFieldsType;
+    /**
+     * Light unless asked otherwise. Unlike the iframe surfaces, this dialog renders into the
+     * embedding page, so it cannot pick the mode up from a ByteChef document -- the host says.
+     */
+    mode?: 'dark' | 'light';
     onClose?: () => void;
 }
 
@@ -119,10 +124,10 @@ export default function useConnectDialog({
     integrationInstanceId,
     jwtToken,
     mapObjectFields,
+    mode,
     onClose,
 }: UseConnectDialogProps): ConnectionDialogHookReturnType {
     const [integration, setIntegration] = useState<IntegrationType | undefined>(undefined);
-    const [isOAuth2, setIsOAuth2] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [formValues, setFormValues] = useState<Record<string, string>>({});
     const [formErrors, setFormErrors] = useState<Record<string, {message: string}>>({});
@@ -448,6 +453,12 @@ export default function useConnectDialog({
         [integration]
     );
 
+    // Derived rather than latched into state. It used to be state set to true by an effect and
+    // never set back, while `openDialog` clears `integration` and every override but not this --
+    // so opening an OAuth2 integration and then a non-OAuth2 one left the Connect button still
+    // launching an OAuth flow for an integration that has none.
+    const isOAuth2 = !!isOAuth2AuthorizationType;
+
     const handleOnCodeSuccess = useCallback(
         (payload: CodePayloadI) => {
             if (payload.code) {
@@ -686,18 +697,13 @@ export default function useConnectDialog({
         [isOAuth2, handleDisconnect, getAuth, handleSubmit]
     );
 
-    const debouncedFetchesRef = useRef<Record<string, (...args: unknown[]) => void>>({});
+    const debouncedFetchesRef = useRef<Record<string, (...args: unknown[]) => void>>(undefined);
     const wasOpenRef = useRef(false);
 
     const currentIntegrationInstanceIdRef = useRef(currentIntegrationInstanceId);
     const inputOverridesRef = useRef(inputOverrides);
     const integrationRef = useRef(integration);
     const mcpWorkflowInputOverridesRef = useRef(mcpWorkflowInputOverrides);
-
-    currentIntegrationInstanceIdRef.current = currentIntegrationInstanceId;
-    inputOverridesRef.current = inputOverrides;
-    integrationRef.current = integration;
-    mcpWorkflowInputOverridesRef.current = mcpWorkflowInputOverrides;
 
     const scheduleWorkflowInputsSave = useCallback(
         (workflowUuid: string) => {
@@ -709,8 +715,10 @@ export default function useConnectDialog({
 
             const debouncedFetchKey = workflowUuid;
 
-            if (!debouncedFetchesRef.current[debouncedFetchKey]) {
-                debouncedFetchesRef.current[debouncedFetchKey] = debounce(() => {
+            const debouncedFetches = (debouncedFetchesRef.current ??= {});
+
+            if (!debouncedFetches[debouncedFetchKey]) {
+                const debouncedFetch = debounce(() => {
                     const instanceId = currentIntegrationInstanceIdRef.current;
 
                     if (!instanceId) {
@@ -735,9 +743,11 @@ export default function useConnectDialog({
                         method: 'PUT',
                     }).catch((error) => console.error('Failed to save workflow inputs:', error));
                 }, 600);
+
+                debouncedFetches[debouncedFetchKey] = debouncedFetch;
             }
 
-            debouncedFetchesRef.current[debouncedFetchKey]();
+            debouncedFetches[debouncedFetchKey]();
         },
         [fetch]
     );
@@ -800,8 +810,10 @@ export default function useConnectDialog({
 
             const debouncedFetchKey = `mcp-${workflowUuid}`;
 
-            if (!debouncedFetchesRef.current[debouncedFetchKey]) {
-                debouncedFetchesRef.current[debouncedFetchKey] = debounce(() => {
+            const debouncedFetches = (debouncedFetchesRef.current ??= {});
+
+            if (!debouncedFetches[debouncedFetchKey]) {
+                const debouncedFetch = debounce(() => {
                     const instanceId = currentIntegrationInstanceIdRef.current;
 
                     if (!instanceId) {
@@ -829,9 +841,11 @@ export default function useConnectDialog({
                         method: 'PUT',
                     }).catch((error) => console.error('Failed to save MCP workflow inputs:', error));
                 }, 600);
+
+                debouncedFetches[debouncedFetchKey] = debouncedFetch;
             }
 
-            debouncedFetchesRef.current[debouncedFetchKey]();
+            debouncedFetches[debouncedFetchKey]();
         },
         [fetch]
     );
@@ -956,6 +970,7 @@ export default function useConnectDialog({
                 mergedMcpTools={mergedMcpTools}
                 mergedMcpWorkflows={mergedMcpWorkflows}
                 mergedWorkflows={mergedWorkflows}
+                mode={mode}
                 properties={integration?.connectionConfig?.inputs}
                 registerFormSubmit={registerFormSubmit}
                 workflowsView={workflowsView}
@@ -977,21 +992,28 @@ export default function useConnectDialog({
         handleWorkflowInputChange,
         integration,
         integrationInstanceId,
+        isLoading,
         isOAuth2,
         mapObjectFields,
         mergedMcpTools,
         mergedMcpWorkflows,
         mergedWorkflows,
+        mode,
         registerFormSubmit,
         workflowsView,
         currentIntegrationInstanceId,
     ]);
 
+    // The debounced saves below fire long after the render that scheduled them, so they read the
+    // latest values through refs rather than closing over the render's own. Written here rather
+    // than during render: a ref write in the render body is not safe under concurrent rendering,
+    // where a render can be discarded after the write has already happened.
     useEffect(() => {
-        if (isOAuth2AuthorizationType) {
-            setIsOAuth2(true);
-        }
-    }, [isOAuth2AuthorizationType]);
+        currentIntegrationInstanceIdRef.current = currentIntegrationInstanceId;
+        inputOverridesRef.current = inputOverrides;
+        integrationRef.current = integration;
+        mcpWorkflowInputOverridesRef.current = mcpWorkflowInputOverrides;
+    });
 
     useEffect(() => {
         if (isOpen) {

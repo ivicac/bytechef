@@ -70,6 +70,8 @@ const Toggle = ({id, pressed, onPressedChange}: ToggleProps) => (
 interface DialogProps {
     apiFetch?: ApiFetch;
     closeDialog: () => void;
+    /** Light unless the embedding page asks otherwise; the dialog renders into THAT page, not an iframe. */
+    mode?: 'dark' | 'light';
     executeAction?: ExecuteActionFunction;
     workflowsView?: boolean;
     form?: FormType;
@@ -97,6 +99,7 @@ interface DialogProps {
 const ConnectDialog = ({
     apiFetch,
     closeDialog,
+    mode = 'light',
     executeAction,
     workflowsView = false,
     form,
@@ -145,8 +148,15 @@ const ConnectDialog = ({
     }
 
     return (
-        <div className={styles.dialogOverlay} data-testid="dialog-overlay" onClick={closeDialog}>
-            <div className={styles.dialogContainer} onClick={(event) => event.stopPropagation()}>
+        <div
+            className={mode === 'dark' ? `${styles.dialogOverlay} ${styles.dark}` : styles.dialogOverlay}
+            data-testid="dialog-overlay"
+            onClick={closeDialog}
+        >
+            <div
+                className={mode === 'dark' ? `${styles.dialogContainer} ${styles.dark}` : styles.dialogContainer}
+                onClick={(event) => event.stopPropagation()}
+            >
                 <DialogHeader closeDialog={closeDialog} integration={integration} />
 
                 {loading ? (
