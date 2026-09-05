@@ -147,7 +147,7 @@ const ConnectionTab = ({
             })}
 
             {showConnectionNote && (
-                <div className="flex flex-col rounded-md bg-amber-100 p-4 text-gray-800">
+                <div className="flex flex-col rounded-md bg-surface-warning-secondary p-4 text-content-neutral-primary">
                     <div className="flex items-center pb-2">
                         <span className="font-medium">Note</span>
 
@@ -160,7 +160,7 @@ const ConnectionTab = ({
                         </button>
                     </div>
 
-                    <p className="text-sm text-gray-800">
+                    <p className="text-sm text-content-neutral-primary">
                         The selected connections are used for testing purposes only.
                     </p>
                 </div>
@@ -184,7 +184,7 @@ const ConnectionTab = ({
                 </div>
 
                 <Input
-                    className="bg-white shadow-none"
+                    className="bg-surface-neutral-primary shadow-none"
                     defaultValue={workflowTask?.maxRetries ?? ''}
                     key={`${currentNode?.componentName}-${workflowTask?.type}_maxRetries`}
                     min={0}
