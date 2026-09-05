@@ -178,12 +178,7 @@ public class JobSyncExecutor {
 
         TaskWorker taskWorker = new TaskWorker(
             null, evaluator, coordinatorEventPublisher, jobSyncAsyncTaskExecutor, taskHandlerResolverChain,
-            taskFileStorage,
-            List.of(
-                new CallableResponseTaskExecutionPostOutputProcessor(),
-                new SseStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
-                new SuspendTaskExecutionPostOutputProcessor(null),
-                new WebhookResponseTaskExecutionPostOutputProcessor()));
+            taskFileStorage, createTaskExecutionPostOutputProcessors(sseStreamBridges));
 
         receive(
             memoryMessageBroker, TaskWorkerMessageRoute.CONTROL_EVENTS, event -> {
@@ -217,9 +212,6 @@ public class JobSyncExecutor {
             contextService, evaluator, coordinatorEventPublisher, jobService, taskDispatcherChain, taskExecutionService,
             taskFileStorage, workflowService);
 
-        // The sync executor runs against in-memory services with its own event publisher, so completion
-        // stays non-transactional here (null template = pre-transactional behavior, events publish
-        // immediately).
         DefaultTaskCompletionHandler defaultTaskCompletionHandler = new DefaultTaskCompletionHandler(
             contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage, null, workflowService);
 
@@ -882,9 +874,7 @@ public class JobSyncExecutor {
 
     private void waitForJobCompletion(long jobId, @Nullable Duration timeout) {
         // The latch has to be registered before the status is read: a completion landing in between would count down
-        // a latch that does not exist yet, and the one created afterwards would then never be counted down. The
-        // task-execution check below is what normally rescues that window, but a job with no task executions at all -
-        // a workflow whose every task is disabled - falls straight through it into an unbounded await.
+        // a latch that does not exist yet, and the one created afterwards would then never be counted down.
         CountDownLatch latch = jobCompletionLatches.computeIfAbsent(getKey(jobId), id -> new CountDownLatch(1));
 
         Job job = jobService.getJob(jobId);
@@ -895,26 +885,6 @@ public class JobSyncExecutor {
             jobCompletionLatches.remove(getKey(jobId));
 
             return;
-        }
-
-        try {
-            Optional<TaskExecution> lastTaskExecutionOptional = taskExecutionService.fetchLastJobTaskExecution(jobId);
-
-            if (lastTaskExecutionOptional.isPresent()) {
-                TaskExecution taskExecution = lastTaskExecutionOptional.get();
-
-                TaskExecution.Status status = taskExecution.getStatus();
-
-                if (status.isTerminated()) {
-                    jobCompletionLatches.remove(getKey(jobId));
-
-                    return;
-                }
-            }
-        } catch (Exception exception) {
-            if (log.isTraceEnabled()) {
-                log.trace(exception.getMessage(), exception);
-            }
         }
 
         try {
@@ -969,7 +939,6 @@ public class JobSyncExecutor {
         return List.of(
             new CallableResponseTaskExecutionPostOutputProcessor(),
             new SseStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
-            new WebSocketStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
             new SuspendTaskExecutionPostOutputProcessor(null),
             new WebhookResponseTaskExecutionPostOutputProcessor());
     }
