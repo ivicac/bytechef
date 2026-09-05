@@ -67,6 +67,12 @@ public final class SystemProjects {
     public static final String AI_AGENT_NAME_PREFIX = "__AI_AGENT__";
 
     /**
+     * Marks the hidden project backing a Data Sync — see {@code DataSyncFacadeImpl}. Same lifecycle as
+     * {@link #AI_AGENT_NAME_PREFIX}: the project exists only to hold the generated draft workflow and its versions.
+     */
+    public static final String DATA_SYNC_NAME_PREFIX = "__DATA_SYNC__";
+
+    /**
      * The deployment-era marker the embedded bridge writes into {@code project.name}. Distinct from
      * {@link #EMBEDDED_AUTOMATION_NAME_PREFIX} and deliberately NOT part of {@link #NAME_PREFIXES} — list surfaces
      * include or exclude it explicitly via the {@code embedded} flag rather than hiding it unconditionally. Mirrors the
@@ -98,7 +104,7 @@ public final class SystemProjects {
 
     private static final List<String> NAME_PREFIXES = List.of(
         KNOWLEDGE_BASE_NAME_PREFIX, CONTEXT_STORE_NAME_PREFIX, EMBEDDED_AUTOMATION_NAME_PREFIX,
-        AI_AGENT_NAME_PREFIX);
+        AI_AGENT_NAME_PREFIX, DATA_SYNC_NAME_PREFIX);
 
     private SystemProjects() {
     }
