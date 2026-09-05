@@ -12,7 +12,7 @@ import {
     useDeleteAiAgentElementMutation,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {BotIcon, PlusIcon, Trash2Icon, TriangleAlertIcon} from 'lucide-react';
+import {BotIcon, PlusIcon, Trash2Icon} from 'lucide-react';
 import {useState} from 'react';
 import {toast} from 'sonner';
 
@@ -133,9 +133,6 @@ const AgentSubAgentsCard = ({agentId, elements}: AgentSubAgentsCardProps) => {
                 <ul className="space-y-2">
                     {subAgentElements.map((element) => {
                         const candidate = candidates.find((agent) => agent.id === element.referenceId);
-                        const candidateHasSubAgents = (candidate?.elements ?? []).some(
-                            (subElement) => subElement?.kind === 'SUB_AGENT'
-                        );
 
                         return (
                             <li className="rounded-md border border-border/50 p-3" key={element.id}>
@@ -154,14 +151,6 @@ const AgentSubAgentsCard = ({agentId, elements}: AgentSubAgentsCardProps) => {
                                         variant="destructiveGhost"
                                     />
                                 </div>
-
-                                {candidateHasSubAgents && (
-                                    <p className="mt-2 flex items-center gap-1 text-xs text-content-warning">
-                                        <TriangleAlertIcon aria-hidden className="size-3.5" />
-                                        This agent has sub-agents of its own; they won&apos;t be callable when it runs
-                                        as a sub-agent.
-                                    </p>
-                                )}
                             </li>
                         );
                     })}
