@@ -15,7 +15,9 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
+import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
@@ -66,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -529,6 +532,35 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     }
 
     @Override
+    public void updateProjectWorkflowInputs(
+        String externalUserId, String workflowUuid, Map<String, ?> inputs, Long environmentId) {
+
+        Environment environment = environmentId == null
+            ? Environment.PRODUCTION : environmentService.getEnvironment(environmentId);
+
+        // Resolving through the connected user's OWN project is what scopes this: a workflowUuid belonging to
+        // somebody else simply is not in it, and surfaces as a not-found rather than as a permission error.
+        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
+            externalUserId, environment);
+
+        String workflowId = projectWorkflowService
+            .fetchLastProjectWorkflowId(connectedUserProject.getProjectId(), workflowUuid)
+            .orElseThrow(() -> new ConfigurationException(
+                "Workflow with workflowUuid: %s not exist".formatted(workflowUuid),
+                WorkflowErrorType.WORKFLOW_NOT_FOUND));
+
+        long projectDeploymentId = projectDeploymentService.getProjectDeploymentId(
+            connectedUserProject.getProjectId(), environment);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow =
+            projectDeploymentWorkflowService.getProjectDeploymentWorkflow(projectDeploymentId, workflowId);
+
+        projectDeploymentWorkflow.setInputs(inputs);
+
+        projectDeploymentWorkflowService.update(projectDeploymentWorkflow);
+    }
+
+    @Override
     public void updateProjectWorkflow(
         String externalUserId, String workflowUuid, String definition, Environment environment) {
 
@@ -601,6 +633,8 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
             .map(ProjectWorkflow::getWorkflowId)
             .toList();
 
+        Map<UUID, Workflow> publishedWorkflows = getPublishedWorkflows(project);
+
         List<ConnectedUserProjectWorkflowDTO> copies = workflowService.getWorkflows(latestWorkflowIds)
             .stream()
             .map(workflow -> {
@@ -612,11 +646,18 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
                 ConnectedUserProjectWorkflow connectedUserProjectWorkflow = connectedUserProjectWorkflowService
                     .getConnectedUserProjectWorkflow(connectedUserProject.getId(), latestProjectWorkflow.getId());
 
+                UUID projectWorkflowUuid = latestProjectWorkflow.getUuid();
+
+                Workflow publishedWorkflow = projectWorkflowUuid == null
+                    ? workflow : publishedWorkflows.getOrDefault(projectWorkflowUuid, workflow);
+
                 return new ConnectedUserProjectWorkflowDTO(
                     connectedUserProject.getConnectedUserId(), connectedUserProjectWorkflow,
                     isProjectDeploymentWorkflowEnabled(latestProjectWorkflow, environment),
                     getWorkflowLastExecutionDate(latestProjectWorkflow.getWorkflowId()), latestProjectWorkflow,
-                    new WorkflowDTO(workflow, List.of(), List.of()), toComponents(workflow));
+                    new WorkflowDTO(publishedWorkflow, List.of(), List.of()), toComponents(publishedWorkflow),
+                    toInputs(workflow),
+                    fetchInputValues(connectedUserProject.getProjectId(), latestProjectWorkflow, environment));
             })
             .toList();
 
@@ -624,6 +665,46 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
         return Stream.concat(copies.stream(), references.stream())
             .toList();
+    }
+
+    /**
+     * The workflows of the project's last PUBLISHED version, indexed by the lineage uuid that a workflow keeps across
+     * versions.
+     *
+     * <p>
+     * A hub card describes what is deployed, not what is being drafted. A project's newest version is always a DRAFT --
+     * publishing stamps the current version PUBLISHED and opens a fresh one -- so reading a card's label from
+     * {@code getLastProjectVersion()} put every keystroke typed in the builder onto the card, beside a version badge
+     * that still named the published version. The two disagreed about the same automation.
+     *
+     * <p>
+     * Empty until the first publish, in which case the draft is the only thing there is to show and the caller falls
+     * back to it.
+     */
+    private Map<UUID, Workflow> getPublishedWorkflows(Project project) {
+        ProjectVersion lastPublishedProjectVersion = project.getLastPublishedProjectVersion();
+
+        if (lastPublishedProjectVersion == null) {
+            return Map.of();
+        }
+
+        List<ProjectWorkflow> publishedProjectWorkflows = projectWorkflowService.getProjectWorkflows(
+            project.getId(), lastPublishedProjectVersion.getVersion());
+
+        Map<String, UUID> uuids = publishedProjectWorkflows.stream()
+            .filter(projectWorkflow -> projectWorkflow.getUuid() != null)
+            .collect(Collectors.toMap(
+                ProjectWorkflow::getWorkflowId, ProjectWorkflow::getUuid, (first, second) -> first));
+
+        List<String> publishedWorkflowIds = publishedProjectWorkflows.stream()
+            .map(ProjectWorkflow::getWorkflowId)
+            .toList();
+
+        return workflowService.getWorkflows(publishedWorkflowIds)
+            .stream()
+            .filter(workflow -> uuids.containsKey(workflow.getId()))
+            .collect(Collectors.toMap(
+                workflow -> uuids.get(workflow.getId()), Function.identity(), (first, second) -> first));
     }
 
     /**
@@ -660,9 +741,35 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
                 return ConnectedUserProjectWorkflowDTO.ofReference(
                     connectedUser.getId(), reference, new WorkflowDTO(workflow, List.of(), List.of()),
-                    template == null ? List.of() : template.components());
+                    template == null ? List.of() : template.components(),
+                    template == null ? List.of() : template.inputs(), Map.of());
             })
             .toList();
+    }
+
+    /**
+     * The inputs this workflow declares, so a card can offer to change their values after activation rather than only
+     * during the wizard. {@code Workflow.Input#extensions} is authoring metadata for the builder and stays behind.
+     */
+    private static List<ConnectedUserWorkflowTemplateDTO.Input> toInputs(Workflow workflow) {
+        List<Workflow.Input> inputs = workflow.getInputs();
+
+        return inputs.stream()
+            .map(input -> new ConnectedUserWorkflowTemplateDTO.Input(
+                input.name(), input.label(), input.type(), input.required()))
+            .toList();
+    }
+
+    /**
+     * The values already stored for this workflow. Empty until the automation has been published -- the values live on
+     * the project deployment publishing creates, so an unpublished draft simply has nowhere to have kept them.
+     */
+    private Map<String, ?> fetchInputValues(long projectId, ProjectWorkflow projectWorkflow, Environment environment) {
+        return projectDeploymentService.fetchProjectDeployment(projectId, environment)
+            .flatMap(projectDeployment -> projectDeploymentWorkflowService.fetchProjectDeploymentWorkflow(
+                projectDeployment.getId(), projectWorkflow.getWorkflowId()))
+            .map(ProjectDeploymentWorkflow::getInputs)
+            .orElseGet(Map::of);
     }
 
     private List<ConnectedUserWorkflowTemplateDTO.Component> toComponents(Workflow workflow) {

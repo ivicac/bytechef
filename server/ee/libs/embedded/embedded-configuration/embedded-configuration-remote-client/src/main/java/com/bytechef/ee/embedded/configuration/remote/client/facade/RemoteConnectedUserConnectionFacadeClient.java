@@ -12,6 +12,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +39,11 @@ public class RemoteConnectedUserConnectionFacadeClient implements ConnectedUserC
     public List<ConnectionDTO> getConnections(
         Long connectedUserId, @Nullable String componentName, List<Long> connectionIds) {
 
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<Long> getOwnedConnectionIds(long connectedUserId) {
         throw new UnsupportedOperationException();
     }
 

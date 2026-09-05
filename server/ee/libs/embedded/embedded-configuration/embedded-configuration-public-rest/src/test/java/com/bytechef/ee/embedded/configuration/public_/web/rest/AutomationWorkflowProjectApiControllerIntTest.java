@@ -75,7 +75,7 @@ public class AutomationWorkflowProjectApiControllerIntTest {
 
         ConnectedUserWorkflowTemplateDTO workflowDTO = new ConnectedUserWorkflowTemplateDTO(
             WORKFLOW_UUID, "Welcome Email Workflow", "Sends a welcome email to new users", null,
-            List.of(), List.of(componentDTO), null);
+            List.of(), List.of(componentDTO), List.of(), null);
 
         AutomationWorkflowProjectDTO projectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID, "Onboarding Project", "New user onboarding automations", null, List.of(), true, 1, 1,
