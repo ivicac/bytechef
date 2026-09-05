@@ -8,7 +8,7 @@ import {useEffect, useRef} from 'react';
  */
 export interface AutomationHubTabsConfig {
     /**
-     * The Automations tab -- the template catalog plus the user's own automations.
+     * The Automations tab -- the published template catalog, each card carrying the user's activation state.
      * @default true
      */
     automations?: boolean;
@@ -36,9 +36,48 @@ export interface AutomationHubTabsConfig {
  */
 export interface AutomationHubTheme {
     /**
+     * The border of a card whose automation is running. Any CSS color.
+     *
+     * Marks the state as an edge rather than a fill, so it needs a border-strength colour: a pale
+     * tint reads as no border at all against the card it outlines.
+     */
+    activeBorderColor?: string;
+
+    /**
      * CSS length applied to the hub's border radius token, e.g. '0.5rem'.
      */
     borderRadius?: string;
+
+    /**
+     * The surface of a card sitting on the hub's page. Any CSS color.
+     *
+     * Also carried into the workflow builder, where the canvas and the panels floating over it are
+     * the "card": a hex colour is converted to the builder's token format, and any other colour is
+     * applied where it can be and left alone where it cannot.
+     */
+    cardColor?: string;
+
+    /**
+     * Raw CSS custom properties written onto the hub's root element, applied AFTER every option
+     * above so they can correct one. Keys must start with '--'; anything else is ignored.
+     *
+     * This is the escape hatch for anything the named options do not reach. It binds you to
+     * ByteChef's internal variable names, which the named options exist to insulate you from, so
+     * treat it as unstable across versions and prefer a named option wherever one exists.
+     */
+    cssVariables?: Record<string, string>;
+
+    /**
+     * The "Disable" button on a running automation's card. Any CSS color; its hover shade follows
+     * it.
+     */
+    disableColor?: string;
+
+    /**
+     * The "Enable" button on a stopped automation's card. Any CSS color; its hover shade follows
+     * it.
+     */
+    enableColor?: string;
 
     /**
      * CSS font-family value applied to the hub's font token. Must be loadable inside the iframe --
@@ -53,10 +92,26 @@ export interface AutomationHubTheme {
     mode?: 'dark' | 'light';
 
     /**
+     * The label colour on the Enable and Disable buttons. Any CSS color.
+     */
+    onAccentColor?: string;
+
+    /**
      * Any CSS color, applied to the hub's primary color token. The contrasting foreground color is
      * computed automatically.
      */
     primaryColor?: string;
+
+    /**
+     * The selected segment of the hub's filter and layout switchers. Any CSS color.
+     */
+    segmentColor?: string;
+
+    /**
+     * The hub's page background behind the cards, and the ground the builder's canvas sits on. Any
+     * CSS color; see `cardColor` for how it reaches the builder.
+     */
+    surfaceColor?: string;
 }
 
 /**
@@ -77,6 +132,21 @@ interface AutomationHubProps {
      * classes of its own -- the host controls sizing and positioning entirely through this prop.
      */
     className?: string;
+
+    /**
+     * The catalog layout an end user starts on. Their own choice, made with the layout switcher,
+     * takes over from there and is remembered in their browser — unless `layoutSwitcherAllowed` is
+     * false, in which case this layout is the only one they ever see.
+     * @default 'grid'
+     */
+    defaultLayout?: 'grid' | 'list';
+
+    /**
+     * Whether the activation wizard offers "Edit workflow", which opens the automation in the
+     * embedded workflow builder. Set false to keep end users to the wizard's own steps.
+     * @default true
+     */
+    editWorkflowAllowed?: boolean;
 
     /**
      * Whether to allow the connection dialog to be shown in the workflow builder view of the hub.
@@ -109,6 +179,13 @@ interface AutomationHubProps {
     jwtToken: string;
 
     /**
+     * Whether the catalog offers the grid/list layout switcher. With it withdrawn, end users stay
+     * on `defaultLayout`.
+     * @default true
+     */
+    layoutSwitcherAllowed?: boolean;
+
+    /**
      * @deprecated No longer has any effect. The server derives shared connections from the
      * `shared` flag a tenant admin sets on the connection itself at '/embedded/connections';
      * ids sent here are ignored. Will be removed in a future release.
@@ -123,7 +200,11 @@ interface AutomationHubProps {
     tabs?: AutomationHubTabsConfig;
 
     /**
-     * Theme applied to the Automation Hub iframe's content.
+     * Theme applied to the Automation Hub iframe's content -- the catalog, the connections view AND
+     * the workflow builder they open.
+     *
+     * Scoped to this iframe: it never touches the ByteChef application's own appearance, and two
+     * embedded surfaces on one page can carry different themes.
      */
     theme?: AutomationHubTheme;
 }
@@ -132,8 +213,8 @@ interface AutomationHubProps {
  * A component that embeds the ByteChef Automation Hub in an iframe.
  *
  * The Automation Hub gives end users an Automations view -- a self-serve catalog of published
- * templates alongside their own activated automations -- plus a Connections view and the workflow
- * builder for automations they own, all behind one iframe. When the iframe signals it is ready via
+ * templates, each showing whether the user has activated it -- plus a Connections view and the
+ * workflow builder for automations they own, all behind one iframe. When the iframe signals it is ready via
  * a postMessage, the parent sends the initialization parameters back.
  *
  * @param props - The configuration options for the embedded Automation Hub
@@ -143,9 +224,12 @@ const AutomationHub = ({
     baseUrl = 'https://app.bytechef.io',
     className,
     connectionDialogAllowed = true,
+    defaultLayout = 'grid',
+    editWorkflowAllowed = true,
     environment = 'PRODUCTION',
     includeComponents,
     jwtToken,
+    layoutSwitcherAllowed = true,
     sharedConnectionIds = [],
     tabs,
     theme,
@@ -153,9 +237,12 @@ const AutomationHub = ({
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const propsRef = useRef({
         connectionDialogAllowed,
+        defaultLayout,
+        editWorkflowAllowed,
         environment,
         includeComponents,
         jwtToken,
+        layoutSwitcherAllowed,
         sharedConnectionIds,
         tabs,
         theme,
@@ -168,14 +255,28 @@ const AutomationHub = ({
     useEffect(() => {
         propsRef.current = {
             connectionDialogAllowed,
+            defaultLayout,
+            editWorkflowAllowed,
             environment,
             includeComponents,
             jwtToken,
+            layoutSwitcherAllowed,
             sharedConnectionIds,
             tabs,
             theme,
         };
-    }, [connectionDialogAllowed, environment, includeComponents, jwtToken, sharedConnectionIds, tabs, theme]);
+    }, [
+        connectionDialogAllowed,
+        defaultLayout,
+        editWorkflowAllowed,
+        environment,
+        includeComponents,
+        jwtToken,
+        layoutSwitcherAllowed,
+        sharedConnectionIds,
+        tabs,
+        theme,
+    ]);
 
     useEffect(() => {
         const targetOrigin = new URL(baseUrl).origin;
@@ -209,7 +310,7 @@ const AutomationHub = ({
         <div className={className}>
             <iframe
                 ref={iframeRef}
-                src={`${baseUrl}/embedded/hub`}
+                src={`${baseUrl}/automation-hub.html#/embedded/hub`}
                 width="100%"
                 height="100%"
                 style={{border: 'none'}}
