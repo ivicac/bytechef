@@ -70,8 +70,6 @@ const config: CodegenConfig = {
         '../server/libs/platform/platform-connection/platform-connection-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-data-table/**/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-knowledge-base/automation-knowledge-base-graphql/src/main/resources/graphql/**/*.graphqls',
-        '../server/ee/libs/embedded/embedded-data-table-graphql/src/main/resources/graphql/*.graphqls',
-        '../server/ee/libs/embedded/embedded-knowledge-base-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-asset-file/automation-asset-file-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/platform/platform-mcp/platform-mcp-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-ai/automation-ai-mcp/automation-ai-mcp-graphql/src/main/resources/graphql/*.graphqls',
@@ -116,6 +114,7 @@ const config: CodegenConfig = {
         '../server/ee/libs/platform/platform-notification/platform-notification-workspace/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-ai/automation-ai-agent/automation-ai-agent-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/automation/automation-ai/automation-ai-agent/automation-ai-agent-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/libs/automation/automation-data-sync/automation-data-sync-graphql/src/main/resources/graphql/*.graphqls',
     ],
 };
 
