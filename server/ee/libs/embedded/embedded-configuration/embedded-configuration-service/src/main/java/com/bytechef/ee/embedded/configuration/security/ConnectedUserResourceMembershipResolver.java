@@ -27,6 +27,10 @@ import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.domain.McpServer;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
@@ -134,6 +138,8 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
     private static final String PROJECT_WORKFLOW = "ProjectWorkflow";
     private static final String CONNECTION = "Connection";
     private static final String JOB = "Job";
+    private static final String MCP_SERVER = "McpServer";
+    private static final String MCP_TOOL = "McpTool";
 
     /**
      * The {@code Connection} scopes a connection flagged {@code shared} may satisfy. Deliberately an ALLOWLIST: a scope
@@ -243,12 +249,23 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      */
     private static final Set<String> CATALOG_PROVISIONABLE_PROJECT_SCOPES = Set.of("DEPLOYMENT_PUSH");
 
+    /**
+     * The only scope a connected user is entitled to on an {@link PlatformType#EMBEDDED} MCP server and on the tools
+     * hanging off it. Those servers are tenant catalog objects the user's integration instances attach to, and the
+     * connected-user facades read a server to learn whether it is enabled and a tool to learn its name before surfacing
+     * either -- a read, never an edit, and never the server's secret key, which sits behind its own tenant-admin gate.
+     */
+    private static final Set<String> CATALOG_READABLE_MCP_SCOPES = Set.of("MCP_VIEW");
+
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final ConnectedUserConnectionMembership connectedUserConnectionMembership;
     private final ConnectedUserProjectService connectedUserProjectService;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private final ConnectedUserService connectedUserService;
     private final JobService jobService;
+    private final McpComponentService mcpComponentService;
+    private final McpServerService mcpServerService;
+    private final McpToolService mcpToolService;
     private final PrincipalJobService principalJobService;
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectService projectService;
@@ -260,7 +277,8 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         ConnectedUserConnectionMembership connectedUserConnectionMembership,
         ConnectedUserProjectService connectedUserProjectService,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
-        ConnectedUserService connectedUserService, JobService jobService, PrincipalJobService principalJobService,
+        ConnectedUserService connectedUserService, JobService jobService, McpComponentService mcpComponentService,
+        McpServerService mcpServerService, McpToolService mcpToolService, PrincipalJobService principalJobService,
         ProjectDeploymentService projectDeploymentService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
@@ -270,6 +288,9 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
         this.connectedUserService = connectedUserService;
         this.jobService = jobService;
+        this.mcpComponentService = mcpComponentService;
+        this.mcpServerService = mcpServerService;
+        this.mcpToolService = mcpToolService;
         this.principalJobService = principalJobService;
         this.projectDeploymentService = projectDeploymentService;
         this.projectService = projectService;
@@ -449,6 +470,13 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
             return Decision.NOT_APPLICABLE;
         }
 
+        if (MCP_SERVER.equals(resourceType) || MCP_TOOL.equals(resourceType)) {
+            // Resolved ahead of the project lookup on purpose: listing integrations is the first thing a connected
+            // user does, before anything has provisioned a ConnectedUserProject, and that listing reads MCP servers
+            // and their tools.
+            return MCP_SERVER.equals(resourceType) ? resolveMcpServer(id, scope) : resolveMcpTool(id, scope);
+        }
+
         Optional<ConnectedUserProject> connectedUserProject = connectedUserProjectService.fetchConnectUserProject(
             externalUserId, environment);
 
@@ -588,6 +616,53 @@ public class ConnectedUserResourceMembershipResolver implements ResourceMembersh
      * user id; source 2 is keyed by that same row's id, so both are environment-scoped by construction --
      * {@code fetchConnectUserProject} joins {@code connected_user} on the environment carried by the PRINCIPAL.
      */
+    private Decision resolveMcpServer(Serializable id, String scope) {
+        if (!(id instanceof Number number)) {
+            return Decision.DENIED;
+        }
+
+        if (!CATALOG_READABLE_MCP_SCOPES.contains(scope)) {
+            return Decision.DENIED;
+        }
+
+        long mcpServerId = number.longValue();
+
+        boolean embeddedMcpServer = getEmbeddedMcpServers()
+            .stream()
+            .anyMatch(mcpServer -> Objects.equals(mcpServer.getId(), mcpServerId));
+
+        return embeddedMcpServer ? Decision.GRANTED : Decision.DENIED;
+    }
+
+    private Decision resolveMcpTool(Serializable id, String scope) {
+        if (!(id instanceof Number number)) {
+            return Decision.DENIED;
+        }
+
+        if (!CATALOG_READABLE_MCP_SCOPES.contains(scope)) {
+            return Decision.DENIED;
+        }
+
+        long mcpToolId = number.longValue();
+
+        // Walked from the server down because the by-id tool read is the gated call that lands here; the per-server
+        // component and per-component tool listings carry no gate.
+        boolean embeddedMcpTool = getEmbeddedMcpServers()
+            .stream()
+            .flatMap(mcpServer -> mcpComponentService.getMcpServerMcpComponents(mcpServer.getId())
+                .stream())
+            .flatMap(mcpComponent -> mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())
+                .stream())
+            .anyMatch(mcpTool -> Objects.equals(mcpTool.getId(), mcpToolId));
+
+        return embeddedMcpTool ? Decision.GRANTED : Decision.DENIED;
+    }
+
+    private List<McpServer> getEmbeddedMcpServers() {
+        // getMcpServers(PlatformType) carries no gate, unlike the by-id read whose gate lands here.
+        return mcpServerService.getMcpServers(PlatformType.EMBEDDED);
+    }
+
     private Decision resolveProjectDeployment(Serializable id, ConnectedUserProject connectedUserProject) {
         if (!(id instanceof Number number)) {
             return Decision.DENIED;

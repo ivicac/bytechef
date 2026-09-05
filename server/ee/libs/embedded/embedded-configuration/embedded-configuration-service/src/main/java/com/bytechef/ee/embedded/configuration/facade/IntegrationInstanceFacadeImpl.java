@@ -134,8 +134,16 @@ public class IntegrationInstanceFacadeImpl implements IntegrationInstanceFacade 
         integrationInstanceService.updateEnabled(integrationInstanceId, enable);
     }
 
+    /**
+     * Reachable by a tenant admin OR by a connected user, because the connect dialog a vendor embeds calls this for the
+     * end user's own integration instance. {@code isConnectedUser()} only says the caller is an end user rather than a
+     * ByteChef one -- it authorises nothing by itself. What confines a connected user to their OWN instance is
+     * {@code ConnectedUserIntegrationInstanceFacadeImpl.isOwnedByConnectedUser}, which runs before this is reached and
+     * fails closed; this method must not be called from any other connected-user path without that check in front of
+     * it.
+     */
     @Override
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("isTenantAdmin() or isConnectedUser()")
     public void enableIntegrationInstanceWorkflow(long integrationInstanceId, String workflowId, boolean enable) {
         IntegrationInstance integrationInstance = integrationInstanceService.getIntegrationInstance(
             integrationInstanceId);
@@ -249,8 +257,16 @@ public class IntegrationInstanceFacadeImpl implements IntegrationInstanceFacade 
             getIntegrationInstanceLastExecutionDate(integrationInstance.getId()));
     }
 
+    /**
+     * Reachable by a tenant admin OR by a connected user, because the connect dialog a vendor embeds calls this for the
+     * end user's own integration instance. {@code isConnectedUser()} only says the caller is an end user rather than a
+     * ByteChef one -- it authorises nothing by itself. What confines a connected user to their OWN instance is
+     * {@code ConnectedUserIntegrationInstanceFacadeImpl.isOwnedByConnectedUser}, which runs before this is reached and
+     * fails closed; this method must not be called from any other connected-user path without that check in front of
+     * it.
+     */
     @Override
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("isTenantAdmin() or isConnectedUser()")
     public void updateIntegrationInstanceWorkflow(
         long integrationInstanceId, String workflowId, Map<String, Object> inputs) {
 
