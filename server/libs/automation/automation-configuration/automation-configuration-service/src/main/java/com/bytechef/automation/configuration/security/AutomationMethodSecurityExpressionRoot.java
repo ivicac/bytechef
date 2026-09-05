@@ -35,6 +35,7 @@ import org.springframework.security.core.Authentication;
  * <li>{@code isCurrentUser(#id)} — grants when the supplied id is the current authenticated user's id.</li>
  * <li>{@code isTenantAdmin()} — grants when the current user is a global tenant administrator.</li>
  * <li>{@code isResourceOwner(#id, 'Type')} — grants when the current user owns the identified resource.</li>
+ * <li>{@code isConnectedUser()} — grants when the caller is an embedded connected user rather than a ByteChef one.</li>
  * </ul>
  *
  * @author Ivica Cardic
@@ -86,6 +87,24 @@ public final class AutomationMethodSecurityExpressionRoot
         }
 
         return permissionService.isTenantAdmin();
+    }
+
+    /**
+     * Returns {@code true} when the caller is an embedded connected user — an end user of a vendor's product, not a
+     * ByteChef user. It says only WHICH KIND of principal is calling and nothing about what that principal may touch,
+     * so it is never sufficient on its own: every method that admits it also runs its own ownership check for the
+     * connected user (see {@code ConnectedUserIntegrationInstanceFacadeImpl.isOwnedByConnectedUser}). Widening a gate
+     * with this and nothing else would let ANY connected user in the tenant through.
+     *
+     * <p>
+     * Deliberately NOT bypassed under skip mode, unlike the built-ins above: skip mode arms nothing for a principal
+     * {@link ResourceMembershipResolver} governs, and answering "yes, a connected user" for a caller that is not one
+     * would widen every expression this appears in.
+     */
+    public boolean isConnectedUser() {
+        ResourceMembershipResolver resourceMembershipResolver = resourceMembershipResolverProvider.getIfAvailable();
+
+        return resourceMembershipResolver != null && resourceMembershipResolver.governsCurrentPrincipal();
     }
 
     /**

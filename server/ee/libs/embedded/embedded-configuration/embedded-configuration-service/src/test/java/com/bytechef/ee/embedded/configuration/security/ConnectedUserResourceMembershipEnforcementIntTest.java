@@ -65,6 +65,9 @@ import com.bytechef.platform.configuration.service.WorkflowTestConfigurationServ
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TempFileStorage;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.test.facade.TestWorkflowExecutor;
 import com.bytechef.platform.workflow.test.web.rest.WorkflowTestApiController;
@@ -457,7 +460,7 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
             .thenReturn(Optional.of(catalogProjectWorkflow));
 
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
-            CATALOG_WORKFLOW_UUID, "Template", "", null, List.of(), List.of(), null);
+            CATALOG_WORKFLOW_UUID, "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
             CATALOG_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
@@ -951,6 +954,21 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         @Bean
         JobService jobService() {
             return mock(JobService.class);
+        }
+
+        @Bean
+        McpComponentService mcpComponentService() {
+            return mock(McpComponentService.class);
+        }
+
+        @Bean
+        McpServerService mcpServerService() {
+            return mock(McpServerService.class);
+        }
+
+        @Bean
+        McpToolService mcpToolService() {
+            return mock(McpToolService.class);
         }
 
         @Bean("permissionService")

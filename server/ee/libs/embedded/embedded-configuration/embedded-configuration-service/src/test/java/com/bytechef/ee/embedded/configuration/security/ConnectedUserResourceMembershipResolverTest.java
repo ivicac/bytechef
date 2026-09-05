@@ -42,6 +42,12 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.mcp.domain.McpComponent;
+import com.bytechef.platform.mcp.domain.McpServer;
+import com.bytechef.platform.mcp.domain.McpTool;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.List;
@@ -80,6 +86,11 @@ class ConnectedUserResourceMembershipResolverTest {
     private static final long OTHER_USERS_PROJECT_DEPLOYMENT_ID = 302L;
     private static final long CONNECTED_USER_PROJECT_ID = 1L;
     private static final long INTEGRATION_INSTANCE_CONFIGURATION_ID = 500L;
+    private static final long EMBEDDED_MCP_SERVER_ID = 600L;
+    private static final long AUTOMATION_MCP_SERVER_ID = 601L;
+    private static final long EMBEDDED_MCP_COMPONENT_ID = 610L;
+    private static final long EMBEDDED_MCP_TOOL_ID = 620L;
+    private static final long OTHER_MCP_TOOL_ID = 621L;
 
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private ConnectedUserConnectionService connectedUserConnectionService;
@@ -89,6 +100,9 @@ class ConnectedUserResourceMembershipResolverTest {
     private ConnectionService connectionService;
     private IntegrationInstanceService integrationInstanceService;
     private JobService jobService;
+    private McpComponentService mcpComponentService;
+    private McpServerService mcpServerService;
+    private McpToolService mcpToolService;
     private PrincipalJobService principalJobService;
     private ProjectDeploymentService projectDeploymentService;
     private ProjectService projectService;
@@ -109,6 +123,9 @@ class ConnectedUserResourceMembershipResolverTest {
         connectionService = mock(ConnectionService.class);
         integrationInstanceService = mock(IntegrationInstanceService.class);
         jobService = mock(JobService.class);
+        mcpComponentService = mock(McpComponentService.class);
+        mcpServerService = mock(McpServerService.class);
+        mcpToolService = mock(McpToolService.class);
         principalJobService = mock(PrincipalJobService.class);
         projectDeploymentService = mock(ProjectDeploymentService.class);
         projectService = mock(ProjectService.class);
@@ -121,8 +138,9 @@ class ConnectedUserResourceMembershipResolverTest {
 
         resolver = new ConnectedUserResourceMembershipResolver(
             automationWorkflowProjectFacade, connectedUserConnectionMembership, connectedUserProjectService,
-            connectedUserProjectWorkflowService, connectedUserService, jobService, principalJobService,
-            projectDeploymentService, projectService, projectWorkflowService);
+            connectedUserProjectWorkflowService, connectedUserService, jobService, mcpComponentService,
+            mcpServerService, mcpToolService, principalJobService, projectDeploymentService, projectService,
+            projectWorkflowService);
 
         securityUtilsMock = mockStatic(SecurityUtils.class);
 
@@ -339,6 +357,118 @@ class ConnectedUserResourceMembershipResolverTest {
         assertThat(resolver.resolve(1L, "KnowledgeBase", "KNOWLEDGE_BASE_EDIT")).isEqualTo(Decision.NOT_APPLICABLE);
     }
 
+    // -- McpServer ---------------------------------------------------------------------------------------------
+
+    @Test
+    void testResolveMcpServerGrantedForViewOnAnEmbeddedServer() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpServerGrantedForViewWhenTheConnectedUserHasNoProjectYet() {
+        stubEmbeddedMcpServer();
+
+        when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.PRODUCTION))
+            .thenReturn(Optional.empty());
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForEveryOtherScopeOnAnEmbeddedServer() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_EDIT")).isEqualTo(Decision.DENIED);
+        assertThat(resolver.resolve(EMBEDDED_MCP_SERVER_ID, "McpServer", "MCP_DELETE")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForAServerOutsideTheEmbeddedCatalog() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve(AUTOMATION_MCP_SERVER_ID, "McpServer", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpServerDeniedForNonNumericId() {
+        stubEmbeddedMcpServer();
+
+        assertThat(resolver.resolve("not-a-number", "McpServer", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    private void stubEmbeddedMcpServer() {
+        when(mcpServerService.getMcpServers(PlatformType.EMBEDDED))
+            .thenReturn(List.of(mcpServer(EMBEDDED_MCP_SERVER_ID)));
+    }
+
+    private static McpServer mcpServer(long id) {
+        McpServer mcpServer = new McpServer("embedded", PlatformType.EMBEDDED, Environment.PRODUCTION, true);
+
+        mcpServer.setId(id);
+
+        return mcpServer;
+    }
+
+    // -- McpTool -----------------------------------------------------------------------------------------------
+
+    @Test
+    void testResolveMcpToolGrantedForViewOnAToolOfAnEmbeddedServer() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpToolGrantedForViewWhenTheConnectedUserHasNoProjectYet() {
+        stubEmbeddedMcpTool();
+
+        when(connectedUserProjectService.fetchConnectUserProject(EXTERNAL_USER_ID, Environment.PRODUCTION))
+            .thenReturn(Optional.empty());
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForEveryOtherScopeOnAToolOfAnEmbeddedServer() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(EMBEDDED_MCP_TOOL_ID, "McpTool", "MCP_EDIT")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForAToolOutsideTheEmbeddedCatalog() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve(OTHER_MCP_TOOL_ID, "McpTool", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    @Test
+    void testResolveMcpToolDeniedForNonNumericId() {
+        stubEmbeddedMcpTool();
+
+        assertThat(resolver.resolve("not-a-number", "McpTool", "MCP_VIEW")).isEqualTo(Decision.DENIED);
+    }
+
+    private void stubEmbeddedMcpTool() {
+        stubEmbeddedMcpServer();
+
+        McpComponent mcpComponent = new McpComponent();
+
+        mcpComponent.setId(EMBEDDED_MCP_COMPONENT_ID);
+        mcpComponent.setMcpServerId(EMBEDDED_MCP_SERVER_ID);
+
+        when(mcpComponentService.getMcpServerMcpComponents(EMBEDDED_MCP_SERVER_ID)).thenReturn(List.of(mcpComponent));
+
+        McpTool mcpTool = new McpTool();
+
+        mcpTool.setId(EMBEDDED_MCP_TOOL_ID);
+        mcpTool.setMcpComponentId(EMBEDDED_MCP_COMPONENT_ID);
+
+        when(mcpToolService.getMcpComponentMcpTools(EMBEDDED_MCP_COMPONENT_ID)).thenReturn(List.of(mcpTool));
+    }
+
     // -- Project -----------------------------------------------------------------------------------------------
 
     @Test
@@ -469,7 +599,7 @@ class ConnectedUserResourceMembershipResolverTest {
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
             UUID.randomUUID()
                 .toString(),
-            "Template", "", null, List.of(), List.of(), null);
+            "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
             OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
@@ -883,7 +1013,7 @@ class ConnectedUserResourceMembershipResolverTest {
             .thenReturn(Optional.of(catalogProjectWorkflow));
 
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
-            templateUuid.toString(), "Template", "", null, List.of(), List.of(), null);
+            templateUuid.toString(), "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
             OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
