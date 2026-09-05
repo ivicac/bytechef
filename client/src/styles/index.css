@@ -53,6 +53,17 @@
 }
 
 @layer base {
+    /* An embedded entry's iframe paints the browser's default white before React has rendered
+       anything, which shows as a flash against the grey ground the surface itself draws. Painting
+       the document gives the frame the right colour from its very first paint. It follows the
+       theme too: `applyHubTheme` writes `--hub-surface` onto the root, so a vendor's colour takes
+       over as soon as the handshake lands. Scoped to a class the embedded HTML entries set, so the
+       main application — which is white — is untouched. */
+    html.embedded-surface,
+    html.embedded-surface body {
+        background-color: var(--hub-surface);
+    }
+
     :root {
         @apply h-full;
         color-scheme: light;
@@ -81,6 +92,11 @@
         --content-neutral-secondary: 215 19% 35%;
         --content-neutral-secondary-hover: 215 19% 35%;
         --content-neutral-tertiary: 215 20% 65%;
+        /* Text on the brand surface. Separate from `--content-onsurface-primary` because the two
+           diverge in dark mode: the brand surface INVERTS there (a light blue on a near-black UI)
+           while destructive stays a mid red, so one shared "on surface" colour cannot serve both —
+           white-on-light-blue was the unreadable `New Automation` button. */
+        --content-onbrand: 0 0% 100%;
         --content-onsurface-primary: 0 0% 100%;
         --content-onsurface-secondary: 215 20% 65%;
         --content-onwarning: 229 84% 5%;
@@ -175,9 +191,9 @@
         --surface-neutral-primary: 0 0% 100%;
         --surface-neutral-primary-active: 214 32% 91%;
         --surface-neutral-primary-hover: 210 40% 96%;
-        --surface-neutral-secondary: 210 40% 96%;
-        --surface-neutral-secondary-hover: 214 32% 91%;
-        --surface-neutral-secondary-active: 213 27% 84%;
+        --surface-neutral-secondary: 214 32% 93%;
+        --surface-neutral-secondary-hover: 214 32% 88%;
+        --surface-neutral-secondary-active: 213 27% 82%;
         --surface-neutral-tertiary: 214 32% 91%;
         --surface-neutral-tertiary-hover: 213 27% 84%;
         --surface-neutral-transparent: 0 0% 100% / 0%;
@@ -202,10 +218,59 @@
         --sidebar-border: var(--border);
         --sidebar-ring: var(--ring);
         --rdg-color-scheme: light;
+
+        /* Automation Hub surface tokens. Every colour the embedded hub paints ITSELF with resolves
+           through one of these, which is what lets a vendor's `theme` prop replace any of them --
+           `applyHubTheme` writes the overrides straight onto the root element. The defaults point
+           at the existing design tokens rather than restating their values, so an untouched hub
+           looks exactly as it did before these existed and follows the design system when it
+           moves. Values are full colours, not the bare HSL triplets the shadcn tokens use, because
+           a vendor supplies a colour ('#16a34a', 'rebeccapurple'), not three space-separated
+           numbers. */
+        --hub-surface: hsl(var(--muted));
+        --hub-card: hsl(var(--card));
+        /* Marks the enabled automation's card, as its BORDER rather than its fill. The pale green
+           wash this used to be had the same relative luminance as the hub page behind it (1.00:1),
+           so the card had no edge at all -- it was held together by hue alone, which disappears
+           for a reader who cannot separate those two greens. It also dragged the card's
+           description text below AA (4.40:1, against 4.83:1 on a white card) even though nothing
+           about the description had changed. A border keeps the state unmistakable and gives the
+           card its edge back. Border-strength rather than fill-strength: it clears the 3:1
+           non-text threshold against both the card and the page. */
+        --hub-active-border: #16a34a;
+        --hub-enable: #15803d;
+        --hub-enable-hover: #166534;
+        --hub-disable: #b91c1c;
+        --hub-disable-hover: #991b1b;
+        --hub-on-accent: #ffffff;
+        --hub-segment-selected: #e5e7eb;
     }
 
     .dark {
         color-scheme: dark;
+
+        /* The hub's surface tokens again, for dark mode. Only the neutrals move — the action
+           colours do NOT change, since enable is green and disable is red in either mode, and
+           lightening them would weaken the one signal the cards exist to give. A vendor overriding
+           any of these through `theme` replaces both modes at once, because `applyHubTheme` writes
+           onto the root element and an inline style beats a class rule.
+
+           The two neutrals are the light block's INVERTED, not the same aliases repeated. The
+           design system's dark palette assumes the page is `--background` and uses `--muted`,
+           `--accent` and `--input` as surfaces raised above it — and in dark those three are one
+           and the same value. Grounding the hub on `--muted` there put the page on the exact
+           colour of every raised surface: the selected filter segment and the search field
+           vanished into it, while the UNSELECTED segments — being `--hub-card` — were the only
+           ones left visible and so read as selected. Grounding on `--background` restores the
+           stack: page, then card, then selection. */
+        --hub-surface: hsl(var(--background));
+        --hub-card: hsl(var(--muted));
+        /* Lighter than the light-mode value, not darker, because this is a border on a raised dark
+           card now: the green-900 fill it replaces would read as an unlit edge against it. */
+        --hub-active-border: #22c55e;
+        /* A step above the card rather than an alias: dark `--accent` IS the card colour here, so
+           an aliased selected segment would be indistinguishable from an unselected one. */
+        --hub-segment-selected: #334155;
 
         --accent: 215 27.9% 16.9%;
         --accent-foreground: 210 20% 98%;
@@ -231,6 +296,7 @@
         --content-neutral-secondary: 215 20% 65%;
         --content-neutral-secondary-hover: 215 20% 65%;
         --content-neutral-tertiary: 215 20% 65%;
+        --content-onbrand: 220.9 39.3% 11%;
         --content-onsurface-primary: 210 40% 98%;
         --content-onsurface-secondary: 214 32% 91%;
         --content-onwarning: 229 84% 5%;
