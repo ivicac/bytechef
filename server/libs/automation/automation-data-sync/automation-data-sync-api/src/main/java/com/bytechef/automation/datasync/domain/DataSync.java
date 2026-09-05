@@ -156,6 +156,11 @@ public final class DataSync {
     }
 
     public void setTitle(String title) {
+        if (title != null && title.length() > MAX_TITLE_LENGTH) {
+            throw new IllegalArgumentException(
+                "DataSync.title must be at most " + MAX_TITLE_LENGTH + " characters (got " + title.length() + ")");
+        }
+
         this.title = title;
     }
 
@@ -164,6 +169,12 @@ public final class DataSync {
     }
 
     public void setDescription(@Nullable String description) {
+        if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new IllegalArgumentException(
+                "DataSync.description must be at most " + MAX_DESCRIPTION_LENGTH + " characters (got "
+                    + description.length() + ")");
+        }
+
         this.description = description;
     }
 

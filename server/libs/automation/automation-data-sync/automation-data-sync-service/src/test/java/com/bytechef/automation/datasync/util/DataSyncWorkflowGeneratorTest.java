@@ -107,6 +107,31 @@ class DataSyncWorkflowGeneratorTest {
             .isEqualTo(DataSyncWorkflowGenerator.generate(dataSync, fullElements()));
     }
 
+    /**
+     * String equality between two calls in one JVM (the check above) has no power against ordering regressions: Java's
+     * {@code String.hashCode()} is not randomised, so a {@code HashMap} would iterate identically both times within the
+     * same run, and the snapshot tests use JSONAssert, which is order-independent. This test instead feeds
+     * {@code elements} in a SCRAMBLED order and pins the emitted {@code clusterElements} key order directly — proving
+     * the generator's own {@code Kind.values()} traversal, not the caller's list order, decides the order. Ordering is
+     * load-bearing: {@code toDataSyncDTO}'s {@code unpublishedChanges} compares two generated definition strings.
+     */
+    @Test
+    void testClusterElementKeyOrderIsSourceDestinationProcessorRegardlessOfElementOrder() {
+        DataSync dataSync = newDataSync(TriggerType.MANUAL, Map.of());
+        List<DataSyncElement> scrambledElements = List.of(processor(), destination(), source());
+
+        Map<String, Object> parsed = parse(DataSyncWorkflowGenerator.generate(dataSync, scrambledElements));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tasks = (List<Map<String, Object>>) parsed.get("tasks");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> clusterElements = (Map<String, Object>) tasks.get(0)
+            .get("clusterElements");
+
+        assertThat(clusterElements.keySet()).containsExactly("source", "destination", "processor");
+    }
+
     private static Map<String, Object> parse(String definition) {
         return JsonUtils.read(definition, new TypeReference<>() {});
     }
