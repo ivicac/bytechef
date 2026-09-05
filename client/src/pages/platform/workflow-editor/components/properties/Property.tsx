@@ -8,6 +8,7 @@ import ArrayProperty from '@/pages/platform/workflow-editor/components/propertie
 import {useClusterElementContext} from '@/pages/platform/workflow-editor/components/properties/ClusterElementContext';
 import {useFormDisplayConditionsContext} from '@/pages/platform/workflow-editor/components/properties/FormDisplayConditionsContext';
 import ObjectProperty from '@/pages/platform/workflow-editor/components/properties/ObjectProperty';
+import CallAiAgentDetailLink from '@/pages/platform/workflow-editor/components/properties/components/CallAiAgentDetailLink';
 import FormControlledArrayItems from '@/pages/platform/workflow-editor/components/properties/components/FormControlledArrayItems';
 import FormControlledObjectEntries from '@/pages/platform/workflow-editor/components/properties/components/FormControlledObjectEntries';
 import FormLookupValuesWatcher from '@/pages/platform/workflow-editor/components/properties/components/FormLookupValuesWatcher';
@@ -44,7 +45,6 @@ import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/s
 import {encodeParameters, encodePath, safeResolvePath} from '@/pages/platform/workflow-editor/utils/encodingUtils';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
 import resolveExpressionValue from '@/pages/platform/workflow-editor/utils/resolveExpressionValue';
-import {CLUSTER_ELEMENT_TYPE_TOOLS} from '@/shared/constants';
 import {ERROR_MESSAGES} from '@/shared/errorMessages';
 import {PropertyCopilotMode} from '@/shared/middleware/graphql-types';
 import {
@@ -484,23 +484,21 @@ const Property = ({
                     defaultValue={parameterValue !== undefined ? parameterValue : defaultValue}
                     deletePropertyButton={
                         <>
-                            {workflow.id &&
-                                currentNode?.name &&
-                                currentNode.clusterElementType !== CLUSTER_ELEMENT_TYPE_TOOLS && (
-                                    <PropertyCopilotButton
-                                        anchorRef={propertyCopilotAnchorRef}
-                                        disabled={!!options?.length && !isFormulaMode && !mentionInput}
-                                        dynamic={mentionInput}
-                                        environmentId={currentEnvironmentId}
-                                        getHasValue={getCopilotHasValue}
-                                        mode={isFormulaMode ? PropertyCopilotMode.Formula : PropertyCopilotMode.Text}
-                                        onApply={handleCopilotApply}
-                                        propertyPath={calculatedPath ?? name ?? ''}
-                                        propertyType={type}
-                                        workflowId={workflow.id as string}
-                                        workflowNodeName={currentNode.name}
-                                    />
-                                )}
+                            {workflow.id && currentNode?.name && !currentNode.clusterElementType && (
+                                <PropertyCopilotButton
+                                    anchorRef={propertyCopilotAnchorRef}
+                                    disabled={!!options?.length && !isFormulaMode && !mentionInput}
+                                    dynamic={mentionInput && !isFormulaMode}
+                                    environmentId={currentEnvironmentId}
+                                    getHasValue={getCopilotHasValue}
+                                    mode={isFormulaMode ? PropertyCopilotMode.Formula : PropertyCopilotMode.Text}
+                                    onApply={handleCopilotApply}
+                                    propertyPath={calculatedPath ?? name ?? ''}
+                                    propertyType={type}
+                                    workflowId={workflow.id as string}
+                                    workflowNodeName={currentNode.name}
+                                />
+                            )}
 
                             {deletePropertyButton}
                         </>
@@ -1285,6 +1283,11 @@ const Property = ({
                             workflowNodeName={currentNode?.name ?? ''}
                         />
                     )}
+
+                    {!control &&
+                        controlType === 'SELECT' &&
+                        currentNode?.componentName === 'callAiAgent' &&
+                        name === 'agentUuid' && <CallAiAgentDetailLink agentUuid={selectValue} />}
 
                     {!control && controlType === 'SELECT' && type === 'BOOLEAN' && (
                         <PropertySelect
