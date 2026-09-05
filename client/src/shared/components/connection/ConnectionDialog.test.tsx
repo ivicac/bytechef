@@ -380,6 +380,17 @@ describe('ConnectionDialog visibility', () => {
         expect(screen.getByLabelText('Private')).toBeInTheDocument();
     });
 
+    // The embedded builder's connections belong to a connected user rather than to a workspace, and
+    // the connected-user create path forces them unshared — so the picker would offer reach the
+    // server discards and the connection would come back PRIVATE whatever was ticked.
+    it('does not offer the picker when the surface does not support connection visibility', () => {
+        renderDialog({showVisibility: false});
+
+        expect(screen.queryByText('Visibility')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Shared with workspace')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Private')).not.toBeInTheDocument();
+    });
+
     it('does not offer "Specific people" when creating, because there is no connection id to grant against', () => {
         renderDialog();
 
