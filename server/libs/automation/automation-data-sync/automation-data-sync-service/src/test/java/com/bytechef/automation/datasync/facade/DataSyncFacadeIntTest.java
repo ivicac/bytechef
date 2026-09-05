@@ -313,15 +313,22 @@ class DataSyncFacadeIntTest {
     @Test
     void testDeleteRemovesProjectAndRows() {
         long id = createFullyConfigured();
-        long projectId = dataSyncFacade.getDataSync(id)
-            .dataSync()
+        DataSyncDTO dataSyncDTO = dataSyncFacade.getDataSync(id);
+        long projectId = dataSyncDTO.dataSync()
             .getProjectId();
+        String draftWorkflowId = dataSyncDTO.draftWorkflowId();
 
         dataSyncFacade.deleteDataSync(id);
 
         assertThat(dataSyncRepository.findById(id)).isEmpty();
         assertThat(dataSyncElementRepository.findAllByDataSyncIdOrderByKindAsc(id)).isEmpty();
         assertThat(projectRepository.findById(projectId)).isEmpty();
+
+        // Element rows vanish by FK cascade regardless of what deleteDataSync's own body does. The draft workflow
+        // row does not: it is removed by the hand-written per-ProjectVersion loop in deleteDataSync (project_workflow
+        // then workflow, firing WorkflowPreDeleteListeners along the way), so only this assertion exercises that code.
+        assertThat(projectWorkflowRepository.findAllByProjectId(projectId)).isEmpty();
+        assertThat(workflowCrudRepository.findById(draftWorkflowId)).isEmpty();
     }
 
     @Test

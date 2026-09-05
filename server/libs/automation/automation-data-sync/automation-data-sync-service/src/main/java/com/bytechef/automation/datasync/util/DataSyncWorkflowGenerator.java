@@ -154,7 +154,17 @@ public final class DataSyncWorkflowGenerator {
         clusterElement.put("label", element.getComponentName());
         clusterElement.put("type", type);
         clusterElement.put("parameters", new LinkedHashMap<>(element.getParameters()));
-        clusterElement.put(WorkflowExtConstants.CONNECTIONS, buildConnections(element, nodeName));
+
+        // The processor is always dataStreamProcessor/v1/fieldMapper and never carries a connection. This generator
+        // has no service access to ask the source/destination component whether it declares a connection at all, so
+        // element.getConnectionId() is the proxy: it is null for a no-connection component forever, and null for a
+        // connection-requiring component only until one is configured — a state publish validation
+        // (ELEMENT_CONNECTION_MISSING) already refuses to let past. So by the time a Data Sync can be deployed, a
+        // present connectionId means the component genuinely needs one, and an absent block never becomes a
+        // deployment-dialog row that can never hold anything (the bug this replaces).
+        if (element.getKind() != Kind.PROCESSOR && element.getConnectionId() != null) {
+            clusterElement.put(WorkflowExtConstants.CONNECTIONS, buildConnections(element, nodeName));
+        }
 
         return clusterElement;
     }
