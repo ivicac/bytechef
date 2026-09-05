@@ -58,6 +58,11 @@ public class RemoteConnectedUserProjectFacadeClient implements ConnectedUserProj
     }
 
     @Override
+    public void deleteConnectedUserProjects(long connectedUserId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String createProjectWorkflow(
         String externalUserId, String prompt, @Nullable String systemPrompt, Environment environment,
         boolean generate) {
@@ -112,8 +117,9 @@ public class RemoteConnectedUserProjectFacadeClient implements ConnectedUserProj
     }
 
     @Override
-    public CopilotChatContextDTO
-        prepareCopilotChat(String externalUserId, String workflowUuid, Environment environment) {
+    public CopilotChatContextDTO prepareCopilotChat(
+        String externalUserId, String workflowUuid, Environment environment) {
+
         throw new UnsupportedOperationException();
     }
 
@@ -134,6 +140,13 @@ public class RemoteConnectedUserProjectFacadeClient implements ConnectedUserProj
     @Override
     public String updateProjectWorkflow(
         String externalUserId, String workflowUuid, String prompt, Environment environment, boolean generate) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateProjectWorkflowInputs(
+        String externalUserId, String workflowUuid, Map<String, ?> inputs, Long environmentId) {
 
         throw new UnsupportedOperationException();
     }

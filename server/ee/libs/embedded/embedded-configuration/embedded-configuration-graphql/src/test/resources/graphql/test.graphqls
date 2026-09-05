@@ -12,6 +12,12 @@ type Mutation {
 scalar Long
 
 # Minimal type stubs referenced by this module's graphqls files but defined in other modules.
+enum CodeWorkflowLanguage {
+    JAVASCRIPT
+    PYTHON
+    RUBY
+}
+
 type ConnectedUser {
     id: ID!
 }
