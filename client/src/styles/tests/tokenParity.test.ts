@@ -13,9 +13,17 @@ const stylesheet = readFileSync(resolve(currentDirectory, '../index.css'), 'utf8
  * `--radius` and the popover width are not colours. The `--sidebar*` tokens are
  * `var(--muted)`-style aliases declared on the same element as the `.dark` class, so they
  * already resolve against the dark values — giving them explicit overrides would break that
- * indirection.
+ * indirection. The `--hub-enable`/`--hub-disable`/`--hub-on-accent` family is the embedded hub's
+ * action palette: green means enabled and red means disabled in either mode, and lightening either
+ * for dark would weaken the one signal the automation cards exist to give, so they are deliberately
+ * mode-invariant rather than merely un-overridden.
  */
 const THEME_EXEMPT_TOKENS = new Set([
+    '--hub-disable',
+    '--hub-disable-hover',
+    '--hub-enable',
+    '--hub-enable-hover',
+    '--hub-on-accent',
     '--radius',
     '--sidebar',
     '--sidebar-accent',

@@ -105,6 +105,13 @@ interface ConnectionDialogProps {
      */
     showOrganizationOption?: boolean;
     /**
+     * Offers the visibility picker at all. Defaults to true; the embedded builder passes false, because a connected
+     * user's connection belongs to that user and to no workspace -- `ConnectedUserConnectionFacadeImpl` forces it
+     * unshared on create -- so the picker there offers reach the server discards, and the connection comes back
+     * PRIVATE whatever was ticked.
+     */
+    showVisibility?: boolean;
+    /**
      * Offers the "Shared Connection" switch. Opt-in because the obvious gate does not work:
      * `usePlatformTypeStore` is persisted to localStorage and the builder iframe is same-origin with
      * the admin app, so the connected-user builder also reads EMBEDDED. Only the `/embedded/connections`
@@ -160,6 +167,7 @@ const ConnectionDialog = ({
     onConnectionCreate,
     showOrganizationOption,
     showSharedOption,
+    showVisibility = true,
     startInCredentialsMode,
     title,
     triggerNode,
@@ -878,7 +886,7 @@ const ConnectionDialog = ({
                                     />
                                 ) : (
                                     <>
-                                        {!connection?.id && visibilityFeatureEnabled && (
+                                        {!connection?.id && visibilityFeatureEnabled && showVisibility && (
                                             <FormField
                                                 control={control}
                                                 name="visibility"
