@@ -559,6 +559,7 @@ relevant file before working in that area** — each records invariants whose vi
 |------|----------------------|
 | `.agents/ai-hub.md` | AI Hub chats, agent tool tiers, subagent memory + interactive questions, auto-memory, Copilot module map |
 | `.agents/agents.md` | Agents (automation): channels, generated workflows, elements, publishing |
+| `.agents/data-sync.md` | Data Sync: rows-as-truth, generated draft, fixed node names, Run now path, form-mode wizard |
 | `.agents/hitl-approvals.md` | Approval cards, the tool gate, delivery fan-out |
 | `.agents/ai-guardrails.md` | Guardrails engine, advisor, per-surface coverage |
 | `.agents/ai-gateway-guardrails.md` | Gateway adapter + project overlay |
