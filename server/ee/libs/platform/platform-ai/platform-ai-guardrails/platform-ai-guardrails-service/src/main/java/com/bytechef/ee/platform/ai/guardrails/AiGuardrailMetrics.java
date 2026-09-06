@@ -33,13 +33,15 @@ import org.springframework.stereotype.Component;
  * {@code detector_timed_out} (a detection pass exceeded its budget and abandoned its remaining work, so its spans are
  * partial -- distinct from {@code detector_failed}, since a slow detector never throws),
  * {@code detector_skipped_oversize} (a detector that cannot be applied to a fragment was not run at all, because the
- * input exceeded the configured maximum for one), {@code below_confidence_threshold} (at least one candidate span was
- * dropped from a call because its confidence fell below {@code SensitiveDataRedactor}'s {@code minConfidence}),
- * {@code tool_args_restored} (at least one PII token in a tool call's arguments was restored before
- * {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool), {@code tool_result_tokenized} (at least one
- * value in a tool's result was tokenized/redacted before it reached the model), or
- * {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation history
- * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
+ * input exceeded the configured maximum for one), {@code violation_record_written} / {@code violation_record_dropped} /
+ * {@code violation_records_capped} (per-detection drill-down records were persisted, shed, or suppressed by the daily
+ * cap -- the drop event is what keeps "my rule never fired" distinguishable from "we lost the row"),
+ * {@code below_confidence_threshold} (at least one candidate span was dropped from a call because its confidence fell
+ * below {@code SensitiveDataRedactor}'s {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a
+ * tool call's arguments was restored before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool),
+ * {@code tool_result_tokenized} (at least one value in a tool's result was tokenized/redacted before it reached the
+ * model), or {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation
+ * history {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
  * {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter).
  * Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays cheap on unbounded
  * multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without an actuator
@@ -131,6 +133,14 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public void recordDetectorFailure(String detectorName) {
         record(DETECTOR_FAILED_EVENT);
+    }
+
+    /**
+     * The surface this instance tags its events with. Exposed because a violation record carries the surface, and the
+     * advisor's own per-request instance is the only place that knows it.
+     */
+    public String getSurface() {
+        return surface;
     }
 
     /**
