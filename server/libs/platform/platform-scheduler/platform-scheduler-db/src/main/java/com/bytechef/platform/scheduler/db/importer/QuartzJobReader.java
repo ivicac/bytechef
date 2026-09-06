@@ -115,7 +115,16 @@ public class QuartzJobReader {
                         continue;
                     }
 
-                    Instant nextFireTime = getNextFireTime(jobKey);
+                    List<? extends Trigger> triggers = scheduler.getTriggersOfJob(jobKey);
+
+                    if (triggers.isEmpty()) {
+                        skippedComplete++;
+
+                        continue;
+                    }
+
+                    Trigger trigger = triggers.getFirst();
+                    Instant nextFireTime = getNextFireTime(trigger);
 
                     if (nextFireTime == null) {
                         skippedComplete++;
@@ -123,7 +132,7 @@ public class QuartzJobReader {
                         continue;
                     }
 
-                    jobs.add(toImportedJob(jobClassName, jobKey, jobDetail.getJobDataMap(), nextFireTime));
+                    jobs.add(toImportedJob(jobClassName, jobKey, jobDetail.getJobDataMap(), trigger, nextFireTime));
                 } catch (Exception exception) {
                     log.warn("Unable to read Quartz job {}", jobKey, exception);
 
@@ -143,45 +152,66 @@ public class QuartzJobReader {
         };
     }
 
-    private @Nullable Instant getNextFireTime(JobKey jobKey) throws SchedulerException {
-        List<? extends Trigger> triggers = scheduler.getTriggersOfJob(jobKey);
-
-        if (triggers.isEmpty()) {
-            return null;
-        }
-
-        Trigger trigger = triggers.getFirst();
+    private static @Nullable Instant getNextFireTime(Trigger trigger) {
         Date nextFireTime = trigger.getNextFireTime();
 
         return nextFireTime == null ? null : nextFireTime.toInstant();
     }
 
-    private ImportedJob toImportedJob(
-        String jobClassName, JobKey jobKey, JobDataMap jobDataMap, Instant nextFireTime) throws SchedulerException {
+    private static ImportedJob toImportedJob(
+        String jobClassName, JobKey jobKey, JobDataMap jobDataMap, Trigger trigger, Instant nextFireTime) {
 
         String instanceId = jobKey.getName();
 
         return switch (jobClassName) {
             case "ScheduleTriggerJob" -> {
-                CronTrigger cronTrigger = (CronTrigger) scheduler.getTriggersOfJob(jobKey)
-                    .getFirst();
+                if (!(trigger instanceof CronTrigger cronTrigger)) {
+                    throw new IllegalStateException(
+                        "Quartz job %s of class ScheduleTriggerJob does not carry a CronTrigger".formatted(jobKey));
+                }
 
                 yield new ImportedJob.ScheduleTrigger(
                     instanceId, cronTrigger.getCronExpression(),
                     cronTrigger.getTimeZone()
                         .getID(),
-                    jobDataMap.getString("output"), nextFireTime);
+                    requireStringValue(jobDataMap, "output", jobKey), nextFireTime);
             }
             case "PollingTriggerJob" -> new ImportedJob.PollingTrigger(instanceId, nextFireTime);
             case "DynamicWebhookTriggerRefreshJob" -> new ImportedJob.DynamicWebhookRefresh(
-                instanceId, jobDataMap.getLong("connectionId"), nextFireTime);
+                instanceId, requireLongValue(jobDataMap, "connectionId", jobKey), nextFireTime);
             case "ConnectionOAuth2TokenRefreshJob" -> new ImportedJob.OAuth2TokenRefresh(
-                instanceId, jobDataMap.getLong("connectionId"), jobDataMap.getString("tenantId"), nextFireTime);
+                instanceId, requireLongValue(jobDataMap, "connectionId", jobKey),
+                requireStringValue(jobDataMap, "tenantId", jobKey), nextFireTime);
             case "OneTimeSchedulerJob" -> new ImportedJob.OneTimeResume(
-                instanceId, jobDataMap.getLong("jobId"),
-                jobDataMap.containsKey("continueParameters") ? jobDataMap.getString("continueParameters") : null,
-                nextFireTime);
+                instanceId, requireLongValue(jobDataMap, "jobId", jobKey),
+                optionalStringValue(jobDataMap, "continueParameters"), nextFireTime);
             default -> throw new IllegalStateException("Unexpected job class " + jobClassName);
         };
+    }
+
+    // JobDataMap.getLong/getString throw ClassCastException unless the stored value is exactly a Long/String. A
+    // historical row may have stored a numeric id as an Integer, so coerce defensively rather than losing the row.
+    private static long requireLongValue(JobDataMap jobDataMap, String key, JobKey jobKey) {
+        Object value = jobDataMap.get(key);
+
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        throw new IllegalStateException(
+            "Quartz job %s is missing a numeric '%s' job data value".formatted(jobKey, key));
+    }
+
+    private static String requireStringValue(JobDataMap jobDataMap, String key, JobKey jobKey) {
+        if (!jobDataMap.containsKey(key)) {
+            throw new IllegalStateException(
+                "Quartz job %s is missing the '%s' job data value".formatted(jobKey, key));
+        }
+
+        return String.valueOf(jobDataMap.get(key));
+    }
+
+    private static @Nullable String optionalStringValue(JobDataMap jobDataMap, String key) {
+        return jobDataMap.containsKey(key) ? String.valueOf(jobDataMap.get(key)) : null;
     }
 }
