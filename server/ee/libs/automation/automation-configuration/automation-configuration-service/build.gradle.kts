@@ -42,6 +42,12 @@ dependencies {
     // one deleted. Test-only, and the edge points the legal way round (EE configuration tests -> CE agent).
     testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
     testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-service"))
+    // WorkspaceDataTableEnvironmentScopedReadRegressionIntTest wires the REAL WorkspaceDataTableFacadeImpl into this
+    // module's PermissionServiceImpl, the same edge direction as the ai-agent dependency above (EE configuration
+    // tests -> CE data table).
+    testImplementation(project(":server:libs:automation:automation-data-table:automation-data-table-api"))
+    testImplementation(project(":server:libs:automation:automation-data-table:automation-data-table-service"))
+    testImplementation(project(":server:libs:platform:platform-data-table:platform-data-table-api"))
     testImplementation(project(":server:libs:config:jackson-config"))
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:platform:platform-category:platform-category-service"))

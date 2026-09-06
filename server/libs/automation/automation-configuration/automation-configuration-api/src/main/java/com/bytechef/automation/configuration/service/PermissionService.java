@@ -149,6 +149,32 @@ public interface PermissionService {
     boolean hasResourceScope(Serializable id, String resourceType, String scope);
 
     /**
+     * Returns whether the current user has {@code scope} for the resource, resolved to its owning workspace via the
+     * {@code ResourceOwnershipResolver} registered for {@code resourceType}, checked against the caller's role in
+     * {@code environment} rather than unioned across every environment they can reach.
+     *
+     * <p>
+     * {@link #hasResourceScope(Serializable, String, String)}'s {@code ResourceEnvironmentResolver} step already
+     * answers this for the four resource types that register one ({@code Connection}, {@code ProjectDeployment},
+     * {@code McpServer}) by reading the environment off the resource itself. Every other type — {@code DataTable},
+     * {@code Project} and {@code Workflow} among them — has no environment of its own: the environment is an argument
+     * of the operation, not a property of the row, so no resolver could ever supply it, and
+     * {@link #hasResourceScope(Serializable, String, String)} necessarily unions the environments the caller can reach.
+     * This overload is that argument-supplied case, one level down from
+     * {@link #hasWorkspaceScope(long, String, Environment)} and {@link #hasWorkflowScope(String, String, Environment)}:
+     * one general expression for every by-id check that takes an environment argument, rather than a bespoke overload
+     * per resource family — see
+     * {@code docs/superpowers/specs/2026-09-06-environment-scoped-authorization-remaining-families-design.md} §3.
+     *
+     * @param id           the resource identifier
+     * @param resourceType the resource type key used to select the ownership resolver
+     * @param scope        the scope name the user must hold
+     * @param environment  the environment the caller intends to act on
+     * @return {@code true} if the current user holds {@code scope} for the resource in {@code environment}
+     */
+    boolean hasResourceScopeInEnvironment(Serializable id, String resourceType, String scope, Environment environment);
+
+    /**
      * Returns whether the current user holds at least {@code minimumRole} in the workspace that owns the resource.
      *
      * <p>
@@ -203,6 +229,35 @@ public interface PermissionService {
      * @return the current user's scopes, or an empty set if none / no current user
      */
     Set<String> getMyWorkspaceScopes(long workspaceId);
+
+    /**
+     * Returns the environments in which the current user holds {@code scope} in the workspace (every environment for a
+     * tenant admin, or while skip mode is active).
+     *
+     * <p>
+     * This is the listing counterpart of {@link #hasWorkspaceScope(long, String, Environment)}: where that answers "may
+     * the caller act in this environment", this answers "which environments may the caller see rows from". It exists
+     * for the listings whose {@code environmentId} argument is nullable — with no environment named, the gate correctly
+     * permits the call, and it is the body that must narrow the result to the environments the caller can reach rather
+     * than returning the union across all of them.
+     *
+     * <p>
+     * Call it <em>once per listing</em> and intersect the result with the rows, never once per row: {@link Environment}
+     * has three values and the underlying scope lookup is cached per user/workspace/environment, so this costs at most
+     * three cache reads — but only as long as it stays outside the loop.
+     *
+     * <p>
+     * Implementations must answer through {@link #hasWorkspaceScope(long, String, Environment)} rather than by reading
+     * the caller's membership rows directly. That check resolves an environment row if there is one and otherwise falls
+     * back to the member's implicit (environment-less) row, so a member in implicit mode &mdash; the default &mdash;
+     * holds their scopes in every environment and is correctly not narrowed at all. Reading the rows directly would
+     * return only the explicit ones and narrow such a member to nothing.
+     *
+     * @param workspaceId the workspace whose scope grants are inspected
+     * @param scope       the scope name whose environments are returned
+     * @return the environments in which the current user holds {@code scope}, empty if none / no current user
+     */
+    Set<Environment> getMyWorkspaceScopeEnvironments(long workspaceId, String scope);
 
     /**
      * Returns the current user's {@link WorkspaceRoleType} name in the workspace, or {@code null} if not a member.

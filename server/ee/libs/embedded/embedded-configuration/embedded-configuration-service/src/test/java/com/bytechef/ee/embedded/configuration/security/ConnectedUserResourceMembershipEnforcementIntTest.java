@@ -243,6 +243,11 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
         // The ordinary RBAC path grants everything, so nothing below can pass through it by accident.
         when(permissionService.hasResourceScope(any(), anyString(), anyString())).thenReturn(true);
+
+        // hasWorkflowScopeInEnvironment's ungoverned/no-skip branch calls this overload directly rather than
+        // hasResourceScope, so it needs its own stub to keep "the ordinary RBAC path grants everything" true for it
+        // too -- see testUngovernedPrincipalWithoutSkipStillReachesPermissionService.
+        when(permissionService.hasWorkflowScope(anyString(), anyString(), any(Environment.class))).thenReturn(true);
     }
 
     @AfterEach
@@ -479,19 +484,26 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
     /**
      * The embedded workflow builder's property dropdowns. {@code WorkflowNodeOptionFacadeImpl}'s two methods carried no
-     * authorization at all until they were gated with {@code WORKFLOW_VIEW}; that gate is a new denial surface for the
-     * connected users who drive that builder, so both halves are asserted here through the real evaluator and the real
-     * resolver. A's own workflow passes and B's is refused -- the scope argument is ignored by
-     * {@code ConnectedUserResourceMembershipResolver#resolve}, so {@code WORKFLOW_VIEW} and {@code WORKFLOW_EDIT} get
-     * the identical answer and this covers the whole family.
+     * authorization at all until they were gated with {@code WORKFLOW_VIEW}, later re-pointed from
+     * {@code hasPermission(#workflowId, 'Workflow', ...)} to {@code hasWorkflowScopeInEnvironment(#workflowId, ...,
+     * #environmentId)}; that gate is a new denial surface for the connected users who drive that builder, so both
+     * halves are asserted here through the real evaluator and the real resolver. A's own workflow passes and B's is
+     * refused -- the scope argument is ignored by {@code ConnectedUserResourceMembershipResolver#resolve}, so
+     * {@code WORKFLOW_VIEW} and {@code WORKFLOW_EDIT} get the identical answer and this covers the whole family. The
+     * environment named is resolvable ({@code PRODUCTION_ENVIRONMENT_ID}) in both calls, since the gate's GRANT branch
+     * for a governed principal requires only that the caller-named environment be identifiable, not that it match
+     * anything further -- see {@code AutomationMethodSecurityExpressionRoot#hasWorkflowScopeInEnvironment}.
      */
     @Test
     void testGrantsOwnWorkflowIdAndDeniesAnotherOnWorkflowNodeOptions() throws Throwable {
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatCode(() -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_A_ID)).doesNotThrowAnyException();
+            assertThatCode(
+                () -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_A_ID, PRODUCTION_ENVIRONMENT_ID))
+                    .doesNotThrowAnyException();
 
-            assertThatThrownBy(() -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_B_ID))
-                .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(
+                () -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_B_ID, PRODUCTION_ENVIRONMENT_ID))
+                    .isInstanceOf(AccessDeniedException.class);
 
             return null;
         });
@@ -600,12 +612,14 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
                 preAuthorizeValue(
                     ProjectWorkflowExecutionFacadeImpl.class.getMethod("getWorkflowExecution", long.class)));
 
-        assertThat(preAuthorizeValue(GuardedEmbeddedReads.class.getMethod("getWorkflowNodeOptions", String.class)))
-            .isEqualTo(
-                preAuthorizeValue(
-                    WorkflowNodeOptionFacadeImpl.class.getMethod(
-                        "getWorkflowNodeOptions", String.class, String.class, String.class, List.class, String.class,
-                        long.class)));
+        assertThat(
+            preAuthorizeValue(
+                GuardedEmbeddedReads.class.getMethod("getWorkflowNodeOptions", String.class, long.class)))
+                    .isEqualTo(
+                        preAuthorizeValue(
+                            WorkflowNodeOptionFacadeImpl.class.getMethod(
+                                "getWorkflowNodeOptions", String.class, String.class, String.class, List.class,
+                                String.class, long.class)));
 
         assertThat(preAuthorizeValue(GuardedEmbeddedReads.class.getMethod("deleteProject", long.class)))
             .isEqualTo(preAuthorizeValue(ProjectServiceImpl.class.getMethod("delete", long.class)));
@@ -1081,8 +1095,8 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         public void viewExecution(long id) {
         }
 
-        @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
-        public void getWorkflowNodeOptions(String workflowId) {
+        @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
+        public void getWorkflowNodeOptions(String workflowId, long environmentId) {
         }
 
         /**

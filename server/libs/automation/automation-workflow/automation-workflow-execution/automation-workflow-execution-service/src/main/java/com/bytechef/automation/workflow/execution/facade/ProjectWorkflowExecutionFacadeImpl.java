@@ -34,6 +34,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -98,6 +99,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
     private final ComponentDefinitionService componentDefinitionService;
     private final ContextService contextService;
     private final Evaluator evaluator;
+    private final EnvironmentScopeFilter environmentScopeFilter;
     private final EnvironmentService environmentService;
     private final WorkflowExecutionRowService workflowExecutionRowService;
     private final JobService jobService;
@@ -117,8 +119,9 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
     @SuppressFBWarnings("EI")
     public ProjectWorkflowExecutionFacadeImpl(
         ComponentDefinitionService componentDefinitionService, ContextService contextService, Evaluator evaluator,
-        EnvironmentService environmentService, WorkflowExecutionRowService workflowExecutionRowService,
-        JobService jobService, PermissionService permissionService, PrincipalJobService principalJobService,
+        EnvironmentScopeFilter environmentScopeFilter, EnvironmentService environmentService,
+        WorkflowExecutionRowService workflowExecutionRowService, JobService jobService,
+        PermissionService permissionService, PrincipalJobService principalJobService,
         ProjectFacade projectFacade, ProjectDeploymentService projectDeploymentService,
         ProjectService projectService, ProjectWorkflowService projectWorkflowService,
         TaskDispatcherDefinitionService taskDispatcherDefinitionService, TaskExecutionService taskExecutionService,
@@ -128,6 +131,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         this.componentDefinitionService = componentDefinitionService;
         this.contextService = contextService;
         this.evaluator = evaluator;
+        this.environmentScopeFilter = environmentScopeFilter;
         this.environmentService = environmentService;
         this.workflowExecutionRowService = workflowExecutionRowService;
         this.jobService = jobService;
@@ -221,7 +225,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'EXECUTION_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'EXECUTION_VIEW', #environmentId)")
     public Page<WorkflowExecutionDTO> getWorkflowExecutions(
         Boolean embedded, Long environmentId, Status jobStatus, Instant jobStartDate, Instant jobEndDate,
         Long projectId, Long projectDeploymentId, String workflowId, long workspaceId, int pageNumber) {
@@ -259,9 +263,22 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
                 Environment environment =
                     environmentId == null ? null : environmentService.getEnvironment(environmentId);
 
+                List<ProjectDeployment> projectDeployments =
+                    projectDeploymentService.getProjectDeployments(embedded, environment, null, null, null);
+
+                // Narrowed here rather than after the query below on purpose: that query pages, and filtering its
+                // page would hand back short and empty pages of a result set the caller was never entitled to see
+                // whole. Deployments are what carry the environment, and they are already loaded, so restricting
+                // them restricts the page itself. The branch above needs no equivalent -- a named deployment goes
+                // through requireResourceScope, and ProjectDeployment registers a ResourceEnvironmentResolver, so
+                // that check already reads the environment off the deployment itself.
+                if (environment == null) {
+                    projectDeployments = environmentScopeFilter.filterByEnvironment(
+                        workspaceId, "EXECUTION_VIEW", projectDeployments, ProjectDeployment::getEnvironment);
+                }
+
                 projectDeploymentIds.addAll(
-                    projectDeploymentService.getProjectDeployments(embedded, environment, null, null, null)
-                        .stream()
+                    projectDeployments.stream()
                         .map(ProjectDeployment::getId)
                         .toList());
             }

@@ -44,6 +44,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -120,10 +121,11 @@ class ProjectWorkflowExecutionFacadeTriggerRowsTest {
 
         facade = new ProjectWorkflowExecutionFacadeImpl(
             componentDefinitionService, mock(ContextService.class), mock(Evaluator.class),
-            mock(EnvironmentService.class), workflowExecutionRowService, jobService, permissionService,
-            mock(PrincipalJobService.class), mock(ProjectFacade.class), projectDeploymentService, projectService,
-            projectWorkflowService, mock(TaskDispatcherDefinitionService.class), mock(TaskExecutionService.class),
-            mock(TaskFileStorage.class), triggerExecutionService, mock(TriggerFileStorage.class), workflowService);
+            mock(EnvironmentScopeFilter.class), mock(EnvironmentService.class), workflowExecutionRowService, jobService,
+            permissionService, mock(PrincipalJobService.class), mock(ProjectFacade.class), projectDeploymentService,
+            projectService, projectWorkflowService, mock(TaskDispatcherDefinitionService.class),
+            mock(TaskExecutionService.class), mock(TaskFileStorage.class), triggerExecutionService,
+            mock(TriggerFileStorage.class), workflowService);
 
         WorkflowTrigger workflowTrigger = mock(WorkflowTrigger.class);
 

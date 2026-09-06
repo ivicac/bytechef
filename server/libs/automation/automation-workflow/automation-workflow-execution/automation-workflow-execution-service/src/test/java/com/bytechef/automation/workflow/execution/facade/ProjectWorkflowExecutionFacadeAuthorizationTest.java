@@ -41,9 +41,24 @@ class ProjectWorkflowExecutionFacadeAuthorizationTest {
         assertExpression("getWorkflowExecutionTaskExecution", "hasPermission(#id, 'Job', 'EXECUTION_VIEW')");
     }
 
+    /**
+     * The listing keys on {@code workspaceId} <em>in the environment the request named</em>. It was
+     * {@code hasPermission(#workspaceId, 'Workspace', 'EXECUTION_VIEW')} until ticket 732: no
+     * {@code ResourceEnvironmentResolver} claims {@code 'Workspace'}, so that expression fell through to the
+     * environment-unaware check and unioned every environment the caller could reach.
+     * <p>
+     * {@code hasWorkspaceScopeInEnvironmentId} rather than the {@code Environment}-taking sibling because
+     * {@code environmentId} is a nullable {@code Long} here, and because neither this gate nor the method body
+     * substitutes the principal's own environment -- both read the argument as sent, so both compute the same one. A
+     * null still takes the union path on purpose: the request names no environment, so there is nothing to check, and
+     * denying would 403 the ordinary unfiltered page. What a null caller sees is narrowed by the body instead, through
+     * {@code EnvironmentScopeFilter}.
+     */
     @Test
-    void testGetWorkflowExecutionsRequiresWorkspaceViewer() {
-        assertExpression("getWorkflowExecutions", "hasPermission(#workspaceId, 'Workspace', 'EXECUTION_VIEW')");
+    void testGetWorkflowExecutionsRequiresWorkspaceViewerInTheNamedEnvironment() {
+        assertExpression(
+            "getWorkflowExecutions",
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'EXECUTION_VIEW', #environmentId)");
     }
 
     private static void assertExpression(String methodName, String expression) {

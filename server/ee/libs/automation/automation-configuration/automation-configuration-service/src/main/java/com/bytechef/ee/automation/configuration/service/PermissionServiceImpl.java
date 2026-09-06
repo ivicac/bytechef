@@ -28,6 +28,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -268,10 +269,10 @@ public class PermissionServiceImpl implements PermissionService {
         // ResourceMembershipDecider for the precedence rule; rules 1 and 2 there keep Community Edition and every
         // non-connected-user principal on exactly the path below.
         //
-        // NOT a coverage guarantee for this class: hasWorkflowScope(String, String, Environment) and
-        // hasWorkspaceScopeForProject(long, String, Environment) deliberately do not route through here (delegating
-        // would discard the explicit environment), so each consults the decider on its own account. A new
-        // Environment-taking overload must do the same.
+        // NOT a coverage guarantee for this class: hasWorkflowScope(String, String, Environment),
+        // hasWorkspaceScopeForProject(long, String, Environment) and hasResourceScopeInEnvironment(...) deliberately do
+        // not route through here (delegating would discard the explicit environment), so each consults the decider on
+        // its own account. A new Environment-taking overload must do the same.
         Outcome outcome = ResourceMembershipDecider.decide(
             resourceMembershipResolverProvider, id, resourceType, scope);
 
@@ -322,6 +323,82 @@ public class PermissionServiceImpl implements PermissionService {
         }
 
         return hasWorkspaceScope(workspaceId.getAsLong(), scope);
+    }
+
+    /**
+     * {@link #hasResourceScope(Serializable, String, String)}'s body with the caller's environment substituted for the
+     * {@code ResourceEnvironmentResolver} lookup, for the resource types that step cannot answer — the environment is
+     * an argument of the operation, not a property of the row, so no resolver could ever supply it (e.g.
+     * {@code DataTable}, {@code Project}, {@code Workflow}).
+     *
+     * <p>
+     * Deliberately mirrors {@code hasResourceScope} inline rather than delegating to it, the same way
+     * {@link #hasWorkspaceScopeForProject(long, String, Environment)} and
+     * {@link #hasWorkflowScope(String, String, Environment)} mirror their own environment-unaware siblings instead of
+     * calling them: delegating would discard the explicit {@code environment} this overload exists to carry. Every
+     * precondition {@code hasResourceScope} performs ahead of its environment question is repeated here for exactly the
+     * reason it exists there, not out of caution:
+     *
+     * <ol>
+     * <li>{@link ResourceMembershipDecider} is consulted on its own account. {@code hasResourceScope}'s own comment is
+     * binding here specifically: <em>"A new Environment-taking overload must do the same."</em> A governed principal
+     * (an embedded connected user) must be answered from its own membership ahead of both bypasses below; delegating to
+     * {@code hasResourceScope} would still reach the decider, but on the wrong question — that method's own
+     * {@code (id, resourceType, scope)}, not this overload's.</li>
+     * <li>the skip-checks bypass, so a caller running under {@code @SkipAutomationAuthorization} still grants;</li>
+     * <li>the tenant-admin bypass, for the same reason;</li>
+     * <li>{@code isResourceVisible} as a PRECONDITION of the scope check, not a filter running beside it — holding
+     * {@code CONNECTION_EDIT} in a workspace does not entitle a member to a colleague's PRIVATE connection in ANY
+     * environment. This is the precondition a bespoke per-family expression would lose most easily, because nothing
+     * fails when it is missing — the resource would simply be answered by the environment-scoped role check below as if
+     * it were workspace-visible;</li>
+     * <li>ownership resolution to a workspace id, via the same {@code ResourceOwnershipResolver} map
+     * {@code hasResourceScope} reads.</li>
+     * </ol>
+     *
+     * <p>
+     * Only the last step differs. Where {@code hasResourceScope} asks the registered
+     * {@code ResourceEnvironmentResolver} (if any) which environment the resource lives in and falls back to the
+     * environment-unaware {@link #hasWorkspaceScope(long, String)} union when there is none, this overload skips that
+     * question entirely and checks the caller's role in the {@code environment} the caller supplied.
+     */
+    @Override
+    public boolean hasResourceScopeInEnvironment(
+        Serializable id, String resourceType, String scope, Environment environment) {
+
+        Outcome outcome = ResourceMembershipDecider.decide(
+            resourceMembershipResolverProvider, id, resourceType, scope);
+
+        if (outcome != Outcome.NOT_GOVERNED) {
+            return outcome == Outcome.GRANT;
+        }
+
+        if (isAutomationAuthorizationSkipped()) {
+            return true;
+        }
+
+        if (isTenantAdmin()) {
+            return true;
+        }
+
+        if (!isResourceVisible(id, resourceType)) {
+            return false;
+        }
+
+        ResourceOwnershipResolver resourceOwnershipResolver = resourceOwnershipResolvers.get(resourceType);
+
+        if (resourceOwnershipResolver == null) {
+            return false;
+        }
+
+        OptionalLong workspaceId = resourceOwnershipResolver.resolveOwner(id)
+            .workspaceId();
+
+        if (workspaceId.isEmpty()) {
+            return false;
+        }
+
+        return hasWorkspaceScope(workspaceId.getAsLong(), scope, environment);
     }
 
     /**
@@ -491,6 +568,37 @@ public class PermissionServiceImpl implements PermissionService {
         }
 
         return Set.copyOf(workspaceScopeCacheService.getWorkspaceScopes(userId.getAsLong(), workspaceId));
+    }
+
+    /**
+     * The collecting counterpart of {@link #hasWorkspaceScopeInEveryEnvironment(long, String)}: the same loop over the
+     * three {@link Environment} values, gathering the ones that pass instead of requiring that all of them do. Both
+     * short circuits are carried for the same reason that method carries them — a tenant admin is not subject to
+     * per-environment roles, and a delegation running with checks skipped must not be narrowed either.
+     *
+     * <p>
+     * Deliberately routed through {@link #hasWorkspaceScope(long, String, Environment)} rather than reading the
+     * caller's {@code workspace_user} rows: that path falls back to the member's implicit row when no row exists for
+     * the environment, so a member in implicit mode resolves in every environment and is not narrowed. Reading the rows
+     * directly would see only the explicit ones and narrow such a member to nothing, emptying every listing for the
+     * common case. There is no {@code @PreAuthorize} here on purpose — this is an internal query called from inside
+     * bodies that are already gated, and a second gate could only turn an authorised listing into an exception.
+     */
+    @Override
+    public Set<Environment> getMyWorkspaceScopeEnvironments(long workspaceId, String scope) {
+        if (isAutomationAuthorizationSkipped() || isTenantAdmin()) {
+            return EnumSet.allOf(Environment.class);
+        }
+
+        Set<Environment> environments = EnumSet.noneOf(Environment.class);
+
+        for (Environment environment : Environment.values()) {
+            if (hasWorkspaceScope(workspaceId, scope, environment)) {
+                environments.add(environment);
+            }
+        }
+
+        return environments;
     }
 
     @Override

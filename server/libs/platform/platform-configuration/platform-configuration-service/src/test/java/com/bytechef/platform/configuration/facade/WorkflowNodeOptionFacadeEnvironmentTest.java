@@ -57,10 +57,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 
 /**
- * The {@code @PreAuthorize} gate both methods now carry is environment-agnostic, so the environment reaching
- * getEvaluationInputs, the {@code @Cacheable} getPreviousWorkflowNodeSampleOutputs, and the test-configuration
- * connection lookups must still be resolved to the caller's own; executeOptions ultimately makes a live outbound call
- * using whatever connectionId those lookups resolve. This test pins that execution side; the gate itself is pinned by
+ * The {@code @PreAuthorize} gate both methods now carry, {@code hasWorkflowScopeInEnvironment(#workflowId, ...,
+ * #environmentId)}, resolves the effective environment for its own check, but that resolution is internal to the gate's
+ * evaluation and never reaches this method body -- so the environment reaching getEvaluationInputs, the
+ * {@code @Cacheable} getPreviousWorkflowNodeSampleOutputs, and the test-configuration connection lookups must still be
+ * resolved here to the caller's own; executeOptions ultimately makes a live outbound call using whatever connectionId
+ * those lookups resolve. This test pins that execution side; the gate itself is pinned by
  * {@link WorkflowNodeOptionFacadeAuthorizationTest}. The facade is constructed directly here, so no proxy intercepts
  * and the gate does not run.
  *

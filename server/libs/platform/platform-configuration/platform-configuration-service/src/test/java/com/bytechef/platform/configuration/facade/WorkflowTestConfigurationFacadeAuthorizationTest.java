@@ -23,11 +23,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Pins the workflow-test-configuration write gates (T22). Each editor write resolves the owning project's workspace via
- * {@code hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')} (or {@code #workflowTestConfiguration
- * .workflowId} for the object overload). {@code removeUnusedWorkflowTestConfigurationConnections} is an internal
- * after-save event-listener cleanup (no user controller caller) and stays ungated -- a negative assertion locks that
- * in.
+ * Pins the workflow-test-configuration gates (T22, D2). Five of the six caller-supplied-{@code environmentId} methods
+ * -- everything except {@code saveWorkflowTestConfiguration}, whose ordinal is carried in the request body rather than
+ * a parameter -- resolve {@code PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId)} internally, so their
+ * gate is the substituting {@code hasWorkflowScopeInEnvironment(#workflowId, 'SCOPE', #environmentId)}: gate and body
+ * compute the same effective environment for a confined (api-key) principal, so they can never diverge. See
+ * {@code WorkflowTestConfigurationFacadeEnvironmentTest} for the execution-side proof of that resolution, and
+ * {@code WorkflowTestConfigurationFacadeDiscriminatingGateTest} for the substituting-expression discriminating pair.
+ * {@code saveWorkflowTestConfiguration} stays on {@code hasPermission(#workflowTestConfiguration.workflowId,
+ * 'Workflow', 'WORKFLOW_EDIT')} -- out of this task's scope; its own class-level comment records why.
+ * {@code removeUnusedWorkflowTestConfigurationConnections} is an internal after-save event-listener cleanup (no user
+ * controller caller) and stays ungated -- a negative assertion locks that in.
  *
  * @author Ivica Cardic
  */
@@ -37,7 +43,21 @@ class WorkflowTestConfigurationFacadeAuthorizationTest {
     void testDeleteConnectionRequiresEdit() {
         assertExpression(
             "deleteWorkflowTestConfigurationConnection",
-            "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
+    }
+
+    @Test
+    void testFetchConfigurationRequiresView() {
+        assertExpression(
+            "fetchWorkflowTestConfiguration",
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)");
+    }
+
+    @Test
+    void testGetConfigurationConnectionsRequiresView() {
+        assertExpression(
+            "getWorkflowTestConfigurationConnections",
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)");
     }
 
     @Test
@@ -51,21 +71,21 @@ class WorkflowTestConfigurationFacadeAuthorizationTest {
     void testSaveClusterElementConnectionRequiresEdit() {
         assertExpression(
             "saveClusterElementTestConfigurationConnection",
-            "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
     }
 
     @Test
     void testSaveConnectionRequiresEdit() {
         assertExpression(
             "saveWorkflowTestConfigurationConnection",
-            "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
     }
 
     @Test
     void testSaveInputsRequiresEdit() {
         assertExpression(
             "saveWorkflowTestConfigurationInputs",
-            "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+            "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
     }
 
     @Test
