@@ -17,8 +17,13 @@
 package com.bytechef.platform.scheduler.db.config;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
+import com.bytechef.platform.scheduler.ConnectionRefreshScheduler;
+import com.bytechef.platform.scheduler.TriggerScheduler;
+import com.bytechef.platform.scheduler.db.DbConnectionRefreshScheduler;
+import com.bytechef.platform.scheduler.db.DbTriggerScheduler;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshData;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshTaskFactory;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefresher;
@@ -32,6 +37,7 @@ import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.bytechef.platform.scheduler.db.task.ScheduleTriggerTaskFactory;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.service.TriggerStateService;
+import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.boot.autoconfigure.Jackson3Serializer;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.serializer.Serializer;
@@ -42,6 +48,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -65,6 +72,22 @@ public class DbSchedulerConfiguration {
                 return Optional.of(new Jackson3Serializer(jsonMapper));
             }
         };
+    }
+
+    @Bean
+    ConnectionRefreshScheduler dbConnectionRefreshScheduler(@Lazy SchedulerClient schedulerClient) {
+        return new DbConnectionRefreshScheduler(schedulerClient);
+    }
+
+    @Bean
+    TriggerScheduler dbTriggerScheduler(
+        ApplicationProperties applicationProperties, @Lazy SchedulerClient schedulerClient) {
+
+        ApplicationProperties.Coordinator.Trigger.Polling polling = applicationProperties.getCoordinator()
+            .getTrigger()
+            .getPolling();
+
+        return new DbTriggerScheduler(schedulerClient, polling.getCheckPeriod());
     }
 
     @Bean
