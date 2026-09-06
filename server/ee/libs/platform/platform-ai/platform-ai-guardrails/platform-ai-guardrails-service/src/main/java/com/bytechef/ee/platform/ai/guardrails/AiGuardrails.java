@@ -15,16 +15,19 @@ import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettin
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailCustomRuleService;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.platform.ai.guardrails.ConversationScope;
 import com.bytechef.platform.ai.sensitivedata.CustomPattern;
 import com.bytechef.platform.ai.sensitivedata.CustomPatternEvaluator;
 import com.bytechef.platform.ai.sensitivedata.MatchDeadline;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
+import com.bytechef.platform.ai.sensitivedata.PiiTokenSessionStore;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetectors;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor.RedactionResult;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -37,6 +40,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -152,6 +156,7 @@ public class AiGuardrails {
     private final @Nullable AiGuardrailMetrics metrics;
     private final @Nullable AiGuardrailCustomRuleService aiGuardrailCustomRuleService;
     private final boolean globalViolationRecordingEnabled;
+    private final @Nullable PiiTokenSessionStore piiTokenSessionStore;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     // Resolved once at construction rather than per streamed response -- streamSafeView() logs an exclusion line for
     // each non-stream-safe detector, and newStreamingResponseRedactor() is called once per streamed response, so
@@ -179,6 +184,35 @@ public class AiGuardrails {
 
         this(
             aiGuardrailsWorkspaceSettingsService, injectionClassifier, moderationClassifier, metrics,
+            piiRedactionEnabled, secretRedactionEnabled, blockedTerms, injectionDetectionEnabled, moderationEnabled,
+            responseScanEnabled, streamingResponseScanEnabled, null);
+    }
+
+    /**
+     * The legacy form plus a token session store, so a caller assembling this engine by hand — the advisor's
+     * conversation-scope tests — can exercise the cross-turn session path. Spring never picks this one: it reaches the
+     * {@code @Autowired} constructor below, which resolves the same store through an {@link ObjectProvider} so a
+     * context without one is unaffected.
+     *
+     * @param piiTokenSessionStore the store keeping a conversation's tokens between turns, or {@code null} for
+     *                             request-scoped sessions only
+     */
+    public AiGuardrails(
+        AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
+        @Nullable AiGatewayInjectionClassifier injectionClassifier,
+        @Nullable AiGatewayModerationClassifier moderationClassifier,
+        @Nullable AiGuardrailMetrics metrics,
+        boolean piiRedactionEnabled,
+        boolean secretRedactionEnabled,
+        String blockedTerms,
+        boolean injectionDetectionEnabled,
+        boolean moderationEnabled,
+        boolean responseScanEnabled,
+        boolean streamingResponseScanEnabled,
+        @Nullable PiiTokenSessionStore piiTokenSessionStore) {
+
+        this(
+            aiGuardrailsWorkspaceSettingsService, injectionClassifier, moderationClassifier, metrics,
             SensitiveDataDetectors.builtIn(), piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
             injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
             SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
@@ -186,7 +220,7 @@ public class AiGuardrails {
             // No custom-rule service in the hand-assembled forms: every direct construction site is a test, and a
             // test exercising custom rules drives CustomPatternEvaluator directly rather than inheriting a
             // workspace's stored rules.
-            null);
+            null, piiTokenSessionStore);
     }
 
     /**
@@ -217,11 +251,13 @@ public class AiGuardrails {
             // No custom-rule service in the hand-assembled forms: every direct construction site is a test, and a
             // test exercising custom rules drives CustomPatternEvaluator directly rather than inheriting a
             // workspace's stored rules.
-            null);
+            null, (PiiTokenSessionStore) null);
     }
 
-    // Three constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this
-    // one as the container's entry point, so contributed SensitiveDataDetector beans reach the engine.
+    // Five constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this
+    // one as the container's entry point, so contributed SensitiveDataDetector beans reach the engine. It differs from
+    // the canonical constructor below only in taking its two optional collaborators as providers rather than resolved,
+    // which is why the detector-list form above casts its null store: without the cast both would be applicable.
     @Autowired
     public AiGuardrails(
         AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
@@ -243,7 +279,40 @@ public class AiGuardrails {
         @Value("${bytechef.ai.guardrails.detection.timeout:2s}") Duration detectionTimeout,
         @Value("${bytechef.ai.guardrails.detection.max-unwindowable-input:262144}") int maxUnwindowableInput,
         @Value("${bytechef.ai.guardrails.violation.enabled:false}") boolean violationRecordingEnabled,
-        @Nullable ObjectProvider<AiGuardrailCustomRuleService> aiGuardrailCustomRuleServiceProvider) {
+        @Nullable ObjectProvider<AiGuardrailCustomRuleService> aiGuardrailCustomRuleServiceProvider,
+        @Nullable ObjectProvider<PiiTokenSessionStore> piiTokenSessionStoreProvider) {
+
+        this(
+            aiGuardrailsWorkspaceSettingsService, injectionClassifier, moderationClassifier, metrics,
+            sensitiveDataDetectors, piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
+            injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
+            detectionTimeout, maxUnwindowableInput, violationRecordingEnabled,
+            aiGuardrailCustomRuleServiceProvider == null
+                ? null : aiGuardrailCustomRuleServiceProvider.getIfAvailable(),
+            piiTokenSessionStoreProvider == null ? null : piiTokenSessionStoreProvider.getIfAvailable());
+    }
+
+    /**
+     * The canonical constructor every other form delegates to, taking both optional collaborators already resolved.
+     */
+    private AiGuardrails(
+        AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
+        @Nullable AiGatewayInjectionClassifier injectionClassifier,
+        @Nullable AiGatewayModerationClassifier moderationClassifier,
+        @Nullable AiGuardrailMetrics metrics,
+        List<SensitiveDataDetector> sensitiveDataDetectors,
+        boolean piiRedactionEnabled,
+        boolean secretRedactionEnabled,
+        String blockedTerms,
+        boolean injectionDetectionEnabled,
+        boolean moderationEnabled,
+        boolean responseScanEnabled,
+        boolean streamingResponseScanEnabled,
+        Duration detectionTimeout,
+        int maxUnwindowableInput,
+        boolean violationRecordingEnabled,
+        @Nullable AiGuardrailCustomRuleService aiGuardrailCustomRuleService,
+        @Nullable PiiTokenSessionStore piiTokenSessionStore) {
 
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
@@ -256,9 +325,9 @@ public class AiGuardrails {
         this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
         this.metrics = metrics;
-        this.aiGuardrailCustomRuleService = aiGuardrailCustomRuleServiceProvider == null
-            ? null : aiGuardrailCustomRuleServiceProvider.getIfAvailable();
+        this.aiGuardrailCustomRuleService = aiGuardrailCustomRuleService;
         this.globalViolationRecordingEnabled = violationRecordingEnabled;
+        this.piiTokenSessionStore = piiTokenSessionStore;
         this.sensitiveDataRedactor = new SensitiveDataRedactor(
             sensitiveDataDetectors,
             new SensitiveDataRedactor.DetectionBounds(detectionTimeout, maxUnwindowableInput));
@@ -374,7 +443,80 @@ public class AiGuardrails {
      * @return the session; the caller owns closing it on every termination path
      */
     public PiiTokenSession newTokenSession() {
-        return PiiTokenSession.create();
+        TokenSessionHandle tokenSessionHandle = newTokenSession(null);
+
+        return tokenSessionHandle.session();
+    }
+
+    /**
+     * Returns the token session for {@code key}'s conversation, rehydrated from the tokens earlier turns minted, or a
+     * fresh one when the conversation has none — and always a fresh one for a {@code null} key, which is every call
+     * whose conversation id the platform did not itself issue (see {@link ConversationScope#trustedKey}).
+     *
+     * <p>
+     * A rehydrated session reuses the discriminator its stored tokens carry, derived from the tokens themselves via
+     * {@link PiiToken#sessionIdOf} — the same derivation the store applies when it persists them. A session minting
+     * under any other discriminator could not restore a single token it was handed.
+     * </p>
+     *
+     * <p>
+     * The store fails soft by contract, so a store outage yields no tokens and this returns a fresh session: the call
+     * then behaves exactly as a request-scoped one rather than failing. The returned handle records that the load
+     * failed, because a fresh session is only safe to write back when the conversation genuinely had none — see
+     * {@link TokenSessionHandle}.
+     * </p>
+     *
+     * @param key the conversation to key the session to, or {@code null} for a request-scoped session
+     * @return the session and whether it may be written back; the caller owns closing it on every termination path
+     */
+    public TokenSessionHandle newTokenSession(ConversationScope.@Nullable Key key) {
+        if (key == null || piiTokenSessionStore == null) {
+            return new TokenSessionHandle(PiiTokenSession.create(), true);
+        }
+
+        PiiTokenSessionStore.LoadResult loadResult = piiTokenSessionStore.load(toSessionKey(key));
+
+        Map<String, String> tokens = loadResult.tokens();
+
+        PiiTokenSession session = PiiToken.sessionIdOf(tokens)
+            .map(sessionId -> PiiTokenSession.rehydrate(sessionId, tokens))
+            .orElseGet(PiiTokenSession::create);
+
+        return new TokenSessionHandle(session, loadResult.available());
+    }
+
+    /**
+     * Stores {@code tokenSessionHandle}'s tokens against {@code key}'s conversation, so the next turn can restore them.
+     * Must run before the caller closes the session: closing clears the mapping, and a save afterwards would silently
+     * store nothing.
+     *
+     * <p>
+     * Two turns are deliberately not written back. A session holding nothing is not stored at all, rather than stored
+     * as an empty map: the store reads an empty map as "this conversation has no session" and deletes the row, so a
+     * turn that merely failed to load — a store blip — and then minted nothing would destroy tokens the conversation
+     * had already accumulated. Neither is a session whose load failed, however much it minted: the write REPLACES the
+     * conversation's map, so a blip on turn five followed by one new value would drop turns one to four's tokens for
+     * good, leaving their tokens replayed out of retained chat history unresolvable — and, on a discriminator
+     * collision, resolvable to the wrong value. Skipping the write leaves the stored tokens for the next turn to load.
+     * </p>
+     *
+     * @param key                the conversation the session belongs to
+     * @param tokenSessionHandle the session to store, still open, with the outcome of the load that opened it
+     */
+    public void saveTokenSession(ConversationScope.Key key, TokenSessionHandle tokenSessionHandle) {
+        if (piiTokenSessionStore == null || !tokenSessionHandle.savable()) {
+            return;
+        }
+
+        PiiTokenSession session = tokenSessionHandle.session();
+
+        Map<String, String> tokens = session.tokens();
+
+        if (tokens.isEmpty()) {
+            return;
+        }
+
+        piiTokenSessionStore.save(toSessionKey(key), tokens);
     }
 
     /**
@@ -1230,6 +1372,10 @@ public class AiGuardrails {
         }
     }
 
+    private static PiiTokenSessionStore.SessionKey toSessionKey(ConversationScope.Key key) {
+        return new PiiTokenSessionStore.SessionKey(key.workspaceId(), key.userId(), key.conversationId());
+    }
+
     private static void record(@Nullable AiGuardrailMetrics recordingMetrics, String event) {
         if (recordingMetrics != null) {
             recordingMetrics.record(event);
@@ -1316,6 +1462,22 @@ public class AiGuardrails {
         public boolean blocked() {
             return category != null;
         }
+    }
+
+    /**
+     * The token session one call mints into, together with whether it may be written back when the call ends.
+     *
+     * <p>
+     * {@code savable} is false exactly when the store could not answer the load that opened the session, which the
+     * session itself cannot express: a session rehydrated from nothing is indistinguishable from a fresh one, and
+     * writing that one back replaces everything earlier turns stored. It is true for a request-scoped session too,
+     * which is never saved anyway because it has no conversation to save against.
+     * </p>
+     *
+     * @param session the session; the caller owns closing it on every termination path
+     * @param savable whether writing this session back to the store is safe
+     */
+    public record TokenSessionHandle(PiiTokenSession session, boolean savable) {
     }
 
     /**

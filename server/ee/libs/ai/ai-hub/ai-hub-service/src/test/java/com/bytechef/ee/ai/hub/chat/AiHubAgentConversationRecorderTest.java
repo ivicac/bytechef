@@ -118,7 +118,7 @@ class AiHubAgentConversationRecorderTest {
             mock(com.bytechef.atlas.execution.facade.JobFacade.class),
             mock(com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry.class),
             mock(com.bytechef.ee.ai.hub.agent.InFlightAiHubRunRegistry.class), null, aiHubSessionMemoryProvider,
-            null, null, null);
+            null, null, null, null);
 
         recorder = new AiHubAgentConversationRecorder(
             chatRepository, chatService, projectService, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));

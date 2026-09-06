@@ -24,6 +24,7 @@ import com.bytechef.ee.ai.hub.subagent.SubAgentSessionMemoryContributor;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.EnumOrdinals;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
+import com.bytechef.platform.ai.sensitivedata.PiiTokenSessionStore;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -98,6 +99,7 @@ public class AiHubChatServiceImpl implements AiHubChatService {
     private final @Nullable AiHubAuditPublisher auditPublisher;
     private final @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider;
     private final @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider;
+    private final @Nullable PiiTokenSessionStore piiTokenSessionStore;
 
     /**
      * {@code toolApprovalServiceProvider} and {@code resourceGrantServiceProvider} are nullable at both levels — the
@@ -115,7 +117,8 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         ObjectProvider<AiHubSessionMemory> aiHubSessionMemoryProvider,
         @Nullable AiHubAuditPublisher auditPublisher,
         @Nullable ObjectProvider<AiHubToolApprovalService> toolApprovalServiceProvider,
-        @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider) {
+        @Nullable ObjectProvider<ResourceGrantService> resourceGrantServiceProvider,
+        @Nullable PiiTokenSessionStore piiTokenSessionStore) {
 
         this.chatRepository = chatRepository;
         this.turnRepository = turnRepository;
@@ -134,6 +137,10 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         this.auditPublisher = auditPublisher;
         this.toolApprovalServiceProvider = toolApprovalServiceProvider;
         this.resourceGrantServiceProvider = resourceGrantServiceProvider;
+
+        // Nullable for the same reason: a deployment without the guardrails module still gets a working
+        // AiHubChatService, just without conversation-scoped PII tokens to evict.
+        this.piiTokenSessionStore = piiTokenSessionStore;
     }
 
     private void publishChatCreated(AiHubChat chat) {
@@ -854,6 +861,41 @@ public class AiHubChatServiceImpl implements AiHubChatService {
         // row is still alive. On commit, the session entries are dropped so the vector store doesn't accumulate
         // orphans for every deleted chat.
         scheduleChatToolSessionClear(chatId);
+
+        // Same after-commit semantics again, and evicted across every user of the conversation since a chat is
+        // deleted as a whole. The store's own evict contract is to fail soft and log rather than propagate, but a
+        // statement that failed inside this transaction aborts the transaction on PostgreSQL whether or not its
+        // exception is swallowed, so the eviction has to run outside it.
+        scheduleTokenSessionEvictAfterCommit(requesterWorkspaceId, chat.getThreadId());
+    }
+
+    /**
+     * Mirrors {@link #scheduleChatMemoryDeleteAfterCommit}: the eviction runs after the chat delete commits, and inline
+     * only when no transaction is active. Running it inline inside the caller's transaction would let a failed DELETE
+     * poison that transaction — PostgreSQL aborts the whole transaction on a failed statement, so the store swallowing
+     * its own exception does not save the commit that follows, and the user's chat delete would fail with the chat row
+     * still there.
+     */
+    private void scheduleTokenSessionEvictAfterCommit(long workspaceId, String threadId) {
+        PiiTokenSessionStore tokenSessionStore = piiTokenSessionStore;
+
+        if (tokenSessionStore == null) {
+            return;
+        }
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            tokenSessionStore.evict(workspaceId, threadId);
+
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+
+            @Override
+            public void afterCommit() {
+                tokenSessionStore.evict(workspaceId, threadId);
+            }
+        });
     }
 
     /**
