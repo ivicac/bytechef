@@ -61,6 +61,9 @@ class AiAgentFacadeAuthorizationTest {
     private static final String AGENT_VIEW_BY_WORKSPACE_ID =
         "hasPermission(#workspaceId, 'Workspace', 'AGENT_VIEW')";
 
+    private static final String AGENT_VIEW_BY_WORKSPACE_ID_IN_ENVIRONMENT =
+        "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'AGENT_VIEW', #environmentId)";
+
     private static final String AGENT_DELETE_BY_ID = "hasPermission(#id, 'AiAgent', 'AGENT_DELETE')";
 
     private static final String AGENT_EDIT_BY_AGENT_ID = "hasPermission(#agentId, 'AiAgent', 'AGENT_EDIT')";
@@ -138,10 +141,16 @@ class AiAgentFacadeAuthorizationTest {
      * workflows and keeps {@code WORKFLOW_VIEW}; this one lists agents and takes {@code AGENT_VIEW}. Both are
      * VIEWER-rank, so the two halves of the popup still agree for every built-in role; they part company only in a
      * custom role that grants one vocabulary and not the other, which is exactly what an agent scope family is for.
+     *
+     * <p>
+     * Both methods also share the same environment-scoped gate form: {@code environmentId} is a primitive {@code long}
+     * argument here, not a resolved {@code Environment}, so the expression is
+     * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, 'AGENT_VIEW', #environmentId)} rather than the
+     * environment-unaware {@code hasPermission(#workspaceId, 'Workspace', ...)} the rest of this family still uses.
      */
     @Test
     void testGetWorkspaceChatAgentsRequiresWorkspaceAgentViewer() {
-        assertExpression(AGENT_VIEW_BY_WORKSPACE_ID, "getWorkspaceChatAgents", long.class, long.class);
+        assertExpression(AGENT_VIEW_BY_WORKSPACE_ID_IN_ENVIRONMENT, "getWorkspaceChatAgents", long.class, long.class);
     }
 
     /**
@@ -154,6 +163,13 @@ class AiAgentFacadeAuthorizationTest {
      * would pass while checking nothing — so the discovered names are asserted first, against the seven known methods.
      * That assertion fails loudly if the flag ever goes away, and it is also what makes a newly added
      * {@code workspaceId} method fail here rather than slip through ungated.
+     *
+     * <p>
+     * {@link #isWorkspaceScopedExpression(String)} accepts either the environment-unaware
+     * {@code hasPermission(#workspaceId, 'Workspace', ...)} form or the environment-scoped
+     * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, ...)} form {@code getWorkspaceChatAgents} now carries —
+     * widened on purpose, not loosened: a method with no {@code @PreAuthorize} at all, or one naming neither
+     * expression, still fails this check.
      */
     @Test
     void testEveryWorkspaceKeyedMethodIsGated() {
@@ -182,13 +198,14 @@ class AiAgentFacadeAuthorizationTest {
                 .filter(method -> {
                     PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
-                    return preAuthorize == null || !preAuthorize.value()
-                        .startsWith("hasPermission(#workspaceId, 'Workspace', ");
+                    return preAuthorize == null || !isWorkspaceScopedExpression(preAuthorize.value());
                 })
                 .map(Method::getName)
                 .sorted()
                 .toList())
-                    .as("workspaceId-keyed methods without a workspace-keyed hasPermission gate")
+                    .as(
+                        "workspaceId-keyed methods without a workspace-keyed hasPermission or " +
+                            "hasWorkspaceScopeInEnvironmentId gate")
                     .isEmpty();
     }
 
@@ -319,14 +336,19 @@ class AiAgentFacadeAuthorizationTest {
     }
 
     /**
-     * The broad backstop. Every method of the {@code AiAgentFacade} interface must carry a {@code hasPermission}
-     * expression, with {@link #UNGATED_METHOD_NAMES} the single named exemption.
+     * The broad backstop. Every method of the {@code AiAgentFacade} interface must carry a {@code hasPermission} or
+     * {@code hasWorkspaceScopeInEnvironmentId} expression, with {@link #UNGATED_METHOD_NAMES} the single named
+     * exemption.
      *
      * <p>
      * Discovery runs over the interface rather than over {@code AiAgentFacadeImpl.class.getDeclaredMethods()} so that
      * private helpers and bridge methods cannot dilute it, and the discovered count is asserted first: a filter that
      * silently matched nothing would make the "all gated" assertion below pass while checking nothing, which is the
      * exact failure mode this file exists to prevent.
+     *
+     * <p>
+     * The gate check accepts either expression family — widened rather than loosened: a method carrying no
+     * {@code @PreAuthorize} at all, or one naming some unrelated expression, still fails.
      */
     @Test
     void testEveryFacadeMethodIsGated() {
@@ -345,13 +367,12 @@ class AiAgentFacadeAuthorizationTest {
                 .filter(method -> {
                     PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
-                    return preAuthorize == null || !preAuthorize.value()
-                        .startsWith("hasPermission(");
+                    return preAuthorize == null || !isResourceGatedExpression(preAuthorize.value());
                 })
                 .map(Method::getName)
                 .sorted()
                 .toList())
-                    .as("AiAgentFacade methods without a hasPermission gate")
+                    .as("AiAgentFacade methods without a hasPermission or hasWorkspaceScopeInEnvironmentId gate")
                     .isEmpty();
     }
 
@@ -372,5 +393,25 @@ class AiAgentFacadeAuthorizationTest {
         } catch (NoSuchMethodException exception) {
             throw new AssertionError("method " + methodName + " not found", exception);
         }
+    }
+
+    /**
+     * True for either workspace-keyed gate family: the environment-unaware
+     * {@code hasPermission(#workspaceId, 'Workspace', ...)} most of this facade still uses, or the environment-scoped
+     * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, ...)} {@code getWorkspaceChatAgents} carries. A method with
+     * no gate, or with an expression naming neither prefix, returns {@code false}.
+     */
+    private static boolean isWorkspaceScopedExpression(String expression) {
+        return expression.startsWith("hasPermission(#workspaceId, 'Workspace', ")
+            || expression.startsWith("hasWorkspaceScopeInEnvironmentId(#workspaceId, ");
+    }
+
+    /**
+     * True for either resource-gate family regardless of the key argument: {@code hasPermission(...)} or
+     * {@code hasWorkspaceScopeInEnvironmentId(...)}. Used by the facade-wide backstop, which covers methods keyed on an
+     * id other than {@code workspaceId} too.
+     */
+    private static boolean isResourceGatedExpression(String expression) {
+        return expression.startsWith("hasPermission(") || expression.startsWith("hasWorkspaceScopeInEnvironmentId(");
     }
 }

@@ -110,7 +110,7 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(#workspaceId, 'MCP_CREATE', #environment)")
     public McpServer createWorkspaceMcpServer(
         String name, PlatformType type, Environment environment, Boolean enabled, Boolean authenticationRequired,
         Long workspaceId) {
@@ -120,7 +120,7 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(#workspaceId, 'MCP_CREATE', #environment)")
     public McpServer createWorkspaceMcpServer(
         String name, PlatformType type, Environment environment, Boolean enabled, Boolean authenticationRequired,
         Boolean enforceToolAuthorization, Long workspaceId, @Nullable UUID uuid) {

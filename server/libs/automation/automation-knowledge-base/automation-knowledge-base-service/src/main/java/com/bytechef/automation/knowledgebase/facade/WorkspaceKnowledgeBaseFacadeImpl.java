@@ -90,7 +90,7 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_VIEW', #environmentId)")
     public List<KnowledgeBase> getWorkspaceKnowledgeBases(Long workspaceId, long environmentId) {
         List<WorkspaceKnowledgeBase> workspaceKnowledgeBases =
             workspaceKnowledgeBaseService.getWorkspaceKnowledgeBases(workspaceId);
@@ -125,7 +125,7 @@ public class WorkspaceKnowledgeBaseFacadeImpl implements WorkspaceKnowledgeBaseF
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_CREATE', #environmentId)")
     public KnowledgeBase createWorkspaceKnowledgeBase(
         KnowledgeBase knowledgeBase, Long workspaceId, long environmentId) {
 

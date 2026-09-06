@@ -89,14 +89,16 @@ class PromotionHandlerAuthorizationTest {
     void testMcpServerPromotionHandlerPreviewRequiresWorkspaceMcpCreate() {
         assertPromotionExpression(
             McpServerPromotionHandler.class, "preview", PREVIEW_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'Workspace', 'MCP_CREATE')");
+            "hasWorkspaceScopeInEnvironment(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'MCP_CREATE', " +
+                "#targetEnvironment)");
     }
 
     @Test
     void testMcpServerPromotionHandlerPromoteRequiresWorkspaceMcpCreate() {
         assertPromotionExpression(
             McpServerPromotionHandler.class, "promote", PROMOTE_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'Workspace', 'MCP_CREATE')");
+            "hasWorkspaceScopeInEnvironment(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'MCP_CREATE', " +
+                "#targetEnvironment)");
     }
 
     @Test

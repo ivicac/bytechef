@@ -112,10 +112,9 @@ public class AiAgentGraphQlController {
      *
      * <p>
      * Authorization lives on {@link AiAgentFacade#getWorkspaceChatAgents(long, long)}, which carries
-     * {@code hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')} &mdash; the same gate its sibling carries, on
-     * the facade rather than here, because the API facade is this codebase's authorization layer. The
-     * {@code isAuthenticated()} this method used to carry is subsumed by it: {@code hasPermission} fails closed for an
-     * anonymous caller.
+     * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, 'AGENT_VIEW', #environmentId)} &mdash; on the facade rather
+     * than here, because the API facade is this codebase's authorization layer. The {@code isAuthenticated()} this
+     * method used to carry is subsumed by it: the gate fails closed for an anonymous caller.
      */
     @QueryMapping
     public List<ChatAgentDTO> workspaceChatAgents(@Argument long workspaceId, @Argument long environmentId) {

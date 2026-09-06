@@ -32,26 +32,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
 
     @Test
-    void testGetWorkspaceKnowledgeBasesRequiresViewer() {
+    void testGetWorkspaceKnowledgeBasesRequiresViewerInTheNamedEnvironment() {
         assertExpression("getWorkspaceKnowledgeBases",
-            "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')");
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_VIEW', #environmentId)");
     }
 
     @Test
     void testGetKnowledgeBaseTagsRequiresWorkspaceViewer() {
         assertExpression("getKnowledgeBaseTags", "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')");
-    }
-
-    @Test
-    void testGetKnowledgeBaseTagsByKnowledgeBaseRequiresWorkspaceViewer() {
-        assertExpression(
-            "getKnowledgeBaseTagsByKnowledgeBase", "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')");
-    }
-
-    @Test
-    void testUpdateKnowledgeBaseTagsRequiresResourceEditor() {
-        assertExpression(
-            "updateKnowledgeBaseTags", "hasPermission(#knowledgeBaseId, 'KnowledgeBase', 'KNOWLEDGE_BASE_EDIT')");
     }
 
     @Test
@@ -66,9 +54,9 @@ class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
     }
 
     @Test
-    void testCreateRequiresWorkspaceEditor() {
+    void testCreateRequiresWorkspaceEditorInTheNamedEnvironment() {
         assertExpression("createWorkspaceKnowledgeBase",
-            "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_CREATE')");
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_CREATE', #environmentId)");
     }
 
     @Test

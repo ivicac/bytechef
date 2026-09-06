@@ -694,7 +694,7 @@ public class AiAgentFacadeImpl implements AiAgentFacade {
      * the agent keeps replying on every channel it is deployed with.
      */
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'AGENT_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'AGENT_VIEW', #environmentId)")
     @Transactional(readOnly = true)
     public List<ChatAgentDTO> getWorkspaceChatAgents(long workspaceId, long environmentId) {
         Environment environment = environmentService.getEnvironment(environmentId);
