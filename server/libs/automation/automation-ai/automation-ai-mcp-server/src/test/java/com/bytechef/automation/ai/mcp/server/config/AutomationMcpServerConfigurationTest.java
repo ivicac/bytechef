@@ -26,6 +26,7 @@ import com.bytechef.automation.ai.mcp.server.facade.AutomationMcpToolFacade;
 import com.bytechef.automation.ai.mcp.server.spi.McpServerWorkspaceToolCallbackContributor;
 import com.bytechef.automation.ai.mcp.service.McpProjectService;
 import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpComponent;
@@ -38,182 +39,126 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
- * Unit test for {@link AutomationMcpServerConfiguration#buildToolSpecifications}. Verifies that the per-server tool
- * list returned to the McpServer enumeration path includes callbacks contributed by all
- * {@link McpServerWorkspaceToolCallbackContributor} beans (e.g. the EE Context Store provider) alongside the existing
- * component-action and workflow tool surface, and that CE-only deployments without any provider compile and run cleanly
- * without contributing extra callbacks.
- *
  * @author Ivica Cardic
  */
-@SuppressWarnings("unchecked")
 class AutomationMcpServerConfigurationTest {
 
-    private static final String SECRET_KEY = "secret-key";
-    private static final long MCP_SERVER_ID = 42L;
-    private static final long WORKSPACE_ID = 7L;
+    @Test
+    void testEnforcingServerKeepsOnlyAuthorizedComponents() {
+        McpServer mcpServer = enforcingServer();
 
-    private AutomationMcpToolFacade mcpToolFacade;
-    private McpComponentService mcpComponentService;
-    private McpProjectService mcpProjectService;
-    private McpServer mcpServer;
-    private McpServerService mcpServerService;
-    private McpToolService mcpToolService;
-    private WorkspaceMcpServerService workspaceMcpServerService;
+        McpComponent salesforce = component("salesforce", Set.of("ROLE_SALES"));
+        McpComponent admin = component("admin", Set.of("ROLE_ADMIN"));
 
-    @BeforeEach
-    void setUp() {
-        mcpComponentService = mock(McpComponentService.class);
-        mcpProjectService = mock(McpProjectService.class);
-        mcpServerService = mock(McpServerService.class);
-        mcpToolService = mock(McpToolService.class);
-        mcpToolFacade = mock(AutomationMcpToolFacade.class);
-        workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
+        List<McpComponent> authorized = AutomationMcpServerConfiguration.authorizedComponents(
+            mcpServer, List.of(salesforce, admin), Set.of("ROLE_USER", "ROLE_SALES"));
 
-        mcpServer = new McpServer("server-name", PlatformType.AUTOMATION, Environment.PRODUCTION);
-
-        mcpServer.setId(MCP_SERVER_ID);
-
-        when(mcpServerService.getMcpServer(SECRET_KEY)).thenReturn(mcpServer);
-        when(mcpComponentService.getMcpServerMcpComponents(MCP_SERVER_ID)).thenReturn(List.of());
-        when(mcpProjectService.getMcpServerMcpProjects(MCP_SERVER_ID)).thenReturn(List.of());
+        assertThat(authorized).containsExactly(salesforce);
     }
 
     @Test
-    void testBuildToolSpecificationsAppendsContributedCallbacks() {
-        ToolCallback contextStoreCallback = stubCallback("CONTEXT_STORE_HUBSPOT_CONTACTS_SEARCH");
-        ToolCallback otherProviderCallback = stubCallback("CUSTOM_OTHER_TOOL");
+    void testEnforcingServerDeniesComponentWithoutGrantingAuthority() {
+        McpServer mcpServer = enforcingServer();
 
-        McpServerWorkspaceToolCallbackContributor contextStoreProvider =
-            mock(McpServerWorkspaceToolCallbackContributor.class);
-        McpServerWorkspaceToolCallbackContributor otherProvider = mock(McpServerWorkspaceToolCallbackContributor.class);
+        McpComponent admin = component("admin", Set.of("ROLE_ADMIN"));
 
-        when(contextStoreProvider.getFunctionToolCallbacks(WORKSPACE_ID))
-            .thenReturn(List.of(contextStoreCallback));
-        when(otherProvider.getFunctionToolCallbacks(WORKSPACE_ID)).thenReturn(List.of(otherProviderCallback));
+        List<McpComponent> authorized = AutomationMcpServerConfiguration.authorizedComponents(
+            mcpServer, List.of(admin), Set.of("ROLE_USER"));
 
-        when(workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(MCP_SERVER_ID))
-            .thenReturn(Optional.of(WORKSPACE_ID));
-
-        ObjectProvider<McpServerWorkspaceToolCallbackContributor> providers = stubProvider(
-            List.of(contextStoreProvider, otherProvider));
-
-        List<McpServerFeatures.AsyncToolSpecification> specifications =
-            AutomationMcpServerConfiguration.buildToolSpecifications(
-                SECRET_KEY, mcpComponentService, mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade,
-                providers, workspaceMcpServerService);
-
-        assertThat(specifications)
-            .extracting(specification -> specification.tool()
-                .name())
-            .containsExactly("CONTEXT_STORE_HUBSPOT_CONTACTS_SEARCH", "CUSTOM_OTHER_TOOL");
+        assertThat(authorized).isEmpty();
     }
 
     @Test
-    void testBuildToolSpecificationsWithoutAnyProviderReturnsEmpty() {
-        when(workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(MCP_SERVER_ID))
-            .thenReturn(Optional.of(WORKSPACE_ID));
+    void testNonEnforcingServerExposesAllComponents() {
+        McpServer mcpServer = new McpServer();
 
-        ObjectProvider<McpServerWorkspaceToolCallbackContributor> providers = stubProvider(List.of());
+        McpComponent salesforce = component("salesforce", Set.of("ROLE_SALES"));
+        McpComponent admin = component("admin", Set.of("ROLE_ADMIN"));
 
-        List<McpServerFeatures.AsyncToolSpecification> specifications =
-            AutomationMcpServerConfiguration.buildToolSpecifications(
-                SECRET_KEY, mcpComponentService, mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade,
-                providers, workspaceMcpServerService);
+        List<McpComponent> authorized = AutomationMcpServerConfiguration.authorizedComponents(
+            mcpServer, List.of(salesforce, admin), Set.of());
 
-        assertThat(specifications).isEmpty();
+        assertThat(authorized).containsExactly(salesforce, admin);
     }
 
     @Test
-    void testBuildToolSpecificationsWhenWorkspaceUnassignedSkipsProviders() {
-        ToolCallback contextStoreCallback = stubCallback("CONTEXT_STORE_HUBSPOT_CONTACTS_SEARCH");
+    @SuppressWarnings("unchecked")
+    void testDisabledMcpToolIsNotListed() {
+        McpServer mcpServer = new McpServer("test-server", PlatformType.AUTOMATION, Environment.DEVELOPMENT);
 
-        McpServerWorkspaceToolCallbackContributor provider = mock(McpServerWorkspaceToolCallbackContributor.class);
+        mcpServer.setId(1L);
 
-        when(provider.getFunctionToolCallbacks(WORKSPACE_ID)).thenReturn(List.of(contextStoreCallback));
+        McpComponent mcpComponent = new McpComponent();
 
-        when(workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(MCP_SERVER_ID)).thenReturn(Optional.empty());
+        mcpComponent.setId(2L);
 
-        ObjectProvider<McpServerWorkspaceToolCallbackContributor> providers = stubProvider(List.of(provider));
+        McpTool enabledMcpTool = new McpTool("enabledTool", Map.of(), 2L);
 
-        List<McpServerFeatures.AsyncToolSpecification> specifications =
-            AutomationMcpServerConfiguration.buildToolSpecifications(
-                SECRET_KEY, mcpComponentService, mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade,
-                providers, workspaceMcpServerService);
+        enabledMcpTool.setId(3L);
 
-        assertThat(specifications).isEmpty();
-    }
+        McpTool disabledMcpTool = new McpTool("disabledTool", Map.of(), 2L);
 
-    @Test
-    void testBuildToolSpecificationsExcludesDisabledTools() {
-        McpComponent mcpComponent = mock(McpComponent.class);
+        disabledMcpTool.setId(4L);
+        disabledMcpTool.setEnabled(false);
 
-        when(mcpComponent.getId()).thenReturn(10L);
-        when(mcpComponentService.getMcpServerMcpComponents(MCP_SERVER_ID)).thenReturn(List.of(mcpComponent));
+        McpServerService mcpServerService = mock(McpServerService.class);
+        McpComponentService mcpComponentService = mock(McpComponentService.class);
+        McpToolService mcpToolService = mock(McpToolService.class);
+        McpProjectService mcpProjectService = mock(McpProjectService.class);
+        WorkspaceMcpServerService workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
+        AutomationMcpToolFacade mcpToolFacade = mock(AutomationMcpToolFacade.class);
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider =
+            (ObjectProvider<McpOutboundRedactorProvider>) mock(ObjectProvider.class);
+        ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders =
+            (ObjectProvider<McpServerWorkspaceToolCallbackContributor>) mock(ObjectProvider.class);
 
-        McpTool enabledTool = new McpTool("enabled-tool", Map.of(), 10L);
+        when(mcpServerService.getMcpServer("secret")).thenReturn(mcpServer);
+        when(mcpComponentService.getMcpServerMcpComponents(1L)).thenReturn(List.of(mcpComponent));
+        when(mcpToolService.getMcpComponentMcpTools(2L)).thenReturn(List.of(enabledMcpTool, disabledMcpTool));
+        when(mcpProjectService.getMcpServerMcpProjects(1L)).thenReturn(List.of());
+        when(workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(1L)).thenReturn(Optional.empty());
 
-        enabledTool.setId(1L);
+        Function<Map<String, Object>, Object> toolFunction = request -> "ok";
 
-        McpTool disabledTool = new McpTool("disabled-tool", Map.of(), 10L);
-
-        disabledTool.setId(2L);
-        disabledTool.setEnabled(false);
-
-        when(mcpToolService.getMcpComponentMcpTools(10L)).thenReturn(List.of(enabledTool, disabledTool));
-
-        FunctionToolCallback<Map<String, Object>, Object> enabledCallback = FunctionToolCallback
-            .builder("enabled-tool", (Function<Map<String, Object>, Object>) input -> "ok")
+        FunctionToolCallback<Map<String, Object>, Object> functionToolCallback = FunctionToolCallback
+            .builder("enabledTool", toolFunction)
             .inputType(Map.class)
-            .build();
-
-        when(mcpToolFacade.getFunctionToolCallback(enabledTool)).thenReturn(enabledCallback);
-        when(workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(MCP_SERVER_ID)).thenReturn(Optional.empty());
-
-        List<McpServerFeatures.AsyncToolSpecification> specifications =
-            AutomationMcpServerConfiguration.buildToolSpecifications(
-                SECRET_KEY, mcpComponentService, mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade,
-                stubProvider(List.of()), workspaceMcpServerService);
-
-        assertThat(specifications)
-            .extracting(specification -> specification.tool()
-                .name())
-            .containsExactly("enabled-tool");
-
-        verify(mcpToolFacade).getFunctionToolCallback(enabledTool);
-        verify(mcpToolFacade, never()).getFunctionToolCallback(disabledTool);
-    }
-
-    private static ToolCallback stubCallback(String name) {
-        ToolCallback toolCallback = mock(ToolCallback.class);
-
-        ToolDefinition toolDefinition = ToolDefinition.builder()
-            .name(name)
-            .description("stub tool")
             .inputSchema("{\"type\":\"object\"}")
             .build();
 
-        when(toolCallback.getToolDefinition()).thenReturn(toolDefinition);
+        when(mcpToolFacade.getFunctionToolCallback(enabledMcpTool)).thenReturn(functionToolCallback);
 
-        return toolCallback;
+        List<McpServerFeatures.AsyncToolSpecification> toolSpecifications =
+            AutomationMcpServerConfiguration.buildToolSpecifications(
+                "secret", Set.of(), mcpComponentService, mcpProjectService, mcpServerService, mcpToolService,
+                mcpToolFacade, mcpOutboundRedactorProviderProvider, workspaceToolProviders,
+                workspaceMcpServerService);
+
+        assertThat(toolSpecifications).hasSize(1);
+        verify(mcpToolFacade, never()).getFunctionToolCallback(disabledMcpTool);
     }
 
-    private static ObjectProvider<McpServerWorkspaceToolCallbackContributor> stubProvider(
-        List<McpServerWorkspaceToolCallbackContributor> providers) {
+    private static McpServer enforcingServer() {
+        McpServer mcpServer = new McpServer();
 
-        ObjectProvider<McpServerWorkspaceToolCallbackContributor> objectProvider = mock(ObjectProvider.class);
+        mcpServer.setEnforceToolAuthorization(true);
 
-        when(objectProvider.orderedStream()).thenAnswer(invocation -> providers.stream());
+        return mcpServer;
+    }
 
-        return objectProvider;
+    private static McpComponent component(String componentName, Set<String> requiredAuthorities) {
+        McpComponent mcpComponent = new McpComponent();
+
+        mcpComponent.setComponentName(componentName);
+        mcpComponent.setRequiredAuthorities(requiredAuthorities);
+
+        return mcpComponent;
     }
 }

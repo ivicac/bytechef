@@ -596,7 +596,15 @@ public class AiGuardrails {
      * @return the effective tool-boundary policy
      */
     public PiiTokenBoundaryPolicy resolveToolBoundaryPolicy(@Nullable Long workspaceId) {
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        return toolBoundaryPolicyOf(resolvePolicy(workspaceId));
+    }
+
+    /**
+     * Converts an already-resolved {@link EffectivePolicy} into the kinds-and-threshold pair the redaction boundaries
+     * take. Split out from {@link #resolveToolBoundaryPolicy(Long)} so {@link #resolveMcpOutboundPolicy} can reach it
+     * without triggering a second settings read -- see that method for why a second read is unacceptable there.
+     */
+    private static PiiTokenBoundaryPolicy toolBoundaryPolicyOf(EffectivePolicy policy) {
         Set<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
 
         if (policy.redactPii()) {
@@ -608,6 +616,57 @@ public class AiGuardrails {
         }
 
         return new PiiTokenBoundaryPolicy(kinds, policy.minConfidence());
+    }
+
+    /**
+     * Returns the policy for redacting an MCP server's outbound tool results, or {@code null} when
+     * {@code redactMcpResults} is unset or false for {@code workspaceId}.
+     *
+     * <p>
+     * Gated on its own setting rather than on {@link #isActive} or on {@code redactPii}/{@code redactSecrets}: an MCP
+     * tool is frequently how a customer hands data to their own agent on purpose, so enabling guardrails for chat
+     * surfaces must not silently start rewriting an MCP pipeline's payloads. The switch selects the surface; the kinds
+     * and threshold still come from the same workspace fields every other surface reads.
+     * </p>
+     *
+     * <p>
+     * Reads the settings row directly rather than going through {@link #resolvePolicy}: {@code redactMcpResults} has no
+     * global counterpart to union with, so there is nothing for the effective-policy machinery to combine.
+     * </p>
+     *
+     * <p>
+     * It reads that row through the settings service itself rather than through this class's fail-open
+     * {@code findSettings}, and this is the one caller that must: a swallowed lookup failure is indistinguishable from
+     * a workspace with no settings row, and on this path "no settings" means "return the payload unredacted". The
+     * failure propagates so the MCP decorator can fail closed on it -- a database blip during a {@code tools/call} must
+     * end in a tool error, never in raw customer records with {@code isError} false. The chat surfaces reading
+     * {@code findSettings} keep their fail-open behavior, which is correct for them: there a broken guardrail is never
+     * worse than no guardrail.
+     * </p>
+     *
+     * <p>
+     * The row is read <b>exactly once</b> and then reused for the kinds and threshold, rather than resolved again
+     * through {@link #resolveToolBoundaryPolicy(Long)}. A second read would reach the fail-open {@code findSettings},
+     * and a failure there resolves no workspace override at all: with the shipped global defaults that yields an EMPTY
+     * kind set, a non-null policy, and a redactor that returns the payload unchanged without even emitting a metric.
+     * That is the same silent leak the guarded first read exists to prevent, one read later -- and a realistic one,
+     * since both reads hit an uncached {@code PropertyService} row and the failures that motivate this (pool
+     * exhaustion, failover, connection reset) are bursty enough to break one read and not the other.
+     * </p>
+     *
+     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @return the outbound policy, or {@code null} when outbound redaction is off
+     * @throws RuntimeException when the settings lookup fails; the caller must fail closed rather than treat it as off
+     */
+    public @Nullable PiiTokenBoundaryPolicy resolveMcpOutboundPolicy(@Nullable Long workspaceId) {
+        AiGuardrailsWorkspaceSettings settings = aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId)
+            .orElse(null);
+
+        if (settings == null || !Boolean.TRUE.equals(settings.redactMcpResults())) {
+            return null;
+        }
+
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings));
     }
 
     /**
@@ -901,8 +960,16 @@ public class AiGuardrails {
     }
 
     private EffectivePolicy resolvePolicy(@Nullable Long workspaceId) {
-        AiGuardrailsWorkspaceSettings settings = findSettings(workspaceId);
+        return effectivePolicyOf(findSettings(workspaceId));
+    }
 
+    /**
+     * Unions the global properties with an already-fetched settings row. Separate from {@link #resolvePolicy(Long)} so
+     * a caller that has already read the row -- {@link #resolveMcpOutboundPolicy}, which must not read it twice -- can
+     * reuse it instead of reading again. Deliberately not an overload of {@code resolvePolicy}: both parameter types
+     * are nullable reference types, so {@code resolvePolicy(null)} would be ambiguous at every existing call site.
+     */
+    private EffectivePolicy effectivePolicyOf(@Nullable AiGuardrailsWorkspaceSettings settings) {
         // Union semantics across global -> workspace: a level can enable a guardrail (or add blocked terms) but never
         // turn one off. A null field on `settings` just means "not set at this level" -- it unions with the GLOBAL
         // properties above, not with the tenant-default (null-workspaceId) row; a real workspace's settings never

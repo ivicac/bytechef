@@ -30,6 +30,7 @@ import com.bytechef.automation.ai.mcp.server.spi.McpServerWorkspaceToolCallbackC
 import com.bytechef.automation.ai.mcp.service.McpProjectService;
 import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpComponent;
@@ -74,6 +75,7 @@ class AutomationMcpServerConfigurationIntTest {
     private McpToolService mcpToolService;
 
     private McpComponentService mcpComponentService;
+    private ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider;
     private McpProjectService mcpProjectServiceTarget;
     private McpServerService mcpServerServiceTarget;
     private AutomationMcpToolFacade mcpToolFacade;
@@ -96,6 +98,8 @@ class AutomationMcpServerConfigurationIntTest {
         reset(mcpProjectServiceTarget, mcpServerServiceTarget, mcpToolServiceTarget);
 
         mcpComponentService = mock(McpComponentService.class);
+        mcpOutboundRedactorProviderProvider = (ObjectProvider<McpOutboundRedactorProvider>) mock(
+            ObjectProvider.class);
         mcpToolFacade = mock(AutomationMcpToolFacade.class);
         workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
         workspaceToolProviders = (ObjectProvider<McpServerWorkspaceToolCallbackContributor>) mock(
@@ -318,7 +322,7 @@ class AutomationMcpServerConfigurationIntTest {
     private List<McpServerFeatures.AsyncToolSpecification> buildToolSpecifications(Set<String> principalAuthorities) {
         return AutomationMcpServerConfiguration.buildToolSpecifications(
             "secret", principalAuthorities, mcpComponentService, mcpProjectService, mcpServerService, mcpToolService,
-            mcpToolFacade, workspaceToolProviders, workspaceMcpServerService);
+            mcpToolFacade, mcpOutboundRedactorProviderProvider, workspaceToolProviders, workspaceMcpServerService);
     }
 
     private static FunctionToolCallback<Map<String, Object>, Object> functionToolCallback(String toolName) {
