@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.platform.ai.guardrails;
 
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
@@ -52,9 +53,11 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnEEVersion
 @ConditionalOnProperty(prefix = "bytechef.ai.gateway", name = "enabled", havingValue = "true")
-public class AiGuardrailMetrics {
+public class AiGuardrailMetrics implements SensitiveDataMetrics {
 
     public static final String COUNTER_NAME = "bytechef_ai_guardrail";
+
+    private static final String DETECTOR_FAILED_EVENT = "detector_failed";
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     private final @Nullable MeterRegistry meterRegistry;
@@ -95,5 +98,18 @@ public class AiGuardrailMetrics {
             .tag("surface", surface)
             .register(meterRegistry)
             .increment();
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for {@code SensitiveDataRedactor}, which cannot depend on this EE type
+     * directly. Delegates to {@link #record(String)} with the same {@code detector_failed} event this class already
+     * recorded before the redactor moved to the CE {@code platform-ai-sensitive-data} module, so the event name and
+     * this instance's {@code surface} tag are unchanged. {@code detectorName} is not itself a tag — see this class's
+     * javadoc on why only {@code event}/{@code surface} are used, to keep the meter's cardinality low.
+     */
+    @Override
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    public void recordDetectorFailure(String detectorName) {
+        record(DETECTOR_FAILED_EVENT);
     }
 }
