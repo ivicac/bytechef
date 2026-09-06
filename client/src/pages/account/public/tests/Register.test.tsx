@@ -57,7 +57,7 @@ it('should show validation error after clicking "Continue" button if email field
     renderRegisterPage();
 
     await act(async () => {
-        userEvent.click(screen.getByRole('button', {name: 'Continue'}));
+        await userEvent.click(screen.getByRole('button', {name: 'Continue'}));
     });
 
     await waitFor(() => {

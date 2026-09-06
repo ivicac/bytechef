@@ -1,5 +1,5 @@
-query aiGuardrailsWorkspaceSettings($workspaceId: ID) {
-    aiGuardrailsWorkspaceSettings(workspaceId: $workspaceId) {
+query aiGuardrailsWorkspaceSettings($workspaceId: ID, $scope: AiGuardrailsSettingsScope) {
+    aiGuardrailsWorkspaceSettings(workspaceId: $workspaceId, scope: $scope) {
         blockedTerms
         blockingMode
         injectionDetectionEnabled
@@ -8,6 +8,7 @@ query aiGuardrailsWorkspaceSettings($workspaceId: ID) {
         redactPii
         redactSecrets
         scanResponses
+        scope
         workspaceId
     }
 }

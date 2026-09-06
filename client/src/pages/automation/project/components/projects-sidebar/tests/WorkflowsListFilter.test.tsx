@@ -41,7 +41,7 @@ it('should call setSearchValue with correct value when the search input value ch
 it('should open the sort dropdown when the sort button is clicked', async () => {
     renderWorkflowsListFilter('', 'last-edited');
 
-    userEvent.click(screen.getByLabelText('Sort by'));
+    await userEvent.click(screen.getByLabelText('Sort by'));
 
     await waitFor(() => {
         expect(screen.getByLabelText('Sort by')).toHaveAttribute('aria-expanded', 'true');
