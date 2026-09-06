@@ -122,17 +122,20 @@ public class DbTriggerScheduler implements TriggerScheduler {
     }
 
     private <T> void replace(SchedulableInstance<T> schedulableInstance) {
-        if (schedulerClient.reschedule(schedulableInstance)) {
-            log.trace(
-                "Rescheduled task {} instance {}", schedulableInstance.getTaskName(), schedulableInstance.getId());
+        try {
+            if (!schedulerClient.schedule(
+                schedulableInstance, SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)) {
 
-            return;
+                logNeitherRescheduledNorCreated(schedulableInstance);
+            }
+        } catch (TaskInstanceException e) {
+            logNeitherRescheduledNorCreated(schedulableInstance);
         }
+    }
 
-        if (!schedulerClient.scheduleIfNotExists(schedulableInstance)) {
-            log.warn(
-                "Task {} instance {} was neither rescheduled nor created; it is probably executing right now",
-                schedulableInstance.getTaskName(), schedulableInstance.getId());
-        }
+    private <T> void logNeitherRescheduledNorCreated(SchedulableInstance<T> schedulableInstance) {
+        log.warn(
+            "Task {} instance {} was neither rescheduled nor created; it is probably executing right now",
+            schedulableInstance.getTaskName(), schedulableInstance.getId());
     }
 }
