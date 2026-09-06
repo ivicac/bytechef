@@ -68,6 +68,8 @@ import com.bytechef.ee.platform.ai.gateway.service.AiGatewayModelDeploymentServi
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayRoutingPolicyService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewaySpendService;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiToken;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.Money;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -87,6 +89,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,6 +99,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.Usage;
@@ -311,6 +316,20 @@ class AiGatewayFacadeTest {
             aiGuardrails, null, settingsService, null, null, null, false, false);
     }
 
+    private static com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails
+        guardrailsWithPiiTokenizationAndResponseScan() {
+
+        com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService settingsService =
+            mock(com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService.class);
+
+        com.bytechef.ee.platform.ai.guardrails.AiGuardrails aiGuardrails =
+            new com.bytechef.ee.platform.ai.guardrails.AiGuardrails(
+                settingsService, null, null, null, true, false, "", false, false, true, false);
+
+        return new com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails(
+            aiGuardrails, null, settingsService, null, null, null, false, false);
+    }
+
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
@@ -499,6 +518,206 @@ class AiGatewayFacadeTest {
             .content());
     }
 
+    /**
+     * End-to-end proof that the facade threads one token session across both guardrail calls in {@code chatCompletion}:
+     * the outbound prompt carries a session token (not an irreversible {@code [REDACTED_EMAIL]} placeholder) for the
+     * tokenized PII, and once the "model" echoes that token back in its completion, the facade's response carries the
+     * real value again — restored, not left as a token and not re-redacted. A reversed scan-then-restore order in
+     * {@code AiGatewayGuardrails.redactResponse} would show up here as the assertion failing with
+     * {@code [REDACTED_EMAIL]} in place of the real address (see
+     * {@code AiGatewayGuardrailsTest.testRedactResponseWithSessionScansBeforeRestoring} for that same failure mode
+     * proven directly against the adapter).
+     */
+    @Test
+    void testChatCompletionTokenizesRequestAndRestoresRoundTrippedTokenInResponse() {
+        AiGatewayFacade facade = buildFacade(guardrailsWithPiiTokenizationAndResponseScan());
+
+        Map<String, String> tags = Map.of("workspace_id", "1");
+        AiGatewayChatCompletionRequest request = new AiGatewayChatCompletionRequest(
+            "openai/gpt-4", List.of(new AiGatewayChatMessage("user", "Contact bob@acme.io")),
+            null, null, null, false, null, null, null, null, tags);
+
+        when(aiGatewayBudgetChecker.checkBudget(1L)).thenReturn(BudgetCheckResult.allowed());
+        when(aiGatewayResponseCache.shouldCache(any())).thenReturn(false);
+
+        AiGatewayProvider provider = createProvider();
+        AiModel model = createModel(provider);
+
+        when(aiGatewayProviderService.getEnabledProviders()).thenReturn(List.of(provider));
+        when(aiModelService.getModel(provider.getId(), "gpt-4")).thenReturn(model);
+        when(aiGatewayContextCompressor.compress(any(), any(Integer.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
+        when(aiGatewayCostCalculator.calculateCost(any(), any(Integer.class), any(Integer.class)))
+            .thenReturn(BigDecimal.ZERO);
+
+        when(chatModel.call(any(Prompt.class))).thenAnswer(invocation -> {
+            Prompt sentPrompt = invocation.getArgument(0);
+            String sentText = sentPrompt.getInstructions()
+                .stream()
+                .map(Message::getText)
+                .collect(Collectors.joining(" "));
+
+            Matcher matcher = PiiToken.pattern()
+                .matcher(sentText);
+
+            assertTrue(matcher.find(), "expected the sent prompt to carry a PII token, got: " + sentText);
+
+            return mockChatResponse("Sure, reaching out to " + matcher.group() + " shortly.");
+        });
+
+        AiGatewayChatCompletionResponse response = facade.chatCompletion(request,
+            new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of()));
+
+        assertEquals("Sure, reaching out to bob@acme.io shortly.", response.choices()
+            .get(0)
+            .message()
+            .content());
+    }
+
+    /**
+     * C1 regression test: the observability span persisted for this exchange must record the response the way the model
+     * actually produced it (scanned, but not yet restored), never the real PII value {@code chatCompletion} restores
+     * afterward for the CALLER. Before the fix, {@code processTracingHeaders} ran on the already-restored response, so
+     * {@code span.getOutput()} carried the real address, permanently persisting into the span store exactly the PII
+     * value the workspace's "Redact PII" setting exists to keep out of it — even though the same setting already made
+     * the trace row's output a SHA-256 digest, the span row was never digested at all. This proves the span instead
+     * carries this exchange's own {@code [PII_*]} token, and that the caller-visible response still gets the real value
+     * restored regardless.
+     */
+    @Test
+    void testChatCompletionTracesSpanWithScannedNotRestoredOutput() {
+        AiGatewayFacade facade = buildFacade(guardrailsWithPiiTokenizationAndResponseScan());
+
+        Map<String, String> tags = Map.of("workspace_id", "1");
+        AiGatewayChatCompletionRequest request = new AiGatewayChatCompletionRequest(
+            "openai/gpt-4", List.of(new AiGatewayChatMessage("user", "Contact bob@acme.io")),
+            null, null, null, false, null, null, null, null, tags);
+
+        when(aiGatewayBudgetChecker.checkBudget(1L)).thenReturn(BudgetCheckResult.allowed());
+        when(aiGatewayResponseCache.shouldCache(any())).thenReturn(false);
+
+        AiGatewayProvider provider = createProvider();
+        AiModel model = createModel(provider);
+
+        when(aiGatewayProviderService.getEnabledProviders()).thenReturn(List.of(provider));
+        when(aiModelService.getModel(provider.getId(), "gpt-4")).thenReturn(model);
+        when(aiGatewayContextCompressor.compress(any(), any(Integer.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
+        when(aiGatewayCostCalculator.calculateCost(any(), any(Integer.class), any(Integer.class)))
+            .thenReturn(BigDecimal.ZERO);
+        when(workspaceAiObservabilityTraceService.findByExternalTraceId(any(), anyString()))
+            .thenReturn(Optional.empty());
+
+        doAnswer(invocation -> {
+            AiObservabilityTrace trace = invocation.getArgument(0);
+
+            ReflectionTestUtils.setField(trace, "id", 300L);
+
+            return null;
+        }).when(workspaceAiObservabilityTraceService)
+            .createInWorkspace(any(AiObservabilityTrace.class), anyLong());
+
+        when(chatModel.call(any(Prompt.class))).thenAnswer(invocation -> {
+            Prompt sentPrompt = invocation.getArgument(0);
+            String sentText = sentPrompt.getInstructions()
+                .stream()
+                .map(Message::getText)
+                .collect(Collectors.joining(" "));
+
+            Matcher matcher = PiiToken.pattern()
+                .matcher(sentText);
+
+            assertTrue(matcher.find(), "expected the sent prompt to carry a PII token, got: " + sentText);
+
+            return mockChatResponse("Sure, reaching out to " + matcher.group() + " shortly.");
+        });
+
+        AiObservabilityTracingHeaders tracingHeaders = new AiObservabilityTracingHeaders(
+            "span-test-trace-1", null, "span-test-span", null, "user-1", Map.of(), List.of());
+
+        AiGatewayChatCompletionResponse response = facade.chatCompletion(request, tracingHeaders);
+
+        // Sanity: the CALLER still gets the real value back -- only the persisted span must not.
+        assertEquals("Sure, reaching out to bob@acme.io shortly.", response.choices()
+            .get(0)
+            .message()
+            .content());
+
+        ArgumentCaptor<AiObservabilitySpan> spanCaptor = ArgumentCaptor.forClass(AiObservabilitySpan.class);
+
+        verify(aiObservabilitySpanService).create(spanCaptor.capture());
+
+        String spanOutput = spanCaptor.getValue()
+            .getOutput();
+
+        assertFalse(spanOutput.contains("bob@acme.io"),
+            "span output must not carry the restored real PII value, got: " + spanOutput);
+        assertTrue(PiiToken.pattern()
+            .matcher(spanOutput)
+            .find(), "expected the span output to still carry this exchange's own PII token, got: " + spanOutput);
+    }
+
+    /**
+     * {@link PiiTokenSession} retains every PII value it minted a token for until closed, so a session that outlives
+     * the request it belongs to is a PII store nobody designed (see the class javadoc). This proves the facade closes
+     * the session it creates even when the downstream model call throws and {@code chatCompletion}'s inner catch
+     * rethrows — the one path where a bare {@code try { ... } finally { session.close(); }} around only the two
+     * guardrail calls would miss it.
+     */
+    @Test
+    void testChatCompletionClosesTokenSessionOnDownstreamError() {
+        com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails mockGuardrails =
+            mock(com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails.class);
+        PiiTokenSession session = PiiTokenSession.create();
+
+        when(mockGuardrails.newTokenSession()).thenReturn(session);
+        when(mockGuardrails.apply(any(), any(), any(), eq(session))).thenAnswer(invocation -> {
+            // Simulate the request actually having minted a token, so a session left unclosed is observable via a
+            // non-zero size afterward.
+            session.tokenFor("EMAIL", "bob@acme.io");
+
+            return invocation.getArgument(0);
+        });
+
+        AiGatewayFacade facade = buildFacade(mockGuardrails);
+
+        AiGatewayChatCompletionRequest request = createDefaultRequest();
+
+        when(aiGatewayBudgetChecker.checkBudget(1L)).thenReturn(BudgetCheckResult.allowed());
+        when(aiGatewayResponseCache.shouldCache(any())).thenReturn(false);
+
+        AiGatewayProvider provider = createProvider();
+        AiModel model = createModel(provider);
+
+        when(aiGatewayProviderService.getEnabledProviders()).thenReturn(List.of(provider));
+        when(aiModelService.getModel(provider.getId(), "gpt-4")).thenReturn(model);
+        when(aiGatewayContextCompressor.compress(any(), any(Integer.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
+        when(chatModel.call(any(Prompt.class))).thenThrow(new RuntimeException("API call failed"));
+
+        // Asserting the message (not just "some RuntimeException") pins that the call actually reached
+        // chatModel.call() through the mocked, session-carrying apply() -- an unrelated failure earlier in the
+        // pipeline (e.g. a null request from an unstubbed 3-arg apply() overload) would also satisfy a bare
+        // assertThrows(RuntimeException.class) and let this test pass without ever exercising session closing.
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> facade.chatCompletion(request,
+            new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of())));
+
+        assertEquals("API call failed", thrown.getMessage());
+        assertEquals(0, session.size());
+    }
+
     @Test
     void testChatCompletionDirectErrorCreatesErrorLog() {
         AiGatewayChatCompletionRequest request = createDefaultRequest();
@@ -583,6 +802,68 @@ class AiGatewayFacadeTest {
         assertNotNull(response);
 
         verify(aiGatewayResponseCache).put(anyString(), any(AiGatewayChatCompletionResponse.class));
+    }
+
+    /**
+     * A tokenized request must never reach the response cache, on either the read or the write side. Keying on the
+     * tokenized request (each session mints a fresh random {@code sessionId}, so the same PII value hashes to a
+     * different key every request) means the cache could never hit for PII-bearing prompts anyway, but every miss would
+     * still call {@code put} and permanently fill a shared cache with single-use entries. Keying on the
+     * PRE-tokenization request instead would be worse, not better: before tokenization two different users' different
+     * values legitimately shared a cache key and a cached response, because the cached response never held a real
+     * value; now that responses are restored with real values before being returned, sharing a cache entry would let
+     * one user's session restore and receive a completely different user's real PII value that a different request
+     * happened to trigger. See {@code AiGatewayFacadeImpl#isCacheable}'s javadoc for the full reasoning; this test pins
+     * the outward behavior it exists to guarantee.
+     */
+    @Test
+    void testChatCompletionSkipsCacheWhenRequestContainsPiiToken() {
+        AiGatewayFacade facade = buildFacade(guardrailsWithPiiTokenizationAndResponseScan());
+
+        Map<String, String> tags = Map.of("workspace_id", "1");
+        AiGatewayChatCompletionRequest request = new AiGatewayChatCompletionRequest(
+            "openai/gpt-4", List.of(new AiGatewayChatMessage("user", "Contact bob@acme.io")),
+            null, null, null, false, null, null, null, null, tags);
+
+        when(aiGatewayBudgetChecker.checkBudget(1L)).thenReturn(BudgetCheckResult.allowed());
+        // shouldCache says yes on its own -- the point of this test is that isCacheable overrules it once the
+        // request carries a PII token, not that shouldCache itself changed.
+        when(aiGatewayResponseCache.shouldCache(any())).thenReturn(true);
+        // lenient() -- computeCacheKey is legitimately never reached when the PII-token check correctly short-
+        // circuits isCacheable before either cache read/write site calls it. Stubbing a concrete (non-null) key here
+        // still matters for catching a REGRESSION: an unstubbed computeCacheKey returns null, and the anyString()
+        // verification below would not catch a put(...) call made with that null key, silently letting this test
+        // pass even if the PII-token check were removed (see the RED-phase run recorded in the task report, which
+        // reproduced exactly that gap before this stub was added).
+        org.mockito.Mockito.lenient()
+            .when(aiGatewayResponseCache.computeCacheKey(any()))
+            .thenReturn("pii-bearing-request-key");
+
+        AiGatewayProvider provider = createProvider();
+        AiModel model = createModel(provider);
+
+        when(aiGatewayProviderService.getEnabledProviders()).thenReturn(List.of(provider));
+        when(aiModelService.getModel(provider.getId(), "gpt-4")).thenReturn(model);
+        when(aiGatewayContextCompressor.compress(any(), any(Integer.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
+
+        ChatResponse chatResponse = mockChatResponse("Sure, I'll reach out.");
+
+        when(chatModel.call(any(Prompt.class))).thenReturn(chatResponse);
+        when(aiGatewayCostCalculator.calculateCost(any(), any(Integer.class), any(Integer.class)))
+            .thenReturn(BigDecimal.ZERO);
+
+        AiGatewayChatCompletionResponse response = facade.chatCompletion(request,
+            new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of()));
+
+        assertNotNull(response);
+
+        verify(aiGatewayResponseCache, never()).put(anyString(), any(AiGatewayChatCompletionResponse.class));
+        verify(aiGatewayResponseCache, never()).get(anyString());
     }
 
     @Test
