@@ -35,6 +35,7 @@ import com.bytechef.ee.platform.ai.guardrails.advisor.AiGuardrailsAdvisor;
 import com.bytechef.ee.platform.ai.llm.usage.LlmUsageRecorder;
 import com.bytechef.ee.platform.ai.workspaceprompt.WorkspaceSystemPrompts;
 import com.bytechef.ee.platform.ai.workspaceprompt.advisor.WorkspaceSystemPromptAdvisor;
+import com.bytechef.platform.ai.guardrails.ConversationScope;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -241,6 +242,10 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
     protected Map<String, Object> advisorParams(RunAgentInput input) {
         Map<String, Object> advisorParams = new HashMap<>();
 
+        State state = input.state();
+
+        Long userId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
+
         // The session memory advisor resolves its session from SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, whose
         // literal equals ChatMemory.CONVERSATION_ID. The parent agent only sets this param on its own chatMemory
         // branch (not taken — the AI Hub mounts SessionMemoryAdvisor directly), so publish the thread id here.
@@ -248,9 +253,16 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
 
         if (threadId != null && !threadId.isBlank()) {
             advisorParams.put(ChatMemory.CONVERSATION_ID, threadId);
-        }
 
-        State state = input.state();
+            // ai_hub_chat.thread_id carries a global UNIQUE constraint, so a thread id identifies exactly one
+            // (workspace, user) pair — this is the platform-issued id ConversationScope requires. Gate the marker on
+            // the controller-verified userId, never on a userId resolved from the thread itself, or the trust check
+            // would be circular.
+            if (userId != null && userId > 0) {
+                advisorParams.put(ConversationScope.PLATFORM_ISSUED_KEY, Boolean.TRUE);
+                advisorParams.put(ConversationScope.USER_ID_KEY, userId);
+            }
+        }
 
         Long environmentId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.ENVIRONMENT_ID));
 
@@ -265,8 +277,6 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         if (workspaceId != null && workspaceId > 0) {
             advisorParams.put(AiHubStateKeys.VERIFIED_WORKSPACE_ID, workspaceId);
         }
-
-        Long userId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
 
         if (userId != null && userId > 0) {
             advisorParams.put(AiHubStateKeys.AUTHENTICATED_USER_ID, userId);

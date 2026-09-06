@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.ai.sensitivedata.tokenization;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -130,5 +131,27 @@ public record PiiToken(String category, int ordinal, String sessionId) {
      */
     public String text() {
         return "[PII_" + category + "_" + ordinal + "_" + sessionId + "]";
+    }
+
+    /**
+     * Derives the discriminator a stored token map was minted under, by reading it back off the tokens themselves.
+     *
+     * <p>
+     * Every token in one map was minted by the same session, so any one of them names it. Lives here, beside
+     * {@link #parse}, because both the store that persists such a map and the engine that rehydrates a session from it
+     * need the same derivation — and a rehydrated session that guessed a different discriminator would restore none of
+     * the tokens it was handed.
+     * </p>
+     *
+     * @param tokens token text to value, as exported by {@code PiiTokenSession#tokens()}
+     * @return the session id, or empty when no key in {@code tokens} parses as a token
+     */
+    public static Optional<String> sessionIdOf(Map<String, String> tokens) {
+        return tokens.keySet()
+            .stream()
+            .map(PiiToken::parse)
+            .flatMap(Optional::stream)
+            .map(PiiToken::sessionId)
+            .findFirst();
     }
 }

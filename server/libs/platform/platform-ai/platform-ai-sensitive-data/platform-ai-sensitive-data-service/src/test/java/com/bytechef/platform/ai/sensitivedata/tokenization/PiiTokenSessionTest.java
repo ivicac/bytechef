@@ -171,4 +171,64 @@ class PiiTokenSessionTest {
             .as("a caller-held map must survive the session that minted it")
             .containsKey(token);
     }
+
+    @Test
+    void testRehydratedSessionRestoresTheTokensItWasGiven() {
+        PiiTokenSession original = PiiTokenSession.create();
+        String token = original.tokenFor("EMAIL_ADDRESS", "bob@acme.io");
+
+        PiiTokenSession rehydrated = PiiTokenSession.rehydrate(original.sessionId(), original.tokens());
+
+        assertThat(rehydrated.restore("mail " + token)).isEqualTo("mail bob@acme.io");
+        assertThat(rehydrated.sessionId()).isEqualTo(original.sessionId());
+    }
+
+    @Test
+    void testRehydratedSessionMintsTheSameTokenForAValueItAlreadyHolds() {
+        PiiTokenSession original = PiiTokenSession.create();
+        String token = original.tokenFor("EMAIL_ADDRESS", "bob@acme.io");
+
+        PiiTokenSession rehydrated = PiiTokenSession.rehydrate(original.sessionId(), original.tokens());
+
+        assertThat(rehydrated.tokenFor("EMAIL_ADDRESS", "bob@acme.io"))
+            .as("cross-turn coherence: the model must see one person, not two")
+            .isEqualTo(token);
+    }
+
+    @Test
+    void testRehydratedSessionResumesOrdinalsAboveTheHighestItHolds() {
+        // The load-bearing one. Resuming at 1 would mint an ordinal a stored token already uses, and a later turn
+        // would restore the FIRST value into the SECOND value's place -- a cross-value disclosure inside one session.
+        PiiTokenSession original = PiiTokenSession.create();
+
+        original.tokenFor("EMAIL_ADDRESS", "bob@acme.io");
+        original.tokenFor("EMAIL_ADDRESS", "alice@acme.io");
+
+        PiiTokenSession rehydrated = PiiTokenSession.rehydrate(original.sessionId(), original.tokens());
+
+        String third = rehydrated.tokenFor("EMAIL_ADDRESS", "carol@acme.io");
+
+        assertThat(original.tokens()).doesNotContainKey(third);
+        assertThat(rehydrated.restore(third)).isEqualTo("carol@acme.io");
+        assertThat(rehydrated.restore("mail " + original.tokenFor("EMAIL_ADDRESS", "bob@acme.io")))
+            .isEqualTo("mail bob@acme.io");
+    }
+
+    @Test
+    void testRehydratingAnEmptyMapBehavesLikeAFreshSession() {
+        PiiTokenSession rehydrated = PiiTokenSession.rehydrate("abcd", Map.of());
+
+        assertThat(rehydrated.size()).isZero();
+        assertThat(rehydrated.tokenFor("EMAIL_ADDRESS", "bob@acme.io")).contains("_1_");
+    }
+
+    @Test
+    void testRehydrateIgnoresAnEntryWhoseKeyIsNotAToken() {
+        // A row could be corrupt or hand-edited. An unparseable key must not raise the ordinal watermark or throw --
+        // it is dropped, because a token this session cannot parse is one it can never be asked to restore.
+        PiiTokenSession rehydrated = PiiTokenSession.rehydrate("abcd", Map.of("not-a-token", "bob@acme.io"));
+
+        assertThat(rehydrated.size()).isZero();
+        assertThat(rehydrated.restore("not-a-token")).isEqualTo("not-a-token");
+    }
 }

@@ -1454,7 +1454,17 @@ public class ApplicationProperties {
 
             private OpenNlp openNlp = new OpenNlp();
 
+            private Session session = new Session();
+
             private Violation violation = new Violation();
+
+            public Session getSession() {
+                return session;
+            }
+
+            public void setSession(Session session) {
+                this.session = session;
+            }
 
             public Violation getViolation() {
                 return violation;
@@ -1510,6 +1520,41 @@ public class ApplicationProperties {
 
                 public void setMaxUnwindowableInput(int maxUnwindowableInput) {
                     this.maxUnwindowableInput = maxUnwindowableInput;
+                }
+            }
+
+            /**
+             * Retention for the conversation-scoped PII token sessions ({@code ai_guardrail_token_session}), which hold
+             * the caller's real PII as the map's values, encrypted at rest. A row that outlives its conversation is PII
+             * retained for no reason, so the sweep drops any session whose {@code last_modified_date} is older than
+             * {@code retentionDays}.
+             *
+             * <p>
+             * Defaults must match {@code AiGuardrailTokenSessionRetentionJob} exactly. Runs at 03:00, half an hour
+             * after the violation sweep at 02:30 and an hour after the audit sweep at 02:00, so the three do not
+             * contend for the same window.
+             * </p>
+             */
+            public static class Session {
+
+                private long retentionDays = 30;
+
+                private String retentionCron = "0 0 3 * * *";
+
+                public long getRetentionDays() {
+                    return retentionDays;
+                }
+
+                public void setRetentionDays(long retentionDays) {
+                    this.retentionDays = retentionDays;
+                }
+
+                public String getRetentionCron() {
+                    return retentionCron;
+                }
+
+                public void setRetentionCron(String retentionCron) {
+                    this.retentionCron = retentionCron;
                 }
             }
 

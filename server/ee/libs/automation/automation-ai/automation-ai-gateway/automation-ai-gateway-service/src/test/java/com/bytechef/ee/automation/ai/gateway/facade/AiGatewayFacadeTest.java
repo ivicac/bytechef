@@ -836,7 +836,7 @@ class AiGatewayFacadeTest {
         // pass even if the PII-token check were removed (see the RED-phase run recorded in the task report, which
         // reproduced exactly that gap before this stub was added).
         org.mockito.Mockito.lenient()
-            .when(aiGatewayResponseCache.computeCacheKey(any()))
+            .when(aiGatewayResponseCache.computeCacheKey(any(), any()))
             .thenReturn("pii-bearing-request-key");
 
         AiGatewayProvider provider = createProvider();

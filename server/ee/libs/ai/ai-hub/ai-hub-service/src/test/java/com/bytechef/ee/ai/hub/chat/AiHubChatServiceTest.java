@@ -8,6 +8,7 @@
 package com.bytechef.ee.ai.hub.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -30,7 +31,11 @@ import com.bytechef.ee.ai.hub.exception.ConflictException;
 import com.bytechef.ee.ai.hub.exception.NotFoundException;
 import com.bytechef.ee.ai.hub.subagent.SubAgentSessionMemoryContributor;
 import com.bytechef.ee.ai.hub.tool.AiHubAgentType;
+import com.bytechef.ee.platform.ai.guardrails.repository.AiGuardrailTokenSessionRepository;
+import com.bytechef.ee.platform.ai.guardrails.session.EncryptedPiiTokenSessionStore;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
+import com.bytechef.encryption.Encryption;
+import com.bytechef.platform.ai.sensitivedata.PiiTokenSessionStore;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -44,6 +49,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Unit tests for {@link AiHubChatServiceImpl}.
@@ -94,6 +102,9 @@ class AiHubChatServiceTest {
     @Mock
     private ResourceGrantService resourceGrantService;
 
+    @Mock
+    private PiiTokenSessionStore piiTokenSessionStore;
+
     private AiHubChatServiceImpl chatService;
 
     @org.junit.jupiter.api.BeforeEach
@@ -109,7 +120,7 @@ class AiHubChatServiceTest {
         // and approval cleanup both guard on null) — the same shape the previous @InjectMocks wiring produced.
         chatService = new AiHubChatServiceImpl(
             chatRepository, turnRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry,
-            null, aiHubSessionMemoryProvider, null, null, null);
+            null, aiHubSessionMemoryProvider, null, null, null, piiTokenSessionStore);
     }
 
     private static org.springframework.ai.session.SessionEvent sessionEvent(
@@ -346,6 +357,84 @@ class AiHubChatServiceTest {
         verify(sessionService).delete(
             SubAgentSessionMemoryContributor.sessionKey(THREAD_ID, AiHubAgentType.DATA_ANALYST.key()));
         verify(chatRepository).delete(chat);
+    }
+
+    /**
+     * A chat is deleted as a whole, across every user of the conversation, so eviction is keyed by (workspaceId,
+     * threadId) rather than by the deleting user.
+     */
+    @Test
+    void testDeleteEvictsThePiiTokenSessionForTheWholeConversation() {
+        AiHubChat chat =
+            buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        chatService.delete(1L, WORKSPACE_ID, USER_ID);
+
+        verify(piiTokenSessionStore).evict(WORKSPACE_ID, THREAD_ID);
+    }
+
+    /**
+     * The eviction runs after the delete commits, like the chat-memory and tool-search cleanups on the same path.
+     * Running it inline inside the caller's transaction would let a failed DELETE abort that transaction on PostgreSQL
+     * — the store swallowing its own exception does not save the commit that follows.
+     */
+    @Test
+    void testDeleteEvictsThePiiTokenSessionOnlyAfterTheDeleteCommits() {
+        AiHubChat chat =
+            buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        TransactionSynchronizationManager.initSynchronization();
+
+        try {
+            chatService.delete(1L, WORKSPACE_ID, USER_ID);
+
+            verify(piiTokenSessionStore, never()).evict(anyLong(), any());
+
+            List<TransactionSynchronization> synchronizations =
+                TransactionSynchronizationManager.getSynchronizations();
+
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(piiTokenSessionStore).evict(WORKSPACE_ID, THREAD_ID);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    /**
+     * {@link PiiTokenSessionStore#evict} already fails soft (catches and logs rather than propagating), so the delete
+     * path adds no try/catch of its own. Proves that guarantee end to end: an evict backed by a repository that throws
+     * must still let the chat delete complete.
+     */
+    @Test
+    void testDeleteSucceedsWhenPiiTokenEvictionFails() {
+        AiHubChat chat =
+            buildChat(1L, USER_ID, THREAD_ID, AiHubChatStatus.ACTIVE);
+
+        when(chatRepository.findById(1L)).thenReturn(Optional.of(chat));
+
+        AiGuardrailTokenSessionRepository tokenSessionRepository = mock(AiGuardrailTokenSessionRepository.class);
+
+        doThrow(new RuntimeException("connection refused")).when(tokenSessionRepository)
+            .deleteByWorkspaceIdAndConversationId(WORKSPACE_ID, THREAD_ID);
+
+        PiiTokenSessionStore failingPiiTokenSessionStore = new EncryptedPiiTokenSessionStore(
+            tokenSessionRepository, mock(Encryption.class), JsonMapper.builder()
+                .build());
+
+        AiHubChatServiceImpl chatServiceWithFailingStore = new AiHubChatServiceImpl(
+            chatRepository, turnRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry,
+            null, aiHubSessionMemoryProvider, null, null, null, failingPiiTokenSessionStore);
+
+        assertThatCode(() -> chatServiceWithFailingStore.delete(1L, WORKSPACE_ID, USER_ID))
+            .doesNotThrowAnyException();
+
+        verify(chatRepository).delete(chat);
+        verify(tokenSessionRepository).deleteByWorkspaceIdAndConversationId(WORKSPACE_ID, THREAD_ID);
     }
 
     @Test
@@ -825,7 +914,7 @@ class AiHubChatServiceTest {
     private AiHubChatServiceImpl chatServiceWithResourceGrants() {
         return new AiHubChatServiceImpl(
             chatRepository, turnRepository, new OwnerOnlyAccessPolicy(), jobFacade, jobRegistry, inFlightRunRegistry,
-            null, aiHubSessionMemoryProvider, null, null, resourceGrantServiceProvider);
+            null, aiHubSessionMemoryProvider, null, null, resourceGrantServiceProvider, null);
     }
 
     /**
@@ -837,7 +926,7 @@ class AiHubChatServiceTest {
     private AiHubChatServiceImpl grantedChatService() {
         return new AiHubChatServiceImpl(
             chatRepository, turnRepository, new GrantedNonOwnerAccessPolicy(), jobFacade, jobRegistry,
-            inFlightRunRegistry, null, aiHubSessionMemoryProvider, null, null, null);
+            inFlightRunRegistry, null, aiHubSessionMemoryProvider, null, null, null, null);
     }
 
     private static final class GrantedNonOwnerAccessPolicy implements AiHubChatAccessPolicy {
