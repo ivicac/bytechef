@@ -19,6 +19,7 @@ interface GuardrailsFormI {
     blockingMode: AiGuardrailsBlockingMode;
     injectionDetectionEnabled: boolean;
     moderationEnabled: boolean;
+    redactMcpResults: boolean;
     redactPii: boolean;
     redactSecrets: boolean;
     scanResponses: boolean;
@@ -31,6 +32,7 @@ const DEFAULT_FORM: GuardrailsFormI = {
     blockingMode: AiGuardrailsBlockingMode.Block,
     injectionDetectionEnabled: false,
     moderationEnabled: false,
+    redactMcpResults: false,
     redactPii: false,
     redactSecrets: false,
     scanResponses: false,
@@ -73,6 +75,7 @@ const AiGuardrails = () => {
             blockingMode: settings?.blockingMode ?? AiGuardrailsBlockingMode.Block,
             injectionDetectionEnabled: settings?.injectionDetectionEnabled ?? false,
             moderationEnabled: settings?.moderationEnabled ?? false,
+            redactMcpResults: settings?.redactMcpResults ?? false,
             redactPii: settings?.redactPii ?? false,
             redactSecrets: settings?.redactSecrets ?? false,
             scanResponses: settings?.scanResponses ?? false,
@@ -90,6 +93,7 @@ const AiGuardrails = () => {
                 blockingMode: form.blockingMode,
                 injectionDetectionEnabled: form.injectionDetectionEnabled,
                 moderationEnabled: form.moderationEnabled,
+                redactMcpResults: form.redactMcpResults,
                 redactPii: form.redactPii,
                 redactSecrets: form.redactSecrets,
                 scanResponses: form.scanResponses,
@@ -191,6 +195,25 @@ const AiGuardrails = () => {
                                 checked={form.injectionDetectionEnabled}
                                 id="injection-detection-enabled"
                                 onCheckedChange={(checked) => setForm({...form, injectionDetectionEnabled: checked})}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+                            <div className="flex flex-col gap-1">
+                                <Label htmlFor="redact-mcp-results">Redact MCP tool results</Label>
+
+                                <p className="text-xs text-muted-foreground">
+                                    Extend redaction to results returned to external agents through MCP servers. Off by
+                                    default. This only selects the surface: what gets redacted comes from Redact PII and
+                                    Redact secrets above, so turning this on while both of those are off redacts
+                                    nothing.
+                                </p>
+                            </div>
+
+                            <Switch
+                                checked={form.redactMcpResults}
+                                id="redact-mcp-results"
+                                onCheckedChange={(checked) => setForm({...form, redactMcpResults: checked})}
                             />
                         </div>
 
