@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.copilot.workflow;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -17,7 +18,6 @@ import java.util.Objects;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -34,15 +34,18 @@ import org.springframework.stereotype.Service;
 public class WorkflowDescriptionCopilotGeneratorImpl implements WorkflowDescriptionCopilotGenerator {
 
     private final ChatModel chatModel;
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final WorkflowService workflowService;
     private final WorkflowDescriptionPromptBuilder promptBuilder;
     private final ObjectProvider<MeterRegistry> meterRegistryProvider;
 
     public WorkflowDescriptionCopilotGeneratorImpl(
-        ChatModel chatModel, WorkflowService workflowService, WorkflowDescriptionPromptBuilder promptBuilder,
+        ChatModel chatModel, CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory,
+        WorkflowService workflowService, WorkflowDescriptionPromptBuilder promptBuilder,
         ObjectProvider<MeterRegistry> meterRegistryProvider) {
 
         this.chatModel = chatModel;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
         this.workflowService = workflowService;
         this.promptBuilder = promptBuilder;
         this.meterRegistryProvider = meterRegistryProvider;
@@ -61,8 +64,20 @@ public class WorkflowDescriptionCopilotGeneratorImpl implements WorkflowDescript
         return new WorkflowDescriptionCopilotResult(value);
     }
 
+    /**
+     * Calls the model through a guarded {@link org.springframework.ai.chat.client.ChatClient} rather than
+     * {@code chatModel.call(new Prompt(...))}. A workflow definition carries whatever the workflow author typed into
+     * its step parameters - recipient addresses, account identifiers, occasionally a pasted credential - and this
+     * generator sends the whole definition to the model provider. {@code AiGuardrailsAdvisor} is a {@code ChatClient}
+     * advisor, so a direct {@link ChatModel} call cannot be intercepted by it at all.
+     */
     private String call(String promptText) {
-        ChatResponse chatResponse = chatModel.call(new Prompt(promptText));
+        ChatResponse chatResponse = copilotGuardrailsAdvisorFactory.guardedChatClient(chatModel)
+            .prompt(promptText)
+            .call()
+            .chatResponse();
+
+        Objects.requireNonNull(chatResponse, "chat response is required");
 
         Generation generation = Objects.requireNonNull(chatResponse.getResult(), "generation is required");
 

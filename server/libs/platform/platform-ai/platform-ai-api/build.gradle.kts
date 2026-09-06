@@ -6,6 +6,8 @@ dependencies {
     api("org.springframework:spring-expression")
     // AiGuardrailsAdvisorProvider returns Spring AI's Advisor type on its public surface.
     api("org.springframework.ai:spring-ai-client-chat")
+    // AiGuardrailsAdvisorProvider#getMetrics returns SensitiveDataMetrics on its public surface.
+    api(project(":server:libs:platform:platform-ai:platform-ai-sensitive-data:platform-ai-sensitive-data-api"))
 
     implementation("org.apache.commons:commons-lang3")
     implementation("org.springframework.ai:spring-ai-model")

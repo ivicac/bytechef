@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.AiAgentSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -83,7 +84,8 @@ public class AiAgentAgentConfiguration {
     AiAgentSpringAIAgent aiAgentAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, AiAgentToolCallbacksFactory aiAgentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.AI_AGENT.name() + "_" + Mode.ASK.name();
@@ -96,6 +98,7 @@ public class AiAgentAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, aiAgentToolCallbacksFactory.readToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -104,7 +107,8 @@ public class AiAgentAgentConfiguration {
     AiAgentSpringAIAgent aiAgentBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, AiAgentToolCallbacksFactory aiAgentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.AI_AGENT.name() + "_" + Mode.BUILD.name();
@@ -117,6 +121,7 @@ public class AiAgentAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, aiAgentToolCallbacksFactory.writeToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
