@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
  */
 public class QuartzJobReader {
 
+    @SuppressFBWarnings("EI")
     public record ReadResult(
         List<ImportedJob> jobs, int skippedStatic, int skippedUnknown, int skippedComplete, int failed,
         boolean quartzReadable) {

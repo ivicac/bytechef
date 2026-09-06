@@ -499,9 +499,11 @@ System administrator is used for accessing protected data reachable through /act
 
 | Environment Variable | Description | Default Value |
 |---|---|---|
-| `BYTECHEF_SCHEDULER_PROVIDER` | Scheduler provider (AWS, QUARTZ) | `QUARTZ` |
+| `BYTECHEF_SCHEDULER_PROVIDER` | Scheduler provider (AWS, DB_SCHEDULER, QUARTZ) | `QUARTZ` |
 | `BYTECHEF_SCHEDULER_QUARTZ_CLUSTERED` | Run Quartz in clustered mode. Required when more than one coordinator runs (EE) | `false` |
 | `BYTECHEF_SCHEDULER_QUARTZ_CLUSTER_CHECKIN_INTERVAL` | How often a clustered Quartz scheduler checks in, in milliseconds | `15000` |
+| `BYTECHEF_SCHEDULER_DB_SCHEDULER_IMPORTER_ENABLED` | Import Quartz jobs into db-scheduler the first time `DB_SCHEDULER` becomes the active provider for a database (subsequent startups skip it) | `true` |
+| `BYTECHEF_SCHEDULER_DB_SCHEDULER_UI_ENABLED` | Serve the db-scheduler-ui dashboard at `/db-scheduler` for `SYSTEM_ADMIN` users (`server-app` only) | `true` |
 
 ## Session Configuration
 
