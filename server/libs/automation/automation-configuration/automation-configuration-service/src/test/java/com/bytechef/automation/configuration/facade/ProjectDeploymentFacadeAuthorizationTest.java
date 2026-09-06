@@ -130,14 +130,14 @@ class ProjectDeploymentFacadeAuthorizationTest {
     @Test
     void testGetWorkspaceChatWorkflowsRequiresWorkspaceWorkflowViewer() {
         assertExpression(
-            "hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')",
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'WORKFLOW_VIEW', #environmentId)",
             "getWorkspaceChatWorkflows", long.class, long.class);
     }
 
     @Test
     void testGetWorkspaceProjectDeploymentsRequiresWorkspaceViewer() {
         assertExpression(
-            "hasPermission(#id, 'Workspace', 'DEPLOYMENT_VIEW')",
+            "hasWorkspaceScopeInEnvironmentId(#id, 'DEPLOYMENT_VIEW', #environmentId)",
             "getWorkspaceProjectDeployments", long.class, Long.class, Long.class, Long.class, boolean.class);
     }
 
@@ -149,7 +149,7 @@ class ProjectDeploymentFacadeAuthorizationTest {
     @Test
     void testGetWorkspaceProjectDeploymentRowsRequiresWorkspaceViewer() {
         assertExpression(
-            "hasPermission(#workspaceId, 'Workspace', 'DEPLOYMENT_VIEW')",
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DEPLOYMENT_VIEW', #environmentId)",
             "getWorkspaceProjectDeployments", long.class, long.class, Long.class, Long.class);
     }
 

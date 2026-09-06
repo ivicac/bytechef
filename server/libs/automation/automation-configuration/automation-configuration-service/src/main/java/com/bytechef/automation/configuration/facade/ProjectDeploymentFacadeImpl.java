@@ -472,7 +472,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
      */
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'WORKFLOW_VIEW', #environmentId)")
     public List<ChatWorkflow> getWorkspaceChatWorkflows(long workspaceId, long environmentId) {
         Environment environment = environmentService.getEnvironment(environmentId);
 
@@ -597,7 +597,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
      */
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'DEPLOYMENT_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DEPLOYMENT_VIEW', #environmentId)")
     public List<ProjectDeployment> getWorkspaceProjectDeployments(
         long workspaceId, long environmentId, Long projectId, Long tagId) {
 
@@ -608,7 +608,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'Workspace', 'DEPLOYMENT_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#id, 'DEPLOYMENT_VIEW', #environmentId)")
     public List<ProjectDeploymentDTO> getWorkspaceProjectDeployments(
         long id, Long environmentId, Long projectId, Long tagId, boolean includeAllFields) {
 
