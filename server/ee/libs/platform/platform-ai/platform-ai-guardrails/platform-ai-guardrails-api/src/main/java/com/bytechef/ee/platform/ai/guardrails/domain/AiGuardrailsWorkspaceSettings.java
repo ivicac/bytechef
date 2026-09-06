@@ -10,14 +10,14 @@ package com.bytechef.ee.platform.ai.guardrails.domain;
 /**
  * Workspace-scoped AI guardrails configuration. Persisted as a single
  * {@link com.bytechef.platform.configuration.domain.Property} row rather than a dedicated table — the platform property
- * store already handles scope/audit/versioning/encryption and this is plain config data. All fields other than
- * {@link #workspaceId()} are nullable; a null field means "not overridden at this level". For a real workspace
- * (non-null {@code workspaceId}) that unions the field with the GLOBAL {@code bytechef.ai.gateway.guardrails.*}
- * properties only — it does NOT fall back to the tenant-default (null-{@code workspaceId}) row's value; the two
- * PLATFORM-scoped rows are otherwise independent. The tenant-default row is consulted only for calls that resolve to
- * {@code workspaceId == null} in the first place (e.g. embedded runs, unattributed calls). See
- * {@code AiGuardrailsWorkspaceSettingsServiceImpl}'s class javadoc for how the tenant-default row is stored, and
- * {@code AiGuardrails#resolvePolicy} for the union logic.
+ * store already handles scope/audit/versioning/encryption and this is plain config data. {@link #scope()} is required;
+ * {@link #workspaceId()} is non-null exactly when the scope is {@code WORKSPACE}; every other field is nullable, and a
+ * null one means "not overridden at this level". For a real workspace (non-null {@code workspaceId}) that unions the
+ * field with the GLOBAL {@code bytechef.ai.gateway.guardrails.*} properties only — it does NOT fall back to the
+ * tenant-default (null-{@code workspaceId}) row's value; the two PLATFORM-scoped rows are otherwise independent. The
+ * tenant-default row is consulted only for calls that resolve to {@code workspaceId == null} in the first place (e.g.
+ * embedded runs, unattributed calls). See {@code AiGuardrailsWorkspaceSettingsServiceImpl}'s class javadoc for how the
+ * tenant-default row is stored, and {@code AiGuardrails#resolvePolicy} for the union logic.
  *
  * <p>
  * {@link #minConfidence()} is an override, not a union member like the other fields: a {@code null} value means "use
@@ -41,7 +41,8 @@ package com.bytechef.ee.platform.ai.guardrails.domain;
  * @version ee
  */
 public record AiGuardrailsWorkspaceSettings(
-    Long workspaceId, // null = tenant default
+    AiGuardrailsSettingsScope scope,
+    Long workspaceId, // null for PLATFORM (tenant default) and EMBEDDED alike; non-null only when scope is WORKSPACE
     Boolean redactPii,
     Boolean redactSecrets,
     String blockedTerms, // comma-separated, same format as the gateway field
@@ -58,6 +59,18 @@ public record AiGuardrailsWorkspaceSettings(
         if (minConfidence != null && (!Double.isFinite(minConfidence) || minConfidence < 0.0 || minConfidence > 1.0)) {
             throw new IllegalArgumentException("minConfidence must be null or between 0.0 and 1.0, got: " +
                 minConfidence);
+        }
+
+        // A null scope satisfies the pairing check below whenever workspaceId is also null, so without this the
+        // record is constructible in a shape that NPEs later, in the service's scopeOf switch rather than here.
+        if (scope == null) {
+            throw new IllegalArgumentException("scope is required");
+        }
+
+        if ((scope == AiGuardrailsSettingsScope.WORKSPACE) != (workspaceId != null)) {
+            throw new IllegalArgumentException(
+                "workspaceId must be non-null exactly when scope is WORKSPACE, got scope=" + scope +
+                    ", workspaceId=" + workspaceId);
         }
     }
 

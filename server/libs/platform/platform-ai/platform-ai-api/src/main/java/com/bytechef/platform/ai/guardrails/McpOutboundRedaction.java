@@ -53,7 +53,8 @@ public final class McpOutboundRedaction {
      * @param serializedResult                    the result as it would otherwise reach the calling agent
      * @param mcpOutboundRedactorProviderProvider resolves the EE provider, absent in CE builds
      * @param workspaceId                         the MCP server's workspace, or {@code null} for the tenant default
-     * @param surface                             {@code "mcp_automation"} or {@code "mcp_embedded"}
+     * @param surface                             {@link McpOutboundRedactorProvider#SURFACE_AUTOMATION} or
+     *                                            {@link McpOutboundRedactorProvider#SURFACE_EMBEDDED}
      * @return the redacted result, or {@code serializedResult} unchanged when no redactor resolves
      * @throws McpOutboundRedactionException when resolving a redactor fails, or when a resolved redactor throws; the
      *                                       caller must not fall back to {@code serializedResult} on this exception
@@ -107,7 +108,8 @@ public final class McpOutboundRedaction {
      * @param message                             the failure's message, as it would otherwise reach the calling agent
      * @param mcpOutboundRedactorProviderProvider resolves the EE provider, absent in CE builds
      * @param workspaceId                         the MCP server's workspace, or {@code null} for the tenant default
-     * @param surface                             {@code "mcp_automation"} or {@code "mcp_embedded"}
+     * @param surface                             {@link McpOutboundRedactorProvider#SURFACE_AUTOMATION} or
+     *                                            {@link McpOutboundRedactorProvider#SURFACE_EMBEDDED}
      * @return the redacted message, or {@code null} when none can be handed back
      */
     public static @Nullable String redactFailureMessage(
