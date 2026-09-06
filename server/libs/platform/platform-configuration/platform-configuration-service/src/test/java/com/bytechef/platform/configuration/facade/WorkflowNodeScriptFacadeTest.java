@@ -224,11 +224,12 @@ class WorkflowNodeScriptFacadeTest {
     }
 
     /**
-     * hasPermission(#workflowId, 'Workflow', ...) on every method in this facade is environment-agnostic, so the
-     * caller-supplied environmentId is never checked by the gate. These tests pin the execution side: for a confined
-     * (api-key) principal the environment reaching the downstream call must be the principal's own, not the request
-     * argument -- otherwise a connected user could read another environment's `vars` and test-configuration inputs by
-     * passing a different environmentId, exactly the hole PrincipalEnvironment closes.
+     * {@code hasWorkflowScopeInEnvironment(#workflowId, ..., #environmentId)} on every method in this facade resolves
+     * the effective environment for its own check, but that resolution is internal to the gate's evaluation and never
+     * reaches this method body. These tests pin the execution side: for a confined (api-key) principal the environment
+     * reaching the downstream call must be the principal's own, not the request argument -- otherwise a connected user
+     * could read another environment's `vars` and test-configuration inputs by passing a different environmentId,
+     * exactly the hole PrincipalEnvironment closes.
      */
     @Test
     void testGetWorkflowNodeScriptInputUsesConfinedPrincipalEnvironmentAtExecutionNotTheRequestedOne() {

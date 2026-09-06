@@ -46,6 +46,8 @@ import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
+import com.bytechef.automation.configuration.service.ConnectedUserProjectDeploymentResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -54,6 +56,7 @@ import com.bytechef.evaluator.Evaluator;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TriggerFileStorage;
@@ -62,6 +65,7 @@ import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
 import com.bytechef.platform.workflow.execution.service.WorkflowExecutionRowService;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,11 +109,25 @@ public class ProjectWorkflowExecutionFacadeTest {
         taskFileStorage = mock(TaskFileStorage.class);
         workflowExecutionRowService = mock(WorkflowExecutionRowService.class);
 
+        PermissionService permissionService = mock(PermissionService.class);
+
+        lenient()
+            .when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
+        lenient()
+            .when(permissionService.hasResourceScope(any(), anyString(), anyString()))
+            .thenReturn(true);
+
         facade = new ProjectWorkflowExecutionFacadeImpl(
-            componentDefinitionService, contextService, evaluator, mock(EnvironmentService.class),
-            mock(WorkflowExecutionRowService.class), jobService, mock(PermissionService.class),
-            mock(PrincipalJobService.class), mock(ProjectFacade.class),
-            mock(ProjectDeploymentService.class), mock(ProjectService.class), mock(ProjectWorkflowService.class),
+            componentDefinitionService,
+            new StaticListableBeanFactory().getBeanProvider(ConnectedUserProjectDeploymentResolver.class),
+            contextService, evaluator,
+            new EnvironmentScopeFilter(
+                new StaticListableBeanFactory(Map.of("permissionService", permissionService))
+                    .getBeanProvider(PermissionService.class)),
+            mock(EnvironmentService.class), workflowExecutionRowService, jobService, permissionService,
+            mock(PrincipalJobService.class), projectFacade, projectDeploymentService, mock(ProjectService.class),
+            projectWorkflowService,
             mock(TaskDispatcherDefinitionService.class), taskExecutionService, taskFileStorage,
             mock(TriggerExecutionService.class), mock(TriggerFileStorage.class), mock(WorkflowService.class));
 

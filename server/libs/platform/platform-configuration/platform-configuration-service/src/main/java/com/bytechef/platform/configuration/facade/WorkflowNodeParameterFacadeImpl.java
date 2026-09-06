@@ -109,7 +109,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ParameterResultDTO deleteClusterElementParameter(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String parameterPath, long environmentId) {
@@ -159,7 +159,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ParameterResultDTO deleteWorkflowNodeParameter(
         String workflowId, String workflowNodeName, String parameterPath,
         long environmentId) {
@@ -259,7 +259,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public DisplayConditionResultDTO getClusterElementDisplayConditions(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, long environmentId) {
@@ -306,7 +306,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public DisplayConditionResultDTO getWorkflowNodeDisplayConditions(
         String workflowId, String workflowNodeName, long environmentId) {
 
@@ -350,7 +350,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ParameterResultDTO updateClusterElementParameter(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String parameterPath, Object value, String type,
@@ -403,7 +403,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ParameterResultDTO updateWorkflowNodeParameter(
         String workflowId, String workflowNodeName, String parameterPath, Object value, String type,
         boolean includeInMetadata, long environmentId) {
@@ -755,10 +755,10 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
         }
     }
 
-    // All six callers of this helper are gated with hasPermission(#workflowId, 'Workflow', ...), which is
-    // environment-agnostic, so the caller-supplied environmentId reaching them is never checked. Resolved once here,
-    // the single place it is consumed by all of them, rather than duplicated at each call site. See
-    // PrincipalEnvironment.
+    // All six callers of this helper are gated with hasWorkflowScopeInEnvironment(#workflowId, ..., #environmentId),
+    // which resolves the effective environment for its own check but does not rewrite the raw environmentId
+    // argument reaching the method body. Resolved once here, the single place it is consumed by all of them,
+    // rather than duplicated at each call site. See PrincipalEnvironment.
     private WorkflowTestContext fetchWorkflowTestContext(
         Workflow workflow, String workflowNodeName,
         WorkflowNodeStructure.OperationType operationType, long environmentId) {

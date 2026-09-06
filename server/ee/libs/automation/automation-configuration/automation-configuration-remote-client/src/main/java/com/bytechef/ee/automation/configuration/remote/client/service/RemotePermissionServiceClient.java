@@ -106,6 +106,15 @@ public class RemotePermissionServiceClient implements PermissionService {
     }
 
     @Override
+    public boolean hasResourceScopeInEnvironment(
+        Serializable id, String resourceType, String scope, Environment environment) {
+
+        logError("hasResourceScopeInEnvironment");
+
+        return false;
+    }
+
+    @Override
     public boolean isResourceOwner(String resourceType, long id) {
         logError("isResourceOwner");
 
@@ -136,6 +145,17 @@ public class RemotePermissionServiceClient implements PermissionService {
     @Override
     public Set<String> getMyWorkspaceScopes(long workspaceId) {
         logError("getMyWorkspaceScopes");
+
+        return Set.of();
+    }
+
+    /**
+     * Fail closed, as everywhere else here: no environments means a listing that applies this filter returns nothing,
+     * which is the set-valued form of the {@code false} the boolean checks return.
+     */
+    @Override
+    public Set<Environment> getMyWorkspaceScopeEnvironments(long workspaceId, String scope) {
+        logError("getMyWorkspaceScopeEnvironments");
 
         return Set.of();
     }

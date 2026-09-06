@@ -33,9 +33,29 @@ dependencies {
     testImplementation("org.liquibase:liquibase-core")
     testImplementation("org.springframework.data:spring-data-jdbc")
     testImplementation("org.springframework.security:spring-security-config")
+    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-jdbc"))
+    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
+    // PermissionServiceAgentVisibilityTest wires the REAL AiAgentVisibilityProvider/AiAgentOwnershipResolver
+    // into this module's PermissionServiceImpl; a stand-in provider would keep it green with the production
+    // one deleted. Test-only, and the edge points the legal way round (EE configuration tests -> CE agent).
+    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
+    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-service"))
+    // WorkspaceDataTableEnvironmentScopedReadRegressionIntTest wires the REAL WorkspaceDataTableFacadeImpl into this
+    // module's PermissionServiceImpl, the same edge direction as the ai-agent dependency above (EE configuration
+    // tests -> CE data table).
+    testImplementation(project(":server:libs:automation:automation-data-table:automation-data-table-api"))
+    testImplementation(project(":server:libs:automation:automation-data-table:automation-data-table-service"))
+    testImplementation(project(":server:libs:platform:platform-data-table:platform-data-table-api"))
+    testImplementation(project(":server:libs:config:jackson-config"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-api"))
     testImplementation(project(":server:libs:atlas:atlas-execution:atlas-execution-api"))
     testImplementation(project(":server:libs:config:liquibase-config"))
+    testImplementation(project(":server:libs:platform:platform-category:platform-category-service"))
+    testImplementation(project(":server:libs:platform:platform-component:platform-component-service"))
+    testImplementation(project(":server:libs:platform:platform-configuration:platform-configuration-service"))
+    testImplementation(project(":server:libs:platform:platform-connection:platform-connection-service"))
+    testImplementation(project(":server:libs:platform:platform-security:platform-security-service"))
+    testImplementation(project(":server:libs:platform:platform-tag:platform-tag-service"))
     testImplementation(project(":server:libs:core:evaluator:evaluator-api"))
     testImplementation(project(":server:libs:platform:platform-category:platform-category-api"))
     testImplementation(project(":server:libs:platform:platform-component:platform-component-api"))
@@ -46,22 +66,6 @@ dependencies {
     testImplementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
     testImplementation(project(":server:libs:platform:platform-workflow:platform-workflow-validator:platform-workflow-validator-api"))
     testImplementation(project(":server:libs:test:test-int-support"))
-
-    testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-api"))
-    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-jdbc"))
-    testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
-    // PermissionServiceAgentVisibilityTest wires the REAL AiAgentVisibilityProvider/AiAgentOwnershipResolver
-    // into this module's PermissionServiceImpl; a stand-in provider would keep it green with the production
-    // one deleted. Test-only, and the edge points the legal way round (EE configuration tests -> CE agent).
-    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
-    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-service"))
-    testImplementation(project(":server:libs:config:jackson-config"))
-    testImplementation(project(":server:libs:platform:platform-category:platform-category-service"))
-    testImplementation(project(":server:libs:platform:platform-component:platform-component-service"))
-    testImplementation(project(":server:libs:platform:platform-configuration:platform-configuration-service"))
-    testImplementation(project(":server:libs:platform:platform-connection:platform-connection-service"))
-    testImplementation(project(":server:libs:platform:platform-security:platform-security-service"))
-    testImplementation(project(":server:libs:platform:platform-tag:platform-tag-service"))
 
     testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }
