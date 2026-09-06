@@ -58,4 +58,75 @@ class AiGuardrailMetricsTest {
             AiGuardrailMetrics.COUNTER_NAME, "event", "detector_failed", "surface", "ai_hub")
             .count()).isEqualTo(1.0);
     }
+
+    /**
+     * Pins that {@code AiGuardrailMetrics} actually overrides {@code SensitiveDataMetrics#recordToolArgsRestored()}
+     * rather than silently inheriting the interface's no-op default -- a caller through the
+     * {@code SensitiveDataMetrics} seam (e.g. {@code PiiTokenBoundaryToolCallingManager}) would otherwise record
+     * nothing and nobody would notice.
+     */
+    @Test
+    void testRecordToolArgsRestoredDelegatesToToolArgsRestoredEventUnderThisInstancesSurface() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        metrics.recordToolArgsRestored();
+
+        assertThat(meterRegistry.counter(
+            AiGuardrailMetrics.COUNTER_NAME, "event", "tool_args_restored", "surface", "ai_hub")
+            .count()).isEqualTo(1.0);
+    }
+
+    /**
+     * As {@link #testRecordToolArgsRestoredDelegatesToToolArgsRestoredEventUnderThisInstancesSurface}, for
+     * {@code recordToolResultTokenized()}.
+     */
+    @Test
+    void testRecordToolResultTokenizedDelegatesToToolResultTokenizedEventUnderThisInstancesSurface() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        metrics.recordToolResultTokenized();
+
+        assertThat(meterRegistry.counter(
+            AiGuardrailMetrics.COUNTER_NAME, "event", "tool_result_tokenized", "surface", "ai_hub")
+            .count()).isEqualTo(1.0);
+    }
+
+    /**
+     * As {@link #testRecordToolArgsRestoredDelegatesToToolArgsRestoredEventUnderThisInstancesSurface}, for
+     * {@code recordTokenUnresolved()} -- which reuses the pre-existing {@code token_unresolved} event name rather than
+     * a tool-boundary-specific one.
+     */
+    @Test
+    void testRecordTokenUnresolvedDelegatesToTokenUnresolvedEventUnderThisInstancesSurface() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        metrics.recordTokenUnresolved();
+
+        assertThat(meterRegistry.counter(
+            AiGuardrailMetrics.COUNTER_NAME, "event", "token_unresolved", "surface", "ai_hub")
+            .count()).isEqualTo(1.0);
+    }
+
+    /**
+     * As {@link #testRecordToolArgsRestoredDelegatesToToolArgsRestoredEventUnderThisInstancesSurface}, for
+     * {@code recordAssistantHistoryRetokenized()}.
+     */
+    @Test
+    void testRecordAssistantHistoryRetokenizedDelegatesToAssistantHistoryRetokenizedEventUnderThisInstancesSurface() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        metrics.recordAssistantHistoryRetokenized();
+
+        assertThat(meterRegistry.counter(
+            AiGuardrailMetrics.COUNTER_NAME, "event", "assistant_history_retokenized", "surface", "ai_hub")
+            .count()).isEqualTo(1.0);
+    }
 }

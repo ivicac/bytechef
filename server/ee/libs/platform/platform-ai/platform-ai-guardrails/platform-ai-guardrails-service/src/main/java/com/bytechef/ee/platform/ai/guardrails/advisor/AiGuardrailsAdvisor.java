@@ -13,7 +13,10 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,13 +35,21 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import reactor.core.publisher.Flux;
 
 /**
  * Spring AI {@link CallAdvisor}/{@link StreamAdvisor} wiring the standalone {@link AiGuardrails} engine into an agent
- * surface's {@code ChatClient}. Both the AI Hub and Copilot chat surfaces register one instance of this advisor each
- * (see the module javadoc on {@link AiGuardrails} for what the engine itself owns vs. what stays with the caller).
+ * surface's {@code ChatClient}. Registration is opt-in and per call site: nothing attaches this advisor automatically,
+ * so it protects only the specific {@code ChatClient} builders that explicitly register an instance (typically obtained
+ * via the CE seam {@link com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider AiGuardrailsAdvisorProvider}
+ * rather than constructed directly - see its javadoc for the workspace-resolution contract). This class deliberately
+ * does not enumerate which surfaces currently register it: that inventory drifts as surfaces are added, and a stale
+ * claim here is worse than no claim - check each surface's own {@code ChatClient} wiring instead of trusting this
+ * comment (see the module javadoc on {@link AiGuardrails} for what the engine itself owns vs. what stays with the
+ * caller).
  *
  * <p>
  * <b>Request direction — {@link CallAdvisor#adviseCall}</b> — a fresh {@link PiiTokenSession} is opened for the call,
@@ -155,6 +166,9 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         try {
             ChatClientRequest guardedRequest = applyInputGuardrails(chatClientRequest, session);
+
+            guardedRequest = withSessionInToolContext(guardedRequest, session);
+
             ChatClientResponse response = callAdvisorChain.nextCall(guardedRequest);
 
             return applyResponseGuardrails(response, session);
@@ -172,6 +186,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         try {
             guardedRequest = applyInputGuardrails(chatClientRequest, session);
+            guardedRequest = withSessionInToolContext(guardedRequest, session);
         } catch (AiGuardrailViolationException exception) {
             // The chain is never subscribed to on this path, so the doFinally below never runs -- release the
             // session here explicitly, mirroring adviseCall's try/finally for the same exception.
@@ -291,6 +306,65 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         return chatClientRequest.mutate()
             .prompt(patchedPrompt)
+            .build();
+    }
+
+    /**
+     * Merges {@code session} into {@code chatClientRequest}'s tool context so it survives the hop onto the worker
+     * thread the model's tool calls run on -- tool calls run outside the request thread and inherit none of its
+     * {@code ThreadLocal} state, which is why {@code AgentToolInvocationContext}-style context travels through Spring
+     * AI's {@code ToolContext} instead (see this class's javadoc and {@code RehydrateContextToolCallback}).
+     *
+     * <p>
+     * Reads the tool context off {@code chatClientRequest}'s {@link Prompt#getOptions()} when those options are
+     * {@link ToolCallingChatOptions} -- the shape every provider {@code ChatOptions} ByteChef registers implements, and
+     * the only shape {@code ToolContext} is actually threaded through to a running tool call (see
+     * {@code DefaultChatClientUtils#toChatClientRequest}: a {@code ChatClientRequest}'s own {@code context()} map is a
+     * separate, advisor-only channel that tool callbacks never see). {@link PiiTokenSessionToolContext#into} and
+     * {@link PiiTokenBoundaryPolicyToolContext#into} both merge rather than replace, so every existing entry --
+     * including {@code AgentToolInvocationContext}'s workspace/user/environment/tenant/authentication keys, which live
+     * in this same map -- survives untouched.
+     * </p>
+     *
+     * <p>
+     * Carries {@link AiGuardrails#resolveToolBoundaryPolicy(Long)} onto the same map, alongside the session -- this is
+     * what lets {@code PiiTokenBoundaryToolCallingManager} honour this workspace's own
+     * {@code redactPii}/{@code redactSecrets}/{@code minConfidence} settings at the tool-call boundary instead of a
+     * fixed constant. Resolved once per call, from the same {@code workspaceId} every other guardrail check here
+     * already uses.
+     * </p>
+     *
+     * <p>
+     * Returns {@code chatClientRequest} unchanged when its options are not {@link ToolCallingChatOptions} (including
+     * {@code null} options): there is no {@code ToolContext} channel to carry the session through on that path, so a
+     * tool call reached that way -- if the request has any -- would not get its arguments/results restored. Every
+     * options type this codebase's {@code ChatModel}s produce implements {@link ToolCallingChatOptions}, so this is a
+     * defensive fallback rather than an expected path.
+     * </p>
+     */
+    private ChatClientRequest withSessionInToolContext(ChatClientRequest chatClientRequest, PiiTokenSession session) {
+        Prompt prompt = chatClientRequest.prompt();
+        ChatOptions chatOptions = prompt.getOptions();
+
+        if (!(chatOptions instanceof ToolCallingChatOptions toolCallingChatOptions)) {
+            return chatClientRequest;
+        }
+
+        Map<String, Object> existingToolContext = toolCallingChatOptions.getToolContext();
+        Map<String, Object> toolContextWithSession = PiiTokenSessionToolContext.into(
+            existingToolContext == null ? Map.of() : existingToolContext, session);
+
+        PiiTokenBoundaryPolicy policy = aiGuardrails.resolveToolBoundaryPolicy(workspaceId);
+        Map<String, Object> mergedToolContext = PiiTokenBoundaryPolicyToolContext.into(toolContextWithSession, policy);
+
+        ChatOptions mergedChatOptions = toolCallingChatOptions.mutate()
+            .toolContext(mergedToolContext)
+            .build();
+
+        Prompt mergedPrompt = new Prompt(prompt.getInstructions(), mergedChatOptions);
+
+        return chatClientRequest.mutate()
+            .prompt(mergedPrompt)
             .build();
     }
 

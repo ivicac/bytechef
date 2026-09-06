@@ -61,6 +61,7 @@ import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.ai.tool.ToolSuspension;
 import com.bytechef.platform.ai.tool.ToolSuspensionException;
@@ -298,13 +299,28 @@ public abstract class AbstractAiAgentChatAction {
         // by getAdvisors below.
         List<Advisor> workspaceAdvisors = new ArrayList<>();
 
+        // The metrics PiiTokenBoundaryToolCallingManager records tool-boundary events through, resolved from the same
+        // provider and the same (platformType, jobPrincipalId, surface) arguments as the guardrails advisor above —
+        // see AiGuardrailsAdvisorProvider#getMetrics. This is deliberately NOT resolved as an injected
+        // ObjectProvider<SensitiveDataMetrics> on AgentToolCallingManagers: that bean is a singleton shared by every
+        // agent run in the JVM, while the correct metrics instance is per-call and surface-tagged for "ai_agent"
+        // specifically — there is no single instance an injected provider could hand back that would be correct here.
+        SensitiveDataMetrics toolBoundaryMetrics = null;
+
         if (aiGuardrailsAdvisorProviderObjectProvider != null
             && context instanceof ActionContextAware actionContextAware) {
-            aiGuardrailsAdvisorProviderObjectProvider.ifAvailable(
-                provider -> provider
+            AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider =
+                aiGuardrailsAdvisorProviderObjectProvider.getIfAvailable();
+
+            if (aiGuardrailsAdvisorProvider != null) {
+                aiGuardrailsAdvisorProvider
                     .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
                         "ai_agent")
-                    .ifPresent(workspaceAdvisors::add));
+                    .ifPresent(workspaceAdvisors::add);
+
+                toolBoundaryMetrics = aiGuardrailsAdvisorProvider.getMetrics(
+                    actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(), "ai_agent");
+            }
         }
 
         // Workspace-level system prompt, resolved through the same optional-CE-SPI idiom (see
@@ -326,7 +342,7 @@ public abstract class AbstractAiAgentChatAction {
                     getAdvisors(
                         clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId,
                         resumedTurn, createConversationCheckpointer(inputParameters, context),
-                        inputParameters.getInteger(MAX_TOOL_CALLS)))
+                        inputParameters.getInteger(MAX_TOOL_CALLS), toolBoundaryMetrics))
                 .advisors(getConversationAdvisor(conversationId))
                 .advisors(new TextGenerationFirstAdvisor())
                 .messages(messages)
@@ -903,14 +919,15 @@ public abstract class AbstractAiAgentChatAction {
 
         return getAdvisors(
             clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false,
-            null, null);
+            null, null, null);
     }
 
     List<Advisor> getAdvisors(
         ClusterElementMap clusterElementMap, Map<String, ComponentConnection> connectionParameters,
         ChatModel chatModel, ActionContext context, Optional<ChatMemoryFunction.Result> chatMemoryResult,
         @Nullable String conversationId, boolean resumedTurn,
-        @Nullable Consumer<List<Message>> conversationCheckpointer, @Nullable Integer maxToolCalls) {
+        @Nullable Consumer<List<Message>> conversationCheckpointer, @Nullable Integer maxToolCalls,
+        @Nullable SensitiveDataMetrics toolBoundaryMetrics) {
 
         List<Advisor> advisors = new ArrayList<>();
 
@@ -961,7 +978,8 @@ public abstract class AbstractAiAgentChatAction {
             .map(ChatMemoryFunction.Result::supportsToolMessagePersistence)
             .orElse(false);
 
-        ToolCallingManager agentToolCallingManager = agentToolCallingManagers.getToolCallingManager(maxToolCalls);
+        ToolCallingManager agentToolCallingManager = agentToolCallingManagers.getToolCallingManager(
+            maxToolCalls, toolBoundaryMetrics);
 
         if (context instanceof ActionContextAware actionContextAware) {
             agentToolCallingManager = new SuspendableToolCallingManager(

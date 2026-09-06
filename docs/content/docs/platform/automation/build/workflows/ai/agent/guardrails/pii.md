@@ -76,6 +76,23 @@ Scan only EU-relevant identifiers, mask in place:
 
 ---
 
+## PII Protection and Tool Calls
+
+This section is about the **always-on platform guardrail** referenced a few times above (Settings → AI Agents → Guardrails → **Redact PII**), not the `PII` component on this page. The component only runs where you wire it into a `Check For Violations` or `Sanitize Text` chain; the workspace setting runs on every AI Agent and AI Hub turn regardless - including the tool calls an agent makes along the way.
+
+When that always-on protection is on and an agent's turn involves a tool - `send-email`, a CRM lookup, an HTTP request to a partner API - two things happen that didn't before:
+
+- **A tool now receives the real value, not a placeholder.** Previously, the model only ever saw a placeholder like `[PII_EMAIL_ADDRESS_1_k3n9]` in place of a real email address, so a tool the model called with that value received the placeholder too - `send-email` would try to send to `[PII_EMAIL_ADDRESS_1_k3n9]` instead of the real address. It now receives the real address, which is what makes `send-email` (and any tool like it) actually work.
+- **Data a tool returns is protected before the model sees it.** A tool that looks up a customer record, queries a database, or otherwise returns PII now has that PII protected before it ever reaches the model, not just when the model's own reply is scanned afterward.
+
+**This is a real change in what leaves your instance, not just a bug fix:** before this, a tool that sends data to a third party - an HTTP action posting to a partner API, a CRM write - only ever received the placeholder, because that was all the model had to give it. Nobody designed that as a protection; it was a side effect of how placeholders worked, and it protected a partner API by the exact same mechanism that broke `send-email`. Now that every tool receives the real value, that accidental protection is gone. If you have a workflow where an AI Agent calls a tool that forwards data outward, and you were relying on that tool only ever seeing a placeholder, it now sees the real value instead.
+
+There is currently **no per-tool control**. Protection is on for every tool a guarded AI Agent or AI Hub turn calls, or off if you turn off **Redact PII** for the workspace - there is no way yet to let one tool see real values while another keeps seeing placeholders.
+
+**The capability cost**: because a tool's result is protected before the model sees it, the model can no longer reason about the *content* of PII a tool returns. It can see that a tool call produced an email address and pass that address on to another tool, but it cannot read the address, summarize it, or make a decision based on what it says.
+
+---
+
 ## Edge Cases
 
 - **Overlap with URLs guardrail**: emails contain a domain-shaped substring; URLs are handled by the separate `URLs` guardrail. The longest-first mask pass across PII + URLs + secret-key + custom-regex matches guarantees the email is masked as a whole `<EMAIL_ADDRESS>` rather than being split.

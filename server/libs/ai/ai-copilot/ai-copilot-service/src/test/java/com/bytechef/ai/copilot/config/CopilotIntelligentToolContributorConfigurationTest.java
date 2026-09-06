@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.connection.CopilotConnectionLister;
 import com.bytechef.ai.copilot.tool.CopilotAgentType;
 import com.bytechef.ai.copilot.tool.PropertyOptionsResolver;
@@ -31,7 +32,6 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolver;
 import com.bytechef.automation.ai.tool.ClusterElementTools;
-import com.bytechef.automation.ai.tool.ProjectTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
@@ -40,6 +40,7 @@ import com.bytechef.automation.ai.tool.ScriptTools;
 import com.bytechef.automation.ai.tool.SkillsTools;
 import com.bytechef.automation.ai.tool.WorkflowExecutionTools;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.tool.BraveWebSearchTools;
 import com.bytechef.platform.ai.tool.ComponentTools;
 import com.bytechef.platform.ai.tool.FirecrawlTools;
@@ -193,8 +194,8 @@ final class CopilotIntelligentToolContributorConfigurationTest {
     }
 
     /**
-     * End-to-end proof that Task 5 landed: each real {@link CopilotConfiguration} {@code *SubAgentChatClientFactory}
-     * bean, reached through the real {@link CopilotIntelligentToolContributorConfiguration} wiring, rebuilds a DISTINCT
+     * End-to-end check that each real {@link CopilotConfiguration} {@code *SubAgentChatClientFactory} bean, reached
+     * through the real {@link CopilotIntelligentToolContributorConfiguration} wiring, rebuilds a DISTINCT
      * {@link ChatClient} when handed an override {@link ChatModel} — for every ASK/BUILD variant of all six CE
      * definitions that {@link CopilotConfiguration} backs.
      */
@@ -263,6 +264,12 @@ final class CopilotIntelligentToolContributorConfigurationTest {
         return contributor.getIntelligentToolDefinitions();
     }
 
+    /**
+     * Wires eleven real {@code *SubAgentChatClientFactory} beans (built from a real, hand-constructed
+     * {@link CopilotConfiguration}) into a real {@link CopilotIntelligentToolContributorConfiguration}, and returns
+     * both the resulting definitions and the eleven default {@link ChatClient} bean instances, keyed by fixture key, so
+     * a test can assert against them.
+     */
     private RealDefinitions buildRealDefinitions() {
         CopilotConfiguration copilotConfiguration = realCopilotConfiguration();
         ChatModel defaultChatModel = mock(ChatModel.class);
@@ -332,12 +339,13 @@ final class CopilotIntelligentToolContributorConfigurationTest {
         TaskTools taskTools = mock(TaskTools.class);
         ScriptTools scriptTools = mock(ScriptTools.class);
         SimulationTools simulationTools = mock(SimulationTools.class);
+        Resource subAgentPromptResource = new ByteArrayResource("sub agent prompt".getBytes(StandardCharsets.UTF_8));
 
         ChatClient beanClient = copilotConfiguration.workflowEditorBuildSubAgentChatClient(
-            chatModel, projectWorkflowTools, taskTools, scriptTools, simulationTools);
+            chatModel, projectWorkflowTools, taskTools, scriptTools, simulationTools, subAgentPromptResource);
 
         IntelligentToolChatClientFactory factory = copilotConfiguration.workflowEditorBuildSubAgentChatClientFactory(
-            beanClient, projectWorkflowTools, taskTools, scriptTools, simulationTools);
+            beanClient, projectWorkflowTools, taskTools, scriptTools, simulationTools, subAgentPromptResource);
 
         return new DelegateFixture(beanClient, factory);
     }
@@ -518,10 +526,11 @@ final class CopilotIntelligentToolContributorConfigurationTest {
         return new CopilotConfiguration(
             promptResource, promptResource, promptResource, promptResource, promptResource, promptResource,
             promptResource, promptResource, promptResource, promptResource, promptResource, promptResource,
-            promptResource, promptResource, promptResource, workflowValidatorTools, workflowInstructionTools,
-            promptResource, promptResource, connectionDefinitionService, workspaceConnectionFacade,
-            componentDefinitionService, actionDefinitionService, actionDefinitionFacade, triggerDefinitionService,
-            triggerDefinitionFacade, propertyOptionsResolver, connectionListerProvider,
+            promptResource, promptResource, promptResource, promptResource, promptResource, workflowValidatorTools,
+            workflowInstructionTools, connectionDefinitionService, workspaceConnectionFacade,
+            componentDefinitionService,
+            actionDefinitionService, actionDefinitionFacade, triggerDefinitionService, triggerDefinitionFacade,
+            propertyOptionsResolver, connectionListerProvider, guardrailsAdvisorFactory(),
             new ScopedConnectionGuard(connectionListerProvider));
     }
 
@@ -557,5 +566,9 @@ final class CopilotIntelligentToolContributorConfigurationTest {
     }
 
     private record DelegateCase(String definitionName, IntelligentToolVariant variant, String fixtureKey) {
+    }
+
+    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
+        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 }

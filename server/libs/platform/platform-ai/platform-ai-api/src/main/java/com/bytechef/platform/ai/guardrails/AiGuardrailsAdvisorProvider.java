@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.ai.guardrails;
 
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.constant.PlatformType;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -45,4 +46,27 @@ public interface AiGuardrailsAdvisorProvider {
      * @return the guardrails advisor, or empty when none applies
      */
     Optional<Advisor> getAdvisor(@Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface);
+
+    /**
+     * Returns the {@link SensitiveDataMetrics} instance this provider would use to record events for the identical
+     * {@code (platformType, jobPrincipalId, surface)} call, or {@code null} under the same conditions
+     * {@link #getAdvisor} returns empty (no EE implementation, or every guardrail category disabled for the resolved
+     * workspace).
+     *
+     * <p>
+     * Exists for callers that need to record guardrail events OUTSIDE the advisor chain {@link #getAdvisor} feeds --
+     * e.g. {@code PiiTokenBoundaryToolCallingManager}, which decorates a {@code ToolCallingManager} independently of
+     * that advisor list and would otherwise have no correctly-{@code surface}-tagged {@link SensitiveDataMetrics} to
+     * record tool-boundary events through. A caller that already holds an {@link Advisor} from {@link #getAdvisor} for
+     * the identical arguments can rely on this method returning non-{@code null} for those same arguments -- both
+     * resolve through the same workspace lookup and the same active/inactive gate.
+     * </p>
+     *
+     * @param platformType   the platform the run belongs to, as documented on {@link #getAdvisor}
+     * @param jobPrincipalId the run's job principal id, as documented on {@link #getAdvisor}
+     * @param surface        identifies the calling surface for metrics/telemetry (e.g. {@code "ai_agent"})
+     * @return the metrics instance, or {@code null} when none applies
+     */
+    @Nullable
+    SensitiveDataMetrics getMetrics(@Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface);
 }
