@@ -28,6 +28,8 @@ import com.bytechef.ee.embedded.security.service.JwtTokenService;
 import com.bytechef.ee.embedded.security.service.SigningKeyService;
 import com.bytechef.ee.platform.security.web.mcp.oauth2.McpTenantIssuerResolver;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
+import com.bytechef.platform.ai.guardrails.RedactingToolCallback;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -61,6 +63,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -83,6 +86,7 @@ public class EmbeddedMcpServerConfiguration {
     private static final String ENVIRONMENT = "environment";
     private static final String EXTERNAL_USER_ID = "externalUserId";
     private static final String SECRET_KEY = "secretKey";
+    private static final String SURFACE = "mcp_embedded";
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();
@@ -150,7 +154,8 @@ public class EmbeddedMcpServerConfiguration {
         McpComponentService mcpComponentService,
         McpIntegrationInstanceConfigurationService mcpIntegrationInstanceConfigurationService,
         McpServerService mcpServerService, McpToolService mcpToolService,
-        EmbeddedMcpToolFacade embeddedMcpToolFacade) {
+        EmbeddedMcpToolFacade embeddedMcpToolFacade,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider) {
 
         return new FilterableMcpServerBuilder(embeddedWebMvcStreamableHttpServerTransportProvider())
             .serverInfo("embedded-mcp-server", "1.0.0")
@@ -187,7 +192,9 @@ public class EmbeddedMcpServerConfiguration {
                                 mcpTool, externalUserId, environment, tenantId);
 
                             if (callback != null) {
-                                toolSpecifications.add(McpToolUtils.toAsyncToolSpecification(callback));
+                                toolSpecifications.add(
+                                    McpToolUtils.toAsyncToolSpecification(
+                                        guard(callback, mcpOutboundRedactorProviderProvider)));
                             }
                         });
 
@@ -200,9 +207,10 @@ public class EmbeddedMcpServerConfiguration {
                     .flatMap(mcpIntegrationInstanceConfiguration -> CollectionUtils.stream(
                         embeddedMcpToolFacade.getFunctionToolCallbacks(
                             mcpIntegrationInstanceConfiguration, externalUserId, environment, tenantId)))
+                    .map(toolCallback -> guard(toolCallback, mcpOutboundRedactorProviderProvider))
                     .map(McpToolUtils::toAsyncToolSpecification)
                     .map(toolSpecification -> EmbeddedApprovalElicitingToolSpecifications.decorate(
-                        toolSpecification, embeddedMcpToolFacade))
+                        toolSpecification, embeddedMcpToolFacade, mcpOutboundRedactorProviderProvider, null, SURFACE))
                     .forEach(toolSpecifications::add);
 
                 return toolSpecifications;
@@ -229,6 +237,12 @@ public class EmbeddedMcpServerConfiguration {
                     mcpJwtDecoderFactory, null);
             }
         };
+    }
+
+    private static ToolCallback guard(
+        ToolCallback toolCallback, ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider) {
+
+        return RedactingToolCallback.wrap(toolCallback, mcpOutboundRedactorProviderProvider, null, SURFACE);
     }
 
     @SuppressWarnings("unchecked")

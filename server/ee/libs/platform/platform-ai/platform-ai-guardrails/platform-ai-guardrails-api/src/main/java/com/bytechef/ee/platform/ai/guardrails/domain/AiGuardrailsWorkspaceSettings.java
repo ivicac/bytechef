@@ -31,6 +31,13 @@ package com.bytechef.ee.platform.ai.guardrails.domain;
  * while {@code redactPii}/{@code redactSecrets} keep reading {@code true} everywhere an operator would look.
  * </p>
  *
+ * <p>
+ * {@code redactMcpResults} is deliberately a separate switch from {@code redactPii}/{@code redactSecrets} rather than
+ * something they imply. An MCP tool is frequently how a customer hands data to their own agent on purpose; enabling
+ * guardrails for chat surfaces must not silently start returning {@code [REDACTED_EMAIL_ADDRESS]} into a working MCP
+ * pipeline. It selects the surface; the categories and threshold still come from the fields above.
+ * </p>
+ *
  * @version ee
  */
 public record AiGuardrailsWorkspaceSettings(
@@ -42,7 +49,8 @@ public record AiGuardrailsWorkspaceSettings(
     Boolean injectionDetectionEnabled,
     Boolean scanResponses,
     BlockingMode blockingMode,
-    Double minConfidence) { // null = use SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE
+    Double minConfidence, // null = use SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE
+    Boolean redactMcpResults) { // null = not set at this level = off
 
     public static final String PROPERTY_KEY = "ai_guardrails_workspace_settings";
 
