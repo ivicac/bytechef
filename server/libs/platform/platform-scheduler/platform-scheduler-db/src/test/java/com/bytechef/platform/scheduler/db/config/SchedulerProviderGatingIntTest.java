@@ -20,6 +20,7 @@ import com.bytechef.platform.scheduler.db.DbTriggerScheduler;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Proves the {@code bytechef.scheduler.provider} switch genuinely gates both scheduling engines: exactly one of them is
@@ -80,6 +82,14 @@ class SchedulerProviderGatingIntTest {
 
         @Autowired
         private Scheduler quartzScheduler;
+
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
+
+        @AfterEach
+        void tearDown() {
+            jdbcTemplate.update("DELETE FROM scheduled_tasks");
+        }
 
         @Test
         void testQuartzIsPresentButNeverStartedUnderDbScheduler() throws SchedulerException {
