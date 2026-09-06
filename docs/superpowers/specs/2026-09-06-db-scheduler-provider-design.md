@@ -305,6 +305,3 @@ Nothing in the Quartz module changes, so its tests stay as they are — includin
 - Fix #5651 in the Quartz provider, or retire the path with Quartz.
 - Once db-scheduler is the default in every environment: retire Quartz, drop `QRTZ_*`, remove the
   importer.
-- `BillingSchedulingConfiguration` gates on the non-existent key
-  `bytechef.coordinator.trigger.scheduler.provider`; harmless today because the default resolves to
-  `quartz`, but it should read `bytechef.scheduler.provider`.

@@ -116,7 +116,7 @@ class QuartzImporterTest {
         Assertions.assertThat((OneTimeResumeData) instances.get(4)
             .getTaskInstance()
             .getData())
-            .isEqualTo(new OneTimeResumeData(42L, "{\"step\":\"1\"}"));
+            .isEqualTo(new OneTimeResumeData(42L, "{\"step\":\"1\"}", null));
         Assertions.assertThat(summary.imported())
             .isEqualTo(5);
         Assertions.assertThat(summary.scanned())

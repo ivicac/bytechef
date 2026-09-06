@@ -88,4 +88,17 @@ class DbSchedulerEnvironmentPostProcessorTest {
         Assertions.assertThat(environment.getProperty("db-scheduler.enabled", Boolean.class))
             .isFalse();
     }
+
+    @Test
+    void testWrongCaseProviderDisablesBothStarters() {
+        MockEnvironment environment = new MockEnvironment()
+            .withProperty("bytechef.scheduler.provider", "DB-SCHEDULER");
+
+        postProcessor.postProcessEnvironment(environment, new SpringApplication());
+
+        Assertions.assertThat(environment.getProperty("db-scheduler.enabled", Boolean.class))
+            .isFalse();
+        Assertions.assertThat(environment.getProperty("db-scheduler-ui.enabled", Boolean.class))
+            .isFalse();
+    }
 }
