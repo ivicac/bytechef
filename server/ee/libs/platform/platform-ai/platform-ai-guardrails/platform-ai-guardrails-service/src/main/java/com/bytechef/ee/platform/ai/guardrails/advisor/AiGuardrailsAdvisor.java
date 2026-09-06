@@ -65,6 +65,11 @@ import reactor.core.publisher.Flux;
  * <li>{@code REDACT_AND_CONTINUE} — the offending content is masked (see {@link AiGuardrails#tokenizeInputs} — a
  * matched blocked term is masked in place, a moderation verdict replaces the whole message since it has no locatable
  * span), a {@code blocking_downgraded} metric is recorded, and the call proceeds with the masked text.</li>
+ * <li>{@code ALLOW} — observe mode. The violation is detected and a {@code guardrail_allowed} metric is recorded, but
+ * the content is forwarded UNMODIFIED: {@code GuardrailCheckResult#unmaskedText()} is patched in rather than
+ * {@code text()}, so neither the blocked-term mask nor the moderation placeholder is applied. PII and secret redaction
+ * still apply -- {@code BlockingMode} governs the three blocking guardrails only. Exists so a guardrail can be turned
+ * on against real traffic before it enforces.</li>
  * </ul>
  * Any rewrite (blocking or not) replaces the affected message in the forwarded request; other message types (assistant,
  * tool) are left untouched. {@link StreamAdvisor#adviseStream} tokenizes the same way, through its own session — see
@@ -267,7 +272,11 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         boolean anyBlocked = results.stream()
             .anyMatch(GuardrailCheckResult::blocked);
 
-        if (anyBlocked && aiGuardrails.resolveBlockingMode(workspaceId) == BlockingMode.BLOCK) {
+        // Resolved only when something is blocked, so an unblocked request costs exactly the settings lookups it
+        // did before ALLOW existed.
+        BlockingMode blockingMode = anyBlocked ? aiGuardrails.resolveBlockingMode(workspaceId) : null;
+
+        if (blockingMode == BlockingMode.BLOCK) {
             String category = results.stream()
                 .filter(GuardrailCheckResult::blocked)
                 .findFirst()
@@ -283,13 +292,15 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         for (int i = 0; i < guardedIndexes.size(); i++) {
             GuardrailCheckResult result = results.get(i);
 
+            boolean allowed = result.blocked() && blockingMode == BlockingMode.ALLOW;
+
             if (result.blocked()) {
-                metrics.record("blocking_downgraded");
+                metrics.record(allowed ? "guardrail_allowed" : "blocking_downgraded");
             }
 
             int index = guardedIndexes.get(i);
             Message original = instructions.get(index);
-            String newText = result.text();
+            String newText = allowed ? result.unmaskedText() : result.text();
 
             if (!Objects.equals(newText, original.getText())) {
                 patched.set(index, withText(original, newText));
