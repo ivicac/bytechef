@@ -15,7 +15,12 @@ dependencies {
     implementation(project(":server:libs:platform:platform-scheduler:platform-scheduler-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-coordinator:platform-workflow-coordinator-api"))
 
+    testImplementation("org.assertj:assertj-core")
     testImplementation("org.awaitility:awaitility")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.mockito:mockito-junit-jupiter")
+    testImplementation("org.springframework:spring-test")
     testImplementation("org.springframework.boot:spring-boot-quartz")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
