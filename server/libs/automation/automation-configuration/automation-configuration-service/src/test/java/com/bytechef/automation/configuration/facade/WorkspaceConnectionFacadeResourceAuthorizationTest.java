@@ -56,7 +56,8 @@ class WorkspaceConnectionFacadeResourceAuthorizationTest {
 
     @Test
     void testGetConnectionsRequiresWorkspaceConnectionView() {
-        assertExpression("getConnections", "hasPermission(#workspaceId, 'Workspace', 'CONNECTION_VIEW')");
+        assertExpression(
+            "getConnections", "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'CONNECTION_VIEW', #environmentId)");
     }
 
     private static void assertExpression(String methodName, String expression) {

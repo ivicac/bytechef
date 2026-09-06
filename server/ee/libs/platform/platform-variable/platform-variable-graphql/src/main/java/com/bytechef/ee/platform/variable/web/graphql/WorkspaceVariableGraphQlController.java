@@ -30,6 +30,10 @@ import org.springframework.stereotype.Controller;
  * surface.
  *
  * <p>
+ * The two-door facade split the asset-file work adopted was considered for this domain and deferred: this service's
+ * runtime caller only reads and is fail-open by design, so the controller-level checks stay the access control here.
+ *
+ * <p>
  * Returns are mapped to a controller-local {@link VariableResponse} rather than {@link Variable} directly:
  * graphql-java's default {@code String} scalar coercion throws {@code CoercingSerializeException} for anything other
  * than String/numeric/Boolean/UUID, and {@code createdDate}/{@code lastModifiedDate} are {@link java.time.Instant}.
@@ -50,7 +54,7 @@ class WorkspaceVariableGraphQlController {
     }
 
     @QueryMapping
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_VIEW', #environmentId)")
     public List<VariableResponse> workspaceVariables(@Argument long workspaceId, @Argument long environmentId) {
         return variableService.getVariables(VariableScope.workspace(workspaceId), environmentId)
             .stream()
@@ -59,7 +63,7 @@ class WorkspaceVariableGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_MANAGE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_MANAGE', #environmentId)")
     public VariableResponse createWorkspaceVariable(
         @Argument long workspaceId, @Argument long environmentId, @Argument VariableInput input) {
 
@@ -68,7 +72,7 @@ class WorkspaceVariableGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_MANAGE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_MANAGE', #environmentId)")
     public VariableResponse updateWorkspaceVariable(
         @Argument long workspaceId, @Argument long environmentId, @Argument long id, @Argument VariableInput input) {
 
@@ -77,7 +81,7 @@ class WorkspaceVariableGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_MANAGE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_MANAGE', #environmentId)")
     public boolean deleteWorkspaceVariable(
         @Argument long workspaceId, @Argument long environmentId, @Argument long id) {
 
