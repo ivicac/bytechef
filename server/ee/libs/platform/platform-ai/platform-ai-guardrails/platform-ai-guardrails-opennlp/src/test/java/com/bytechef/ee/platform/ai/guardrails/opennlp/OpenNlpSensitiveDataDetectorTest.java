@@ -10,8 +10,8 @@ package com.bytechef.ee.platform.ai.guardrails.opennlp;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveKind;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
+import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;

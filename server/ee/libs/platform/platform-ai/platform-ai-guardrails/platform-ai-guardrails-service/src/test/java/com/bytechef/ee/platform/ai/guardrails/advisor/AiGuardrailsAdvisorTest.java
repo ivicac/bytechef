@@ -18,13 +18,13 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataDetector;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
+import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +57,7 @@ import reactor.core.publisher.Flux;
 class AiGuardrailsAdvisorTest {
 
     private static final Long WORKSPACE_ID = 42L;
-    private static final Pattern EMAIL_TOKEN_PATTERN = Pattern.compile("\\[PII_EMAIL_1_[a-z0-9]{4}\\]");
+    private static final Pattern EMAIL_TOKEN_PATTERN = Pattern.compile("\\[PII_EMAIL_ADDRESS_1_[a-z0-9]{4}\\]");
 
     private final AiGuardrailsWorkspaceSettingsService settingsService =
         mock(AiGuardrailsWorkspaceSettingsService.class);
@@ -520,9 +520,9 @@ class AiGuardrailsAdvisorTest {
     @Test
     void testRoundTripRestoresDistinctValues() {
         // responseScanEnabled=true is load-bearing: it is what gives this test teeth against the scan-then-restore
-        // ordering. The forwarded text contains only tokens ([PII_EMAIL_*_xxxx]), which match no PII pattern, so
-        // scanning it is a no-op -- but restoring FIRST would hand the scanner real email addresses to re-redact,
-        // and the final assertion would see [REDACTED_EMAIL] instead of the original addresses. With scanning
+        // ordering. The forwarded text contains only tokens ([PII_EMAIL_ADDRESS_*_xxxx]), which match no PII pattern,
+        // so scanning it is a no-op -- but restoring FIRST would hand the scanner real email addresses to re-redact,
+        // and the final assertion would see [REDACTED_EMAIL_ADDRESS] instead of the original addresses. With scanning
         // disabled, restoration would be indistinguishable from an identity scan and this test could not catch a
         // reversed ordering.
         AiGuardrails aiGuardrails = guardrails(true, true, "", false, true, false);
@@ -552,8 +552,8 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(forwarded).doesNotContain("bob@acme.io");
         assertThat(forwarded).doesNotContain("alice@acme.io");
-        assertThat(forwarded).containsPattern("\\[PII_EMAIL_1_[a-z0-9]{4}\\]");
-        assertThat(forwarded).containsPattern("\\[PII_EMAIL_2_[a-z0-9]{4}\\]");
+        assertThat(forwarded).containsPattern("\\[PII_EMAIL_ADDRESS_1_[a-z0-9]{4}\\]");
+        assertThat(forwarded).containsPattern("\\[PII_EMAIL_ADDRESS_2_[a-z0-9]{4}\\]");
 
         ChatResponse chatResponse = Objects.requireNonNull(response.chatResponse(), "chatResponse");
         Generation generation = Objects.requireNonNull(chatResponse.getResult(), "generation");
@@ -592,7 +592,7 @@ class AiGuardrailsAdvisorTest {
         String responseText = generation.getOutput()
             .getText();
 
-        assertThat(responseText).contains("[REDACTED_EMAIL]");
+        assertThat(responseText).contains("[REDACTED_EMAIL_ADDRESS]");
         assertThat(responseText).doesNotContain("bob@acme.io");
         assertThat(counter(advisorMeterRegistry, "response_redacted", "copilot")).isEqualTo(1.0);
     }

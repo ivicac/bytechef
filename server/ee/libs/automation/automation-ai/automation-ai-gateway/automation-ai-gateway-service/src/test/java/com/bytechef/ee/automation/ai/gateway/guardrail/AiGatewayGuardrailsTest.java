@@ -23,7 +23,7 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -55,11 +55,11 @@ class AiGatewayGuardrailsTest {
             "Email me at jane.doe@example.com or call 415-555-0132. SSN 123-45-6789, card 4111 1111 1111 1111, " +
                 "host 192.168.1.20.");
 
-        assertThat(redacted).contains("[REDACTED_EMAIL]");
-        assertThat(redacted).contains("[REDACTED_SSN]");
-        assertThat(redacted).contains("[REDACTED_CC]");
-        assertThat(redacted).contains("[REDACTED_PHONE]");
-        assertThat(redacted).contains("[REDACTED_IP]");
+        assertThat(redacted).contains("[REDACTED_EMAIL_ADDRESS]");
+        assertThat(redacted).contains("[REDACTED_US_SSN]");
+        assertThat(redacted).contains("[REDACTED_CREDIT_CARD]");
+        assertThat(redacted).contains("[REDACTED_PHONE_NUMBER]");
+        assertThat(redacted).contains("[REDACTED_IP_ADDRESS]");
         assertThat(redacted).doesNotContain("jane.doe@example.com");
         assertThat(redacted).doesNotContain("123-45-6789");
     }
@@ -109,7 +109,7 @@ class AiGatewayGuardrailsTest {
 
         assertThat(result.messages()
             .getFirst()
-            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -150,7 +150,7 @@ class AiGatewayGuardrailsTest {
 
         assertThat(result.messages()
             .getFirst()
-            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -243,7 +243,7 @@ class AiGatewayGuardrailsTest {
             .content();
 
         assertThat(content).contains("[REDACTED_SECRET]");
-        assertThat(content).contains("[REDACTED_EMAIL]");
+        assertThat(content).contains("[REDACTED_EMAIL_ADDRESS]");
         assertThat(content).doesNotContain("AKIAIOSFODNN7EXAMPLE");
         assertThat(content).doesNotContain("bob@acme.io");
     }
@@ -261,7 +261,7 @@ class AiGatewayGuardrailsTest {
         assertThat(redacted.choices()
             .getFirst()
             .message()
-            .content()).isEqualTo("contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -280,7 +280,7 @@ class AiGatewayGuardrailsTest {
         List<String> result = guardrails.applyToInputs(
             List.of("email bob@acme.io", "key AKIAIOSFODNN7EXAMPLE"), null);
 
-        assertThat(result).containsExactly("email [REDACTED_EMAIL]", "key [REDACTED_SECRET]");
+        assertThat(result).containsExactly("email [REDACTED_EMAIL_ADDRESS]", "key [REDACTED_SECRET]");
     }
 
     @Test
@@ -340,7 +340,7 @@ class AiGatewayGuardrailsTest {
 
         assertThat(result.messages()
             .getFirst()
-            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -370,7 +370,7 @@ class AiGatewayGuardrailsTest {
             .getFirst()
             .content();
 
-        assertThat(content).isEqualTo("mail [REDACTED_EMAIL] key [REDACTED_SECRET]");
+        assertThat(content).isEqualTo("mail [REDACTED_EMAIL_ADDRESS] key [REDACTED_SECRET]");
     }
 
     @Test
@@ -386,7 +386,7 @@ class AiGatewayGuardrailsTest {
         assertThat(redacted.choices()
             .getFirst()
             .message()
-            .content()).isEqualTo("contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -458,7 +458,7 @@ class AiGatewayGuardrailsTest {
             .getFirst()
             .content();
 
-        assertThat(content).isEqualTo("Contact [PII_EMAIL_1_" + session.sessionId() + "]");
+        assertThat(content).isEqualTo("Contact [PII_EMAIL_ADDRESS_1_" + session.sessionId() + "]");
     }
 
     @Test
@@ -476,7 +476,7 @@ class AiGatewayGuardrailsTest {
                 .content());
         assertThat(withNullSession.messages()
             .getFirst()
-            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+            .content()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -503,8 +503,8 @@ class AiGatewayGuardrailsTest {
      * echoing back what it was given) alongside a brand-new, never-tokenized email address. A correct scan-then-restore
      * implementation leaves the new address masked (still-active response scanning catches genuinely new PII) while
      * restoring the known token back to its real value. Reversing the order would additionally re-redact the restored
-     * value once the scanner saw it in the clear, collapsing both addresses down to the same {@code [REDACTED_EMAIL]}
-     * placeholder and making this assertion fail.
+     * value once the scanner saw it in the clear, collapsing both addresses down to the same
+     * {@code [REDACTED_EMAIL_ADDRESS]} placeholder and making this assertion fail.
      */
     @Test
     void testRedactResponseWithSessionScansBeforeRestoring() {
@@ -513,7 +513,7 @@ class AiGatewayGuardrailsTest {
 
         guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
 
-        String token = "[PII_EMAIL_1_" + session.sessionId() + "]";
+        String token = "[PII_EMAIL_ADDRESS_1_" + session.sessionId() + "]";
 
         AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
             responseOf("Sure, reaching out to " + token + " now; also cc alice@acme.io"), null, null, session);
@@ -523,7 +523,7 @@ class AiGatewayGuardrailsTest {
             .message()
             .content();
 
-        assertThat(content).isEqualTo("Sure, reaching out to bob@acme.io now; also cc [REDACTED_EMAIL]");
+        assertThat(content).isEqualTo("Sure, reaching out to bob@acme.io now; also cc [REDACTED_EMAIL_ADDRESS]");
     }
 
     /**
@@ -539,7 +539,7 @@ class AiGatewayGuardrailsTest {
 
         guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
 
-        String token = "[PII_EMAIL_1_" + session.sessionId() + "]";
+        String token = "[PII_EMAIL_ADDRESS_1_" + session.sessionId() + "]";
 
         guardrails.redactResponse(responseOf("Reaching out to " + token + " now"), null, null, session);
 

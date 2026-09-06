@@ -13,7 +13,7 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +43,11 @@ import reactor.core.publisher.Flux;
  * <p>
  * <b>Request direction — {@link CallAdvisor#adviseCall}</b> — a fresh {@link PiiTokenSession} is opened for the call,
  * and every USER and SYSTEM message's text is run through {@link AiGuardrails#tokenizeInputs}: PII becomes a
- * reversible, per-session token (e.g. {@code [PII_EMAIL_1_k3n9]}) instead of an irreversible {@code [REDACTED_*]}
- * placeholder, and secrets are still redacted irreversibly. Two distinct values get two distinct tokens, so the model
- * can tell them apart. When a message additionally trips a <em>blocking</em> violation (a blocked-term match, a flagged
- * prompt injection, or a flagged moderation verdict — moderation only checked when a moderation classifier bean is
- * configured), the workspace's {@link BlockingMode} decides what happens next:
+ * reversible, per-session token (e.g. {@code [PII_EMAIL_ADDRESS_1_k3n9]}) instead of an irreversible
+ * {@code [REDACTED_*]} placeholder, and secrets are still redacted irreversibly. Two distinct values get two distinct
+ * tokens, so the model can tell them apart. When a message additionally trips a <em>blocking</em> violation (a
+ * blocked-term match, a flagged prompt injection, or a flagged moderation verdict — moderation only checked when a
+ * moderation classifier bean is configured), the workspace's {@link BlockingMode} decides what happens next:
  * <ul>
  * <li>{@code BLOCK} (default) — the call is aborted with {@link AiGuardrailViolationException}, whose message carries
  * only the violation category, never the offending content.</li>

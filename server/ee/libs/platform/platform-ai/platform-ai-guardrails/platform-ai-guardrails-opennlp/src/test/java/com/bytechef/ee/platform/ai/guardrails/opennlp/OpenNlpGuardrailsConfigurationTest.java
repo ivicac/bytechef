@@ -9,7 +9,7 @@ package com.bytechef.ee.platform.ai.guardrails.opennlp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataDetector;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
