@@ -18,12 +18,12 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.advisor.EnvironmentAwareQuestionAnswerAdvisor;
 import com.bytechef.ai.copilot.agent.ClusterElementSpringAIAgent;
 import com.bytechef.ai.copilot.agent.CodeEditorSpringAIAgent;
 import com.bytechef.ai.copilot.agent.ConverterSpringAIAgent;
 import com.bytechef.ai.copilot.agent.JsonSchemaBuilderSpringAIAgent;
-import com.bytechef.ai.copilot.agent.McpServerSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SampleOutputSpringAIAgent;
 import com.bytechef.ai.copilot.agent.SkillsSpringAIAgent;
@@ -33,7 +33,6 @@ import com.bytechef.ai.copilot.agent.WorkflowExecutionSpringAIAgent;
 import com.bytechef.ai.copilot.connection.CopilotConnectionLister;
 import com.bytechef.ai.copilot.constant.CopilotConstants;
 import com.bytechef.ai.copilot.tool.AskUserQuestionToolCallback;
-import com.bytechef.ai.copilot.tool.ConfigureMcpServerToolCallback;
 import com.bytechef.ai.copilot.tool.CreateConnectionToolCallback;
 import com.bytechef.ai.copilot.tool.JsonSchemaTools;
 import com.bytechef.ai.copilot.tool.ListConnectionsForComponentToolCallback;
@@ -99,7 +98,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Marko Kriskovic
@@ -108,13 +106,6 @@ import tools.jackson.databind.json.JsonMapper;
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class CopilotConfiguration {
 
-    /**
-     * Appended to the shared {@code prompt_workflow_editor_build.txt} body for the one-shot {@code buildWorkflow}
-     * subagent ONLY. The same resource also backs the Copilot workflow-editor panel agent, which always has a workflow
-     * on screen (its {@code workflowId} comes from page state) — teaching that agent to create a workflow when it reads
-     * no id would let it silently produce a duplicate instead of updating the one the user is looking at. The panel
-     * reads the resource directly, so it never sees this text.
-     */
     private static final String BUILD_WORKFLOW_SUBAGENT_ADDENDUM = """
 
         ## Brand-new workflows (overrides step 7's "you always author into an EXISTING workflow" note)
@@ -161,9 +152,6 @@ public class CopilotConfiguration {
     private final Resource promptWorkflowExecutionBuildResource;
     private final State state = new State();
 
-    // Read once at configuration init rather than per delegation: the corresponding subagent ChatClient factory
-    // beans below rebuild their ChatClient on every delegation (to honour a caller-picked ChatModel), and
-    // getSystemPrompt(Resource) performs I/O.
     private final String workflowEditorAskSystemPrompt;
     private final String workflowEditorBuildSystemPrompt;
     private final String codeEditorAskSystemPrompt;
@@ -185,20 +173,8 @@ public class CopilotConfiguration {
     private final TriggerDefinitionFacade triggerDefinitionFacade;
     private final PropertyOptionsResolver propertyOptionsResolver;
     private final ObjectProvider<CopilotConnectionLister> connectionListerProvider;
-    private final JsonMapper jsonMapper = new JsonMapper();
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
 
-    // CT_CONSTRUCTOR_THROW: the constructor reads and validates the prompt resources up front (see the hoisted
-    // *SystemPrompt fields above) so getSystemPrompt's IllegalStateException surfaces at startup, not on the first
-    // delegation; Spring never subclasses this @Configuration in a way that could observe partially-initialized state.
-    // RUBY-DISABLED: the prompt resources loaded below had every Ruby reference DELETED, not commented out.
-    // readPrompt() below is a verbatim readAllBytes with no comment stripping, so the whole file becomes the
-    // system message — a commented-out Ruby section would still be read by the model as content and it would
-    // keep offering a language that org.graalvm.polyglot:ruby (stuck at 25.0.0, crashes on the pinned Truffle
-    // 25.2.4) can no longer run. The marker therefore lives here, in code the model never sees.
-    // Affected: prompt_code_editor_build.txt — the '- Ruby: `def perform(input, context) ... end`' perform-signature
-    // bullet. ScriptComponentHandler no longer registers the script/v1/ruby action either, so Ruby written into a
-    // Script task could not run. Once a polyglot ruby jar built on Truffle 25.2+ is published (or GraalVM is
-    // downgraded), restore that bullet alongside the Script component's Ruby action. Grep RUBY-DISABLED.
     @SuppressFBWarnings({
         "EI", "CT_CONSTRUCTOR_THROW"
     })
@@ -214,20 +190,22 @@ public class CopilotConfiguration {
         @Value("classpath:prompt_cluster_element_build.txt") Resource promptClusterElementBuildResource,
         @Value("classpath:prompt_skills_ask.txt") Resource promptSkillsAskResource,
         @Value("classpath:prompt_skills_build.txt") Resource promptSkillsBuildResource,
+        @Value("classpath:prompt_workflow_execution_ask.txt") Resource promptWorkflowExecutionAskResource,
+        @Value("classpath:prompt_workflow_execution_build.txt") Resource promptWorkflowExecutionBuildResource,
         @Value("classpath:prompt_json_schema_builder_ask.txt") Resource promptJsonSchemaBuilderAskResource,
         @Value("classpath:prompt_json_schema_builder_build.txt") Resource promptJsonSchemaBuilderBuildResource,
         @Value("classpath:prompt_sample_output_ask.txt") Resource promptSampleOutputAskResource,
         @Value("classpath:prompt_sample_output_build.txt") Resource promptSampleOutputBuildResource,
         WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
-        @Value("classpath:prompt_workflow_execution_ask.txt") Resource promptWorkflowExecutionAskResource,
-        @Value("classpath:prompt_workflow_execution_build.txt") Resource promptWorkflowExecutionBuildResource,
         ConnectionDefinitionService connectionDefinitionService, WorkspaceConnectionFacade workspaceConnectionFacade,
         ComponentDefinitionService componentDefinitionService, ActionDefinitionService actionDefinitionService,
         ActionDefinitionFacade actionDefinitionFacade, TriggerDefinitionService triggerDefinitionService,
         TriggerDefinitionFacade triggerDefinitionFacade, PropertyOptionsResolver propertyOptionsResolver,
-        ObjectProvider<CopilotConnectionLister> connectionListerProvider) {
+        ObjectProvider<CopilotConnectionLister> connectionListerProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory) {
 
         this.connectionListerProvider = connectionListerProvider;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
         this.connectionDefinitionService = connectionDefinitionService;
         this.workspaceConnectionFacade = workspaceConnectionFacade;
         this.componentDefinitionService = componentDefinitionService;
@@ -290,6 +268,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptCodeEditorAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -316,6 +295,7 @@ public class CopilotConfiguration {
                         readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
                         workflowInstructionTools)))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -324,7 +304,7 @@ public class CopilotConfiguration {
     WorkflowCodeEditorSpringAIAgent workflowCodeEditorAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
         ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
-        Optional<BraveWebSearchTools> braveWebSearchTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools, SecurityContextRehydrator securityContextRehydrator,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
 
         String name = Source.WORKFLOW_CODE_EDITOR.name() + "_" + Mode.ASK.name();
@@ -342,8 +322,9 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptWorkflowCodeEditorAskResource))
-            .tools(tools)
+            .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -352,7 +333,7 @@ public class CopilotConfiguration {
     WorkflowCodeEditorSpringAIAgent workflowCodeEditorBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
         ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
-        Optional<BraveWebSearchTools> braveWebSearchTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools, SecurityContextRehydrator securityContextRehydrator,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
 
         String name = Source.WORKFLOW_CODE_EDITOR.name() + "_" + Mode.BUILD.name();
@@ -370,8 +351,9 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptWorkflowCodeEditorBuildResource))
-            .tools(tools)
+            .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -400,6 +382,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptClusterElementAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -426,6 +409,7 @@ public class CopilotConfiguration {
                         readProjectWorkflowTools, clusterElementTools, componentTools, taskTools,
                         workflowValidatorTools, workflowInstructionTools)))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -521,6 +505,7 @@ public class CopilotConfiguration {
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
             .securityContextRehydrator(securityContextRehydrator)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -554,6 +539,7 @@ public class CopilotConfiguration {
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
             .securityContextRehydrator(securityContextRehydrator)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -579,6 +565,7 @@ public class CopilotConfiguration {
                     List.of(
                         projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
                         workflowInstructionTools)))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -609,6 +596,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSkillsAskResource))
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -635,6 +623,7 @@ public class CopilotConfiguration {
                     List.of(
                         skillsTools, readProjectTools, readProjectWorkflowTools, componentTools,
                         workflowValidatorTools, workflowInstructionTools)))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -653,6 +642,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptJsonSchemaBuilderAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of()))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -673,6 +663,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptJsonSchemaBuilderBuildResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -691,6 +682,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSampleOutputAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of()))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -700,6 +692,7 @@ public class CopilotConfiguration {
         ChatMemory chatMemory, ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools,
+        SecurityContextRehydrator securityContextRehydrator,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
 
         String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.ASK.name();
@@ -717,8 +710,9 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptWorkflowExecutionAskResource))
-            .tools(tools)
+            .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -739,6 +733,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSampleOutputBuildResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -747,6 +742,7 @@ public class CopilotConfiguration {
     WorkflowExecutionSpringAIAgent workflowExecutionBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
         ProjectWorkflowTools projectWorkflowTools, ScriptTools scriptTools, TaskTools taskTools,
+        SecurityContextRehydrator securityContextRehydrator,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
 
         String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.BUILD.name();
@@ -761,17 +757,13 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptWorkflowExecutionBuildResource))
-            .tools(tools)
+            .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
-    /**
-     * Stateless Code Editor ASK sub-agent {@link ChatClient}, consumed by {@code CodeEditorAgentToolCallback} on the AI
-     * Hub ASK agent. Same system prompt and tool catalog as {@link #codeEditorAskSpringAIAgent} (web search tools added
-     * when present in the deployment), no {@link ChatMemory}.
-     */
     @Bean
     ChatClient codeEditorAskSubAgentChatClient(
         ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
@@ -799,7 +791,7 @@ public class CopilotConfiguration {
         ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(codeEditorAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -836,19 +828,12 @@ public class CopilotConfiguration {
         ChatModel chatModel, ScriptTools scriptTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(codeEditorBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
-    }
-
-    @Bean
-    IntelligentToolChatClientFactory codeEditorBuildSubAgentChatClientFactory(
-        @Qualifier("codeEditorBuildSubAgentChatClient") ChatClient codeEditorBuildSubAgentChatClient) {
-
-        return () -> codeEditorBuildSubAgentChatClient;
     }
 
     @Bean
@@ -883,7 +868,7 @@ public class CopilotConfiguration {
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools,
         Advisor questionAnswerAdvisor) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(workflowEditorAskSystemPrompt)
             .defaultAdvisors(questionAnswerAdvisor);
 
@@ -925,29 +910,16 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools,
         SimulationTools simulationTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(workflowEditorBuildSystemPrompt + BUILD_WORKFLOW_SUBAGENT_ADDENDUM)
             .defaultTools(
                 projectWorkflowTools, taskTools, scriptTools, simulationTools, workflowValidatorTools,
                 workflowInstructionTools)
-            // One-shot subagent (backs the management MCP workflow_editor agent + AI Hub delegation): give it
-            // lookupPropertyOptions so it fetches real option values for dynamic-option properties and sets a valid
-            // one itself. Deliberately not the interactive select picker, whose result the client must render and
-            // resolve in place. askUserQuestion is not registered here either, but for the opposite reason: the
-            // specialist-flavoured one is attached to every intelligent delegate by IntelligentToolCatalog, which
-            // owns that wiring so no delegate configuration has to remember it.
             .defaultToolCallbacks(
                 new LookupComponentPropertyOptionsToolCallback(
                     actionDefinitionService, actionDefinitionFacade, triggerDefinitionService, triggerDefinitionFacade,
                     propertyOptionsResolver, ToolStateVisibilityMetrics.NOOP))
             .build();
-    }
-
-    @Bean
-    IntelligentToolChatClientFactory workflowEditorBuildSubAgentChatClientFactory(
-        @Qualifier("workflowEditorBuildSubAgentChatClient") ChatClient workflowEditorBuildSubAgentChatClient) {
-
-        return () -> workflowEditorBuildSubAgentChatClient;
     }
 
     @Bean
@@ -972,7 +944,7 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
         ScriptTools scriptTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(converterBuildSystemPrompt)
             .defaultTools(
                 projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools, workflowInstructionTools)
@@ -1007,7 +979,7 @@ public class CopilotConfiguration {
         ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(clusterElementAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1048,19 +1020,12 @@ public class CopilotConfiguration {
         ChatModel chatModel, ClusterElementTools clusterElementTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(clusterElementBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, clusterElementTools, componentTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
-    }
-
-    @Bean
-    IntelligentToolChatClientFactory clusterElementBuildSubAgentChatClientFactory(
-        @Qualifier("clusterElementBuildSubAgentChatClient") ChatClient clusterElementBuildSubAgentChatClient) {
-
-        return () -> clusterElementBuildSubAgentChatClient;
     }
 
     @Bean
@@ -1093,7 +1058,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ReadSkillsTools readSkillsTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(skillsAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1136,7 +1101,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, SkillsTools skillsTools,
         ComponentTools componentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(skillsBuildSystemPrompt)
             .defaultTools(
                 skillsTools, readProjectTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
@@ -1144,12 +1109,6 @@ public class CopilotConfiguration {
             .build();
     }
 
-    /**
-     * Stateless Workflow Execution ASK sub-agent {@link ChatClient}, consumed by
-     * {@code WorkflowExecutionAgentToolCallback} on the AI Hub ASK agent. Same system prompt and tool catalog as
-     * {@link #workflowExecutionAskSpringAIAgent} (web search tools added when present in the deployment), no
-     * {@link ChatMemory}.
-     */
     @Bean
     ChatClient workflowExecutionAskSubAgentChatClient(
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
@@ -1180,7 +1139,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(workflowExecutionAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1196,12 +1155,6 @@ public class CopilotConfiguration {
         return builder.build();
     }
 
-    /**
-     * Stateless Workflow Execution BUILD sub-agent {@link ChatClient}, consumed by
-     * {@code WorkflowExecutionAgentToolCallback} on the AI Hub BUILD agent. Mirrors
-     * {@link #workflowExecutionBuildSpringAIAgent}'s tool catalog (write-capable project-workflow / script / task
-     * tools), no {@link ChatMemory}.
-     */
     @Bean
     ChatClient workflowExecutionBuildSubAgentChatClient(
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
@@ -1227,12 +1180,24 @@ public class CopilotConfiguration {
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
         ScriptTools scriptTools, TaskTools taskTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(workflowExecutionBuildSystemPrompt)
             .defaultTools(
                 workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
+    }
+
+    private ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        builder.defaultAdvisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors());
+
+        return builder;
+    }
+
+    private List<Advisor> guardrailsAdvisors() {
+        return copilotGuardrailsAdvisorFactory.guardrailsAdvisors();
     }
 
     private String getSystemPrompt(Resource systemPromptResource) {

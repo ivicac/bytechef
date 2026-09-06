@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -34,6 +34,7 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
@@ -122,6 +123,58 @@ class AbstractAiAgentChatActionGuardrailsTest {
             assertThat(advisors).contains(guardrailsAdvisor);
             assertThat(advisors.indexOf(guardrailsAdvisor)).isZero();
         }
+    }
+
+    /**
+     * Regression coverage for the defect where the canvas AI Agent surface's tool-boundary metrics
+     * ({@code tool_args_restored}/{@code token_unresolved}/{@code tool_result_tokenized}) never carried the correct
+     * {@code surface} tag: {@code AgentToolCallingManagers} used to resolve its {@code SensitiveDataMetrics} from an
+     * injected {@code ObjectProvider<SensitiveDataMetrics>} instead of the workspace-and-surface-scoped instance
+     * {@link AiGuardrailsAdvisorProvider#getMetrics} builds for this exact call. This test asserts that
+     * {@code getChatClientRequestSpec} resolves the tool-boundary metrics through
+     * {@code AiGuardrailsAdvisorProvider#getMetrics} with the identical {@code (platformType, jobPrincipalId,
+     * "ai_agent")} arguments used for {@link AiGuardrailsAdvisorProvider#getAdvisor} -- see
+     * {@code AgentToolCallingManagersTest} (and {@code AbstractAiAgentChatActionTest}'s own
+     * {@code testGetAdvisorsThreadsToolBoundaryMetricsIntoTheToolCallingManager}) for the companion proof that whatever
+     * instance is resolved here actually reaches {@code PiiTokenBoundaryToolCallingManager} and gets used to record
+     * events.
+     */
+    @Test
+    void testToolBoundaryMetricsResolvedWithTheAiAgentSurfaceTag() throws Exception {
+        Parameters inputParameters = MockParametersFactory.create(Map.of());
+        Parameters extensions = buildExtensions();
+
+        stubModelLookup();
+
+        Map<String, ComponentConnection> connectionParameters = buildConnectionParameters();
+
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+
+        when(actionContext.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+        when(actionContext.getJobPrincipalId()).thenReturn(42L);
+
+        AiGuardrailsAdvisorProvider provider = mock(AiGuardrailsAdvisorProvider.class);
+
+        when(provider.getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent"))
+            .thenReturn(Optional.empty());
+
+        SensitiveDataMetrics sensitiveDataMetrics = mock(SensitiveDataMetrics.class);
+
+        when(provider.getMetrics(PlatformType.AUTOMATION, 42L, "ai_agent"))
+            .thenReturn(sensitiveDataMetrics);
+
+        TestAiAgentChatAction action = new TestAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null,
+            presentProvider(provider));
+
+        try (MockedStatic<ModelUtils> modelUtilsMockedStatic = mockStatic(ModelUtils.class)) {
+            modelUtilsMockedStatic.when(() -> ModelUtils.getMessages(any(), any()))
+                .thenReturn(List.of());
+
+            action.getChatClientRequestSpec(inputParameters, connectionParameters, extensions, null, actionContext);
+        }
+
+        verify(provider).getMetrics(PlatformType.AUTOMATION, 42L, "ai_agent");
     }
 
     @Test
@@ -244,18 +297,31 @@ class AbstractAiAgentChatActionGuardrailsTest {
         return chatModel;
     }
 
+    /**
+     * Stubs both {@code ifAvailable(Consumer)} and {@code getIfAvailable()} so this one helper serves every
+     * {@code ObjectProvider} consumption style used across this file's constructor arguments -- the guardrails provider
+     * resolves itself via {@code getIfAvailable()} (see {@code getChatClientRequestSpec}'s toolBoundaryMetrics wiring,
+     * which also needs {@link AiGuardrailsAdvisorProvider#getMetrics}), while
+     * {@code WorkspaceSystemPromptAdvisorProvider} still resolves via {@code ifAvailable(Consumer)}. Both stubs are
+     * {@code lenient()} because any one caller only ever exercises one of the two styles, and the other would otherwise
+     * be flagged as an unnecessary stubbing.
+     */
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> presentProvider(T value) {
         ObjectProvider<T> provider = mock(ObjectProvider.class);
 
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             Consumer<T> consumer = invocation.getArgument(0);
 
             consumer.accept(value);
 
             return null;
-        }).when(provider)
+        })
+            .when(provider)
             .ifAvailable(any());
+
+        lenient().when(provider.getIfAvailable())
+            .thenReturn(value);
 
         return provider;
     }
