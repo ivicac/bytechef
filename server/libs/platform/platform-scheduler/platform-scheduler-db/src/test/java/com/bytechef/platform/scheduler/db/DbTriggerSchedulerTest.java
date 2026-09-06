@@ -23,15 +23,19 @@ import com.bytechef.platform.scheduler.db.task.OneTimeResumeData;
 import com.bytechef.platform.scheduler.db.task.PollingTriggerData;
 import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import com.github.kagkarlsson.scheduler.ScheduledExecution;
 import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException;
 import com.github.kagkarlsson.scheduler.task.SchedulableInstance;
+import com.github.kagkarlsson.scheduler.task.TaskInstanceId;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +67,32 @@ class DbTriggerSchedulerTest {
         Mockito.when(schedulerClient.schedule(
             Mockito.any(SchedulableInstance.class), Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)))
             .thenAnswer(invocation -> scheduleWithWhenExistsReschedule(invocation.getArgument(0)));
+    }
+
+    @Test
+    void testCancelOneTimeTaskCancelsTheScheduledResumeOfTheJob() {
+        TaskInstanceId taskInstanceId = DbSchedulerTaskDescriptors.ONE_TIME_RESUME.instanceId("42");
+
+        Mockito.when(schedulerClient.getScheduledExecution(taskInstanceId))
+            .thenReturn(Optional.of(Mockito.mock(ScheduledExecution.class)));
+
+        triggerScheduler.cancelOneTimeTask(42L);
+
+        Mockito.verify(schedulerClient)
+            .cancel(taskInstanceId);
+    }
+
+    @Test
+    void testCancelOneTimeTaskSkipsAJobWithoutAScheduledResume() {
+        TaskInstanceId taskInstanceId = DbSchedulerTaskDescriptors.ONE_TIME_RESUME.instanceId("42");
+
+        Mockito.when(schedulerClient.getScheduledExecution(taskInstanceId))
+            .thenReturn(Optional.empty());
+
+        triggerScheduler.cancelOneTimeTask(42L);
+
+        Mockito.verify(schedulerClient, Mockito.never())
+            .cancel(Mockito.any());
     }
 
     @Test
@@ -131,12 +161,26 @@ class DbTriggerSchedulerTest {
             .get(0)
             .getTaskInstance()
             .getData())
-            .isEqualTo(new OneTimeResumeData(42L, "{\"k\":\"v\"}"));
+            .isEqualTo(new OneTimeResumeData(42L, "{\"k\":\"v\"}", TenantContext.DEFAULT_TENANT_ID));
         Assertions.assertThat((OneTimeResumeData) captor.getAllValues()
             .get(1)
             .getTaskInstance()
             .getData())
-            .isEqualTo(new OneTimeResumeData(43L, null));
+            .isEqualTo(new OneTimeResumeData(43L, null, TenantContext.DEFAULT_TENANT_ID));
+    }
+
+    @Test
+    void testScheduleOneTimeTaskCapturesCurrentTenantId() {
+        Instant executeAt = Instant.parse("2031-01-01T00:00:00Z");
+
+        TenantContext.runWithTenantId(
+            "tenant_1", () -> triggerScheduler.scheduleOneTimeTask(executeAt, Map.of(), 44L));
+
+        SchedulableInstance<?> instance = capturedSchedule();
+
+        Assertions.assertThat((OneTimeResumeData) instance.getTaskInstance()
+            .getData())
+            .isEqualTo(new OneTimeResumeData(44L, null, "tenant_1"));
     }
 
     @Test

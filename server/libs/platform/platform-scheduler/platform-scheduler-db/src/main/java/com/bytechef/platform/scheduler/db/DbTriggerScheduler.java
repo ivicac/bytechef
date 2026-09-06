@@ -28,6 +28,7 @@ import com.bytechef.platform.scheduler.db.task.OneTimeResumeData;
 import com.bytechef.platform.scheduler.db.task.PollingTriggerData;
 import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
+import com.bytechef.tenant.TenantContext;
 import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException;
 import com.github.kagkarlsson.scheduler.task.SchedulableInstance;
@@ -58,6 +59,17 @@ public class DbTriggerScheduler implements TriggerScheduler {
     @Override
     public void cancelDynamicWebhookTriggerRefresh(String workflowExecutionId) {
         cancel(DYNAMIC_WEBHOOK_REFRESH, workflowExecutionId);
+    }
+
+    @Override
+    public void cancelOneTimeTask(long jobId) {
+        TaskInstanceId taskInstanceId = ONE_TIME_RESUME.instanceId(String.valueOf(jobId));
+
+        if (schedulerClient.getScheduledExecution(taskInstanceId)
+            .isPresent()) {
+
+            cancel(ONE_TIME_RESUME, String.valueOf(jobId));
+        }
     }
 
     @Override
@@ -102,10 +114,11 @@ public class DbTriggerScheduler implements TriggerScheduler {
     @Override
     public void scheduleOneTimeTask(Instant executeAt, Map<String, ?> output, long jobId) {
         String continueParameters = output == null || output.isEmpty() ? null : JsonUtils.write(output);
+        String tenantId = TenantContext.getCurrentTenantId();
 
         replace(
             ONE_TIME_RESUME.instance(String.valueOf(jobId))
-                .data(new OneTimeResumeData(jobId, continueParameters))
+                .data(new OneTimeResumeData(jobId, continueParameters, tenantId))
                 .scheduledTo(executeAt));
     }
 
@@ -117,7 +130,10 @@ public class DbTriggerScheduler implements TriggerScheduler {
 
             log.trace("Cancelled task {} instance {}", taskDescriptor.getTaskName(), instanceId);
         } catch (TaskInstanceException e) {
-            log.error("Task {} instance {} not found for cancellation", taskDescriptor.getTaskName(), instanceId);
+            // Under db-scheduler, cancelling a trigger that was never scheduled is a routine outcome (for
+            // example disabling a workflow whose trigger never fired), so this is logged at WARN, not ERROR.
+            log.warn(
+                "Task {} instance {} not found for cancellation", taskDescriptor.getTaskName(), instanceId, e);
         }
     }
 
@@ -126,16 +142,17 @@ public class DbTriggerScheduler implements TriggerScheduler {
             if (!schedulerClient.schedule(
                 schedulableInstance, SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)) {
 
-                logNeitherRescheduledNorCreated(schedulableInstance);
+                logNeitherRescheduledNorCreated(schedulableInstance, null);
             }
         } catch (TaskInstanceException e) {
-            logNeitherRescheduledNorCreated(schedulableInstance);
+            logNeitherRescheduledNorCreated(schedulableInstance, e);
         }
     }
 
-    private <T> void logNeitherRescheduledNorCreated(SchedulableInstance<T> schedulableInstance) {
+    private <T> void
+        logNeitherRescheduledNorCreated(SchedulableInstance<T> schedulableInstance, TaskInstanceException e) {
         log.warn(
             "Task {} instance {} was neither rescheduled nor created; it is probably executing right now",
-            schedulableInstance.getTaskName(), schedulableInstance.getId());
+            schedulableInstance.getTaskName(), schedulableInstance.getId(), e);
     }
 }

@@ -17,6 +17,7 @@
 package com.bytechef.platform.scheduler.db.task;
 
 import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
+import com.bytechef.tenant.TenantContext;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
 import java.time.Instant;
@@ -34,7 +35,7 @@ class OneTimeResumeTaskFactoryTest {
         Task<OneTimeResumeData> task = OneTimeResumeTaskFactory.create(eventPublisher);
         TaskInstance<OneTimeResumeData> taskInstance = DbSchedulerTaskDescriptors.ONE_TIME_RESUME
             .instance("42")
-            .data(new OneTimeResumeData(42L, null))
+            .data(new OneTimeResumeData(42L, null, null))
             .build();
 
         task.execute(taskInstance, TaskTestSupport.executionContext(taskInstance, Instant.now()));
@@ -46,5 +47,44 @@ class OneTimeResumeTaskFactoryTest {
         Assertions.assertThat(captor.getValue()
             .getJobId())
             .isEqualTo(42L);
+    }
+
+    @Test
+    void testExecuteWithMissingTenantIdRunsAsSystemUnderDefaultTenant() {
+        ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        Task<OneTimeResumeData> task = OneTimeResumeTaskFactory.create(eventPublisher);
+        TaskInstance<OneTimeResumeData> taskInstance = DbSchedulerTaskDescriptors.ONE_TIME_RESUME
+            .instance("42")
+            .data(new OneTimeResumeData(42L, null, null))
+            .build();
+
+        task.execute(taskInstance, TaskTestSupport.executionContext(taskInstance, Instant.now()));
+
+        Assertions.assertThat(TenantContext.getCurrentTenantId())
+            .isEqualTo(TenantContext.DEFAULT_TENANT_ID);
+    }
+
+    @Test
+    void testExecuteWithTenantIdBindsThatTenantWhileRunningAndRestoresItAfterward() {
+        ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        Task<OneTimeResumeData> task = OneTimeResumeTaskFactory.create(eventPublisher);
+        TaskInstance<OneTimeResumeData> taskInstance = DbSchedulerTaskDescriptors.ONE_TIME_RESUME
+            .instance("44")
+            .data(new OneTimeResumeData(44L, null, "tenant_1"))
+            .build();
+
+        Mockito.doAnswer(invocation -> {
+            Assertions.assertThat(TenantContext.getCurrentTenantId())
+                .isEqualTo("tenant_1");
+
+            return null;
+        })
+            .when(eventPublisher)
+            .publishEvent(Mockito.any(ResumeJobEvent.class));
+
+        task.execute(taskInstance, TaskTestSupport.executionContext(taskInstance, Instant.now()));
+
+        Assertions.assertThat(TenantContext.getCurrentTenantId())
+            .isEqualTo(TenantContext.DEFAULT_TENANT_ID);
     }
 }

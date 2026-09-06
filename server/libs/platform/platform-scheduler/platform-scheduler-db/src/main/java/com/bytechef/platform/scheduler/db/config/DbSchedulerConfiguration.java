@@ -46,6 +46,7 @@ import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.boot.autoconfigure.Jackson3Serializer;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.serializer.Serializer;
+import com.github.kagkarlsson.scheduler.task.FailureHandler;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
@@ -150,6 +151,7 @@ public class DbSchedulerConfiguration {
             .getPolling();
 
         return Tasks.recurring(QUARTZ_IMPORT, FixedDelay.of(Duration.ofDays(3650)))
+            .onFailure(new FailureHandler.OnFailureRetryLater<>(Duration.ofMinutes(5)))
             .execute((taskInstance, executionContext) -> {
                 Scheduler quartzScheduler = quartzSchedulerProvider.getIfUnique();
 
