@@ -35,6 +35,7 @@ import com.bytechef.automation.ai.tool.aiagent.AiAgentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.datatable.DataTableToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -669,13 +670,14 @@ public class AiHubConfiguration {
     @ConditionalOnBean(WebhookWorkflowExecutor.class)
     WebhookBridgeAgent webhookBridgeAgent(
         WebhookWorkflowExecutor webhookFacade, AiHubChatService chatService,
-        WebhookResumeRegistry webhookResumeRegistry, JsonMapper jsonMapper, AssetFileFacade assetFileFacade,
+        WebhookResumeRegistry webhookResumeRegistry, JsonMapper jsonMapper,
+        AssetFileSystemFacade assetFileSystemFacade,
         WorkflowChatMetrics workflowChatMetrics, WorkflowChatJobRegistry workflowChatJobRegistry,
         AiHubSessionMemory aiHubSessionMemory, WorkflowChatGuard workflowChatGuard,
         ObjectProvider<com.bytechef.atlas.execution.facade.JobFacade> jobFacadeProvider) throws AGUIException {
 
         return new WebhookBridgeAgent(
-            webhookFacade, chatService, webhookResumeRegistry, jsonMapper, assetFileFacade,
+            webhookFacade, chatService, webhookResumeRegistry, jsonMapper, assetFileSystemFacade,
             workflowChatMetrics, workflowChatJobRegistry, aiHubSessionMemory, workflowChatGuard,
             jobFacadeProvider.getIfAvailable());
     }
@@ -684,28 +686,28 @@ public class AiHubConfiguration {
     AiHubRoutingAgent aiHubAskRoutingAgent(
         @Qualifier("aiHubAskSpringAIAgent") AiHubSpringAIAgent aiHubAskSpringAIAgent,
         ObjectProvider<WebhookBridgeAgent> webhookBridgeAgentProvider,
-        AiHubChatService chatService, AssetFileFacade assetFileFacade)
+        AiHubChatService chatService, AssetFileSystemFacade assetFileSystemFacade)
         throws AGUIException {
 
         return new AiHubRoutingAgent(
             (Source.AI_HUB.name() + "_" + Mode.ASK.name()).toLowerCase(),
             aiHubAskSpringAIAgent,
             webhookBridgeAgentProvider.getIfAvailable(),
-            chatService, assetFileFacade);
+            chatService, assetFileSystemFacade);
     }
 
     @Bean
     AiHubRoutingAgent aiHubBuildRoutingAgent(
         @Qualifier("aiHubBuildSpringAIAgent") AiHubSpringAIAgent aiHubBuildSpringAIAgent,
         ObjectProvider<WebhookBridgeAgent> webhookBridgeAgentProvider,
-        AiHubChatService chatService, AssetFileFacade assetFileFacade)
+        AiHubChatService chatService, AssetFileSystemFacade assetFileSystemFacade)
         throws AGUIException {
 
         return new AiHubRoutingAgent(
             (Source.AI_HUB.name() + "_" + Mode.BUILD.name()).toLowerCase(),
             aiHubBuildSpringAIAgent,
             webhookBridgeAgentProvider.getIfAvailable(),
-            chatService, assetFileFacade);
+            chatService, assetFileSystemFacade);
     }
 
     @Bean

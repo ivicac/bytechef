@@ -23,7 +23,7 @@ import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.assetfile.util.AssetFileUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -39,18 +39,20 @@ import java.util.Map;
  */
 public class AssetFileGetAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileGetAction(assetFileFacade, contextResolver).build();
+        return new AssetFileGetAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileGetAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileGetAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -73,7 +75,7 @@ public class AssetFileGetAction {
 
         long workspaceId = contextResolver.resolveWorkspaceId(actionContext);
 
-        AssetFile assetFile = assetFileFacade.findByIdInWorkspace(
+        AssetFile assetFile = assetFileSystemFacade.findByIdInWorkspace(
             inputParameters.getRequiredLong(ASSET_FILE_ID), workspaceId);
 
         return AssetFileUtils.toMap(assetFile);

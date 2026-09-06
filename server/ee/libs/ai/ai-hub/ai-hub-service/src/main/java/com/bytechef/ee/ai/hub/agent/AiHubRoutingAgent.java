@@ -14,7 +14,7 @@ import com.agui.core.event.RunErrorEvent;
 import com.agui.core.exception.AGUIException;
 import com.agui.server.LocalAgent;
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatKind;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
@@ -65,7 +65,14 @@ public class AiHubRoutingAgent extends LocalAgent {
     private final AiHubSpringAIAgent llmAgent;
     private final @Nullable WebhookBridgeAgent webhookBridgeAgent;
     private final AiHubChatService chatService;
-    private final AssetFileFacade assetFileFacade;
+
+    /**
+     * The system facade, not {@code AssetFileFacade}: this runs on a {@code ForkJoinPool.commonPool()} worker where
+     * {@code AiHubAgentTenantBinder} has bound the tenant but no {@code Authentication}, so a membership check would
+     * throw rather than deny. The workspace comes from the chat row and the caller's access to it was verified by
+     * {@code AiHubApiController.enforceWorkspaceAccess} on the request thread.
+     */
+    private final AssetFileSystemFacade assetFileSystemFacade;
 
     /**
      * Constructs the routing agent. {@code webhookBridgeAgent} is nullable so deployments that don't ship the webhook
@@ -76,7 +83,7 @@ public class AiHubRoutingAgent extends LocalAgent {
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AiHubRoutingAgent(
         String agentId, AiHubSpringAIAgent llmAgent, @Nullable WebhookBridgeAgent webhookBridgeAgent,
-        AiHubChatService chatService, AssetFileFacade assetFileFacade) throws AGUIException {
+        AiHubChatService chatService, AssetFileSystemFacade assetFileSystemFacade) throws AGUIException {
 
         // LocalAgent's constructor needs a non-null systemMessage OR systemMessageProvider. The router never invokes
         // an LLM directly — `run()` always delegates to either llmAgent or webhookBridgeAgent — so a placeholder
@@ -86,7 +93,7 @@ public class AiHubRoutingAgent extends LocalAgent {
         this.llmAgent = llmAgent;
         this.webhookBridgeAgent = webhookBridgeAgent;
         this.chatService = chatService;
-        this.assetFileFacade = assetFileFacade;
+        this.assetFileSystemFacade = assetFileSystemFacade;
     }
 
     @Override
@@ -138,8 +145,8 @@ public class AiHubRoutingAgent extends LocalAgent {
     }
 
     /**
-     * Best-effort upload of {@code forwardedProps.attachments} to AssetFileFacade for STANDARD chats. Each successful
-     * upload becomes browsable in the Files panel and discoverable by the LLM through
+     * Best-effort upload of {@code forwardedProps.attachments} to AssetFileSystemFacade for STANDARD chats. Each
+     * successful upload becomes browsable in the Files panel and discoverable by the LLM through
      * {@code ListAssetFilesToolCallback}. The base64 stays in {@code forwardedProps} for the downstream agent — we
      * don't mutate the parameters to avoid coupling the LLM agent to attachment shape changes.
      *
@@ -218,7 +225,7 @@ public class AiHubRoutingAgent extends LocalAgent {
         byte[] bytes = Base64.getDecoder()
             .decode(base64String);
 
-        return assetFileFacade.createFromUpload(
+        return assetFileSystemFacade.createFromUpload(
             workspaceId, environmentOrdinal, filename, contentType, new ByteArrayInputStream(bytes));
     }
 

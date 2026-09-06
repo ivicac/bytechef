@@ -26,7 +26,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.assetfile.util.AssetFileUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -44,18 +44,20 @@ import java.util.Map;
  */
 public class AssetFileUploadAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileUploadAction(assetFileFacade, contextResolver).build();
+        return new AssetFileUploadAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileUploadAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileUploadAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -94,7 +96,7 @@ public class AssetFileUploadAction {
 
         InputStream inputStream = actionContext.file(file -> file.getInputStream(fileEntry));
 
-        AssetFile assetFile = assetFileFacade.createFromUpload(
+        AssetFile assetFile = assetFileSystemFacade.createFromUpload(
             workspaceId, environment, filename, contentType, inputStream);
 
         return AssetFileUtils.toMap(assetFile);

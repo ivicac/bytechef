@@ -118,7 +118,8 @@ class WebhookBridgeAgentTenantContextTest {
             mock(com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor.class), chatService,
             mock(WebhookResumeRegistry.class), tools.jackson.databind.json.JsonMapper.builder()
                 .build(),
-            mock(com.bytechef.automation.assetfile.service.AssetFileFacade.class), mock(WorkflowChatMetrics.class),
+            mock(com.bytechef.automation.assetfile.service.AssetFileSystemFacade.class),
+            mock(WorkflowChatMetrics.class),
             mock(WorkflowChatJobRegistry.class),
             new AiHubSessionMemory(
                 InMemorySessionRepository.builder()

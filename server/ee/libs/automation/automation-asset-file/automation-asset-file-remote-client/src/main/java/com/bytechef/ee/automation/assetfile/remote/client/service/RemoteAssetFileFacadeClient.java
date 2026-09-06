@@ -14,7 +14,6 @@ import com.bytechef.automation.assetfile.service.AssetFileFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -85,11 +84,6 @@ public class RemoteAssetFileFacadeClient implements AssetFileFacade {
     }
 
     @Override
-    public Long getOwningWorkspaceId(Long id) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public AssetFile rename(Long id, String newName) {
         throw new UnsupportedOperationException();
     }
@@ -126,11 +120,6 @@ public class RemoteAssetFileFacadeClient implements AssetFileFacade {
 
     @Override
     public void disablePublicLink(Long id) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<AssetFile> fetchByPublicLinkToken(String token) {
         throw new UnsupportedOperationException();
     }
 

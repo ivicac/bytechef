@@ -24,7 +24,7 @@ import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.object;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
@@ -38,18 +38,20 @@ import java.util.Map;
  */
 public class AssetFileDeleteAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileDeleteAction(assetFileFacade, contextResolver).build();
+        return new AssetFileDeleteAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileDeleteAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileDeleteAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -80,9 +82,7 @@ public class AssetFileDeleteAction {
         long workspaceId = contextResolver.resolveWorkspaceId(actionContext);
         long assetFileId = inputParameters.getRequiredLong(ASSET_FILE_ID);
 
-        assetFileFacade.findByIdInWorkspace(assetFileId, workspaceId);
-
-        assetFileFacade.delete(assetFileId);
+        assetFileSystemFacade.deleteInWorkspace(assetFileId, workspaceId);
 
         return Map.of("deleted", true, "assetFileId", assetFileId);
     }

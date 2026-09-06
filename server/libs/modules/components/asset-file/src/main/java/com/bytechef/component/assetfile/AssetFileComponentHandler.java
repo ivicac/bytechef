@@ -20,7 +20,7 @@ import static com.bytechef.component.assetfile.constant.AssetFileConstants.ASSET
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.tool;
 
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.component.ComponentHandler;
@@ -51,11 +51,11 @@ public class AssetFileComponentHandler implements ComponentHandler {
     private final ComponentDefinition componentDefinition;
 
     public AssetFileComponentHandler(
-        AssetFileFacade assetFileFacade, ProjectService projectService,
+        AssetFileSystemFacade assetFileSystemFacade, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
         this.componentDefinition = new AssetFileComponentDefinitionImpl(
-            assetFileFacade, new AssetFileContextResolver(projectService, projectWorkflowService));
+            assetFileSystemFacade, new AssetFileContextResolver(projectService, projectWorkflowService));
     }
 
     @Override
@@ -66,21 +66,22 @@ public class AssetFileComponentHandler implements ComponentHandler {
     private static class AssetFileComponentDefinitionImpl extends AbstractComponentDefinitionWrapper {
 
         public AssetFileComponentDefinitionImpl(
-            AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+            AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-            super(buildDefinition(assetFileFacade, contextResolver));
+            super(buildDefinition(assetFileSystemFacade, contextResolver));
         }
 
         private static ComponentDefinition buildDefinition(
-            AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+            AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-            ActionDefinition uploadAction = AssetFileUploadAction.of(assetFileFacade, contextResolver);
-            ActionDefinition downloadAction = AssetFileDownloadAction.of(assetFileFacade, contextResolver);
-            ActionDefinition getAction = AssetFileGetAction.of(assetFileFacade, contextResolver);
-            ActionDefinition findAction = AssetFileFindAction.of(assetFileFacade, contextResolver);
-            ActionDefinition updateContentAction = AssetFileUpdateContentAction.of(assetFileFacade, contextResolver);
-            ActionDefinition renameAction = AssetFileRenameAction.of(assetFileFacade, contextResolver);
-            ActionDefinition deleteAction = AssetFileDeleteAction.of(assetFileFacade, contextResolver);
+            ActionDefinition uploadAction = AssetFileUploadAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition downloadAction = AssetFileDownloadAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition getAction = AssetFileGetAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition findAction = AssetFileFindAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition updateContentAction =
+                AssetFileUpdateContentAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition renameAction = AssetFileRenameAction.of(assetFileSystemFacade, contextResolver);
+            ActionDefinition deleteAction = AssetFileDeleteAction.of(assetFileSystemFacade, contextResolver);
 
             return component(ASSET_FILE)
                 .title("Asset File")

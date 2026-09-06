@@ -23,16 +23,20 @@ import static org.mockito.Mockito.when;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorageImpl;
 import com.bytechef.automation.assetfile.file.storage.config.AssetFileFileStorageConfiguration;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.commons.data.jdbc.converter.FileEntryToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToFileEntryConverter;
 import com.bytechef.file.storage.FileStorageServiceRegistry;
 import com.bytechef.file.storage.base64.service.Base64FileStorageService;
 import com.bytechef.file.storage.service.FileStorageService;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.user.domain.User;
+import com.bytechef.platform.user.service.UserService;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -82,6 +86,30 @@ public class AssetFileIntTestConfiguration {
     ObjectMapper jacksonObjectMapper() {
         return JsonMapper.builder()
             .build();
+    }
+
+    @Bean
+    UserService userService() {
+        User user = new User();
+
+        user.setId(1L);
+
+        UserService userService = mock(UserService.class);
+
+        when(userService.fetchCurrentUser()).thenReturn(Optional.of(user));
+
+        return userService;
+    }
+
+    /**
+     * A bare mock rather than a query-every-workspace-row lambda: the latter reports the current test user as a member
+     * of every workspace in the database, which can't express denial and would silently stop testing anything the
+     * moment a test inserts a second workspace row. Individual tests stub {@code getUserWorkspaces} from their own
+     * captured workspace id.
+     */
+    @Bean
+    WorkspaceFacade workspaceFacade() {
+        return mock(WorkspaceFacade.class);
     }
 
     @EnableJdbcAuditing(auditorAwareRef = "auditorProvider", dateTimeProviderRef = "auditingDateTimeProvider")

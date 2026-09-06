@@ -27,7 +27,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.assetfile.util.AssetFileUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -45,20 +45,20 @@ import java.util.Map;
  */
 public class AssetFileUpdateContentAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileUpdateContentAction(assetFileFacade, contextResolver).build();
+        return new AssetFileUpdateContentAction(assetFileSystemFacade, contextResolver).build();
     }
 
     private AssetFileUpdateContentAction(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        this.assetFileFacade = assetFileFacade;
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -89,15 +89,14 @@ public class AssetFileUpdateContentAction {
         long workspaceId = contextResolver.resolveWorkspaceId(actionContext);
         long assetFileId = inputParameters.getRequiredLong(ASSET_FILE_ID);
 
-        assetFileFacade.findByIdInWorkspace(assetFileId, workspaceId);
-
         FileEntry fileEntry = inputParameters.getRequiredFileEntry(FILE);
 
         String contentType = inputParameters.getString(CONTENT_TYPE, fileEntry.getMimeType());
 
         InputStream inputStream = actionContext.file(file -> file.getInputStream(fileEntry));
 
-        AssetFile assetFile = assetFileFacade.updateContent(assetFileId, contentType, inputStream);
+        AssetFile assetFile = assetFileSystemFacade.updateContentInWorkspace(
+            assetFileId, workspaceId, contentType, inputStream);
 
         return AssetFileUtils.toMap(assetFile);
     }

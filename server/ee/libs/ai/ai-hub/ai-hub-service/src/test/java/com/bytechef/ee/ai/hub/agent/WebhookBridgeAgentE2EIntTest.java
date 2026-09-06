@@ -51,9 +51,9 @@ import org.junit.jupiter.api.Test;
  * instead of a mock.</li>
  *
  * <li><b>Attachment promotion:</b> a turn carrying a base64 attachment lands as a first-class workspace asset file via
- * {@code AssetFileFacade.createFromUpload}, and the workflow trigger sees it as a {@code FileEntry} in the file-list
- * discriminator branch. Pin the round-trip: the file appears in the workspace's Files panel after the turn finishes,
- * browsable through {@code ListAssetFilesToolCallback}.</li>
+ * {@code AssetFileSystemFacade.createFromUpload}, and the workflow trigger sees it as a {@code FileEntry} in the
+ * file-list discriminator branch. Pin the round-trip: the file appears in the workspace's Files panel after the turn
+ * finishes, browsable through {@code ListAssetFilesToolCallback}.</li>
  *
  * <li><b>Telemetry:</b> after running the above, the {@code bytechef_workflow_chat_turn} counter has the expected tag
  * combinations ({@code outcome=sync}, {@code streaming}, {@code resume}, {@code rate_limited},
@@ -128,7 +128,7 @@ public class WebhookBridgeAgentE2EIntTest {
     @Disabled
     public void testAttachmentPromotionRoundTrip() {
         // TODO(WC #13): attach a base64 file via forwardedProps, assert the workflow trigger sees it as a
-        // FileEntry, AssetFileFacade.createFromUpload was called, file is browsable in the Files panel.
+        // FileEntry, AssetFileSystemFacade.createFromUpload was called, file is browsable in the Files panel.
         throw new UnsupportedOperationException("not implemented");
     }
 

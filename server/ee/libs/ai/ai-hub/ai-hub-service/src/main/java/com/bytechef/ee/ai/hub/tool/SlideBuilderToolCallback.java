@@ -12,6 +12,7 @@ import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.agent.tool.CurrentAgentContext.AgentBinding;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,11 +141,14 @@ public class SlideBuilderToolCallback implements ToolCallback {
                     .append(input.slideCount());
             }
 
+            Map<String, Object> forwardedContext = toolContext == null ? Map.of() : toolContext.getContext();
+
             AgentBinding parent = CurrentAgentContext.current();
             AgentType parentAgent = parent != null ? parent.agentName() : null;
 
             String result = CurrentAgentContext.callWith(AiHubAgentType.SLIDE_BUILDER, parentAgent,
                 () -> slideBuilderChatClient.prompt(promptBuilder.toString())
+                    .toolContext(forwardedContext)
                     .call()
                     .content());
 

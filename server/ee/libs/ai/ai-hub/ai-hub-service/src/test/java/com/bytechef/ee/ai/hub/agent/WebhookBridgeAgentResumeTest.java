@@ -23,7 +23,7 @@ import com.agui.core.exception.AGUIException;
 import com.agui.core.message.BaseMessage;
 import com.agui.core.message.UserMessage;
 import com.agui.core.state.State;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatKind;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
@@ -80,7 +80,7 @@ class WebhookBridgeAgentResumeTest {
     private WebhookResumeRegistry resumeRegistry;
     private JsonMapper jsonMapper;
     private AgentSubscriber subscriber;
-    private AssetFileFacade assetFileFacade;
+    private AssetFileSystemFacade assetFileSystemFacade;
 
     private HttpServer httpServer;
     private String baseUrl;
@@ -94,7 +94,7 @@ class WebhookBridgeAgentResumeTest {
         jsonMapper = JsonMapper.builder()
             .build();
         subscriber = mock(AgentSubscriber.class);
-        assetFileFacade = mock(AssetFileFacade.class);
+        assetFileSystemFacade = mock(AssetFileSystemFacade.class);
 
         // Bind to ephemeral port on the loopback so concurrent test runs don't collide. Using
         // InetAddress.getLoopbackAddress() rather than a hardcoded "127.0.0.1" string keeps PMD's
@@ -348,7 +348,7 @@ class WebhookBridgeAgentResumeTest {
         when(guard.tryAdmit(anyLong())).thenReturn(WorkflowChatGuard.AdmissionResult.admit());
 
         return new WebhookBridgeAgent(
-            webhookFacade, chatService, resumeRegistry, jsonMapper, assetFileFacade,
+            webhookFacade, chatService, resumeRegistry, jsonMapper, assetFileSystemFacade,
             mock(com.bytechef.ee.ai.hub.metric.WorkflowChatMetrics.class),
             mock(WorkflowChatJobRegistry.class),
             new com.bytechef.ee.ai.hub.memory.AiHubSessionMemory(

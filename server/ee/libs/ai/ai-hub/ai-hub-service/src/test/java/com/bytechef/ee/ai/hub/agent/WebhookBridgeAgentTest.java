@@ -8,6 +8,7 @@
 package com.bytechef.ee.ai.hub.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -27,7 +28,7 @@ import com.agui.core.message.BaseMessage;
 import com.agui.core.message.UserMessage;
 import com.agui.core.state.State;
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatKind;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
@@ -43,10 +44,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.security.core.context.SecurityContextHolder;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -70,7 +73,7 @@ class WebhookBridgeAgentTest {
     private WebhookResumeRegistry resumeRegistry;
     private JsonMapper jsonMapper;
     private AgentSubscriber subscriber;
-    private AssetFileFacade assetFileFacade;
+    private AssetFileSystemFacade assetFileSystemFacade;
 
     @BeforeEach
     void setUp() {
@@ -81,12 +84,12 @@ class WebhookBridgeAgentTest {
         jsonMapper = JsonMapper.builder()
             .build();
         subscriber = mock(AgentSubscriber.class);
-        assetFileFacade = mock(AssetFileFacade.class);
+        assetFileSystemFacade = mock(AssetFileSystemFacade.class);
 
         // Default createFromUpload stub: return an AssetFile shaped like the production happy path. Tests that
         // need to assert specific upload arguments override this with a captor.
         when(
-            assetFileFacade.createFromUpload(
+            assetFileSystemFacade.createFromUpload(
                 anyLong(), anyInt(), anyString(), anyString(), any(java.io.InputStream.class)))
                     .thenAnswer(invocation -> {
                         String filename = invocation.getArgument(2);
@@ -100,6 +103,11 @@ class WebhookBridgeAgentTest {
 
                         return assetFile;
                     });
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -251,6 +259,66 @@ class WebhookBridgeAgentTest {
         assertThat(fileEntry.getName()).isEqualTo("report.pdf");
         assertThat(fileEntry.getMimeType()).isEqualTo("application/pdf");
         assertThat(fileEntry.getUrl()).isEqualTo("file:///workspace/report.pdf");
+    }
+
+    /**
+     * The highest-value test in this class: {@code runBridge} executes on a {@code ForkJoinPool.commonPool()} worker
+     * where {@code AiHubAgentTenantBinder} binds the tenant but establishes no {@code Authentication}. A membership
+     * check on that thread throws rather than denies — and {@link #promoteAttachments} swallows that throw as a
+     * per-attachment upload failure, so the regression this guards against is silent: the chat turn still completes,
+     * but every workflow-chat attachment quietly stops appearing in the promoted list. Deliberately does NOT stub a
+     * current user — stubbing one would hide exactly this defect.
+     *
+     * <p>
+     * The discriminating assertion is the attachment count below: if the upload had been silently swallowed as an
+     * {@code AccessDeniedException} (the pre-fix behaviour), the attachments list would come back empty even though
+     * {@code runAgent} itself never threw.
+     * </p>
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testAttachmentUploadSucceedsWithNoSecurityContextEstablished() throws AGUIException {
+        SecurityContextHolder.clearContext();
+
+        AiHubChat chat =
+            newChat(AiHubChatKind.WORKFLOW_CHAT, AiHubChatStatus.ACTIVE,
+                "Chat");
+
+        when(chatService.findByThreadId(THREAD_ID))
+            .thenReturn(Optional.of(chat));
+        when(webhookFacade.isWorkflowDisabled(any(WorkflowExecutionId.class)))
+            .thenReturn(false);
+        when(webhookFacade.getWebhookTriggerFlags(any(WorkflowExecutionId.class)))
+            .thenReturn(new WebhookTriggerFlags(false, true, false, false));
+        when(webhookFacade.executeSync(any(WorkflowExecutionId.class), any(WebhookRequest.class)))
+            .thenReturn(CompletableFuture.completedFuture(Map.of("message", "ok")));
+
+        Map<String, Object> attachment = Map.of(
+            "name", "no-auth.pdf",
+            "contentType", "application/pdf",
+            "base64", "JVBERi0=");
+        Map<String, Object> forwardedProps = Map.of("attachments", List.of(attachment));
+
+        WebhookBridgeAgent agent = newAgent();
+
+        assertThatNoException()
+            .as("this runs on a commonPool worker where only the tenant is bound; requiring a principal here "
+                + "breaks every workflow-chat attachment upload")
+            .isThrownBy(() -> agent.runAgent(parametersOf(buildInput("Hello", forwardedProps)), subscriber));
+
+        ArgumentCaptor<WebhookRequest> requestCaptor = ArgumentCaptor.forClass(WebhookRequest.class);
+
+        verify(webhookFacade, timeout(2000)).executeSync(any(WorkflowExecutionId.class), requestCaptor.capture());
+
+        Map<String, Object> bodyContent = (Map<String, Object>) requestCaptor.getValue()
+            .body()
+            .getContent();
+
+        List<?> attachments = (List<?>) bodyContent.get("attachments");
+
+        assertThat(attachments).hasSize(1);
+        verify(assetFileSystemFacade).createFromUpload(
+            anyLong(), anyInt(), anyString(), anyString(), any(java.io.InputStream.class));
     }
 
     @Test
@@ -468,7 +536,7 @@ class WebhookBridgeAgentTest {
         when(guard.tryAdmit(anyLong())).thenReturn(WorkflowChatGuard.AdmissionResult.admit());
 
         return new WebhookBridgeAgent(
-            webhookFacade, chatService, resumeRegistry, jsonMapper, assetFileFacade,
+            webhookFacade, chatService, resumeRegistry, jsonMapper, assetFileSystemFacade,
             mock(com.bytechef.ee.ai.hub.metric.WorkflowChatMetrics.class),
             mock(WorkflowChatJobRegistry.class),
             new com.bytechef.ee.ai.hub.memory.AiHubSessionMemory(

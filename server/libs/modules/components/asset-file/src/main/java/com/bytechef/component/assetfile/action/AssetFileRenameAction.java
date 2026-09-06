@@ -25,7 +25,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.assetfile.util.AssetFileUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -40,18 +40,20 @@ import java.util.Map;
  */
 public class AssetFileRenameAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileRenameAction(assetFileFacade, contextResolver).build();
+        return new AssetFileRenameAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileRenameAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileRenameAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -80,9 +82,7 @@ public class AssetFileRenameAction {
         long assetFileId = inputParameters.getRequiredLong(ASSET_FILE_ID);
         String newName = inputParameters.getRequiredString(NEW_NAME);
 
-        assetFileFacade.findByIdInWorkspace(assetFileId, workspaceId);
-
-        AssetFile assetFile = assetFileFacade.rename(assetFileId, newName);
+        AssetFile assetFile = assetFileSystemFacade.renameInWorkspace(assetFileId, workspaceId, newName);
 
         return AssetFileUtils.toMap(assetFile);
     }

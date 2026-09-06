@@ -12,6 +12,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-autoconfigure")
     implementation("org.springframework.data:spring-data-jdbc")
     implementation("org.springframework.security:spring-security-core")
+    implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:core:exception:exception-api"))
     implementation(project(":server:libs:core:file-storage:file-storage-api"))
@@ -19,6 +20,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-plan:platform-plan-api"))
     implementation(project(":server:libs:platform:platform-rate-limit"))
     implementation(project(":server:libs:platform:platform-tag:platform-tag-api"))
+    implementation(project(":server:libs:platform:platform-user:platform-user-api"))
 
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
@@ -35,4 +37,38 @@ dependencies {
     testImplementation(project(":server:libs:test:test-int-support"))
     testImplementation(project(":server:libs:test:test-support"))
     testImplementation("org.testcontainers:postgresql")
+}
+
+// AssetFileSystemFacadeCallerScanTest reads production Java sources across server/ (including other modules, e.g.
+// the asset-file component and ee/libs/ai/ai-hub/ai-hub-service) directly off disk at run time via
+// Files.readString, which is invisible to Gradle's task-input graph. Without help, a change to one of those other
+// modules' files leaves this module's own test task fingerprint unchanged, and both the up-to-date check and the
+// remote build-cache key (this build enables org.gradle.caching) would report the task as still current - the scan
+// would silently not re-execute.
+//
+// Declaring the scanned tree as an input of `test` was tried first for the sibling scan this one copies
+// (toolContextWorkspaceScan in automation-ai-tool) and had to be reverted: it made every spotless task a producer
+// of that task's declared inputs, so `check` failed validation before running a single test. A dedicated
+// never-up-to-date task keeps the scan honest without claiming server/ as an input at all.
+val assetFileCallerScan = tasks.register<Test>("assetFileCallerScan") {
+    useJUnitPlatform()
+
+    description = "Runs the cross-module AssetFileSystemFacade caller scan. Never cached, never up to date."
+    group = "verification"
+
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+
+    dependsOn(tasks.testClasses)
+    include("**/AssetFileSystemFacadeCallerScanTest*")
+
+    outputs.upToDateWhen { false }
+}
+
+tasks.test {
+    exclude("**/AssetFileSystemFacadeCallerScanTest*")
+}
+
+tasks.check {
+    dependsOn(assetFileCallerScan)
 }

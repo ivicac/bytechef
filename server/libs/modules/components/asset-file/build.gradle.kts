@@ -7,4 +7,7 @@ dependencies {
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
+
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.springframework.security:spring-security-core")
 }
