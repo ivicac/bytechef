@@ -195,6 +195,10 @@ public class SensitiveDataRedactor {
         List<SensitiveSpan> candidates = new ArrayList<>();
         long deadline = System.nanoTime() + bounds.timeout()
             .toNanos();
+        // The SAME instant the cooperative between-detector checks use, not a second budget. So the pass timeout is
+        // now genuinely enforced: it bounds the whole pass as before AND, through MatchDeadline, any single match
+        // inside it -- which is what the cooperative form alone could never do.
+        MatchDeadline matchDeadline = MatchDeadline.at(deadline);
 
         // Windowable detectors run first, to completion. That ordering IS the guarantee that the regex pass -- where
         // every identifying pattern lives -- cannot be starved by a detector that runs long, and it needs no
@@ -208,7 +212,7 @@ public class SensitiveDataRedactor {
                 return List.copyOf(candidates);
             }
 
-            collectSpans(detector, text, candidates, metrics);
+            collectSpans(detector, text, candidates, matchDeadline, metrics);
         }
 
         for (SensitiveDataDetector detector : detectors) {
@@ -233,7 +237,7 @@ public class SensitiveDataRedactor {
                 return List.copyOf(candidates);
             }
 
-            collectSpans(detector, text, candidates, metrics);
+            collectSpans(detector, text, candidates, matchDeadline, metrics);
         }
 
         return List.copyOf(candidates);
@@ -579,10 +583,10 @@ public class SensitiveDataRedactor {
 
     private void collectSpans(
         SensitiveDataDetector detector, String text, List<SensitiveSpan> candidates,
-        @Nullable SensitiveDataMetrics metrics) {
+        MatchDeadline matchDeadline, @Nullable SensitiveDataMetrics metrics) {
 
         try {
-            List<SensitiveSpan> spans = detector.detect(text);
+            List<SensitiveSpan> spans = detector.detect(text, matchDeadline);
 
             if (spans == null) {
                 return;
@@ -597,6 +601,29 @@ public class SensitiveDataRedactor {
             }
 
             candidates.addAll(spans);
+        } catch (DetectionTimeoutException detectionTimeoutException) {
+            // NOT detector_failed. A detector that threw and one that was cut off mid-match are different facts, and
+            // the whole reason this bound exists is that the second used to be invisible -- "a slow detector never
+            // throws" was true until MatchDeadline made it false.
+            log.warn(
+                "Sensitive-data detector '{}' exceeded its match deadline; continuing without its spans: {}",
+                detector.name(), detectionTimeoutException.getMessage());
+
+            if (metrics != null) {
+                metrics.recordDetectorTimedOut(detector.name());
+            }
+        } catch (StackOverflowError stackOverflowError) {
+            // Deliberately catching an Error, which is normally wrong. Measured on this JVM: (a|aa)+$ against 4,000
+            // characters overflows the stack in 8ms -- faster than any useful deadline, and an Error, so the
+            // RuntimeException catch below never saw it. Left uncaught it kills the guarded call outright, which is a
+            // worse outcome than losing one detector's spans. The stack has already unwound by the time we are here
+            // and a Matcher holds no state the next call inherits, so continuing is safe.
+            log.warn(
+                "Sensitive-data detector '{}' overflowed the stack; continuing without its spans", detector.name());
+
+            if (metrics != null) {
+                metrics.recordDetectorFailure(detector.name());
+            }
         } catch (RuntimeException exception) {
             log.warn("Sensitive-data detector '{}' failed; continuing without its spans", detector.name(), exception);
 
