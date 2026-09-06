@@ -1,0 +1,103 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.platform.scheduler.db.config;
+
+import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
+import com.bytechef.platform.connection.facade.ConnectionFacade;
+import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshData;
+import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshTaskFactory;
+import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefresher;
+import com.bytechef.platform.scheduler.db.task.OAuth2TokenRefreshData;
+import com.bytechef.platform.scheduler.db.task.OAuth2TokenRefreshTaskFactory;
+import com.bytechef.platform.scheduler.db.task.OneTimeResumeData;
+import com.bytechef.platform.scheduler.db.task.OneTimeResumeTaskFactory;
+import com.bytechef.platform.scheduler.db.task.PollingTriggerData;
+import com.bytechef.platform.scheduler.db.task.PollingTriggerTaskFactory;
+import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
+import com.bytechef.platform.scheduler.db.task.ScheduleTriggerTaskFactory;
+import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
+import com.bytechef.platform.workflow.execution.service.TriggerStateService;
+import com.github.kagkarlsson.scheduler.boot.autoconfigure.Jackson3Serializer;
+import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
+import com.github.kagkarlsson.scheduler.serializer.Serializer;
+import com.github.kagkarlsson.scheduler.task.Task;
+import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Registers the db-scheduler provider. Every bean here exists only when bytechef.scheduler.provider=db-scheduler.
+ *
+ * @author Ivica Cardic
+ */
+@Configuration
+@ConditionalOnProperty(prefix = "bytechef", name = "scheduler.provider", havingValue = "db-scheduler")
+public class DbSchedulerConfiguration {
+
+    @Bean
+    DbSchedulerCustomizer dbSchedulerCustomizer(ObjectProvider<JsonMapper> jsonMapperProvider) {
+        JsonMapper jsonMapper = jsonMapperProvider.getIfAvailable(() -> JsonMapper.builder()
+            .build());
+
+        return new DbSchedulerCustomizer() {
+
+            @Override
+            public Optional<Serializer> serializer() {
+                return Optional.of(new Jackson3Serializer(jsonMapper));
+            }
+        };
+    }
+
+    @Bean
+    DynamicWebhookRefresher dynamicWebhookRefresher(
+        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, TriggerDefinitionFacade triggerDefinitionFacade,
+        TriggerStateService triggerStateService, WorkflowService workflowService) {
+
+        return new DynamicWebhookRefresher(
+            jobPrincipalAccessorRegistry, triggerDefinitionFacade, triggerStateService, workflowService);
+    }
+
+    @Bean
+    Task<DynamicWebhookRefreshData> dynamicWebhookRefreshTask(DynamicWebhookRefresher dynamicWebhookRefresher) {
+        return DynamicWebhookRefreshTaskFactory.create(dynamicWebhookRefresher);
+    }
+
+    @Bean
+    Task<OAuth2TokenRefreshData> oauth2TokenRefreshTask(ConnectionFacade connectionFacade) {
+        return OAuth2TokenRefreshTaskFactory.create(connectionFacade);
+    }
+
+    @Bean
+    Task<OneTimeResumeData> oneTimeResumeTask(ApplicationEventPublisher eventPublisher) {
+        return OneTimeResumeTaskFactory.create(eventPublisher);
+    }
+
+    @Bean
+    Task<PollingTriggerData> pollingTriggerTask(ApplicationEventPublisher eventPublisher) {
+        return PollingTriggerTaskFactory.create(eventPublisher);
+    }
+
+    @Bean
+    Task<ScheduleTriggerData> scheduleTriggerTask(ApplicationEventPublisher eventPublisher) {
+        return ScheduleTriggerTaskFactory.create(eventPublisher);
+    }
+}
