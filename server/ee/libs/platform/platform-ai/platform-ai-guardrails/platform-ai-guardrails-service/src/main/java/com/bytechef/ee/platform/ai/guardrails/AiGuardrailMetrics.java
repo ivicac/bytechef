@@ -30,12 +30,16 @@ import org.springframework.stereotype.Component;
  * violation was detected under {@code BlockingMode.ALLOW} and the content was forwarded unmodified -- observe mode's
  * entire product, and the reason {@code ALLOW} is distinguishable from the guardrail simply being off),
  * {@code detector_failed} (a {@code SensitiveDataDetector} threw and was skipped for that call),
- * {@code below_confidence_threshold} (at least one candidate span was dropped from a call because its confidence fell
- * below {@code SensitiveDataRedactor}'s {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a
- * tool call's arguments was restored before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool),
- * {@code tool_result_tokenized} (at least one value in a tool's result was tokenized/redacted before it reached the
- * model), or {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation
- * history {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
+ * {@code detector_timed_out} (a detection pass exceeded its budget and abandoned its remaining work, so its spans are
+ * partial -- distinct from {@code detector_failed}, since a slow detector never throws),
+ * {@code detector_skipped_oversize} (a detector that cannot be applied to a fragment was not run at all, because the
+ * input exceeded the configured maximum for one), {@code below_confidence_threshold} (at least one candidate span was
+ * dropped from a call because its confidence fell below {@code SensitiveDataRedactor}'s {@code minConfidence}),
+ * {@code tool_args_restored} (at least one PII token in a tool call's arguments was restored before
+ * {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool), {@code tool_result_tokenized} (at least one
+ * value in a tool's result was tokenized/redacted before it reached the model), or
+ * {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation history
+ * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
  * {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter).
  * Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays cheap on unbounded
  * multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without an actuator
@@ -67,6 +71,8 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     public static final String COUNTER_NAME = "bytechef_ai_guardrail";
 
     private static final String DETECTOR_FAILED_EVENT = "detector_failed";
+    private static final String DETECTOR_TIMED_OUT_EVENT = "detector_timed_out";
+    private static final String DETECTOR_SKIPPED_OVERSIZE_EVENT = "detector_skipped_oversize";
     private static final String BELOW_CONFIDENCE_THRESHOLD_EVENT = "below_confidence_threshold";
     private static final String TOOL_ARGS_RESTORED_EVENT = "tool_args_restored";
     private static final String TOOL_RESULT_TOKENIZED_EVENT = "tool_result_tokenized";
@@ -125,6 +131,26 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public void recordDetectorFailure(String detectorName) {
         record(DETECTOR_FAILED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for a detection pass cut off by its budget. The detector name is accepted and
+     * not tagged, exactly as {@link #recordDetectorFailure} treats it: this counter carries only {@code event} and
+     * {@code surface} so it stays cheap on unbounded multi-tenant deployments, and the name reaches operators through
+     * the redactor's WARN line instead.
+     */
+    @Override
+    public void recordDetectorTimedOut(String detectorName) {
+        record(DETECTOR_TIMED_OUT_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for an unwindowable detector skipped on an oversized input. Same tagging
+     * treatment, and for the same reason, as {@link #recordDetectorTimedOut}.
+     */
+    @Override
+    public void recordDetectorSkippedOversize(String detectorName) {
+        record(DETECTOR_SKIPPED_OVERSIZE_EVENT);
     }
 
     /**
