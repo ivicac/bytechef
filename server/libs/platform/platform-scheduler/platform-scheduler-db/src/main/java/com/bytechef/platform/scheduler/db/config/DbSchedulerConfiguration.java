@@ -27,7 +27,6 @@ import com.bytechef.platform.scheduler.TriggerScheduler;
 import com.bytechef.platform.scheduler.db.DbConnectionRefreshScheduler;
 import com.bytechef.platform.scheduler.db.DbTriggerScheduler;
 import com.bytechef.platform.scheduler.db.importer.ImportSummary;
-import com.bytechef.platform.scheduler.db.importer.QuartzImportStarter;
 import com.bytechef.platform.scheduler.db.importer.QuartzImporter;
 import com.bytechef.platform.scheduler.db.importer.QuartzJobReader;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshData;
@@ -49,6 +48,8 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.serializer.Serializer;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
+import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
+import java.time.Duration;
 import java.util.Optional;
 import org.quartz.Scheduler;
 import org.slf4j.Logger;
@@ -140,14 +141,6 @@ public class DbSchedulerConfiguration {
     @ConditionalOnProperty(
         prefix = "bytechef", name = "scheduler.db-scheduler.importer.enabled", havingValue = "true",
         matchIfMissing = true)
-    QuartzImportStarter quartzImportStarter(@Lazy SchedulerClient schedulerClient) {
-        return new QuartzImportStarter(schedulerClient);
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-        prefix = "bytechef", name = "scheduler.db-scheduler.importer.enabled", havingValue = "true",
-        matchIfMissing = true)
     Task<Void> quartzImportTask(
         ApplicationProperties applicationProperties, ObjectProvider<Scheduler> quartzSchedulerProvider,
         @Lazy SchedulerClient schedulerClient) {
@@ -156,9 +149,9 @@ public class DbSchedulerConfiguration {
             .getTrigger()
             .getPolling();
 
-        return Tasks.oneTime(QUARTZ_IMPORT)
+        return Tasks.recurring(QUARTZ_IMPORT, FixedDelay.of(Duration.ofDays(3650)))
             .execute((taskInstance, executionContext) -> {
-                Scheduler quartzScheduler = quartzSchedulerProvider.getIfAvailable();
+                Scheduler quartzScheduler = quartzSchedulerProvider.getIfUnique();
 
                 if (quartzScheduler == null) {
                     log.info("No Quartz scheduler bean present, nothing to import");
