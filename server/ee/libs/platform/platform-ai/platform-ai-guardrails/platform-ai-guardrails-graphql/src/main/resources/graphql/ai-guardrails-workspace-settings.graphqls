@@ -18,6 +18,7 @@ type AiGuardrailsWorkspaceSettings {
     blockingMode: AiGuardrailsBlockingMode
     minConfidence: Float
     redactMcpResults: Boolean
+    restoreIntoWorkflowOutput: Boolean
 }
 
 enum AiGuardrailsBlockingMode {
@@ -44,4 +45,5 @@ input AiGuardrailsWorkspaceSettingsInput {
     blockingMode: AiGuardrailsBlockingMode
     minConfidence: Float
     redactMcpResults: Boolean
+    restoreIntoWorkflowOutput: Boolean
 }

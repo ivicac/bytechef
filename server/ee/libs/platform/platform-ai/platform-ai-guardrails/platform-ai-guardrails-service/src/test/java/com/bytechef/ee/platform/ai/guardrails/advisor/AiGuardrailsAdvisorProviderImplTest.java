@@ -9,7 +9,6 @@ package com.bytechef.ee.platform.ai.guardrails.advisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -22,6 +21,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.constant.PlatformType;
@@ -73,68 +73,74 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenReturn(projectDeployment(PROJECT_ID));
         when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
 
         assertThat(advisor).isPresent();
 
-        verify(aiGuardrails).isActive(WORKSPACE_ID);
-        verify(aiGuardrails, never()).isActive(isNull());
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID));
+        verify(aiGuardrails, never()).isActive(AiGuardrailsSettingsTarget.platform());
     }
 
+    /**
+     * The bug this fix closes: an embedded run used to resolve {@code workspaceId = null} exactly as an unattributed
+     * automation run does, and both fell through to the tenant-default {@code PLATFORM} row. It must instead resolve
+     * the {@code EMBEDDED} target regardless of what the workspace resolver returns for it -- see
+     * {@link AiGuardrailsAdvisorProviderScopeTest} for the full scope-resolution coverage.
+     */
     @Test
-    void testEmbeddedPlatformResolvesNullWorkspace() {
-        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+    void testEmbeddedPlatformResolvesTheEmbeddedTarget() {
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.embedded())).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.EMBEDDED, JOB_PRINCIPAL_ID, SURFACE);
 
         assertThat(advisor).isPresent();
 
-        verify(aiGuardrails).isActive(isNull());
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.embedded());
         verify(projectDeploymentService, never()).getProjectDeployment(anyLong());
     }
 
     @Test
-    void testNullJobPrincipalIdResolvesNullWorkspace() {
-        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+    void testNullJobPrincipalIdResolvesTheTenantDefault() {
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.platform())).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(PlatformType.AUTOMATION, null, SURFACE);
 
         assertThat(advisor).isPresent();
 
-        verify(aiGuardrails).isActive(isNull());
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.platform());
         verify(projectDeploymentService, never()).getProjectDeployment(anyLong());
     }
 
     @Test
-    void testResolutionExceptionFallsBackToNullWorkspace() {
+    void testResolutionExceptionFallsBackToTheTenantDefault() {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenThrow(new RuntimeException("project deployment not found"));
-        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.platform())).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
 
         assertThat(advisor).isPresent();
 
-        verify(aiGuardrails).isActive(isNull());
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.platform());
     }
 
     @Test
-    void testMissingProjectServicesResolvesNullWorkspace() {
+    void testMissingProjectServicesResolvesTheTenantDefault() {
         when(projectDeploymentServiceProvider.getIfAvailable()).thenReturn(null);
         when(projectServiceProvider.getIfAvailable()).thenReturn(null);
-        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.platform())).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
 
         assertThat(advisor).isPresent();
 
-        verify(aiGuardrails).isActive(isNull());
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.platform());
         verify(projectDeploymentService, never()).getProjectDeployment(anyLong());
     }
 
@@ -143,7 +149,7 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenReturn(projectDeployment(PROJECT_ID));
         when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(false);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(false);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
@@ -156,7 +162,7 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenReturn(projectDeployment(PROJECT_ID));
         when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
 
         aiGuardrailsAdvisorProvider.getAdvisor(PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
         aiGuardrailsAdvisorProvider.getAdvisor(PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
@@ -170,7 +176,7 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenReturn(projectDeployment(PROJECT_ID));
         when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(false);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(false);
 
         SensitiveDataMetrics metrics = aiGuardrailsAdvisorProvider.getMetrics(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
@@ -189,7 +195,7 @@ class AiGuardrailsAdvisorProviderImplTest {
         when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
             .thenReturn(projectDeployment(PROJECT_ID));
         when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
@@ -209,7 +215,7 @@ class AiGuardrailsAdvisorProviderImplTest {
      */
     @Test
     void testGetMetricsRecordsUnderTheRequestedSurfaceTagNotAnotherCallers() {
-        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.embedded())).thenReturn(true);
 
         SensitiveDataMetrics agentMetrics = aiGuardrailsAdvisorProvider.getMetrics(
             PlatformType.EMBEDDED, JOB_PRINCIPAL_ID, "ai_agent");
@@ -239,7 +245,7 @@ class AiGuardrailsAdvisorProviderImplTest {
 
     @Test
     void testGetAdvisorForWorkspaceUsesTheGivenWorkspaceWithoutDerivingOne() {
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE);
 
@@ -250,7 +256,7 @@ class AiGuardrailsAdvisorProviderImplTest {
 
     @Test
     void testGetAdvisorForWorkspaceIsEmptyWhenNothingIsActiveForThatWorkspace() {
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(false);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(false);
 
         Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE);
 
@@ -258,15 +264,15 @@ class AiGuardrailsAdvisorProviderImplTest {
 
         // isActive returning false is also what a bare mock returns, so an implementation that never consulted the
         // policy at all would satisfy the assertion above. This is what makes the empty answer mean something.
-        verify(aiGuardrails).isActive(WORKSPACE_ID);
+        verify(aiGuardrails).isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID));
     }
 
     @Test
     void testGetAdvisorForWorkspaceFollowsThePolicyRatherThanAlwaysAnsweringTheSameWay() {
         long inactiveWorkspaceId = WORKSPACE_ID + 1;
 
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
-        when(aiGuardrails.isActive(inactiveWorkspaceId)).thenReturn(false);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(inactiveWorkspaceId))).thenReturn(false);
 
         assertThat(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE))
             .as("the same call must differ by workspace policy, or neither the present nor the empty case proves "
@@ -278,7 +284,7 @@ class AiGuardrailsAdvisorProviderImplTest {
 
     @Test
     void testGetMetricsForWorkspaceAgreesWithGetAdvisorForWorkspace() {
-        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID))).thenReturn(true);
 
         SensitiveDataMetrics activeMetrics = aiGuardrailsAdvisorProvider.getMetricsForWorkspace(
             WORKSPACE_ID, SURFACE);
@@ -287,7 +293,7 @@ class AiGuardrailsAdvisorProviderImplTest {
 
         long inactiveWorkspaceId = WORKSPACE_ID + 1;
 
-        when(aiGuardrails.isActive(inactiveWorkspaceId)).thenReturn(false);
+        when(aiGuardrails.isActive(AiGuardrailsSettingsTarget.workspace(inactiveWorkspaceId))).thenReturn(false);
 
         SensitiveDataMetrics inactiveMetrics = aiGuardrailsAdvisorProvider.getMetricsForWorkspace(
             inactiveWorkspaceId, SURFACE);

@@ -18,6 +18,7 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifi
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
@@ -214,13 +215,15 @@ public class AiGatewayGuardrails {
 
     /**
      * Redacts (when {@code session} is {@code null}) or tokenizes (otherwise) PII/secrets in one message's content for
-     * the request path via {@link AiGuardrails#applyToInputs(List, Long, PiiTokenSession)}, which already throws
-     * {@link AiGatewayGuardrailException} for a blocked term or flagged injection and never checks moderation (that
-     * stays this adapter's own concern, applied separately in {@link #apply}) regardless of whether {@code session} is
-     * {@code null} — so this method adds no behaviour of its own beyond the single delegating call.
+     * the request path via {@link AiGuardrails#applyToInputs(List, AiGuardrailsSettingsTarget, PiiTokenSession)}, which
+     * already throws {@link AiGatewayGuardrailException} for a blocked term or flagged injection and never checks
+     * moderation (that stays this adapter's own concern, applied separately in {@link #apply}) regardless of whether
+     * {@code session} is {@code null} — so this method adds no behaviour of its own beyond the single delegating call.
      */
     private String redactOrTokenize(String content, @Nullable Long workspaceId, @Nullable PiiTokenSession session) {
-        return aiGuardrails.applyToInputs(List.of(content), workspaceId, session)
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+
+        return aiGuardrails.applyToInputs(List.of(content), target, session)
             .getFirst();
     }
 
@@ -253,7 +256,8 @@ public class AiGatewayGuardrails {
             return inputs;
         }
 
-        List<String> engineProcessed = aiGuardrails.applyToInputs(inputs, workspaceId);
+        List<String> engineProcessed = aiGuardrails.applyToInputs(
+            inputs, AiGuardrailsSettingsTarget.resolve(null, workspaceId), null);
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
 
         if (projectSettings == null) {
@@ -356,6 +360,15 @@ public class AiGatewayGuardrails {
      * needs the two steps kept apart.
      * </p>
      *
+     * <p>
+     * <b>The project's own {@code redactPii}/{@code redactSecrets} widen response-direction redaction too, not just the
+     * request direction.</b> When the project turns response scanning on, this widens {@code target}'s resolved kind
+     * set with whichever of the project's own categories are enabled — the same additive contract
+     * {@link #applyProjectOverlay} already applies to the request direction — so a project configured
+     * {@code redactPii: true, redactSecrets: false, scanResponses: true} inside a workspace with both categories off
+     * still redacts PII outbound (I2, 2026-09-05 final-branch-review fix).
+     * </p>
+     *
      * @param response    the completion response
      * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
      * @param projectId   the project the request is attributed to, or {@code null} when none
@@ -372,6 +385,13 @@ public class AiGatewayGuardrails {
 
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
         boolean projectScanResponses = projectSettings != null && Boolean.TRUE.equals(projectSettings.scanResponses());
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        // Hoisted out of the per-choice loop below (final-branch-review minor fix): resolveMinConfidence resolves
+        // the same target-scoped settings row (and recompiles the same uncached custom-rule regexes) that
+        // redactEnabledKinds/redactPii/redactSecrets below would otherwise also resolve once per choice for a
+        // response with several choices, even though the resolved value never varies across choices in one
+        // response. Resolved once here instead; left at 0 (unused) when the project branch never runs.
+        double projectOverlayMinConfidence = projectScanResponses ? aiGuardrails.resolveMinConfidence(target) : 0;
 
         List<AiGatewayChatCompletionResponse.Choice> choices = response.choices();
         List<AiGatewayChatCompletionResponse.Choice> scannedChoices = new ArrayList<>(choices.size());
@@ -388,18 +408,34 @@ public class AiGatewayGuardrails {
                 continue;
             }
 
-            String scanned = aiGuardrails.scanResponseText(content, workspaceId);
+            String scanned;
 
             if (projectScanResponses) {
-                // 2026-08-31 final-branch-review fix: this project-only extra scan used to run at
-                // SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE regardless of the workspace's own threshold, unlike
-                // scanResponseText just above, which already resolves it. Same fix as applyProjectOverlay's.
-                scanned = aiGuardrails.redactAll(scanned, aiGuardrails.resolveMinConfidence(workspaceId));
+                // The project's own scanResponses being on means response-direction scanning must run using this
+                // target's enabledKinds regardless of the workspace's OWN scanResponses flag, so this branch calls
+                // redactEnabledKinds directly instead of stacking it on top of scanResponseText (which gates on that
+                // flag and would otherwise resolve the same policy a second time for no additional effect).
+                scanned = aiGuardrails.redactEnabledKinds(content, target, projectOverlayMinConfidence, metrics);
+
+                // I2 (2026-09-05 final-branch-review fix): a project's own redactPii/redactSecrets must widen
+                // response-direction redaction the same way they already widen the request direction in
+                // applyProjectOverlay below -- otherwise a project configured redactPii: true, redactSecrets: false,
+                // scanResponses: true inside a workspace with both categories off redacted nothing outbound despite
+                // the project's own "Scan responses" control being on.
+                if (Boolean.TRUE.equals(projectSettings.redactPii())) {
+                    scanned = aiGuardrails.redactPii(scanned, projectOverlayMinConfidence);
+                }
+
+                if (Boolean.TRUE.equals(projectSettings.redactSecrets())) {
+                    scanned = aiGuardrails.redactSecrets(scanned, projectOverlayMinConfidence);
+                }
+            } else {
+                scanned = aiGuardrails.scanResponseText(content, target, metrics);
             }
 
-            // scanResponseText/redactAll are declared @Nullable, so scanned is compared null-safely rather than
-            // dereferenced -- the compiler cannot see that content != null (checked above) makes both calls return
-            // non-null here.
+            // scanResponseText/redactEnabledKinds/redactPii/redactSecrets are declared @Nullable, so scanned is
+            // compared null-safely rather than dereferenced -- the compiler cannot see that content != null (checked
+            // above) makes every branch above return non-null here.
             if (!Objects.equals(scanned, content)) {
                 responseRedacted = true;
             }
@@ -522,7 +558,8 @@ public class AiGatewayGuardrails {
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
         @Nullable Long workspaceId, @Nullable Long projectId) {
 
-        StreamingResponseRedactor redactor = aiGuardrails.newStreamingResponseRedactor(workspaceId);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        StreamingResponseRedactor redactor = aiGuardrails.newStreamingResponseRedactor(target, metrics);
 
         if (redactor != null) {
             return redactor;
@@ -540,7 +577,14 @@ public class AiGatewayGuardrails {
             // unconditionally -- the workspace's own threshold was never consulted here, even though
             // newStreamingResponseRedactor(Long) just above already resolves it when workspace policy alone
             // triggers streaming.
-            return aiGuardrails.newStreamingResponseRedactor(aiGuardrails.resolveMinConfidence(workspaceId));
+            //
+            // 2026-09-05 final-branch-review fix (I1): that fix still redacted EnumSet.allOf(SensitiveKind.class)
+            // unconditionally, since newStreamingResponseRedactor(double) wrapped the same zero-arg constructor
+            // shape -- ignoring the workspace's own redactPii/redactSecrets category switches, unlike the
+            // non-streaming branch a few lines above. The target-based overload resolves the threshold AND the
+            // enabled kind set from the same policy scanResponseText/redactEnabledKinds already use, so both
+            // branches agree on which kinds are redacted for the same config.
+            return aiGuardrails.newStreamingResponseRedactor(target);
         }
 
         return null;
@@ -581,7 +625,7 @@ public class AiGatewayGuardrails {
         }
 
         String result = text;
-        double minConfidence = aiGuardrails.resolveMinConfidence(workspaceId);
+        double minConfidence = aiGuardrails.resolveMinConfidence(AiGuardrailsSettingsTarget.resolve(null, workspaceId));
 
         if (Boolean.TRUE.equals(projectSettings.redactPii())) {
             String redacted = aiGuardrails.redactPii(result, minConfidence);

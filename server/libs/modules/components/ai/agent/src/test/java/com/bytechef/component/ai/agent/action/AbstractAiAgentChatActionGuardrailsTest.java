@@ -34,6 +34,7 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -102,8 +103,9 @@ class AbstractAiAgentChatActionGuardrailsTest {
 
         AiGuardrailsAdvisorProvider provider = mock(AiGuardrailsAdvisorProvider.class);
 
-        when(provider.getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent"))
-            .thenReturn(Optional.of(guardrailsAdvisor));
+        when(provider.getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.WORKFLOW_OUTPUT))
+                .thenReturn(Optional.of(guardrailsAdvisor));
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null,
@@ -155,8 +157,9 @@ class AbstractAiAgentChatActionGuardrailsTest {
 
         AiGuardrailsAdvisorProvider provider = mock(AiGuardrailsAdvisorProvider.class);
 
-        when(provider.getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent"))
-            .thenReturn(Optional.empty());
+        when(provider.getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.WORKFLOW_OUTPUT))
+                .thenReturn(Optional.empty());
 
         SensitiveDataMetrics sensitiveDataMetrics = mock(SensitiveDataMetrics.class);
 
@@ -175,6 +178,51 @@ class AbstractAiAgentChatActionGuardrailsTest {
         }
 
         verify(provider).getMetrics(PlatformType.AUTOMATION, 42L, "ai_agent");
+    }
+
+    /**
+     * I2(b): pins the ternary at {@code AbstractAiAgentChatAction#getChatClientRequestSpec} (around line 325) that
+     * resolves {@link RestorationDestination#CONVERSATION} for a streaming action and
+     * {@link RestorationDestination#WORKFLOW_OUTPUT} for a non-streaming one. Every other test in this class drives
+     * {@link TestAiAgentChatAction}, which does not override {@code isStreaming()} and so always stubs
+     * {@code WORKFLOW_OUTPUT} -- none of them would fail if that ternary's branches were swapped. This test drives
+     * {@link TestStreamingAiAgentChatAction} instead, whose {@code isStreaming()} returns {@code true}, and asserts the
+     * provider is asked for the {@code CONVERSATION} destination specifically.
+     */
+    @Test
+    void testStreamingActionResolvesConversationDestination() throws Exception {
+        Parameters inputParameters = MockParametersFactory.create(Map.of());
+        Parameters extensions = buildExtensions();
+
+        stubModelLookup();
+
+        Map<String, ComponentConnection> connectionParameters = buildConnectionParameters();
+
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+
+        when(actionContext.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+        when(actionContext.getJobPrincipalId()).thenReturn(42L);
+
+        AiGuardrailsAdvisorProvider provider = mock(AiGuardrailsAdvisorProvider.class);
+
+        when(provider.getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.CONVERSATION))
+                .thenReturn(Optional.empty());
+
+        TestStreamingAiAgentChatAction action = new TestStreamingAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null,
+            presentProvider(provider));
+
+        try (MockedStatic<ModelUtils> modelUtilsMockedStatic = mockStatic(ModelUtils.class)) {
+            modelUtilsMockedStatic.when(() -> ModelUtils.getMessages(any(), any()))
+                .thenReturn(List.of());
+
+            action.getChatClientRequestSpec(inputParameters, connectionParameters, extensions, null, actionContext);
+        }
+
+        verify(provider).getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.CONVERSATION);
+        verify(provider, never()).getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.WORKFLOW_OUTPUT);
     }
 
     @Test
@@ -238,8 +286,9 @@ class AbstractAiAgentChatActionGuardrailsTest {
 
         AiGuardrailsAdvisorProvider provider = mock(AiGuardrailsAdvisorProvider.class);
 
-        when(provider.getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent"))
-            .thenReturn(Optional.of(blockingAdvisor));
+        when(provider.getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.WORKFLOW_OUTPUT))
+                .thenReturn(Optional.of(blockingAdvisor));
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null,
@@ -342,6 +391,30 @@ class AbstractAiAgentChatActionGuardrailsTest {
             super(
                 aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
                 toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider);
+        }
+    }
+
+    /**
+     * As {@link TestAiAgentChatAction}, but overriding {@code isStreaming()} to {@code true} -- models
+     * {@link com.bytechef.component.ai.agent.action.AiAgentStreamChatAction}, the real streaming action, without
+     * pulling that class's own dependencies into this test.
+     */
+    private static class TestStreamingAiAgentChatAction extends AbstractAiAgentChatAction {
+
+        TestStreamingAiAgentChatAction(
+            AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+            ToolCallingManager toolCallingManager,
+            ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+            ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
+
+            super(
+                aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
+                toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider);
+        }
+
+        @Override
+        protected boolean isStreaming() {
+            return true;
         }
     }
 

@@ -37,13 +37,12 @@ import org.springframework.stereotype.Controller;
  * </p>
  *
  * <p>
- * <b>Writes are {@code ROLE_ADMIN}, matching how guardrail settings are written.</b> A workspace-scoped edit scope
- * would be the better shape -- seeing a workspace's guardrail configuration is not the same as adding detection to it
- * -- but {@code AI_GATEWAY_VIEW} is the ONLY AI-gateway scope that exists, and it maps to {@code WorkspaceRole.VIEWER}.
- * Inventing an {@code AI_GATEWAY_EDIT} token would not have created a scope: an unregistered token makes
- * {@code hasPermission} deny, so every write would have failed for everyone including admins. Adding the scope properly
- * means the enum, {@code AiGatewayPermissionScopeProvider}'s role mapping and the EE gating test, which is its own
- * change.
+ * <b>Writes accept {@code ROLE_ADMIN} or the workspace-scoped {@code AI_GATEWAY_EDIT} permission</b>, so a workspace
+ * admin can manage their own workspace's detection rules without tenant {@code ROLE_ADMIN}. {@code AI_GATEWAY_EDIT}
+ * maps to {@code WorkspaceRole.ADMIN} via {@code AiGatewayPermissionScopeProvider}; {@code AI_GATEWAY_VIEW}, the only
+ * other AI-gateway scope, stays on {@code WorkspaceRole.VIEWER} and is used only by the read below. Every write's gate
+ * still opens with {@code hasAuthority('ROLE_ADMIN') or}, so a tenant admin keeps working everywhere they work today --
+ * this widens access, it never narrows it.
  * </p>
  *
  * @version ee
@@ -69,7 +68,8 @@ class AiGuardrailCustomRuleGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or "
+        + "hasPermission(#input.workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')")
     public AiGuardrailCustomRule createAiGuardrailCustomRule(@Argument AiGuardrailCustomRuleInput input) {
         // Read once into a local: calling the accessor twice around a null check is what static analysis reads as a
         // possible null dereference, and it is right that the second call is not provably the same value.
@@ -83,7 +83,7 @@ class AiGuardrailCustomRuleGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasPermission(#workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')")
     public AiGuardrailCustomRule updateAiGuardrailCustomRulePattern(
         @Argument long workspaceId, @Argument long id, @Argument String pattern) {
 
@@ -91,7 +91,7 @@ class AiGuardrailCustomRuleGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasPermission(#workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')")
     public AiGuardrailCustomRule setAiGuardrailCustomRuleEnabled(
         @Argument long workspaceId, @Argument long id, @Argument boolean enabled) {
 
@@ -99,7 +99,7 @@ class AiGuardrailCustomRuleGraphQlController {
     }
 
     @MutationMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasPermission(#workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')")
     public boolean deleteAiGuardrailCustomRule(@Argument long workspaceId, @Argument long id) {
         aiGuardrailCustomRuleService.delete(id, workspaceId);
 
