@@ -115,6 +115,31 @@ class QuartzJobReaderTest {
                 "wfe-1", "0 0 9 * * ?", "Europe/Zagreb", "{\"expression\":\"0 9 * * *\"}",
                 trigger.getNextFireTime()
                     .toInstant()));
+        Mockito.verify(scheduler, Mockito.times(1))
+            .getTriggersOfJob(jobDetail.getKey());
+    }
+
+    @Test
+    void testScheduleTriggerWithNonCronTriggerIsCountedAsFailedNotThrown() throws SchedulerException {
+        JobDetail jobDetail = JobBuilder.newJob(ScheduleTriggerJob.class)
+            .withIdentity("wfe-1b", "ScheduleTrigger")
+            .usingJobData("workflowExecutionId", "wfe-1b")
+            .usingJobData("output", "{}")
+            .build();
+        Trigger simpleTrigger = TriggerBuilder.newTrigger()
+            .withIdentity("wfe-1b", "ScheduleTrigger")
+            .withSchedule(SimpleScheduleBuilder.repeatMinutelyForever(5))
+            .startAt(nextFireTime)
+            .build();
+
+        stub(jobDetail, computeFirstFireTime(simpleTrigger));
+
+        QuartzJobReader.ReadResult result = reader.read();
+
+        Assertions.assertThat(result.jobs())
+            .isEmpty();
+        Assertions.assertThat(result.failed())
+            .isEqualTo(1);
     }
 
     @Test
@@ -130,6 +155,36 @@ class QuartzJobReaderTest {
         Assertions.assertThat(reader.read()
             .jobs())
             .containsExactly(new ImportedJob.DynamicWebhookRefresh("wfe-2", 77L, nextFireTime.toInstant()));
+    }
+
+    @Test
+    void testReadsDynamicWebhookRefreshWithHistoricalIntegerConnectionId() throws SchedulerException {
+        JobDetail jobDetail = JobBuilder.newJob(DynamicWebhookTriggerRefreshJob.class)
+            .withIdentity("wfe-2b", "ScheduleTrigger")
+            .usingJobData("workflowExecutionId", "wfe-2b")
+            .usingJobData("connectionId", 77)
+            .build();
+
+        stub(jobDetail, oneShot("wfe-2b", "ScheduleTrigger"));
+
+        Assertions.assertThat(reader.read()
+            .jobs())
+            .containsExactly(new ImportedJob.DynamicWebhookRefresh("wfe-2b", 77L, nextFireTime.toInstant()));
+    }
+
+    @Test
+    void testReadsOAuth2RefreshWithHistoricalIntegerTenantId() throws SchedulerException {
+        JobDetail jobDetail = JobBuilder.newJob(ConnectionOAuth2TokenRefreshJob.class)
+            .withIdentity("00000178", "ConnectionOauth2TokenRefresh")
+            .usingJobData("connectionId", 78L)
+            .usingJobData("tenantId", 1)
+            .build();
+
+        stub(jobDetail, oneShot("00000178", "ConnectionOauth2TokenRefresh"));
+
+        Assertions.assertThat(reader.read()
+            .jobs())
+            .containsExactly(new ImportedJob.OAuth2TokenRefresh("00000178", 78L, "1", nextFireTime.toInstant()));
     }
 
     @Test
@@ -163,6 +218,22 @@ class QuartzJobReaderTest {
                 new ImportedJob.OAuth2TokenRefresh("00000177", 77L, "000001", nextFireTime.toInstant()),
                 new ImportedJob.PollingTrigger("wfe-3", nextFireTime.toInstant()),
                 new ImportedJob.OneTimeResume("42", 42L, null, nextFireTime.toInstant()));
+    }
+
+    @Test
+    void testReadsOneTimeResumeWithHistoricalIntegerJobId() throws SchedulerException {
+        JobDetail jobDetail = JobBuilder.newJob(OneTimeSchedulerJob.class)
+            .withIdentity("44", "OneTimeTask")
+            .usingJobData("jobId", 44)
+            .usingJobData("continueParameters", "{\"step\":\"1\"}")
+            .build();
+
+        stub(jobDetail, oneShot("44", "OneTimeTask"));
+
+        Assertions.assertThat(reader.read()
+            .jobs())
+            .containsExactly(
+                new ImportedJob.OneTimeResume("44", 44L, "{\"step\":\"1\"}", nextFireTime.toInstant()));
     }
 
     @Test
