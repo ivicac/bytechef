@@ -113,10 +113,10 @@ public class ProjectDeploymentGraphQlController {
      *
      * <p>
      * Authorization lives on {@link ProjectDeploymentFacade#getWorkspaceProjectDeployments(long, long, Long, Long)},
-     * which carries {@code hasPermission(#workspaceId, 'Workspace', 'DEPLOYMENT_VIEW')} and drops both the
-     * feature-owned system projects and the projects the caller cannot see — the same gate and the same two filters the
-     * REST twin has always applied to the identical set. Until that seam existed this method read the rows off
-     * {@code ProjectDeploymentService} directly, past the facade, which is how it came to have neither.
+     * which carries {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DEPLOYMENT_VIEW', #environmentId)} and drops
+     * both the feature-owned system projects and the projects the caller cannot see — the same gate and the same two
+     * filters the REST twin has always applied to the identical set. Until that seam existed this method read the rows
+     * off {@code ProjectDeploymentService} directly, past the facade, which is how it came to have neither.
      *
      * <p>
      * {@code workspaceId} and {@code environmentId} are primitive and {@code projectId} and {@code tagId} are not,

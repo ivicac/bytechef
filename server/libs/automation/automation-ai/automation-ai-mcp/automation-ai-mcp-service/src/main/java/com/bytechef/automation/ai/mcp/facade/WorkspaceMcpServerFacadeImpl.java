@@ -51,20 +51,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
 
+    private final McpComponentService mcpComponentService;
+    private final McpProjectFacade mcpProjectFacade;
     private final McpProjectService mcpProjectService;
     private final McpServerFacade mcpServerFacade;
     private final McpServerService mcpServerService;
+    private final McpToolService mcpToolService;
     private final TagService tagService;
     private final WorkspaceMcpServerService workspaceMcpServerService;
 
     @SuppressFBWarnings("EI")
     public WorkspaceMcpServerFacadeImpl(
+        McpComponentService mcpComponentService, McpProjectFacade mcpProjectFacade,
         McpProjectService mcpProjectService, McpServerFacade mcpServerFacade, McpServerService mcpServerService,
-        TagService tagService, WorkspaceMcpServerService workspaceMcpServerService) {
+        McpToolService mcpToolService, TagService tagService, WorkspaceMcpServerService workspaceMcpServerService) {
 
+        this.mcpComponentService = mcpComponentService;
+        this.mcpProjectFacade = mcpProjectFacade;
         this.mcpProjectService = mcpProjectService;
         this.mcpServerFacade = mcpServerFacade;
         this.mcpServerService = mcpServerService;
+        this.mcpToolService = mcpToolService;
         this.tagService = tagService;
         this.workspaceMcpServerService = workspaceMcpServerService;
     }
@@ -114,17 +121,34 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(#workspaceId, 'MCP_CREATE', #environment)")
     public McpServer createWorkspaceMcpServer(
         String name, PlatformType type, Environment environment, Boolean enabled, Boolean authenticationRequired,
         Long workspaceId) {
 
-        return createWorkspaceMcpServer(
-            name, type, environment, enabled, authenticationRequired, null, workspaceId, null);
+        if (type != PlatformType.AUTOMATION) {
+            throw new IllegalArgumentException("Workspace MCP servers must be automation MCP servers: " + type);
+        }
+
+        McpServer mcpServer = new McpServer(name, type, environment);
+
+        if (enabled != null) {
+            mcpServer.setEnabled(enabled);
+        }
+
+        if (authenticationRequired != null) {
+            mcpServer.setAuthenticationRequired(authenticationRequired);
+        }
+
+        mcpServer = mcpServerService.create(mcpServer);
+
+        workspaceMcpServerService.assignMcpServerToWorkspace(mcpServer.getId(), workspaceId);
+
+        return mcpServer;
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(#workspaceId, 'MCP_CREATE', #environment)")
     public McpServer createWorkspaceMcpServer(
         String name, PlatformType type, Environment environment, Boolean enabled, Boolean authenticationRequired,
         Boolean enforceToolAuthorization, Long workspaceId, @Nullable UUID uuid) {
@@ -158,6 +182,16 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
     public McpServer updateWorkspaceMcpServer(Long mcpServerId, String name, Boolean enabled) {
         return mcpServerService.update(mcpServerId, name, enabled);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool', 'MCP_EDIT')")
+    public McpTool updateWorkspaceMcpToolEnabled(long mcpToolId, boolean enabled) {
+        getAutomationMcpTool(mcpToolId);
+
+        mcpToolService.updateEnabled(mcpToolId, enabled);
+
+        return getAutomationMcpTool(mcpToolId);
     }
 
     @Override
