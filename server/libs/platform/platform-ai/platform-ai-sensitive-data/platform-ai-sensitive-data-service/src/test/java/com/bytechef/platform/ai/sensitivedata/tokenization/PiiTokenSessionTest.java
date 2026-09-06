@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -153,5 +154,21 @@ class PiiTokenSessionTest {
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    @Test
+    void testTokensExportsTheMintedMapAsACopy() {
+        PiiTokenSession session = PiiTokenSession.create();
+        String token = session.tokenFor("EMAIL_ADDRESS", "bob@acme.io");
+
+        Map<String, String> tokens = session.tokens();
+
+        assertThat(tokens).containsExactly(Map.entry(token, "bob@acme.io"));
+
+        session.close();
+
+        assertThat(tokens)
+            .as("a caller-held map must survive the session that minted it")
+            .containsKey(token);
     }
 }

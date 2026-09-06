@@ -16,6 +16,7 @@
 
 package com.bytechef.component.ai.agent.guardrails.util;
 
+import com.bytechef.platform.ai.sensitivedata.MatchDeadline;
 import com.bytechef.platform.ai.sensitivedata.SecretPatternCatalog;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -117,59 +118,7 @@ public final class SecretKeyDetectorUtils {
     }
 
     public static List<SecretMatch> detect(String content, Permissiveness level) {
-        if (content == null || content.isEmpty()) {
-            return List.of();
-        }
-
-        List<SecretMatch> matches = new ArrayList<>();
-        List<RegexParserUtils.RegexExecutionLimitException> budgetFailures = new ArrayList<>();
-
-        CharSequence bounded = RegexParserUtils.bounded(content);
-
-        for (NamedPattern namedPattern : NAMED_PROVIDER_PATTERNS) {
-            try {
-                Matcher matcher = namedPattern.pattern()
-                    .matcher(bounded);
-
-                while (matcher.find()) {
-                    matches.add(new SecretMatch(matcher.group(), matcher.start(), matcher.end(), namedPattern.type()));
-                }
-            } catch (RegexParserUtils.RegexExecutionLimitException exception) {
-                budgetFailures.add(
-                    new RegexParserUtils.RegexExecutionLimitException(
-                        "pattern '" + namedPattern.type() + "': " + exception.getMessage(), exception));
-            }
-        }
-
-        matches.addAll(detectPrefixedTokens(content));
-        matches.addAll(detectHighEntropyTokens(content, level));
-
-        if (level == Permissiveness.STRICT) {
-            try {
-                Matcher matcher = KEY_EQUALS_VALUE.pattern()
-                    .matcher(bounded);
-
-                while (matcher.find()) {
-                    matches.add(
-                        new SecretMatch(matcher.group(), matcher.start(), matcher.end(), KEY_EQUALS_VALUE.type()));
-                }
-            } catch (RegexParserUtils.RegexExecutionLimitException exception) {
-                budgetFailures.add(new RegexParserUtils.RegexExecutionLimitException(
-                    "pattern '" + KEY_EQUALS_VALUE.type() + "': " + exception.getMessage(), exception));
-            }
-        }
-
-        if (!budgetFailures.isEmpty()) {
-            RegexParserUtils.RegexExecutionLimitException headline = budgetFailures.getFirst();
-
-            budgetFailures.stream()
-                .skip(1)
-                .forEach(headline::addSuppressed);
-
-            throw headline;
-        }
-
-        return matches;
+        return detect(content, level, List.of(), List.of());
     }
 
     public static List<SecretMatch> detect(String content, Permissiveness level, List<Pattern> extraRegexes) {
@@ -188,49 +137,58 @@ public final class SecretKeyDetectorUtils {
     public static List<SecretMatch> detect(
         String content, Permissiveness level, List<Pattern> extraRegexes, List<String> allowedFileExtensions) {
 
-        String scanned = stripAllowedCodeBlocks(content, allowedFileExtensions);
+        return detect(content, level, extraRegexes, allowedFileExtensions, GuardrailMatchDeadline.start());
+    }
 
-        List<SecretMatch> matches = new ArrayList<>(detect(scanned, level));
+    public static List<SecretMatch> detect(
+        String content, Permissiveness level, List<Pattern> extraRegexes, List<String> allowedFileExtensions,
+        MatchDeadline deadline) {
 
-        if (extraRegexes == null || extraRegexes.isEmpty()) {
-            return matches;
+        if (content == null || content.isEmpty()) {
+            return List.of();
         }
 
-        List<RegexParserUtils.RegexExecutionLimitException> budgetFailures = new ArrayList<>();
+        String scanned = stripAllowedCodeBlocks(content, allowedFileExtensions, deadline);
 
-        CharSequence bounded = RegexParserUtils.bounded(scanned);
-        int index = 0;
+        List<SecretMatch> matches = new ArrayList<>();
 
-        for (Pattern pattern : extraRegexes) {
-            try {
+        CharSequence bounded = deadline.bound(scanned);
+
+        for (NamedPattern namedPattern : NAMED_PROVIDER_PATTERNS) {
+            Matcher matcher = namedPattern.pattern()
+                .matcher(bounded);
+
+            while (matcher.find()) {
+                matches.add(new SecretMatch(matcher.group(), matcher.start(), matcher.end(), namedPattern.type()));
+            }
+        }
+
+        matches.addAll(detectPrefixedTokens(scanned));
+        matches.addAll(detectHighEntropyTokens(scanned, level));
+
+        if (level == Permissiveness.STRICT) {
+            Matcher matcher = KEY_EQUALS_VALUE.pattern()
+                .matcher(bounded);
+
+            while (matcher.find()) {
+                matches.add(new SecretMatch(matcher.group(), matcher.start(), matcher.end(), KEY_EQUALS_VALUE.type()));
+            }
+        }
+
+        if (extraRegexes != null) {
+            for (Pattern pattern : extraRegexes) {
                 Matcher matcher = pattern.matcher(bounded);
 
                 while (matcher.find()) {
                     matches.add(new SecretMatch(matcher.group(), matcher.start(), matcher.end(), "CUSTOM"));
                 }
-            } catch (RegexParserUtils.RegexExecutionLimitException exception) {
-                budgetFailures.add(
-                    new RegexParserUtils.RegexExecutionLimitException(
-                        "extraRegex[" + index + "] '" + pattern.pattern() + "': " + exception.getMessage(), exception));
             }
-
-            index++;
-        }
-
-        if (!budgetFailures.isEmpty()) {
-            RegexParserUtils.RegexExecutionLimitException headline = budgetFailures.getFirst();
-
-            budgetFailures.stream()
-                .skip(1)
-                .forEach(headline::addSuppressed);
-
-            throw headline;
         }
 
         return matches;
     }
 
-    private static String stripAllowedCodeBlocks(String content, List<String> extensions) {
+    private static String stripAllowedCodeBlocks(String content, List<String> extensions, MatchDeadline deadline) {
         if (extensions == null || extensions.isEmpty() || content == null || content.isEmpty()) {
             return content;
         }
@@ -248,7 +206,7 @@ public final class SecretKeyDetectorUtils {
             "```(?:" + String.join("|", quoted) + ")(?=[\\s`\\n])\\s*\\n(.*?)```",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
-        Matcher matcher = fence.matcher(RegexParserUtils.bounded(content));
+        Matcher matcher = fence.matcher(deadline.bound(content));
 
         if (!matcher.find()) {
             return content;
@@ -554,7 +512,16 @@ public final class SecretKeyDetectorUtils {
         return builder.toString();
     }
 
-    private static List<SecretMatch> deduplicateOverlaps(List<SecretMatch> matches) {
+    /**
+     * Collapses {@code matches} to one match per overlapping-span cluster, keeping the longest match in each cluster
+     * (ties broken by earliest start). Several detector paths (named-provider regex, prefixed-token scan, high-entropy
+     * scan) can each report their own {@link SecretMatch} for the same physical secret when their spans overlap; this
+     * reduces such a cluster to a single, position-based "distinct" match, unlike deduplicating by
+     * {@link SecretMatch#value()}, which would also collapse two occurrences of the same secret string at different,
+     * non-overlapping offsets into one. {@link #mask(String, List)} uses this to build its non-overlapping replacement
+     * list; callers that need a physical-secret count (as opposed to a raw detector-hit count) should use it too.
+     */
+    public static List<SecretMatch> deduplicateOverlaps(List<SecretMatch> matches) {
         List<SecretMatch> byLength = new ArrayList<>(matches);
 
         byLength.sort(Comparator.<SecretMatch>comparingInt(match -> match.end() - match.start())

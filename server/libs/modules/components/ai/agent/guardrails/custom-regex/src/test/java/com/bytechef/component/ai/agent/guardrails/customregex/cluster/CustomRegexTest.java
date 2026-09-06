@@ -21,8 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 
-import com.bytechef.component.ai.agent.guardrails.util.RegexParserUtils;
 import com.bytechef.component.definition.Context;
+import com.bytechef.platform.ai.sensitivedata.DetectionTimeoutException;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailCheckFunction;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailContext;
@@ -156,10 +156,9 @@ class CustomRegexTest {
 
     /**
      * Builds the {@code a?{n}a{n}} pattern against {@code "a".repeat(n)} — classic Cox-style catastrophic backtracking
-     * that reliably blows past {@link RegexParserUtils#MAX_CHAR_ACCESSES}. The JDK regex engine does not short-circuit
-     * this, so {@link RegexParserUtils#bounded} is the only thing keeping the matcher from hanging. Matches the
-     * construction in
-     * {@code PiiDetectorCustomRegexTest.testCatastrophicBacktrackingCustomRegexSurfacesAsRegexExecutionLimit}.
+     * that reliably blows past the {@code MatchDeadline}. The JDK regex engine does not short-circuit this, so the
+     * deadline is the only thing keeping the matcher from hanging. Matches the construction in
+     * {@code SecretKeyDetectorUtilsCustomRegexTest.testCatastrophicBacktrackingCustomRegexSurfacesAsDetectionTimeout}.
      */
     private static String reDoSPattern(int count) {
         StringBuilder pattern = new StringBuilder();
@@ -176,70 +175,55 @@ class CustomRegexTest {
     }
 
     @Test
-    void testCheckCatastrophicBacktrackAbortsWithinBudget() {
+    void testCheckCatastrophicBacktrackAbortsWithinDeadline() {
         GuardrailCheckFunction function = CustomRegex.ofCheck()
             .getElement();
 
-        int count = 25;
+        int count = 32;
         String pattern = reDoSPattern(count);
         String input = "a".repeat(count);
 
         assertTimeoutPreemptively(Duration.ofSeconds(4), () -> assertThatThrownBy(
             () -> function.apply(input,
                 contextOf(Map.of("patterns", List.of(Map.of("name", "BOOM", "regex", pattern))))))
-                    .isInstanceOf(RegexParserUtils.RegexExecutionLimitException.class)
-                    .hasMessageContaining("BOOM"));
+                    .isInstanceOf(DetectionTimeoutException.class));
     }
 
     @Test
-    void testCheckAggregatesBudgetFailuresAcrossEntries() {
-        // Two pathological entries: first aborts on budget, second must still run and also abort. The advisor only sees
-        // one headline exception, but both entry names must appear (headline + suppressed) so operators can diagnose
-        // which entries are bad.
+    void testCheckMultiplePathologicalEntriesAbortsWithDetectionTimeout() {
+        // Two pathological entries share the one MatchDeadline for the whole applyCheck call: whichever entry is
+        // running when the deadline passes throws and aborts the loop — there is no per-entry budget to aggregate
+        // any more, so unlike the retired count-based bound, a later entry may never run at all.
         GuardrailCheckFunction function = CustomRegex.ofCheck()
             .getElement();
 
-        int count = 25;
+        int count = 32;
         String pattern = reDoSPattern(count);
         String input = "a".repeat(count);
 
-        assertTimeoutPreemptively(Duration.ofSeconds(8), () -> assertThatThrownBy(
+        assertTimeoutPreemptively(Duration.ofSeconds(4), () -> assertThatThrownBy(
             () -> function.apply(
                 input,
                 contextOf(Map.of(
                     "patterns", List.of(
                         Map.of("name", "FIRST_BAD", "regex", pattern),
                         Map.of("name", "SECOND_BAD", "regex", pattern))))))
-                            .isInstanceOf(RegexParserUtils.RegexExecutionLimitException.class)
-                            .satisfies(throwable -> {
-                                StringBuilder combined = new StringBuilder(throwable.getMessage());
-
-                                for (Throwable suppressed : throwable.getSuppressed()) {
-                                    combined.append(' ')
-                                        .append(suppressed.getMessage());
-                                }
-
-                                String combinedMessage = combined.toString();
-
-                                assertThat(combinedMessage).contains("FIRST_BAD");
-                                assertThat(combinedMessage).contains("SECOND_BAD");
-                            }));
+                            .isInstanceOf(DetectionTimeoutException.class));
     }
 
     @Test
-    void testSanitizeCatastrophicBacktrackAbortsWithinBudget() {
+    void testSanitizeCatastrophicBacktrackAbortsWithinDeadline() {
         GuardrailSanitizerFunction function = CustomRegex.ofSanitize()
             .getElement();
 
-        int count = 25;
+        int count = 32;
         String pattern = reDoSPattern(count);
         String input = "a".repeat(count);
 
         assertTimeoutPreemptively(Duration.ofSeconds(4), () -> assertThatThrownBy(
             () -> function.apply(input,
                 contextOf(Map.of("patterns", List.of(Map.of("name", "BOOM", "regex", pattern))))))
-                    .isInstanceOf(RegexParserUtils.RegexExecutionLimitException.class)
-                    .hasMessageContaining("BOOM"));
+                    .isInstanceOf(DetectionTimeoutException.class));
     }
 
     private static GuardrailContext contextOf(Map<String, ?> input) {

@@ -25,6 +25,8 @@ import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailContext;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailSanitizerFunction;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailStage;
+import com.bytechef.platform.component.definition.ai.agent.guardrails.MaskResult;
+import com.bytechef.platform.component.definition.ai.agent.guardrails.PreflightSanitizerFunction;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,5 +119,37 @@ class SanitizeTextAdvisorStageTest {
             .hasMessageContaining("broken - RuntimeException")
             .hasMessageNotContaining("boom")
             .hasRootCauseMessage("boom");
+    }
+
+    /**
+     * A {@code PreflightMasking} sanitizer that reports {@link MaskResult.Masked} has already rewritten the text
+     * itself, so the advisor must carry that rewritten text forward rather than the input it was handed. The per-node
+     * PII sanitizer takes exactly this arm — it renders its own {@code <TYPE>} notation through the detection engine's
+     * replacer seam — so an arm that discarded the masked text would silently stop masking.
+     */
+    @Test
+    void maskedResultReachesTheSanitizedOutput() {
+        GuardrailSanitizerFunction alreadyMasked = new PreflightSanitizerFunction() {
+
+            @Override
+            public String apply(String text, GuardrailContext context) {
+                return text;
+            }
+
+            @Override
+            public MaskResult mask(String text, GuardrailContext context) {
+                return MaskResult.masked(text.replace("a@b.com", "<EMAIL_ADDRESS>"), text);
+            }
+        };
+
+        Parameters empty = ParametersFactory.create(Map.of());
+
+        SanitizeTextAdvisor advisor = SanitizeTextAdvisor.builder()
+            .add("pii", alreadyMasked, empty, empty, empty, Map.of(), null)
+            .context(mock(Context.class))
+            .build();
+
+        assertThat(advisor.sanitizeForTesting("reach me at a@b.com"))
+            .isEqualTo("reach me at <EMAIL_ADDRESS>");
     }
 }
