@@ -620,6 +620,10 @@ unguarded because runtime agent tools call it with no security context. Controll
 go through the API facade — wiring one to the shared facade compiles fine and silently removes the ownership
 check. When adding a method, add it to BOTH interfaces, not just the shared one.
 
+Moving authorization down into a facade also changes its HTTP status silently: a facade-thrown
+`AccessDeniedException` surfaces as **500, not 403**, unless the controller carries its own
+`@ExceptionHandler`. See `.agents/resource-visibility.md`.
+
 ### Development Login Credentials
 - **Admin**: admin@localhost.com / admin
 - **User**: user@localhost.com / user
