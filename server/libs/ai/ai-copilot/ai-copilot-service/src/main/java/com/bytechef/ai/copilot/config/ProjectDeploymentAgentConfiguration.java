@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -41,28 +42,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the Project Deployment Copilot panel source agents ({@code project_deployment_ask}/
- * {@code project_deployment_build}). Lives in CE alongside {@code CopilotConfiguration} because
- * {@link DeploymentToolCallbacksFactory} and the {@code ProjectDeploymentFacade} it wraps are CE.
- *
- * <p>
- * This configuration used to be purely additive to a separate {@code ProjectDeploymentSubAgentConfiguration}, which
- * backed the {@code project_deployment_agent} subagent consumed by AI Hub and the management MCP server from an
- * independently-constructed tool list. That delegate is gone (ticket 732, CRUD-delegate-unwind plan, Task 3) — AI Hub
- * and the management MCP server now consume {@link DeploymentToolCallbacksFactory} directly instead. This configuration
- * used to build its own byte-identical {@code ProjectDeploymentToolCallbacksFactory} bean for its panel pair alone (a
- * pre-existing phase-3 duplication); that factory is gone too (ticket 732, CRUD-delegate-unwind plan, Task 9), folded
- * into {@link DeploymentToolCallbacksFactory} — the bean {@code DeploymentAgentConfiguration} already registers — since
- * {@code bytechef.ai.copilot.enabled=true} always also satisfies that configuration's copilot-or-hub condition, so the
- * bean is guaranteed present whenever this configuration is active.
- * </p>
- *
- * <p>
- * Gated on {@code bytechef.ai.copilot.enabled} rather than an OR with {@code bytechef.ai.hub.enabled}, matching
- * {@code ProjectAgentConfiguration}: an OR-gate would let this configuration register with
- * {@code hub.enabled=true, copilot.enabled=false}, when nothing in the AI Hub surface consumes these panel-agent beans.
- * </p>
- *
  * @author Ivica Cardic
  */
 @Configuration
@@ -81,7 +60,8 @@ public class ProjectDeploymentAgentConfiguration {
     SliceSpringAIAgent projectDeploymentAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DeploymentToolCallbacksFactory deploymentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT_DEPLOYMENT.name() + "_" + Mode.ASK.name();
@@ -93,6 +73,7 @@ public class ProjectDeploymentAgentConfiguration {
             .systemMessage(readPrompt(promptProjectDeploymentAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, deploymentToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -101,7 +82,8 @@ public class ProjectDeploymentAgentConfiguration {
     SliceSpringAIAgent projectDeploymentBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DeploymentToolCallbacksFactory deploymentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT_DEPLOYMENT.name() + "_" + Mode.BUILD.name();
@@ -113,14 +95,11 @@ public class ProjectDeploymentAgentConfiguration {
             .systemMessage(readPrompt(promptProjectDeploymentBuildResource))
             .state(state)
             .toolCallbacks(buildToolCallbacks(securityContextRehydrator, deploymentToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
-    /**
-     * Package-private so {@code ProjectDeploymentAgentConfigurationTest} can assert on the resolved tool names directly
-     * — {@link SliceSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
-     */
     List<ToolCallback> askToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator,
         DeploymentToolCallbacksFactory deploymentToolCallbacksFactory) {
@@ -128,10 +107,6 @@ public class ProjectDeploymentAgentConfiguration {
         return wrapToolCallbacks(securityContextRehydrator, deploymentToolCallbacksFactory.readToolCallbacks());
     }
 
-    /**
-     * Package-private so {@code ProjectDeploymentAgentConfigurationTest} can assert on the resolved tool names directly
-     * — {@link SliceSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
-     */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator,
         DeploymentToolCallbacksFactory deploymentToolCallbacksFactory) {

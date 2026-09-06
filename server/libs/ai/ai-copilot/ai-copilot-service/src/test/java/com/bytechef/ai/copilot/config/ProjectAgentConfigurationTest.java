@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.agui.core.exception.AGUIException;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.ProjectSpringAIAgent;
 import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
@@ -36,6 +37,7 @@ import com.bytechef.automation.ai.tool.ProjectTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -68,11 +70,11 @@ final class ProjectAgentConfigurationTest {
         ProjectSpringAIAgent askAgent = configuration.projectAskSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), new ReadProjectTools(mock(ProjectTools.class)),
             new ReadProjectWorkflowTools(mock(ProjectWorkflowTools.class)), securityContextRehydrator,
-            emptyProvider());
+            emptyProvider(), guardrailsAdvisorFactory());
 
         ProjectSpringAIAgent buildAgent = configuration.projectBuildSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
-            securityContextRehydrator, catalog, emptyProvider());
+            securityContextRehydrator, catalog, emptyProvider(), guardrailsAdvisorFactory());
 
         assertThat(askAgent.getAgentId()).isEqualTo("project_ask");
         assertThat(buildAgent.getAgentId()).isEqualTo("project_build");
@@ -141,6 +143,10 @@ final class ProjectAgentConfigurationTest {
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyProvider() {
         return mock(ObjectProvider.class);
+    }
+
+    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
+        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 
     private static IntelligentToolDefinition projectWorkflowDefinition() {

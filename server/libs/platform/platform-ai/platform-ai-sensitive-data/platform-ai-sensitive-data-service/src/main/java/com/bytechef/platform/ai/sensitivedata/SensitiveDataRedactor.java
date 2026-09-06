@@ -25,6 +25,7 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * Runs every registered {@link SensitiveDataDetector} over a piece of text, resolves the overlapping spans they report
@@ -58,8 +59,20 @@ import org.slf4j.LoggerFactory;
  * Immutable and thread-safe, provided every registered detector is.
  * </p>
  *
+ * <p>
+ * {@code @Component} so this class is also reachable through ordinary Spring injection -- {@code AiGuardrails} (EE)
+ * still builds its own instance by hand via the constructor below, since it needs a {@link #streamSafeView()}
+ * derivative and predates this annotation, but a caller with no reason to build its own (e.g.
+ * {@code PiiTokenBoundaryToolCallingManager}'s two wiring points, the AI Agent component and the AI Hub tool search
+ * chain) can simply autowire the container's singleton. The constructor's {@code List<SensitiveDataDetector>} autowires
+ * to every registered detector bean; in a CE-only deployment that list is empty (the built-in detectors are
+ * {@code @ConditionalOnEEVersion}), so the bean exists but is genuinely inert, matching this class's usual behaviour
+ * when it has nothing to detect.
+ * </p>
+ *
  * @author Ivica Cardic
  */
+@Component
 public class SensitiveDataRedactor {
 
     /**

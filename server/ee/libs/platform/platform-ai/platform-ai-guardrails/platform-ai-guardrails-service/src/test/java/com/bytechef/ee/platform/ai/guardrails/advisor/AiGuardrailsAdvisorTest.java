@@ -23,8 +23,12 @@ import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettin
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
+import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +37,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -44,7 +49,10 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.core.Ordered;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -563,6 +571,151 @@ class AiGuardrailsAdvisorTest {
         assertThat(returned).isEqualTo("forward bob@acme.io's note to alice@acme.io");
     }
 
+    /**
+     * Pins {@code adviseCall}'s seeding of the forwarded request's {@code ToolContext} -- the channel a tool call
+     * running on its own worker thread actually reads (see {@link AiGuardrailsAdvisor#withSessionInToolContext}'s
+     * javadoc for why {@code ChatClientRequest#context()} is not it). Without this, a tool receiving PII tokens as
+     * arguments would have no way to restore them, silently breaking the tool rather than the guardrail.
+     */
+    @Test
+    void testAdviseCallPutsTheSessionIntoTheForwardedToolContext() {
+        AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextCall(forwardedRequestCaptor.capture())).thenReturn(emptyResponse());
+
+        advisor.adviseCall(request, chain);
+
+        assertThat(PiiTokenSessionToolContext.from(capturedToolContext(forwardedRequestCaptor))).isNotNull();
+    }
+
+    /**
+     * The mutation this test exists to catch: {@code PiiTokenSessionToolContext#into} replacing the map instead of
+     * merging into it would silently drop every other entry already on {@code ToolContext} -- in production, that is
+     * {@code AgentToolInvocationContext}'s workspace/user/environment/tenant/authentication keys, and losing them
+     * breaks security-context rehydration on the tool's worker thread. {@code "existing"} stands in for that entry here
+     * so the assertion does not depend on a type this module cannot see.
+     */
+    @Test
+    void testAdviseCallPreservesExistingToolContextEntries() {
+        AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request =
+            requestWithToolCallingOptions("Summarize the incident report", Map.of("existing", "kept"));
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextCall(forwardedRequestCaptor.capture())).thenReturn(emptyResponse());
+
+        advisor.adviseCall(request, chain);
+
+        ToolContext forwardedToolContext = capturedToolContext(forwardedRequestCaptor);
+
+        assertThat(forwardedToolContext).isNotNull();
+        assertThat(Objects.requireNonNull(forwardedToolContext)
+            .getContext()).containsEntry("existing", "kept");
+        assertThat(PiiTokenSessionToolContext.from(forwardedToolContext)).isNotNull();
+    }
+
+    /**
+     * The tool-boundary policy must ride alongside the session, resolved from this call's own workspace -- with PII
+     * redaction off and secret redaction on, {@code PiiTokenBoundaryPolicyToolContext#from} on the forwarded request's
+     * tool context must return a policy whose {@code kinds} excludes {@link SensitiveKind#PII}. Without this,
+     * {@code PiiTokenBoundaryToolCallingManager} falls back to {@link PiiTokenBoundaryPolicy#DEFAULT} (both kinds on)
+     * regardless of what this workspace configured.
+     */
+    @Test
+    void testAdviseCallPutsTheResolvedToolBoundaryPolicyIntoTheForwardedToolContext() {
+        AiGuardrails aiGuardrails = guardrails(false, true, "", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextCall(forwardedRequestCaptor.capture())).thenReturn(emptyResponse());
+
+        advisor.adviseCall(request, chain);
+
+        PiiTokenBoundaryPolicy policy =
+            PiiTokenBoundaryPolicyToolContext.from(capturedToolContext(forwardedRequestCaptor));
+
+        assertThat(policy).isNotNull();
+        assertThat(Objects.requireNonNull(policy)
+            .kinds()).containsExactly(SensitiveKind.SECRET);
+    }
+
+    /**
+     * The streaming mirror of {@link #testAdviseCallPutsTheSessionIntoTheForwardedToolContext} -- {@code adviseStream}
+     * seeds the session into the forwarded request's {@code ToolContext} just like {@code adviseCall} does, since a
+     * tool call reached through a streamed agent run needs the same channel to restore its arguments/results. The
+     * chain's {@code Flux} is actually consumed ({@code collectList().block()}), not just built, so this exercises the
+     * real streaming path rather than merely observing the synchronous setup that happens before the first
+     * subscription.
+     */
+    @Test
+    void testAdviseStreamPutsTheSessionIntoTheForwardedToolContext() {
+        AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
+        StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextStream(forwardedRequestCaptor.capture())).thenReturn(Flux.just(responseChunk("done")));
+
+        advisor.adviseStream(request, chain)
+            .collectList()
+            .block();
+
+        assertThat(PiiTokenSessionToolContext.from(capturedToolContext(forwardedRequestCaptor))).isNotNull();
+    }
+
+    /**
+     * The streaming mirror of {@link #testAdviseCallPreservesExistingToolContextEntries} -- see that test's javadoc for
+     * why merging rather than replacing matters: {@code AgentToolInvocationContext} shares the same {@code ToolContext}
+     * map, so a regression here would silently break security-context rehydration on the tool's worker thread for every
+     * streamed agent run.
+     */
+    @Test
+    void testAdviseStreamPreservesExistingToolContextEntries() {
+        AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request =
+            requestWithToolCallingOptions("Summarize the incident report", Map.of("existing", "kept"));
+        StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextStream(forwardedRequestCaptor.capture())).thenReturn(Flux.just(responseChunk("done")));
+
+        advisor.adviseStream(request, chain)
+            .collectList()
+            .block();
+
+        ToolContext forwardedToolContext = capturedToolContext(forwardedRequestCaptor);
+
+        assertThat(forwardedToolContext).isNotNull();
+        assertThat(Objects.requireNonNull(forwardedToolContext)
+            .getContext()).containsEntry("existing", "kept");
+        assertThat(PiiTokenSessionToolContext.from(forwardedToolContext)).isNotNull();
+    }
+
     @Test
     void testAdvisorOrderIsHighestPrecedence() {
         AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
@@ -743,6 +896,39 @@ class AiGuardrailsAdvisorTest {
         List<Message> instructions = List.of(new UserMessage(text));
 
         return new ChatClientRequest(new Prompt(instructions), Map.of());
+    }
+
+    /**
+     * As {@link #requestWithUserMessage}, but with real {@link ToolCallingChatOptions} carrying {@code toolContext} --
+     * the shape {@link AiGuardrailsAdvisor#withSessionInToolContext} needs to have anything to merge into.
+     */
+    private static ChatClientRequest requestWithToolCallingOptions(String text, Map<String, Object> toolContext) {
+        List<Message> instructions = List.of(new UserMessage(text));
+        ChatOptions chatOptions = ToolCallingChatOptions.builder()
+            .toolContext(toolContext)
+            .build();
+
+        return new ChatClientRequest(new Prompt(instructions, chatOptions), Map.of());
+    }
+
+    /**
+     * Extracts the {@link ToolContext} the advisor forwarded, from the {@link ToolCallingChatOptions} carried on the
+     * captured request's {@link Prompt}. Returns {@code null} when the forwarded options are not
+     * {@link ToolCallingChatOptions} or carry no tool context -- mirroring
+     * {@link AiGuardrailsAdvisor#withSessionInToolContext}'s own fallback.
+     */
+    private static @Nullable ToolContext capturedToolContext(ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor) {
+        ChatOptions chatOptions = forwardedRequestCaptor.getValue()
+            .prompt()
+            .getOptions();
+
+        if (!(chatOptions instanceof ToolCallingChatOptions toolCallingChatOptions)) {
+            return null;
+        }
+
+        Map<String, Object> toolContext = toolCallingChatOptions.getToolContext();
+
+        return toolContext == null ? null : new ToolContext(toolContext);
     }
 
     private static ChatClientResponse emptyResponse() {

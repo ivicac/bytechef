@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -116,7 +117,8 @@ public class McpServerAgentConfiguration {
     SliceSpringAIAgent mcpServerAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, McpServerToolCallbacksFactory mcpServerToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.MCP_SERVER.name() + "_" + Mode.ASK.name();
@@ -128,6 +130,7 @@ public class McpServerAgentConfiguration {
             .systemMessage(readPrompt(promptMcpServerAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, mcpServerToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -139,7 +142,8 @@ public class McpServerAgentConfiguration {
     SliceSpringAIAgent mcpServerBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, McpServerToolCallbacksFactory mcpServerToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator, IntelligentToolCatalog intelligentToolCatalog,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.MCP_SERVER.name() + "_" + Mode.BUILD.name();
@@ -152,6 +156,7 @@ public class McpServerAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 buildToolCallbacks(securityContextRehydrator, mcpServerToolCallbacksFactory, intelligentToolCatalog))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

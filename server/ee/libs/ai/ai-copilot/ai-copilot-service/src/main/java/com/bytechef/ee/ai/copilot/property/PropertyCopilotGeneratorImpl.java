@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.copilot.property;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ee.platform.ai.agent.catalog.CatalogChatClientResolver;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.EvaluatorFunctionDefinition;
@@ -25,11 +26,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,7 +39,6 @@ import org.springframework.stereotype.Service;
 
 /**
  * @version ee
- *
  * @author Ivica Cardic
  */
 @Service
@@ -46,9 +47,12 @@ import org.springframework.stereotype.Service;
 @SuppressFBWarnings("EI")
 public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
+    private static final Logger log = LoggerFactory.getLogger(PropertyCopilotGeneratorImpl.class);
+
     private static final Pattern DATA_PILL_PATTERN = Pattern.compile("\\$\\{[^}]+}");
 
     private final ChatModel chatModel;
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final Evaluator evaluator;
     private final PropertyCopilotPromptBuilder promptBuilder;
     private final List<EvaluatorFunctionDefinitionFactory> evaluatorFunctionDefinitionFactories;
@@ -58,13 +62,15 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
     private final ObjectProvider<CatalogChatClientResolver> catalogChatClientResolverProvider;
 
     public PropertyCopilotGeneratorImpl(
-        ChatModel chatModel, Evaluator evaluator, PropertyCopilotPromptBuilder promptBuilder,
+        ChatModel chatModel, CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory, Evaluator evaluator,
+        PropertyCopilotPromptBuilder promptBuilder,
         List<EvaluatorFunctionDefinitionFactory> evaluatorFunctionDefinitionFactories,
         WorkflowNodeOutputFacade workflowNodeOutputFacade, ObjectProvider<MeterRegistry> meterRegistryProvider,
         @Value("${bytechef.ai.copilot.provider:}") String defaultProvider,
         ObjectProvider<CatalogChatClientResolver> catalogChatClientResolverProvider) {
 
         this.chatModel = chatModel;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
         this.evaluator = evaluator;
         this.promptBuilder = promptBuilder;
         this.evaluatorFunctionDefinitionFactories = evaluatorFunctionDefinitionFactories;
@@ -76,12 +82,6 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
     @Override
     public PropertyCopilotResult generate(PropertyCopilotRequest request) {
-        // PropertyCopilotFacadeImpl's guard is hasWorkspaceScopeForProject(projectId, 'WORKFLOW_VIEW') --
-        // environment-agnostic (the two-argument overload, not the one that takes an Environment) -- so the
-        // client-supplied request.environmentId() is never checked. Resolved here, on the request thread, and
-        // substituted into the request used for the rest of this call (EnvironmentContext, the @Cacheable
-        // getPreviousWorkflowNode{Outputs,SampleOutputs} reads below) so a confined principal cannot read another
-        // environment's previous-step outputs by naming it. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(request.environmentId());
 
         if (effectiveEnvironmentId != request.environmentId()) {
@@ -214,12 +214,18 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
         ChatClient chatClient = resolveCatalogChatClient();
 
         if (chatClient != null) {
-            return chatClient.prompt(promptText)
+            return copilotGuardrailsAdvisorFactory.guardedChatClient(chatClient)
+                .prompt(promptText)
                 .call()
                 .content();
         }
 
-        ChatResponse chatResponse = chatModel.call(new Prompt(promptText));
+        ChatResponse chatResponse = copilotGuardrailsAdvisorFactory.guardedChatClient(chatModel)
+            .prompt(promptText)
+            .call()
+            .chatResponse();
+
+        Objects.requireNonNull(chatResponse, "chat response is required");
 
         Generation generation = Objects.requireNonNull(chatResponse.getResult(), "generation is required");
 
@@ -252,6 +258,11 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
             return catalogChatClientResolver.resolveDefault(environment.ordinal());
         } catch (RuntimeException exception) {
+            log.warn(
+                "Property Copilot could not resolve a catalog chat model for environment {}; falling back to the "
+                    + "configured chat model",
+                environment, exception);
+
             return null;
         }
     }
@@ -269,7 +280,6 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
             Object evaluated = evaluator.evaluate(Map.of("value", pill), context, true)
                 .get("value");
 
-            // An unresolvable reference is returned unchanged by the evaluator, so the ${...} token survives.
             if (String.valueOf(evaluated)
                 .contains("${")) {
                 return true;

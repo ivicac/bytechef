@@ -4,7 +4,6 @@ dependencies {
     api(project(":server:libs:platform:platform-mcp:platform-mcp-api"))
 
     api("org.springframework:spring-expression")
-    // AiGuardrailsAdvisorProvider returns Spring AI's Advisor type on its public surface.
     api("org.springframework.ai:spring-ai-client-chat")
 
     implementation("org.apache.commons:commons-lang3")

@@ -24,15 +24,20 @@ import org.springframework.stereotype.Component;
  * {@code bytechef_ai_guardrail} counter tagged by {@code event} — one of {@code pii_redacted}, {@code pii_tokenized}
  * (PII was replaced with a reversible session token instead of an irreversible placeholder), {@code secret_redacted},
  * {@code response_redacted}, {@code pii_restored} (a token minted for this request was substituted back to its real
- * value in the response), {@code token_unresolved} (a token-shaped span in the response could not be resolved back to a
- * value — an unknown ordinal, or a token minted by another session), {@code blocked_term}, {@code moderation_flagged},
- * {@code injection_flagged}, {@code detector_failed} (a {@code SensitiveDataDetector} threw and was skipped for that
- * call), or {@code below_confidence_threshold} (at least one candidate span was dropped from a call because its
- * confidence fell below {@code SensitiveDataRedactor}'s {@code minConfidence}) — and by {@code surface}, identifying
- * which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter). Only these two low-cardinality
- * tags are used (no workspace/project dimension) so the meter stays cheap on unbounded multi-tenant deployments. Wired
- * through {@link ObjectProvider} so lightweight app variants without an actuator {@link MeterRegistry} start cleanly
- * and recording is a no-op.
+ * value in the response), {@code token_unresolved} (a token-shaped span — in the response, or in a tool call's
+ * arguments — could not be resolved back to a value — an unknown ordinal, or a token minted by another session),
+ * {@code blocked_term}, {@code moderation_flagged}, {@code injection_flagged}, {@code detector_failed} (a
+ * {@code SensitiveDataDetector} threw and was skipped for that call), {@code below_confidence_threshold} (at least one
+ * candidate span was dropped from a call because its confidence fell below {@code SensitiveDataRedactor}'s
+ * {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a tool call's arguments was restored
+ * before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool), {@code tool_result_tokenized} (at least
+ * one value in a tool's result was tokenized/redacted before it reached the model), or
+ * {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation history
+ * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
+ * {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter).
+ * Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays cheap on unbounded
+ * multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without an actuator
+ * {@link MeterRegistry} start cleanly and recording is a no-op.
  *
  * <p>
  * The {@code surface} is fixed per bean instance (constructor argument) rather than passed per {@link #record} call.
@@ -61,6 +66,10 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
 
     private static final String DETECTOR_FAILED_EVENT = "detector_failed";
     private static final String BELOW_CONFIDENCE_THRESHOLD_EVENT = "below_confidence_threshold";
+    private static final String TOOL_ARGS_RESTORED_EVENT = "tool_args_restored";
+    private static final String TOOL_RESULT_TOKENIZED_EVENT = "tool_result_tokenized";
+    private static final String TOKEN_UNRESOLVED_EVENT = "token_unresolved";
+    private static final String ASSISTANT_HISTORY_RETOKENIZED_EVENT = "assistant_history_retokenized";
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     private final @Nullable MeterRegistry meterRegistry;
@@ -124,5 +133,44 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     @Override
     public void recordBelowConfidenceThreshold() {
         record(BELOW_CONFIDENCE_THRESHOLD_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for {@code PiiTokenBoundaryToolCallingManager}'s outbound (model-to-tool)
+     * direction. Delegates to {@link #record(String)} with the {@code tool_args_restored} event.
+     */
+    @Override
+    public void recordToolArgsRestored() {
+        record(TOOL_ARGS_RESTORED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for {@code PiiTokenBoundaryToolCallingManager}'s inbound (tool-to-model)
+     * direction. Delegates to {@link #record(String)} with the {@code tool_result_tokenized} event.
+     */
+    @Override
+    public void recordToolResultTokenized() {
+        record(TOOL_RESULT_TOKENIZED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for an unresolved token found in a tool call's arguments. Delegates to
+     * {@link #record(String)} with the same {@code token_unresolved} event the response-direction restoration path
+     * already records (see {@code AiGuardrails#restoreResponseText} / {@code StreamingResponseRedactor}), rather than a
+     * separate name for the tool-boundary case.
+     */
+    @Override
+    public void recordTokenUnresolved() {
+        record(TOKEN_UNRESOLVED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for an assistant tool-call argument retokenized in the conversation history
+     * {@code PiiTokenBoundaryToolCallingManager} returns. Delegates to {@link #record(String)} with the
+     * {@code assistant_history_retokenized} event.
+     */
+    @Override
+    public void recordAssistantHistoryRetokenized() {
+        record(ASSISTANT_HISTORY_RETOKENIZED_EVENT);
     }
 }
