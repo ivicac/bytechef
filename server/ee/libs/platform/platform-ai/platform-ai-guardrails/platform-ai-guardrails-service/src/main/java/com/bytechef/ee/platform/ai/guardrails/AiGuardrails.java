@@ -895,7 +895,7 @@ public class AiGuardrails {
         @Nullable PiiTokenSession session) {
 
         if (content == null) {
-            return new GuardrailCheckResult(null, null);
+            return new GuardrailCheckResult(null, null, null);
         }
 
         String redacted = redactPiiAndSecrets(content, policy, recordingMetrics, session);
@@ -905,22 +905,22 @@ public class AiGuardrails {
         if (blockedTerm != null) {
             record(recordingMetrics, "blocked_term");
 
-            return new GuardrailCheckResult(maskBlockedTerm(redacted, blockedTerm), "blocked_term");
+            return new GuardrailCheckResult(maskBlockedTerm(redacted, blockedTerm), redacted, "blocked_term");
         }
 
         if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(redacted)) {
             record(recordingMetrics, "injection_flagged");
 
-            return new GuardrailCheckResult(redacted, "injection_flagged");
+            return new GuardrailCheckResult(redacted, redacted, "injection_flagged");
         }
 
         if (policy.moderate() && moderationClassifier != null && moderationClassifier.isFlagged(redacted)) {
             record(recordingMetrics, "moderation_flagged");
 
-            return new GuardrailCheckResult(MODERATION_PLACEHOLDER, "moderation_flagged");
+            return new GuardrailCheckResult(MODERATION_PLACEHOLDER, redacted, "moderation_flagged");
         }
 
-        return new GuardrailCheckResult(redacted, null);
+        return new GuardrailCheckResult(redacted, redacted, null);
     }
 
     /**
@@ -1101,10 +1101,21 @@ public class AiGuardrails {
      * blocking violation; otherwise it is one of {@code "blocked_term"}, {@code "injection_flagged"}, or
      * {@code "moderation_flagged"} — {@code "blocked_term"} and {@code "injection_flagged"} are the same categories
      * {@link #applyToInputs} throws for; {@code "moderation_flagged"} is checked ONLY here (see {@link #checkInput}).
-     * {@code text} carries the redacted/masked content a REDACT_AND_CONTINUE caller can safely forward. See
-     * {@link #checkInputs} for the full contract.
+     * See {@link #checkInputs} for the full contract.
+     *
+     * @param text         the content to forward, with any blocking-specific transformation already applied -- a
+     *                     blocked term masked out, or the whole message replaced for moderation
+     * @param unmaskedText the same content with PII and secret redaction applied but WITHOUT the blocking-specific
+     *                     transformation. Equal to {@code text} whenever nothing blocking-specific was applied
+     *                     (injection has no locatable span, so nothing is masked for it either). Exists so a caller
+     *                     running {@code BlockingMode.ALLOW} can forward the content unmodified while still learning
+     *                     that the violation happened: this engine stays mode-agnostic and computes both candidates
+     *                     rather than resolving the mode itself, keeping {@link #checkInputs}' documented contract that
+     *                     the CALLER decides how to handle a blocking violation.
+     * @param category     the violation category, or {@code null} when nothing blocking fired
      */
-    public record GuardrailCheckResult(@Nullable String text, @Nullable String category) {
+    public record GuardrailCheckResult(
+        @Nullable String text, @Nullable String unmaskedText, @Nullable String category) {
 
         public boolean blocked() {
             return category != null;

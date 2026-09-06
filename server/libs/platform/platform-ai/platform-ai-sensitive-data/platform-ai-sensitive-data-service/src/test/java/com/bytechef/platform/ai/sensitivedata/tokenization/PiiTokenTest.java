@@ -17,6 +17,7 @@
 package com.bytechef.platform.ai.sensitivedata.tokenization;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
@@ -59,5 +60,23 @@ class PiiTokenTest {
         assertThatThrownBy(() -> new PiiToken("lower", 1, "k3n9")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new PiiToken("EMAIL", 0, "k3n9")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new PiiToken("EMAIL", 1, "TOOLONG")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * The single correspondence the shared-constant refactor cannot enforce by construction: the alphabet is a string,
+     * the pattern is a character class, and only a test can say they agree. A widened alphabet without a widened class
+     * mints tokens this type refuses to parse -- and an unparseable token is a value that can never be restored,
+     * visible only as a rising {@code token_unresolved} counter.
+     */
+    @Test
+    void testEveryCharacterOfTheSessionIdAlphabetIsAcceptedByTheSessionIdPattern() {
+        for (char character : PiiToken.SESSION_ID_ALPHABET.toCharArray()) {
+            String sessionId = String.valueOf(character)
+                .repeat(PiiToken.SESSION_ID_LENGTH);
+
+            assertThatCode(() -> new PiiToken("EMAIL_ADDRESS", 1, sessionId))
+                .as("session id built from alphabet character '%s' must be accepted", character)
+                .doesNotThrowAnyException();
+        }
     }
 }
