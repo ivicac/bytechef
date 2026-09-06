@@ -131,4 +131,19 @@ public interface SensitiveDataMetrics {
     default void recordAssistantHistoryRetokenized() {
         // No-op default, for the same reason recordToolArgsRestored is.
     }
+
+    /**
+     * Records that a restoration this call was entitled to perform was withheld by workspace policy -- the response
+     * carried resolvable tokens and they were left in place because the destination was a workflow output and
+     * {@code restoreIntoWorkflowOutput} is off.
+     *
+     * <p>
+     * Recorded only when there was something to restore. Without that condition this counter would tick on every call
+     * of every workflow under the setting, and an admin could not tell a workspace that is actually withholding data
+     * from one that simply has no PII in flight -- which is the single question the setting is adopted or abandoned on.
+     * </p>
+     */
+    default void recordRestoreSuppressed() {
+        // No-op default, for the same reason recordToolArgsRestored is.
+    }
 }

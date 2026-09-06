@@ -137,8 +137,8 @@ class PiiTokenBoundaryToolCallingManagerTest {
     @Test
     void testPiiInAToolResultIsLeftUntouchedWhenTheWorkspaceHasPiiRedactionOff() {
         PiiTokenSession session = PiiTokenSession.create();
-        PiiTokenBoundaryPolicy piiOffPolicy =
-            new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.SECRET), SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+        SensitiveDataPolicy piiOffPolicy = new SensitiveDataPolicy(
+            Set.of(SensitiveKind.SECRET), SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, true);
 
         ToolCallingManager manager = PiiTokenBoundaryToolCallingManager.wrap(
             returningResult("{\"email\":\"bob@acme.io\"}"), redactor(), () -> null);
@@ -158,8 +158,8 @@ class PiiTokenBoundaryToolCallingManagerTest {
     @Test
     void testASecretInAToolResultIsStillRedactedWhenPiiRedactionIsOff() {
         PiiTokenSession session = PiiTokenSession.create();
-        PiiTokenBoundaryPolicy piiOffPolicy =
-            new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.SECRET), SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+        SensitiveDataPolicy piiOffPolicy = new SensitiveDataPolicy(
+            Set.of(SensitiveKind.SECRET), SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, true);
 
         ToolCallingManager manager = PiiTokenBoundaryToolCallingManager.wrap(
             returningResult("key=AKIAIOSFODNN7EXAMPLE"), redactor(), () -> null);
@@ -181,8 +181,8 @@ class PiiTokenBoundaryToolCallingManagerTest {
     @Test
     void testAnExplicitMinConfidenceIsHonouredInsteadOfTheDefault() {
         PiiTokenSession session = PiiTokenSession.create();
-        PiiTokenBoundaryPolicy highBarPolicy =
-            new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII, SensitiveKind.SECRET), 0.95);
+        SensitiveDataPolicy highBarPolicy =
+            new SensitiveDataPolicy(Set.of(SensitiveKind.PII, SensitiveKind.SECRET), 0.95, true);
 
         ToolCallingManager manager = PiiTokenBoundaryToolCallingManager.wrap(
             returningResult("{\"email\":\"bob@acme.io\"}"), redactor(), () -> null);
@@ -886,8 +886,8 @@ class PiiTokenBoundaryToolCallingManagerTest {
                 .build());
     }
 
-    private static Prompt promptWithSessionAndPolicy(PiiTokenSession session, PiiTokenBoundaryPolicy policy) {
-        Map<String, Object> toolContext = PiiTokenBoundaryPolicyToolContext.into(
+    private static Prompt promptWithSessionAndPolicy(PiiTokenSession session, SensitiveDataPolicy policy) {
+        Map<String, Object> toolContext = SensitiveDataPolicyToolContext.into(
             PiiTokenSessionToolContext.into(Map.of(), session), policy);
 
         return new Prompt(

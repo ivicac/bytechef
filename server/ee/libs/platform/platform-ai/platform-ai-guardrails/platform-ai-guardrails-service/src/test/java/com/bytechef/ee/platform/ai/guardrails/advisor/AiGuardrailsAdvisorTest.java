@@ -20,18 +20,21 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifi
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicyToolContext;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +90,9 @@ class AiGuardrailsAdvisorTest {
     }
 
     private static AiGuardrailsAdvisor advisorOver(AiGuardrails aiGuardrails, AiGuardrailMetrics metrics) {
-        return new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, metrics);
+        return new AiGuardrailsAdvisor(
+            aiGuardrails, AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID), metrics, GuardrailSurface.COPILOT,
+            RestorationDestination.CONVERSATION);
     }
 
     @Test
@@ -151,7 +156,8 @@ class AiGuardrailsAdvisorTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                BlockingMode.REDACT_AND_CONTINUE, null, null,
+                null)));
 
         AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
@@ -183,7 +189,8 @@ class AiGuardrailsAdvisorTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.ALLOW, null, null)));
+                BlockingMode.ALLOW, null, null,
+                null)));
 
         AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
@@ -220,7 +227,8 @@ class AiGuardrailsAdvisorTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.ALLOW, null, null)));
+                BlockingMode.ALLOW, null, null,
+                null)));
 
         AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("the CLASSIFIED memo");
@@ -241,7 +249,8 @@ class AiGuardrailsAdvisorTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.ALLOW, null, null)));
+                BlockingMode.ALLOW, null, null,
+                null)));
 
         AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
@@ -321,7 +330,10 @@ class AiGuardrailsAdvisorTest {
 
     @Test
     void testStreamRedactsAcrossChunkBoundary() {
-        AiGuardrails aiGuardrails = guardrails(false, false, "", false, true, true);
+        // Secret redaction must be explicitly enabled -- streaming scanning composes with the category switches the
+        // same as the non-streaming path, so scanResponses alone no longer redacts every kind (see AiGuardrails'
+        // newStreamingResponseRedactor javadoc).
+        AiGuardrails aiGuardrails = guardrails(false, true, "", false, true, true);
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
@@ -572,11 +584,12 @@ class AiGuardrailsAdvisorTest {
     }
 
     /**
-     * The gate {@link AiGuardrails#newStreamingResponseRedactor(Long, AiGuardrailMetrics, PiiTokenSession)} adds: with
-     * streaming scanning inactive and a PII-free request (so the session mints nothing), the redactor is {@code null}
-     * and the upstream stream must pass through completely unbuffered -- the exact upstream chunks, untouched, with no
-     * extra flush-tail element appended -- rather than being forced through the lookahead buffer for no benefit. The
-     * session must still be released. This is the counterpart to
+     * The gate
+     * {@link AiGuardrails#newStreamingResponseRedactor(AiGuardrailsSettingsTarget, AiGuardrailMetrics, PiiTokenSession)}
+     * adds: with streaming scanning inactive and a PII-free request (so the session mints nothing), the redactor is
+     * {@code null} and the upstream stream must pass through completely unbuffered -- the exact upstream chunks,
+     * untouched, with no extra flush-tail element appended -- rather than being forced through the lookahead buffer for
+     * no benefit. The session must still be released. This is the counterpart to
      * {@link #testStreamTokenizesRequestAndRestoresResponseAcrossChunkBoundary}, which pins that the gate does NOT
      * suppress restoration when a token actually was minted.
      */
@@ -735,9 +748,9 @@ class AiGuardrailsAdvisorTest {
 
     /**
      * The tool-boundary policy must ride alongside the session, resolved from this call's own workspace -- with PII
-     * redaction off and secret redaction on, {@code PiiTokenBoundaryPolicyToolContext#from} on the forwarded request's
+     * redaction off and secret redaction on, {@code SensitiveDataPolicyToolContext#from} on the forwarded request's
      * tool context must return a policy whose {@code kinds} excludes {@link SensitiveKind#PII}. Without this,
-     * {@code PiiTokenBoundaryToolCallingManager} falls back to {@link PiiTokenBoundaryPolicy#DEFAULT} (both kinds on)
+     * {@code PiiTokenBoundaryToolCallingManager} falls back to {@link SensitiveDataPolicy#DEFAULT} (both kinds on)
      * regardless of what this workspace configured.
      */
     @Test
@@ -755,8 +768,8 @@ class AiGuardrailsAdvisorTest {
 
         advisor.adviseCall(request, chain);
 
-        PiiTokenBoundaryPolicy policy =
-            PiiTokenBoundaryPolicyToolContext.from(capturedToolContext(forwardedRequestCaptor));
+        SensitiveDataPolicy policy =
+            SensitiveDataPolicyToolContext.from(capturedToolContext(forwardedRequestCaptor));
 
         assertThat(policy).isNotNull();
         assertThat(Objects.requireNonNull(policy)
@@ -833,7 +846,8 @@ class AiGuardrailsAdvisorTest {
 
     @Test
     void testResponseScanningRedactsCompletionAndRecordsMetric() {
-        AiGuardrails aiGuardrails = guardrails(false, false, "", false, true, false);
+        // PII redaction must be enabled for the response scan to have a category to redact.
+        AiGuardrails aiGuardrails = guardrails(true, false, "", false, true, false);
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
@@ -878,6 +892,35 @@ class AiGuardrailsAdvisorTest {
 
         advisor.adviseCall(request, chain);
 
+        // 2.0, not 1.0: redactPii now governs the input direction (the request text) as well as the response
+        // direction (the completion) the docstring above is about, so the broken detector is invoked, and fails,
+        // once per direction. Both failures land under "copilot" -- neither leaks into the engine's own bean under
+        // "gateway" -- which is the invariant this test guards.
+        assertThat(counter(advisorMeterRegistry, "detector_failed", "copilot")).isEqualTo(2.0);
+        assertThat(counter(engineMeterRegistry, "detector_failed", "gateway")).isEqualTo(0.0);
+    }
+
+    /**
+     * Control for {@link #testDetectorFailureDuringResponseScanIsRecordedUnderTheCallingSurface}: that test's 2.0
+     * assertion is direction-ambiguous on its own -- it would equally pass if the broken detector had been invoked
+     * twice for the request direction and never run for the response at all. With response scanning off, only the
+     * request direction runs the broken detector, so the count must drop to 1.0; together the two tests pin down that
+     * the failure is genuinely counted once per direction, not twice for one.
+     */
+    @Test
+    void testDetectorFailureDuringRequestOnlyIsRecordedOnceUnderTheCallingSurface() {
+        AiGuardrails aiGuardrails = guardrailsWithDetectors(List.of(throwingDetector()), false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
+        ChatClientRequest request = requestWithUserMessage("Who do I contact?");
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+
+        when(chain.nextCall(any())).thenReturn(responseChunk("Contact bob@acme.io for details"));
+
+        advisor.adviseCall(request, chain);
+
         assertThat(counter(advisorMeterRegistry, "detector_failed", "copilot")).isEqualTo(1.0);
         assertThat(counter(engineMeterRegistry, "detector_failed", "gateway")).isEqualTo(0.0);
     }
@@ -909,7 +952,8 @@ class AiGuardrailsAdvisorTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                BlockingMode.REDACT_AND_CONTINUE, null, null,
+                null)));
 
         AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
@@ -990,8 +1034,11 @@ class AiGuardrailsAdvisorTest {
     private AiGuardrails guardrailsWithDetectors(
         List<SensitiveDataDetector> sensitiveDataDetectors, boolean responseScanEnabled) {
 
+        // PII redaction is enabled so a response scan has a category to redact -- otherwise the empty kind set
+        // introduced by category-aware response scanning would short-circuit before any detector, including the
+        // throwing one below, ever runs.
         return new AiGuardrails(
-            settingsService, null, null, engineMetrics, sensitiveDataDetectors, false, false, "", false, false,
+            settingsService, null, null, engineMetrics, sensitiveDataDetectors, true, false, "", false, false,
             responseScanEnabled, false);
     }
 
