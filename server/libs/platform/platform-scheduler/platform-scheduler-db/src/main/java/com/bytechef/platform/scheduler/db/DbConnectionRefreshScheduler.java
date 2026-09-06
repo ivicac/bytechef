@@ -52,7 +52,10 @@ public class DbConnectionRefreshScheduler implements ConnectionRefreshScheduler 
         try {
             schedulerClient.cancel(OAUTH2_TOKEN_REFRESH.instanceId(instanceId));
         } catch (TaskInstanceException e) {
-            log.error("Refresh token task not found for connectionId: {}, tenantId: {}", connectionId, tenantId);
+            // Under db-scheduler, cancelling a refresh task that was never scheduled is a routine outcome, so
+            // this is logged at WARN, not ERROR.
+            log.warn(
+                "Refresh token task not found for connectionId: {}, tenantId: {}", connectionId, tenantId, e);
         }
     }
 
@@ -64,15 +67,16 @@ public class DbConnectionRefreshScheduler implements ConnectionRefreshScheduler 
 
         try {
             if (!schedulerClient.schedule(instance, SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)) {
-                logCouldNotBeScheduled(connectionId, tenantId);
+                logCouldNotBeScheduled(connectionId, tenantId, null);
             }
         } catch (TaskInstanceException e) {
-            logCouldNotBeScheduled(connectionId, tenantId);
+            logCouldNotBeScheduled(connectionId, tenantId, e);
         }
     }
 
-    private void logCouldNotBeScheduled(Long connectionId, String tenantId) {
+    private void logCouldNotBeScheduled(Long connectionId, String tenantId, TaskInstanceException e) {
         log.warn(
-            "Refresh token task for connectionId: {}, tenantId: {} could not be scheduled", connectionId, tenantId);
+            "Refresh token task for connectionId: {}, tenantId: {} could not be scheduled", connectionId, tenantId,
+            e);
     }
 }

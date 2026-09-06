@@ -21,6 +21,7 @@ import static com.bytechef.platform.scheduler.db.task.DbSchedulerTaskDescriptors
 import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
+import java.util.Objects;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
@@ -35,8 +36,13 @@ public final class OneTimeResumeTaskFactory {
         return Tasks.oneTime(ONE_TIME_RESUME)
             .execute((taskInstance, executionContext) -> {
                 OneTimeResumeData data = taskInstance.getData();
+                Runnable publishResumeEvent = () -> eventPublisher.publishEvent(new ResumeJobEvent(data.jobId()));
 
-                ContextBinding.runAsSystem(() -> eventPublisher.publishEvent(new ResumeJobEvent(data.jobId())));
+                if (Objects.nonNull(data.tenantId())) {
+                    ContextBinding.run(data.tenantId(), publishResumeEvent);
+                } else {
+                    ContextBinding.runAsSystem(publishResumeEvent);
+                }
             });
     }
 }
