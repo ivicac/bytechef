@@ -21,5 +21,5 @@ import org.jspecify.annotations.Nullable;
 /**
  * @author Ivica Cardic
  */
-public record OneTimeResumeData(long jobId, @Nullable String continueParameters) {
+public record OneTimeResumeData(long jobId, @Nullable String continueParameters, @Nullable String tenantId) {
 }

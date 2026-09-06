@@ -179,7 +179,7 @@ bytechef:
   resources:
     web: file:///opt/bytechef/client/
   scheduler:
-    # Trigger scheduler provider (aws(ee) | quartz) default: quartz
+    # Trigger scheduler provider (aws(ee) | db-scheduler | quartz) default: quartz
     provider: quartz
   script:
     # Task runner allowlist. A runner absent from this map is disabled, which is the intended default for the

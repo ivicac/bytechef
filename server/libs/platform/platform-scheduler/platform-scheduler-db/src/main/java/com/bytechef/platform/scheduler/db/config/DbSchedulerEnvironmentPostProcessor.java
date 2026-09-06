@@ -38,7 +38,7 @@ public class DbSchedulerEnvironmentPostProcessor implements EnvironmentPostProce
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         String provider = environment.getProperty("bytechef.scheduler.provider", "quartz");
 
-        boolean active = "db-scheduler".equalsIgnoreCase(provider);
+        boolean active = "db-scheduler".equals(provider);
         boolean uiEnabled = environment.getProperty("bytechef.scheduler.db-scheduler.ui.enabled", Boolean.class, true);
 
         Map<String, Object> source = new HashMap<>();
