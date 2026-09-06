@@ -109,11 +109,33 @@ describe('AiGuardrails', () => {
                 blockingMode: 'REDACT_AND_CONTINUE',
                 injectionDetectionEnabled: true,
                 moderationEnabled: true,
+                redactMcpResults: false,
                 redactPii: true,
                 redactSecrets: false,
                 scanResponses: false,
                 workspaceId: '123',
             },
         });
+    });
+
+    it('renders the redact MCP tool results toggle off by default and saves it when switched on', () => {
+        render(<AiGuardrails />);
+
+        const toggle = screen.getByLabelText('Redact MCP tool results');
+
+        expect(toggle).not.toBeChecked();
+
+        fireEvent.click(toggle);
+
+        expect(toggle).toBeChecked();
+    });
+
+    it('tells the operator the MCP toggle only selects the surface and redacts nothing on its own', () => {
+        render(<AiGuardrails />);
+
+        expect(
+            screen.getByText(/what gets redacted comes from Redact PII and Redact secrets above/i)
+        ).toBeInTheDocument();
+        expect(screen.getByText(/turning this on while both of those are off redacts nothing/i)).toBeInTheDocument();
     });
 });
