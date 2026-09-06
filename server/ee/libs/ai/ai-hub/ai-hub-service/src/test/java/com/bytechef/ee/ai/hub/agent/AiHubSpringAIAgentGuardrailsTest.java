@@ -122,7 +122,8 @@ class AiHubSpringAIAgentGuardrailsTest {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
-                BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                BlockingMode.REDACT_AND_CONTINUE, null, null,
+                null)));
 
         CapturingChatModel capturingChatModel = new CapturingChatModel();
 

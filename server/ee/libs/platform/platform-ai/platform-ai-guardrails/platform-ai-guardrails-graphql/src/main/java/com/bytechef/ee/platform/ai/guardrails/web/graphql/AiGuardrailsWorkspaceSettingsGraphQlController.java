@@ -70,8 +70,26 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
             .orElse(null);
     }
 
+    /**
+     * See {@link #aiGuardrailsWorkspaceSettings}'s Javadoc for why any argument the body branches on has to appear here
+     * too: this gate keys on {@code input.workspaceId} and {@code input.scope} while the body below dispatches on
+     * {@code scopeOf(input)}.
+     *
+     * <p>
+     * The non-admin branch names the scopes it <em>allows</em> ({@code null} or explicit {@code WORKSPACE}) rather than
+     * the one it forbids ({@code EMBEDDED}). A deny-list here would authorize {@code scope: PLATFORM} too --
+     * {@code PLATFORM != EMBEDDED} is true, so a workspace admin sending {@code {scope: PLATFORM, workspaceId: 7}}
+     * would pass this gate and reach the body, which happens to refuse that combination only because
+     * {@code validateScopeWorkspaceIdPairing} rejects a non-null {@code workspaceId} paired with {@code PLATFORM}. That
+     * is exactly the anti-pattern this method must not repeat: authorization backstopped by a body-side validation
+     * instead of enforced at the gate. An allow-list has no such gap, because it has to be told about a new
+     * non-workspace scope before it lets anything through for it -- an oversight fails closed instead of open.
+     */
     @MutationMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or ((#input.scope == null || #input.scope == "
+        + "T(com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope).WORKSPACE) "
+        + "&& #input.workspaceId != null "
+        + "&& hasPermission(#input.workspaceId, 'Workspace', 'AI_GATEWAY_EDIT'))")
     public AiGuardrailsWorkspaceSettings updateAiGuardrailsWorkspaceSettings(
         @Argument AiGuardrailsWorkspaceSettingsInput input) {
 
@@ -82,7 +100,8 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
         return aiGuardrailsWorkspaceSettingsService.saveSettings(new AiGuardrailsWorkspaceSettings(
             scope, input.workspaceId(), input.redactPii(), input.redactSecrets(), input.blockedTerms(),
             input.moderationEnabled(), input.injectionDetectionEnabled(), input.scanResponses(),
-            input.blockingMode(), input.minConfidence(), input.redactMcpResults()));
+            input.blockingMode(), input.minConfidence(), input.redactMcpResults(),
+            input.restoreIntoWorkflowOutput()));
     }
 
     private AiGuardrailsSettingsScope scopeOf(AiGuardrailsWorkspaceSettingsInput input) {
@@ -110,6 +129,6 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
         @Nullable Boolean redactSecrets, @Nullable String blockedTerms, @Nullable Boolean moderationEnabled,
         @Nullable Boolean injectionDetectionEnabled, @Nullable Boolean scanResponses,
         @Nullable BlockingMode blockingMode, @Nullable Double minConfidence,
-        @Nullable Boolean redactMcpResults) {
+        @Nullable Boolean redactMcpResults, @Nullable Boolean restoreIntoWorkflowOutput) {
     }
 }

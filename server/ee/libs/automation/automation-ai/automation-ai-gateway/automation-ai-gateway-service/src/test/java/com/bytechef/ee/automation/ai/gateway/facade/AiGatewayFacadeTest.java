@@ -308,9 +308,12 @@ class AiGatewayFacadeTest {
         com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService settingsService =
             mock(com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService.class);
 
+        // PII redaction is enabled here (unlike secrets) so that the response-scan direction, when
+        // responseScanEnabled is true, actually has a category to redact -- response scanning now honours the
+        // workspace's category switches instead of always redacting every kind.
         com.bytechef.ee.platform.ai.guardrails.AiGuardrails aiGuardrails =
             new com.bytechef.ee.platform.ai.guardrails.AiGuardrails(
-                settingsService, null, null, null, false, false, "", false, false, responseScanEnabled, false);
+                settingsService, null, null, null, true, false, "", false, false, responseScanEnabled, false);
 
         return new com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails(
             aiGuardrails, null, settingsService, null, null, null, false, false);

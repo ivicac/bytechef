@@ -29,13 +29,13 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * Correctness: because no complete match crosses the safe cut, redacting the emitted segment in isolation equals the
  * corresponding portion of redacting the whole buffer, so the concatenation of every {@link #push} result plus the
- * final {@link #flush} equals {@code redact(fullStream, both kinds)}. This guarantee covers only stream-safe detectors
- * — see {@link SensitiveDataRedactor#streamSafeView()} — since a detector needing wider context than the lookahead
- * window would give different answers here than it gives over the whole document. The window bounds latency and also
- * the worst case: a value that is still incomplete (not yet matchable) and longer than the window may have a prefix
- * emitted before its pattern can match — the documented trade-off of scanning a stream without buffering it whole. Set
- * the window comfortably above the longest value you need to guarantee; the default covers every fixed-shape key/token
- * and typical JWTs.
+ * final {@link #flush} equals {@code redact(fullStream, kinds)}. This guarantee covers only stream-safe detectors — see
+ * {@link SensitiveDataRedactor#streamSafeView()} — since a detector needing wider context than the lookahead window
+ * would give different answers here than it gives over the whole document. The window bounds latency and also the worst
+ * case: a value that is still incomplete (not yet matchable) and longer than the window may have a prefix emitted
+ * before its pattern can match — the documented trade-off of scanning a stream without buffering it whole. Set the
+ * window comfortably above the longest value you need to guarantee; the default covers every fixed-shape key/token and
+ * typical JWTs.
  * </p>
  *
  * <p>
@@ -154,6 +154,24 @@ public final class StreamingResponseRedactor {
         SensitiveDataRedactor sensitiveDataRedactor, double minConfidence, @Nullable AiGuardrailMetrics metrics) {
 
         this(sensitiveDataRedactor, DEFAULT_WINDOW, minConfidence, metrics, null, EnumSet.allOf(SensitiveKind.class));
+    }
+
+    /**
+     * As the three-argument {@code (SensitiveDataRedactor, double, AiGuardrailMetrics)} form, but scanning only for
+     * {@code kinds} instead of every kind -- see the class javadoc's "Restoration is independent of scanning"
+     * paragraph. {@code AiGuardrails} uses this for a caller with no {@link PiiTokenSession} to restore, so this
+     * overload takes no {@code session} at all rather than requiring callers to pass {@code null} for one.
+     *
+     * @param sensitiveDataRedactor a redactor restricted to stream-safe detectors
+     * @param minConfidence         the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param metrics               the instance to count detector failures through, or {@code null}
+     * @param kinds                 the kinds to scan the streamed text for; empty to scan nothing
+     */
+    StreamingResponseRedactor(
+        SensitiveDataRedactor sensitiveDataRedactor, double minConfidence, @Nullable AiGuardrailMetrics metrics,
+        EnumSet<SensitiveKind> kinds) {
+
+        this(sensitiveDataRedactor, DEFAULT_WINDOW, minConfidence, metrics, null, kinds);
     }
 
     /**

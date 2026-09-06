@@ -90,7 +90,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     void testSaveSettingsWritesWorkspaceScopedProperty() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
             AiGuardrailsSettingsScope.WORKSPACE, 7L, true, null, "foo,bar", null, null, null,
-            BlockingMode.REDACT_AND_CONTINUE, null, null);
+            BlockingMode.REDACT_AND_CONTINUE, null, null,
+            null);
 
         service.saveSettings(settings);
 
@@ -103,7 +104,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWithNullWorkspaceWritesPlatformScope() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.PLATFORM, null, null, null, null, null, null, null, null, null, null);
+            AiGuardrailsSettingsScope.PLATFORM, null, null, null, null, null, null, null, null, null, null,
+            null);
 
         service.saveSettings(settings);
 
@@ -114,7 +116,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesMinConfidenceWhenSet() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, 0.95, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, 0.95, null,
+            null);
 
         service.saveSettings(settings);
 
@@ -149,7 +152,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @SuppressWarnings("unchecked")
     void testRedactMcpResultsRoundTripsAndIsAbsentFromOldRows() {
         AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, null, true);
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, null, true,
+            null);
 
         service.saveSettings(saved);
 
@@ -168,12 +172,45 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
             .redactMcpResults()).isTrue();
     }
 
+    /**
+     * "Written but never read back" is this serializer's signature silent failure -- a field that round-trips through
+     * every other test but this one would make {@code restoreIntoWorkflowOutput} inert with a fully green suite: the
+     * setting page would save {@code false}, and every reader would keep seeing {@code null} instead -- a silently
+     * dropped explicit override, even though {@code null} and {@code false} now resolve to the same "do not restore"
+     * outcome in {@link com.bytechef.ee.platform.ai.guardrails.AiGuardrails#isRestoreIntoWorkflowOutput}. Mirrors
+     * {@link #testRedactMcpResultsRoundTripsAndIsAbsentFromOldRows} for the sibling field.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testRestoreIntoWorkflowOutputRoundTripsAndIsAbsentFromOldRows() {
+        AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, null, null,
+            false);
+
+        service.saveSettings(saved);
+
+        ArgumentCaptor<Map<String, Object>> valueCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(propertyService).save(
+            eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), valueCaptor.capture(), eq(Scope.WORKSPACE), eq(1L));
+
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.WORKSPACE, 1L))
+            .thenReturn(Optional.of(property(valueCaptor.getValue())));
+
+        Optional<AiGuardrailsWorkspaceSettings> fetched = service.fetchSettings(1L);
+
+        assertThat(fetched).isPresent();
+        assertThat(fetched.get()
+            .restoreIntoWorkflowOutput()).isFalse();
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void testARowStoredBeforeThisFieldExistedReadsAsNull() {
         // A property value map written by an earlier version carries no key for this field at all.
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.WORKSPACE, 1L, true, null, null, null, null, null, null, null, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, true, null, null, null, null, null, null, null, null,
+            null);
 
         service.saveSettings(settings);
 
@@ -198,7 +235,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @SuppressWarnings("unchecked")
     void testEmbeddedSettingsRoundTripIndependentlyOfAnyWorkspaceRow() {
         service.saveSettings(new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true));
+            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true,
+            null));
 
         ArgumentCaptor<Map<String, Object>> valueCaptor = ArgumentCaptor.forClass(Map.class);
 
@@ -238,7 +276,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
             });
 
         service.saveSettings(new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true));
+            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true,
+            null));
 
         assertThat(service.fetchSettings(null))
             .as("an embedded row must not be readable as the tenant default, or the two scopes collapse "

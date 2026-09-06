@@ -32,10 +32,13 @@ import com.bytechef.ee.ai.hub.util.Source;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.advisor.AiGuardrailsAdvisor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.llm.usage.LlmUsageRecorder;
 import com.bytechef.ee.platform.ai.workspaceprompt.WorkspaceSystemPrompts;
 import com.bytechef.ee.platform.ai.workspaceprompt.advisor.WorkspaceSystemPromptAdvisor;
 import com.bytechef.platform.ai.guardrails.ConversationScope;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -453,12 +456,15 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
 
         State state = input.state();
         Long workspaceId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID));
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
 
-        if (!aiGuardrails.isActive(workspaceId)) {
+        if (!aiGuardrails.isActive(target)) {
             return chatClient;
         }
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, workspaceId, aiGuardrailMetrics);
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(
+            aiGuardrails, target, aiGuardrailMetrics, GuardrailSurface.AI_HUB,
+            RestorationDestination.CONVERSATION);
 
         return chatClient.mutate()
             .defaultAdvisors(advisor)

@@ -78,9 +78,9 @@ import org.springframework.core.io.Resource;
  * <p>
  * <b>Null/absent workspace id</b> — when the forwarded {@code ToolContext} carries no resolvable workspace id (never
  * captured, or a delegate that calls {@code .call()}/{@code .stream()} without ever calling {@code .toolContext(...)}
- * first), {@link AiGuardrails#isActive(Long)} and {@code AiGuardrailsAdvisor} are invoked with a {@code null} workspace
- * id — the same tenant-default fallback {@code AiHubSpringAIAgent#attachGuardrailsAdvisor} uses when the verified
- * workspace id is absent from turn state.
+ * first), {@link AiGuardrails#isActive(AiGuardrailsSettingsTarget)} and {@code AiGuardrailsAdvisor} are invoked with a
+ * {@code null} workspace id — the same tenant-default fallback {@code AiHubSpringAIAgent#attachGuardrailsAdvisor} uses
+ * when the verified workspace id is absent from turn state.
  * </p>
  *
  * <p>

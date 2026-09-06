@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
@@ -34,7 +35,7 @@ class WorkspaceAdvisorContributorTest {
         AiGuardrailMetrics aiGuardrailMetrics = mock(AiGuardrailMetrics.class);
         ChatClientRequestSpec chatClientRequestSpec = mock(ChatClientRequestSpec.class);
 
-        when(aiGuardrails.isActive(any())).thenReturn(false);
+        when(aiGuardrails.isActive(any(AiGuardrailsSettingsTarget.class))).thenReturn(false);
 
         WorkspaceAdvisorContributor contributor = new WorkspaceAdvisorContributor(
             aiGuardrails, aiGuardrailMetrics, null);

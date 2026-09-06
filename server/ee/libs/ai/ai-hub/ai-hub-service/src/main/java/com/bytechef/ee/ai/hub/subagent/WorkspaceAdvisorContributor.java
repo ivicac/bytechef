@@ -11,8 +11,11 @@ import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.advisor.AiGuardrailsAdvisor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.workspaceprompt.WorkspaceSystemPrompts;
 import com.bytechef.ee.platform.ai.workspaceprompt.advisor.WorkspaceSystemPromptAdvisor;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -49,11 +52,15 @@ public final class WorkspaceAdvisorContributor implements SubAgentAdvisorContrib
         ChatClientRequestSpec chatClientRequestSpec, @Nullable Map<String, Object> toolContext) {
 
         Long workspaceId = resolveWorkspaceId(toolContext);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
 
         ChatClientRequestSpec resultSpec = chatClientRequestSpec;
 
-        if (aiGuardrails != null && aiGuardrailMetrics != null && aiGuardrails.isActive(workspaceId)) {
-            resultSpec = resultSpec.advisors(new AiGuardrailsAdvisor(aiGuardrails, workspaceId, aiGuardrailMetrics));
+        if (aiGuardrails != null && aiGuardrailMetrics != null && aiGuardrails.isActive(target)) {
+            resultSpec = resultSpec.advisors(
+                new AiGuardrailsAdvisor(
+                    aiGuardrails, target, aiGuardrailMetrics, GuardrailSurface.AI_HUB,
+                    RestorationDestination.CONVERSATION));
         }
 
         if (workspaceSystemPrompts != null && workspaceSystemPrompts.fetchPrompt(workspaceId) != null) {
