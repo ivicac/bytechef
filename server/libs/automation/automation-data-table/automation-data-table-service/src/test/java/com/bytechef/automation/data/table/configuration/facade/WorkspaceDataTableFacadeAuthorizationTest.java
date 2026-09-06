@@ -35,13 +35,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 class WorkspaceDataTableFacadeAuthorizationTest {
 
     @Test
-    void testCreateRequiresWorkspaceEditor() {
-        assertExpression("createTable", "hasPermission(#workspaceId, 'Workspace', 'DATA_TABLE_CREATE')");
+    void testCreateRequiresWorkspaceEditorInTheNamedEnvironment() {
+        assertExpression(
+            "createTable", "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DATA_TABLE_CREATE', #environmentId)");
     }
 
     @Test
-    void testListRequiresWorkspaceViewer() {
-        assertExpression("listTables", "hasPermission(#workspaceId, 'Workspace', 'DATA_TABLE_VIEW')");
+    void testListRequiresWorkspaceViewerInTheNamedEnvironment() {
+        assertExpression(
+            "listTables", "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test

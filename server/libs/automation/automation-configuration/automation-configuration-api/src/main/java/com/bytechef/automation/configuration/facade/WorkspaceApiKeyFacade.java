@@ -28,6 +28,14 @@ public interface WorkspaceApiKeyFacade {
 
     /**
      * Create a new ApiKey for the workspace and link it.
+     * <p>
+     * The {@code @PreAuthorize} gate on this method is environment-unaware: it resolves the union of scopes the caller
+     * holds across every environment in the workspace, because the environment the created key belongs to arrives
+     * packed inside the {@code apiKey} argument (its {@code environment} field, a primitive {@code int} that is never
+     * null) rather than as a value this method's own signature exposes. The environment-aware check lives on
+     * {@code WorkspaceApiKeyGraphQlController#createWorkspaceApiKey} instead, where {@code environmentId} is still a
+     * plain argument, before it is folded into the {@code apiKey} object passed here. This method's own gate remains as
+     * defense-in-depth for any caller that reaches it without going through that controller.
      *
      * @param workspaceId The workspace id
      * @param apiKey      The ApiKey aggregate (expects name, environment, etc.)

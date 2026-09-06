@@ -45,7 +45,7 @@ class WorkspaceVariableGraphQlControllerTest {
 
         assertThat(method.getAnnotation(QueryMapping.class)).isNotNull();
         assertThat(method.getAnnotation(PreAuthorize.class)
-            .value()).isEqualTo("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_VIEW')");
+            .value()).isEqualTo("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_VIEW', #environmentId)");
     }
 
     @Test
@@ -62,7 +62,8 @@ class WorkspaceVariableGraphQlControllerTest {
         }) {
             assertThat(method.getAnnotation(MutationMapping.class)).isNotNull();
             assertThat(method.getAnnotation(PreAuthorize.class)
-                .value()).isEqualTo("hasPermission(#workspaceId, 'Workspace', 'VARIABLE_MANAGE')");
+                .value()).isEqualTo(
+                    "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'VARIABLE_MANAGE', #environmentId)");
         }
     }
 

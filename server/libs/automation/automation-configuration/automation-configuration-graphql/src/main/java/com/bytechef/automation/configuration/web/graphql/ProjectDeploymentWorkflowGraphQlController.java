@@ -162,8 +162,8 @@ public class ProjectDeploymentWorkflowGraphQlController {
 
     /**
      * Authorization lives on {@link ProjectDeploymentFacade#getWorkspaceChatWorkflows(long, long)}, which carries
-     * {@code hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')} and filters the listing through
-     * {@code ProjectVisibilityFilter} &mdash; the API facade is this codebase's authorization layer, and this
+     * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, 'WORKFLOW_VIEW', #environmentId)} and filters the listing
+     * through {@code ProjectVisibilityFilter} &mdash; the API facade is this codebase's authorization layer, and this
      * controller carries no gate of its own. Both halves used to live in this method's body, which is also where the
      * hole they close came from: the listing was assembled here, out of services, past the facade entirely.
      *

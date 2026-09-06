@@ -179,8 +179,14 @@ public class McpServerPromotionHandler implements EnvironmentPromotionHandler {
         return PromotionResourceType.MCP_SERVER;
     }
 
+    /**
+     * Authorises {@code targetEnvironment}, the environment this preview computes the promotion into. Whether the
+     * caller must also hold the scope in the source environment is deliberately not decided here.
+     */
     @Override
-    @PreAuthorize("hasPermission(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'MCP_CREATE', "
+        +
+        "#targetEnvironment)")
     @Transactional(readOnly = true)
     public EnvironmentPromotionPreview preview(long sourceId, Environment targetEnvironment) {
         McpServer source = loadSource(sourceId, targetEnvironment);
@@ -282,8 +288,14 @@ public class McpServerPromotionHandler implements EnvironmentPromotionHandler {
             warnings);
     }
 
+    /**
+     * Authorises {@code targetEnvironment}, the environment this promotion writes into. Whether the caller must also
+     * hold the scope in the source environment is deliberately not decided here.
+     */
     @Override
-    @PreAuthorize("hasPermission(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'Workspace', 'MCP_CREATE')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironment(@promotionAuthorizer.workspaceIdOfMcpServer(#sourceId), 'MCP_CREATE', "
+        +
+        "#targetEnvironment)")
     @Transactional
     public EnvironmentPromotionResult promote(
         long sourceId, Environment targetEnvironment, Map<Long, Long> connectionMappings) {

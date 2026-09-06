@@ -68,7 +68,7 @@ public class WorkspaceApiKeyFacadeImpl implements WorkspaceApiKeyFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'API_KEY_VIEW')")
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'API_KEY_VIEW', #environmentId)")
     public List<ApiKey> getApiKeys(long workspaceId, long environmentId) {
         List<Long> apiKeyIds = CollectionUtils.map(
             workspaceApiKeyService.getWorkspaceApiKeys(workspaceId), WorkspaceApiKey::getApiKeyId);

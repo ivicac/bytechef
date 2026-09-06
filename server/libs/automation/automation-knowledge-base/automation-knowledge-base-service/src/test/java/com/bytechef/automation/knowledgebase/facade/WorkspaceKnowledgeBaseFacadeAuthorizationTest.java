@@ -32,9 +32,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
 
     @Test
-    void testGetWorkspaceKnowledgeBasesRequiresViewer() {
+    void testGetWorkspaceKnowledgeBasesRequiresViewerInTheNamedEnvironment() {
         assertExpression("getWorkspaceKnowledgeBases",
-            "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_VIEW')");
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_VIEW', #environmentId)");
     }
 
     @Test
@@ -66,9 +66,9 @@ class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
     }
 
     @Test
-    void testCreateRequiresWorkspaceEditor() {
+    void testCreateRequiresWorkspaceEditorInTheNamedEnvironment() {
         assertExpression("createWorkspaceKnowledgeBase",
-            "hasPermission(#workspaceId, 'Workspace', 'KNOWLEDGE_BASE_CREATE')");
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'KNOWLEDGE_BASE_CREATE', #environmentId)");
     }
 
     @Test

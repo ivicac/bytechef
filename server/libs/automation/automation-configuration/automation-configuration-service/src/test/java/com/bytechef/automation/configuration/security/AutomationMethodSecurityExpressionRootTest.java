@@ -18,6 +18,7 @@ package com.bytechef.automation.configuration.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -371,6 +372,71 @@ class AutomationMethodSecurityExpressionRootTest {
         when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(resourceMembershipResolver);
         when(resourceMembershipResolver.governsCurrentPrincipal()).thenReturn(true);
         when(resourceMembershipResolver.resolve("wf-1", "Workflow", "WORKFLOW_EDIT")).thenReturn(decision);
+    }
+
+    // -- hasWorkspaceScopeInEnvironmentId: the caller-supplied-ordinal workspace gate -----------------------------
+
+    /**
+     * The listings that pass an environment argument use {@code null} as "no environment filter", so a null ordinal
+     * must keep the environment-unaware union check rather than deny or require every environment.
+     */
+    @Test
+    void testANullEnvironmentIdKeepsTheEnvironmentUnawareCheck() {
+        when(permissionService.hasWorkspaceScope(1L, "DEPLOYMENT_VIEW")).thenReturn(true);
+
+        assertThat(root.hasWorkspaceScopeInEnvironmentId(1L, "DEPLOYMENT_VIEW", null)).isTrue();
+
+        verify(permissionService).hasWorkspaceScope(1L, "DEPLOYMENT_VIEW");
+        verify(permissionService, never()).hasWorkspaceScope(anyLong(), anyString(), any(Environment.class));
+    }
+
+    /**
+     * An ordinal that cannot be resolved to an {@link Environment} is denied rather than defaulted, because an
+     * environment that cannot be identified cannot be authorised.
+     */
+    @Test
+    void testAnOrdinalOutOfRangeDeniesRatherThanDefaulting() {
+        assertThat(root.hasWorkspaceScopeInEnvironmentId(1L, "DEPLOYMENT_VIEW", 99L)).isFalse();
+
+        verify(permissionService, never()).hasWorkspaceScope(anyLong(), anyString(), any(Environment.class));
+    }
+
+    /**
+     * A resolvable ordinal is checked directly against that one environment -- never substituted, and never unioned
+     * with the environment-unaware overload.
+     */
+    @Test
+    void testAResolvableOrdinalChecksThatEnvironmentAlone() {
+        when(permissionService.hasWorkspaceScope(1L, "DEPLOYMENT_VIEW", Environment.PRODUCTION)).thenReturn(true);
+
+        assertThat(
+            root.hasWorkspaceScopeInEnvironmentId(1L, "DEPLOYMENT_VIEW", (long) Environment.PRODUCTION.ordinal()))
+                .isTrue();
+
+        verify(permissionService, never()).hasWorkspaceScope(anyLong(), anyString());
+    }
+
+    /**
+     * Mirrors what {@code hasPermission(#workspaceId, 'Workspace', ...)} does today: no resolver claims "Workspace", so
+     * a governed principal resolves {@link Decision#NOT_APPLICABLE}, which the decider turns into DENY. Losing this is
+     * how moving these gates off {@code hasPermission} would have opened every workspace surface to an embedded
+     * connected user.
+     */
+    @Test
+    void testAGovernedPrincipalIsDeniedBeforeAnyScopeIsRead() {
+        governedWorkspaceResolver(Decision.NOT_APPLICABLE);
+
+        assertThat(root.hasWorkspaceScopeInEnvironmentId(1L, "DEPLOYMENT_VIEW", 0L)).isFalse();
+
+        verifyNoInteractions(permissionService);
+    }
+
+    private void governedWorkspaceResolver(Decision decision) {
+        ResourceMembershipResolver resourceMembershipResolver = mock(ResourceMembershipResolver.class);
+
+        when(resourceMembershipResolverProvider.getIfAvailable()).thenReturn(resourceMembershipResolver);
+        when(resourceMembershipResolver.governsCurrentPrincipal()).thenReturn(true);
+        when(resourceMembershipResolver.resolve(1L, "Workspace", "DEPLOYMENT_VIEW")).thenReturn(decision);
     }
 
     @Test
