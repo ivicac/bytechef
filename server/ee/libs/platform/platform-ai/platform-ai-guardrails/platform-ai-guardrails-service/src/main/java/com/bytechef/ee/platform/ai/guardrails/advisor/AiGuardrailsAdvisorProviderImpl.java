@@ -77,11 +77,29 @@ public class AiGuardrailsAdvisorProviderImpl implements AiGuardrailsAdvisorProvi
         return buildMetricsIfActive(jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId), surface);
     }
 
+    @Override
+    public Optional<Advisor> getAdvisorForWorkspace(@Nullable Long workspaceId, String surface) {
+        AiGuardrailMetrics metrics = buildMetricsIfActive(workspaceId, surface);
+
+        if (metrics == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, workspaceId, metrics));
+    }
+
+    @Override
+    public @Nullable SensitiveDataMetrics getMetricsForWorkspace(@Nullable Long workspaceId, String surface) {
+        return buildMetricsIfActive(workspaceId, surface);
+    }
+
     /**
-     * Shared by {@link #getAdvisor} and {@link #getMetrics} so both resolve through the identical active/inactive gate
-     * and build the identical {@link AiGuardrailMetrics} instance -- the metrics {@link #getMetrics} returns for a
-     * given call is exactly the one {@link #getAdvisor} would hand to {@link AiGuardrailsAdvisor} for the identical
-     * arguments, not a second, independently-gated instance that could disagree with it.
+     * Shared by {@link #getAdvisor}, {@link #getMetrics}, {@link #getAdvisorForWorkspace} and
+     * {@link #getMetricsForWorkspace} so all four resolve through the identical active/inactive gate and build the
+     * identical {@link AiGuardrailMetrics} instance -- the metrics {@link #getMetrics} (or
+     * {@link #getMetricsForWorkspace}) returns for a given call is exactly the one {@link #getAdvisor} (or
+     * {@link #getAdvisorForWorkspace}) would hand to {@link AiGuardrailsAdvisor} for the identical arguments, not a
+     * second, independently-gated instance that could disagree with it.
      */
     private @Nullable AiGuardrailMetrics buildMetricsIfActive(@Nullable Long workspaceId, String surface) {
         if (!aiGuardrails.isActive(workspaceId)) {

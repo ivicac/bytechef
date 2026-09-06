@@ -27,6 +27,7 @@ import com.bytechef.ai.copilot.tool.ask.SubAgentQuestionRenderer;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.automation.ai.tool.AssetFileToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
@@ -37,7 +38,6 @@ import com.bytechef.automation.ai.tool.WorkspaceScopedSubAgentToolCallback;
 import com.bytechef.automation.ai.tool.aiagent.AiAgentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.datatable.DataTableToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -106,7 +106,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor copilotAgentToolCallbackContributor(
         ObjectProvider<SkillsTools> skillsToolsProvider,
-        IntelligentToolCatalog intelligentToolCatalog, WorkspaceService workspaceService) {
+        IntelligentToolCatalog intelligentToolCatalog, AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -118,7 +118,7 @@ public class ToolCallbackContributorConfiguration {
                 intelligentToolCatalog.getByNames(
                     INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
                     (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(
-                        toolCallback, workspaceService),
+                        toolCallback, accessibleWorkspaceResolver),
                     SubAgentQuestionRenderer.PLAIN_TEXT));
 
             return toolCallbacks;
@@ -152,7 +152,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor mcpServerCrudMcpContributor(
         ObjectProvider<McpServerToolCallbacksFactory> mcpServerToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             McpServerToolCallbacksFactory mcpServerToolCallbacksFactory = mcpServerToolCallbacksFactoryProvider
@@ -174,7 +174,7 @@ public class ToolCallbackContributorConfiguration {
 
                 toolCallbacks.add(
                     WORKSPACE_SCOPED_MCP_TOOL_NAMES.contains(name)
-                        ? new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService)
+                        ? new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver)
                         : toolCallback);
             }
 
@@ -209,7 +209,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor deploymentFlatCrudMcpContributor(
         ObjectProvider<DeploymentToolCallbacksFactory> deploymentToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             DeploymentToolCallbacksFactory deploymentToolCallbacksFactory = deploymentToolCallbacksFactoryProvider
@@ -227,7 +227,7 @@ public class ToolCallbackContributorConfiguration {
 
                 toolCallbacks.add(
                     WORKSPACE_SCOPED_DEPLOYMENT_TOOL_NAMES.contains(name)
-                        ? new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService)
+                        ? new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver)
                         : toolCallback);
             }
 
@@ -261,7 +261,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor assetFileFlatCrudMcpContributor(
         ObjectProvider<AssetFileToolCallbacksFactory> assetFileToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             AssetFileToolCallbacksFactory assetFileToolCallbacksFactory = assetFileToolCallbacksFactoryProvider
@@ -274,7 +274,7 @@ public class ToolCallbackContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : assetFileToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver));
             }
 
             return toolCallbacks;
@@ -309,7 +309,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor dataTableFlatCrudMcpContributor(
         ObjectProvider<DataTableToolCallbacksFactory> dataTableToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             DataTableToolCallbacksFactory dataTableToolCallbacksFactory = dataTableToolCallbacksFactoryProvider
@@ -322,7 +322,7 @@ public class ToolCallbackContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : dataTableToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver));
             }
 
             return toolCallbacks;
@@ -362,7 +362,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor knowledgeBaseFlatCrudMcpContributor(
         ObjectProvider<KnowledgeBaseToolCallbacksFactory> knowledgeBaseToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             KnowledgeBaseToolCallbacksFactory knowledgeBaseToolCallbacksFactory =
@@ -376,7 +376,7 @@ public class ToolCallbackContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : knowledgeBaseToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver));
             }
 
             return toolCallbacks;
@@ -416,7 +416,7 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor aiAgentFlatCrudMcpContributor(
         ObjectProvider<AiAgentToolCallbacksFactory> aiAgentToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             AiAgentToolCallbacksFactory aiAgentToolCallbacksFactory = aiAgentToolCallbacksFactoryProvider
@@ -429,7 +429,7 @@ public class ToolCallbackContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : aiAgentToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver));
             }
 
             return toolCallbacks;

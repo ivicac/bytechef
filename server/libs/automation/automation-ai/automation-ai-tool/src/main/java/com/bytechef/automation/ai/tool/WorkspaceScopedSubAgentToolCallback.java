@@ -19,7 +19,6 @@ package com.bytechef.automation.ai.tool;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
@@ -59,14 +58,19 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
+    // Deliberately does not distinguish "no such workspace" from "exists but you cannot reach it", so a caller cannot
+    // use the tool's own error to probe which workspace ids are real. Mirrors WorkspaceAccessGuard's wording.
+    private static final String INACCESSIBLE_WORKSPACE_MESSAGE = "Workspace is not accessible to the current user";
+
     private final ToolCallback delegate;
-    private final WorkspaceService workspaceService;
+    private final AccessibleWorkspaceResolver accessibleWorkspaceResolver;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate, WorkspaceService workspaceService) {
+    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate,
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
         this.delegate = delegate;
-        this.workspaceService = workspaceService;
+        this.accessibleWorkspaceResolver = accessibleWorkspaceResolver;
     }
 
     @Override
@@ -102,7 +106,7 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
             Long workspaceId = input.workspaceId();
 
             if (workspaceId == null) {
-                List<Workspace> workspaces = workspaceService.getWorkspaces();
+                List<Workspace> workspaces = accessibleWorkspaceResolver.getAccessibleWorkspaces();
 
                 if (workspaces.size() == 1) {
                     Workspace workspace = workspaces.getFirst();
@@ -119,6 +123,8 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                                 .map(workspace -> Map.of("id", workspace.getId(), "name", workspace.getName()))
                                 .toList()));
                 }
+            } else if (!accessibleWorkspaceResolver.isAccessible(workspaceId)) {
+                return ToolErrors.toolError(jsonMapper, INACCESSIBLE_WORKSPACE_MESSAGE);
             }
 
             String requestedEnvironment = input.environment();

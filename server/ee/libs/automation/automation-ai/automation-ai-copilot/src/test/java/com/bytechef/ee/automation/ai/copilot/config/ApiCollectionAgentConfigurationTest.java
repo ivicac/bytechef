@@ -13,16 +13,19 @@ import static org.mockito.Mockito.mock;
 import com.agui.core.exception.AGUIException;
 import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
+import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.automation.ai.tool.ApiCollectionToolCallbacksFactory;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
@@ -34,6 +37,7 @@ import org.springframework.core.io.ClassPathResource;
  *
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 final class ApiCollectionAgentConfigurationTest {
 
     private final ApiCollectionAgentConfiguration configuration = newConfiguration();
@@ -72,20 +76,19 @@ final class ApiCollectionAgentConfigurationTest {
     }
 
     @Test
-    void testMcpContributorRegistersAllThreeToolsFlat() {
+    void testMcpContributorRegistersBothToolsFlat() {
         McpServerToolCallbackContributor contributor = configuration.apiCollectionFlatCrudMcpContributor(
-            apiCollectionToolCallbacksFactory, mock(WorkspaceService.class));
+            apiCollectionToolCallbacksFactory, mock(WorkspaceFacade.class));
 
         List<String> toolNames = toolNames(contributor.getToolCallbacks());
 
-        assertThat(toolNames).containsExactlyInAnyOrder(
-            "listApiCollections", "createApiCollection");
+        assertThat(toolNames).containsExactlyInAnyOrder("listApiCollections", "createApiCollection");
     }
 
     @Test
     void testMcpContributorOnlyWrapsTheWorkspaceScopedListTool() {
         McpServerToolCallbackContributor contributor = configuration.apiCollectionFlatCrudMcpContributor(
-            apiCollectionToolCallbacksFactory, mock(WorkspaceService.class));
+            apiCollectionToolCallbacksFactory, mock(WorkspaceFacade.class));
 
         Map<String, ToolCallback> toolCallbacksByName = contributor.getToolCallbacks()
             .stream()
@@ -103,6 +106,17 @@ final class ApiCollectionAgentConfigurationTest {
             toolCallbacksByName.get("createApiCollection")
                 .getToolDefinition()
                 .inputSchema()).doesNotContain("workspaceId");
+    }
+
+    @Test
+    void testPanelToolCallbacksRehydrateTheSecurityContext() {
+        assertThat(configuration.askToolCallbacks(securityContextRehydrator, apiCollectionToolCallbacksFactory))
+            .isNotEmpty()
+            .allMatch(RehydrateContextToolCallback.class::isInstance);
+
+        assertThat(configuration.buildToolCallbacks(securityContextRehydrator, apiCollectionToolCallbacksFactory))
+            .isNotEmpty()
+            .allMatch(RehydrateContextToolCallback.class::isInstance);
     }
 
     private static ApiCollectionAgentConfiguration newConfiguration() {

@@ -109,7 +109,6 @@ public class WorkflowExecutionSpringAIAgent extends CopilotSpringAIAgent {
         Object parametersObject = state.get("parameters");
 
         if (parametersObject instanceof Map<?, ?> parameters) {
-            putLong(toolContext, WorkflowExecutionToolContextKeys.WORKSPACE_ID, parameters.get("workspaceId"));
             putLong(toolContext, WorkflowExecutionToolContextKeys.ENVIRONMENT_ID, parameters.get("environmentId"));
         }
 
@@ -123,8 +122,6 @@ public class WorkflowExecutionSpringAIAgent extends CopilotSpringAIAgent {
             try {
                 target.put(key, Long.parseLong(string));
             } catch (NumberFormatException numberFormatException) {
-                // Leave the key unset — a malformed workspace/environment id degrades to "unscoped",
-                // which listWorkflowExecutions treats as an empty result rather than a hard failure.
                 log.debug("Ignoring malformed long value '{}' for key '{}'", string, key);
             }
         }

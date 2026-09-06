@@ -13,7 +13,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
 import com.bytechef.automation.ai.tool.WorkspaceScopedFlatToolCallback;
 import com.bytechef.automation.ai.tool.WorkspaceScopedSubAgentToolCallback;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,11 +67,11 @@ public class AutomationCopilotMcpContributorConfiguration {
 
     @Bean
     McpServerToolCallbackContributor automationCopilotAgentToolCallbackContributor(
-        IntelligentToolCatalog intelligentToolCatalog, WorkspaceService workspaceService) {
+        IntelligentToolCatalog intelligentToolCatalog, WorkspaceFacade workspaceFacade) {
 
         return () -> intelligentToolCatalog.getByNames(
             INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
-            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback, workspaceService),
+            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback, workspaceFacade),
             SubAgentQuestionRenderer.PLAIN_TEXT);
     }
 
@@ -116,7 +116,7 @@ public class AutomationCopilotMcpContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor contextStoreFlatCrudMcpContributor(
         ObjectProvider<ContextStoreToolCallbacksFactory> contextStoreToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        WorkspaceFacade workspaceFacade) {
 
         return () -> {
             ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory = contextStoreToolCallbacksFactoryProvider
@@ -129,7 +129,7 @@ public class AutomationCopilotMcpContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : contextStoreToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceFacade));
             }
 
             return toolCallbacks;
