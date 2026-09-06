@@ -3,6 +3,7 @@ query aiGuardrailsWorkspaceSettings($workspaceId: ID, $scope: AiGuardrailsSettin
         blockedTerms
         blockingMode
         injectionDetectionEnabled
+        minConfidence
         moderationEnabled
         redactMcpResults
         redactPii
@@ -18,6 +19,7 @@ mutation updateAiGuardrailsWorkspaceSettings($input: AiGuardrailsWorkspaceSettin
         blockedTerms
         blockingMode
         injectionDetectionEnabled
+        minConfidence
         moderationEnabled
         redactMcpResults
         redactPii

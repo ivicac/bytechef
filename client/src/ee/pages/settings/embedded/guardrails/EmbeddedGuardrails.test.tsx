@@ -17,6 +17,7 @@ const settings = {
     blockedTerms: 'foo,bar',
     blockingMode: 'BLOCK',
     injectionDetectionEnabled: false,
+    minConfidence: 0.75,
     moderationEnabled: true,
     redactPii: true,
     redactSecrets: false,
@@ -118,6 +119,7 @@ describe('EmbeddedGuardrails', () => {
                 blockedTerms: 'foo,bar,baz',
                 blockingMode: 'REDACT_AND_CONTINUE',
                 injectionDetectionEnabled: true,
+                minConfidence: 0.75,
                 moderationEnabled: true,
                 redactMcpResults: false,
                 redactPii: true,
@@ -147,5 +149,17 @@ describe('EmbeddedGuardrails', () => {
             screen.getByText(/what gets redacted comes from Redact PII and Redact secrets above/i)
         ).toBeInTheDocument();
         expect(screen.getByText(/turning this on while both of those are off redacts nothing/i)).toBeInTheDocument();
+    });
+
+    it('preserves an API-set minConfidence across a save, since the page has no control for it', () => {
+        render(<EmbeddedGuardrails />);
+
+        fireEvent.click(screen.getByRole('button', {name: 'Save'}));
+
+        expect(mutateMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                input: expect.objectContaining({minConfidence: 0.75}),
+            })
+        );
     });
 });
