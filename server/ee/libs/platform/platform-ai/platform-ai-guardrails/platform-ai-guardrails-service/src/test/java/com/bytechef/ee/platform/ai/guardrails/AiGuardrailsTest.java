@@ -948,6 +948,54 @@ class AiGuardrailsTest {
     }
 
     @Test
+    void testCheckInputCarriesTheAcceptedSpansSoACallerCanRecordThem() {
+        // The engine already computes these to decide which counter to increment, then discards them. A caller that
+        // wants to say WHICH pattern fired, and where, has no other source: bytechef_ai_guardrail carries only an
+        // event name and a surface, deliberately, so it can say how much is happening and never what.
+        AiGuardrails guardrails = guardrails(null, true, false, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        AiGuardrails.GuardrailCheckResult result = guardrails.checkInputs(
+            List.of("mail bob@acme.io"), 7L, metrics)
+            .getFirst();
+
+        assertThat(result.spans())
+            .singleElement()
+            .satisfies(span -> {
+                assertThat(span.category()).isEqualTo("EMAIL_ADDRESS");
+                assertThat(span.start()).isEqualTo(5);
+                assertThat(span.end()).isEqualTo(16);
+            });
+    }
+
+    @Test
+    void testTheCarriedSpansLocateAMatchWithoutReproducingIt() {
+        // The property the whole violation-record feature rests on: a span is (category, start, end, confidence).
+        // If a matched value ever appears on this record, every consumer of it becomes a place PII can be stored.
+        AiGuardrails guardrails = guardrails(null, true, false, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        AiGuardrails.GuardrailCheckResult result = guardrails.checkInputs(
+            List.of("mail bob@acme.io"), 7L, metrics)
+            .getFirst();
+
+        assertThat(String.valueOf(result.spans())).doesNotContain("bob@acme.io");
+    }
+
+    @Test
+    void testSpansAreEmptyRatherThanNullWhenNothingWasDetected() {
+        AiGuardrails guardrails = guardrails(null, true, false, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        assertThat(guardrails.checkInputs(List.of("nothing here"), 7L, metrics)
+            .getFirst()
+            .spans()).isEmpty();
+    }
+
+    @Test
     void testCheckInputCarriesTheUnmaskedTextAlongsideTheMaskedOne() {
         // The engine stays mode-agnostic: it computes both candidates and the caller chooses. If unmaskedText ever
         // returns the same string as text for a blocked term, BlockingMode.ALLOW silently stops working -- and it

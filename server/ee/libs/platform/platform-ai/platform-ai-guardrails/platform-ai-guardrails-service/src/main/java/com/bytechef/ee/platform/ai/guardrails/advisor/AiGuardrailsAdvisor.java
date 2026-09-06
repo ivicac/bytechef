@@ -11,12 +11,16 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailViolationAction;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
+import com.bytechef.ee.platform.ai.guardrails.violation.AiGuardrailViolationRecorder;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
+import com.bytechef.platform.security.util.SecurityUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -147,12 +151,27 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     private final AiGuardrails aiGuardrails;
     private final AiGuardrailMetrics metrics;
+    private final @Nullable AiGuardrailViolationRecorder aiGuardrailViolationRecorder;
     private final @Nullable Long workspaceId;
 
     public AiGuardrailsAdvisor(AiGuardrails aiGuardrails, @Nullable Long workspaceId, AiGuardrailMetrics metrics) {
+        this(aiGuardrails, workspaceId, metrics, null);
+    }
+
+    /**
+     * @param aiGuardrailViolationRecorder the per-detection drill-down recorder, or {@code null} where none is wired.
+     *                                     Optional rather than required so the nine existing construction sites -- and
+     *                                     any deployment that has not turned recording on -- are unaffected.
+     */
+    @SuppressFBWarnings("EI2")
+    public AiGuardrailsAdvisor(
+        AiGuardrails aiGuardrails, @Nullable Long workspaceId, AiGuardrailMetrics metrics,
+        @Nullable AiGuardrailViolationRecorder aiGuardrailViolationRecorder) {
+
         this.aiGuardrails = Objects.requireNonNull(aiGuardrails, "aiGuardrails");
         this.workspaceId = workspaceId;
         this.metrics = Objects.requireNonNull(metrics, "metrics");
+        this.aiGuardrailViolationRecorder = aiGuardrailViolationRecorder;
     }
 
     @Override
@@ -277,6 +296,11 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         BlockingMode blockingMode = anyBlocked ? aiGuardrails.resolveBlockingMode(workspaceId) : null;
 
         if (blockingMode == BlockingMode.BLOCK) {
+            // Submitted BEFORE the throw. Records exist to explain what the guardrails did, and a blocked call is the
+            // one an operator is most likely to be asked about -- leaving it as the single case with no record would
+            // be the worst possible gap.
+            submitViolationRecords(results, blockingMode, workspaceId);
+
             String category = results.stream()
                 .filter(GuardrailCheckResult::blocked)
                 .findFirst()
@@ -285,6 +309,8 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
             throw new AiGuardrailViolationException(category);
         }
+
+        submitViolationRecords(results, blockingMode, workspaceId);
 
         List<Message> patched = new ArrayList<>(instructions);
         boolean changed = false;
@@ -353,6 +379,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * defensive fallback rather than an expected path.
      * </p>
      */
+
     private ChatClientRequest withSessionInToolContext(ChatClientRequest chatClientRequest, PiiTokenSession session) {
         Prompt prompt = chatClientRequest.prompt();
         ChatOptions chatOptions = prompt.getOptions();
@@ -563,5 +590,56 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         }
 
         return message;
+    }
+
+    /**
+     * Submits one drill-down record per detected span. Assembled here rather than in {@code AiGuardrails} because this
+     * is the only place that knows all three of the workspace, the surface and the resolved action -- the engine
+     * resolves none of them, and a record that could not say what was done about a detection would read every observe-
+     * mode counterfactual as an enforcement.
+     *
+     * <p>
+     * Submits redactions too, not only blocking violations: "which pattern fired, and where" is mostly a question about
+     * redactions, and a store that held only blocks would answer it for the rarest case alone.
+     * </p>
+     */
+    private void submitViolationRecords(
+        List<GuardrailCheckResult> results, @Nullable BlockingMode blockingMode, @Nullable Long workspaceId) {
+
+        if (aiGuardrailViolationRecorder == null) {
+            return;
+        }
+
+        boolean enabled = aiGuardrails.isViolationRecordingEnabled(workspaceId);
+
+        if (!enabled) {
+            return;
+        }
+
+        AiGuardrailViolationAction action = actionOf(blockingMode);
+
+        for (GuardrailCheckResult result : results) {
+            aiGuardrailViolationRecorder.submit(
+                result.spans(), true, action, metrics.getSurface(), workspaceId, null,
+                SecurityUtils.fetchCurrentUserLogin()
+                    .orElse(null),
+                metrics::record);
+        }
+    }
+
+    /**
+     * Maps the mode that governed this call to what was actually done. A null mode means nothing blocking fired, so any
+     * span present was redacted rather than blocked or observed.
+     */
+    private static AiGuardrailViolationAction actionOf(@Nullable BlockingMode blockingMode) {
+        if (blockingMode == BlockingMode.BLOCK) {
+            return AiGuardrailViolationAction.BLOCKED;
+        }
+
+        if (blockingMode == BlockingMode.ALLOW) {
+            return AiGuardrailViolationAction.ALLOWED;
+        }
+
+        return AiGuardrailViolationAction.REDACTED;
     }
 }
