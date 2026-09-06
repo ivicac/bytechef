@@ -5933,7 +5933,8 @@ public class ApplicationProperties {
         public static class DbScheduler {
 
             /**
-             * One-way Quartz import that runs on every startup while db-scheduler is the active provider.
+             * One-way Quartz import that runs once per database, the first time db-scheduler becomes the active
+             * provider.
              */
             public static class Importer {
 

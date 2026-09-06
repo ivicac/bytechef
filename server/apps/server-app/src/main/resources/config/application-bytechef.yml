@@ -145,7 +145,7 @@ bytechef:
     provider: quartz
     db-scheduler:
       importer:
-        # Copy live Quartz jobs into db-scheduler on every startup while provider is db-scheduler
+        # Copy live Quartz jobs into db-scheduler once per database, the first time provider is db-scheduler
         enabled: true
       ui:
         # Serve db-scheduler-ui at /db-scheduler (SYSTEM_ADMIN only)

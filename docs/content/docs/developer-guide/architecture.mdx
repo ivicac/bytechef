@@ -323,7 +323,7 @@ The `WorkflowExecutionId` deserves a note: it is the base64-encoded tuple `tenan
 
 `TriggerStateService` persists whatever a trigger needs to remember between invocations: the webhook registration output for dynamic webhooks, and the **`closureParameters`** cursor for polling triggers.
 
-The scheduler (`platform-scheduler`) is Quartz-backed by default (DB-persistent), with an AWS EventBridge implementation in EE. It runs three kinds of jobs: `PollingTriggerJob` (fires every poll period, default 5 minutes), `ScheduleTriggerJob` (cron, for the Schedule component), and `DynamicWebhookTriggerRefreshJob` (one-shot at the registration's expiration).
+The scheduler (`platform-scheduler`) is Quartz or db-scheduler, selected by `bytechef.scheduler.provider` (both DB-persistent), with an AWS EventBridge implementation in EE. It runs three kinds of jobs: `PollingTriggerJob` (fires every poll period, default 5 minutes), `ScheduleTriggerJob` (cron, for the Schedule component), and `DynamicWebhookTriggerRefreshJob` (one-shot at the registration's expiration).
 
 ### From trigger event to job
 
