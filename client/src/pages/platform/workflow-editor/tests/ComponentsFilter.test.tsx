@@ -83,7 +83,7 @@ it('should open the actions dropdown and show the list of categories, but have t
     expect(screen.queryByPlaceholderText('Find category')).not.toBeInTheDocument();
     expect(screen.queryByText('Category1')).not.toBeInTheDocument();
 
-    userEvent.click(filterDropdownButton);
+    await userEvent.click(filterDropdownButton);
 
     await waitFor(() => {
         expect(screen.getByPlaceholderText('Find category')).toBeInTheDocument();
@@ -96,25 +96,19 @@ it('should open the actions dropdown and show the list of categories, but have t
 it('should call "toggleCategory" with correct category name on click for actions', async () => {
     renderComponentsFilter('actions', 'Filter actions by category');
 
-    userEvent.click(screen.getByLabelText('Filter actions'));
+    await userEvent.click(screen.getByLabelText('Filter actions'));
 
-    await waitFor(() => {
-        userEvent.click(screen.getByText('Category1'));
+    await userEvent.click(await screen.findByText('Category1'));
 
-        expect(mockToggleCategory).toHaveBeenCalledWith('Category1');
-    });
+    expect(mockToggleCategory).toHaveBeenCalledWith('Category1');
 });
 
 it('should call "setSearchValue" with correct value when the search input value changes for actions', async () => {
     renderComponentsFilter('actions', 'Filter actions by category');
 
-    userEvent.click(screen.getByLabelText('Filter actions'));
+    await userEvent.click(screen.getByLabelText('Filter actions'));
 
-    await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Find category');
-
-        fireEvent.change(searchInput, {target: {value: 'test'}});
-    });
+    fireEvent.change(await screen.findByPlaceholderText('Find category'), {target: {value: 'test'}});
 
     expect(mockSetSearchValue).toHaveBeenCalledWith('test');
 });
@@ -124,15 +118,11 @@ it('should show the "X" icon when the search input has a value and call "setSear
         searchValue: 'test',
     });
 
-    userEvent.click(screen.getByLabelText('Filter actions'));
+    await userEvent.click(screen.getByLabelText('Filter actions'));
 
-    await waitFor(() => {
-        expect(screen.getByLabelText('Clear search input')).toBeInTheDocument();
+    await userEvent.click(await screen.findByLabelText('Clear search input'));
 
-        userEvent.click(screen.getByLabelText('Clear search input'));
-
-        expect(mockSetSearchValue).toHaveBeenCalledWith('');
-    });
+    expect(mockSetSearchValue).toHaveBeenCalledWith('');
 });
 
 it('should call "setActiveView" with "filtered" when the "Filtered" button is clicked for actions', async () => {
@@ -142,7 +132,7 @@ it('should call "setActiveView" with "filtered" when the "Filtered" button is cl
 
     const filteredButton = screen.getByLabelText('Filtered button');
 
-    userEvent.click(filteredButton);
+    await userEvent.click(filteredButton);
 
     await waitFor(() => {
         expect(mockSetActiveView).toHaveBeenCalledWith('filtered');
@@ -156,7 +146,7 @@ it('should call "setActiveView" with "all" when the "All" button is clicked for 
 
     const allButton = screen.getByLabelText('All button');
 
-    userEvent.click(allButton);
+    await userEvent.click(allButton);
 
     await waitFor(() => {
         expect(mockSetActiveView).toHaveBeenCalledWith('all');
@@ -173,7 +163,7 @@ it('Should show "Filtered" button as visible with correct "filteredCount" and "D
 
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    userEvent.click(screen.getByLabelText('Filter actions'));
+    await userEvent.click(screen.getByLabelText('Filter actions'));
 
     await waitFor(() => {
         expect(screen.getByLabelText('Deselect button')).not.toHaveClass('hidden');
@@ -186,15 +176,15 @@ it('should call "deselectAllCategories" when "Deselect" button is clicked for ac
         selectedCategories: ['Category1'],
     });
 
-    userEvent.click(screen.getByLabelText('Filter actions'));
+    await userEvent.click(screen.getByLabelText('Filter actions'));
 
-    await waitFor(() => {
-        expect(screen.getByLabelText('Deselect button')).not.toHaveClass('hidden');
+    const deselectButton = await screen.findByLabelText('Deselect button');
 
-        userEvent.click(screen.getByLabelText('Deselect button'));
+    expect(deselectButton).not.toHaveClass('hidden');
 
-        expect(mockDeselectAllCategories).toHaveBeenCalled();
-    });
+    await userEvent.click(deselectButton);
+
+    expect(mockDeselectAllCategories).toHaveBeenCalled();
 });
 
 it('Should render the ComponentsFilter component for triggers with "All" button visible and showing the number of components, and "Filtered" button invisible', () => {
@@ -214,7 +204,7 @@ it('should open the triggers dropdown and show the list of categories, but have 
     expect(screen.queryByPlaceholderText('Find category')).not.toBeInTheDocument();
     expect(screen.queryByText('Category1')).not.toBeInTheDocument();
 
-    userEvent.click(filterDropdownButton);
+    await userEvent.click(filterDropdownButton);
 
     await waitFor(() => {
         expect(screen.getByPlaceholderText('Find category')).toBeInTheDocument();
@@ -227,25 +217,19 @@ it('should open the triggers dropdown and show the list of categories, but have 
 it('should call "toggleCategory" with correct category name on click for triggers', async () => {
     renderComponentsFilter('triggers', 'Filter triggers by category');
 
-    userEvent.click(screen.getByLabelText('Filter triggers'));
+    await userEvent.click(screen.getByLabelText('Filter triggers'));
 
-    await waitFor(() => {
-        userEvent.click(screen.getByText('Category1'));
+    await userEvent.click(await screen.findByText('Category1'));
 
-        expect(mockToggleCategory).toHaveBeenCalledWith('Category1');
-    });
+    expect(mockToggleCategory).toHaveBeenCalledWith('Category1');
 });
 
 it('should call "setSearchValue" with correct value when the search input value changes for triggers', async () => {
     renderComponentsFilter('triggers', 'Filter triggers by category');
 
-    userEvent.click(screen.getByLabelText('Filter triggers'));
+    await userEvent.click(screen.getByLabelText('Filter triggers'));
 
-    await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Find category');
-
-        fireEvent.change(searchInput, {target: {value: 'test'}});
-    });
+    fireEvent.change(await screen.findByPlaceholderText('Find category'), {target: {value: 'test'}});
 
     expect(mockSetSearchValue).toHaveBeenCalledWith('test');
 });
@@ -255,15 +239,11 @@ it('should show the "X" icon when the search input has a value and call "setSear
         searchValue: 'test',
     });
 
-    userEvent.click(screen.getByLabelText('Filter triggers'));
+    await userEvent.click(screen.getByLabelText('Filter triggers'));
 
-    await waitFor(() => {
-        expect(screen.getByLabelText('Clear search input')).toBeInTheDocument();
+    await userEvent.click(await screen.findByLabelText('Clear search input'));
 
-        userEvent.click(screen.getByLabelText('Clear search input'));
-
-        expect(mockSetSearchValue).toHaveBeenCalledWith('');
-    });
+    expect(mockSetSearchValue).toHaveBeenCalledWith('');
 });
 
 it('should call "setActiveView" with "filtered" when the "Filtered" button is clicked for triggers', async () => {
@@ -273,7 +253,7 @@ it('should call "setActiveView" with "filtered" when the "Filtered" button is cl
 
     const filteredButton = screen.getByLabelText('Filtered button');
 
-    userEvent.click(filteredButton);
+    await userEvent.click(filteredButton);
 
     await waitFor(() => {
         expect(mockSetActiveView).toHaveBeenCalledWith('filtered');
@@ -287,7 +267,7 @@ it('should call "setActiveView" with "all" when the "All" button is clicked for 
 
     const allButton = screen.getByLabelText('All button');
 
-    userEvent.click(allButton);
+    await userEvent.click(allButton);
 
     await waitFor(() => {
         expect(mockSetActiveView).toHaveBeenCalledWith('all');
@@ -304,7 +284,7 @@ it('Should show "Filtered" button as visible with correct "filteredCount" and "D
 
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    userEvent.click(screen.getByLabelText('Filter triggers'));
+    await userEvent.click(screen.getByLabelText('Filter triggers'));
 
     await waitFor(() => {
         expect(screen.getByLabelText('Deselect button')).not.toHaveClass('hidden');
@@ -317,13 +297,13 @@ it('should call "deselectAllCategories" when "Deselect" button is clicked for tr
         selectedCategories: ['Category1'],
     });
 
-    userEvent.click(screen.getByLabelText('Filter triggers'));
+    await userEvent.click(screen.getByLabelText('Filter triggers'));
 
-    await waitFor(() => {
-        expect(screen.getByLabelText('Deselect button')).not.toHaveClass('hidden');
+    const deselectButton = await screen.findByLabelText('Deselect button');
 
-        userEvent.click(screen.getByLabelText('Deselect button'));
+    expect(deselectButton).not.toHaveClass('hidden');
 
-        expect(mockDeselectAllCategories).toHaveBeenCalled();
-    });
+    await userEvent.click(deselectButton);
+
+    expect(mockDeselectAllCategories).toHaveBeenCalled();
 });
