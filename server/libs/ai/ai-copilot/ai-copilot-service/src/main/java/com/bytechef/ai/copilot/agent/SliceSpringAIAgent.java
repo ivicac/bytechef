@@ -79,7 +79,7 @@ public class SliceSpringAIAgent extends CopilotSpringAIAgent {
         // the turn with "Workspace context unavailable" — the same duplicate-key-in-lockstep contract
         // WorkspaceScopedSubAgentToolCallback and WorkflowExecutionSpringAIAgent already honour.
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY,
-            NumberUtils.asLong(state.get(CopilotConstants.STATE_WORKSPACE_ID)));
+            NumberUtils.asLong(state.get(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID)));
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY,
             NumberUtils.asLong(state.get(CopilotConstants.STATE_AUTHENTICATED_USER_ID)));
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY,

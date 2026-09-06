@@ -16,7 +16,10 @@
 
 package com.bytechef.ai.copilot.advisor;
 
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.commons.util.NumberUtils;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -25,7 +28,10 @@ import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 /**
@@ -35,9 +41,10 @@ import reactor.core.publisher.Flux;
  * <p>
  * Every {@code *SpringAIAgent} bean in {@code ai-copilot-service} is a singleton whose advisor list is fixed at
  * construction, so {@link CopilotGuardrailsAdvisorFactory#guardrailsAdvisors()} ran exactly once per bean, at Spring
- * context refresh. {@code AiGuardrailsAdvisorProvider#getAdvisor} returns empty when {@code AiGuardrails#isActive} says
- * every guardrail category is disabled for the resolved workspace - and that is a runtime setting, editable from the
- * guardrails settings UI, not a boot-time property. The resulting staleness was asymmetric in the wrong direction:
+ * context refresh. {@code AiGuardrailsAdvisorProvider#getAdvisorForWorkspace} returns empty when
+ * {@code AiGuardrails#isActive} says every guardrail category is disabled for the resolved workspace - and that is a
+ * runtime setting, editable from the guardrails settings UI, not a boot-time property. The resulting staleness was
+ * asymmetric in the wrong direction:
  * </p>
  * <ul>
  * <li><b>Enabled after boot</b> - nothing happened. No advisor was attached at construction, so Copilot stayed
@@ -86,7 +93,7 @@ final class DeferredGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain callAdvisorChain) {
-        Advisor advisor = resolveAdvisor();
+        Advisor advisor = resolveAdvisor(chatClientRequest);
 
         if (advisor instanceof CallAdvisor callAdvisor) {
             return callAdvisor.adviseCall(chatClientRequest, callAdvisorChain);
@@ -99,7 +106,7 @@ final class DeferredGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
     public Flux<ChatClientResponse> adviseStream(
         ChatClientRequest chatClientRequest, StreamAdvisorChain streamAdvisorChain) {
 
-        Advisor advisor = resolveAdvisor();
+        Advisor advisor = resolveAdvisor(chatClientRequest);
 
         if (advisor instanceof StreamAdvisor streamAdvisor) {
             return streamAdvisor.adviseStream(chatClientRequest, streamAdvisorChain);
@@ -108,14 +115,37 @@ final class DeferredGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         return streamAdvisorChain.nextStream(chatClientRequest);
     }
 
-    private @Nullable Advisor resolveAdvisor() {
+    private @Nullable Advisor resolveAdvisor(ChatClientRequest chatClientRequest) {
         AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = aiGuardrailsAdvisorProviderProvider.getIfAvailable();
 
         if (aiGuardrailsAdvisorProvider == null) {
             return null;
         }
 
-        return aiGuardrailsAdvisorProvider.getAdvisor(null, null, surface)
+        return aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(workspaceId(chatClientRequest), surface)
             .orElse(null);
+    }
+
+    /**
+     * Reads the session's server-verified workspace off the prompt's tool context -- the channel
+     * {@code AgentToolInvocationContext} already travels on, and the one {@code AiGuardrailsAdvisor} reads for its
+     * {@code PiiTokenSession}. Returns {@code null} when the prompt carries none, which resolves the tenant-default
+     * row: not every Copilot surface carries a workspace, and failing the call would be a worse outcome than applying
+     * the tenant default on a feature most tenants have switched off.
+     */
+    private static @Nullable Long workspaceId(ChatClientRequest chatClientRequest) {
+        Prompt prompt = chatClientRequest.prompt();
+
+        if (!(prompt.getOptions() instanceof ToolCallingChatOptions toolCallingChatOptions)) {
+            return null;
+        }
+
+        Map<String, Object> toolContext = toolCallingChatOptions.getToolContext();
+
+        if (CollectionUtils.isEmpty(toolContext)) {
+            return null;
+        }
+
+        return NumberUtils.asLong(toolContext.get(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY));
     }
 }

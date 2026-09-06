@@ -18,5 +18,7 @@ public interface AiGuardrailsWorkspaceSettingsService {
 
     Optional<AiGuardrailsWorkspaceSettings> fetchSettings(@Nullable Long workspaceId);
 
+    Optional<AiGuardrailsWorkspaceSettings> fetchEmbeddedSettings();
+
     AiGuardrailsWorkspaceSettings saveSettings(AiGuardrailsWorkspaceSettings settings);
 }

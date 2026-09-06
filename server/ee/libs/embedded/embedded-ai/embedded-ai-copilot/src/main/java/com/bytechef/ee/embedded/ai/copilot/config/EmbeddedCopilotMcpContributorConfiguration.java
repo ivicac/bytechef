@@ -11,8 +11,8 @@ import com.bytechef.ai.copilot.tool.ask.SubAgentQuestionRenderer;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.automation.ai.tool.WorkspaceScopedSubAgentToolCallback;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import java.util.Set;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,11 +58,12 @@ public class EmbeddedCopilotMcpContributorConfiguration {
 
     @Bean
     McpServerToolCallbackContributor embeddedWorkflowEditorMcpToolCallbackContributor(
-        IntelligentToolCatalog intelligentToolCatalog, WorkspaceService workspaceService) {
+        IntelligentToolCatalog intelligentToolCatalog, AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> intelligentToolCatalog.getByNames(
             INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
-            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback, workspaceService),
+            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback,
+                accessibleWorkspaceResolver),
             SubAgentQuestionRenderer.PLAIN_TEXT);
     }
 }

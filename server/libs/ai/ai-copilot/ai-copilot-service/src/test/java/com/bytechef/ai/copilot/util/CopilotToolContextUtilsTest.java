@@ -47,7 +47,7 @@ class CopilotToolContextUtilsTest {
     void testToToolContextPopulatesBothWorkspaceIdKeyFamilies() {
         Map<String, Object> stateMap = new HashMap<>();
 
-        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, "7");
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, "7");
         stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, "2");
         stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, "42");
 
@@ -73,7 +73,7 @@ class CopilotToolContextUtilsTest {
     void testToToolContextOmitsAutomationKeysThatHaveNoState() {
         Map<String, Object> stateMap = new HashMap<>();
 
-        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, "7");
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, "7");
 
         Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
 
@@ -117,7 +117,7 @@ class CopilotToolContextUtilsTest {
         Map<String, Object> stateMap = new HashMap<>();
 
         stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, 42L);
-        stateMap.put("workspaceId", 7L);
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, 7L);
         stateMap.put("environmentId", "2");
 
         Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
@@ -195,7 +195,7 @@ class CopilotToolContextUtilsTest {
         Map<String, Object> stateMap = new HashMap<>();
 
         stateMap.put(TaskTools.TOOL_CONTEXT_ALLOWED_COMPONENT_NAMES_KEY, Set.of("slack"));
-        stateMap.put("workspaceId", 7L);
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, 7L);
 
         Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
 
@@ -231,5 +231,34 @@ class CopilotToolContextUtilsTest {
         assertThat(toolContext)
             .doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_LLM_PROVIDER_KEY)
             .doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_LLM_MODEL_KEY);
+    }
+
+    @Test
+    void testTheVerifiedWorkspaceWinsOverAClientSuppliedOne() {
+        Map<String, Object> stateMap = new HashMap<>();
+
+        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, 99L);
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, 1L);
+
+        Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
+
+        assertThat(toolContext)
+            .as("a tool context built from the client-supplied id would scope tools and guardrails to a "
+                + "workspace the caller may not be a member of")
+            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 1L)
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 1L);
+    }
+
+    @Test
+    void testNoWorkspaceIsCarriedWhenOnlyTheUnverifiedKeyIsPresent() {
+        Map<String, Object> stateMap = new HashMap<>();
+
+        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, 99L);
+
+        Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
+
+        assertThat(toolContext)
+            .as("an unverified id must never reach the tool context, even when no verified one exists")
+            .doesNotContainKey(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY);
     }
 }

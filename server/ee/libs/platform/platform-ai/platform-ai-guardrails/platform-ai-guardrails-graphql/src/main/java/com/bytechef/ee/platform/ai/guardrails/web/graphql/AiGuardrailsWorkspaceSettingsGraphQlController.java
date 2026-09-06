@@ -8,9 +8,11 @@
 package com.bytechef.ee.platform.ai.guardrails.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.graphql.error.GraphQlBadRequestException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jspecify.annotations.Nullable;
@@ -45,11 +47,24 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
     }
 
+    /**
+     * The {@code scope} condition is load-bearing, not defensive. This gate keys on {@code workspaceId} while the body
+     * below dispatches on {@code scope}, so without it a caller passing their <em>own</em> workspace id together with
+     * {@code scope: EMBEDDED} satisfied the membership check and was then handed the tenant-wide embedded row — a row
+     * whose writer requires {@code ROLE_ADMIN}. Any argument the body branches on has to appear here too, or the gate
+     * is authorizing a different request than the one that runs.
+     */
     @QueryMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or (#workspaceId != null && hasPermission(#workspaceId, 'Workspace', "
-        + "'AI_GATEWAY_VIEW'))")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or (#scope != "
+        + "T(com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope).EMBEDDED "
+        + "&& #workspaceId != null && hasPermission(#workspaceId, 'Workspace', 'AI_GATEWAY_VIEW'))")
     public @Nullable AiGuardrailsWorkspaceSettings aiGuardrailsWorkspaceSettings(
-        @Argument @Nullable Long workspaceId) {
+        @Argument @Nullable Long workspaceId, @Argument @Nullable AiGuardrailsSettingsScope scope) {
+
+        if (scope == AiGuardrailsSettingsScope.EMBEDDED) {
+            return aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
+                .orElse(null);
+        }
 
         return aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId)
             .orElse(null);
@@ -60,15 +75,39 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
     public AiGuardrailsWorkspaceSettings updateAiGuardrailsWorkspaceSettings(
         @Argument AiGuardrailsWorkspaceSettingsInput input) {
 
+        AiGuardrailsSettingsScope scope = scopeOf(input);
+
+        validateScopeWorkspaceIdPairing(scope, input.workspaceId());
+
         return aiGuardrailsWorkspaceSettingsService.saveSettings(new AiGuardrailsWorkspaceSettings(
-            input.workspaceId(), input.redactPii(), input.redactSecrets(), input.blockedTerms(),
+            scope, input.workspaceId(), input.redactPii(), input.redactSecrets(), input.blockedTerms(),
             input.moderationEnabled(), input.injectionDetectionEnabled(), input.scanResponses(),
             input.blockingMode(), input.minConfidence(), input.redactMcpResults()));
     }
 
+    private AiGuardrailsSettingsScope scopeOf(AiGuardrailsWorkspaceSettingsInput input) {
+        if (input.scope() != null) {
+            return input.scope();
+        }
+
+        return input.workspaceId() == null ? AiGuardrailsSettingsScope.PLATFORM : AiGuardrailsSettingsScope.WORKSPACE;
+    }
+
+    // Mirrors AiGuardrailsWorkspaceSettings's own compact-constructor invariant so a mismatched pair fails here,
+    // as a client-input GraphQlBadRequestException, instead of reaching the record and surfacing as an opaque,
+    // unmapped IllegalArgumentException (INTERNAL_ERROR). The record's check stays in place as the last line of
+    // defence; this one exists purely to give the caller a clean, actionable error.
+    private void validateScopeWorkspaceIdPairing(AiGuardrailsSettingsScope scope, @Nullable Long workspaceId) {
+        if ((scope == AiGuardrailsSettingsScope.WORKSPACE) != (workspaceId != null)) {
+            throw new GraphQlBadRequestException(
+                "workspaceId must be non-null exactly when scope is WORKSPACE, got scope=%s, workspaceId=%s"
+                    .formatted(scope, workspaceId));
+        }
+    }
+
     public record AiGuardrailsWorkspaceSettingsInput(
-        @Nullable Long workspaceId, @Nullable Boolean redactPii, @Nullable Boolean redactSecrets,
-        @Nullable String blockedTerms, @Nullable Boolean moderationEnabled,
+        @Nullable AiGuardrailsSettingsScope scope, @Nullable Long workspaceId, @Nullable Boolean redactPii,
+        @Nullable Boolean redactSecrets, @Nullable String blockedTerms, @Nullable Boolean moderationEnabled,
         @Nullable Boolean injectionDetectionEnabled, @Nullable Boolean scanResponses,
         @Nullable BlockingMode blockingMode, @Nullable Double minConfidence,
         @Nullable Boolean redactMcpResults) {

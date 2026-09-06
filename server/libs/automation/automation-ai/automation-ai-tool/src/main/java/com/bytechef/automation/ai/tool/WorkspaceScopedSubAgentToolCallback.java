@@ -19,7 +19,6 @@ package com.bytechef.automation.ai.tool;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
@@ -69,8 +68,14 @@ import tools.jackson.databind.json.JsonMapper;
  * </p>
  *
  * <p>
- * No authorization is added or bypassed here: the management MCP request is already authenticated, and every mutation
- * behind the specialist goes through {@code @PreAuthorize}-guarded facades. Workspace selection only scopes lookups.
+ * <b>Workspace selection is authorization, not just scoping.</b> An earlier revision of this javadoc claimed the
+ * opposite — that the request is already authenticated and every mutation behind the specialist goes through a
+ * {@code @PreAuthorize}-guarded facade, so selecting a workspace merely scoped lookups. Both halves were wrong. The
+ * management MCP endpoint authenticates an API key that binds the caller to no workspace, and the facades are guarded
+ * only case by case: {@code ProjectDeploymentFacadeImpl} carries a workspace permission check, while
+ * {@code AssetFileFacadeImpl} carries no authorization at all. Resolving {@code workspaceId} from unfiltered tenant
+ * data therefore let any caller read and write another workspace's asset files. The id is now resolved and checked
+ * against {@link AccessibleWorkspaceResolver}, which is the only thing standing between this tool and that.
  * </p>
  *
  *
@@ -99,14 +104,19 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
+    // Deliberately does not distinguish "no such workspace" from "exists but you cannot reach it", so a caller cannot
+    // use the tool's own error to probe which workspace ids are real. Mirrors WorkspaceAccessGuard's wording.
+    private static final String INACCESSIBLE_WORKSPACE_MESSAGE = "Workspace is not accessible to the current user";
+
     private final ToolCallback delegate;
-    private final WorkspaceService workspaceService;
+    private final AccessibleWorkspaceResolver accessibleWorkspaceResolver;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate, WorkspaceService workspaceService) {
+    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate,
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
         this.delegate = delegate;
-        this.workspaceService = workspaceService;
+        this.accessibleWorkspaceResolver = accessibleWorkspaceResolver;
     }
 
     @Override
@@ -142,7 +152,7 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
             Long workspaceId = input.workspaceId();
 
             if (workspaceId == null) {
-                List<Workspace> workspaces = workspaceService.getWorkspaces();
+                List<Workspace> workspaces = accessibleWorkspaceResolver.getAccessibleWorkspaces();
 
                 if (workspaces.size() == 1) {
                     Workspace workspace = workspaces.getFirst();
@@ -159,6 +169,8 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                                 .map(workspace -> Map.of("id", workspace.getId(), "name", workspace.getName()))
                                 .toList()));
                 }
+            } else if (!accessibleWorkspaceResolver.isAccessible(workspaceId)) {
+                return ToolErrors.toolError(jsonMapper, INACCESSIBLE_WORKSPACE_MESSAGE);
             }
 
             String requestedEnvironment = input.environment();

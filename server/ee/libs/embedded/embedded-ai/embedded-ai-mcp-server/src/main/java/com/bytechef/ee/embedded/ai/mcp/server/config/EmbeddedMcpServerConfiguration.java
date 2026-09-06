@@ -86,7 +86,7 @@ public class EmbeddedMcpServerConfiguration {
     private static final String ENVIRONMENT = "environment";
     private static final String EXTERNAL_USER_ID = "externalUserId";
     private static final String SECRET_KEY = "secretKey";
-    private static final String SURFACE = "mcp_embedded";
+    private static final String SURFACE = McpOutboundRedactorProvider.SURFACE_EMBEDDED;
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();

@@ -21,9 +21,17 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
- * EE implementation of the MCP outbound redaction seam. Resolves the workspace's outbound policy once per
- * {@link #fetchRedactor} call and closes over it, so the returned redactor carries its kinds, threshold and
- * surface-tagged metrics rather than re-resolving them for every value.
+ * EE implementation of the MCP outbound redaction seam. Resolves the outbound policy once per {@link #fetchRedactor}
+ * call and closes over it, so the returned redactor carries its kinds, threshold and surface-tagged metrics rather than
+ * re-resolving them for every value.
+ *
+ * <p>
+ * {@code surface} is the discriminator for which settings scope to read: {@link #SURFACE_EMBEDDED} resolves the
+ * {@code AiGuardrailsSettingsScope#EMBEDDED} row (embedded MCP servers are not workspace-scoped), and every other
+ * surface resolves {@code workspaceId}'s row (or the tenant default when it is {@code null}). This mapping lives here
+ * rather than on the CE-facing {@link McpOutboundRedactorProvider} SPI so that seam does not need to learn EE scope
+ * types, the same reasoning that made it return a resolved redactor rather than a policy.
+ * </p>
  *
  * @version ee
  *
@@ -48,7 +56,9 @@ public class McpOutboundRedactorProviderImpl implements McpOutboundRedactorProvi
 
     @Override
     public Optional<McpOutboundRedactor> fetchRedactor(@Nullable Long workspaceId, String surface) {
-        PiiTokenBoundaryPolicy policy = aiGuardrails.resolveMcpOutboundPolicy(workspaceId);
+        PiiTokenBoundaryPolicy policy = SURFACE_EMBEDDED.equals(surface)
+            ? aiGuardrails.resolveEmbeddedMcpOutboundPolicy()
+            : aiGuardrails.resolveMcpOutboundPolicy(workspaceId);
 
         if (policy == null) {
             return Optional.empty();

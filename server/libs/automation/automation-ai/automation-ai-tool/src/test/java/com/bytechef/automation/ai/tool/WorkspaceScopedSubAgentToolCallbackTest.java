@@ -17,13 +17,13 @@
 package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.agent.tool.CoreAgentType;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,14 +39,16 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 class WorkspaceScopedSubAgentToolCallbackTest {
 
     private ContextCapturingDelegate delegate;
-    private WorkspaceService workspaceService;
+    private AccessibleWorkspaceResolver accessibleWorkspaceResolver;
     private WorkspaceScopedSubAgentToolCallback toolCallback;
 
     @BeforeEach
     void beforeEach() {
         delegate = new ContextCapturingDelegate();
-        workspaceService = mock(WorkspaceService.class);
-        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, workspaceService);
+        accessibleWorkspaceResolver = mock(AccessibleWorkspaceResolver.class);
+        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, accessibleWorkspaceResolver);
+
+        when(accessibleWorkspaceResolver.isAccessible(anyLong())).thenReturn(true);
     }
 
     @Test
@@ -177,7 +179,7 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         workspace.setId(7L);
         workspace.setName("Main");
 
-        when(workspaceService.getWorkspaces()).thenReturn(List.of(workspace));
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces()).thenReturn(List.of(workspace));
 
         String result = toolCallback.call("{\"request\": \"list servers\"}");
 
@@ -199,7 +201,8 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         secondWorkspace.setId(2L);
         secondWorkspace.setName("Beta");
 
-        when(workspaceService.getWorkspaces()).thenReturn(List.of(firstWorkspace, secondWorkspace));
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces())
+            .thenReturn(List.of(firstWorkspace, secondWorkspace));
 
         String result = toolCallback.call("{\"request\": \"list servers\"}");
 
@@ -214,7 +217,7 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         PlainCopilotDelegate copilotDelegate = new PlainCopilotDelegate();
 
         WorkspaceScopedSubAgentToolCallback copilotToolCallback =
-            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, workspaceService);
+            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, accessibleWorkspaceResolver);
 
         String result = copilotToolCallback.call("{\"request\": \"list tables\", \"workspaceId\": 9}");
 
@@ -235,6 +238,35 @@ class WorkspaceScopedSubAgentToolCallbackTest {
      * extend was removed (ticket 732, CRUD-delegate unwind Task 9b) once its last consumer,
      * {@code project_deployment_agent}, was dissolved.
      */
+
+    @Test
+    void testExplicitWorkspaceIdTheCallerCannotReachIsRefused() {
+        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+
+        String result = toolCallback.call("{\"request\": \"do it\", \"workspaceId\": 99}");
+
+        assertThat(result)
+            .as("the management MCP key binds the caller to no workspace, so an unchecked id here reached tools "
+                + "whose facade has no authorization of its own")
+            .contains("not accessible");
+        assertThat(delegate.capturedContext)
+            .as("the delegate must not run at all for a workspace the caller cannot reach")
+            .isNull();
+    }
+
+    @Test
+    void testRefusalDoesNotRevealWhetherTheWorkspaceExists() {
+        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+
+        String result = toolCallback.call("{\"request\": \"do it\", \"workspaceId\": 99}");
+
+        assertThat(result)
+            .as("a distinguishable 'no such workspace' would let a caller probe which ids are real")
+            .doesNotContain("99")
+            .doesNotContain("not found")
+            .doesNotContain("does not exist");
+    }
+
     private static final class ContextCapturingDelegate implements ToolCallback {
 
         private Map<String, Object> capturedContext;

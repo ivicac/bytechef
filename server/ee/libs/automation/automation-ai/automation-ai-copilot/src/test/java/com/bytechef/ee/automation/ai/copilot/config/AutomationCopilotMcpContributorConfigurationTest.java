@@ -18,7 +18,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreFacade;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreSourceFacade;
@@ -63,7 +63,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
             intelligentDefinition("buildCustomComponent"), intelligentDefinition("buildCodeWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.automationCopilotAgentToolCallbackContributor(
-            intelligentToolCatalog, mock(WorkspaceService.class));
+            intelligentToolCatalog, mock(AccessibleWorkspaceResolver.class));
 
         List<String> toolNames = contributor.getToolCallbacks()
             .stream()
@@ -77,7 +77,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testNoIntelligentToolsWhenCatalogEmpty() {
         McpServerToolCallbackContributor contributor = configuration.automationCopilotAgentToolCallbackContributor(
-            catalogOf(), mock(WorkspaceService.class));
+            catalogOf(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -85,7 +85,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudContributesExactlyTheTwelveToolNames() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            presentContextStoreFactory(), mock(WorkspaceService.class));
+            presentContextStoreFactory(), mock(AccessibleWorkspaceResolver.class));
 
         List<String> toolNames = contributor.getToolCallbacks()
             .stream()
@@ -99,7 +99,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudReturnsEmptyListWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            absentContextStoreFactory(), mock(WorkspaceService.class));
+            absentContextStoreFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -107,7 +107,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudToolsAcceptWorkspaceId() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            presentContextStoreFactory(), mock(WorkspaceService.class));
+            presentContextStoreFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()

@@ -74,7 +74,7 @@ public class AutomationMcpServerConfiguration {
 
     public static final String SECRET_KEY = "secretKey";
     private static final String AUTHORITIES = "authorities";
-    private static final String SURFACE = "mcp_automation";
+    private static final String SURFACE = McpOutboundRedactorProvider.SURFACE_AUTOMATION;
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();

@@ -1,5 +1,5 @@
 extend type Query {
-    aiGuardrailsWorkspaceSettings(workspaceId: ID): AiGuardrailsWorkspaceSettings
+    aiGuardrailsWorkspaceSettings(workspaceId: ID, scope: AiGuardrailsSettingsScope): AiGuardrailsWorkspaceSettings
 }
 
 extend type Mutation {
@@ -7,6 +7,7 @@ extend type Mutation {
 }
 
 type AiGuardrailsWorkspaceSettings {
+    scope: AiGuardrailsSettingsScope
     workspaceId: ID
     redactPii: Boolean
     redactSecrets: Boolean
@@ -24,7 +25,14 @@ enum AiGuardrailsBlockingMode {
     REDACT_AND_CONTINUE
 }
 
+enum AiGuardrailsSettingsScope {
+    PLATFORM
+    WORKSPACE
+    EMBEDDED
+}
+
 input AiGuardrailsWorkspaceSettingsInput {
+    scope: AiGuardrailsSettingsScope
     workspaceId: ID
     redactPii: Boolean
     redactSecrets: Boolean
