@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 
@@ -117,7 +118,8 @@ class AiHubPresenceRegistryTest {
 
         registry.heartbeat(THREAD_ID, USER_ID, "alice", PresenceState.VIEWING);
 
-        HashMap<?, ?> mapReadBeforeTheSecondHeartbeat = cacheManager.getCache(AiHubPresenceRegistryImpl.CACHE_NAME)
+        HashMap<?, ?> mapReadBeforeTheSecondHeartbeat = Objects
+            .requireNonNull(cacheManager.getCache(AiHubPresenceRegistryImpl.CACHE_NAME))
             .get(THREAD_ID, HashMap.class);
 
         registry.heartbeat(THREAD_ID, OTHER_USER_ID, "bob", PresenceState.VIEWING);

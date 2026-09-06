@@ -63,6 +63,10 @@ class WorkspaceSystemPromptGraphQlControllerTest {
             new WorkspaceSystemPromptGraphQlController.WorkspaceSystemPromptInput(7L, "   "))).isNull();
     }
 
+    // Exact equality is deliberate, not merely stylistic: per the AI_GATEWAY_EDIT design's D1 decision, the
+    // workspace system prompt mutation is the one surface carved out of that scope's rollout and must stay
+    // ROLE_ADMIN-only. A `contains("ROLE_ADMIN")` assertion would still pass if someone later appended
+    // `or hasPermission(#workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')`, silently reopening the exclusion.
     @Test
     void testMutationIsAdminGated() throws NoSuchMethodException {
         Method method = WorkspaceSystemPromptGraphQlController.class.getMethod(
@@ -71,7 +75,7 @@ class WorkspaceSystemPromptGraphQlControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).contains("ROLE_ADMIN");
+        assertThat(preAuthorize.value()).isEqualTo("hasAuthority('ROLE_ADMIN')");
     }
 
     @Test

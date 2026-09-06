@@ -181,8 +181,8 @@ public class CopilotGuardrailsAdvisorFactory {
      *
      * <p>
      * Redaction itself is unaffected: whether tool-call arguments are restored and tool results are tokenized/redacted
-     * is decided entirely by the {@code PiiTokenSession} and {@code PiiTokenBoundaryPolicy} the workspace-resolved
-     * advisor seeds onto the prompt's tool context, both read independently of this metrics supplier. What is lost is
+     * is decided entirely by the {@code PiiTokenSession} and {@code SensitiveDataPolicy} the workspace-resolved advisor
+     * seeds onto the prompt's tool context, both read independently of this metrics supplier. What is lost is
      * observability -- and {@code AiGuardrailMetrics} tags its counters only by {@code event} and {@code surface},
      * carrying no workspace dimension even when one is resolved elsewhere, so this is not a "wrong tag" gap.
      * Concretely: for a workspace that has guardrails on while the tenant default has them off -- the configuration

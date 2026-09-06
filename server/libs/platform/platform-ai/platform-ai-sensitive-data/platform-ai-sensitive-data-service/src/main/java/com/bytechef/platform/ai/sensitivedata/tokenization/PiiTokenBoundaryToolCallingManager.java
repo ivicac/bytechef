@@ -63,11 +63,14 @@ import org.springframework.util.CollectionUtils;
  * </p>
  *
  * <p>
- * When a session IS present, each tool call's {@code arguments} is passed through
+ * When a session IS present AND {@link SensitiveDataPolicy#restoreOutboundArguments()} is {@code true} for the resolved
+ * policy, each tool call's {@code arguments} is passed through
  * {@link PiiTokenSession#restoreWithUnresolvedCount(String)} before the delegate runs. Restoration fails open: a token
  * this session cannot resolve -- an unknown ordinal, or one minted by another session -- is left in the text exactly as
  * it stood. The tool then malfunctions visibly (a literal {@code [PII_EMAIL_ADDRESS_...]} string reaching an email API,
- * say) rather than the run being aborted.
+ * say) rather than the run being aborted. When {@code restoreOutboundArguments()} is {@code false}, this class instead
+ * leaves the arguments in token form and the delegate's tool runs against tokens rather than real values -- see
+ * {@link #restoreToolCallArguments} for why, and for the metric that path still records.
  * </p>
  *
  * <p>
@@ -94,11 +97,11 @@ import org.springframework.util.CollectionUtils;
  *
  * <p>
  * <b>Which kinds are tokenized/redacted, and at what confidence, is the workspace's own policy -- not a fixed
- * constant.</b> {@link #executeToolCalls(Prompt, ChatResponse)} reads a {@link PiiTokenBoundaryPolicy} carried
- * alongside the session via {@link PiiTokenBoundaryPolicyToolContext#from(ToolContext)}, falling back to
- * {@link PiiTokenBoundaryPolicy#DEFAULT} when a session is present but no policy was wired (see that constant's
- * javadoc). This is what lets a workspace with PII redaction switched off leave PII in a tool result untouched while
- * still redacting secrets, and what lets an explicit {@code minConfidence} override take effect here rather than always
+ * constant.</b> {@link #executeToolCalls(Prompt, ChatResponse)} reads a {@link SensitiveDataPolicy} carried alongside
+ * the session via {@link SensitiveDataPolicyToolContext#from(ToolContext)}, falling back to
+ * {@link SensitiveDataPolicy#DEFAULT} when a session is present but no policy was wired (see that constant's javadoc).
+ * This is what lets a workspace with PII redaction switched off leave PII in a tool result untouched while still
+ * redacting secrets, and what lets an explicit {@code minConfidence} override take effect here rather than always
  * falling back to {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}.
  * </p>
  *
@@ -192,10 +195,10 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
             return delegate.executeToolCalls(prompt, chatResponse);
         }
 
-        PiiTokenBoundaryPolicy policy = resolvePolicy(toolContext);
+        SensitiveDataPolicy policy = resolvePolicy(toolContext);
 
         ToolExecutionResult result = delegate.executeToolCalls(
-            withoutSession(prompt), restoreToolCallArguments(chatResponse, session));
+            withoutSession(prompt), restoreToolCallArguments(chatResponse, session, policy));
 
         return tokenizeConversationHistory(result, session, policy);
     }
@@ -208,7 +211,7 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
      * re-read from the tool context.
      *
      * <p>
-     * The {@link PiiTokenBoundaryPolicy} on the same map is deliberately left in place. It is configuration -- which
+     * The {@link SensitiveDataPolicy} on the same map is deliberately left in place. It is configuration -- which
      * {@code SensitiveKind}s to act on, and a confidence threshold -- not data, so a tool reading it learns nothing
      * about any value.
      * </p>
@@ -254,15 +257,15 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
     }
 
     /**
-     * Returns the {@link PiiTokenBoundaryPolicy} carried on {@code toolContext}, or
-     * {@link PiiTokenBoundaryPolicy#DEFAULT} when none was wired -- see that constant's javadoc for why falling back to
-     * the pre-policy-aware behaviour, rather than treating an absent policy as "everything off", is the correct default
-     * for a caller that has not been updated yet.
+     * Returns the {@link SensitiveDataPolicy} carried on {@code toolContext}, or {@link SensitiveDataPolicy#DEFAULT}
+     * when none was wired -- see that constant's javadoc for why falling back to the pre-policy-aware behaviour, rather
+     * than treating an absent policy as "everything off", is the correct default for a caller that has not been updated
+     * yet.
      */
-    private static PiiTokenBoundaryPolicy resolvePolicy(@Nullable ToolContext toolContext) {
-        PiiTokenBoundaryPolicy policy = PiiTokenBoundaryPolicyToolContext.from(toolContext);
+    private static SensitiveDataPolicy resolvePolicy(@Nullable ToolContext toolContext) {
+        SensitiveDataPolicy policy = SensitiveDataPolicyToolContext.from(toolContext);
 
-        return policy != null ? policy : PiiTokenBoundaryPolicy.DEFAULT;
+        return policy != null ? policy : SensitiveDataPolicy.DEFAULT;
     }
 
     /**
@@ -288,8 +291,28 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
      * -- the same "genuinely inert when there is nothing to restore" shortcut the single-generation version of this
      * method used, just checked across every generation instead of only the first.
      * </p>
+     *
+     * <p>
+     * <b>Also returns {@code chatResponse} unchanged, arguments left in token form, when
+     * {@code !policy.restoreOutboundArguments()}.</b> This is the OUTBOUND half of {@link SensitiveDataPolicy} --
+     * distinct from {@code policy.kinds()}/{@code policy.minConfidence()}, which govern only the INBOUND direction a
+     * tool RESULT takes back to the model, and which this method does not consult at all. On that path this method
+     * still scans every tool call's {@code arguments} via {@link PiiTokenSession#restoreWithUnresolvedCount(String)} --
+     * without substituting anything -- solely to decide whether {@link SensitiveDataMetrics#recordRestoreSuppressed()}
+     * applies: that event fires only when a tool call's arguments genuinely carried a resolvable token, never merely
+     * because the setting is off, matching the same condition the response-direction restoration path already uses (see
+     * {@code AiGuardrailsAdvisor#applyResponseGuardrails}).
+     * </p>
+     *
+     * <p>
+     * {@link SensitiveDataMetrics#recordTokenUnresolved()} is never evaluated on this gated path, unlike the
+     * restore-attempted branch below it. That is intentional, not an oversight: nothing was attempted to resolve here,
+     * so "unresolved" does not apply -- only {@code recordRestoreSuppressed()} describes what actually happened.
+     * </p>
      */
-    private ChatResponse restoreToolCallArguments(ChatResponse chatResponse, PiiTokenSession session) {
+    private ChatResponse restoreToolCallArguments(
+        ChatResponse chatResponse, PiiTokenSession session, SensitiveDataPolicy policy) {
+
         List<Generation> generations = chatResponse.getResults();
 
         if (generations.isEmpty()) {
@@ -301,6 +324,14 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
                 .getToolCalls()));
 
         if (!anyGenerationHasToolCalls) {
+            return chatResponse;
+        }
+
+        if (!policy.restoreOutboundArguments()) {
+            // No recordTokenUnresolved() here, unlike the restore-attempted branch below: nothing was attempted to
+            // resolve, so "unresolved" does not apply.
+            recordRestoreSuppressedIfAnyArgumentWasResolvable(generations, session);
+
             return chatResponse;
         }
 
@@ -362,6 +393,47 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
     }
 
     /**
+     * Records {@link SensitiveDataMetrics#recordRestoreSuppressed()} at most once when
+     * {@link #restoreToolCallArguments} withheld restoration under {@code !policy.restoreOutboundArguments()} -- and
+     * only when withholding actually changed something. Scans every tool call's {@code arguments} across every
+     * generation via {@link PiiTokenSession#restoreWithUnresolvedCount(String)} WITHOUT substituting anything back into
+     * {@code generations}, purely to learn whether at least one argument carried a token this session could have
+     * resolved. A call whose arguments carried no resolvable token in the first place has nothing to suppress, and must
+     * not tick the same counter a genuine withholding does -- the one distinction {@code restore_suppressed} exists to
+     * preserve (see that event's javadoc).
+     *
+     * <p>
+     * This once-per-invocation guarantee is per boundary, not per agent turn: {@code AiGuardrailsAdvisor} records its
+     * own {@code restore_suppressed} independently, for the response text, under the identical gate. A single
+     * canvas-agent turn passes through both boundaries, so a turn that withholds restoration on both the response AND a
+     * tool call's arguments records {@code restore_suppressed} twice, both tagged {@code surface=ai_agent} -- harmless
+     * for the question the metric exists to answer, but not a count of turns.
+     * </p>
+     */
+    private void recordRestoreSuppressedIfAnyArgumentWasResolvable(
+        List<Generation> generations, PiiTokenSession session) {
+
+        boolean anyArgumentWasResolvable = generations.stream()
+            .flatMap(generation -> generation.getOutput()
+                .getToolCalls()
+                .stream())
+            .anyMatch(toolCall -> !Objects.equals(
+                session.restoreWithUnresolvedCount(toolCall.arguments())
+                    .text(),
+                toolCall.arguments()));
+
+        if (!anyArgumentWasResolvable) {
+            return;
+        }
+
+        SensitiveDataMetrics metrics = metricsSupplier.get();
+
+        if (metrics != null) {
+            metrics.recordRestoreSuppressed();
+        }
+    }
+
+    /**
      * Tokenizes every tool result AND re-tokenizes every assistant tool-call argument in {@code result}'s conversation
      * history, then records {@link SensitiveDataMetrics#recordToolResultTokenized()} and/or
      * {@link SensitiveDataMetrics#recordAssistantHistoryRetokenized()} at most once each for the whole invocation --
@@ -378,7 +450,7 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
      * </p>
      */
     private ToolExecutionResult tokenizeConversationHistory(
-        ToolExecutionResult result, PiiTokenSession session, PiiTokenBoundaryPolicy policy) {
+        ToolExecutionResult result, PiiTokenSession session, SensitiveDataPolicy policy) {
         List<Message> conversationHistory = result.conversationHistory();
         List<Message> tokenizedConversationHistory = new ArrayList<>(conversationHistory.size());
         boolean rewroteAMessage = false;
@@ -481,7 +553,7 @@ public final class PiiTokenBoundaryToolCallingManager implements ToolCallingMana
      * arguments alike must never go out carrying real values, so both use the same fail-closed pipeline. See the class
      * javadoc for why this fails closed instead of returning {@code text} unchanged on an error path.
      */
-    private String tokenizeOrRedact(String text, PiiTokenSession session, PiiTokenBoundaryPolicy policy) {
+    private String tokenizeOrRedact(String text, PiiTokenSession session, SensitiveDataPolicy policy) {
         try {
             return redactor
                 .tokenizeWithSpans(text, policy.kinds(), session, policy.minConfidence(), metricsSupplier.get())

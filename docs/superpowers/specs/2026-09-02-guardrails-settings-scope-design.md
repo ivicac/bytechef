@@ -1,6 +1,9 @@
 # Guardrails settings scope — design
 
-**Status:** approved, not implemented
+**Status:** **Implemented.** All nine tasks executed and reviewed; see
+`docs/superpowers/plans/2026-09-02-guardrails-settings-scope.md`. The status line said "approved, not
+implemented" until 2026-09-05, when a reconciliation pass against the code found the work had long
+since landed. One filed residual and one falsified claim are recorded at the end of this document.
 **Ticket:** 732
 **Date:** 2026-09-02
 
@@ -164,9 +167,42 @@ the key is always present is what makes this safe, not the fallback itself.
 ## What becomes of the PLATFORM row
 
 After this change it is read only when no workspace and no embedded scope resolves. It stays the
-last-resort default and stays writable through the API. Giving it a UI is **not** in scope: with
-Copilot workspace-scoped and embedded on its own row, no surface depends on it in normal operation,
-and a settings page for a row nothing normally reads would be its own kind of misleading.
+last-resort default and stays writable through the API. Giving it a UI is **not** in scope, and a
+settings page for a row nothing normally reads would be its own kind of misleading.
+
+> **Correction, 2026-09-05.** This section originally continued: "with Copilot workspace-scoped and
+> embedded on its own row, no surface depends on it in normal operation." **That is false**, and the
+> sentence propagated into `.agents/ai-guardrails.md` before being caught by the whole-branch review of
+> the 2026-09-05 embedded-settings-scope work.
+>
+> The **embedded Copilot** depends on the PLATFORM row for every call. §2 above treated Copilot as
+> uniformly workspace-based — "a Copilot session runs inside a workspace, the way AI Hub does" — which is
+> true of the automation Copilot this spec fixed, and false of the embedded one.
+> `EmbeddedCopilotConfiguration` attaches the guardrails advisors to every embedded Copilot agent, and
+> that module carries no workspace id at all, so `getAdvisorForWorkspace(null, …)` resolves the
+> tenant default. Reachable in production through `ConnectedUserCopilotApiController`.
+>
+> This is a case this spec did not consider, not a task it failed to execute. Closing it needs its own
+> decision — either the SPI grows a `PlatformType`, or `embedded-ai-copilot` gets its own embedded-aware
+> entry point — and that decision is not taken here. Recorded in `.agents/ai-guardrails.md` under the
+> embedded-Copilot known gap.
+
+## Filed residual — since closed
+
+This spec's final review filed, rather than fixed, a data-loss residual: **neither settings page sent
+`minConfidence`, and `saveSettings` replaces the whole value map**, so a page save silently cleared a
+value set through the API. Declining to fix it as a drive-by was right — it needed the field added to
+both the query selection and the mutation input, a `graphql-codegen` regeneration, and, per CLAUDE.md,
+the operations and the generated file committed separately.
+
+**It was closed in `07dfdfc0222`** ("client - Stop the guardrails pages erasing an API-set
+minConfidence"). Both pages now carry the fetched value straight through to the save payload, the
+operation selects it in query and mutation, and both pages carry a regression test named for the reason
+it exists — *"preserves an API-set minConfidence across a save, since the page has no control for it"*.
+
+Recorded here because the residual was filed in an ignored scratch ledger while its fix landed in a
+different branch's commit group: neither half was discoverable from this document, so a later reader had
+no way to tell an open data-loss bug from a closed one. That gap is the point of this note, not the bug.
 
 ## Testing
 

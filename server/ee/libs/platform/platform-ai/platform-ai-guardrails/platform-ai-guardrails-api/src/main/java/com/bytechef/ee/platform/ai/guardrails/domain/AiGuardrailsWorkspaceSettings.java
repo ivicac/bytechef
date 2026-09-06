@@ -38,6 +38,18 @@ package com.bytechef.ee.platform.ai.guardrails.domain;
  * pipeline. It selects the surface; the categories and threshold still come from the fields above.
  * </p>
  *
+ * <p>
+ * {@code restoreIntoWorkflowOutput} defaults to OFF, like every other boolean here: null means "not set" and resolves
+ * the same way an explicit {@code false} does. This field gates whether a canvas AI Agent hands real values or
+ * placeholders to whatever the workflow author wired downstream, and the default was chosen for which failure mode it
+ * produces. Under ON, a settings-lookup failure is invisible -- real PII reaches whatever node the workflow author
+ * wired downstream with no error and no failed step, silently defeating the tokenization the workspace turned on in the
+ * first place. Under OFF, the same failure is visible -- a downstream node sees a placeholder like
+ * {@code [PII_EMAIL_ADDRESS_1_k3n9]} instead of the real value, and someone notices. A workspace that reaches this
+ * field has already opted into tokenization by enabling PII redaction; withholding restoration until it is explicitly
+ * requested is the conservative reading of that choice.
+ * </p>
+ *
  * @version ee
  */
 public record AiGuardrailsWorkspaceSettings(
@@ -51,7 +63,8 @@ public record AiGuardrailsWorkspaceSettings(
     Boolean scanResponses,
     BlockingMode blockingMode,
     Double minConfidence, // null = use SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE
-    Boolean redactMcpResults) { // null = not set at this level = off
+    Boolean redactMcpResults, // null = not set at this level = off
+    Boolean restoreIntoWorkflowOutput) { // null = not set = OFF (no restore), same as every other boolean above
 
     public static final String PROPERTY_KEY = "ai_guardrails_workspace_settings";
 

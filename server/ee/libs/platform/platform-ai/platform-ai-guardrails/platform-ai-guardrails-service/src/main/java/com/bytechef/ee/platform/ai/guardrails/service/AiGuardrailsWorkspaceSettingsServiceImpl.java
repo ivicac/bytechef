@@ -62,6 +62,7 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
     private static final String KEY_REDACT_MCP_RESULTS = "redactMcpResults";
     private static final String KEY_REDACT_PII = "redactPii";
     private static final String KEY_REDACT_SECRETS = "redactSecrets";
+    private static final String KEY_RESTORE_INTO_WORKFLOW_OUTPUT = "restoreIntoWorkflowOutput";
     private static final String KEY_SCAN_RESPONSES = "scanResponses";
 
     private final PropertyService propertyService;
@@ -152,6 +153,10 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
             value.put(KEY_REDACT_MCP_RESULTS, settings.redactMcpResults());
         }
 
+        if (settings.restoreIntoWorkflowOutput() != null) {
+            value.put(KEY_RESTORE_INTO_WORKFLOW_OUTPUT, settings.restoreIntoWorkflowOutput());
+        }
+
         return value;
     }
 
@@ -169,7 +174,8 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
             (Boolean) value.get(KEY_SCAN_RESPONSES),
             blockingModeValue(value),
             minConfidenceValue(value),
-            (Boolean) value.get(KEY_REDACT_MCP_RESULTS));
+            (Boolean) value.get(KEY_REDACT_MCP_RESULTS),
+            (Boolean) value.get(KEY_RESTORE_INTO_WORKFLOW_OUTPUT));
     }
 
     // A Double unboxed carelessly (e.g. via a raw cast that widens through a Number subtype the property store

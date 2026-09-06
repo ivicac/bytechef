@@ -9,10 +9,11 @@ package com.bytechef.ee.platform.ai.guardrails.mcp;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.platform.ai.guardrails.McpOutboundRedactor;
 import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicy;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
@@ -56,9 +57,9 @@ public class McpOutboundRedactorProviderImpl implements McpOutboundRedactorProvi
 
     @Override
     public Optional<McpOutboundRedactor> fetchRedactor(@Nullable Long workspaceId, String surface) {
-        PiiTokenBoundaryPolicy policy = SURFACE_EMBEDDED.equals(surface)
+        SensitiveDataPolicy policy = SURFACE_EMBEDDED.equals(surface)
             ? aiGuardrails.resolveEmbeddedMcpOutboundPolicy()
-            : aiGuardrails.resolveMcpOutboundPolicy(workspaceId);
+            : aiGuardrails.resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget.resolve(null, workspaceId));
 
         if (policy == null) {
             return Optional.empty();

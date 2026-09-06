@@ -22,11 +22,14 @@ interface GuardrailsFormI {
     redactMcpResults: boolean;
     redactPii: boolean;
     redactSecrets: boolean;
+    restoreIntoWorkflowOutput: boolean;
     scanResponses: boolean;
 }
 
 // The query returns null when no settings row exists yet -- these are the defaults synthesized
-// client-side in that case (every guardrail off, blocking mode BLOCK).
+// client-side in that case: every guardrail off, blocking mode BLOCK, including
+// restoreIntoWorkflowOutput -- null there means restoration stays off, matching the server's
+// fail-closed resolver.
 const DEFAULT_FORM: GuardrailsFormI = {
     blockedTerms: '',
     blockingMode: AiGuardrailsBlockingMode.Block,
@@ -35,6 +38,7 @@ const DEFAULT_FORM: GuardrailsFormI = {
     redactMcpResults: false,
     redactPii: false,
     redactSecrets: false,
+    restoreIntoWorkflowOutput: false,
     scanResponses: false,
 };
 
@@ -75,6 +79,8 @@ const EmbeddedGuardrails = () => {
             redactMcpResults: settings?.redactMcpResults ?? false,
             redactPii: settings?.redactPii ?? false,
             redactSecrets: settings?.redactSecrets ?? false,
+            // Null means "not explicitly set" -- resolves to off, same as the server's fail-closed default.
+            restoreIntoWorkflowOutput: settings?.restoreIntoWorkflowOutput ?? false,
             scanResponses: settings?.scanResponses ?? false,
         });
     }, [data]);
@@ -90,6 +96,7 @@ const EmbeddedGuardrails = () => {
                 redactMcpResults: form.redactMcpResults,
                 redactPii: form.redactPii,
                 redactSecrets: form.redactSecrets,
+                restoreIntoWorkflowOutput: form.restoreIntoWorkflowOutput,
                 scanResponses: form.scanResponses,
                 scope: AiGuardrailsSettingsScope.Embedded,
             },
@@ -145,8 +152,10 @@ const EmbeddedGuardrails = () => {
                                 <Label htmlFor="scan-responses">Scan responses</Label>
 
                                 <p className="text-xs text-muted-foreground">
-                                    Redact PII and secrets from model output before returning it. Non-streaming
-                                    completions only.
+                                    Redact whichever of PII and secrets the Redact PII and Redact secrets switches above
+                                    enable, from model output before returning it. With both of those off, this does
+                                    nothing. Non-streaming completions, and streamed ones when streaming response
+                                    scanning is enabled for the deployment.
                                 </p>
                             </div>
 
@@ -207,6 +216,26 @@ const EmbeddedGuardrails = () => {
                                 checked={form.redactMcpResults}
                                 id="redact-mcp-results"
                                 onCheckedChange={(checked) => setForm({...form, redactMcpResults: checked})}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+                            <div className="flex flex-col gap-1">
+                                <Label htmlFor="restore-into-workflow-output">Restore PII in workflow output</Label>
+
+                                <p className="text-xs text-muted-foreground">
+                                    Off (default), downstream workflow nodes and the tools an AI Agent node calls
+                                    receive placeholders such as [PII_EMAIL_ADDRESS_1_…] instead of the caller's real
+                                    values -- the agent itself still sees real values. Turn this on to hand real values
+                                    downstream instead, e.g. so a Slack post or HTTP call wired after the agent gets the
+                                    caller's actual address. Streamed replies to a live caller are never affected.
+                                </p>
+                            </div>
+
+                            <Switch
+                                checked={form.restoreIntoWorkflowOutput}
+                                id="restore-into-workflow-output"
+                                onCheckedChange={(checked) => setForm({...form, restoreIntoWorkflowOutput: checked})}
                             />
                         </div>
 

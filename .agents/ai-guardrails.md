@@ -69,16 +69,27 @@ design.
     workspace policy are unioned, including moderation (only counted active when a moderation
     classifier bean is present); callers use this to skip attaching an advisor entirely.
   - `redactPii` / `redactSecrets` / `redactAll` are instance methods (no longer static — see
-    "Sensitive-data detectors" below for why) reused by the gateway adapter's project overlay and by
-    `scanResponseText`/`StreamingResponseRedactor` for response-direction and streaming redaction.
-    The old `sensitiveMatchRanges` helper is gone, superseded by `SensitiveDataRedactor`'s span-based
-    detect/resolve/apply pipeline.
+    "Sensitive-data detectors" below for why). `redactPii`/`redactSecrets` are reused by the gateway
+    adapter's project overlay for BOTH directions — request always, and response too as of the I2
+    final-branch-review fix, so a project's own category switch widens what gets redacted outbound
+    the same way it already widened the request. `redactAll` is NOT what `scanResponseText`/
+    `StreamingResponseRedactor` call for response-direction and streaming redaction — see the
+    composition rule below; they call `redactEnabledKinds`, which composes with `redactPii`/
+    `redactSecrets` instead of redacting every kind unconditionally. `redactAll` has no production
+    caller today; it remains for a caller that genuinely wants every kind redacted irrespective of
+    policy. The old `sensitiveMatchRanges` helper is gone, superseded by `SensitiveDataRedactor`'s
+    span-based detect/resolve/apply pipeline.
 - Redaction always runs before the blocked-term check and injection detection, so those checks see
   already-redacted text. Regexes avoid nested optional quantifiers (ReDoS-safe).
 - Effective policy per call = union of global `bytechef.ai.gateway.guardrails.*` properties
   (property names kept for compatibility — the AI Gateway is still the sole reader/writer of these
   keys) and the call's workspace `AiGuardrailsWorkspaceSettings` — additive: a level can enable a
-  guardrail or add blocked terms, never turn one off.
+  guardrail or add blocked terms, never turn one off. The global `response-scan-enabled` property is
+  itself only half of "scan responses" — it sets `scanResponses` (whether the output direction is
+  scanned at all) but not the category switches, so an operator enabling only this property gets an
+  empty resolved kind set and a no-op, where before the per-category response-scanning fix they got
+  full response redaction. Reaching actual redaction also requires `pii-redaction-enabled` and/or
+  `secret-redaction-enabled` (or the equivalent workspace `redactPii`/`redactSecrets` fields) on.
 
 ## Sensitive-data detectors
 
@@ -850,7 +861,7 @@ below.
   code a de-tokenizing oracle for every value the guardrail had protected in the request. The boundary
   needs the session only either side of the delegate call (restore arguments before, tokenize history
   after) and holds its own local reference for both, so nothing is lost by removing it from the map. The
-  `PiiTokenBoundaryPolicy` on the same map is deliberately left in place: it is configuration (kinds +
+  `SensitiveDataPolicy` on the same map is deliberately left in place: it is configuration (kinds +
   threshold), not data. `AgentToolInvocationContext`'s entries, which share this map, survive the strip —
   losing them would break security-context rehydration on the tool's worker thread and surface far from
   here as an authorization error inside an unrelated tool.
@@ -891,7 +902,7 @@ work protects.
   secrets always use, and no `PiiTokenSession` is ever opened for it.
 - **`redactMcpResults`** (`AiGuardrailsWorkspaceSettings`, tenth and final field, EE `-api`) is a
   dedicated boolean switch, separate from `redactPii`/`redactSecrets` and gated on nothing else —
-  `AiGuardrails#resolveMcpOutboundPolicy(workspaceId)` reads the settings row directly rather than going
+  `AiGuardrails#resolveMcpOutboundPolicy(target)` reads the settings row directly rather than going
   through `resolvePolicy`, because `redactMcpResults` has no global-property counterpart to union with.
   The switch only selects the surface; once it is on, the kinds and `minConfidence` still come from the
   same workspace fields every other surface reads (`resolveToolBoundaryPolicy`, reused rather than
@@ -951,8 +962,8 @@ work protects.
   `McpOutboundRedactorProviderImpl#fetchRedactor` branches on that surface string: for
   `SURFACE_EMBEDDED` it calls `AiGuardrails#resolveEmbeddedMcpOutboundPolicy()` (which reads
   `AiGuardrailsSettingsScope.EMBEDDED` via `fetchEmbeddedSettings()` — see "Settings storage" above),
-  and for every other surface it still calls the workspace-taking `resolveMcpOutboundPolicy(workspaceId)`,
-  which resolves `PLATFORM` only when `workspaceId` is `null`. **Consequence, stated so it is not
+  and for every other surface it calls the workspace-taking `resolveMcpOutboundPolicy(target)`,
+  where the target's `resolve()` method resolves `PLATFORM` only when `workspaceId` is `null`. **Consequence, stated so it is not
   rediscovered later: an embedded deployment still cannot vary MCP outbound redaction per workspace —
   there is exactly one setting for the whole tenant — but that setting is now its own dedicated row
   rather than accidentally sharing the automation tenant-default row.**
@@ -970,7 +981,7 @@ work protects.
   policy object, deliberately: a policy would leak `SensitiveKind`, confidence thresholds, and metrics
   tagging into two MCP modules that have no business knowing them. `McpOutboundRedactorProviderImpl` (EE,
   `platform-ai-guardrails-service`) is the implementation: it resolves `AiGuardrails#resolveMcpOutboundPolicy`
-  once per `fetchRedactor` call and closes over the resulting `PiiTokenBoundaryPolicy` plus a
+  once per `fetchRedactor` call and closes over the resulting `SensitiveDataPolicy` plus a
   surface-tagged `AiGuardrailMetrics`, so the returned redactor doesn't re-resolve policy per value.
   `surface` is `"mcp_automation"` or `"mcp_embedded"`.
   - **Test it through `call(String, ToolContext)`, never `call(String)` alone.**
@@ -1106,6 +1117,29 @@ settings record in an `-api` module should not depend on the property store's sh
   why and for the GraphQL-vs-client-codegen gap on this field specifically — and `redactMcpResults`
   (see "MCP outbound" above).
 
+**`scanResponses` decides *whether* the output direction is scanned; `redactPii`/`redactSecrets` decide
+*which kinds* — and the two compose, the same as the input direction.** `AiGuardrails#scanResponseText`
+gates solely on `scanResponses`, then delegates to `#redactEnabledKinds`, which builds its kind set
+exactly the way `#redactPiiAndSecrets` does for the input direction: `SensitiveKind.PII` only when
+`redactPii` is on, `SECRET` only when `redactSecrets` is on. So `scanResponses` on with both category
+switches off resolves an empty kind set and redacts nothing — the switch alone no longer redacts every
+kind by itself; a category switch must also be on for a response scan to have anything to do. Re-decided
+as option (c) in `docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md` (D1,
+2026-09-05), superseding the option-(a) all-or-nothing behavior recorded here previously: `redactAll`
+(always `EnumSet.allOf(SensitiveKind.class)`) remains for callers that want every kind redacted
+irrespective of policy, but `scanResponseText` is no longer one of them.
+
+**This rule is not `scanResponseText`-only — it applies to every streaming-redactor factory too.**
+Both `newStreamingResponseRedactor(target, metrics)` overloads (the plain one and the
+session-restoring one) derive their kind set from the same `#enabledKinds` helper rather than
+`EnumSet.allOf(SensitiveKind.class)`, so an active streaming scan redacts only the enabled categories
+— matching `scanResponseText` for the same target. As of the I1 final-branch-review fix this also
+covers the single-argument `newStreamingResponseRedactor(target)` overload used by the AI Gateway's
+project overlay when the *project*, not the workspace, is what decided streaming scanning applies (see
+"AI Gateway project overlay" below): it bypasses the `scanResponses`/streaming-flag gate but still
+composes with the category switches via `#enabledKinds`, closing a gap where that one call site used
+to redact every kind unconditionally while every other response-direction path already composed.
+
 **Guardrails settings are NOT per-environment, for any scope, and that is deliberate, not an
 oversight to fix.** Every read and write above goes through `PropertyService`'s 3-argument,
 environment-less overloads (`fetchProperty(key, scope, scopeId)` / `save(key, value, scope, scopeId)`
@@ -1118,13 +1152,76 @@ CLAUDE.md, which records "environment always set" for that service). Copying the
 would be a real feature change, not a documentation gap, and nobody should "fix" this by reaching for
 that precedent.
 
+## Settings scope model: `AiGuardrailsSettingsTarget` (ticket 732, 2026-09-05 follow-up)
+
+**Before this follow-up, seven of the embedded guardrails settings page's eight controls were written
+but never read.** The storage layer above already implemented all three scopes correctly — the
+`AiGuardrailsSettingsScope.PLATFORM` / `WORKSPACE` / `EMBEDDED` enum values and the matching
+`Property.Scope` values, `fetchSettings(Long)` and `fetchEmbeddedSettings()` both present and correct.
+The runtime read path did not: `AiGuardrails`'s settings-reading methods took a bare `@Nullable Long
+workspaceId`, which can express only two of the three scopes. `null` meant both "an automation run
+with no resolvable workspace" and "an embedded run", and both resolved the tenant-default `PLATFORM`
+row. There was no input that produced `EMBEDDED`. An embedded admin could switch PII redaction off,
+save, watch the page re-render with it off, and every embedded model call kept redacting — or, the
+direction that matters, set blocking mode to `BLOCK` and get no blocking. The one control that worked,
+`redactMcpResults`, worked only because `resolveEmbeddedMcpOutboundPolicy` never went through the
+resolver at all — it always knew it was embedded from its own surface constant. Spec:
+`docs/superpowers/specs/2026-09-05-embedded-guardrail-settings-scope-design.md`.
+
+**`AiGuardrailsSettingsTarget`** (`-api`, same package as `AiGuardrailsSettingsScope`) is the fix: a
+record carrying `(scope, workspaceId)`, with the same non-null-iff-`WORKSPACE` invariant
+`AiGuardrailsWorkspaceSettings` already enforces. Every one of `AiGuardrails`'s public
+settings-reading methods now takes a target in place of the bare `Long` — there are no
+`@Nullable Long workspaceId`-taking forms left on that class. A half-converted API, some methods
+scope-aware and others still taking a `Long`, is exactly the shape that produced this bug, so the
+distinction had to be visible in every signature rather than only where an embedded caller happened to
+reach.
+
+- **`AiGuardrailsSettingsTarget.resolve(PlatformType, Long)` is the only place the platform-type-to-scope
+  interpretation lives.** `PlatformType.EMBEDDED` maps to `embedded()` regardless of any workspace id
+  passed in — embedded has no workspaces, so honouring one would resolve some automation tenant's row
+  for an embedded caller. Otherwise a non-null workspace id maps to `workspace(id)` and a null one to
+  `platform()`. Every caller builds the target through this one method rather than switching on
+  `platformType` itself.
+- **`JobPrincipalWorkspaceResolver` (`platform-ai-workspace`) deliberately does not know about this.**
+  An earlier draft had it return the target directly; grounding against the code corrected that. The
+  resolver is shared by three consumers — guardrails, `WorkspaceSystemPromptAdvisorProviderImpl`, and
+  `ComponentRuleEnforcerImpl` — and only guardrails has an embedded scope to resolve. Pushing a
+  guardrails-specific type into a module the other two depend on, to serve a distinction neither of
+  them has, was rejected. The resolver's contract is still correct exactly as written: it answers
+  "which workspace does this run belong to", and for an embedded run the honest answer is `null`,
+  because embedded has no workspaces. The bug was never that it returns `null` — it is that guardrails
+  used to treat that `null` as the whole answer when it also held the platform type that disambiguates
+  it.
+- **`AiGuardrails#findSettings(target)` dispatches on scope**: `EMBEDDED` calls the already-existing
+  `fetchEmbeddedSettings()`; `PLATFORM` and `WORKSPACE` call `fetchSettings(workspaceId)` as before.
+  Fail-open behaviour is unchanged on every branch — a settings-lookup failure is caught, logged at
+  WARN, and treated as "no override" (see "Sensitive-data detectors" above for why fail-open is the
+  engine's default).
+- **`EMBEDDED` unions with the GLOBAL `bytechef.ai.gateway.guardrails.*` properties and never falls
+  back to `PLATFORM`.** This is the same union rule `WORKSPACE` already follows, not a second rule:
+  `AiGuardrailsWorkspaceSettings`'s own javadoc already asserted the `PLATFORM` and per-scope rows are
+  "otherwise independent"; before this fix that claim was vacuous for `EMBEDDED`, because nothing on
+  the agent path read that row at all. An embedded deployment's settings are now genuinely independent
+  of the tenant default, not merely stored that way.
+- **`resolveEmbeddedMcpOutboundPolicy` keeps its own read, unchanged, and this is the one deliberate
+  exception.** It reads `fetchEmbeddedSettings()` directly rather than going through `findSettings`, to
+  stay fail-**closed**: a lookup failure during a `tools/call` must end in a tool error, never in raw
+  customer records with `isError` false — see "MCP outbound" above for the full fail-closed rationale,
+  which is unchanged by this follow-up.
+
+**This is what stops someone later "simplifying" the target back to a `Long`.** The whole point of the
+record is that a bare `Long` cannot express `EMBEDDED`, and this bug is what it looks like when that
+expressiveness gap goes unnoticed for a whole settings page.
+
 ## Scope resolution, per surface
 
 Which settings row a call resolves against, now that scope is explicit:
 
 | Surface | Resolves | Status |
 |---|---|---|
-| Canvas AI Agent (workflow run) | The run's workspace, via `jobPrincipalId` → `ProjectDeployment` → `Project.getWorkspaceId()` | Already correct; out of scope for this ticket |
+| Canvas AI Agent (automation workflow run) | The run's workspace, via `jobPrincipalId` → `ProjectDeployment` → `Project.getWorkspaceId()` | Already correct; out of scope for this ticket |
+| Canvas AI Agent (embedded run) | The `EMBEDDED` row, unconditionally (`AiGuardrailsAdvisorProviderImpl#getAdvisor` builds its target via `AiGuardrailsSettingsTarget.resolve(PlatformType.EMBEDDED, ...)`, which maps to `embedded()` regardless of what `JobPrincipalWorkspaceResolver` returns — always `null` for a non-`AUTOMATION` run) | **Fixed this session (ticket 732)** — previously fell back to `PLATFORM`, the same bug as every other entry point below |
 | Automation MCP | The run's workspace, via `mcpServerId` → workspace | Already correct; out of scope for this ticket |
 | AI Hub main agent | The session's server-verified workspace (`AiHubStateKeys.VERIFIED_WORKSPACE_ID`, placed by the controller after the workspace-membership check, never client-controllable) | Already correct |
 | AI Hub delegation sub-agents | The same server-verified workspace, forwarded through `AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY` (`SubAgentGuardrailedChatClient` reads the identical tool-context key the main agent already populated from the verified state) | Correct on the `SubAgentGuardrailedChatClient` path only, where it inherits the main agent's verification. Sub-agents resolving through `CopilotGuardrailsAdvisorFactory` instead were on Copilot's broken path and got the tenant default; they are **fixed this session (ticket 732)** by the same `DeferredGuardrailsAdvisor` change, not separately — which is why the spec's problem table counts them as broken |
@@ -1132,9 +1229,12 @@ Which settings row a call resolves against, now that scope is explicit:
 | Embedded MCP outbound redaction | The `EMBEDDED` row, unconditionally (`AiGuardrails#resolveEmbeddedMcpOutboundPolicy` → `fetchEmbeddedSettings()`) — embedded has no workspace to resolve | **Fixed this session (ticket 732)** — previously fell back to `PLATFORM` |
 | Anything that resolves none of the above (e.g. a Copilot call whose prompt carries no tool context) | `PLATFORM`, the tenant default | The universal, deliberately-not-fail-closed fallback every method above already had |
 
-**The `PLATFORM` row has no settings-page UI, by design, now that this lands.** Every surface either
-resolves a real workspace, resolves the dedicated `EMBEDDED` row, or falls back to `PLATFORM` only in
-the edge case above — no surface *depends* on `PLATFORM` in normal operation anymore. It stays
+**The `PLATFORM` row has no settings-page UI, by design, now that this lands.** Every surface covered
+by the table above either resolves a real workspace, resolves the dedicated `EMBEDDED` row, or falls
+back to `PLATFORM` only in the edge case above. This is not universal, though: embedded Copilot
+depends on `PLATFORM` for *every* call, not as a fallback, because the CE
+`AiGuardrailsAdvisorProvider` SPI it goes through has no way to carry a `PlatformType` — see "Known
+gap: embedded Copilot cannot reach the `EMBEDDED` row" below. `PLATFORM` stays
 writable through the API (a GraphQL mutation with `scope: PLATFORM` and no `workspaceId`) and is still
 what `bytechef.ai.gateway.guardrails.*` properties union with wherever it resolves, but a settings page
 for a row nothing normally reads would be its own kind of misleading.
@@ -1146,6 +1246,51 @@ which workspace the session ran in. After this session, the same toggle changes 
 for that workspace, exactly as it already changed the canvas AI Agent's and AI Hub's. Tenants who
 configure guardrails only through the global `bytechef.ai.gateway.guardrails.*` properties are
 unaffected either way — those still union into whichever row resolves, on every surface, unchanged.
+
+## Known gap: embedded Copilot cannot reach the `EMBEDDED` row (ticket 732, documented not fixed)
+
+**This is a known gap, deliberately left unfixed by this session — recorded here so it stops being
+invisible, not acted on.** The CE SPI pair `AiGuardrailsAdvisorProvider#getAdvisorForWorkspace(@Nullable
+Long, String)` / `#getMetricsForWorkspace(@Nullable Long, String)` takes only a bare workspace id — the
+exact shape the `AiGuardrailsSettingsTarget` model exists to eliminate — and `AiGuardrailsAdvisorProviderImpl`
+hard-codes it non-embedded, via `AiGuardrailsSettingsTarget.resolve(null, workspaceId)`. That resolution is
+correct for every caller of `getAdvisorForWorkspace`/`getMetricsForWorkspace` that is automation-only:
+`TitleGenerationService`, `AiEvalExecutor`, and `ApiConnectorAiServiceImpl`.
+
+It is **not** correct for Copilot. `EmbeddedCopilotConfiguration`
+(`server/ee/libs/embedded/embedded-ai/embedded-ai-copilot/`) attaches
+`copilotGuardrailsAdvisorFactory.guardrailsAdvisors()` to every embedded Copilot agent bean (workflow
+editor, code workflow, workflow execution — ASK and BUILD variants of each), and that module carries no
+workspace id anywhere — embedded has no workspaces. `DeferredGuardrailsAdvisor#resolveAdvisor` calls
+`AiGuardrailsAdvisorProvider#getAdvisorForWorkspace(workspaceId(chatClientRequest), surface)`, and
+`workspaceId(...)` reads `AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY` off the prompt's tool
+context — a key an embedded Copilot call never populates. So `workspaceId` is always `null`, the target
+always resolves `platform()`, and every embedded Copilot model call is governed by the tenant-default
+`PLATFORM` row, not the workspace's — the exact bug this ticket exists to close, one layer up, on a
+surface reachable in production through `ConnectedUserCopilotApiController`.
+
+Fixing it needs its own decision, not a reflexive patch: either the SPI grows a `PlatformType` parameter
+(mirroring `getAdvisor(PlatformType, Long, String, RestorationDestination)`, which already resolves
+correctly because it *does* carry one), or `embedded-ai-copilot` gets its own embedded-aware entry point
+that builds an `EMBEDDED` target directly, the way `resolveEmbeddedMcpOutboundPolicy` does. Either choice
+touches an SPI two other EE apps depend on, which is why it is out of scope here.
+
+**Two related sites carry the identical bare-`Long` shape, automation-only today:**
+`AiGatewayGuardrails#fetchWorkspaceSettings` (`AiGatewayGuardrails.java` ~line 670, feeding moderation) and
+`AiGatewayFacadeImpl#isPiiRedactionEnabled` (`AiGatewayFacadeImpl.java` ~line 3016, feeding trace redaction)
+both call `aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId)` directly with a bare `Long`,
+bypassing `AiGuardrailsSettingsTarget` entirely. Neither is a live bug today — the AI Gateway is
+automation-only, so `workspaceId` there is never an embedded caller's id — but both will silently resolve
+`PLATFORM` instead of `EMBEDDED` the day an embedded AI Gateway surface is wired up, unless whoever does
+that work builds a target through `AiGuardrailsSettingsTarget.resolve(PlatformType, Long)` instead of
+calling `fetchSettings` directly.
+
+**Custom guardrail rules are unavailable to an embedded run, and this one is arguably correct, not a
+gap** — but it is the one settings dimension the embedded guardrails page cannot reach, and nothing
+previously said so. `AiGuardrails#resolveCustomRules` (~line 1309) returns `List.of()` whenever
+`target.workspaceId()` is `null`, which is every `EMBEDDED` target (workspace id is null-iff-not-`WORKSPACE`
+by construction). An embedded deployment therefore always gets zero custom rules, regardless of what an
+operator configures, because custom rules are stored per-workspace and embedded has none to key on.
 
 ## Copilot workspace authorization (ticket 732)
 
@@ -1290,9 +1435,39 @@ or `TOKENIZE` with a node that says "block PII" blocks; a workspace on `BLOCK` t
 
 **Response.** The chain unwinds inside-out: `sanitize-text` masks model-originated PII (tokens are invisible
 to it) → `check-for-violations` judges model-originated PII (tokens invisible) → the floor scans, then
-restores. **Restoration only ever returns a value to the party that supplied it.** A node output check that
-fired on a restored value would be blocking the caller's own input back at them — which is exactly what the
-pre-constant tie did.
+restores. Restoration returns a value to the party that supplied it **on a conversation surface** — a chat
+thread, the Copilot panel, and a canvas agent's streamed tokens, which go to whoever is listening right now.
+On a workflow surface the destination is whatever the author wired next, and the `restoreIntoWorkflowOutput`
+workspace setting decides. It is **OFF by default**, so the exposure does not ship open: a canvas AI Agent's
+downstream nodes and the tools it calls get placeholders until an admin explicitly turns the setting **on**,
+at which point they start receiving the caller's real values instead. `pii_restored` tagged
+`surface=ai_agent` is no longer the metric that gates adopting the setting — there is nothing to watch
+before daring to flip it OFF, because OFF is where it starts — but `restore_suppressed` still earns its
+keep: it is the only signal that distinguishes "this call withheld a real value" from "this call had nothing
+to restore in the first place". A node output check that fired on a restored value on a conversation surface
+would be blocking the caller's own input back at them — which is exactly what the pre-constant tie did.
+
+**One surface, two routes out, one asymmetric gate.** `GuardrailSurface.AI_AGENT` covers three actions
+sharing one advisor — `AiAgentChatAction`, `AiAgentStreamChatAction`, `AiAgentRealtimeChatAction` — and they
+do not all leave the agent the same way, so the setting above does not gate all three the same way either.
+`AbstractAiAgentChatAction` resolves the advisor's destination from its own `isStreaming()`: `false` (the
+non-streaming `AiAgentChatAction`) resolves `RestorationDestination.WORKFLOW_OUTPUT`, gated by
+`restoreIntoWorkflowOutput`; `true` (`AiAgentStreamChatAction`, `AiAgentRealtimeChatAction`) resolves
+`RestorationDestination.CONVERSATION`. But `CONVERSATION` is not what makes restoration unconditional on this
+path — `AiGuardrailsAdvisor#adviseStream` never reads `destination` at all; it restores through
+`StreamingResponseRedactor`, which restores `session`'s tokens unconditionally by construction (see
+`AiGuardrails#newStreamingResponseRedactor(Long, AiGuardrailMetrics, PiiTokenSession)`; only `adviseCall`'s
+`applyResponseGuardrails` consults `destination`). So `CONVERSATION` is currently **defensive, not
+load-bearing**, on the streaming path — those tokens are streamed to whoever is listening right now
+(`AiAgentRealtimeChatAction` emits them straight back through a `WebSocketEmitter` to the person speaking, and
+withholding them there would mean reading a caller's own address back to them in tokens), and would stay
+unconditional even if a future change resolved `WORKFLOW_OUTPUT` for a streaming action by mistake. Tool-call
+arguments are different: they are gated on the SURFACE
+(`GuardrailSurface.AI_AGENT`), not on `destination`, so **all three** actions withhold real values from a
+tool call when the setting is off, streaming included — a tool call leaves the agent for a system the
+workflow author chose no matter how the agent's own reply reaches its caller. So one of the three actions
+gates its response; all three gate their tool arguments. The destination differs by route out; the surface
+does not.
 
 **Why a tie is not "undefined".** `DefaultChatClient#buildAdvisorChain` → `DefaultAroundAdvisorChain.Builder#pushAll`
 does `Deque#push` (an `addFirst`) per advisor and then a stable `OrderComparator` sort; reversed-then-stably-sorted,
@@ -1653,6 +1828,82 @@ minus the workspace guard, always passing `scope: AiGuardrailsSettingsScope.Embe
 added after review flagged that nothing previously proved the read wiring couldn't silently regress to
 reading the wrong row unnoticed.
 
+## AI_GATEWAY_EDIT: workspace-admin write scope (ticket 732, 2026-09-05 follow-up)
+
+Design: `docs/superpowers/specs/2026-09-05-ai-gateway-edit-scope-design.md` (decision D1).
+
+`AiGatewayPermissionScope` (`automation-configuration-service`) now carries two values:
+`AI_GATEWAY_VIEW` (unchanged) and `AI_GATEWAY_EDIT`. `AiGatewayPermissionScopeProvider` maps
+`AI_GATEWAY_VIEW` → `WorkspaceRole.VIEWER` and `AI_GATEWAY_EDIT` → `WorkspaceRole.ADMIN` — the same
+two-line shape as `VariablePermissionScopeProvider`'s `VARIABLE_MANAGE`, not a new mechanism.
+
+**`AI_GATEWAY_EDIT` gates exactly five mutations, all in `platform-ai-guardrails-graphql`:**
+`AiGuardrailCustomRuleGraphQlController#createAiGuardrailCustomRule`/
+`updateAiGuardrailCustomRulePattern`/`setAiGuardrailCustomRuleEnabled`/`deleteAiGuardrailCustomRule`,
+and `AiGuardrailsWorkspaceSettingsGraphQlController#updateAiGuardrailsWorkspaceSettings`. Every one of
+these keeps `hasAuthority('ROLE_ADMIN') or …` as the gate's first disjunct, so a tenant admin is
+unaffected — this widens who can act, it never narrows it. `AiGuardrailViolationGraphQlController` has
+no admin-only mutation (violations are query-only, see "Violation records" below), so nothing there
+changed.
+
+**The settings mutation's gate mirrors its query's, for the reason the query's own javadoc already
+states: any argument the body branches on must appear in the gate, or the gate authorizes a different
+request than the one that runs.** `updateAiGuardrailsWorkspaceSettings`'s body dispatches on
+`scopeOf(input)`, not on `input.workspaceId` alone, so its gate is not a plain
+`hasPermission(#input.workspaceId, 'Workspace', 'AI_GATEWAY_EDIT')` — it additionally requires
+`(#input.scope == null || #input.scope == WORKSPACE) && #input.workspaceId != null`.
+
+The non-admin branch names the scopes it *allows* rather than the one it forbids. An earlier version
+of this gate excluded only `EMBEDDED` (`#input.scope != EMBEDDED`), which let a workspace admin's
+`{scope: PLATFORM, workspaceId: 7}` pass the gate — `PLATFORM != EMBEDDED` is true — and reach the body,
+where it was refused only by `validateScopeWorkspaceIdPairing` rejecting a non-null `workspaceId`
+paired with `PLATFORM`. That is authorization backstopped by body-side validation instead of enforced
+at the gate — the same class of trap the query's javadoc documents for `EMBEDDED`, just on a
+combination the original four-shape check missed. The allow-list form closes it: a workspace admin can
+reach the body only with `scope` unset or explicitly `WORKSPACE`, both of which `scopeOf` resolves to
+`WORKSPACE`, and any future non-workspace scope has to be added to the allow-list before it is
+reachable at all, rather than reachable until someone remembers to add it to a deny-list. See design doc
+§3 for the four-input-shape check and the controller's own javadoc for the full eight-combination
+argument.
+
+### What this deliberately does not gate
+
+Across the AI-gateway family there are roughly 85 admin-gated `PreAuthorize` occurrences (several of
+which are `ROLE_ADMIN or …VIEW` reads, not admin-only guards — see the design doc's D1 addendum); this
+work touched five admin-only mutations. The rest stay tenant-`ROLE_ADMIN` **by decision, not by
+omission** — the design doc's D1 chose
+"guardrails only" out of three options precisely so nobody "finishes the job" later by widening
+`AI_GATEWAY_EDIT` onto the rest without a fresh review:
+
+- **`automation-ai-gateway-service` (54 guards)** — provider credentials, routing policy, the model
+  catalog. These decide which upstream provider a tenant's traffic goes to and on whose API key; a
+  workspace admin changing them may be exactly what a tenant does not want.
+- **`automation-ai-eval-service`, `automation-ai-prompt-service`,
+  `automation-ai-eval-experiment-graphql`** — workspace-authored content (evals, prompts,
+  experiments). A plausible later extension, not decided here.
+- **`automation-ai-observability-service`** — export jobs and webhook subscriptions, which send
+  tenant data to an external endpoint.
+- **The workspace system prompt** (`platform-ai-workspace-prompt-graphql`,
+  `WorkspaceSystemPromptGraphQlController`). Its read shares the `AI_GATEWAY_VIEW` scope, same as
+  every other AI-settings read here, but it is a different feature from guardrails: a per-workspace
+  prompt injected into every model call in that workspace, which shapes what the model *does* rather
+  than what is scrubbed from what it sees — arguably a more powerful control than any guardrail
+  toggle. It was in D1's first draft and was explicitly excluded when D1 was decided; its mutation
+  stays `@PreAuthorize("hasAuthority('ROLE_ADMIN')")` alone, with no `AI_GATEWAY_EDIT` disjunct.
+
+Widening any of the above to `AI_GATEWAY_EDIT` later is a new authorization decision over provider
+credentials or outbound data exports, not a cleanup — treat it accordingly.
+
+**⚑ Not yet reachable through the UI.** The server-side grant above is in place, but the guardrails
+settings and custom-rule pages live behind `PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}` in
+`client/src/routes.tsx` — tenant `ROLE_ADMIN`, not the new workspace-scoped permission. So a workspace
+admin can now write guardrails via the GraphQL API but still cannot reach the page to do it through the
+UI. Closing that gap is its own piece of work, not a follow-on of this one: it means adding the scope to
+`WorkspaceScopeType` in `client/src/shared/hooks/useHasWorkspaceScope.ts` and then gating the page's
+*controls* on that scope rather than gating the *route* on `AUTHORITIES.ADMIN` — a decision with its own
+UX questions (e.g., what a workspace admin sees for the parts of the page that stay tenant-admin-only)
+that this ticket did not make.
+
 ## Context keywords (ticket 732, queue item 6 Phase A)
 
 Confidence scoring gave every pattern a score reflecting how specific its own shape is, and
@@ -1735,10 +1986,14 @@ unbounded multi-tenant deployments, and four bounded names keep it queryable wit
   it, and it detects nothing if PII redaction is off. That is coherent — a custom PII rule *is* PII
   redaction, and exempting it would make custom rules the one way to get redaction a workspace never
   asked for — but it has its own test saying why, because someone will otherwise "fix" it.
-- **Writes are `ROLE_ADMIN`, not a workspace scope.** `AI_GATEWAY_VIEW` is the only AI-gateway scope
-  that exists and it maps to `VIEWER`. An invented `AI_GATEWAY_EDIT` would not create a scope: an
-  unregistered token makes `hasPermission` **deny**, so every write would fail for everyone including
-  admins. A test asserts no mutation names a scope, which caught exactly that mistake.
+- **Writes accept `ROLE_ADMIN` or the workspace-scoped `AI_GATEWAY_EDIT` permission (ticket 732,
+  2026-09-05 follow-up) — this bullet used to say the opposite.** It used to note that
+  `AI_GATEWAY_VIEW` was the only AI-gateway scope and that an invented edit counterpart would only
+  deny every write, since an unregistered `hasPermission` token fails closed for everyone including
+  admins. That was true only until `AiGatewayPermissionScope` gained `AI_GATEWAY_EDIT`, mapped to
+  `WorkspaceRole.ADMIN` by `AiGatewayPermissionScopeProvider` — see "AI_GATEWAY_EDIT: workspace-admin
+  write scope" above for the five mutations it now covers (these four included) and, just as
+  importantly, the ~80 other admin-only AI-gateway sites it deliberately still does not.
 - **Rules are compiled per resolution, not cached.** A cache would introduce a window where "I just
   enabled my rule" takes effect at an unpredictable time. If it becomes measurable the fix is
   invalidation on write, not expiry on a timer.
@@ -1966,10 +2221,23 @@ token was substituted into a tool call's arguments before the tool ran) and `too
 `token_unresolved` is reused, not duplicated, for an unresolved token found in a tool call's
 arguments. **A fourth, `assistant_history_retokenized`, was added by the 2026-09-01 follow-up** (at
 least one assistant tool-call argument in the returned conversation history was retokenized before
-going out — see "Tool boundary" above for why that history needed a second pass at all). See "Tool
-boundary" above for the mechanism, and for a verified gap: these four events are
-never actually recorded for `surface=ai_agent` today, because nothing in the codebase supplies
-`AgentToolCallingManagers`'s `ObjectProvider<SensitiveDataMetrics>` with a real bean. `moderation_flagged` is no longer gateway-only (superseded, F2 of the standalone-guardrails
+going out — see "Tool boundary" above for why that history needed a second pass at all). **A fifth,
+`restore_suppressed`, was added by the restoration-destination-boundary follow-up (ticket 732)**: a
+response carried a resolvable token but it was left in place because the destination was a workflow
+output and `restoreIntoWorkflowOutput` is off for the workspace — recorded at most once per call, not
+once per generation, matching the other incidence-style events in this family (see
+`AiGuardrailsAdvisor#applyResponseGuardrails`). See "Tool boundary" above for the mechanism. The four
+tool-boundary events **used to be** a verified gap for `surface=ai_agent` — nothing supplied
+`AgentToolCallingManagers`'s `ObjectProvider<SensitiveDataMetrics>` with a real bean — but that gap is
+closed: `AgentToolCallingManagers` no longer takes that `ObjectProvider` at all, and
+`AbstractAiAgentChatAction#getChatClientRequestSpec` now resolves a real, `ai_agent`-surface-tagged
+`SensitiveDataMetrics` through `AiGuardrailsAdvisorProvider#getMetrics` and passes it into
+`AgentToolCallingManagers#getToolCallingManager` as a per-call parameter, exactly as it does for the
+guardrails advisor itself. All four tool-boundary events (and `token_unresolved` reused for a tool-call
+argument) are recorded for `surface=ai_agent` whenever a guardrail is active for the calling workspace —
+the same `aiGuardrails.isActive(workspaceId)` gate `AiGuardrailsAdvisorProviderImpl#buildMetricsIfActive`
+uses for the advisor itself, so an inactive workspace still gets a `null` metrics instance and records
+nothing, by design rather than by gap. `moderation_flagged` is no longer gateway-only (superseded, F2 of the standalone-guardrails
 follow-up): `AiGuardrails#checkInputs` now also checks moderation, so `ai_agent`/`ai_hub`-tagged
 `moderation_flagged` events are emitted whenever a workspace enables moderation and a moderation
 classifier bean is configured — the engine's `applyToInputs` (the gateway's own throwing path)
@@ -2004,21 +2272,26 @@ that interface, so every path that a surface-tagged instance can reach now hands
 - **Request direction** — `AiGuardrails#checkInputs` → `#checkInput` → `#redactPiiAndSecrets` threads
   the caller-supplied instance, so the event lands under the calling surface exactly like
   `pii_redacted`/`secret_redacted`.
-- **Response direction** — `scanResponseText` and `redactAll` each have an overload taking an
-  `@Nullable AiGuardrailMetrics`, and `AiGuardrailsAdvisor` passes the same per-surface instance it
-  already uses for `response_redacted`. A detector failing while scanning an `ai_agent`/`ai_hub`
-  completion is therefore counted under THAT surface, and counted at all regardless of the gateway
-  toggle.
+- **Response direction** — `scanResponseText` takes an `@Nullable AiGuardrailMetrics` and threads it
+  into `redactEnabledKinds` (not `redactAll` — see the composition rule above), and
+  `AiGuardrailsAdvisor` passes the same per-surface instance it already uses for `response_redacted`.
+  A detector failing while scanning an `ai_agent`/`ai_hub` completion is therefore counted under THAT
+  surface, and counted at all regardless of the gateway toggle.
 - **Streaming** — `StreamingResponseRedactor` takes an `@Nullable AiGuardrailMetrics` through its
   constructor and threads it into all three redactor calls;
   `AiGuardrails#newStreamingResponseRedactor(workspaceId, metrics)` is how the advisor supplies it.
 
 Two paths deliberately still record through the engine's own constructor-injected bean, and that is
-correct rather than a gap: the gateway adapter's `applyToInputs`, and the no-argument
-`newStreamingResponseRedactor()` / bare `redactPii`/`redactSecrets`/`redactAll` calls the gateway's
-project overlay makes. Those callers ARE the gateway, so the bean's fixed `surface=gateway` tag is
-accurate for them — and being gated on `bytechef.ai.gateway.enabled` costs nothing, since the gateway
-is by definition enabled when they run.
+correct rather than a gap: the gateway adapter's `applyToInputs`, and the project-overlay calls
+`AiGatewayGuardrails` makes on the engine with explicit metrics — `redactEnabledKinds`/`redactPii`/
+`redactSecrets` for the non-streaming response branch (I2, 2026-09-05 final-branch-review fix) and the
+single-argument `newStreamingResponseRedactor(target)` for the streaming branch (I1, same fix; this
+replaced the earlier no-argument `newStreamingResponseRedactor()` / bare `redactPii`/`redactSecrets`/
+`redactAll` calls, which are gone). The `metrics` the adapter passes explicitly is the SAME
+`surface=gateway` singleton `AiGuardrailMetrics` bean the engine's own constructor-injected field
+resolves to, so recording through either one is equivalent — these callers ARE the gateway, so the
+bean's fixed `surface=gateway` tag is accurate for them — and being gated on
+`bytechef.ai.gateway.enabled` costs nothing, since the gateway is by definition enabled when they run.
 
 Note there is deliberately no `newStreamingResponseRedactor(AiGuardrailMetrics)` single-argument
 overload: it would be ambiguous with `newStreamingResponseRedactor(Long workspaceId)` for a bare

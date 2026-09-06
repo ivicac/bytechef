@@ -55,7 +55,7 @@ describe('AiGuardrails', () => {
         });
     });
 
-    it('renders all six toggles, the blocked terms editor, and the blocking mode radio from query data', () => {
+    it('renders all seven toggles, the blocked terms editor, and the blocking mode radio from query data', () => {
         render(<AiGuardrails />);
 
         expect(screen.getByLabelText('Redact PII')).toBeChecked();
@@ -63,6 +63,8 @@ describe('AiGuardrails', () => {
         expect(screen.getByLabelText('Scan responses')).not.toBeChecked();
         expect(screen.getByLabelText('Model-based moderation')).toBeChecked();
         expect(screen.getByLabelText('Prompt-injection detection')).not.toBeChecked();
+        expect(screen.getByLabelText('Redact MCP tool results')).not.toBeChecked();
+        expect(screen.getByLabelText('Restore PII in workflow output')).not.toBeChecked();
 
         expect(screen.getByLabelText('Blocked terms')).toHaveValue('foo,bar');
 
@@ -84,6 +86,7 @@ describe('AiGuardrails', () => {
         expect(screen.getByLabelText('Scan responses')).not.toBeChecked();
         expect(screen.getByLabelText('Model-based moderation')).not.toBeChecked();
         expect(screen.getByLabelText('Prompt-injection detection')).not.toBeChecked();
+        expect(screen.getByLabelText('Restore PII in workflow output')).not.toBeChecked();
 
         expect(screen.getByLabelText('Blocked terms')).toHaveValue('');
 
@@ -114,6 +117,7 @@ describe('AiGuardrails', () => {
                 redactMcpResults: false,
                 redactPii: true,
                 redactSecrets: false,
+                restoreIntoWorkflowOutput: false,
                 scanResponses: false,
                 workspaceId: '123',
             },
@@ -130,6 +134,48 @@ describe('AiGuardrails', () => {
         fireEvent.click(toggle);
 
         expect(toggle).toBeChecked();
+    });
+
+    it('renders the restore-PII toggle off by default and saves true when switched on', () => {
+        render(<AiGuardrails />);
+
+        const toggle = screen.getByLabelText('Restore PII in workflow output');
+
+        expect(toggle).not.toBeChecked();
+
+        fireEvent.click(toggle);
+
+        expect(toggle).toBeChecked();
+
+        fireEvent.click(screen.getByRole('button', {name: 'Save'}));
+
+        expect(mutateMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                input: expect.objectContaining({restoreIntoWorkflowOutput: true}),
+            })
+        );
+    });
+
+    it('reflects a fetched restoreIntoWorkflowOutput value of true, and saves true unchanged', () => {
+        queryMock.mockReturnValue({
+            data: {aiGuardrailsWorkspaceSettings: {...settings, restoreIntoWorkflowOutput: true}},
+            error: null,
+            isLoading: false,
+        });
+
+        render(<AiGuardrails />);
+
+        const toggle = screen.getByLabelText('Restore PII in workflow output');
+
+        expect(toggle).toBeChecked();
+
+        fireEvent.click(screen.getByRole('button', {name: 'Save'}));
+
+        expect(mutateMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                input: expect.objectContaining({restoreIntoWorkflowOutput: true}),
+            })
+        );
     });
 
     it('tells the operator the MCP toggle only selects the surface and redacts nothing on its own', () => {

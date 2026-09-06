@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.platform.ai.guardrails.PublishedInputSpans;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
@@ -52,7 +53,8 @@ class AiGuardrailsAdvisorPublishesSpansTest {
             .thenReturn(List.of(
                 new GuardrailCheckResult("555-123-4567", null, null, List.of(SYSTEM_SPAN)),
                 new GuardrailCheckResult("contact me [PII_EMAIL_ADDRESS_1_abcd]", null, null, List.of(USER_SPAN))));
-        when(aiGuardrails.scanResponseText(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(aiGuardrails.scanResponseText(any(), any(AiGuardrailsSettingsTarget.class), any()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
         when(aiGuardrails.restoreResponseText(any(), any(), any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -90,7 +92,8 @@ class AiGuardrailsAdvisorPublishesSpansTest {
         when(aiGuardrails.newTokenSession()).thenReturn(PiiTokenSession.create());
         when(aiGuardrails.tokenizeInputs(anyList(), any(), any(), any()))
             .thenReturn(List.of(new GuardrailCheckResult("hello", null, null, List.of())));
-        when(aiGuardrails.scanResponseText(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(aiGuardrails.scanResponseText(any(), any(AiGuardrailsSettingsTarget.class), any()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
         when(aiGuardrails.restoreResponseText(any(), any(), any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 

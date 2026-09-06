@@ -11,6 +11,8 @@ import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailCustomRule;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailCustomRuleService;
@@ -28,8 +30,8 @@ import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor.RedactionRes
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicy;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -67,8 +69,8 @@ import org.springframework.stereotype.Component;
  * <ul>
  * <li><b>PII redaction / tokenization</b> — {@code pii-redaction-enabled} / workspace {@code redactPii}. Email, US SSN,
  * credit-card, phone, and IPv4 matches are, when the caller threads a {@link PiiTokenSession} into the call (e.g.
- * {@link #applyToInputs(List, Long, PiiTokenSession)}, {@link #tokenizeInputs}), replaced with reversible
- * {@code [PII_<CATEGORY>_<ordinal>_<sessionId>]} tokens that are substituted back to their real values via
+ * {@link #applyToInputs(List, AiGuardrailsSettingsTarget, PiiTokenSession)}, {@link #tokenizeInputs}), replaced with
+ * reversible {@code [PII_<CATEGORY>_<ordinal>_<sessionId>]} tokens that are substituted back to their real values via
  * {@link #restoreResponseText} once the response comes back; without a session, matches are replaced with irreversible
  * {@code [REDACTED_*]} placeholders, as secrets always are regardless of a session. See "PII tokenization" in
  * {@code .agents/ai-guardrails.md} for the full round-trip.</li>
@@ -159,9 +161,9 @@ public class AiGuardrails {
     private final @Nullable PiiTokenSessionStore piiTokenSessionStore;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     // Resolved once at construction rather than per streamed response -- streamSafeView() logs an exclusion line for
-    // each non-stream-safe detector, and newStreamingResponseRedactor() is called once per streamed response, so
-    // re-deriving this view per call would log on every response in production. The detector list is fixed at
-    // construction, so nothing is lost by resolving it once here.
+    // each non-stream-safe detector, and a newStreamingResponseRedactor(...) overload is called once per streamed
+    // response, so re-deriving this view per call would log on every response in production. The detector list is
+    // fixed at construction, so nothing is lost by resolving it once here.
     private final SensitiveDataRedactor streamSafeSensitiveDataRedactor;
 
     /**
@@ -335,26 +337,11 @@ public class AiGuardrails {
     }
 
     /**
-     * Returns the input strings with request-direction guardrails applied: PII and secrets redacted, blocked terms and
-     * injection attempts rejected. Returns the inputs unchanged when no relevant guardrail is active. Equivalent to
-     * {@link #applyToInputs(List, Long, PiiTokenSession)} with a {@code null} session.
-     *
-     * @param inputs      the input strings
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed (global guardrails
-     *                    still apply)
-     * @return the guardrailed inputs
-     * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
-     */
-    public List<String> applyToInputs(List<String> inputs, @Nullable Long workspaceId) {
-        return applyToInputs(inputs, workspaceId, null);
-    }
-
-    /**
-     * As {@link #applyToInputs(List, Long)}, additionally tokenizing PII into {@code session}'s reversible tokens
-     * instead of redacting it irreversibly when {@code session} is not {@code null} — secrets are still redacted
-     * irreversibly either way, and blocked-term/injection handling — including the unconditional throw on a blocking
-     * violation — is unchanged. {@code session == null} reproduces {@link #applyToInputs(List, Long)} exactly (the two
-     * used to be separate, near-identical loops; {@link #redactPiiAndSecrets} already branches on
+     * Returns the input strings with request-direction guardrails applied: PII and secrets redacted (or, when
+     * {@code session} is not {@code null}, PII tokenized into {@code session}'s reversible tokens instead of redacted
+     * irreversibly — secrets are still redacted irreversibly either way), blocked terms and injection attempts
+     * rejected. Returns the inputs unchanged when no relevant guardrail is active. {@code session == null} redacts PII
+     * irreversibly (the two used to be separate, near-identical loops; {@link #redactPiiAndSecrets} already branches on
      * {@code session == null} to decide redact-vs-tokenize, so one loop serves both).
      *
      * <p>
@@ -366,21 +353,20 @@ public class AiGuardrails {
      * own throwing loop rather than reusing {@link #checkOrTokenizeInputs}.
      * </p>
      *
-     * @param inputs      the input strings
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed (global guardrails
-     *                    still apply)
-     * @param session     the session minting tokens for this call, or {@code null} to redact PII irreversibly
+     * @param inputs  the input strings
+     * @param target  the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly
      * @return the guardrailed inputs, PII tokenized rather than redacted when {@code session} is not {@code null}
      * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
      */
     public List<String> applyToInputs(
-        List<String> inputs, @Nullable Long workspaceId, @Nullable PiiTokenSession session) {
+        List<String> inputs, AiGuardrailsSettingsTarget target, @Nullable PiiTokenSession session) {
 
         if (inputs == null || inputs.isEmpty()) {
             return inputs;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(target);
 
         if (!policy.anyInputGuardrailActive()) {
             return inputs;
@@ -425,16 +411,16 @@ public class AiGuardrails {
      * recording through the engine's own bean, so the AI Gateway adapter's metrics are unaffected.
      * </p>
      *
-     * @param inputs      the input strings
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed
-     * @param metrics     the metrics instance to record request-direction events through, tagged with the caller's own
-     *                    surface
+     * @param inputs  the input strings
+     * @param target  the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @param metrics the metrics instance to record request-direction events through, tagged with the caller's own
+     *                surface
      * @return one {@link GuardrailCheckResult} per input, in order; empty when {@code inputs} is {@code null} or empty
      */
     public List<GuardrailCheckResult> checkInputs(
-        @Nullable List<String> inputs, @Nullable Long workspaceId, AiGuardrailMetrics metrics) {
+        @Nullable List<String> inputs, AiGuardrailsSettingsTarget target, AiGuardrailMetrics metrics) {
 
-        return checkOrTokenizeInputs(inputs, workspaceId, metrics, null);
+        return checkOrTokenizeInputs(inputs, target, metrics, null);
     }
 
     /**
@@ -524,17 +510,17 @@ public class AiGuardrails {
      * differing only in that PII becomes session-minted tokens instead of {@code [REDACTED_*]} placeholders. Secrets
      * are still redacted irreversibly.
      *
-     * @param inputs      the input strings
-     * @param workspaceId the workspace the call is attributed to, or {@code null}
-     * @param session     the session minting tokens for this request
-     * @param metrics     the metrics instance to record through
+     * @param inputs  the input strings
+     * @param target  the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @param session the session minting tokens for this request
+     * @param metrics the metrics instance to record through
      * @return one result per input, in order
      */
     public List<GuardrailCheckResult> tokenizeInputs(
-        @Nullable List<String> inputs, @Nullable Long workspaceId, PiiTokenSession session,
+        @Nullable List<String> inputs, AiGuardrailsSettingsTarget target, PiiTokenSession session,
         AiGuardrailMetrics metrics) {
 
-        return checkOrTokenizeInputs(inputs, workspaceId, metrics, session);
+        return checkOrTokenizeInputs(inputs, target, metrics, session);
     }
 
     /**
@@ -582,45 +568,44 @@ public class AiGuardrails {
      * Returns {@code text} redacted for PII and secrets when response scanning is enabled for the workspace (or
      * globally), otherwise {@code text} unchanged. Response scanning is redaction only — it never blocks.
      *
-     * @param text        the text to scan (e.g. a single completion choice's content)
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed
-     * @return the redacted text, or the original when response scanning is inactive
-     */
-    public String scanResponseText(String text, @Nullable Long workspaceId) {
-        return scanResponseText(text, workspaceId, metrics);
-    }
-
-    /**
-     * As {@link #scanResponseText(String, Long)}, but counting detector failures through {@code recordingMetrics}
-     * rather than this engine's own bean.
+     * <p>
+     * Response-direction redaction reaches the engine here. Callers that hold a surface-tagged
+     * {@link AiGuardrailMetrics} instance should pass it as {@code recordingMetrics} rather than {@code null}, so a
+     * detector failing while scanning is counted against the calling surface (e.g. AI Hub, canvas agent) instead of
+     * being uncounted or attributed to this engine's own {@code surface=gateway} bean.
+     * </p>
      *
      * <p>
-     * Response-direction redaction reaches the engine here, and without this overload it fell through to the engine's
-     * constructor-injected instance — a bean tagged with one fixed {@code surface} for the whole deployment and gated
-     * on the AI Gateway toggle. A detector failing while scanning an AI Hub or canvas-agent completion was therefore
-     * either uncounted or counted as {@code surface=gateway}, pointing an operator at the wrong surface. Callers that
-     * hold a surface-tagged instance should pass it.
+     * <b>Composes with the category switches, the same as the input direction.</b> This method gates only on
+     * {@code policy.scanResponses()} — whether the output direction is scanned at all — and then delegates to
+     * {@link #redactEnabledKinds}, which builds its kind set exactly the way {@link #redactPiiAndSecrets} does for the
+     * input direction: {@link SensitiveKind#PII} only when {@code policy.redactPii()}, {@link SensitiveKind#SECRET}
+     * only when {@code policy.redactSecrets()}. With {@code scanResponses} on and both category switches off, the
+     * resolved kind set is empty and nothing is redacted — {@code scanResponses} alone no longer redacts every kind by
+     * itself. Re-decided as option (c) in
+     * {@code docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md} (D1, 2026-09-05), superseding
+     * an earlier all-or-nothing decision recorded here previously.
      * </p>
      *
      * @param text             the text to scan
-     * @param workspaceId      the workspace the call is attributed to, or {@code null} when unattributed
+     * @param target           the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @param recordingMetrics the instance to count detector failures through, or {@code null}
      * @return the redacted text, or the original when response scanning is inactive
      */
     public String scanResponseText(
-        String text, @Nullable Long workspaceId, @Nullable AiGuardrailMetrics recordingMetrics) {
+        String text, AiGuardrailsSettingsTarget target, @Nullable AiGuardrailMetrics recordingMetrics) {
 
         if (text == null) {
             return null;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(target);
 
         if (!policy.scanResponses()) {
             return text;
         }
 
-        return redactAll(text, policy.minConfidence(), recordingMetrics);
+        return redactEnabledKinds(text, policy, policy.minConfidence(), recordingMetrics);
     }
 
     /**
@@ -631,42 +616,46 @@ public class AiGuardrails {
      * values that straddle SSE chunk boundaries trades away some of streaming's incremental latency, which is an
      * operator-level decision. Caller uses the returned redactor across the token stream and flushes it at completion.
      *
-     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed
-     * @return a fresh {@link StreamingResponseRedactor}, or {@code null} when streaming scanning is inactive
-     */
-    public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(@Nullable Long workspaceId) {
-        return newStreamingResponseRedactor(workspaceId, metrics);
-    }
-
-    /**
-     * As {@link #newStreamingResponseRedactor(Long)}, but the returned redactor counts detector failures through
-     * {@code recordingMetrics}. Without it a detector failing mid-stream is logged and never counted, on every
-     * deployment.
+     * <p>
+     * The returned redactor counts detector failures through {@code recordingMetrics} rather than this engine's own
+     * bean -- without that, a detector failing mid-stream is logged and never counted, on every deployment.
+     * </p>
      *
-     * @param workspaceId      the workspace the call is attributed to, or {@code null} when unattributed
+     * <p>
+     * <b>Composes with the category switches, the same as {@link #scanResponseText}.</b> The kind set scanned is
+     * {@link #enabledKinds}, derived from {@code policy.redactPii()}/{@code policy.redactSecrets()} -- not every
+     * {@link SensitiveKind} unconditionally. With both category switches off, the returned redactor scans nothing even
+     * though {@code policy.scanResponses()} is on, matching the non-streaming path's composition rule (D1 in
+     * {@code docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md}).
+     * </p>
+     *
+     * @param target           the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @param recordingMetrics the instance to count detector failures through, or {@code null}
      * @return a fresh streaming redactor, or {@code null} when streaming scanning is inactive
      */
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
-        @Nullable Long workspaceId, @Nullable AiGuardrailMetrics recordingMetrics) {
+        AiGuardrailsSettingsTarget target, @Nullable AiGuardrailMetrics recordingMetrics) {
         if (!globalStreamingResponseScanEnabled) {
             return null;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(target);
 
         if (!policy.scanResponses()) {
             return null;
         }
 
-        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, policy.minConfidence(), recordingMetrics);
+        EnumSet<SensitiveKind> kinds = enabledKinds(policy);
+
+        return new StreamingResponseRedactor(
+            streamSafeSensitiveDataRedactor, policy.minConfidence(), recordingMetrics, kinds);
     }
 
     /**
-     * As {@link #newStreamingResponseRedactor(Long, AiGuardrailMetrics)}, but the returned redactor also restores
-     * {@code session}'s tokens back to their real values as each emitted segment is scanned — see
-     * {@link StreamingResponseRedactor}'s class javadoc for the scan-then-restore ordering. Without this overload, a
-     * caller that tokenizes a streamed request (see {@link #tokenizeInputs}) would have no way to give the streamed
+     * As {@link #newStreamingResponseRedactor(AiGuardrailsSettingsTarget, AiGuardrailMetrics)}, but the returned
+     * redactor also restores {@code session}'s tokens back to their real values as each emitted segment is scanned —
+     * see {@link StreamingResponseRedactor}'s class javadoc for the scan-then-restore ordering. Without this overload,
+     * a caller that tokenizes a streamed request (see {@link #tokenizeInputs}) would have no way to give the streamed
      * response half a session to restore through, and the caller would end up forwarding raw {@code [PII_*]} tokens —
      * worse than not tokenizing at all.
      *
@@ -674,9 +663,9 @@ public class AiGuardrails {
      * A 3-argument overload rather than a {@code PiiTokenSession} sibling of the 2-argument form: that would leave two
      * distinct 3-argument overloads differing only in the type of a nullable reference-type third parameter
      * ({@code AiGuardrailMetrics} vs. {@code PiiTokenSession}), which is ambiguous for a caller passing a bare
-     * {@code null} — the same hazard already documented on {@link #newStreamingResponseRedactor()}. This overload
-     * instead adds {@code session} as a genuinely new (non-nullable) parameter onto the existing 2-argument shape, so
-     * arity alone disambiguates every call site.
+     * {@code null} — the same overload-design hazard this class avoids elsewhere by choosing arity, not parameter type,
+     * to disambiguate. This overload instead adds {@code session} as a genuinely new (non-nullable) parameter onto the
+     * existing 2-argument shape, so arity alone disambiguates every call site.
      * </p>
      *
      * <p>
@@ -696,6 +685,15 @@ public class AiGuardrails {
      * </p>
      *
      * <p>
+     * <b>Composes with the category switches, the same as {@link #scanResponseText}.</b> When the policy gate is
+     * active, the kind set scanned is {@link #enabledKinds} -- derived from {@code policy.redactPii()}/
+     * {@code policy.redactSecrets()} -- not every {@link SensitiveKind} unconditionally, so scanning composes with the
+     * category switches exactly as the non-streaming path does (D1 in
+     * {@code docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md}). This governs scanning only;
+     * restoration of {@code session}'s own tokens is unaffected either way, per the paragraph above.
+     * </p>
+     *
+     * <p>
      * <b>Known gap: a foreign/dead token cannot be counted on this null-returning path.</b> {@code token_unresolved} is
      * recorded only by a redactor's own {@code restore()} step (see {@link StreamingResponseRedactor}); when this
      * method returns {@code null} — {@code session} minted nothing here — no redactor is ever created, so a
@@ -707,7 +705,7 @@ public class AiGuardrails {
      * rather than reintroducing that cost for every stream to catch an anomaly on this one path.
      * </p>
      *
-     * @param workspaceId      the workspace the call is attributed to, or {@code null} when unattributed
+     * @param target           the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @param recordingMetrics the instance to count detector failures through, or {@code null}
      * @param session          the session that tokenized this call's request
      * @return a fresh streaming redactor restoring {@code session}'s tokens (and additionally scanning for new
@@ -715,9 +713,9 @@ public class AiGuardrails {
      *         scanning is inactive AND {@code session} minted nothing
      */
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
-        @Nullable Long workspaceId, @Nullable AiGuardrailMetrics recordingMetrics, PiiTokenSession session) {
+        AiGuardrailsSettingsTarget target, @Nullable AiGuardrailMetrics recordingMetrics, PiiTokenSession session) {
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(target);
         boolean streamingScanActive = globalStreamingResponseScanEnabled && policy.scanResponses();
 
         if (!streamingScanActive && session.size() == 0) {
@@ -725,43 +723,49 @@ public class AiGuardrails {
         }
 
         EnumSet<SensitiveKind> kinds =
-            streamingScanActive ? EnumSet.allOf(SensitiveKind.class) : EnumSet.noneOf(SensitiveKind.class);
+            streamingScanActive ? enabledKinds(policy) : EnumSet.noneOf(SensitiveKind.class);
 
         return new StreamingResponseRedactor(
             streamSafeSensitiveDataRedactor, policy.minConfidence(), recordingMetrics, session, kinds);
     }
 
     /**
-     * Returns a fresh streaming redactor over this engine's stream-safe detectors, with no policy check, counting
-     * detector failures through this engine's own metrics instance. For callers that have already decided streaming
-     * scanning applies — the AI Gateway's project-level overlay.
+     * Returns a fresh streaming redactor over this engine's stream-safe detectors, scanning exactly the kinds
+     * {@code target}'s resolved policy has enabled ({@link #enabledKinds}) at that policy's own minimum confidence,
+     * counting detector failures through this engine's own metrics instance, with no
+     * {@code scanResponses}/{@code response-scan-streaming-enabled} check. For a caller that has already decided
+     * streaming scanning applies by some means other than that gate — the AI Gateway's project-level overlay, where a
+     * project's own {@code scanResponses} override (not the workspace's, and not the operator's global streaming flag)
+     * is what turned streaming scanning on for this call.
      *
      * <p>
-     * There is deliberately no {@code newStreamingResponseRedactor(AiGuardrailMetrics)} overload beside this one: it
-     * would collide with {@link #newStreamingResponseRedactor(Long)} for a bare {@code null} argument, forcing callers
-     * to cast. A caller that wants to supply its own metrics instance passes it alongside the workspace id through the
-     * two-argument form above.
+     * <b>2026-09-05 final-branch-review fix (I1).</b> Before this overload existed, every caller reaching this
+     * "streaming already decided" path got {@link EnumSet#allOf(Class) EnumSet.allOf(SensitiveKind.class)}
+     * unconditionally (via the since-removed zero-argument and single-{@code double} forms this overload replaces).
+     * That meant a workspace with {@code redactPii}/{@code redactSecrets} both off but a project-level
+     * {@code scanResponses} override on redacted every kind on the streaming path while the non-streaming path (via
+     * {@link #scanResponseText}/{@link #redactEnabledKinds}) redacted nothing — the same customer, the same config, two
+     * different answers for the same call. This overload closes that gap by deriving its kind set from
+     * {@link #enabledKinds} exactly like every other response-direction path composes with the category switches (D1 in
+     * {@code docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md}).
      * </p>
      *
-     * @return a fresh streaming redactor
-     */
-    public StreamingResponseRedactor newStreamingResponseRedactor() {
-        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, metrics);
-    }
-
-    /**
-     * As {@link #newStreamingResponseRedactor()}, but honoring an explicit minimum confidence instead of
-     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. For callers that have already decided streaming scanning
-     * applies but still need to resolve a workspace's own threshold themselves — the AI Gateway's project-level
-     * overlay, where workspace policy alone did not trigger streaming (so {@link #newStreamingResponseRedactor(Long)}
-     * returned {@code null}) but the project override turned it on; without this overload that path fell back to
-     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} regardless of what the workspace had configured.
+     * <p>
+     * There is deliberately no {@code newStreamingResponseRedactor(AiGuardrailsSettingsTarget, AiGuardrailMetrics)}
+     * sibling of this method taking the caller's own metrics instance in addition to bypassing the gate: every caller
+     * that wants to supply its own metrics instance also wants the gate honoured, so it uses
+     * {@link #newStreamingResponseRedactor(AiGuardrailsSettingsTarget, AiGuardrailMetrics)} instead. This overload
+     * keeps recording through this engine's own bean, matching how the overloads it replaces also always did.
+     * </p>
      *
-     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return a fresh streaming redactor
      */
-    public StreamingResponseRedactor newStreamingResponseRedactor(double minConfidence) {
-        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, minConfidence, metrics);
+    public StreamingResponseRedactor newStreamingResponseRedactor(AiGuardrailsSettingsTarget target) {
+        EffectivePolicy policy = resolvePolicy(target);
+
+        return new StreamingResponseRedactor(
+            streamSafeSensitiveDataRedactor, policy.minConfidence(), metrics, enabledKinds(policy));
     }
 
     /**
@@ -774,11 +778,11 @@ public class AiGuardrails {
      * the safe default, and adding the workspace field later is additive rather than a migration.
      * </p>
      *
-     * @param workspaceId accepted now so the per-workspace form is a body change rather than a signature change
+     * @param target accepted now so the per-scope form is a body change rather than a signature change
      * @return whether to record
      */
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    public boolean isViolationRecordingEnabled(@Nullable Long workspaceId) {
+    public boolean isViolationRecordingEnabled(AiGuardrailsSettingsTarget target) {
         return globalViolationRecordingEnabled;
     }
 
@@ -786,11 +790,11 @@ public class AiGuardrails {
      * Returns the effective {@link BlockingMode} for the workspace: the workspace's configured mode, or {@code BLOCK}
      * when no settings row exists (or the row does not configure a mode).
      *
-     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return the effective blocking mode
      */
-    public BlockingMode resolveBlockingMode(@Nullable Long workspaceId) {
-        AiGuardrailsWorkspaceSettings settings = findSettings(workspaceId);
+    public BlockingMode resolveBlockingMode(AiGuardrailsSettingsTarget target) {
+        AiGuardrailsWorkspaceSettings settings = findSettings(target);
 
         if (settings == null || settings.blockingMode() == null) {
             return BlockingMode.BLOCK;
@@ -807,46 +811,101 @@ public class AiGuardrails {
      * need to resolve the threshold themselves rather than going through one of this class's own threshold-applying
      * methods.
      *
-     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return the effective minimum confidence
      */
-    public double resolveMinConfidence(@Nullable Long workspaceId) {
-        return resolvePolicy(workspaceId).minConfidence();
+    public double resolveMinConfidence(AiGuardrailsSettingsTarget target) {
+        return resolvePolicy(target).minConfidence();
     }
 
     /**
-     * Returns the effective {@link PiiTokenBoundaryPolicy} for {@code workspaceId} -- which {@link SensitiveKind}s the
+     * Returns the effective {@link SensitiveDataPolicy} for {@code workspaceId} -- which {@link SensitiveKind}s the
      * tool-call boundary should tokenize/redact, and at what minimum confidence -- for
      * {@code AiGuardrailsAdvisor#withSessionInToolContext} to carry onto the {@code ToolContext} alongside the
      * {@link PiiTokenSession} it opens for the same call, so {@code PiiTokenBoundaryToolCallingManager} honours this
      * workspace's own {@code redactPii}/{@code redactSecrets}/{@code minConfidence} settings instead of a fixed
-     * constant. Built from the same {@link #resolvePolicy(Long)} every other policy-driven method here already uses --
-     * this is not a second resolution path.
+     * constant. Built from the same {@link #resolvePolicy(AiGuardrailsSettingsTarget)} every other policy-driven method
+     * here already uses -- this is not a second resolution path.
      *
-     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * <p>
+     * Delegates to {@link #resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget, boolean)} with {@code workflowSurface}
+     * {@code false}. {@link #resolveMcpOutboundPolicy} and {@link #resolveEmbeddedMcpOutboundPolicy} do NOT call this
+     * 1-arg form -- they read their settings row directly and build
+     * {@code toolBoundaryPolicyOf(effectivePolicyOf(settings), true)} themselves, so as to reuse that single
+     * fail-closed read rather than triggering a second, fail-open one through {@link #resolvePolicy}. They keep
+     * resolving a policy that always restores outbound arguments, unchanged, but they do it without going through this
+     * method.
+     * </p>
+     *
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return the effective tool-boundary policy
      */
-    public PiiTokenBoundaryPolicy resolveToolBoundaryPolicy(@Nullable Long workspaceId) {
-        return toolBoundaryPolicyOf(resolvePolicy(workspaceId));
+    public SensitiveDataPolicy resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget target) {
+        return resolveToolBoundaryPolicy(target, false);
+    }
+
+    /**
+     * As {@link #resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget)}, additionally resolving
+     * {@link SensitiveDataPolicy#restoreOutboundArguments()} for a caller that knows whether this call is the canvas AI
+     * Agent surface. A tool call leaves the agent for a system the workflow author chose no matter how the agent's own
+     * reply reaches its caller -- so {@code workflowSurface} is keyed on the SURFACE
+     * ({@code GuardrailSurface.AI_AGENT}), deliberately NOT on
+     * {@link com.bytechef.platform.ai.guardrails.RestorationDestination}: a streaming agent still withholds its
+     * tool-call arguments even though its own response always restores (see
+     * {@code AiGuardrailsAdvisor#applyResponseGuardrails}).
+     *
+     * @param target          the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @param workflowSurface whether this call is the canvas AI Agent surface -- {@code true} gates
+     *                        {@code restoreOutboundArguments} on
+     *                        {@link #isRestoreIntoWorkflowOutput(AiGuardrailsSettingsTarget)}; {@code false} always
+     *                        restores, matching {@link SensitiveDataPolicy#DEFAULT}
+     * @return the effective tool-boundary policy
+     */
+    public SensitiveDataPolicy resolveToolBoundaryPolicy(
+        AiGuardrailsSettingsTarget target, boolean workflowSurface) {
+
+        return toolBoundaryPolicyOf(
+            resolvePolicy(target), !workflowSurface || isRestoreIntoWorkflowOutput(target));
+    }
+
+    /**
+     * Returns whether restoration may return real values into a workflow task output or a tool call's arguments for
+     * {@code workspaceId}. Reads the settings row through the fail-open {@code findSettings}, but the flag itself is
+     * fail-CLOSED: every ambiguous answer -- no row, no value, a swallowed lookup failure -- resolves to {@code false},
+     * and only an explicit {@code true} allows restoration.
+     *
+     * <p>
+     * This agrees with {@link #resolveMcpOutboundPolicy}'s own fail-closed read: a lookup failure here withholds
+     * restoration, so PII stays tokenized rather than reaching a downstream node the workflow author never explicitly
+     * authorised. That is both the default and the safe direction -- a database blip can, at worst, leave a placeholder
+     * where a value was expected; it can never hand real PII to a node nobody opted in for.
+     * </p>
+     *
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @return {@code true} only when the workspace has explicitly set the flag to {@code true}
+     */
+    public boolean isRestoreIntoWorkflowOutput(AiGuardrailsSettingsTarget target) {
+        AiGuardrailsWorkspaceSettings settings = findSettings(target);
+
+        return settings != null && Boolean.TRUE.equals(settings.restoreIntoWorkflowOutput());
     }
 
     /**
      * Converts an already-resolved {@link EffectivePolicy} into the kinds-and-threshold pair the redaction boundaries
-     * take. Split out from {@link #resolveToolBoundaryPolicy(Long)} so {@link #resolveMcpOutboundPolicy} can reach it
-     * without triggering a second settings read -- see that method for why a second read is unacceptable there.
+     * take, plus the caller-supplied outbound-restoration flag. Split out from
+     * {@link #resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget, boolean)} so {@link #resolveMcpOutboundPolicy} and
+     * {@link #resolveEmbeddedMcpOutboundPolicy} can reach it without triggering a second settings read -- see those
+     * methods for why a second read is unacceptable there.
+     *
+     * @param restoreOutboundArguments the resolved {@link SensitiveDataPolicy#restoreOutboundArguments()} to carry --
+     *                                 both MCP outbound callers pass {@code true} unconditionally: an MCP outbound
+     *                                 policy governs redaction of a tool RESULT leaving for an external client, which
+     *                                 has no tool-argument OUTBOUND direction to gate
      */
-    private static PiiTokenBoundaryPolicy toolBoundaryPolicyOf(EffectivePolicy policy) {
-        Set<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
+    private static SensitiveDataPolicy toolBoundaryPolicyOf(
+        EffectivePolicy policy, boolean restoreOutboundArguments) {
 
-        if (policy.redactPii()) {
-            kinds.add(SensitiveKind.PII);
-        }
-
-        if (policy.redactSecrets()) {
-            kinds.add(SensitiveKind.SECRET);
-        }
-
-        return new PiiTokenBoundaryPolicy(kinds, policy.minConfidence());
+        return new SensitiveDataPolicy(enabledKinds(policy), policy.minConfidence(), restoreOutboundArguments);
     }
 
     /**
@@ -877,40 +936,52 @@ public class AiGuardrails {
      *
      * <p>
      * The row is read <b>exactly once</b> and then reused for the kinds and threshold, rather than resolved again
-     * through {@link #resolveToolBoundaryPolicy(Long)}. A second read would reach the fail-open {@code findSettings},
-     * and a failure there resolves no workspace override at all: with the shipped global defaults that yields an EMPTY
-     * kind set, a non-null policy, and a redactor that returns the payload unchanged without even emitting a metric.
-     * That is the same silent leak the guarded first read exists to prevent, one read later -- and a realistic one,
-     * since both reads hit an uncached {@code PropertyService} row and the failures that motivate this (pool
-     * exhaustion, failover, connection reset) are bursty enough to break one read and not the other.
+     * through {@link #resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget)}. A second read would reach the fail-open
+     * {@code findSettings}, and a failure there resolves no workspace override at all: with the shipped global defaults
+     * that yields an EMPTY kind set, a non-null policy, and a redactor that returns the payload unchanged without even
+     * emitting a metric. That is the same silent leak the guarded first read exists to prevent, one read later -- and a
+     * realistic one, since both reads hit an uncached {@code PropertyService} row and the failures that motivate this
+     * (pool exhaustion, failover, connection reset) are bursty enough to break one read and not the other.
      * </p>
      *
-     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return the outbound policy, or {@code null} when outbound redaction is off
      * @throws RuntimeException when the settings lookup fails; the caller must fail closed rather than treat it as off
      */
-    public @Nullable PiiTokenBoundaryPolicy resolveMcpOutboundPolicy(@Nullable Long workspaceId) {
-        AiGuardrailsWorkspaceSettings settings = aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId)
-            .orElse(null);
+    public @Nullable SensitiveDataPolicy resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget target) {
+        // The EMBEDDED branch is unreachable today: this method's sole production caller,
+        // McpOutboundRedactorProviderImpl, always builds its target via
+        // AiGuardrailsSettingsTarget.resolve(null, workspaceId), which can never yield EMBEDDED -- an embedded MCP
+        // server resolves through resolveEmbeddedMcpOutboundPolicy() instead. Keeping the branch is the safer choice:
+        // a future caller that does pass an EMBEDDED target lands fail-closed on the right settings row rather than
+        // silently falling through to fetchSettings(null) and reading the tenant default.
+        AiGuardrailsWorkspaceSettings settings = target.scope() == AiGuardrailsSettingsScope.EMBEDDED
+            ? aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
+                .orElse(null)
+            : aiGuardrailsWorkspaceSettingsService.fetchSettings(target.workspaceId())
+                .orElse(null);
 
         if (settings == null || !Boolean.TRUE.equals(settings.redactMcpResults())) {
             return null;
         }
 
-        return toolBoundaryPolicyOf(effectivePolicyOf(settings));
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings), true);
     }
 
     /**
-     * As {@link #resolveMcpOutboundPolicy(Long)}, but for an embedded MCP server: reads the
+     * As {@link #resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget)}, but for an embedded MCP server: reads the
      * {@code AiGuardrailsSettingsScope#EMBEDDED} row rather than a workspace's (or the tenant-default) row, since
      * embedded MCP servers are not workspace-scoped. Every property documented on
-     * {@link #resolveMcpOutboundPolicy(Long)} -- the dedicated {@code redactMcpResults} gate, the fail-closed settings
-     * read, and the single read reused for both the gate and the resulting policy -- applies here identically.
+     * {@link #resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget)} -- the dedicated {@code redactMcpResults} gate, the
+     * fail-closed settings read, and the single read reused for both the gate and the resulting policy -- applies here
+     * identically.
      *
      * @return the outbound policy, or {@code null} when outbound redaction is off for the embedded scope
      * @throws RuntimeException when the settings lookup fails; the caller must fail closed rather than treat it as off
      */
-    public @Nullable PiiTokenBoundaryPolicy resolveEmbeddedMcpOutboundPolicy() {
+    // Deliberately NOT routed through findSettings/AiGuardrailsSettingsTarget: that path is fail-OPEN by
+    // design, and this one must fail closed -- see this method's javadoc.
+    public @Nullable SensitiveDataPolicy resolveEmbeddedMcpOutboundPolicy() {
         AiGuardrailsWorkspaceSettings settings = aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
             .orElse(null);
 
@@ -918,7 +989,7 @@ public class AiGuardrails {
             return null;
         }
 
-        return toolBoundaryPolicyOf(effectivePolicyOf(settings));
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings), true);
     }
 
     /**
@@ -930,11 +1001,11 @@ public class AiGuardrails {
      * workspace enabling {@code moderationEnabled} without a configured moderation model stays inert (see
      * {@link #resolvePolicy}), matching how injection detection already behaves.
      *
-     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @param target the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
      * @return {@code true} when at least one guardrail is active
      */
-    public boolean isActive(@Nullable Long workspaceId) {
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+    public boolean isActive(AiGuardrailsSettingsTarget target) {
+        EffectivePolicy policy = resolvePolicy(target);
 
         return policy.anyInputGuardrailActive() || policy.scanResponses() || policy.moderate();
     }
@@ -950,7 +1021,7 @@ public class AiGuardrails {
     /**
      * As {@link #redactPii(String)}, but with an explicit minimum confidence instead of
      * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
-     * threshold (see {@link #resolveMinConfidence(Long)}).
+     * threshold (see {@link #resolveMinConfidence(AiGuardrailsSettingsTarget)}).
      *
      * @param content       the content to redact
      * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
@@ -976,7 +1047,7 @@ public class AiGuardrails {
     /**
      * As {@link #redactSecrets(String)}, but with an explicit minimum confidence instead of
      * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
-     * threshold (see {@link #resolveMinConfidence(Long)}).
+     * threshold (see {@link #resolveMinConfidence(AiGuardrailsSettingsTarget)}).
      *
      * @param content       the content to redact
      * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
@@ -992,8 +1063,19 @@ public class AiGuardrails {
 
     /**
      * Applies both PII and secret redaction to {@code content} in ONE detection pass, resolving any overlap between the
-     * two in favour of the secret, at {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. Used for response-direction
-     * scanning where both categories are masked regardless of the request-direction toggles.
+     * two in favour of the secret, at {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}.
+     *
+     * <p>
+     * <b>Deliberately all-or-nothing.</b> Every overload always passes {@code EnumSet.allOf(SensitiveKind.class)} to
+     * the redactor — there is no code path here that consults {@code policy.redactPii()} or
+     * {@code policy.redactSecrets()}, unlike {@link #redactPiiAndSecrets} (input direction) and
+     * {@link #redactEnabledKinds} (output direction), which both build their kind set conditionally on those two flags.
+     * This method remains for callers that want every kind redacted irrespective of policy — it is no longer
+     * {@link #scanResponseText}'s delegate; that method now calls {@link #redactEnabledKinds} instead, so as of the
+     * per-category response scanning follow-up (D1 in
+     * {@code docs/superpowers/specs/2026-09-05-per-category-response-scanning-design.md}, re-decided to option (c),
+     * 2026-09-05) response scanning is no longer one of this method's callers.
+     * </p>
      */
     public @Nullable String redactAll(@Nullable String content) {
         return redactAll(content, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics);
@@ -1002,7 +1084,7 @@ public class AiGuardrails {
     /**
      * As {@link #redactAll(String)}, but with an explicit minimum confidence instead of
      * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
-     * threshold (see {@link #resolveMinConfidence(Long)}).
+     * threshold (see {@link #resolveMinConfidence(AiGuardrailsSettingsTarget)}).
      *
      * @param content       the text to redact
      * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
@@ -1047,6 +1129,52 @@ public class AiGuardrails {
     }
 
     /**
+     * The output-direction counterpart of {@link #redactPiiAndSecrets}'s kind set: redacts {@code content} for exactly
+     * the {@link SensitiveKind}s {@code target}'s resolved policy has enabled ({@code policy.redactPii()} /
+     * {@code policy.redactSecrets()}), at {@code minConfidence}, counting detector failures through
+     * {@code recordingMetrics}. {@link #redactAll} remains for callers that want every kind redacted irrespective of
+     * policy.
+     *
+     * @param content          the text to redact
+     * @param target           the settings scope to resolve (tenant default, a workspace, or the embedded deployment)
+     * @param minConfidence    the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param recordingMetrics the instance to count detector failures through, or {@code null}
+     * @return the redacted text, or {@code content} unchanged when nothing applies or no category is enabled
+     */
+    public @Nullable String redactEnabledKinds(
+        @Nullable String content, AiGuardrailsSettingsTarget target, double minConfidence,
+        @Nullable AiGuardrailMetrics recordingMetrics) {
+
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+
+        return redactEnabledKinds(content, resolvePolicy(target), minConfidence, recordingMetrics);
+    }
+
+    /**
+     * As {@link #redactEnabledKinds(String, AiGuardrailsSettingsTarget, double, AiGuardrailMetrics)}, but for a caller
+     * that has already resolved {@code policy} (e.g. {@link #scanResponseText}, which must gate on
+     * {@code policy.scanResponses()} before redacting and would otherwise resolve policy twice).
+     */
+    private @Nullable String redactEnabledKinds(
+        @Nullable String content, EffectivePolicy policy, double minConfidence,
+        @Nullable AiGuardrailMetrics recordingMetrics) {
+
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+
+        Set<SensitiveKind> kinds = enabledKinds(policy);
+
+        if (kinds.isEmpty()) {
+            return content;
+        }
+
+        return sensitiveDataRedactor.redact(content, kinds, minConfidence, recordingMetrics);
+    }
+
+    /**
      * The shared outer loop behind both {@link #checkInputs} and {@link #tokenizeInputs}: same null/empty guard, same
      * policy resolution, same per-input dispatch to {@link #checkInput}. The two public methods differ only in whether
      * {@code session} is {@code null} (redact) or a real session (tokenize), which {@link #checkInput} and
@@ -1056,14 +1184,14 @@ public class AiGuardrails {
      * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
      */
     private List<GuardrailCheckResult> checkOrTokenizeInputs(
-        @Nullable List<String> inputs, @Nullable Long workspaceId, AiGuardrailMetrics metrics,
+        @Nullable List<String> inputs, AiGuardrailsSettingsTarget target, AiGuardrailMetrics metrics,
         @Nullable PiiTokenSession session) {
 
         if (inputs == null || inputs.isEmpty()) {
             return List.of();
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(target);
         List<GuardrailCheckResult> results = new ArrayList<>(inputs.size());
 
         for (String input : inputs) {
@@ -1160,22 +1288,23 @@ public class AiGuardrails {
     }
 
     /**
-     * Redacts (or, when {@code session} is not {@code null}, tokenizes) PII/secrets in {@code content}, recording
-     * {@code pii_redacted}/{@code pii_tokenized} and {@code secret_redacted} through {@code recordingMetrics} when a
-     * redaction actually changed the text. Shared by the throwing ({@link #checkAndRedact}, passed this engine's own
-     * bean; {@code session} is {@code null} when reached from the redacting {@link #applyToInputs(List, Long)} overload
-     * but a real session when reached from the tokenizing {@link #applyToInputs(List, Long, PiiTokenSession)} overload)
-     * and non-throwing ({@link #checkInput}, passed the caller-supplied instance and, from {@link #tokenizeInputs}, a
-     * real session) paths, which differ only in which {@link AiGuardrailMetrics} instance they record through and
-     * whether a session is present.
+     * Builds the kind set a category-aware caller should redact for {@code policy}: {@link SensitiveKind#PII} when
+     * {@code policy.redactPii()}, {@link SensitiveKind#SECRET} when {@code policy.redactSecrets()}, either, both, or
+     * neither. The one place this rule is expressed -- {@link #redactPiiAndSecrets}, {@link #toolBoundaryPolicyOf}, and
+     * {@link #redactEnabledKinds} all derive their kind set from here rather than each re-deriving it.
      *
-     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
+     * <p>
+     * Declared to return {@link EnumSet} rather than the broader {@link Set} so a caller building a
+     * {@link StreamingResponseRedactor} (which takes an {@code EnumSet<SensitiveKind>}) can pass this result straight
+     * through. {@code EnumSet.copyOf(Collection)} throws on an empty non-{@code EnumSet} argument, so a caller that
+     * declared this method's return type as {@code Set} and then wrapped the result in {@code EnumSet.copyOf(...)} "to
+     * be safe" was relying on {@code EnumSet.noneOf(...)} below happening to already be an {@code EnumSet} -- true
+     * today, but not guaranteed by the declared signature. Returning {@code EnumSet} outright removes both the
+     * redundant copy and the latent throw.
+     * </p>
      */
-    private RedactedContent redactPiiAndSecrets(
-        String content, EffectivePolicy policy, @Nullable AiGuardrailMetrics recordingMetrics,
-        @Nullable PiiTokenSession session) {
-
-        Set<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
+    private static EnumSet<SensitiveKind> enabledKinds(EffectivePolicy policy) {
+        EnumSet<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
 
         if (policy.redactPii()) {
             kinds.add(SensitiveKind.PII);
@@ -1184,6 +1313,27 @@ public class AiGuardrails {
         if (policy.redactSecrets()) {
             kinds.add(SensitiveKind.SECRET);
         }
+
+        return kinds;
+    }
+
+    /**
+     * Redacts (or, when {@code session} is not {@code null}, tokenizes) PII/secrets in {@code content}, recording
+     * {@code pii_redacted}/{@code pii_tokenized} and {@code secret_redacted} through {@code recordingMetrics} when a
+     * redaction actually changed the text. Shared by the throwing ({@link #checkAndRedact}, passed this engine's own
+     * bean; {@code session} is {@code null} when reached from the redacting call to
+     * {@link #applyToInputs(List, AiGuardrailsSettingsTarget, PiiTokenSession)} but a real session when reached from
+     * the tokenizing call to the same overload) and non-throwing ({@link #checkInput}, passed the caller-supplied
+     * instance and, from {@link #tokenizeInputs}, a real session) paths, which differ only in which
+     * {@link AiGuardrailMetrics} instance they record through and whether a session is present.
+     *
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
+     */
+    private RedactedContent redactPiiAndSecrets(
+        String content, EffectivePolicy policy, @Nullable AiGuardrailMetrics recordingMetrics,
+        @Nullable PiiTokenSession session) {
+
+        Set<SensitiveKind> kinds = enabledKinds(policy);
 
         // Evaluated here and handed in as extra candidates, so a workspace rule overlapping a built-in pattern is
         // settled by the redactor's own span ordering. Merging after resolution would settle it by which list a span
@@ -1231,8 +1381,8 @@ public class AiGuardrails {
         return false;
     }
 
-    private EffectivePolicy resolvePolicy(@Nullable Long workspaceId) {
-        return effectivePolicyOf(findSettings(workspaceId), resolveCustomRules(workspaceId));
+    private EffectivePolicy resolvePolicy(AiGuardrailsSettingsTarget target) {
+        return effectivePolicyOf(findSettings(target), resolveCustomRules(target));
     }
 
     /**
@@ -1251,7 +1401,9 @@ public class AiGuardrails {
      * row written around the service, and one broken row must not disable a workspace's other rules.
      * </p>
      */
-    private List<CustomPattern> resolveCustomRules(@Nullable Long workspaceId) {
+    private List<CustomPattern> resolveCustomRules(AiGuardrailsSettingsTarget target) {
+        Long workspaceId = target.workspaceId();
+
         if (aiGuardrailCustomRuleService == null || workspaceId == null) {
             return List.of();
         }
@@ -1304,10 +1456,11 @@ public class AiGuardrails {
     }
 
     /**
-     * Unions the global properties with an already-fetched settings row. Separate from {@link #resolvePolicy(Long)} so
-     * a caller that has already read the row -- {@link #resolveMcpOutboundPolicy}, which must not read it twice -- can
-     * reuse it instead of reading again. Deliberately not an overload of {@code resolvePolicy}: both parameter types
-     * are nullable reference types, so {@code resolvePolicy(null)} would be ambiguous at every existing call site.
+     * Unions the global properties with an already-fetched settings row. Separate from
+     * {@link #resolvePolicy(AiGuardrailsSettingsTarget)} so a caller that has already read the row --
+     * {@link #resolveMcpOutboundPolicy}, which must not read it twice -- can reuse it instead of reading again.
+     * Deliberately not an overload of {@code resolvePolicy}: both parameter types are nullable reference types, so
+     * {@code resolvePolicy(null)} would be ambiguous at every existing call site.
      */
     private EffectivePolicy effectivePolicyOf(@Nullable AiGuardrailsWorkspaceSettings settings) {
         // The MCP outbound paths resolve policy from an already-fetched settings row and do NOT carry custom rules
@@ -1356,17 +1509,18 @@ public class AiGuardrails {
             customRules);
     }
 
-    private @Nullable AiGuardrailsWorkspaceSettings findSettings(@Nullable Long workspaceId) {
+    private @Nullable AiGuardrailsWorkspaceSettings findSettings(AiGuardrailsSettingsTarget target) {
         try {
             Optional<AiGuardrailsWorkspaceSettings> settingsOptional =
-                aiGuardrailsWorkspaceSettingsService.fetchSettings(workspaceId);
+                target.scope() == AiGuardrailsSettingsScope.EMBEDDED
+                    ? aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
+                    : aiGuardrailsWorkspaceSettingsService.fetchSettings(target.workspaceId());
 
             return settingsOptional.orElse(null);
         } catch (Exception exception) {
             // A settings lookup failure must not take the request path down; global guardrails still apply.
             log.warn(
-                "Failed to load AI guardrails workspace settings for workspace {}: {}", workspaceId,
-                exception.getMessage());
+                "Failed to load AI guardrails workspace settings for {}: {}", target, exception.getMessage());
 
             return null;
         }
