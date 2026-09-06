@@ -21,6 +21,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -36,6 +37,7 @@ import com.bytechef.ee.automation.configuration.repository.WorkspaceUserReposito
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
@@ -378,6 +380,7 @@ class PreAuthorizeProxyEnforcementIntTest {
             return new WorkspaceConnectionFacadeImpl(
                 mock(ApplicationEventPublisher.class), mock(ConnectionFacade.class),
                 mock(ConnectionLifecycleFacade.class), mock(ConnectionService.class),
+                mock(EnvironmentScopeFilter.class), environmentService(),
                 mock(ResourceVisibilityResolver.class), meterRegistryProvider,
                 mock(ProjectDeploymentWorkflowService.class), projectService, resourceGrantService,
                 mock(ResourceVisibilityPolicyRegistry.class), mock(TagService.class), mock(UserService.class),
@@ -434,4 +437,9 @@ class PreAuthorizeProxyEnforcementIntTest {
         public void getApiKey(long id) {
         }
     }
+
+    private static EnvironmentService environmentService() {
+        return () -> List.of(Environment.values());
+    }
+
 }

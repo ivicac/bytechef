@@ -53,12 +53,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 
 /**
- * hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW') on checkWorkflowCache is environment-agnostic, so the
- * caller-supplied environmentId is never checked by the gate. Pins the execution side: for a confined (api-key)
- * principal, the environment the cache is evicted for must be the principal's own, not the request argument.
- * (getClusterElementOutput/getWorkflowNodeOutput share the identical resolve-at-entry mechanism; the interesting,
- * separately-tested case is getPreviousWorkflowNodeOutputs, which is @Cacheable and therefore deliberately does NOT
- * resolve internally -- see WorkflowNodeOutputApiControllerTest.)
+ * {@code hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)} on checkWorkflowCache resolves
+ * the effective environment for its own check, but that resolution is internal to the gate's evaluation and never
+ * reaches this method body. Pins the execution side: for a confined (api-key) principal, the environment the cache is
+ * evicted for must be the principal's own, not the request argument. (getClusterElementOutput/getWorkflowNodeOutput
+ * share the identical resolve-at-entry mechanism; the interesting, separately-tested case is
+ * getPreviousWorkflowNodeOutputs, which is @Cacheable and therefore deliberately does NOT resolve internally -- see
+ * WorkflowNodeOutputApiControllerTest.)
  *
  * @author Ivica Cardic
  */

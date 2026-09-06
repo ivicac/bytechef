@@ -68,7 +68,7 @@ public class WorkflowNodeDescriptionFacadeImpl implements WorkflowNodeDescriptio
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public String getClusterElementWorkflowNodeDescription(
         String workflowId, String workflowNodeName, String clusterElementName, Long environmentId) {
 
@@ -97,7 +97,7 @@ public class WorkflowNodeDescriptionFacadeImpl implements WorkflowNodeDescriptio
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public String getWorkflowNodeDescription(String workflowId, String workflowNodeName, long environmentId) {
         // See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);

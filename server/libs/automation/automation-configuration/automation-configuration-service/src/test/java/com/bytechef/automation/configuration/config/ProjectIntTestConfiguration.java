@@ -51,17 +51,28 @@ import java.util.UUID;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import tools.jackson.databind.ObjectMapper;
 
 /**
+ * The exclude filter on the scan below is the same one {@code @SpringBootApplication} applies to its own, and it is
+ * required here rather than decorative. This scan covers {@code com.bytechef.automation.configuration}, which is also
+ * where the module's tests live, so a test's nested {@code @SpringBootConfiguration} is an ordinary scan candidate:
+ * without the filter, every such nested config is loaded into every context built from this class and its
+ * {@code @Bean}s collide with the real ones. {@code WebhookTriggerTestApiFacadeDiscriminatingGateTest.Config} declares
+ * a {@code permissionService} bean, which broke every integration test in this module with a
+ * {@code BeanDefinitionOverrideException} against the scanned {@code PermissionServiceImpl} -- a failure the
+ * {@code test} task cannot see, because it never builds this context.
+ *
  * @author Ivica Cardic
  */
 @ComponentScan(
@@ -69,7 +80,8 @@ import tools.jackson.databind.ObjectMapper;
         "com.bytechef.commons.util", "com.bytechef.jackson.config",
         "com.bytechef.platform.category", "com.bytechef.automation.configuration", "com.bytechef.platform.connection",
         "com.bytechef.platform.tag", "com.bytechef.platform.configuration.service"
-    })
+    },
+    excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 @EnableAutoConfiguration
 @EnableCaching
 @EnableConfigurationProperties(ApplicationProperties.class)
