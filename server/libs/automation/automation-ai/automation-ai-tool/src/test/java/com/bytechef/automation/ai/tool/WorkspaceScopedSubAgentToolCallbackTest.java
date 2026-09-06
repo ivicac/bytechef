@@ -237,6 +237,18 @@ class WorkspaceScopedSubAgentToolCallbackTest {
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L);
     }
 
+    @Test
+    void testRefusalDoesNotRevealWhetherTheWorkspaceExists() {
+        String result = toolCallback.call("{\"request\": \"do it\", \"workspaceId\": 99}");
+
+        assertThat(result)
+            .as("a distinguishable 'no such workspace' would let a caller probe which ids are real")
+            .contains("not accessible")
+            .doesNotContain("not found")
+            .doesNotContain("does not exist");
+        assertThat(delegate.capturedContext).isNull();
+    }
+
     private static Workspace workspace(long id, String name) {
         Workspace workspace = new Workspace();
 

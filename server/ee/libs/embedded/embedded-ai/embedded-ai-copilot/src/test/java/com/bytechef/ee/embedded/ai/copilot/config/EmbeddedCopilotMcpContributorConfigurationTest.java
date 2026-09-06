@@ -19,27 +19,25 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
 import com.bytechef.automation.ai.tool.WorkspaceScopeResolver;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
- * Verifies the embedded contributor exposes the buildIntegrationWorkflow delegate workspace-scoped. Whether the
- * definition is contributed at all — i.e. whether its ChatClient bean is present — is
- * {@code EmbeddedIntelligentToolContributorConfigurationTest}'s concern, not this class's: this contributor is a pure
- * {@link IntelligentToolCatalog#getByNames} filter over whatever the catalog already contains.
- *
  * @version ee
  *
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 class EmbeddedCopilotMcpContributorConfigurationTest {
 
     private final EmbeddedCopilotMcpContributorConfiguration configuration =

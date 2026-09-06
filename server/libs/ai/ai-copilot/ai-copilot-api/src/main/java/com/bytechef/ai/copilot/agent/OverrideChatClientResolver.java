@@ -30,6 +30,9 @@ import org.springframework.ai.chat.model.ChatModel;
  */
 public interface OverrideChatClientResolver {
 
+    /**
+     * cannot be resolved in the request's environment
+     */
     @Nullable
     ChatClient resolve(State state);
 

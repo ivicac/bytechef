@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.platform.ai.guardrails.service;
 
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -72,9 +73,20 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
     @Override
     @Transactional(readOnly = true)
     public Optional<AiGuardrailsWorkspaceSettings> fetchSettings(@Nullable Long workspaceId) {
+        AiGuardrailsSettingsScope scope =
+            workspaceId == null ? AiGuardrailsSettingsScope.PLATFORM : AiGuardrailsSettingsScope.WORKSPACE;
+
         return propertyService
-            .fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, scopeOf(workspaceId), workspaceId)
-            .map(property -> toSettings(workspaceId, property.getValue()));
+            .fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, scopeOf(scope), workspaceId)
+            .map(property -> toSettings(scope, workspaceId, property.getValue()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AiGuardrailsWorkspaceSettings> fetchEmbeddedSettings() {
+        return propertyService
+            .fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Property.Scope.EMBEDDED, null)
+            .map(property -> toSettings(AiGuardrailsSettingsScope.EMBEDDED, null, property.getValue()));
     }
 
     @Override
@@ -84,14 +96,17 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
         Map<String, Object> value = toMap(settings);
 
         propertyService.save(
-            AiGuardrailsWorkspaceSettings.PROPERTY_KEY, value, scopeOf(settings.workspaceId()),
-            settings.workspaceId());
+            AiGuardrailsWorkspaceSettings.PROPERTY_KEY, value, scopeOf(settings.scope()), settings.workspaceId());
 
         return settings;
     }
 
-    private static Property.Scope scopeOf(@Nullable Long workspaceId) {
-        return workspaceId == null ? Property.Scope.PLATFORM : Property.Scope.WORKSPACE;
+    private static Property.Scope scopeOf(AiGuardrailsSettingsScope scope) {
+        return switch (scope) {
+            case PLATFORM -> Property.Scope.PLATFORM;
+            case WORKSPACE -> Property.Scope.WORKSPACE;
+            case EMBEDDED -> Property.Scope.EMBEDDED;
+        };
     }
 
     private static Map<String, Object> toMap(AiGuardrailsWorkspaceSettings settings) {
@@ -140,8 +155,11 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
         return value;
     }
 
-    private static AiGuardrailsWorkspaceSettings toSettings(@Nullable Long workspaceId, Map<String, ?> value) {
+    private static AiGuardrailsWorkspaceSettings toSettings(
+        AiGuardrailsSettingsScope scope, @Nullable Long workspaceId, Map<String, ?> value) {
+
         return new AiGuardrailsWorkspaceSettings(
+            scope,
             workspaceId,
             (Boolean) value.get(KEY_REDACT_PII),
             (Boolean) value.get(KEY_REDACT_SECRETS),

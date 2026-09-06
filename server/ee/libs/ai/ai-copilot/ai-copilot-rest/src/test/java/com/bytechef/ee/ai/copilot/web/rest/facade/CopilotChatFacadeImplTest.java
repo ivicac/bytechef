@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.copilot.web.rest.facade;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -20,14 +21,21 @@ import com.agui.core.state.State;
 import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
+import com.bytechef.ai.copilot.constant.CopilotConstants;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.embedded.configuration.facade.IntegrationWorkflowFacade;
+import com.bytechef.platform.security.util.SecurityUtils;
+import com.bytechef.platform.user.domain.User;
+import com.bytechef.platform.user.service.UserService;
+import com.bytechef.tenant.TenantContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
@@ -53,7 +61,7 @@ class CopilotChatFacadeImplTest {
 
     private final CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
         agUiService, List.of(localAgent("converter_build"), localAgent("workflow_editor_ask")),
-        Optional.of(permissionService), Optional.of(projectWorkflowService), Optional.empty());
+        Optional.of(permissionService), Optional.of(projectWorkflowService), Optional.empty(), Optional.empty());
 
     @Test
     void testChatDeniedWhenUserLacksWorkflowScope() {
@@ -72,6 +80,10 @@ class CopilotChatFacadeImplTest {
 
     @Test
     void testChatBuildRequiresWorkflowEditScope() {
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(localAgent("workflow_editor_build")), Optional.of(permissionService),
+            Optional.of(projectWorkflowService), Optional.empty(), Optional.empty());
+
         AgUiParameters parameters = parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "BUILD"));
 
         givenWorkflowProject("wf1", 42L);
@@ -113,7 +125,8 @@ class CopilotChatFacadeImplTest {
     @Test
     void testChatFailsClosedWhenAuthorizationServicesAbsent() {
         CopilotChatFacadeImpl facadeWithoutServices = new CopilotChatFacadeImpl(
-            agUiService, List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            agUiService, List.of(localAgent("workflow_editor_ask")), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty());
 
         AgUiParameters parameters = parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "ASK"));
 
@@ -269,13 +282,275 @@ class CopilotChatFacadeImplTest {
     }
 
     @Test
+    void testChatRoutesMcpServerToBuildRegardlessOfMode() {
+        LocalAgent agent = localAgent("mcp_server_build");
+        CopilotChatFacadeImpl facade = facadeWith(agent);
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        facade.chat("mcp_server", agUiParameters("ASK"));
+
+        verify(agUiService).runAgent(eq(agent), any());
+    }
+
+    /**
+     * The tenant id and the server-resolved user id are seeded into the run state on the request thread, because the
+     * agent's tool callbacks run on worker threads that inherit neither {@code TenantContext} nor the
+     * {@code SecurityContext}. Nothing else pins this: every routing test above passes with both keys missing.
+     */
+    @Test
+    void testChatSeedsTenantIdAndAuthenticatedUserIdIntoState() {
+        LocalAgent agent = localAgent("workflow_editor_ask");
+
+        UserService userService = mock(UserService.class);
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(7L);
+        when(userService.fetchUserByLogin("someone@localhost.com")).thenReturn(Optional.of(user));
+
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.empty(), Optional.empty(), Optional.of(userService),
+            Optional.empty());
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        SecurityUtils.runAs(
+            "someone@localhost.com", List.of(), () -> facade.chat("workflow_editor", agUiParameters("ASK")));
+
+        ArgumentCaptor<AgUiParameters> parametersArgumentCaptor = ArgumentCaptor.forClass(AgUiParameters.class);
+
+        verify(agUiService).runAgent(eq(agent), parametersArgumentCaptor.capture());
+
+        AgUiParameters capturedParameters = parametersArgumentCaptor.getValue();
+
+        State capturedState = capturedParameters.getState();
+
+        assertThat(capturedState.getState())
+            .containsEntry(CopilotConstants.STATE_TENANT_ID, TenantContext.getCurrentTenantId())
+            .containsEntry(CopilotConstants.STATE_AUTHENTICATED_USER_ID, 7L);
+    }
+
+    @Test
+    void testChatDeniedWhenUserIsNotWorkspaceViewer() {
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, "5", "mode", "ASK"));
+
+        when(permissionService.hasWorkspaceRole(5L, "VIEWER")).thenReturn(false);
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Access denied to workspace 5");
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatAlwaysBuildAgentRequiresWorkspaceEditorRoleInAskMode() {
+        LocalAgent agent = localAgent("mcp_server_build");
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.of(permissionService), Optional.of(projectWorkflowService),
+            Optional.empty(), Optional.empty());
+
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, "5", "mode", "ASK"));
+
+        when(permissionService.hasWorkspaceRole(5L, "VIEWER")).thenReturn(true);
+        when(permissionService.hasWorkspaceRole(5L, "EDITOR")).thenReturn(false);
+
+        assertThatThrownBy(() -> facade.chat("mcp_server", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Access denied to workspace 5");
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatBuildRequiresWorkspaceEditorRole() {
+        LocalAgent agent = localAgent("data_table_build");
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.of(permissionService), Optional.of(projectWorkflowService),
+            Optional.empty(), Optional.empty());
+
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, "5", "mode", "BUILD"));
+
+        when(permissionService.hasWorkspaceRole(5L, "VIEWER")).thenReturn(true);
+        when(permissionService.hasWorkspaceRole(5L, "EDITOR")).thenReturn(false);
+
+        assertThatThrownBy(() -> facade.chat("data_table", parameters))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(permissionService).hasWorkspaceRole(5L, "EDITOR");
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatAllowedWhenUserIsWorkspaceMember() {
+        LocalAgent agent = localAgent("data_table_ask");
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.of(permissionService), Optional.of(projectWorkflowService),
+            Optional.empty(), Optional.empty());
+
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, 5, "mode", "ASK"));
+
+        when(permissionService.hasWorkspaceRole(5L, "VIEWER")).thenReturn(true);
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        facade.chat("data_table", parameters);
+
+        verify(agUiService).runAgent(eq(agent), any());
+    }
+
+    @Test
+    void testChatRejectsMalformedWorkspaceId() {
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, "abc", "mode", "ASK"));
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Invalid workspace id");
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatWorkspaceCheckFailsClosedWhenAuthorizationServicesAbsent() {
+        CopilotChatFacadeImpl facadeWithoutServices = new CopilotChatFacadeImpl(
+            agUiService, List.of(localAgent("workflow_editor_ask")), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty());
+
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_WORKSPACE_ID, "5", "mode", "ASK"));
+
+        assertThatThrownBy(() -> facadeWithoutServices.chat("workflow_editor", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Workspace authorization is not available");
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatDropsClientSuppliedAuthenticatedUserId() {
+        LocalAgent agent = localAgent("workflow_editor_ask");
+        CopilotChatFacadeImpl facade = facadeWith(agent);
+
+        AgUiParameters parameters = parameters(
+            Map.<String, Object>of(CopilotConstants.STATE_AUTHENTICATED_USER_ID, 99L, "mode", "ASK"));
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        facade.chat("workflow_editor", parameters);
+
+        State state = parameters.getState();
+
+        assertThat(state.getState()).doesNotContainKey(CopilotConstants.STATE_AUTHENTICATED_USER_ID);
+    }
+
+    @Test
+    void testChatRejectsUnknownModeWithClientError() {
+        AgUiParameters parameters = parameters(Map.<String, Object>of("mode", "EDIT"));
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor", parameters))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("statusCode", HttpStatus.BAD_REQUEST);
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatRejectsMissingModeWithClientError() {
+        AgUiParameters parameters = parameters(Map.<String, Object>of());
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor", parameters))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("statusCode", HttpStatus.BAD_REQUEST);
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
     void testChatRejectsUnregisteredAgentWithClientError() {
         CopilotChatFacadeImpl facadeWithoutAgents = new CopilotChatFacadeImpl(
-            agUiService, List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            agUiService, List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
         assertThatThrownBy(() -> facadeWithoutAgents.chat("workflow_editor", agUiParameters("ASK")))
             .isInstanceOf(ResponseStatusException.class)
             .hasFieldOrPropertyWithValue("statusCode", HttpStatus.NOT_FOUND);
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatEmbeddedWorkflowEditorAuthorizesThroughTheIntegrationWorkflowFacade() {
+        LocalAgent agent = localAgent("workflow_editor_embedded_build");
+        IntegrationWorkflowFacade integrationWorkflowFacade = mock(IntegrationWorkflowFacade.class);
+
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.of(permissionService), Optional.of(projectWorkflowService),
+            Optional.empty(), Optional.of(integrationWorkflowFacade));
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        facade.chat(
+            "workflow_editor_embedded", parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "BUILD")));
+
+        verify(integrationWorkflowFacade).getIntegrationWorkflow("wf1");
+        verify(projectWorkflowService, never()).getWorkflowProjectWorkflow(any());
+        verify(agUiService).runAgent(eq(agent), any());
+    }
+
+    @Test
+    void testChatEmbeddedWorkflowEditorDeniedWhenIntegrationWorkflowFacadeDenies() {
+        LocalAgent agent = localAgent("workflow_editor_embedded_ask");
+        IntegrationWorkflowFacade integrationWorkflowFacade = mock(IntegrationWorkflowFacade.class);
+
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.of(integrationWorkflowFacade));
+
+        when(integrationWorkflowFacade.getIntegrationWorkflow("wf1")).thenThrow(new AccessDeniedException("denied"));
+
+        AgUiParameters parameters = parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "ASK"));
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor_embedded", parameters))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatEmbeddedWorkflowEditorDeniedForANonIntegrationWorkflow() {
+        LocalAgent agent = localAgent("workflow_editor_embedded_ask");
+        IntegrationWorkflowFacade integrationWorkflowFacade = mock(IntegrationWorkflowFacade.class);
+
+        CopilotChatFacadeImpl facade = new CopilotChatFacadeImpl(
+            agUiService, List.of(agent), Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.of(integrationWorkflowFacade));
+
+        when(integrationWorkflowFacade.getIntegrationWorkflow("wf1"))
+            .thenThrow(new IllegalArgumentException("Workflow not found for id: wf1"));
+
+        AgUiParameters parameters = parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "ASK"));
+
+        assertThatThrownBy(() -> facade.chat("workflow_editor_embedded", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Access denied to workflow wf1");
+
+        verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatEmbeddedWorkflowEditorFailsClosedWhenIntegrationWorkflowFacadeAbsent() {
+        CopilotChatFacadeImpl facadeWithoutServices = new CopilotChatFacadeImpl(
+            agUiService, List.of(localAgent("workflow_editor_embedded_ask")), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty());
+
+        AgUiParameters parameters = parameters(Map.<String, Object>of("workflowId", "wf1", "mode", "ASK"));
+
+        assertThatThrownBy(() -> facadeWithoutServices.chat("workflow_editor_embedded", parameters))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("Workflow authorization is not available");
 
         verify(agUiService, never()).runAgent(any(), any());
     }
@@ -294,7 +569,7 @@ class CopilotChatFacadeImplTest {
 
     private CopilotChatFacadeImpl facadeWith(LocalAgent localAgent) {
         return new CopilotChatFacadeImpl(
-            agUiService, List.of(localAgent), Optional.empty(), Optional.empty(), Optional.empty());
+            agUiService, List.of(localAgent), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private AgUiParameters parameters(Map<String, Object> stateMap) {

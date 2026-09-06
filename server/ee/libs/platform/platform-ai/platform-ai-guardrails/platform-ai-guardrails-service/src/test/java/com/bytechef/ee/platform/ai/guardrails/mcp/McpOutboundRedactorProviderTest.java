@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
@@ -73,7 +75,17 @@ class McpOutboundRedactorProviderTest {
         when(aiGuardrails.resolveMcpOutboundPolicy(null))
             .thenReturn(new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII), 0.4));
 
+        assertThat(newProvider().fetchRedactor(null, "mcp_automation")).isPresent();
+    }
+
+    @Test
+    void testRoutesTheEmbeddedSurfaceToTheEmbeddedScopeNotTheTenantDefault() {
+        when(aiGuardrails.resolveEmbeddedMcpOutboundPolicy())
+            .thenReturn(new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII), 0.4));
+
         assertThat(newProvider().fetchRedactor(null, "mcp_embedded")).isPresent();
+
+        verify(aiGuardrails, never()).resolveMcpOutboundPolicy(any());
     }
 
     @SuppressWarnings("unchecked")

@@ -272,6 +272,43 @@ class WorkspaceScopedFlatToolCallbackTest {
         assertThat(delegate.capturedContext).isNull();
     }
 
+    @Test
+    void testChatWorkspaceAndEnvironmentAreUsedWhenNotGiven() {
+        String result = toolCallback.call(
+            "{\"name\": \"my server\"}",
+            new ToolContext(
+                Map.of(
+                    AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L,
+                    AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 2L)));
+
+        assertThat(result).isEqualTo("done");
+        assertThat(delegate.capturedContext)
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L)
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 2L);
+    }
+
+    @Test
+    void testExplicitWorkspaceIdOtherThanTheChatWorkspaceIsRejected() {
+        String result = toolCallback.call(
+            "{\"name\": \"my server\", \"workspaceId\": 42}",
+            new ToolContext(Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L)));
+
+        assertThat(result).contains("error")
+            .contains("Workspace 42 is not the workspace 43 this conversation is scoped to.");
+        assertThat(delegate.capturedContext).isNull();
+    }
+
+    @Test
+    void testChatWorkspaceTheCallerIsNotAMemberOfIsRejected() {
+        String result = toolCallback.call(
+            "{\"name\": \"my server\"}",
+            new ToolContext(Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L)));
+
+        assertThat(result).contains("error")
+            .contains("not accessible");
+        assertThat(delegate.capturedContext).isNull();
+    }
+
     /**
      * Every tool wrapped by this class gets the FILES source ordinal written unconditionally — a no-op for the tools
      * that never create asset files, but it is what lets the flat asset-file create tools ({@code createAssetFile},
@@ -293,15 +330,6 @@ class WorkspaceScopedFlatToolCallbackTest {
      * {@link AgentToolInvocationContext}'s key family, not {@link AutomationToolInvocationContext}'s — so both must be
      * written unconditionally, mirroring {@code WorkspaceScopedSubAgentToolCallback}'s existing dual-write.
      */
-    @Test
-    void testForwardsAgentToolInvocationContextFamilyUnconditionally() {
-        toolCallback.call("{\"name\": \"my server\", \"environment\": \"STAGING\", \"workspaceId\": 42}");
-
-        assertThat(delegate.capturedContext)
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 42L)
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 1L);
-    }
-
     @Test
     void testForwardsAgentToolInvocationContextFamilyUnconditionally() {
         toolCallback.call("{\"name\": \"my server\", \"environment\": \"STAGING\", \"workspaceId\": 42}");

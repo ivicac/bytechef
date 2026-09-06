@@ -57,7 +57,8 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
         StringBuilder description = new StringBuilder(delegateToolDefinition.description());
 
         if (!delegatePropertyNames.contains(WORKSPACE_ID_FIELD)) {
-            description.append(" Supply workspaceId when the account has more than one workspace.");
+            description.append(
+                " Supply workspaceId outside a Copilot chat when the account has more than one workspace.");
         }
 
         if (!delegatePropertyNames.contains(ENVIRONMENT_FIELD)) {
@@ -108,7 +109,7 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
             String requestedEnvironment = isPresent(environmentNode) ? environmentNode.asString() : null;
 
             WorkspaceScopeResolver.WorkspaceScope workspaceScope =
-                workspaceScopeResolver.resolve(workspaceId, requestedEnvironment);
+                workspaceScopeResolver.resolveWorkspace(workspaceId, toolContext);
 
             if (workspaceScope instanceof WorkspaceScopeResolver.Rejected rejected) {
                 return rejected.response();
@@ -116,7 +117,21 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
 
             WorkspaceScopeResolver.Resolved resolved = (WorkspaceScopeResolver.Resolved) workspaceScope;
 
-            Map<String, Object> forwardedContext = resolved.toForwardedContext(toolContext);
+            long environmentId;
+
+            try {
+                environmentId = AutomationToolInvocationContext.resolveEnvironmentId(
+                    requestedEnvironment, toolContext);
+            } catch (IllegalArgumentException exception) {
+                return ToolErrors.toolError(
+                    jsonMapper,
+                    "Unknown environment '" + requestedEnvironment + "'. Supported: DEVELOPMENT, STAGING, PRODUCTION");
+            }
+
+            WorkspaceScopeResolver.Resolved resolvedScope =
+                new WorkspaceScopeResolver.Resolved(resolved.workspaceId(), environmentId);
+
+            Map<String, Object> forwardedContext = resolvedScope.toForwardedContext(toolContext);
 
             forwardedContext.put(
                 AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
@@ -208,8 +223,9 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
                 .put("type", "integer")
                 .put(
                     "description",
-                    "Target workspace id. Optional when the account has exactly one workspace; otherwise required "
-                        + "— an error response lists the candidates.");
+                    "Target workspace id. Optional inside a Copilot chat, which defaults to the chat's workspace, "
+                        + "or when the account has exactly one workspace; otherwise required — an error response "
+                        + "lists the candidates.");
         }
 
         if (!delegatePropertyNames.contains(ENVIRONMENT_FIELD)) {
@@ -217,8 +233,8 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
                 .put("type", "string")
                 .put(
                     "description",
-                    "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional — defaults to DEVELOPMENT "
-                        + "when omitted.");
+                    "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional — defaults to the chat's "
+                        + "environment, otherwise defaults to DEVELOPMENT when omitted.");
         }
 
         return jsonMapper.writeValueAsString(schemaObjectNode);

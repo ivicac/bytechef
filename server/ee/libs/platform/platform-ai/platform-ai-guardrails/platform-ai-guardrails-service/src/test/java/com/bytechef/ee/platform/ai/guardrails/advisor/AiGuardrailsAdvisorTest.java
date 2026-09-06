@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
@@ -134,7 +135,8 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
@@ -801,7 +803,8 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");

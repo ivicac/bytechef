@@ -131,9 +131,9 @@ final class SliceSpringAIAgentTest {
     private static RunAgentInput newInputWithWorkspaceScope() {
         Map<String, Object> stateMap = new HashMap<>();
 
+        stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, AUTHENTICATED_USER_ID);
         stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, WORKSPACE_ID);
         stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, ENVIRONMENT_ID);
-        stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, AUTHENTICATED_USER_ID);
 
         return new RunAgentInput(null, null, new State(stateMap), null, null, null, null);
     }

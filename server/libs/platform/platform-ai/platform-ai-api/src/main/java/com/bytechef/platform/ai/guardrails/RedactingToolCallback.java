@@ -77,7 +77,9 @@ public class RedactingToolCallback implements ToolCallback {
      * @param delegate                            the callback to decorate
      * @param mcpOutboundRedactorProviderProvider resolves the EE provider, absent in CE builds
      * @param workspaceId                         the MCP server's workspace, or {@code null} for the tenant default
-     * @param surface                             {@code "mcp_automation"} or {@code "mcp_embedded"}
+     * @param surface                             {@link McpOutboundRedactorProvider#SURFACE_AUTOMATION} or
+     *                                            {@link McpOutboundRedactorProvider#SURFACE_EMBEDDED}; linked rather
+     *                                            than spelled out so the two cannot drift apart
      * @return a {@link ToolCallback} that redacts {@code delegate}'s result
      */
     public static ToolCallback wrap(

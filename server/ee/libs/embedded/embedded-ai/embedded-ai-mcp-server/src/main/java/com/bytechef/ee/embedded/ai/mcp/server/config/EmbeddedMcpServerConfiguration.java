@@ -88,7 +88,7 @@ public class EmbeddedMcpServerConfiguration {
     private static final String ENVIRONMENT = "environment";
     private static final String EXTERNAL_USER_ID = "externalUserId";
     private static final String SECRET_KEY = "secretKey";
-    private static final String SURFACE = "mcp_embedded";
+    private static final String SURFACE = McpOutboundRedactorProvider.SURFACE_EMBEDDED;
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();
@@ -230,7 +230,6 @@ public class EmbeddedMcpServerConfiguration {
     static McpTransportContext createMcpTransportContext(String secretKey, @Nullable String environment) {
         Map<String, Object> context = new HashMap<>();
 
-        context.put(AUTHORITIES, SecurityUtils.fetchCurrentUserAuthorities());
         context.put(SECRET_KEY, secretKey);
 
         if (environment != null) {
@@ -240,6 +239,7 @@ public class EmbeddedMcpServerConfiguration {
         SecurityContext securityContext = SecurityContextHolder.getContext();
 
         if (!(securityContext.getAuthentication() instanceof McpAnonymousAuthenticationToken)) {
+            context.put(AUTHORITIES, SecurityUtils.fetchCurrentUserAuthorities());
             context.put(EXTERNAL_USER_ID, SecurityUtils.getCurrentUserLogin());
         }
 
@@ -259,12 +259,6 @@ public class EmbeddedMcpServerConfiguration {
         return authoritiesObject instanceof Set ? (Set<String>) authoritiesObject : Set.of();
     }
 
-    /**
-     * The components whose tools the principal may see. When the server does not enforce tool authorization, every
-     * component is returned (legacy behavior); when it does, only components the principal is authorized for are kept
-     * (deny-by-default). On the embedded endpoint the principal's authorities come from the identity provider's group
-     * claim, so enforcement is meaningful only for IdP-federated connected users.
-     */
     private static List<McpComponent> authorizedComponents(
         McpServer mcpServer, List<McpComponent> mcpComponents, Set<String> principalAuthorities) {
 

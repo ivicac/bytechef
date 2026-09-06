@@ -237,6 +237,64 @@ class AiGuardrailsAdvisorProviderImplTest {
                 .isNull();
     }
 
+    @Test
+    void testGetAdvisorForWorkspaceUsesTheGivenWorkspaceWithoutDerivingOne() {
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+
+        Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE);
+
+        assertThat(advisor).isPresent();
+
+        verify(projectDeploymentService, never()).getProjectDeployment(anyLong());
+    }
+
+    @Test
+    void testGetAdvisorForWorkspaceIsEmptyWhenNothingIsActiveForThatWorkspace() {
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(false);
+
+        Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE);
+
+        assertThat(advisor).isEmpty();
+
+        // isActive returning false is also what a bare mock returns, so an implementation that never consulted the
+        // policy at all would satisfy the assertion above. This is what makes the empty answer mean something.
+        verify(aiGuardrails).isActive(WORKSPACE_ID);
+    }
+
+    @Test
+    void testGetAdvisorForWorkspaceFollowsThePolicyRatherThanAlwaysAnsweringTheSameWay() {
+        long inactiveWorkspaceId = WORKSPACE_ID + 1;
+
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+        when(aiGuardrails.isActive(inactiveWorkspaceId)).thenReturn(false);
+
+        assertThat(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(WORKSPACE_ID, SURFACE))
+            .as("the same call must differ by workspace policy, or neither the present nor the empty case proves "
+                + "the policy is being read")
+            .isPresent();
+        assertThat(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(inactiveWorkspaceId, SURFACE))
+            .isEmpty();
+    }
+
+    @Test
+    void testGetMetricsForWorkspaceAgreesWithGetAdvisorForWorkspace() {
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+
+        SensitiveDataMetrics activeMetrics = aiGuardrailsAdvisorProvider.getMetricsForWorkspace(
+            WORKSPACE_ID, SURFACE);
+
+        assertThat(activeMetrics).isNotNull();
+
+        long inactiveWorkspaceId = WORKSPACE_ID + 1;
+
+        when(aiGuardrails.isActive(inactiveWorkspaceId)).thenReturn(false);
+
+        SensitiveDataMetrics inactiveMetrics = aiGuardrailsAdvisorProvider.getMetricsForWorkspace(
+            inactiveWorkspaceId, SURFACE);
+
+        assertThat(inactiveMetrics).isNull();
+    }
+
     private static ProjectDeployment projectDeployment(long projectId) {
         ProjectDeployment projectDeployment = new ProjectDeployment();
 

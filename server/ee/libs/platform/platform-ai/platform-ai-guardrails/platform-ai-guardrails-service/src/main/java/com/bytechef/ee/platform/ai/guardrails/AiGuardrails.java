@@ -670,6 +670,27 @@ public class AiGuardrails {
     }
 
     /**
+     * As {@link #resolveMcpOutboundPolicy(Long)}, but for an embedded MCP server: reads the
+     * {@code AiGuardrailsSettingsScope#EMBEDDED} row rather than a workspace's (or the tenant-default) row, since
+     * embedded MCP servers are not workspace-scoped. Every property documented on
+     * {@link #resolveMcpOutboundPolicy(Long)} -- the dedicated {@code redactMcpResults} gate, the fail-closed settings
+     * read, and the single read reused for both the gate and the resulting policy -- applies here identically.
+     *
+     * @return the outbound policy, or {@code null} when outbound redaction is off for the embedded scope
+     * @throws RuntimeException when the settings lookup fails; the caller must fail closed rather than treat it as off
+     */
+    public @Nullable PiiTokenBoundaryPolicy resolveEmbeddedMcpOutboundPolicy() {
+        AiGuardrailsWorkspaceSettings settings = aiGuardrailsWorkspaceSettingsService.fetchEmbeddedSettings()
+            .orElse(null);
+
+        if (settings == null || !Boolean.TRUE.equals(settings.redactMcpResults())) {
+            return null;
+        }
+
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings));
+    }
+
+    /**
      * Returns whether at least one guardrail (PII/secret redaction, blocked terms, injection detection, model-based
      * moderation, or response scanning) is active for {@code workspaceId} once global and workspace-level policy are
      * unioned. Used by callers that want to skip attaching a guardrail advisor entirely when nothing would apply (e.g.
