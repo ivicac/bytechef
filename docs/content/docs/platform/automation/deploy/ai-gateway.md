@@ -131,13 +131,22 @@ one off.
 
 **Request-direction guardrails**
 
-- **PII redaction is now reversible (tokenization) wherever it's supported — read this before assuming your data is
-  destroyed.** The model provider still never sees the real value: each detected PII value (an email, SSN,
-  credit-card number, phone number, or IPv4 address) is replaced before the prompt leaves ByteChef with a one-time
-  placeholder token like `[PII_EMAIL_1_k3n9]` instead of the old `[REDACTED_EMAIL]`. The difference from a plain
-  redaction placeholder: a token is unique per *value*, so two different email addresses in the same prompt get two
-  different tokens instead of collapsing into one indistinguishable `[REDACTED_EMAIL]` — and, once the model's
-  response comes back, ByteChef substitutes the real value back in before you see it. **Your data now round-trips.**
+- **Detection now covers over 30 PII types, not just five — and redaction is reversible (tokenization) wherever it's
+  supported, so read this before assuming your data is destroyed.** ByteChef detects a much broader set of PII than
+  before: email addresses, phone numbers, IPv4 addresses, credit-card and IBAN bank numbers, cryptocurrency wallet
+  addresses, and government ID numbers — Social Security numbers, national insurance numbers, tax IDs, passports, and
+  driver's licenses — across the US, UK, Spain, Italy, Poland, Singapore, Australia, India, and Finland, among other
+  types.
+  (Dates and street addresses are deliberately not included in this always-on set — they're contextual rather than
+  identifying, and masking every date and address in a prompt would make the model far less useful for no real
+  privacy benefit; a workflow that genuinely needs those masked can add the guardrails component's [PII
+  action](/platform/automation/build/workflows/ai/agent/guardrails/pii) with those entity types selected.)
+  The model provider still never sees the real value: each detected value is replaced before the prompt leaves
+  ByteChef with a one-time placeholder token like `[PII_EMAIL_ADDRESS_1_k3n9]` instead of the old
+  `[REDACTED_EMAIL_ADDRESS]`. The difference from a plain redaction placeholder: a token is unique per *value*, so two
+  different email addresses in the same prompt get two different tokens instead of collapsing into one
+  indistinguishable `[REDACTED_EMAIL_ADDRESS]` — and, once the model's response comes back, ByteChef substitutes the
+  real value back in before you see it. **Your data now round-trips.**
   If your workspace previously relied on PII redaction as a way to permanently destroy sensitive values in what
   ByteChef stores and returns, that guarantee no longer holds for chat-completion responses on this path — the real
   value is restored into the response text you receive. Active when
@@ -147,7 +156,7 @@ one off.
   row and its per-generation span record the response the way the model actually produced it — after response
   scanning, but *before* this request's own tokens are substituted back to real values, which happens only in the
   payload handed back to you, after tracing has already run. So the trace row you see on the Traces page shows this
-  request's `[PII_EMAIL_1_k3n9]`-style token by default, or that token's digest once **Redact PII** is on; the
+  request's `[PII_EMAIL_ADDRESS_1_k3n9]`-style token by default, or that token's digest once **Redact PII** is on; the
   per-generation span nested underneath it always shows the token itself — the digest setting doesn't reach spans —
   but never the real value either way. Without this ordering, the span row (which has no digest option of its own)
   would be the one place your real PII quietly persisted regardless of the **Redact PII** setting.
@@ -157,7 +166,7 @@ one off.
   later one (most conversational chat UIs do): a token minted in an earlier turn is already a dead reference the
   moment that turn's session closes, so if a later turn resends that turn's text as history, the model can echo
   the earlier turn's token back with nothing left alive to resolve it — you may see the literal
-  `[PII_EMAIL_1_k3n9]`-shaped string surface in a later turn's response instead of a value. Treat that as expected
+  `[PII_EMAIL_ADDRESS_1_k3n9]`-shaped string surface in a later turn's response instead of a value. Treat that as expected
   behavior on any surface that retains and replays history, not as a bug, until cross-request token coherence
   (a later phase) lands.
   **Coverage differs by surface and path.** The canvas AI Agent and AI Hub tokenize on every completion, streaming
@@ -170,8 +179,9 @@ one off.
   PII being returned to a different caller. If you rely on caching for cost/latency and also enable PII redaction,
   expect cache hit rate to drop for prompts that contain PII specifically — everything else still caches normally.
 - **Secret redaction is unaffected by any of the above and stays irreversible.** Developer secrets (AWS / GitHub /
-  Slack / OpenAI / Stripe / Google keys, JWTs, and PEM private-key blocks) are masked with a `[REDACTED_SECRET]`
-  placeholder and destroyed — never tokenized, never restored, on any path. Enable with
+  Slack / OpenAI / Stripe secret keys / Google keys, JWTs, and PEM private-key blocks) are masked with a
+  `[REDACTED_SECRET]` placeholder and destroyed — never tokenized, never restored, on any path. Stripe *publishable*
+  keys (`pk_`) are public by design and are deliberately not masked. Enable with
   `bytechef.ai.gateway.guardrails.secret-redaction-enabled` or the workspace's **Redact secrets** setting. This is a
   high-signal, ReDoS-safe subset; broader entropy-based detection lives in the workflow-layer guardrails.
 - **Blocked terms** — the union of the global `bytechef.ai.gateway.guardrails.blocked-terms` list and the workspace's

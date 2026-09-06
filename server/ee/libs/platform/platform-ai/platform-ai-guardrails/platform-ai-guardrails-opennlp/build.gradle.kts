@@ -4,6 +4,7 @@ dependencies {
     implementation(libs.org.apache.opennlp.opennlp.tools)
     implementation(project(":server:libs:platform:platform-api"))
     api(project(":server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-api"))
+    api(project(":server:libs:platform:platform-ai:platform-ai-sensitive-data:platform-ai-sensitive-data-api"))
 
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")

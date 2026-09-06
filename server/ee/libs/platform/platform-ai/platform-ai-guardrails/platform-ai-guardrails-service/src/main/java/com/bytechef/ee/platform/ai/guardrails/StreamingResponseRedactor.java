@@ -7,11 +7,11 @@
 
 package com.bytechef.ee.platform.ai.guardrails;
 
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataRedactor;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveKind;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiToken;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
+import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
+import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -39,13 +39,13 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * When constructed with a {@link PiiTokenSession}, a token (e.g. {@code [PII_EMAIL_1_k3n9]}) is treated exactly like
- * any other matched span for the purpose of the safe cut: {@link PiiToken#pattern()} feeds the same pull-back loop, so
- * a token is never split across two emitted chunks — {@code [PII_EMA} then {@code IL_1_k3n9]} would never match on
- * restore, and the user would see a raw token fragment. Each emitted segment (and the final {@link #flush}) is then
- * scanned FIRST and restored SECOND — the same ordering {@code AiGuardrails} uses for the non-streaming path, and for
- * the same reason: restoring first would hand the scanner the real value back, which it would immediately re-redact,
- * making the round trip a no-op.
+ * When constructed with a {@link PiiTokenSession}, a token (e.g. {@code [PII_EMAIL_ADDRESS_1_k3n9]}) is treated exactly
+ * like any other matched span for the purpose of the safe cut: {@link PiiToken#pattern()} feeds the same pull-back
+ * loop, so a token is never split across two emitted chunks — {@code [PII_EMAIL_A} then {@code DDRESS_1_k3n9]} would
+ * never match on restore, and the user would see a raw token fragment. Each emitted segment (and the final
+ * {@link #flush}) is then scanned FIRST and restored SECOND — the same ordering {@code AiGuardrails} uses for the
+ * non-streaming path, and for the same reason: restoring first would hand the scanner the real value back, which it
+ * would immediately re-redact, making the round trip a no-op.
  * </p>
  *
  * <p>
@@ -53,12 +53,17 @@ import org.jspecify.annotations.Nullable;
  * above on values longer than the window. {@link PiiToken#pattern()} only matches a COMPLETE token; a token still
  * arriving produces no range at all, so the pull-back loop has nothing to hold onto until the closing {@code ]} is
  * already in the buffer. The window must therefore exceed the longest token you need to guarantee (a token's length
- * depends on its category name — {@code [PII_EMAIL_1_k3n9]} is 18 characters, a shorter category like
- * {@code [PII_SSN_1_k3n9]} is 16), or the token's own opening bracket can be evicted one push before its closing
- * bracket arrives, silently reproducing the documented "prefix emitted" trade-off for a token instead of an ordinary
- * secret. This is not merely theoretical: for a 16-character token shape like the SSN example, a window needs to be at
- * least 17 characters (length + 1) to keep that shape safe, and a 16-character window — exactly one short — produced
- * this exact failure during development of this feature, caught only by comparing against a larger window.
+ * depends on its category name — on the current Presidio taxonomy in {@code PiiPatternCatalog}, the longest category
+ * name, {@code FI_PERSONAL_IDENTITY_CODE} at 25 characters, yields a 38-character token at single-digit ordinals,
+ * {@code [PII_FI_PERSONAL_IDENTITY_CODE_1_k3n9]}; a session minting a 10th-or-later distinct value of that category
+ * adds one more character per extra ordinal digit. The shortest category names give a 19-character token at
+ * single-digit ordinals, e.g. {@code [PII_US_SSN_1_k3n9]}), or the token's own opening bracket can be evicted one push
+ * before its closing bracket arrives, silently reproducing the documented "prefix emitted" trade-off for a token
+ * instead of an ordinary secret. {@link #DEFAULT_WINDOW} (512) holds this invariant comfortably for every token shape
+ * in the catalog today. This is not merely theoretical: under the shorter, pre-rename category names this class was
+ * originally validated against (e.g. {@code SSN} rather than {@code US_SSN}), a 16-character window was exactly one
+ * character short of a 16-character token shape's own requirement (length + 1) and reproduced this exact failure during
+ * development of this feature, caught only by comparing against a larger window.
  * </p>
  *
  * <p>
