@@ -31,6 +31,8 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilitySpanType;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityTrace;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilitySpanService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceService;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
@@ -47,12 +49,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataAccessException;
@@ -84,6 +87,7 @@ public class AiEvalExecutor {
 
     private static final String TOP_LEVEL_FAILURE_METRIC = "bytechef_ai_eval_top_level_failure";
 
+    private final ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider;
     private final AiEvalExecutionService aiEvalExecutionService;
     private final AiEvalRuleService aiEvalRuleService;
     private final AiEvalScoreConfigService aiEvalScoreConfigService;
@@ -97,6 +101,7 @@ public class AiEvalExecutor {
     private final MeterRegistry meterRegistry;
 
     public AiEvalExecutor(
+        ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider,
         AiEvalExecutionService aiEvalExecutionService,
         AiEvalRuleService aiEvalRuleService,
         AiEvalScoreConfigService aiEvalScoreConfigService,
@@ -109,6 +114,7 @@ public class AiEvalExecutor {
         AiObservabilitySpanService aiObservabilitySpanService,
         ObjectProvider<MeterRegistry> meterRegistryProvider) {
 
+        this.aiGuardrailsAdvisorProviderProvider = aiGuardrailsAdvisorProviderProvider;
         this.aiEvalExecutionService = aiEvalExecutionService;
         this.aiEvalRuleService = aiEvalRuleService;
         this.aiEvalScoreConfigService = aiEvalScoreConfigService;
@@ -487,6 +493,36 @@ public class AiEvalExecutor {
             .collect(Collectors.joining("\n\n"));
     }
 
+    /**
+     * Wraps the rule's resolved {@code chatModel} in a {@link ChatClient} carrying the trace's workspace guardrails
+     * advisor.
+     *
+     * <p>
+     * This is the guardrails surface with the most to lose. The prompt replays the evaluated trace's own input and
+     * output plus its retrieval spans, so whatever the evaluated call sent to its model is sent again to a judge model
+     * — a workspace with PII redaction enabled redacted the original call and, before this, did not redact its
+     * evaluation. {@code AiGuardrailsAdvisor} is a {@link ChatClient} advisor, so the previous
+     * {@code chatModel.call(new Prompt(...))} could not be intercepted by it at all.
+     * </p>
+     *
+     * <p>
+     * The workspace comes from the loaded trace row, not from the caller that asked for the evaluation. Null is the
+     * trace's genuine "belongs to no workspace" state and resolves the tenant-default settings row.
+     * </p>
+     */
+    private ChatClient guardedChatClient(ChatModel chatModel, @Nullable Long workspaceId) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = aiGuardrailsAdvisorProviderProvider.getIfAvailable();
+
+        if (aiGuardrailsAdvisorProvider != null) {
+            aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(workspaceId, GuardrailSurface.AI_EVAL)
+                .ifPresent(builder::defaultAdvisors);
+        }
+
+        return builder.build();
+    }
+
     @SuppressFBWarnings("REC_CATCH_EXCEPTION")
     private void executeEvaluation(
         AiEvalExecution evalExecution, AiEvalRule evalRule, AiObservabilityTrace trace) {
@@ -526,9 +562,15 @@ public class AiEvalExecutor {
 
             String promptText = buildPrompt(evalRule.getPromptTemplate(), trace, spans);
 
-            ChatResponse chatResponse = chatModel.call(new Prompt(promptText));
+            ChatResponse chatResponse = guardedChatClient(chatModel, trace.getWorkspaceId())
+                .prompt(promptText)
+                .call()
+                .chatResponse();
 
-            Generation generation = chatResponse.getResult();
+            // Nullable where chatModel.call(prompt) was not: a ChatClient returns null when the advisor chain
+            // short-circuits, which is exactly what a blocking guardrail does. Same condition as an empty
+            // generation, so it takes the same typed failure.
+            Generation generation = chatResponse == null ? null : chatResponse.getResult();
 
             if (generation == null) {
                 throw new IllegalStateException(

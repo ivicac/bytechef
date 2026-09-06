@@ -216,7 +216,7 @@ public class AiHubChatGraphQlController {
 
         List<AiHubChatMessage> messages = chatService.loadMessages(id, workspaceId, userId);
 
-        String title = generateTitleForEnvironment(existing.getEnvironment(), messages);
+        String title = generateTitleForEnvironment(existing.getEnvironment(), messages, workspaceId);
 
         if (title.isEmpty()) {
             // The model returned a blank or over-length title. Reuse the row we already loaded above
@@ -242,13 +242,15 @@ public class AiHubChatGraphQlController {
         }
     }
 
-    private String generateTitleForEnvironment(Environment environment, List<AiHubChatMessage> messages) {
+    private String generateTitleForEnvironment(
+        Environment environment, List<AiHubChatMessage> messages, long workspaceId) {
+
         Environment previousEnvironment = EnvironmentContext.fetchCurrentEnvironment();
 
         EnvironmentContext.set(environment);
 
         try {
-            return titleGenerationService.generateTitle(messages);
+            return titleGenerationService.generateTitle(messages, workspaceId);
         } finally {
             if (previousEnvironment == null) {
                 EnvironmentContext.clear();
