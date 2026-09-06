@@ -158,4 +158,22 @@ class ViolationTest {
 
         assertThat(violation.info()).isEmpty();
     }
+
+    @Test
+    void testSpanViolationCarriesACountAndInfoButNoValues() {
+        Violation violation = Violation.ofSpans(
+            "piiCheck", 2, Map.of("entityTypes", new ArrayList<>(List.of("EMAIL_ADDRESS"))));
+
+        assertThat(violation).isInstanceOf(Violation.SpanViolation.class);
+        assertThat(((Violation.SpanViolation) violation).matchCount()).isEqualTo(2);
+        assertThat(violation.info()).containsKey("entityTypes");
+    }
+
+    @Test
+    void testSpanViolationRejectsAZeroCount() {
+        // A violation with nothing behind it is not a violation; the factory refuses it the way ofMatches refuses
+        // an empty substring list.
+        assertThatThrownBy(() -> Violation.ofSpans("piiCheck", 0, Map.of()))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
 }

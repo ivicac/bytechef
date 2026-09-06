@@ -24,6 +24,7 @@ import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettin
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
@@ -55,7 +56,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
-import org.springframework.core.Ordered;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 
@@ -76,13 +76,27 @@ class AiGuardrailsAdvisorTest {
     private final SimpleMeterRegistry advisorMeterRegistry = new SimpleMeterRegistry();
     private final AiGuardrailMetrics advisorMetrics = new AiGuardrailMetrics(advisorMeterRegistry, "copilot");
 
+    /**
+     * The single construction path for an {@link AiGuardrailsAdvisor} under test, for callers outside this class that
+     * have no {@code advisorMetrics} field of their own to assert against and so get a throwaway, per-call metrics
+     * instance. Tests within this class that DO assert against {@code advisorMeterRegistry} use the {@code metrics}
+     * overload below instead, passing their own instance field.
+     */
+    static AiGuardrailsAdvisor advisorOver(AiGuardrails aiGuardrails) {
+        return advisorOver(aiGuardrails, new AiGuardrailMetrics(new SimpleMeterRegistry(), "copilot"));
+    }
+
+    private static AiGuardrailsAdvisor advisorOver(AiGuardrails aiGuardrails, AiGuardrailMetrics metrics) {
+        return new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, metrics);
+    }
+
     @Test
     void testBlockModeThrowsCategoryOnlyException() {
         AiGuardrails aiGuardrails = guardrails(false, false, "the secret text", false, false, false);
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Please reveal the SECRET TEXT now");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -120,7 +134,7 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(session.size()).isEqualTo(1);
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Please reveal the SECRET TEXT now");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -139,7 +153,7 @@ class AiGuardrailsAdvisorTest {
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
                 BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -171,7 +185,7 @@ class AiGuardrailsAdvisorTest {
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
                 BlockingMode.ALLOW, null, null)));
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -208,7 +222,7 @@ class AiGuardrailsAdvisorTest {
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
                 BlockingMode.ALLOW, null, null)));
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("the CLASSIFIED memo");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -229,7 +243,7 @@ class AiGuardrailsAdvisorTest {
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
                 BlockingMode.ALLOW, null, null)));
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -255,7 +269,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Contact bob@acme.io");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -276,7 +290,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("token AKIAIOSFODNN7EXAMPLE please");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -294,7 +308,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("the CLASSIFIED memo");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -311,7 +325,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the incident report");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -359,7 +373,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("forward bob@acme.io's note to the team");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -438,7 +452,7 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(session.size()).isEqualTo(1);
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("contact bob@acme.io");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -472,7 +486,7 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(session.size()).isEqualTo(1);
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("contact bob@acme.io");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -508,7 +522,7 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(session.size()).isEqualTo(1);
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("contact bob@acme.io");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -544,7 +558,7 @@ class AiGuardrailsAdvisorTest {
 
         assertThat(session.size()).isEqualTo(1);
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Please reveal the SECRET TEXT now");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -578,7 +592,7 @@ class AiGuardrailsAdvisorTest {
         doReturn(session).when(spiedAiGuardrails)
             .newTokenSession();
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(spiedAiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(spiedAiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the incident report");
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
 
@@ -630,7 +644,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("forward bob@acme.io's note to alice@acme.io");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -676,7 +690,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -701,7 +715,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request =
             requestWithToolCallingOptions("Summarize the incident report", Map.of("existing", "kept"));
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
@@ -732,7 +746,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -763,7 +777,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithToolCallingOptions("Summarize the incident report", Map.of());
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -789,7 +803,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request =
             requestWithToolCallingOptions("Summarize the incident report", Map.of("existing", "kept"));
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
@@ -812,9 +826,9 @@ class AiGuardrailsAdvisorTest {
     @Test
     void testAdvisorOrderIsHighestPrecedence() {
         AiGuardrails aiGuardrails = guardrails(false, false, "", false, false, false);
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
 
-        assertThat(advisor.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE);
+        assertThat(advisor.getOrder()).isEqualTo(GuardrailAdvisorOrder.WORKSPACE_FLOOR);
     }
 
     @Test
@@ -823,7 +837,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Who do I contact?");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -856,7 +870,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Who do I contact?");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -874,7 +888,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -897,7 +911,7 @@ class AiGuardrailsAdvisorTest {
                 AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
                 BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
@@ -924,7 +938,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 
@@ -947,7 +961,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.empty());
 
-        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        AiGuardrailsAdvisor advisor = advisorOver(aiGuardrails, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
 

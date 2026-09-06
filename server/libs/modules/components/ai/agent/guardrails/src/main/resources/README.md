@@ -132,12 +132,16 @@ and the nonce fencing are independent layers; both run.
 
 ## Authorship
 
-The detector library (`PiiDetectorUtils`, `SecretKeyDetectorUtils`, `UrlDetectorUtils`,
-`KeywordMatcherUtils`, `RegexParserUtils`, `MaskEntityMapUtils`, `LlmPiiDetectorUtils`,
-`LlmClassifierUtils`) is shared between cluster elements. `RegexParserUtils.bounded(...)` enforces
-a per-match character budget so a pathological user regex can't hang the matcher; the budget is
-also hit by JDK's catastrophic-backtracking patterns on long inputs, and the resulting
-`RegexExecutionLimitException` is treated as a configuration error (always fail-closed).
+The detector library (`SecretKeyDetectorUtils`, `UrlDetectorUtils`, `KeywordMatcherUtils`,
+`RegexParserUtils`, `MaskEntityMapUtils`, `LlmPiiDetectorUtils`, `LlmClassifierUtils`) is shared
+between cluster elements. PII detection runs on the platform's shared engine instead of a
+component-owned detector class (`SensitiveDataRedactor` over `RegexPiiDetector`, `PiiPatternCatalog`);
+the picker options and their labels come from `PiiEntityOptions` (this module) and `PiiPatternLabels`
+(CE, `platform-ai-sensitive-data-service`, beside the catalog). Every per-node guardrail regex —
+custom patterns included — now matches under a `MatchDeadline` bound (`GuardrailMatchDeadline#start()`)
+rather than a per-match character budget, so a pathological user regex can't hang the matcher; the
+deadline is also hit by JDK's catastrophic-backtracking patterns on long inputs, and the resulting
+`DetectionTimeoutException` aborts the match and propagates, always fail-closed.
 
 ## Composing in a workflow
 

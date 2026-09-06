@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryToolCallingManager;
@@ -116,6 +117,16 @@ class CopilotGuardrailsAdvisorFactoryTest {
             assertThat(advisors.getFirst()).isInstanceOf(DeferredGuardrailsAdvisor.class);
             assertThat(toolCallingManagerOf(advisors)).isInstanceOf(PiiTokenBoundaryToolCallingManager.class);
         }
+    }
+
+    @Test
+    void testTheDeferredAdvisorHoldsTheWorkspaceFloorPosition() {
+        List<Advisor> advisors = newFactory(null).guardrailsAdvisors();
+
+        assertThat(advisors.getFirst()
+            .getOrder())
+                .as("the deferred stand-in must hold the workspace floor's position; see GuardrailAdvisorOrder")
+                .isEqualTo(GuardrailAdvisorOrder.WORKSPACE_FLOOR);
     }
 
     @Test

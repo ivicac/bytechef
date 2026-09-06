@@ -293,10 +293,10 @@ public abstract class AbstractAiAgentChatAction {
             .build();
 
         // Workspace-bound content guardrails, resolved through the optional CE SPI so this component never depends on
-        // the EE guardrails module directly (see AiGuardrailsAdvisorProvider). Registered ahead of the rest of the
-        // advisor chain — the returned advisor self-orders at HIGHEST_PRECEDENCE, but listing it first here documents
-        // that it is meant to run before every other advisor, including the per-node GUARDRAILS cluster elements added
-        // by getAdvisors below.
+        // the EE guardrails module directly (see AiGuardrailsAdvisorProvider). Its position is GuardrailAdvisorOrder
+        // .WORKSPACE_FLOOR, one outside the per-node check at GuardrailAdvisorOrder.NODE_CHECK; registration order is
+        // NOT what puts it first -- Spring AI breaks an order tie toward the LAST registration, which is why the two
+        // advisors carry distinct constants rather than both declaring HIGHEST_PRECEDENCE.
         List<Advisor> workspaceAdvisors = new ArrayList<>();
 
         // The metrics PiiTokenBoundaryToolCallingManager records tool-boundary events through, resolved from the same
@@ -879,8 +879,9 @@ public abstract class AbstractAiAgentChatAction {
 
         if (checkForViolationsCount > 1) {
             throw new IllegalStateException(
-                "Multiple CheckForViolations parent cluster elements configured — advisor order collides at " +
-                    "HIGHEST_PRECEDENCE and Spring AI ordering becomes undefined. Configure at most one.");
+                "Multiple CheckForViolations parent cluster elements configured — they would tie at " +
+                    "GuardrailAdvisorOrder.NODE_CHECK and Spring AI would run the last-registered one outermost. " +
+                    "Configure at most one.");
         }
 
         long sanitizeTextCount = guardrailClusterElements.stream()
