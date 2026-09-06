@@ -73,22 +73,12 @@ public class SliceSpringAIAgent extends CopilotSpringAIAgent {
 
         Map<String, Object> toolContext = new HashMap<>(CopilotToolContextUtils.toToolContext(state));
 
-        // The copilot tool-context helper writes only the bytechef.agentTool.* family, but the deployment,
-        // MCP-server and API-collection tools read AutomationToolInvocationContext, which is keyed on
-        // bytechef.assetFile.*. Both families must be written or those tools resolve no workspace and fail
-        // the turn with "Workspace context unavailable" — the same duplicate-key-in-lockstep contract
-        // WorkspaceScopedSubAgentToolCallback and WorkflowExecutionSpringAIAgent already honour.
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY,
             NumberUtils.asLong(state.get(CopilotConstants.STATE_WORKSPACE_ID)));
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY,
             NumberUtils.asLong(state.get(CopilotConstants.STATE_AUTHENTICATED_USER_ID)));
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY,
             NumberUtils.asLong(state.get(CopilotConstants.STATE_ENVIRONMENT_ID)));
-
-        // sourceOrdinal is a property of the surface (e.g. Source.FILES for the asset-file slice), supplied by the
-        // owning *AgentConfiguration via Builder#sourceOrdinal, not hardcoded here — this class is shared by every
-        // slice (asset-file, MCP server, project deployment, API collection), and most of them create no
-        // AI-generated rows, so they leave it unset.
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY, sourceOrdinal);
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_LAST_USER_PROMPT_KEY,
             lastUserPrompt(input.messages()));
@@ -102,17 +92,13 @@ public class SliceSpringAIAgent extends CopilotSpringAIAgent {
         }
     }
 
-    /**
-     * Returns the content of the most recent user message, or {@code null} when there is none. Mirrors
-     * {@code AiHubSpringAIAgent#lastUserPrompt}, which this CE agent cannot reference directly.
-     */
     private static @Nullable String lastUserPrompt(@Nullable List<BaseMessage> messages) {
         if (messages == null || messages.isEmpty()) {
             return null;
         }
 
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            BaseMessage message = messages.get(i);
+        for (int index = messages.size() - 1; index >= 0; index--) {
+            BaseMessage message = messages.get(index);
 
             if (message instanceof UserMessage userMessage && Role.user.equals(userMessage.getRole())) {
                 return userMessage.getContent();
@@ -153,11 +139,6 @@ public class SliceSpringAIAgent extends CopilotSpringAIAgent {
             return this;
         }
 
-        /**
-         * Supplies the {@code AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY} value this slice writes
-         * into every tool context, so AI-generated asset files created through it are attributed to the correct
-         * surface. Leave unset for slices that never create asset files.
-         */
         public Builder sourceOrdinal(@Nullable Short sourceOrdinal) {
             this.sourceOrdinal = sourceOrdinal;
 

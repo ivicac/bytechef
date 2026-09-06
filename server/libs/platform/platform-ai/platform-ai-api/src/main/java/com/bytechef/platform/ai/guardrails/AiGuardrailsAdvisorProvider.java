@@ -69,4 +69,26 @@ public interface AiGuardrailsAdvisorProvider {
      */
     @Nullable
     SensitiveDataMetrics getMetrics(@Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface);
+
+    /**
+     * As {@link #getAdvisor}, but for a caller that has ALREADY resolved its workspace and must not have one derived
+     * for it. Copilot and the AI-Hub delegation sub-agents carry a server-verified workspace on the request; deriving
+     * from a {@code jobPrincipalId} they do not have is what made them resolve the tenant-default row instead.
+     *
+     * @param workspaceId the caller's resolved workspace, or {@code null} for the tenant default
+     * @param surface     identifies the calling surface for metrics/telemetry
+     * @return the guardrails advisor, or empty when none applies
+     */
+    Optional<Advisor> getAdvisorForWorkspace(@Nullable Long workspaceId, String surface);
+
+    /**
+     * The {@link SensitiveDataMetrics} counterpart of {@link #getAdvisorForWorkspace}, resolving through the identical
+     * active/inactive gate for the identical arguments.
+     *
+     * @param workspaceId the caller's resolved workspace, or {@code null} for the tenant default
+     * @param surface     identifies the calling surface for metrics/telemetry
+     * @return the metrics instance, or {@code null} when none applies
+     */
+    @Nullable
+    SensitiveDataMetrics getMetricsForWorkspace(@Nullable Long workspaceId, String surface);
 }

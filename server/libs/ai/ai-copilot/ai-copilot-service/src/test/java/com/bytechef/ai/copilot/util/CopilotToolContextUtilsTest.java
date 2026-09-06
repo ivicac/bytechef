@@ -17,14 +17,9 @@
 package com.bytechef.ai.copilot.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.agui.core.state.State;
 import com.bytechef.ai.copilot.constant.CopilotConstants;
-import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
-import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.ai.tool.AutomationToolInvocationContext;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
@@ -35,63 +30,12 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
 class CopilotToolContextUtilsTest {
-
-    /**
-     * Two workspace-id key families reach tools from this one surface: the automation tools (project deployments, asset
-     * files) read {@link AutomationToolInvocationContext}'s keys while the data-table/knowledge-base tools read
-     * {@link AgentToolInvocationContext}'s. Populating only the latter is what made deployment tools opened from a
-     * copilot panel answer "Workspace context unavailable - open this chat from the AI Hub of a workspace".
-     */
-    @Test
-    void testToToolContextPopulatesBothWorkspaceIdKeyFamilies() {
-        Map<String, Object> stateMap = new HashMap<>();
-
-        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, "7");
-        stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, "2");
-        stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, "42");
-
-        Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
-
-        assertThat(toolContext)
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY, 42L)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 2L);
-
-        assertThat(AutomationToolInvocationContext.fromToolContext(new ToolContext(toolContext)))
-            .isNotNull()
-            .extracting(AutomationToolInvocationContext::workspaceId)
-            .isEqualTo(7L);
-    }
-
-    /**
-     * resolveEnvironmentOrDefault silently buckets a missing environment to DEVELOPMENT, so an absent key reads as a
-     * confidently wrong answer rather than an error — the automation keys must stay absent, not zero, when unset.
-     */
-    @Test
-    void testToToolContextOmitsAutomationKeysThatHaveNoState() {
-        Map<String, Object> stateMap = new HashMap<>();
-
-        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, "7");
-
-        Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
-
-        assertThat(toolContext)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L)
-            .doesNotContainKey(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY)
-            .doesNotContainKey(AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY);
-    }
 
     @Test
     void testToToolContextPopulatesBothWorkspaceIdKeyFamilies() {
@@ -188,9 +132,7 @@ class CopilotToolContextUtilsTest {
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_AUTHENTICATION_KEY, authentication)
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_TENANT_ID_KEY, "acme")
             // The Authentication is carried so RehydrateContextToolCallback can restore the connected-user principal
-            // on the tool worker -- paired with the tenant id, that is what lets the membership resolver govern it
-            // there. Nothing is carried to skip a check: ticket 1051 Stage 4 removed the resource-scoped skip mode
-            // this context used to carry alongside it.
+            // on the tool worker, paired with the tenant id. Nothing is carried to skip a check.
             .doesNotContainKey("bytechef.agentTool.skipAutomationAuthorization");
     }
 
@@ -198,8 +140,8 @@ class CopilotToolContextUtilsTest {
     void testCarriesNoSkipModeForAConnectedUserRunOnAPooledWorker() throws Exception {
         // Reproduces the real topology. In production the tool context is built on a ForkJoinPool worker
         // (LocalAgent.runAgent dispatches through CompletableFuture.runAsync), NOT on the servlet thread. A connected
-        // user's run carries an Authentication and a tenant id and nothing else that touches authorization: the
-        // resource-scoped skip mode this used to carry is gone, so no thread can produce one by accident.
+        // user's run carries an Authentication and a tenant id and nothing else that touches authorization, so no
+        // thread can produce a resource-scoped skip mode by accident.
         Map<String, Object> stateMap = new HashMap<>();
 
         stateMap.put(CopilotConstants.STATE_AUTHENTICATION, new UsernamePasswordAuthenticationToken("cu", ""));

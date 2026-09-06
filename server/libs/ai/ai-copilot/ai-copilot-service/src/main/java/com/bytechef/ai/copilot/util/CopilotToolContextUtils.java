@@ -42,11 +42,6 @@ public final class CopilotToolContextUtils {
     private CopilotToolContextUtils() {
     }
 
-    /**
-     * The {@code llmProvider}/{@code llmModel} keys populated here MUST stay consistent with
-     * {@code CopilotChatClientResolver}, this surface's {@code OverrideChatClientResolver} — a mismatch would run a
-     * delegate subagent on a different model than the one its caller resolved for this turn.
-     */
     public static Map<String, Object> toToolContext(@Nullable State state) {
         if (state == null) {
             return Map.of();
@@ -66,15 +61,6 @@ public final class CopilotToolContextUtils {
         String tenantId = StringUtils.asString(state.get(CopilotConstants.STATE_TENANT_ID));
         Authentication authentication = state.get(CopilotConstants.STATE_AUTHENTICATION) instanceof Authentication value
             ? value : null;
-
-        // The carried Authentication is an embedded connected-user principal (no backing platform user); both
-        // producers of STATE_AUTHENTICATION -- the embedded connected-user copilot controller and
-        // CopilotWorkflowGeneratorImpl, itself reached only from ConnectedUserProjectFacadeImpl -- are the embedded
-        // path. It is carried so RehydrateContextToolCallback can restore it on the tool worker, NOT so anything can
-        // be skipped there: paired with the tenantId below it lets ConnectedUserResourceMembershipResolver recognise
-        // the caller on that worker, and ResourceMembershipDecider then answers each resource-scoped check from the
-        // connected user's own membership. An earlier revision also carried a resource-scoped skip mode alongside it,
-        // needed only while the tenant failed to reach those threads and the resolver could not answer at all.
 
         String llmProvider = StringUtils.asString(state.get(CopilotConstants.STATE_USER_SELECTED_LLM_PROVIDER));
         String llmModel = StringUtils.asString(state.get(CopilotConstants.STATE_USER_SELECTED_LLM_MODEL));
@@ -103,17 +89,7 @@ public final class CopilotToolContextUtils {
                 .build()
                 .toToolContext());
 
-        // Two workspace-id key families exist, and this surface has to populate both. The automation tools
-        // (project deployments, asset files, …) read AutomationToolInvocationContext's keys, while the
-        // data-table/knowledge-base/context-store tools read AgentToolInvocationContext's. Writing only the
-        // latter is why deployment tools opened from a copilot panel failed with "Workspace context
-        // unavailable - open this chat from the AI Hub of a workspace" — the AI Hub surface populates both
-        // (AiHubSpringAIAgent#toolContext), as does the management MCP surface
-        // (WorkspaceScopedSubAgentToolCallback). environmentId matters as much as workspaceId here:
-        // AutomationToolInvocationContext.resolveEnvironmentOrDefault silently buckets a missing one to
-        // DEVELOPMENT, so an omitted key reads as a wrong answer rather than an error.
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
-        putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY, userId);
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentId);
 
         return toolContext;

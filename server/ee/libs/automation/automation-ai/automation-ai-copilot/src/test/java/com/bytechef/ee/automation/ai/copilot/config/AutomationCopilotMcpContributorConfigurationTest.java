@@ -18,7 +18,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreFacade;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreSourceFacade;
@@ -26,12 +26,14 @@ import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSour
 import com.bytechef.ee.platform.contextstore.service.ContextStoreQueryService;
 import com.bytechef.ee.platform.contextstore.service.ContextStoreSemanticSearchService;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -46,6 +48,7 @@ import org.springframework.beans.factory.ObjectProvider;
  *
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 class AutomationCopilotMcpContributorConfigurationTest {
 
     private static final Set<String> EXPECTED_CONTEXT_STORE_TOOL_NAMES = Set.of(
@@ -63,7 +66,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
             intelligentDefinition("buildCustomComponent"), intelligentDefinition("buildCodeWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.automationCopilotAgentToolCallbackContributor(
-            intelligentToolCatalog, mock(WorkspaceService.class));
+            intelligentToolCatalog, mock(WorkspaceFacade.class));
 
         List<String> toolNames = contributor.getToolCallbacks()
             .stream()
@@ -77,7 +80,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testNoIntelligentToolsWhenCatalogEmpty() {
         McpServerToolCallbackContributor contributor = configuration.automationCopilotAgentToolCallbackContributor(
-            catalogOf(), mock(WorkspaceService.class));
+            catalogOf(), mock(WorkspaceFacade.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -85,7 +88,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudContributesExactlyTheTwelveToolNames() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            presentContextStoreFactory(), mock(WorkspaceService.class));
+            presentContextStoreFactory(), mock(WorkspaceFacade.class));
 
         List<String> toolNames = contributor.getToolCallbacks()
             .stream()
@@ -99,7 +102,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudReturnsEmptyListWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            absentContextStoreFactory(), mock(WorkspaceService.class));
+            absentContextStoreFactory(), mock(WorkspaceFacade.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -107,7 +110,7 @@ class AutomationCopilotMcpContributorConfigurationTest {
     @Test
     void testContextStoreFlatCrudToolsAcceptWorkspaceId() {
         McpServerToolCallbackContributor contributor = configuration.contextStoreFlatCrudMcpContributor(
-            presentContextStoreFactory(), mock(WorkspaceService.class));
+            presentContextStoreFactory(), mock(WorkspaceFacade.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()

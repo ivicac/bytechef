@@ -7,11 +7,25 @@
 
 package com.bytechef.ee.embedded.ai.mcp.server.config;
 
+import static com.bytechef.tenant.constant.TenantConstants.CURRENT_TENANT_ID;
+
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.coordinator.event.listener.ApplicationEventListener;
+import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandlerFactory;
+import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcherPreSendProcessor;
+import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcherResolverFactory;
+import com.bytechef.atlas.execution.service.ContextService;
+import com.bytechef.atlas.execution.service.CounterService;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
+import com.bytechef.atlas.worker.task.handler.TaskDispatcherAdapterFactory;
+import com.bytechef.atlas.worker.task.handler.TaskHandler;
+import com.bytechef.atlas.worker.task.handler.TaskHandlerRegistry;
+import com.bytechef.atlas.worker.task.handler.TaskHandlerResolver;
 import com.bytechef.commons.util.CollectionUtils;
+import com.bytechef.component.map.MapTaskDispatcherAdapterTaskHandler;
+import com.bytechef.component.map.constant.MapConstants;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.embedded.ai.mcp.server.facade.EmbeddedMcpToolFacade;
 import com.bytechef.ee.embedded.ai.mcp.server.security.web.configurer.EmbeddedMcpServerSecurityConfigurer;
@@ -28,6 +42,9 @@ import com.bytechef.ee.embedded.security.service.JwtTokenService;
 import com.bytechef.ee.embedded.security.service.SigningKeyService;
 import com.bytechef.ee.platform.security.web.mcp.oauth2.McpTenantIssuerResolver;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.message.broker.MessageBroker;
+import com.bytechef.message.broker.memory.AsyncMessageBroker;
+import com.bytechef.message.event.MessageEvent;
 import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.platform.ai.guardrails.RedactingToolCallback;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -35,6 +52,8 @@ import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
+import com.bytechef.platform.job.sync.file.storage.InMemoryTaskFileStorage;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.server.FilterableMcpAsyncServer;
@@ -52,6 +71,27 @@ import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
+import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
+import com.bytechef.task.dispatcher.approval.WaitForApprovalTaskDispatcher;
+import com.bytechef.task.dispatcher.branch.BranchTaskDispatcher;
+import com.bytechef.task.dispatcher.branch.completion.BranchTaskCompletionHandler;
+import com.bytechef.task.dispatcher.condition.ConditionTaskDispatcher;
+import com.bytechef.task.dispatcher.condition.completion.ConditionTaskCompletionHandler;
+import com.bytechef.task.dispatcher.each.EachTaskDispatcher;
+import com.bytechef.task.dispatcher.each.completion.EachTaskCompletionHandler;
+import com.bytechef.task.dispatcher.fork.join.ForkJoinTaskDispatcher;
+import com.bytechef.task.dispatcher.fork.join.completion.ForkJoinTaskCompletionHandler;
+import com.bytechef.task.dispatcher.loop.LoopBreakTaskDispatcher;
+import com.bytechef.task.dispatcher.loop.LoopTaskDispatcher;
+import com.bytechef.task.dispatcher.loop.completion.LoopTaskCompletionHandler;
+import com.bytechef.task.dispatcher.map.MapTaskDispatcher;
+import com.bytechef.task.dispatcher.map.completion.MapTaskCompletionHandler;
+import com.bytechef.task.dispatcher.parallel.ParallelTaskDispatcher;
+import com.bytechef.task.dispatcher.parallel.completion.ParallelTaskCompletionHandler;
+import com.bytechef.task.dispatcher.subflow.SubflowTaskDispatcher;
+import com.bytechef.task.dispatcher.subflow.event.listener.SubflowJobStatusEventListener;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.domain.TenantKey;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -68,8 +108,12 @@ import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.context.SecurityContext;
@@ -91,7 +135,7 @@ public class EmbeddedMcpServerConfiguration {
     private static final String ENVIRONMENT = "environment";
     private static final String EXTERNAL_USER_ID = "externalUserId";
     private static final String SECRET_KEY = "secretKey";
-    private static final String SURFACE = "mcp_embedded";
+    private static final String SURFACE = McpOutboundRedactorProvider.SURFACE_EMBEDDED;
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();
@@ -103,14 +147,8 @@ public class EmbeddedMcpServerConfiguration {
             .contextExtractor(serverRequest -> {
                 HttpServletRequest httpServletRequest = serverRequest.servletRequest();
 
-                String environment = httpServletRequest.getHeader("X-Environment");
-
-                return McpTransportContext.create(
-                    Map.of(
-                        AUTHORITIES, SecurityUtils.fetchCurrentUserAuthorities(),
-                        ENVIRONMENT, environment,
-                        EXTERNAL_USER_ID, externalUserId,
-                        SECRET_KEY, secretKey));
+                return createMcpTransportContext(
+                    serverRequest.pathVariable(SECRET_KEY), httpServletRequest.getHeader("X-Environment"));
             })
             .build();
     }
@@ -123,10 +161,12 @@ public class EmbeddedMcpServerConfiguration {
     @Bean
     EmbeddedMcpToolFacade embeddedMcpToolFacade(
         ApplicationProperties applicationProperties, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        ChildJobPrincipalFactory childJobPrincipalFactory,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService,
         ComponentDefinitionService componentDefinitionService, ConnectedUserService connectedUserService,
-        TaskFileStorage durableTaskFileStorage, Evaluator evaluator,
+        ContextService contextService, CounterService counterService, TaskFileStorage durableTaskFileStorage,
+        Environment environment, Evaluator evaluator,
         IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService,
         IntegrationInstanceService integrationInstanceService,
@@ -135,20 +175,42 @@ public class EmbeddedMcpServerConfiguration {
         JwtTokenService jwtTokenService, McpComponentService mcpComponentService,
         McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService,
         McpIntegrationInstanceToolService mcpIntegrationInstanceToolService, McpServerService mcpServerService,
-        PrincipalJobFacade principalJobFacade,
-        TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
+        PrincipalJobFacade principalJobFacade, SubflowResolver subflowResolver,
+        List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
+        TaskExecutionService taskExecutionService,
+        @Qualifier("syncWorkerExecutor") TaskExecutor syncWorkerExecutor,
+        TaskHandlerRegistry taskHandlerRegistry, ToolExecutionRecorder toolExecutionRecorder,
         WorkflowService workflowService) {
+
+        AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
+
+        TaskFileStorage taskFileStorage = new InMemoryTaskFileStorage(durableTaskFileStorage);
+
+        ApplicationEventPublisher coordinatorEventPublisher = createEventPublisher(asyncMessageBroker);
+
+        JobSyncExecutor jobSyncExecutor = new JobSyncExecutor(
+            contextService, evaluator, jobService, -1, asyncMessageBroker,
+            getAdditionalApplicationEventListeners(
+                evaluator, coordinatorEventPublisher, jobService, taskExecutionService, taskFileStorage),
+            getTaskCompletionHandlerFactories(
+                contextService, counterService, evaluator, taskExecutionService, taskFileStorage),
+            getTaskDispatcherAdapterFactories(evaluator), taskDispatcherPreSendProcessors,
+            getTaskDispatcherResolverFactories(
+                childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
+                jobService, subflowResolver, taskExecutionService, taskFileStorage),
+            taskExecutionService, syncWorkerExecutor, taskHandlerRegistry, taskFileStorage,
+            JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT.toSeconds(), workflowService);
 
         return new EmbeddedMcpToolFacade(
             approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService,
             componentDefinitionService,
             connectedUserService, evaluator, integrationInstanceConfigurationService,
             integrationInstanceConfigurationWorkflowService, integrationInstanceService,
-            integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jobResumeFacade, jobService,
+            integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jobResumeFacade,
+            jobService, jobSyncExecutor,
             jwtTokenService, mcpComponentService, mcpIntegrationInstanceConfigurationWorkflowService,
-            mcpIntegrationInstanceToolService,
-            mcpServerService, principalJobFacade,
-            applicationProperties.getPublicUrl(), taskExecutionService, durableTaskFileStorage, toolExecutionRecorder,
+            mcpIntegrationInstanceToolService, mcpServerService, principalJobFacade,
+            applicationProperties.getPublicUrl(), taskExecutionService, taskFileStorage, toolExecutionRecorder,
             workflowService);
     }
 
@@ -201,9 +263,6 @@ public class EmbeddedMcpServerConfiguration {
                             }
                         });
 
-                // Workflow-backed tools run synchronously and can pause on a human approval — decorate them with
-                // elicitation so capable clients get pointed at the hosted approval form and receive the resumed run's
-                // real output in the same tools/call (mirrors the automation MCP server).
                 mcpIntegrationInstanceConfigurationService
                     .getMcpServerMcpIntegrationInstanceConfigurations(mcpServer.getId())
                     .stream()
@@ -243,6 +302,25 @@ public class EmbeddedMcpServerConfiguration {
         };
     }
 
+    static McpTransportContext createMcpTransportContext(String secretKey, @Nullable String environment) {
+        Map<String, Object> context = new HashMap<>();
+
+        context.put(SECRET_KEY, secretKey);
+
+        if (environment != null) {
+            context.put(ENVIRONMENT, environment);
+        }
+
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+
+        if (!(securityContext.getAuthentication() instanceof McpAnonymousAuthenticationToken)) {
+            context.put(AUTHORITIES, SecurityUtils.fetchCurrentUserAuthorities());
+            context.put(EXTERNAL_USER_ID, SecurityUtils.getCurrentUserLogin());
+        }
+
+        return McpTransportContext.create(context);
+    }
+
     private static ToolCallback guard(
         ToolCallback toolCallback, ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider) {
 
@@ -256,12 +334,6 @@ public class EmbeddedMcpServerConfiguration {
         return authoritiesObject instanceof Set ? (Set<String>) authoritiesObject : Set.of();
     }
 
-    /**
-     * The components whose tools the principal may see. When the server does not enforce tool authorization, every
-     * component is returned (legacy behavior); when it does, only components the principal is authorized for are kept
-     * (deny-by-default). On the embedded endpoint the principal's authorities come from the identity provider's group
-     * claim, so enforcement is meaningful only for IdP-federated connected users.
-     */
     private static List<McpComponent> authorizedComponents(
         McpServer mcpServer, List<McpComponent> mcpComponents, Set<String> principalAuthorities) {
 
@@ -276,6 +348,25 @@ public class EmbeddedMcpServerConfiguration {
             .toList();
     }
 
+    private static ApplicationEventPublisher createEventPublisher(MessageBroker messageBroker) {
+        return event -> {
+            MessageEvent<?> messageEvent = (MessageEvent<?>) event;
+
+            messageEvent.putMetadata(CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
+
+            messageBroker.send(((MessageEvent<?>) event).getRoute(), event);
+        };
+    }
+
+    private static List<ApplicationEventListener> getAdditionalApplicationEventListeners(
+        Evaluator evaluator, ApplicationEventPublisher coordinatorEventPublisher, JobService jobService,
+        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
+
+        return List.of(
+            new SubflowJobStatusEventListener(
+                evaluator, coordinatorEventPublisher, jobService, taskExecutionService, taskFileStorage));
+    }
+
     private com.bytechef.platform.configuration.domain.Environment getEnvironment(String environment) {
         if (StringUtils.isNotBlank(environment)) {
             try {
@@ -286,5 +377,77 @@ public class EmbeddedMcpServerConfiguration {
         }
 
         return com.bytechef.platform.configuration.domain.Environment.PRODUCTION;
+    }
+
+    private List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
+        ContextService contextService, CounterService counterService, Evaluator evaluator,
+        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
+
+        return List.of(
+            (taskCompletionHandler, taskDispatcher) -> new BranchTaskCompletionHandler(
+                contextService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new ConditionTaskCompletionHandler(
+                contextService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new EachTaskCompletionHandler(
+                counterService, taskCompletionHandler, taskExecutionService),
+            (taskCompletionHandler, taskDispatcher) -> new ForkJoinTaskCompletionHandler(
+                contextService, counterService, evaluator, taskExecutionService, taskCompletionHandler, taskDispatcher,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new LoopTaskCompletionHandler(
+                contextService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new MapTaskCompletionHandler(
+                contextService, counterService, evaluator, taskDispatcher, taskCompletionHandler, taskExecutionService,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new ParallelTaskCompletionHandler(
+                counterService, taskCompletionHandler, taskExecutionService));
+    }
+
+    private List<TaskDispatcherAdapterFactory> getTaskDispatcherAdapterFactories(Evaluator evaluator) {
+        return List.of(
+            new TaskDispatcherAdapterFactory() {
+
+                @Override
+                public TaskHandler<?> create(TaskHandlerResolver taskHandlerResolver) {
+                    return new MapTaskDispatcherAdapterTaskHandler(evaluator, taskHandlerResolver);
+                }
+
+                @Override
+                public String getName() {
+                    return MapConstants.MAP + "/v1";
+                }
+            });
+    }
+
+    private List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
+        ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
+        CounterService counterService, ApplicationEventPublisher eventPublisher,
+        Evaluator evaluator, JobService jobService, SubflowResolver subflowResolver,
+        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
+
+        return List.of(
+            (taskDispatcher) -> new BranchTaskDispatcher(
+                contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
+            (taskDispatcher) -> new ConditionTaskDispatcher(
+                contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
+            (taskDispatcher) -> new EachTaskDispatcher(
+                contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new ForkJoinTaskDispatcher(
+                contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new LoopBreakTaskDispatcher(eventPublisher, taskExecutionService),
+            (taskDispatcher) -> new LoopTaskDispatcher(
+                contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
+            (taskDispatcher) -> new MapTaskDispatcher(
+                contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new ParallelTaskDispatcher(
+                contextService, counterService, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new SubflowTaskDispatcher(childJobPrincipalFactory, jobService, subflowResolver),
+            (taskDispatcher) -> new WaitForApprovalTaskDispatcher(eventPublisher, jobService, taskExecutionService));
     }
 }

@@ -40,13 +40,11 @@ import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.server.FilterableMcpAsyncServer;
 import com.bytechef.platform.mcp.server.FilterableMcpServerBuilder;
-import com.bytechef.platform.mcp.server.McpAppWorkflowViewer;
 import com.bytechef.platform.mcp.server.McpToolAuthorizationEvaluator;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
-import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -79,7 +77,7 @@ public class AutomationMcpServerConfiguration {
 
     public static final String SECRET_KEY = "secretKey";
     private static final String AUTHORITIES = "authorities";
-    private static final String SURFACE = "mcp_automation";
+    private static final String SURFACE = McpOutboundRedactorProvider.SURFACE_AUTOMATION;
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();
@@ -179,6 +177,14 @@ public class AutomationMcpServerConfiguration {
             .toList();
     }
 
+    static boolean isUnscopedToolSourceAuthorized(McpServer mcpServer, Set<String> principalAuthorities) {
+        if (!mcpServer.isEnforceToolAuthorization()) {
+            return true;
+        }
+
+        return TOOL_AUTHORIZATION_EVALUATOR.isComponentAuthorized(principalAuthorities, Set.of());
+    }
+
     static List<McpServerFeatures.AsyncToolSpecification> buildToolSpecifications(
         String secretKey, Set<String> principalAuthorities, McpComponentService mcpComponentService,
         McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
@@ -193,29 +199,40 @@ public class AutomationMcpServerConfiguration {
             return List.of();
         }
 
-        List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
-
-        Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServer.getId())
-            .orElse(null);
-
-        authorizedComponents(
+        List<McpTool> mcpTools = authorizedComponents(
             mcpServer, mcpComponentService.getMcpServerMcpComponents(mcpServer.getId()), principalAuthorities)
                 .stream()
                 .flatMap(
                     mcpComponent -> CollectionUtils.stream(
                         mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
                 .filter(McpTool::isEnabled)
-                .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(
-                    guard(
-                        mcpToolFacade.getFunctionToolCallback(mcpTool), mcpOutboundRedactorProviderProvider,
-                        workspaceId)))
-                .forEach(tools::add);
+                .toList();
+        boolean unscopedToolSourceAuthorized = isUnscopedToolSourceAuthorized(mcpServer, principalAuthorities);
 
-        // Workflow-backed tools run synchronously and can pause on a human approval — decorate them with URL-mode
-        // elicitation so capable clients get pointed at the hosted approval form and receive the resumed run's
-        // real output in the same tools/call.
-        mcpProjectService.getMcpServerMcpProjects(mcpServer.getId())
-            .stream()
+        if (mcpTools.isEmpty() && !unscopedToolSourceAuthorized) {
+            return List.of();
+        }
+
+        List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
+
+        Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServer.getId())
+            .orElse(null);
+
+        mcpTools.stream()
+            .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(
+                guard(
+                    mcpToolFacade.getFunctionToolCallback(mcpTool), mcpOutboundRedactorProviderProvider,
+                    workspaceId)))
+            .forEach(tools::add);
+
+        if (!unscopedToolSourceAuthorized) {
+            return tools;
+        }
+
+        List<McpProject> mcpProjects = readMcpServerConfiguration(
+            () -> mcpProjectService.getMcpServerMcpProjects(mcpServer.getId()));
+
+        mcpProjects.stream()
             .flatMap(mcpProject -> CollectionUtils.stream(mcpToolFacade.getFunctionToolCallbacks(mcpProject)))
             .map(toolCallback -> guard(toolCallback, mcpOutboundRedactorProviderProvider, workspaceId))
             .map(McpToolUtils::toAsyncToolSpecification)
@@ -242,5 +259,15 @@ public class AutomationMcpServerConfiguration {
 
         return RedactingToolCallback.wrap(
             toolCallback, mcpOutboundRedactorProviderProvider, workspaceId, SURFACE);
+    }
+
+    private static <T> T readMcpServerConfiguration(Supplier<T> read) {
+        try {
+            return AutomationAuthorizationContext.callSkippingChecks(read::get);
+        } catch (RuntimeException | Error exception) {
+            throw exception;
+        } catch (Throwable throwable) {
+            throw new IllegalStateException(throwable);
+        }
     }
 }
