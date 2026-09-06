@@ -38,9 +38,11 @@ import java.util.regex.Pattern;
  * @param category   uppercase identifier naming the entity type, matching {@code [A-Z][A-Z0-9_]*}
  * @param start      inclusive start offset
  * @param end        exclusive end offset, strictly greater than {@code start}
- * @param confidence detector confidence between {@code 0.0} and {@code 1.0}; deterministic detectors report
- *                   {@code 1.0}. Carried but not used by overlap resolution today — see the design spec's section 6.2
- *                   for why adding a probabilistic detector should not be a record-signature change.
+ * @param confidence detector confidence between {@code 0.0} and {@code 1.0}. {@link #of} reports {@code 1.0} for a
+ *                   detector that has no meaningful score to give; a detector whose matches vary in specificity should
+ *                   instead pass that match's own score to this canonical constructor. Carried but not used by overlap
+ *                   resolution today — see the design spec's section 6.2 for why adding a probabilistic detector should
+ *                   not be a record-signature change.
  */
 public record SensitiveSpan(SensitiveKind kind, String category, int start, int end, double confidence) {
 
@@ -70,7 +72,16 @@ public record SensitiveSpan(SensitiveKind kind, String category, int start, int 
     }
 
     /**
-     * Creates a span with full confidence, for deterministic detectors.
+     * Creates a span for a detector that has no meaningful score to report, reporting full confidence, {@code 1.0}.
+     *
+     * <p>
+     * This is <em>not</em> the right constructor for "a deterministic detector" in general. Deterministic only means
+     * the match is reproducible — the same input always produces the same span. It says nothing about how specific the
+     * match is as evidence: a regex like {@code \b\d{9}\b} matches deterministically and is very weak evidence of
+     * anything, because it matches almost any nine-digit run, PII or not. A detector whose matches carry a meaningful
+     * specificity score (e.g. one built from {@code PiiPatternCatalog}) must pass that score explicitly via the
+     * five-argument canonical constructor instead of calling this method.
+     * </p>
      *
      * @param kind     which policy toggle governs this span
      * @param category uppercase entity-type identifier

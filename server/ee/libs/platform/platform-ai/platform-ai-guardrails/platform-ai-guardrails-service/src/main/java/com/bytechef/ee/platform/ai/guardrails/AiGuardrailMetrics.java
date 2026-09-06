@@ -26,11 +26,13 @@ import org.springframework.stereotype.Component;
  * {@code response_redacted}, {@code pii_restored} (a token minted for this request was substituted back to its real
  * value in the response), {@code token_unresolved} (a token-shaped span in the response could not be resolved back to a
  * value — an unknown ordinal, or a token minted by another session), {@code blocked_term}, {@code moderation_flagged},
- * {@code injection_flagged}, or {@code detector_failed} (a {@code SensitiveDataDetector} threw and was skipped for that
- * call) — and by {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI
- * Gateway adapter). Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays
- * cheap on unbounded multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without
- * an actuator {@link MeterRegistry} start cleanly and recording is a no-op.
+ * {@code injection_flagged}, {@code detector_failed} (a {@code SensitiveDataDetector} threw and was skipped for that
+ * call), or {@code below_confidence_threshold} (at least one candidate span was dropped from a call because its
+ * confidence fell below {@code SensitiveDataRedactor}'s {@code minConfidence}) — and by {@code surface}, identifying
+ * which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter). Only these two low-cardinality
+ * tags are used (no workspace/project dimension) so the meter stays cheap on unbounded multi-tenant deployments. Wired
+ * through {@link ObjectProvider} so lightweight app variants without an actuator {@link MeterRegistry} start cleanly
+ * and recording is a no-op.
  *
  * <p>
  * The {@code surface} is fixed per bean instance (constructor argument) rather than passed per {@link #record} call.
@@ -58,6 +60,7 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     public static final String COUNTER_NAME = "bytechef_ai_guardrail";
 
     private static final String DETECTOR_FAILED_EVENT = "detector_failed";
+    private static final String BELOW_CONFIDENCE_THRESHOLD_EVENT = "below_confidence_threshold";
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     private final @Nullable MeterRegistry meterRegistry;
@@ -111,5 +114,15 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public void recordDetectorFailure(String detectorName) {
         record(DETECTOR_FAILED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for {@code SensitiveDataRedactor}'s confidence filter. Delegates to
+     * {@link #record(String)} with the {@code below_confidence_threshold} event, matching how
+     * {@link #recordDetectorFailure} delegates for its own event.
+     */
+    @Override
+    public void recordBelowConfidenceThreshold() {
+        record(BELOW_CONFIDENCE_THRESHOLD_EVENT);
     }
 }
