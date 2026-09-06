@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.WorkflowEditorSpringAIAgent;
 import com.bytechef.ai.copilot.agent.WorkflowExecutionSpringAIAgent;
@@ -92,6 +93,7 @@ public class EmbeddedCopilotConfiguration {
     private final Resource promptWorkflowExecutionEmbeddedBuildResource;
     private final WorkflowValidatorTools workflowValidatorTools;
     private final WorkflowInstructionTools workflowInstructionTools;
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final State state = new State();
 
     // Read once at configuration init rather than per delegation: workflowEditorEmbeddedBuildSubAgentChatClientFactory
@@ -124,7 +126,8 @@ public class EmbeddedCopilotConfiguration {
         @Value("classpath:prompt_code_workflow_embedded_build.txt") Resource promptCodeWorkflowEmbeddedBuildResource,
         @Value("classpath:prompt_workflow_execution_embedded_ask.txt") Resource promptWorkflowExecutionEmbeddedAskResource,
         @Value("classpath:prompt_workflow_execution_embedded_build.txt") Resource promptWorkflowExecutionEmbeddedBuildResource,
-        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools) {
+        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory) {
 
         this.promptWorkflowEditorEmbeddedAskResource = promptWorkflowEditorEmbeddedAskResource;
         this.promptWorkflowEditorEmbeddedBuildResource = promptWorkflowEditorEmbeddedBuildResource;
@@ -134,6 +137,7 @@ public class EmbeddedCopilotConfiguration {
         this.promptWorkflowExecutionEmbeddedBuildResource = promptWorkflowExecutionEmbeddedBuildResource;
         this.workflowValidatorTools = workflowValidatorTools;
         this.workflowInstructionTools = workflowInstructionTools;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
 
         this.workflowEditorEmbeddedBuildSystemPrompt = getSystemPrompt(promptWorkflowEditorEmbeddedBuildResource);
     }
@@ -165,6 +169,7 @@ public class EmbeddedCopilotConfiguration {
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .advisor(questionAnswerAdvisor)
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
@@ -193,6 +198,7 @@ public class EmbeddedCopilotConfiguration {
             .systemMessage(workflowEditorEmbeddedBuildSystemPrompt)
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
@@ -234,7 +240,7 @@ public class EmbeddedCopilotConfiguration {
         ChatModel chatModel, IntegrationTools integrationTools, IntegrationWorkflowTools integrationWorkflowTools,
         ComponentTools componentTools, TaskTools taskTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(workflowEditorEmbeddedBuildSystemPrompt)
             .defaultTools(
                 integrationTools, integrationWorkflowTools, componentTools, taskTools, workflowValidatorTools,
@@ -254,6 +260,7 @@ public class EmbeddedCopilotConfiguration {
             .systemMessage(getSystemPrompt(promptCodeWorkflowEmbeddedAskResource))
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of(readIntegrationCodeWorkflowTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -273,6 +280,7 @@ public class EmbeddedCopilotConfiguration {
                 wrapTools(
                     securityContextRehydrator,
                     List.of(integrationCodeWorkflowTools, readIntegrationCodeWorkflowTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -298,6 +306,7 @@ public class EmbeddedCopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowExecutionEmbeddedAskResource))
             .tools(tools)
             .state(state)
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -320,8 +329,26 @@ public class EmbeddedCopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowExecutionEmbeddedBuildResource))
             .tools(tools)
             .state(state)
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
+    }
+
+    /**
+     * Local equivalent of the private CE {@code CopilotConfiguration.chatClientBuilder}: the one-shot subagent
+     * {@link ChatClient} bean in this class must be created through this method rather than
+     * {@code ChatClient.builder(...)} directly, so guardrails coverage is a build property instead of a convention (see
+     * {@code GuardrailsAdvisorCoverageTest} in this package). Guardrails are EE-only; when no
+     * {@code AiGuardrailsAdvisorProvider} bean is on the classpath,
+     * {@link CopilotGuardrailsAdvisorFactory#guardrailsAdvisors()} returns an empty list and the returned builder
+     * simply has no guardrails advisor attached.
+     */
+    private ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        builder.defaultAdvisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors());
+
+        return builder;
     }
 
     /**

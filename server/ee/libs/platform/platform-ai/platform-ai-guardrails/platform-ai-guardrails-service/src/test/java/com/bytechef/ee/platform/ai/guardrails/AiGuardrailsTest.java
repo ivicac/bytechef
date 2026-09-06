@@ -21,6 +21,8 @@ import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSetti
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
+import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
@@ -442,6 +444,57 @@ class AiGuardrailsTest {
         // rules out a resolved value at or below its score, in particular a Double unboxed carelessly into 0.0.
         assertThat(results.get(1)
             .text()).isEqualTo("invoice 4500123987 total 1234.56");
+    }
+
+    /**
+     * The workspace's off-switch, at the source that resolves it: with global PII redaction off and the workspace not
+     * overriding it, {@link AiGuardrails#resolveToolBoundaryPolicy(Long)} must exclude {@link SensitiveKind#PII} from
+     * the returned policy's {@code kinds} -- this is the value {@code AiGuardrailsAdvisor#withSessionInToolContext}
+     * carries onto the tool context for {@code PiiTokenBoundaryToolCallingManager} to honour.
+     */
+    @Test
+    void testResolveToolBoundaryPolicyExcludesPiiWhenTheWorkspaceHasItOff() {
+        AiGuardrails guardrails = guardrails(null, false, true, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveToolBoundaryPolicy(7L);
+
+        assertThat(policy.kinds()).containsExactly(SensitiveKind.SECRET);
+    }
+
+    /**
+     * The counterpart of the above: a workspace that turns PII redaction ON at the workspace level (global off) must
+     * see {@link SensitiveKind#PII} in the resolved {@code kinds} -- the union semantics
+     * {@link AiGuardrails#resolvePolicy} already applies elsewhere must also govern this resolution path, not a
+     * separate one.
+     */
+    @Test
+    void testResolveToolBoundaryPolicyIncludesPiiWhenTheWorkspaceEnablesIt() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.of(settings(true, null, null, null, null)));
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveToolBoundaryPolicy(7L);
+
+        assertThat(policy.kinds()).containsExactly(SensitiveKind.PII);
+    }
+
+    /**
+     * The tool boundary must honour an explicit workspace {@code minConfidence} override rather than always falling
+     * back to {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} -- same resolution
+     * {@link #testWorkspaceThresholdOverridesTheCoreDefault} pins for the request-direction path, but read off
+     * {@link AiGuardrails#resolveToolBoundaryPolicy(Long)} instead.
+     */
+    @Test
+    void testResolveToolBoundaryPolicyHonoursTheWorkspaceMinConfidenceOverride() {
+        AiGuardrails guardrails = guardrails(null, true, true, "", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.of(settingsWithMinConfidence(0.95)));
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveToolBoundaryPolicy(7L);
+
+        assertThat(policy.minConfidence()).isEqualTo(0.95);
     }
 
     @Test

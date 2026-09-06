@@ -14,10 +14,15 @@ import com.bytechef.ee.ai.hub.agent.AiHubToolCallbackWrappers;
 import com.bytechef.ee.ai.hub.approval.AiHubApprovalGate;
 import com.bytechef.ee.ai.hub.config.AiHubPgVectorConfiguration;
 import com.bytechef.ee.ai.hub.util.ToolNameNormalizer;
+import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryToolCallingManager;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.connection.service.ConnectionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -198,12 +203,15 @@ public class ToolSearchAdvisorConfiguration {
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
         SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        SensitiveDataRedactor sensitiveDataRedactor, ObjectProvider<MeterRegistry> meterRegistryProvider,
         ObjectProvider<AiHubApprovalGate> approvalGateProvider) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry, findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID),
-            securityContextRehydrator, toolSearchCatalogWarmup, approvalGateProvider.getIfAvailable());
+            securityContextRehydrator, toolSearchCatalogWarmup, sensitiveDataRedactor,
+            new AiGuardrailMetrics(meterRegistryProvider.getIfAvailable(), "ai_hub"),
+            approvalGateProvider.getIfAvailable());
     }
 
     @Bean
@@ -214,13 +222,16 @@ public class ToolSearchAdvisorConfiguration {
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
         SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        SensitiveDataRedactor sensitiveDataRedactor, ObjectProvider<MeterRegistry> meterRegistryProvider,
         ObjectProvider<AiHubApprovalGate> approvalGateProvider) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry,
             findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID),
-            securityContextRehydrator, toolSearchCatalogWarmup, approvalGateProvider.getIfAvailable());
+            securityContextRehydrator, toolSearchCatalogWarmup, sensitiveDataRedactor,
+            new AiGuardrailMetrics(meterRegistryProvider.getIfAvailable(), "ai_hub"),
+            approvalGateProvider.getIfAvailable());
     }
 
     private static ToolSearchToolCallingAdvisor buildModeAdvisor(
@@ -228,6 +239,7 @@ public class ToolSearchAdvisorConfiguration {
         Supplier<Map<String, ToolCallback>> clusterElementCallbacksMapSupplier,
         ObservationRegistry observationRegistry, @Nullable AiHubGlobalToolCatalog globalToolCatalog,
         SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup,
+        SensitiveDataRedactor sensitiveDataRedactor, @Nullable SensitiveDataMetrics sensitiveDataMetrics,
         @Nullable AiHubApprovalGate approvalGate) {
 
         Set<String> additionalSessionIds = globalToolCatalog == null
@@ -277,15 +289,8 @@ public class ToolSearchAdvisorConfiguration {
 
         ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
 
-        // Lazy so constructing this advisor at startup does not build the resolver. MapToolCallbackResolver keys off
-        // the
-        // pre-known names, so building it never calls getToolDefinition() (unlike StaticToolCallbackResolver).
-        // UnknownToolRecoveringToolCallingManager turns a model call to an unregistered tool name (conditionally
-        // absent tool, adapted/truncated name) into a recoverable tool-error round instead of a dead SSE turn.
-        ToolCallingManager toolCallingManager = new LazyToolCallingManager(
-            () -> new UnknownToolRecoveringToolCallingManager(
-                new DefaultToolCallingManager(
-                    observationRegistry, new MapToolCallbackResolver(callbackMapSupplier.get()), exceptionProcessor)));
+        ToolCallingManager toolCallingManager = buildToolCallingManager(
+            observationRegistry, callbackMapSupplier, exceptionProcessor, sensitiveDataRedactor, sensitiveDataMetrics);
 
         // PinnedToolSearchToolCallingAdvisor pins the agent's ENTIRE static tool list so those tools stay callable
         // without a preceding searchTool hit — the system prompt instructs the model to call them directly by name, but
@@ -315,6 +320,50 @@ public class ToolSearchAdvisorConfiguration {
         return new PinnedToolSearchToolCallingAdvisor(
             toolCallingManager, searcher, MAX_SEARCH_RESULTS, ChatMemory.CONVERSATION_ID, callbackMapSupplier,
             toolSearchCatalogWarmup::warmUp);
+    }
+
+    /**
+     * Builds the search loop's {@link ToolCallingManager}: {@link MapToolCallbackResolver} (dynamic, by-name resolution
+     * of the searchable catalog) inside {@link DefaultToolCallingManager}, inside
+     * {@link UnknownToolRecoveringToolCallingManager} (converts an unresolvable name into a recoverable tool-error
+     * round), inside {@link LazyToolCallingManager} (defers building all of the above until the first call), inside
+     * {@link PiiTokenBoundaryToolCallingManager} (restores PII tokens in tool-call arguments before a tool runs, and
+     * tokenizes PII in tool results before they reach the model).
+     *
+     * <p>
+     * The PII wrap sits OUTERMOST, around the entire Lazy/Unknown/Default stack, not innermost around
+     * {@code DefaultToolCallingManager} alone. This is the one case in the whole product where a callback is registered
+     * ONLY through a resolver — never on a request's static tool list — so restoration has to survive dynamic
+     * resolution rather than merely a construction-time callback wrap (that is the whole reason this feature decorates
+     * the {@code ToolCallingManager} instead of each {@code ToolCallback}; see spec decision D2). Placement relative to
+     * the other two layers does not change what gets covered, because neither of them touches tool-call arguments or
+     * tool-response content on its way through: {@link LazyToolCallingManager} only defers building its delegate, and
+     * {@link UnknownToolRecoveringToolCallingManager} only catches an
+     * {@code IllegalStateException("No ToolCallback found ...")} thrown BEFORE any tool runs and substitutes a
+     * synthetic tool-error response — it never retries the call with different arguments, so there is no "retry path"
+     * that could see unrestored arguments. Outermost placement is preferred anyway because it: (1) never forces
+     * {@code LazyToolCallingManager}'s memoized delegate to build early — this method's own call still happens lazily,
+     * inside the {@code Supplier} below; and (2) still tokenizes the synthetic tool-error text
+     * {@code UnknownToolRecoveringToolCallingManager} fabricates on its recovery path, keeping behavior uniform across
+     * both outcomes even though that text never contains real PII.
+     * </p>
+     */
+    static ToolCallingManager buildToolCallingManager(
+        ObservationRegistry observationRegistry, Supplier<Map<String, ToolCallback>> callbackMapSupplier,
+        ToolExecutionExceptionProcessor exceptionProcessor, SensitiveDataRedactor sensitiveDataRedactor,
+        @Nullable SensitiveDataMetrics sensitiveDataMetrics) {
+
+        // Lazy so constructing this advisor at startup does not build the resolver. MapToolCallbackResolver keys off
+        // the pre-known names, so building it never calls getToolDefinition() (unlike StaticToolCallbackResolver).
+        // UnknownToolRecoveringToolCallingManager turns a model call to an unregistered tool name (conditionally
+        // absent tool, adapted/truncated name) into a recoverable tool-error round instead of a dead SSE turn.
+        return PiiTokenBoundaryToolCallingManager.wrap(
+            new LazyToolCallingManager(
+                () -> new UnknownToolRecoveringToolCallingManager(
+                    new DefaultToolCallingManager(
+                        observationRegistry, new MapToolCallbackResolver(callbackMapSupplier.get()),
+                        exceptionProcessor))),
+            sensitiveDataRedactor, () -> sensitiveDataMetrics);
     }
 
     private static @Nullable AiHubGlobalToolCatalog findCatalog(

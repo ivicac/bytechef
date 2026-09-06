@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.advisor.EnvironmentAwareQuestionAnswerAdvisor;
 import com.bytechef.ai.copilot.agent.ClusterElementSpringAIAgent;
 import com.bytechef.ai.copilot.agent.CodeEditorSpringAIAgent;
@@ -138,6 +139,11 @@ public class CopilotConfiguration {
         returns all three ids.
         """;
 
+    // Copilot has no job principal - it is a code assistant scoped to a user and a project, not a workflow run - so
+    // every chatClientBuilder(ChatModel) call below resolves the tenant-default guardrails workspace
+    // (platformType = null, jobPrincipalId = null; see AiGuardrailsAdvisorProvider#getAdvisor).
+    private static final String GUARDRAILS_SURFACE = "copilot";
+
     private final Resource promptWorkflowEditorAskResource;
     private final Resource promptWorkflowEditorBuildResource;
     private final Resource promptCodeEditorAskResource;
@@ -183,6 +189,7 @@ public class CopilotConfiguration {
     private final TriggerDefinitionFacade triggerDefinitionFacade;
     private final PropertyOptionsResolver propertyOptionsResolver;
     private final ObjectProvider<CopilotConnectionLister> connectionListerProvider;
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     // CT_CONSTRUCTOR_THROW: the constructor reads and validates the prompt resources up front (see the hoisted
@@ -223,9 +230,11 @@ public class CopilotConfiguration {
         ComponentDefinitionService componentDefinitionService, ActionDefinitionService actionDefinitionService,
         ActionDefinitionFacade actionDefinitionFacade, TriggerDefinitionService triggerDefinitionService,
         TriggerDefinitionFacade triggerDefinitionFacade, PropertyOptionsResolver propertyOptionsResolver,
-        ObjectProvider<CopilotConnectionLister> connectionListerProvider) {
+        ObjectProvider<CopilotConnectionLister> connectionListerProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory) {
 
         this.connectionListerProvider = connectionListerProvider;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
         this.connectionDefinitionService = connectionDefinitionService;
         this.workspaceConnectionFacade = workspaceConnectionFacade;
         this.componentDefinitionService = componentDefinitionService;
@@ -288,6 +297,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptCodeEditorAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -314,6 +324,7 @@ public class CopilotConfiguration {
                         readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
                         workflowInstructionTools)))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -342,6 +353,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowCodeEditorAskResource))
             .tools(tools)
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -370,6 +382,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowCodeEditorBuildResource))
             .tools(tools)
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -398,6 +411,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptClusterElementAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -424,6 +438,7 @@ public class CopilotConfiguration {
                         readProjectWorkflowTools, clusterElementTools, componentTools, taskTools,
                         workflowValidatorTools, workflowInstructionTools)))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -515,6 +530,7 @@ public class CopilotConfiguration {
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .advisor(questionAnswerAdvisor)
+            .advisors(guardrailsAdvisors())
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
@@ -548,6 +564,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowEditorBuildResource))
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
+            .advisors(guardrailsAdvisors())
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .permissionService(permissionService)
@@ -577,6 +594,7 @@ public class CopilotConfiguration {
                     List.of(
                         projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
                         workflowInstructionTools)))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -607,6 +625,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSkillsAskResource))
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -633,6 +652,7 @@ public class CopilotConfiguration {
                     List.of(
                         skillsTools, readProjectTools, readProjectWorkflowTools, componentTools,
                         workflowValidatorTools, workflowInstructionTools)))
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -651,6 +671,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptJsonSchemaBuilderAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of()))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -671,6 +692,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptJsonSchemaBuilderBuildResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -689,6 +711,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSampleOutputAskResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of()))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -717,6 +740,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowExecutionAskResource))
             .tools(tools)
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -737,6 +761,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptSampleOutputBuildResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -761,6 +786,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptWorkflowExecutionBuildResource))
             .tools(tools)
             .state(state)
+            .advisors(guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -797,7 +823,7 @@ public class CopilotConfiguration {
         ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(codeEditorAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -834,7 +860,7 @@ public class CopilotConfiguration {
         ChatModel chatModel, ScriptTools scriptTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(codeEditorBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
@@ -874,7 +900,7 @@ public class CopilotConfiguration {
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools,
         Advisor questionAnswerAdvisor) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(workflowEditorAskSystemPrompt)
             .defaultAdvisors(questionAnswerAdvisor);
 
@@ -916,7 +942,7 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools,
         SimulationTools simulationTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(workflowEditorBuildSystemPrompt + BUILD_WORKFLOW_SUBAGENT_ADDENDUM)
             .defaultTools(
                 projectWorkflowTools, taskTools, scriptTools, simulationTools, workflowValidatorTools,
@@ -956,7 +982,7 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
         ScriptTools scriptTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(converterBuildSystemPrompt)
             .defaultTools(
                 projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools, workflowInstructionTools)
@@ -991,7 +1017,7 @@ public class CopilotConfiguration {
         ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(clusterElementAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1032,7 +1058,7 @@ public class CopilotConfiguration {
         ChatModel chatModel, ClusterElementTools clusterElementTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(clusterElementBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, clusterElementTools, componentTools, taskTools, workflowValidatorTools,
@@ -1070,7 +1096,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ReadSkillsTools readSkillsTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(skillsAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1113,7 +1139,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, SkillsTools skillsTools,
         ComponentTools componentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(skillsBuildSystemPrompt)
             .defaultTools(
                 skillsTools, readProjectTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
@@ -1157,7 +1183,7 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
-        ChatClient.Builder builder = ChatClient.builder(chatModel)
+        ChatClient.Builder builder = chatClientBuilder(chatModel)
             .defaultSystem(workflowExecutionAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
@@ -1204,12 +1230,55 @@ public class CopilotConfiguration {
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
         ScriptTools scriptTools, TaskTools taskTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(workflowExecutionBuildSystemPrompt)
             .defaultTools(
                 workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
+    }
+
+    /**
+     * Every sub-agent {@link ChatClient} in this configuration must be created through this method rather than
+     * {@code ChatClient.builder(...)} directly, so guardrails coverage is a build property instead of a convention.
+     *
+     * <p>
+     * This covers only the 11 stateless sub-agent {@link ChatClient} beans consumed by AI Hub delegation (the
+     * {@code *SubAgentChatClient} / {@code *SubAgentChatClientFactory} beans below). The {@code *SpringAIAgent} beans
+     * that back the interactive chat UI - here and in the other eight {@code *Configuration} classes in this module -
+     * build their {@link ChatClient} internally, inside the vendored spring-ai-ag-ui {@code SpringAIAgent} base class,
+     * so they cannot route through this method; each of their builder chains instead calls
+     * {@link CopilotGuardrailsAdvisorFactory#guardrailsAdvisors()} directly.
+     * </p>
+     *
+     * <p>
+     * Guardrails are EE-only. When no {@code AiGuardrailsAdvisorProvider} bean is on the classpath (CE builds, or an EE
+     * app that doesn't carry the guardrails module), {@link CopilotGuardrailsAdvisorFactory#guardrailsAdvisors()}
+     * returns an empty list and the returned builder simply has no guardrails advisor attached - this method never
+     * requires EE.
+     * </p>
+     */
+    private ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        builder.defaultAdvisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors());
+
+        return builder;
+    }
+
+    /**
+     * Advisor list for the {@code *SpringAIAgent.builder()} beans in this class, which build their {@link ChatClient}
+     * inside the vendored spring-ai-ag-ui {@code SpringAIAgent} base class ({@code ChatClient.builder(builder
+     * .chatModel).build()}, with no advisors attached there) rather than through {@link #chatClientBuilder(ChatModel)}.
+     * Each of those builders exposes its own covariant {@code advisors(List<Advisor>)} method inherited from
+     * {@code SpringAIAgent.Builder}, so every one of those chains must call {@code .advisors(guardrailsAdvisors())} -
+     * additively, alongside any other advisor the bean already attaches (e.g. the RAG {@code questionAnswerAdvisor} on
+     * {@link #workflowEditorAskSpringAIAgent}), never replacing it. Delegates to the module-wide
+     * {@link CopilotGuardrailsAdvisorFactory} bean shared by all nine {@code *Configuration} classes in this module,
+     * rather than resolving {@code AiGuardrailsAdvisorProvider} itself.
+     */
+    private List<Advisor> guardrailsAdvisors() {
+        return copilotGuardrailsAdvisorFactory.guardrailsAdvisors();
     }
 
     private String getSystemPrompt(Resource systemPromptResource) {

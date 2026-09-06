@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.DataTableSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -85,7 +86,8 @@ public class DataTableAgentConfiguration {
     DataTableSpringAIAgent dataTableAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DataTableToolCallbacksFactory dataTableToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.DATA_TABLE.name() + "_" + Mode.ASK.name();
@@ -98,6 +100,7 @@ public class DataTableAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, dataTableToolCallbacksFactory.readToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -106,7 +109,8 @@ public class DataTableAgentConfiguration {
     DataTableSpringAIAgent dataTableBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DataTableToolCallbacksFactory dataTableToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.DATA_TABLE.name() + "_" + Mode.BUILD.name();
@@ -119,6 +123,7 @@ public class DataTableAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, dataTableToolCallbacksFactory.writeToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

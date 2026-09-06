@@ -133,6 +133,16 @@ dependencies {
     implementation(project(":server:libs:automation:automation-knowledge-base:automation-knowledge-base-api"))
     implementation(project(":server:libs:config:app-config"))
     implementation(project(":server:libs:core:commons:commons-util"))
+    // `api`, not `implementation`: AiGuardrailsAdvisorProvider is the other parameter of
+    // CopilotGuardrailsAdvisorFactory's public constructor, so like SensitiveDataRedactor below it has to be
+    // visible to every downstream module that constructs one -- EE ai-copilot-service's generator tests do.
+    api(project(":server:libs:platform:platform-ai:platform-ai-api"))
+    // SensitiveDataRedactor / PiiTokenBoundaryToolCallingManager -- CopilotGuardrailsAdvisorFactory wraps the
+    // tool-calling manager it attaches so tool-call arguments have PII tokens restored before a tool runs, mirroring
+    // AgentToolCallingManagers (components:ai:agent) and ToolSearchAdvisorConfiguration (ai-hub-service).
+    // `api`, not `implementation`: SensitiveDataRedactor is a parameter of the factory's public constructor, so every
+    // downstream module that constructs one -- including the EE copilot modules' tests -- must be able to see the type.
+    api(project(":server:libs:platform:platform-ai:platform-ai-sensitive-data:platform-ai-sensitive-data-service"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-tool"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))

@@ -9,13 +9,16 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreFacade;
 import com.bytechef.ee.automation.contextstore.facade.ContextStoreSourceFacade;
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
 import com.bytechef.ee.platform.contextstore.service.ContextStoreQueryService;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -70,7 +73,7 @@ class ContextStoreAgentConfigurationConditionTest {
 
             context.register(
                 UngatedDependenciesConfiguration.class, ContextStoreDependenciesConfiguration.class,
-                ContextStoreAgentConfiguration.class);
+                CopilotGuardrailsAdvisorFactory.class, ContextStoreAgentConfiguration.class);
             context.refresh();
 
             assertThat(context.getBeanNamesForType(ContextStoreToolCallbacksFactory.class)).hasSize(1);
@@ -89,6 +92,11 @@ class ContextStoreAgentConfigurationConditionTest {
 
     @Configuration
     static class UngatedDependenciesConfiguration {
+
+        @Bean
+        SensitiveDataRedactor sensitiveDataRedactor() {
+            return new SensitiveDataRedactor(List.of());
+        }
 
         @Bean
         ChatMemory chatMemory() {

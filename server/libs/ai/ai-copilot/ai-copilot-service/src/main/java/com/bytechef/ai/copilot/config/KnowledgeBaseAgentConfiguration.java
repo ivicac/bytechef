@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.KnowledgeBaseSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -100,7 +101,8 @@ public class KnowledgeBaseAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         KnowledgeBaseToolCallbacksFactory knowledgeBaseToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.KNOWLEDGE_BASE.name() + "_" + Mode.ASK.name();
@@ -113,6 +115,7 @@ public class KnowledgeBaseAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, knowledgeBaseToolCallbacksFactory.readToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -122,7 +125,8 @@ public class KnowledgeBaseAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         KnowledgeBaseToolCallbacksFactory knowledgeBaseToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.KNOWLEDGE_BASE.name() + "_" + Mode.BUILD.name();
@@ -135,6 +139,7 @@ public class KnowledgeBaseAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, knowledgeBaseToolCallbacksFactory.writeToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

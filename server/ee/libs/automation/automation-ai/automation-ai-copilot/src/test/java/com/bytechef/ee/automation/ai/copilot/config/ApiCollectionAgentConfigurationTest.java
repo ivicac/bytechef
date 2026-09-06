@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.agui.core.exception.AGUIException;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
@@ -46,11 +47,11 @@ final class ApiCollectionAgentConfigurationTest {
     void testAskAgentUsesReadToolsAndBuildAgentUsesWriteTools() throws AGUIException {
         SliceSpringAIAgent askAgent = configuration.apiCollectionAskSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), apiCollectionToolCallbacksFactory,
-            securityContextRehydrator, emptyProvider());
+            securityContextRehydrator, emptyProvider(), mock(CopilotGuardrailsAdvisorFactory.class));
 
         SliceSpringAIAgent buildAgent = configuration.apiCollectionBuildSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), apiCollectionToolCallbacksFactory,
-            securityContextRehydrator, emptyProvider());
+            securityContextRehydrator, emptyProvider(), mock(CopilotGuardrailsAdvisorFactory.class));
 
         assertThat(askAgent.getAgentId()).isEqualTo("api_collection_ask");
         assertThat(buildAgent.getAgentId()).isEqualTo("api_collection_build");

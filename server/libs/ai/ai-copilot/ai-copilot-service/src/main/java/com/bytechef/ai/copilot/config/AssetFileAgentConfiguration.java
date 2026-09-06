@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -84,7 +85,8 @@ public class AssetFileAgentConfiguration {
     SliceSpringAIAgent assetFileAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, AssetFileToolCallbacksFactory assetFileToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.ASSET_FILE.name() + "_" + Mode.ASK.name();
@@ -96,6 +98,7 @@ public class AssetFileAgentConfiguration {
             .systemMessage(readPrompt(promptAssetFileAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, assetFileToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .sourceOrdinal(AutomationToolInvocationContext.SOURCE_ORDINAL_FILES)
             .build();
@@ -105,7 +108,8 @@ public class AssetFileAgentConfiguration {
     SliceSpringAIAgent assetFileBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, AssetFileToolCallbacksFactory assetFileToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.ASSET_FILE.name() + "_" + Mode.BUILD.name();
@@ -117,6 +121,7 @@ public class AssetFileAgentConfiguration {
             .systemMessage(readPrompt(promptAssetFileBuildResource))
             .state(state)
             .toolCallbacks(buildToolCallbacks(securityContextRehydrator, assetFileToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .sourceOrdinal(AutomationToolInvocationContext.SOURCE_ORDINAL_FILES)
             .build();

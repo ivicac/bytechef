@@ -11,6 +11,7 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.constant.PlatformType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -60,13 +61,33 @@ public class AiGuardrailsAdvisorProviderImpl implements AiGuardrailsAdvisorProvi
         @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface) {
 
         Long workspaceId = jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId);
+        AiGuardrailMetrics metrics = buildMetricsIfActive(workspaceId, surface);
 
-        if (!aiGuardrails.isActive(workspaceId)) {
+        if (metrics == null) {
             return Optional.empty();
         }
 
-        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistryProvider.getIfAvailable(), surface);
-
         return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, workspaceId, metrics));
+    }
+
+    @Override
+    public @Nullable SensitiveDataMetrics getMetrics(
+        @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface) {
+
+        return buildMetricsIfActive(jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId), surface);
+    }
+
+    /**
+     * Shared by {@link #getAdvisor} and {@link #getMetrics} so both resolve through the identical active/inactive gate
+     * and build the identical {@link AiGuardrailMetrics} instance -- the metrics {@link #getMetrics} returns for a
+     * given call is exactly the one {@link #getAdvisor} would hand to {@link AiGuardrailsAdvisor} for the identical
+     * arguments, not a second, independently-gated instance that could disagree with it.
+     */
+    private @Nullable AiGuardrailMetrics buildMetricsIfActive(@Nullable Long workspaceId, String surface) {
+        if (!aiGuardrails.isActive(workspaceId)) {
+            return null;
+        }
+
+        return new AiGuardrailMetrics(meterRegistryProvider.getIfAvailable(), surface);
     }
 }
