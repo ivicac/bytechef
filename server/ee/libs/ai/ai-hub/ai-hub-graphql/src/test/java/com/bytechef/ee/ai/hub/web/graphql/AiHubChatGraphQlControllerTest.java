@@ -79,7 +79,7 @@ class AiHubChatGraphQlControllerTest {
         AiHubChat result = controller.generateAiHubChatTitle(7L, 42L);
 
         assertThat(result).isSameAs(existing);
-        verify(titleGenerationService, never()).generateTitle(any());
+        verify(titleGenerationService, never()).generateTitle(any(), anyLong());
         verify(chatService, never()).patch(anyLong(), anyLong(), anyLong(), any());
     }
 
@@ -107,7 +107,7 @@ class AiHubChatGraphQlControllerTest {
         when(existing.isAutoTitled()).thenReturn(true);
         when(chatService.getById(42L, 7L, 10L)).thenReturn(existing);
         when(chatService.loadMessages(42L, 7L, 10L)).thenReturn(List.of());
-        when(titleGenerationService.generateTitle(List.of())).thenReturn("Fresh title");
+        when(titleGenerationService.generateTitle(List.of(), 7L)).thenReturn("Fresh title");
 
         AiHubChat patched = mock(AiHubChat.class);
 
@@ -147,7 +147,7 @@ class AiHubChatGraphQlControllerTest {
         when(existing.isAutoTitled()).thenReturn(true);
         when(chatService.getById(42L, 7L, 10L)).thenReturn(existing);
         when(chatService.loadMessages(42L, 7L, 10L)).thenReturn(List.of());
-        when(titleGenerationService.generateTitle(List.of())).thenReturn("");
+        when(titleGenerationService.generateTitle(List.of(), 7L)).thenReturn("");
 
         AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
             artifactService, chatService, titleGenerationService, userService, workspaceFacade);

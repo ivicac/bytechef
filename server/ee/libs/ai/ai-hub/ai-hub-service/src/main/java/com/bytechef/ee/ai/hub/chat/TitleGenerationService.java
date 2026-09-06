@@ -9,14 +9,18 @@ package com.bytechef.ee.ai.hub.chat;
 
 import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
 import com.bytechef.ee.ai.hub.exception.TitleGenerationFailedException;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -50,10 +54,14 @@ public class TitleGenerationService {
         "Given this short exchange, produce a concise 4-8 word title describing the topic. " +
             "Return only the title, no quotes, no trailing punctuation.";
 
+    private final ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider;
     private final ChatModel chatModel;
 
-    public TitleGenerationService(ChatModel chatModel) {
+    public TitleGenerationService(
+        ChatModel chatModel, ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider) {
+
         this.chatModel = chatModel;
+        this.aiGuardrailsAdvisorProviderProvider = aiGuardrailsAdvisorProviderProvider;
     }
 
     /**
@@ -64,7 +72,7 @@ public class TitleGenerationService {
      * @throws TitleGenerationFailedException when the upstream chat model fails (network, rate-limit, 5xx); allows the
      *                                        controller to map to 503 so the client toasts the failure
      */
-    public String generateTitle(List<AiHubChatMessage> messages) {
+    public String generateTitle(List<AiHubChatMessage> messages, @Nullable Long workspaceId) {
         List<AiHubChatMessage> selectedMessages = selectMessages(messages);
 
         if (selectedMessages.isEmpty()) {
@@ -78,7 +86,10 @@ public class TitleGenerationService {
         String response;
 
         try {
-            ChatResponse chatResponse = chatModel.call(new Prompt(promptText));
+            ChatResponse chatResponse = guardedChatClient(workspaceId)
+                .prompt(promptText)
+                .call()
+                .chatResponse();
 
             Generation generation = chatResponse == null ? null : chatResponse.getResult();
 
@@ -151,6 +162,34 @@ public class TitleGenerationService {
         }
 
         return selected;
+    }
+
+    /**
+     * Wraps {@code chatModel} in a {@link ChatClient} carrying the workspace's guardrails advisor.
+     *
+     * <p>
+     * The prompt embeds the user's own chat messages, so this call carries the same content the chat turn does.
+     * {@code AiGuardrailsAdvisor} is a {@link ChatClient} advisor, so the previous {@code chatModel.call(new
+     * Prompt(...))} could not be intercepted by it at all -- a workspace with PII redaction enabled redacted the turn
+     * and did not redact the title generated from it.
+     * </p>
+     *
+     * <p>
+     * A null workspace, or a CE build with no guardrails provider, yields an unadvised client -- the same
+     * tenant-default fallback every other surface has, not a silent bypass.
+     * </p>
+     */
+    private ChatClient guardedChatClient(@Nullable Long workspaceId) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = aiGuardrailsAdvisorProviderProvider.getIfAvailable();
+
+        if (aiGuardrailsAdvisorProvider != null) {
+            aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(workspaceId, GuardrailSurface.AI_HUB)
+                .ifPresent(builder::defaultAdvisors);
+        }
+
+        return builder.build();
     }
 
     private String formatExchange(List<AiHubChatMessage> messages) {
