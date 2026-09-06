@@ -92,6 +92,7 @@ const AiGuardrails = () => {
                 blockedTerms: blockedTermsList.length > 0 ? blockedTermsList.join(',') : undefined,
                 blockingMode: form.blockingMode,
                 injectionDetectionEnabled: form.injectionDetectionEnabled,
+                minConfidence: data?.aiGuardrailsWorkspaceSettings?.minConfidence ?? undefined,
                 moderationEnabled: form.moderationEnabled,
                 redactMcpResults: form.redactMcpResults,
                 redactPii: form.redactPii,
