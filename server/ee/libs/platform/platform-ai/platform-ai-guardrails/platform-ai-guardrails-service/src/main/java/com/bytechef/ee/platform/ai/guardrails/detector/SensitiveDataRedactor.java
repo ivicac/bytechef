@@ -8,10 +8,12 @@
 package com.bytechef.ee.platform.ai.guardrails.detector;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -181,6 +183,52 @@ public class SensitiveDataRedactor {
     }
 
     /**
+     * As {@link #redactWithSpans}, but PII spans become tokens minted by {@code session} while SECRET spans keep their
+     * {@code [REDACTED_SECRET]} placeholder.
+     *
+     * <p>
+     * Secrets deliberately do not tokenize. Restoring a secret would take a credential the guardrail successfully
+     * caught and paste it back into the output, defeating the catch. The two treatments come from one pass over the
+     * same resolved spans, so there is no second pipeline to drift.
+     * </p>
+     *
+     * @param text    the text to tokenize
+     * @param kinds   the kinds the caller's policy has enabled
+     * @param session the session minting tokens for this request
+     * @param metrics the metrics instance to count detector failures through, or {@code null}
+     * @return the tokenized text and the spans applied to produce it
+     */
+    public RedactionResult tokenizeWithSpans(
+        String text, Set<SensitiveKind> kinds, PiiTokenSession session, @Nullable AiGuardrailMetrics metrics) {
+
+        // text is non-null by contract -- callers (AiGuardrails' redactPiiAndSecrets) guard null/empty before ever
+        // delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a redaction path,
+        // where failing soft (returning the input unchanged) beats throwing on a future caller that does not honour
+        // the contract. It does not mean this parameter is expected to receive null.
+        if (text == null || text.isEmpty() || kinds.isEmpty()) {
+            return new RedactionResult(text, List.of());
+        }
+
+        List<SensitiveSpan> candidates = filterByKind(detectCandidates(text, metrics), kinds);
+
+        if (candidates.isEmpty()) {
+            return new RedactionResult(text, List.of());
+        }
+
+        List<SensitiveSpan> accepted = resolve(candidates);
+
+        String tokenized = apply(text, accepted, span -> {
+            if (span.kind() == SensitiveKind.SECRET) {
+                return span.placeholder();
+            }
+
+            return session.tokenFor(span.category(), text.substring(span.start(), span.end()));
+        });
+
+        return new RedactionResult(tokenized, accepted);
+    }
+
+    /**
      * The outcome of one redaction: the resulting text, and the non-overlapping spans that produced it.
      *
      * @param text     the redacted text
@@ -251,6 +299,25 @@ public class SensitiveDataRedactor {
      * @return the redacted text
      */
     static String apply(String text, List<SensitiveSpan> accepted) {
+        return apply(text, accepted, SensitiveSpan::placeholder);
+    }
+
+    /**
+     * Replaces every accepted span with whatever {@code replacer} returns for it, working right to left so that each
+     * replacement leaves the offsets of the spans not yet applied valid.
+     *
+     * <p>
+     * The replacer is what lets one pass produce two treatments: redaction passes {@code SensitiveSpan::placeholder},
+     * tokenization passes a function that mints a token for PII and keeps the placeholder for secrets. Without it,
+     * tokenization would need a parallel copy of this loop.
+     * </p>
+     *
+     * @param text     the original text the spans were located in
+     * @param accepted non-overlapping spans, in any order
+     * @param replacer produces the replacement text for one span
+     * @return the rewritten text
+     */
+    static String apply(String text, List<SensitiveSpan> accepted, Function<SensitiveSpan, String> replacer) {
         if (accepted.isEmpty()) {
             return text;
         }
@@ -264,7 +331,7 @@ public class SensitiveDataRedactor {
         StringBuilder builder = new StringBuilder(text);
 
         for (SensitiveSpan span : ordered) {
-            builder.replace(span.start(), span.end(), span.placeholder());
+            builder.replace(span.start(), span.end(), replacer.apply(span));
         }
 
         return builder.toString();

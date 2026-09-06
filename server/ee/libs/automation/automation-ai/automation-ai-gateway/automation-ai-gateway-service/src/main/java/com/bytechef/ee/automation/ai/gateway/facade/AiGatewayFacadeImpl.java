@@ -53,6 +53,8 @@ import com.bytechef.ee.platform.ai.gateway.service.AiGatewayRoutingPolicyService
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewaySpendService;
 import com.bytechef.ee.platform.ai.gateway.util.AiGatewayConstraintMatchers;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiToken;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.Money;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -388,39 +390,65 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             request = prependSystemMessage(request, resolvedPrompt.content());
         }
 
-        request = aiGatewayGuardrails.apply(request, workspaceId, projectId);
-
-        long startTime = System.currentTimeMillis();
-
-        AiGatewayChatCompletionResponse response;
-        boolean success = true;
-
-        request = applyRoutingPolicyPrecedence(request, connectedUserId, embeddedSettings);
+        // One token session per HTTP exchange: apply() tokenizes PII on the way out, scanResponse()+restoreResponse()
+        // scan then restore it on the way back in (see the comment further down for why those two are kept apart
+        // rather than calling the combined redactResponse()). The session holds every PII value the detectors found
+        // for as long as it lives, so it must be closed on every termination path -- including the rethrow below --
+        // hence the try/finally wrapping both guardrail calls rather than a local variable released only after a
+        // successful return.
+        PiiTokenSession session = aiGatewayGuardrails.newTokenSession();
 
         try {
-            if (request.routingPolicy() != null) {
-                response = chatCompletionWithRouting(request, connectedUserId);
-            } else {
-                response = chatCompletionDirect(request, connectedUserId);
+            request = aiGatewayGuardrails.apply(request, workspaceId, projectId, session);
+
+            long startTime = System.currentTimeMillis();
+
+            AiGatewayChatCompletionResponse response;
+            boolean success = true;
+
+            request = applyRoutingPolicyPrecedence(request, connectedUserId, embeddedSettings);
+
+            try {
+                if (request.routingPolicy() != null) {
+                    response = chatCompletionWithRouting(request, connectedUserId);
+                } else {
+                    response = chatCompletionDirect(request, connectedUserId);
+                }
+            } catch (Exception exception) {
+                success = false;
+
+                processTracingHeaders(
+                    tracingHeaders, workspaceId, request, null, startTime, false, resolvedPrompt, connectedUserId);
+
+                throw exception;
             }
-        } catch (Exception exception) {
-            success = false;
+
+            // Dual-directional scanning: redact PII/secrets from the completion before it is traced or returned, so
+            // internal data does not leak back through the model output. Non-streaming path only — see
+            // chatCompletionStream for the streaming path.
+            //
+            // Scan, trace, THEN restore -- deliberately three steps, not AiGatewayGuardrails#redactResponse's combined
+            // scan+restore. Tracing must see the SCANNED response (this exchange's own [PII_*] tokens still in place,
+            // any genuinely new PII/secrets the model produced already masked) and never the RESTORED one: restoring
+            // first would persist this request's real PII values into the trace row and, worse, the per-generation
+            // span row, which (unlike the trace row) has no digest-instead-of-payload option at all -- see
+            // processTracingHeaders. Restoring only after tracing keeps the response returned to the caller correct
+            // (the real values still come back) while keeping what gets persisted for observability exactly what the
+            // provider actually produced.
+            AiGatewayChatCompletionResponse scannedResponse =
+                aiGatewayGuardrails.scanResponse(response, workspaceId, projectId);
 
             processTracingHeaders(
-                tracingHeaders, workspaceId, request, null, startTime, false, resolvedPrompt, connectedUserId);
+                tracingHeaders, workspaceId, request, scannedResponse, startTime, success, resolvedPrompt,
+                connectedUserId);
 
-            throw exception;
+            response = aiGatewayGuardrails.restoreResponse(scannedResponse, session);
+
+            return withGatewayMetadata(response, request, startTime);
+        } finally {
+            session.close();
         }
 
-        // Dual-directional scanning: redact PII/secrets from the completion before it is traced or returned, so
-        // internal data does not leak back through the model output. Redaction only (never blocks); non-streaming path
-        // only — see chatCompletionStream for the streaming path.
-        response = aiGatewayGuardrails.redactResponse(response, workspaceId, projectId);
-
-        processTracingHeaders(
-            tracingHeaders, workspaceId, request, response, startTime, success, resolvedPrompt, connectedUserId);
-
-        return withGatewayMetadata(response, request, startTime);
     }
 
     /**
@@ -1215,7 +1243,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
     private AiGatewayChatCompletionResponse chatCompletionDirect(
         AiGatewayChatCompletionRequest request, @Nullable Long connectedUserId) {
-        if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+        if (isCacheable(request)) {
             String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
             AiGatewayChatCompletionResponse cached = aiGatewayResponseCache.get(cacheKey);
 
@@ -1265,7 +1293,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
             AiGatewayChatCompletionResponse response = toResponse(chatResponse, request.model());
 
-            if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+            if (isCacheable(request)) {
                 String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
 
                 try {
@@ -1302,7 +1330,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         // Response cache is keyed on the request content (model-agnostic), so it applies to the routing path exactly
         // as it does to the direct path; previously routed requests always bypassed the cache.
-        if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+        if (isCacheable(request)) {
             String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
             AiGatewayChatCompletionResponse cached = aiGatewayResponseCache.get(cacheKey);
 
@@ -1404,7 +1432,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                     return toResponse(chatResponse, request.model());
                 });
 
-            if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+            if (isCacheable(request)) {
                 String cacheKey = aiGatewayResponseCache.computeCacheKey(request, connectedUserId);
 
                 try {
@@ -2448,6 +2476,13 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         return 500;
     }
 
+    /**
+     * Persists the trace row and, on success, a per-generation span for this exchange. {@code response}, when
+     * non-{@code null}, must be the SCANNED-but-not-yet-restored response (see {@code chatCompletion}'s call site) —
+     * both the trace's {@code output} and the span's {@code output} are read off it, and neither ever digests the span,
+     * so a restored response here would persist this exchange's real PII values into the span store even on a workspace
+     * with PII redaction/tokenization enabled.
+     */
     private void processTracingHeaders(
         AiObservabilityTracingHeaders tracingHeaders,
         @Nullable Long workspaceId,
@@ -2895,7 +2930,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     /**
      * Returns {@code true} when the workspace's {@code cacheEnabled} setting is unset or true. Defaults to true so
      * workspaces without explicit settings keep the gateway's existing cache behavior. Callers must still gate on
-     * {@link AiGatewayResponseCache#shouldCache} for the request-level checks (deterministic, non-streaming).
+     * {@link AiGatewayResponseCache#shouldCache} for the request-level checks (deterministic, non-streaming), and on
+     * {@link #isCacheable} for the combined decision including PII tokenization.
      */
     private boolean isWorkspaceCachingEnabled(@Nullable Map<String, String> tags) {
         if (tags == null || !tags.containsKey("workspace_id")) {
@@ -2911,6 +2947,58 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         } catch (NumberFormatException malformed) {
             return true;
         }
+    }
+
+    /**
+     * Returns {@code true} when {@code request} may be read from or written to the response cache: workspace caching is
+     * enabled, {@link AiGatewayResponseCache#shouldCache} agrees, AND {@code request} carries no PII token.
+     *
+     * <p>
+     * PII tokenization makes the response cache's existing key composition unsafe for a tokenized request in TWO
+     * distinct ways that both had to be closed, not just one:
+     * </p>
+     * <ol>
+     * <li>Keying on the tokenized request (the pre-tokenization behavior, unchanged): each session mints a fresh random
+     * {@code sessionId} per exchange, so the same PII value now hashes to a different key on every request. The cache
+     * can never hit for a PII-bearing prompt once PII redaction is enabled, and every miss still calls
+     * {@link AiGatewayResponseCache#put}, permanently filling a shared cache with single-use entries that evict
+     * reusable ones for no benefit. This method's PII-token check exists specifically to stop that: a request carrying
+     * a token is simply never cached, on either the read or the write side.</li>
+     * <li>Keying on the PRE-tokenization request instead (the obvious-looking "fix" for the above — do NOT do this):
+     * before tokenization, two different users' different PII values redacted to the identical {@code [REDACTED_EMAIL]}
+     * placeholder, so they legitimately shared one cache key and one cached response — safe, because the cached
+     * response itself never held a real value. Now that responses are restored with real values before being returned,
+     * a cache entry keyed on pre-tokenization content would let one user's session restore and serve BACK ANOTHER
+     * USER'S real PII value that a completely different request happened to trigger — a cross-session PII leak. This is
+     * why the fix is "skip the cache", not "key on something more stable".</li>
+     * </ol>
+     *
+     * @see PiiToken#pattern()
+     */
+    private boolean isCacheable(AiGatewayChatCompletionRequest request) {
+        return isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)
+            && !containsPiiToken(request);
+    }
+
+    /**
+     * Returns {@code true} when any USER/SYSTEM/ASSISTANT message content in {@code request} contains a
+     * {@link PiiToken}-shaped span — i.e. {@code request} has already been through session-carrying PII tokenization
+     * (see {@link #chatCompletion}). Used by {@link #isCacheable} to keep a tokenized request out of the response cache
+     * entirely; see that method's javadoc for why.
+     */
+    private static boolean containsPiiToken(AiGatewayChatCompletionRequest request) {
+        for (AiGatewayChatMessage message : request.messages()) {
+            String content = message.content();
+
+            if (content != null && PiiToken.pattern()
+                .matcher(content)
+                .find()) {
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

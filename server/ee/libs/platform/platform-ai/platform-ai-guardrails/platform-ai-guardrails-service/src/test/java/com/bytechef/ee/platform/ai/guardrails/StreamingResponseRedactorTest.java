@@ -14,6 +14,7 @@ import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataDetectors;
 import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataRedactor;
 import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveKind;
 import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -323,6 +324,135 @@ class StreamingResponseRedactorTest {
         assertThat(
             meterRegistry.counter(AiGuardrailMetrics.COUNTER_NAME, "event", "detector_failed", "surface", "ai_hub")
                 .count()).isGreaterThan(0.0);
+    }
+
+    @Test
+    void testATokenIsNeverSplitAcrossEmittedChunks() {
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String token = session.tokenFor("EMAIL", "bob@acme.io");
+        String text = "please contact " + token + " about the outage as soon as you can today";
+
+        // A token this shape (category EMAIL, single-digit ordinal, 4-char session id) is 18 characters
+        // ("[PII_EMAIL_1_xxxx]"). The window must comfortably exceed that, same rule as every other char-by-char
+        // test in this file (see testCharByCharFeedNeverLeaksAndMatchesWholeBufferRedaction's comment) -- a window
+        // only 1-2 characters short of the token's length reproduces exactly the documented
+        // testValueLongerThanTheWindowMayHaveAPrefixEmitted trade-off, where the token's opening bracket is evicted
+        // one push before the closing bracket arrives and the token can never be recognised as a whole.
+        StreamingResponseRedactor streamingRedactor = new StreamingResponseRedactor(redactor, 32, session);
+
+        StringBuilder emitted = new StringBuilder();
+
+        for (int index = 0; index < text.length(); index++) {
+            emitted.append(streamingRedactor.push(text.substring(index, index + 1)));
+        }
+
+        emitted.append(streamingRedactor.flush());
+
+        assertThat(emitted.toString()).isEqualTo(
+            "please contact bob@acme.io about the outage as soon as you can today");
+    }
+
+    /**
+     * {@link PiiTokenSession#restore} alone throws away how many tokens it could not resolve, so the streaming path
+     * must go through {@link PiiTokenSession#restoreWithUnresolvedCount} and record the same two metrics
+     * {@code AiGuardrails#restoreResponseText} records for the non-streaming path, or a token substitution on the
+     * streaming path would be invisible to metrics entirely.
+     */
+    @Test
+    void testRestorationRecordsPiiRestoredMetric() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+        PiiTokenSession session = PiiTokenSession.create();
+        String token = session.tokenFor("EMAIL", "bob@acme.io");
+
+        StreamingResponseRedactor streamingRedactor = new StreamingResponseRedactor(redactor, metrics, session);
+
+        String emitted = streamingRedactor.push("contact " + token + " today") + streamingRedactor.flush();
+
+        assertThat(emitted).isEqualTo("contact bob@acme.io today");
+        assertThat(
+            meterRegistry.counter(AiGuardrailMetrics.COUNTER_NAME, "event", "pii_restored", "surface", "ai_hub")
+                .count()).isGreaterThan(0.0);
+        assertThat(
+            meterRegistry.find(AiGuardrailMetrics.COUNTER_NAME)
+                .tag("event", "token_unresolved")
+                .counter())
+                    .as("no token was unresolved, so this counter should never have been touched")
+                    .isNull();
+    }
+
+    /**
+     * The alarm signal {@code token_unresolved} exists for: a token-shaped span this session never minted (here, one
+     * minted by a different session) is left completely untouched in the output -- not restored, not stripped -- and
+     * the miss is still counted, so an operator watching this metric on the exact path this task made live is not
+     * flying blind.
+     */
+    @Test
+    void testRestorationRecordsTokenUnresolvedMetricForForeignToken() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+        PiiTokenSession session = PiiTokenSession.create();
+
+        // PiiTokenSession#restoreWithUnresolvedCount short-circuits (skips scanning entirely) when this session has
+        // minted nothing at all -- so an empty session correctly restores nothing, but would also never notice a
+        // foreign token, for the same reason a session that minted nothing has nothing to compare against. Minting
+        // one token of our own is what makes the foreign token below a genuine miss rather than an untested case.
+        session.tokenFor("EMAIL", "known@acme.io");
+
+        PiiTokenSession foreignSession = PiiTokenSession.create();
+        String foreignToken = foreignSession.tokenFor("EMAIL", "someone@else.example.com");
+
+        StreamingResponseRedactor streamingRedactor = new StreamingResponseRedactor(redactor, metrics, session);
+
+        String emitted = streamingRedactor.push("contact " + foreignToken + " today") + streamingRedactor.flush();
+
+        assertThat(emitted).isEqualTo("contact " + foreignToken + " today");
+        assertThat(
+            meterRegistry.counter(AiGuardrailMetrics.COUNTER_NAME, "event", "token_unresolved", "surface", "ai_hub")
+                .count()).isGreaterThan(0.0);
+    }
+
+    /**
+     * Restoration is independent of scanning (see the class javadoc's "Restoration is independent of scanning"
+     * paragraph): with an empty {@code kinds} set -- the shape {@code AiGuardrails} uses when the operator has not
+     * opted into streaming response scanning -- a session's minted token still restores, char by char, without ever
+     * being split, while a genuinely new email in the same text is left completely alone. The un-redacted new email is
+     * the load-bearing assertion: without it, a bug that accidentally still scanned with every kind would pass this
+     * test too, since it would also restore the token (scanning first is a no-op over a token, which matches no PII
+     * pattern) and this test would not catch a reversal of the "restoration is independent of scanning" invariant.
+     */
+    @Test
+    void testTokenRestoredWithoutScanningAndNeverSplitAcrossChunks() {
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String token = session.tokenFor("EMAIL", "bob@acme.io");
+        String text = "please contact " + token + " about jane.doe@example.com and the outage today";
+
+        // Same window precondition as testATokenIsNeverSplitAcrossEmittedChunks (32, comfortably above the token's
+        // 18 characters) -- restoration still needs the token to survive intact in the buffer, even though scanning
+        // itself is off.
+        StreamingResponseRedactor streamingRedactor =
+            new StreamingResponseRedactor(redactor, 32, null, session, EnumSet.noneOf(SensitiveKind.class));
+
+        StringBuilder emitted = new StringBuilder();
+
+        for (int index = 0; index < text.length(); index++) {
+            emitted.append(streamingRedactor.push(text.substring(index, index + 1)));
+        }
+
+        emitted.append(streamingRedactor.flush());
+
+        assertThat(emitted.toString()).contains("bob@acme.io");
+        assertThat(emitted.toString()).doesNotContain(token);
+        assertThat(emitted.toString()).contains("jane.doe@example.com");
+        assertThat(emitted.toString()).doesNotContain("[REDACTED_EMAIL]");
     }
 
     private static SensitiveDataDetector throwingDetector() {
