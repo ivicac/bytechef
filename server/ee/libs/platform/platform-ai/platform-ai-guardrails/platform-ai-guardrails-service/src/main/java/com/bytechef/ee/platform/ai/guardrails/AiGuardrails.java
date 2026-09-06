@@ -22,6 +22,7 @@ import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -157,11 +158,40 @@ public class AiGuardrails {
         this(
             aiGuardrailsWorkspaceSettingsService, injectionClassifier, moderationClassifier, metrics,
             SensitiveDataDetectors.builtIn(), piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
-            injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled);
+            injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput());
     }
 
-    // Two constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this one
-    // as the container's entry point, so contributed SensitiveDataDetector beans reach the engine.
+    /**
+     * The detector-list form without detection bounds, kept so the nine direct construction sites -- all tests --
+     * compile unchanged and get {@link SensitiveDataRedactor.DetectionBounds#DEFAULTS}. A test that wants to exercise a
+     * bound configures {@code SensitiveDataRedactor} directly rather than through this engine.
+     */
+    public AiGuardrails(
+        AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
+        @Nullable AiGatewayInjectionClassifier injectionClassifier,
+        @Nullable AiGatewayModerationClassifier moderationClassifier,
+        @Nullable AiGuardrailMetrics metrics,
+        List<SensitiveDataDetector> sensitiveDataDetectors,
+        boolean piiRedactionEnabled,
+        boolean secretRedactionEnabled,
+        String blockedTerms,
+        boolean injectionDetectionEnabled,
+        boolean moderationEnabled,
+        boolean responseScanEnabled,
+        boolean streamingResponseScanEnabled) {
+
+        this(
+            aiGuardrailsWorkspaceSettingsService, injectionClassifier, moderationClassifier, metrics,
+            sensitiveDataDetectors, piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
+            injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput());
+    }
+
+    // Three constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this
+    // one as the container's entry point, so contributed SensitiveDataDetector beans reach the engine.
     @Autowired
     public AiGuardrails(
         AiGuardrailsWorkspaceSettingsService aiGuardrailsWorkspaceSettingsService,
@@ -177,7 +207,11 @@ public class AiGuardrails {
         @Value("${bytechef.ai.gateway.guardrails.injection-detection-enabled:false}") boolean injectionDetectionEnabled,
         @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled,
         @Value("${bytechef.ai.gateway.guardrails.response-scan-enabled:false}") boolean responseScanEnabled,
-        @Value("${bytechef.ai.gateway.guardrails.response-scan-streaming-enabled:false}") boolean streamingResponseScanEnabled) {
+        @Value("${bytechef.ai.gateway.guardrails.response-scan-streaming-enabled:false}") boolean streamingResponseScanEnabled,
+        // These two sit under bytechef.ai.guardrails, not the gateway prefix above: they bound the shared CE
+        // detection engine rather than anything the AI Gateway owns.
+        @Value("${bytechef.ai.guardrails.detection.timeout:2s}") Duration detectionTimeout,
+        @Value("${bytechef.ai.guardrails.detection.max-unwindowable-input:262144}") int maxUnwindowableInput) {
 
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
@@ -190,7 +224,9 @@ public class AiGuardrails {
         this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
         this.metrics = metrics;
-        this.sensitiveDataRedactor = new SensitiveDataRedactor(sensitiveDataDetectors);
+        this.sensitiveDataRedactor = new SensitiveDataRedactor(
+            sensitiveDataDetectors,
+            new SensitiveDataRedactor.DetectionBounds(detectionTimeout, maxUnwindowableInput));
         this.streamSafeSensitiveDataRedactor = this.sensitiveDataRedactor.streamSafeView();
     }
 

@@ -1450,7 +1450,17 @@ public class ApplicationProperties {
 
         public static class Guardrails {
 
+            private Detection detection = new Detection();
+
             private OpenNlp openNlp = new OpenNlp();
+
+            public Detection getDetection() {
+                return detection;
+            }
+
+            public void setDetection(Detection detection) {
+                this.detection = detection;
+            }
 
             public OpenNlp getOpenNlp() {
                 return openNlp;
@@ -1458,6 +1468,39 @@ public class ApplicationProperties {
 
             public void setOpenNlp(OpenNlp openNlp) {
                 this.openNlp = openNlp;
+            }
+
+            /**
+             * Bounds on one sensitive-data detection pass. Detection is synchronous and pre-LLM, over text that
+             * routinely carries a retrieved document or a whole conversation history, and the engine's fail-open catch
+             * cannot help with a slow detector because a slow detector never throws.
+             *
+             * <p>
+             * Defaults must equal {@code SensitiveDataRedactor.DetectionBounds.DEFAULTS} exactly. Two sets of defaults
+             * that can drift is how a documented value stops being the real one.
+             * </p>
+             */
+            public static class Detection {
+
+                private Duration timeout = Duration.ofSeconds(2);
+
+                private int maxUnwindowableInput = 262144;
+
+                public Duration getTimeout() {
+                    return timeout;
+                }
+
+                public void setTimeout(Duration timeout) {
+                    this.timeout = timeout;
+                }
+
+                public int getMaxUnwindowableInput() {
+                    return maxUnwindowableInput;
+                }
+
+                public void setMaxUnwindowableInput(int maxUnwindowableInput) {
+                    this.maxUnwindowableInput = maxUnwindowableInput;
+                }
             }
 
             public static class OpenNlp {

@@ -94,4 +94,24 @@ class SensitiveSpanTest {
         assertThat(rendered).contains("2");
         assertThat(rendered).contains("40");
     }
+
+    @Test
+    void testWithOffsetMovesBothEndsAndKeepsEverythingElse() {
+        SensitiveSpan span = new SensitiveSpan(SensitiveKind.PII, "EMAIL_ADDRESS", 5, 20, 0.9);
+
+        SensitiveSpan offset = span.withOffset(1000);
+
+        assertThat(offset.start()).isEqualTo(1005);
+        assertThat(offset.end()).isEqualTo(1020);
+        assertThat(offset.kind()).isEqualTo(span.kind());
+        assertThat(offset.category()).isEqualTo(span.category());
+        assertThat(offset.confidence()).isEqualTo(span.confidence());
+    }
+
+    @Test
+    void testWithOffsetOfZeroReturnsAnEqualSpan() {
+        SensitiveSpan span = new SensitiveSpan(SensitiveKind.SECRET, "AWS_ACCESS_KEY", 0, 20, 0.9);
+
+        assertThat(span.withOffset(0)).isEqualTo(span);
+    }
 }

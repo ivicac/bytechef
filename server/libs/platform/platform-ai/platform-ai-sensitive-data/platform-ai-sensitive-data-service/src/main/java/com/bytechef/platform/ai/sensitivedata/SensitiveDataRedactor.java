@@ -17,9 +17,12 @@
 package com.bytechef.platform.ai.sensitivedata;
 
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -73,6 +76,12 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
+// CT_CONSTRUCTOR_THROW: the constructor validates its bounds and so can throw, which SpotBugs flags because this
+// class is not final and a subclass could in principle be attacked through a finalizer. It cannot be made final --
+// PiiTokenBoundaryToolCallingManagerTest subclasses it for throwing test doubles -- and nothing in this hierarchy
+// declares a finalizer. Rejecting a null DetectionBounds is worth more than the theoretical attack: silently
+// substituting the defaults would make a misconfigured caller look correctly configured.
+@SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
 public class SensitiveDataRedactor {
 
     /**
@@ -103,9 +112,42 @@ public class SensitiveDataRedactor {
         .thenComparing(SensitiveSpan::category);
 
     private final List<SensitiveDataDetector> detectors;
+    private final DetectionBounds bounds;
 
     public SensitiveDataRedactor(List<SensitiveDataDetector> detectors) {
+        this(detectors, DetectionBounds.DEFAULTS);
+    }
+
+    public SensitiveDataRedactor(List<SensitiveDataDetector> detectors, DetectionBounds bounds) {
         this.detectors = List.copyOf(detectors);
+        this.bounds = Objects.requireNonNull(bounds, "bounds must not be null");
+    }
+
+    /**
+     * The bounds a detection pass runs under. Detection is synchronous and pre-LLM, over text that routinely carries a
+     * retrieved document, a pasted file or a whole conversation history, so without these it is unbounded in both size
+     * and time on the request thread -- and the engine's fail-open catch cannot help, because a slow detector never
+     * throws.
+     *
+     * @param timeout              the budget for the whole pass, checked between detectors. Cooperative, so it bounds
+     *                             the aggregate but cannot interrupt a single pathological detector call. That is
+     *                             acceptable while every pattern is hand-reviewed and bounded, and stops being
+     *                             acceptable the moment operator-supplied regexes exist.
+     * @param maxUnwindowableInput the input length above which a detector that cannot be applied to a fragment
+     *                             ({@code streamSafe() == false}) is not run at all
+     */
+    public record DetectionBounds(Duration timeout, int maxUnwindowableInput) {
+
+        public static final DetectionBounds DEFAULTS = new DetectionBounds(Duration.ofSeconds(2), 262144);
+
+        public DetectionBounds {
+            Objects.requireNonNull(timeout, "timeout must not be null");
+
+            if (maxUnwindowableInput < 0) {
+                throw new IllegalArgumentException(
+                    "maxUnwindowableInput must be >= 0, got: " + maxUnwindowableInput);
+            }
+        }
     }
 
     /**
@@ -131,7 +173,9 @@ public class SensitiveDataRedactor {
             return this;
         }
 
-        return new SensitiveDataRedactor(streamSafeDetectors);
+        // Carries this redactor's bounds, not the defaults: a view that silently reverted would be invisible in
+        // every test that does not configure them.
+        return new SensitiveDataRedactor(streamSafeDetectors, bounds);
     }
 
     /**
@@ -149,12 +193,74 @@ public class SensitiveDataRedactor {
         }
 
         List<SensitiveSpan> candidates = new ArrayList<>();
+        long deadline = System.nanoTime() + bounds.timeout()
+            .toNanos();
 
+        // Windowable detectors run first, to completion. That ordering IS the guarantee that the regex pass -- where
+        // every identifying pattern lives -- cannot be starved by a detector that runs long, and it needs no
+        // detector to classify its own cost: streamSafe() already partitions them exactly.
         for (SensitiveDataDetector detector : detectors) {
+            if (!detector.streamSafe()) {
+                continue;
+            }
+
+            if (timedOut(deadline, detector, metrics)) {
+                return List.copyOf(candidates);
+            }
+
             collectSpans(detector, text, candidates, metrics);
         }
 
-        return candidates;
+        for (SensitiveDataDetector detector : detectors) {
+            if (detector.streamSafe()) {
+                continue;
+            }
+
+            if (text.length() > bounds.maxUnwindowableInput()) {
+                log.warn(
+                    "Sensitive-data detector '{}' cannot be applied to a fragment and was skipped for a {}-character " +
+                        "input exceeding the {}-character limit; its coverage is absent for this call",
+                    detector.name(), text.length(), bounds.maxUnwindowableInput());
+
+                if (metrics != null) {
+                    metrics.recordDetectorSkippedOversize(detector.name());
+                }
+
+                continue;
+            }
+
+            if (timedOut(deadline, detector, metrics)) {
+                return List.copyOf(candidates);
+            }
+
+            collectSpans(detector, text, candidates, metrics);
+        }
+
+        return List.copyOf(candidates);
+    }
+
+    /**
+     * Reports whether the pass has exhausted its budget, recording {@code detector_timed_out} and warning once when it
+     * has. Deliberately not {@code detector_failed}: that event means a detector threw, and the whole reason this bound
+     * exists is that a slow detector never throws.
+     */
+    private static boolean timedOut(
+        long deadline, SensitiveDataDetector detector, @Nullable SensitiveDataMetrics metrics) {
+
+        if (System.nanoTime() < deadline) {
+            return false;
+        }
+
+        log.warn(
+            "Sensitive-data detection exceeded its budget while running '{}'; the spans returned for this call are " +
+                "partial and some of the content was not scanned",
+            detector.name());
+
+        if (metrics != null) {
+            metrics.recordDetectorTimedOut(detector.name());
+        }
+
+        return true;
     }
 
     /**

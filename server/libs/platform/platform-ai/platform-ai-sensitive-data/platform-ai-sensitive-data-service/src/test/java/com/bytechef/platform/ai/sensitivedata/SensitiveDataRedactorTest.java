@@ -18,6 +18,7 @@ package com.bytechef.platform.ai.sensitivedata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -304,6 +305,58 @@ class SensitiveDataRedactorTest {
         assertThat(metrics.belowConfidenceThresholdCount).isZero();
     }
 
+    @Test
+    void testAnUnwindowableDetectorIsSkippedAboveTheThresholdAndTheOthersStillRun() {
+        RecordingMetrics metrics = new RecordingMetrics();
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(
+            List.of(
+                fixed("windowable", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3)),
+                fixed("unwindowable", false, SensitiveSpan.of(SensitiveKind.PII, "UNWINDOWABLE", 4, 7))),
+            new SensitiveDataRedactor.DetectionBounds(Duration.ofSeconds(30), 10));
+
+        List<SensitiveSpan> spans = redactor.detectCandidates("abc def ghi jkl", metrics);
+
+        assertThat(spans)
+            .as("the windowable detectors must still cover an input the unwindowable one was skipped for")
+            .anyMatch(span -> "EMAIL_ADDRESS".equals(span.category()));
+        assertThat(spans).noneMatch(span -> "UNWINDOWABLE".equals(span.category()));
+        assertThat(metrics.skippedOversize).containsExactly("unwindowable");
+    }
+
+    @Test
+    void testTheDeadlineAbandonsRemainingWorkKeepsWhatWasFoundAndNamesTheDetector() {
+        RecordingMetrics metrics = new RecordingMetrics();
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(
+            List.of(
+                fixed("windowable", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3)),
+                slowUnwindowable("slow", SensitiveSpan.of(SensitiveKind.PII, "SLOW", 4, 7)),
+                fixed("after", false, SensitiveSpan.of(SensitiveKind.PII, "AFTER", 8, 11))),
+            new SensitiveDataRedactor.DetectionBounds(Duration.ofMillis(50), Integer.MAX_VALUE));
+
+        List<SensitiveSpan> spans = redactor.detectCandidates("abc def ghi jkl", metrics);
+
+        // All three halves. A timeout that discards what was already found is a different and worse behaviour than
+        // the one designed, and one that reports nothing is indistinguishable from detection being off.
+        assertThat(spans).anyMatch(span -> "EMAIL_ADDRESS".equals(span.category()));
+        assertThat(spans).noneMatch(span -> "AFTER".equals(span.category()));
+        assertThat(metrics.timedOut).containsExactly("after");
+    }
+
+    @Test
+    void testWindowableDetectorsRunToCompletionBeforeAnUnwindowableOneCanExhaustTheBudget() {
+        // The ordering guarantee. Declared slow-first on purpose: if the pass honoured declaration order, the
+        // windowable detector would be cut off and its coverage lost -- which is the failure ordering prevents.
+        RecordingMetrics metrics = new RecordingMetrics();
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(
+            List.of(
+                slowUnwindowable("slow", SensitiveSpan.of(SensitiveKind.PII, "SLOW", 4, 7)),
+                fixed("windowable", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3))),
+            new SensitiveDataRedactor.DetectionBounds(Duration.ofMillis(50), Integer.MAX_VALUE));
+
+        assertThat(redactor.detectCandidates("abc def ghi jkl", metrics))
+            .anyMatch(span -> "EMAIL_ADDRESS".equals(span.category()));
+    }
+
     private static SensitiveDataRedactor redactor(SensitiveDataDetector... detectors) {
         return new SensitiveDataRedactor(List.of(detectors));
     }
@@ -328,6 +381,37 @@ class SensitiveDataRedactorTest {
         };
     }
 
+    /**
+     * Sleeps as a FIXTURE, never as an assertion -- no test below asserts on elapsed time, only on the outcome the
+     * budget produces. Unwindowable so it lands in the second pass, which is where the deadline can actually bite.
+     */
+    private static SensitiveDataDetector slowUnwindowable(String name, SensitiveSpan... spans) {
+        return new SensitiveDataDetector() {
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public List<SensitiveSpan> detect(String text) {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread()
+                        .interrupt();
+                }
+
+                return List.of(spans);
+            }
+
+            @Override
+            public boolean streamSafe() {
+                return false;
+            }
+        };
+    }
+
     private static SensitiveDataDetector throwing(String name) {
         return new SensitiveDataDetector() {
 
@@ -346,12 +430,24 @@ class SensitiveDataRedactorTest {
     private static final class RecordingMetrics implements SensitiveDataMetrics {
 
         private final List<String> failures = new ArrayList<>();
+        private final List<String> timedOut = new ArrayList<>();
+        private final List<String> skippedOversize = new ArrayList<>();
 
         private int belowConfidenceThresholdCount;
 
         @Override
         public void recordDetectorFailure(String detectorName) {
             failures.add(detectorName);
+        }
+
+        @Override
+        public void recordDetectorTimedOut(String detectorName) {
+            timedOut.add(detectorName);
+        }
+
+        @Override
+        public void recordDetectorSkippedOversize(String detectorName) {
+            skippedOversize.add(detectorName);
         }
 
         @Override
