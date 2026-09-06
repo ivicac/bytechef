@@ -19,6 +19,18 @@ package com.bytechef.ee.platform.ai.guardrails.domain;
  * {@code AiGuardrailsWorkspaceSettingsServiceImpl}'s class javadoc for how the tenant-default row is stored, and
  * {@code AiGuardrails#resolvePolicy} for the union logic.
  *
+ * <p>
+ * {@link #minConfidence()} is an override, not a union member like the other fields: a {@code null} value means "use
+ * {@code SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}", which keeps every workspace that predates this field behaving
+ * exactly as before with no migration needed to populate it. Non-{@code null}, it is validated to {@code [0.0, 1.0]} in
+ * the compact constructor below — the same range {@code PiiPattern}/{@code SecretPattern} already validate their own
+ * {@code score} to — because this value feeds the identical {@code confidence() >= minConfidence} comparison (see
+ * 2026-08-31 final-branch-review fix): unvalidated, {@code -1.0} would clear that comparison for every span regardless
+ * of score, silently reinstating the exact bare-digit-run false-positive bug this whole feature exists to fix,
+ * tenant-wide; {@code 1.5} would clear no span in the catalog, silently disabling PII and secret redaction entirely
+ * while {@code redactPii}/{@code redactSecrets} keep reading {@code true} everywhere an operator would look.
+ * </p>
+ *
  * @version ee
  */
 public record AiGuardrailsWorkspaceSettings(
@@ -29,9 +41,17 @@ public record AiGuardrailsWorkspaceSettings(
     Boolean moderationEnabled,
     Boolean injectionDetectionEnabled,
     Boolean scanResponses,
-    BlockingMode blockingMode) {
+    BlockingMode blockingMode,
+    Double minConfidence) { // null = use SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE
 
     public static final String PROPERTY_KEY = "ai_guardrails_workspace_settings";
+
+    public AiGuardrailsWorkspaceSettings {
+        if (minConfidence != null && (!Double.isFinite(minConfidence) || minConfidence < 0.0 || minConfidence > 1.0)) {
+            throw new IllegalArgumentException("minConfidence must be null or between 0.0 and 1.0, got: " +
+                minConfidence);
+        }
+    }
 
     /**
      * Stored in the property value map by {@link #name()}, not ordinal — but the ordinal is still pinned (see

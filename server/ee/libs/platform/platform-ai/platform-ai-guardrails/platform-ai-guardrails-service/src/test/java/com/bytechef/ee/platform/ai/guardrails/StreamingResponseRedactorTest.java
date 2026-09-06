@@ -9,6 +9,8 @@ package com.bytechef.ee.platform.ai.guardrails;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetectors;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
@@ -52,6 +54,28 @@ class StreamingResponseRedactorTest {
         assertThat(redactor.push("hello ")).isEmpty();
         assertThat(redactor.push("world")).isEmpty();
         assertThat(redactor.flush()).isEqualTo("hello world");
+    }
+
+    /**
+     * Mutation evidence for the finding-4 fix: before 2026-08-31 (see the class javadoc) this class held no confidence
+     * threshold of its own at all -- every {@code push}/{@code flush} scan ran at
+     * {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} unconditionally, regardless of what a workspace's
+     * {@code AiGuardrailsWorkspaceSettings.minConfidence} override configured. Constructing with an explicit threshold
+     * set above {@code EMAIL_ADDRESS}'s own score (High band, the strongest in the catalog) must suppress it here too
+     * -- exactly as {@code AiGuardrailsTest#testWorkspaceThresholdOverridesTheCoreDefault} already proves for the
+     * request path. Reverting the fix (hardcoding {@code DEFAULT_MIN_CONFIDENCE} back into {@code push}/{@code flush}
+     * instead of reading the {@code minConfidence} field) makes this test fail.
+     */
+    @Test
+    void testExplicitMinConfidenceIsHonoredNotHardcodedToTheDefault() {
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+        StreamingResponseRedactor redactor = new StreamingResponseRedactor(
+            builtInRedactor, 8, aboveEmailAddressScore, null, null, EnumSet.allOf(SensitiveKind.class));
+
+        String emitted = redactor.push("mail bob@acme.io " + CLEAN_TAIL) + redactor.flush();
+
+        assertThat(emitted).contains("bob@acme.io");
+        assertThat(emitted).doesNotContain("[REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -453,6 +477,18 @@ class StreamingResponseRedactorTest {
         assertThat(emitted.toString()).doesNotContain(token);
         assertThat(emitted.toString()).contains("jane.doe@example.com");
         assertThat(emitted.toString()).doesNotContain("[REDACTED_EMAIL]");
+    }
+
+    private static double scoreOf(String type) {
+        for (PiiPattern pattern : PiiPatternCatalog.ALL) {
+            if (pattern.type()
+                .equals(type)) {
+
+                return pattern.score();
+            }
+        }
+
+        throw new IllegalArgumentException("no catalog entry for " + type);
     }
 
     private static SensitiveDataDetector throwingDetector() {

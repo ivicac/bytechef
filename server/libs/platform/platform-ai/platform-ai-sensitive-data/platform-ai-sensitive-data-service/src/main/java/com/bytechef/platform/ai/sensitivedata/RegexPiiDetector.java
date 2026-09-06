@@ -19,12 +19,14 @@ package com.bytechef.platform.ai.sensitivedata;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import org.springframework.stereotype.Component;
 
 /**
  * Regex PII detection over {@link PiiPatternCatalog#curatedDefault()} — the always-on platform default, which is the
- * full Presidio catalog minus the contextual types. See the catalog's javadoc for why the two differ.
+ * full catalog minus the contextual types. See the catalog's javadoc for why the two differ, and for why this catalog
+ * is Presidio-<em>named</em> rather than Presidio-derived.
  *
  * <p>
  * Spans are emitted exactly as each pattern finds them, including any that overlap one another or spans from other
@@ -33,22 +35,35 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * <p>
- * Contributed as a Spring bean under the same {@link ConditionalOnEEVersion} gate the replaced {@code RegexPiiDetector}
+ * Not to be confused with the EE engine's older, unrelated {@code RegexPiiDetector} (5 patterns:
+ * {@code EMAIL}/{@code SSN}/{@code CC}/{@code PHONE}/{@code IP}), which this consolidation deleted before this class
+ * took the name. See {@code .agents/ai-guardrails.md}'s "Sensitive-data detectors" section for that history, and for
+ * why the catalog's resemblance to Presidio's taxonomy is a naming resemblance only.
+ * </p>
+ * <p>
+ * Contributed as a Spring bean under the same {@link ConditionalOnEEVersion} gate the deleted 5-pattern EE detector
  * carried, so the Spring-managed path {@link SensitiveDataDetectors}'s javadoc describes keeps collecting exactly the
  * two detectors {@link SensitiveDataDetectors#builtIn} returns.
+ * </p>
+ * <p>
+ * A pattern may also carry a {@link PiiPatternCatalog.PiiPattern#validator()}, checked against the matched text after
+ * the regex matches and before a span is emitted — {@code CREDIT_CARD}'s Luhn check is the only one today. This
+ * detector applies whatever validator a pattern carries generically; it has no per-type branch, so a future checksum
+ * (national-identifier check digits are an explicit non-goal here, deferred to their own project) is another pattern
+ * supplying another validator, not a new {@code if} in this method.
  * </p>
  *
  * @author Ivica Cardic
  */
 @Component
 @ConditionalOnEEVersion
-public class PresidioRegexPiiDetector implements SensitiveDataDetector {
+public class RegexPiiDetector implements SensitiveDataDetector {
 
     private final List<PiiPatternCatalog.PiiPattern> patterns = PiiPatternCatalog.curatedDefault();
 
     @Override
     public String name() {
-        return "presidio-regex-pii";
+        return "regex-pii";
     }
 
     @Override
@@ -62,9 +77,16 @@ public class PresidioRegexPiiDetector implements SensitiveDataDetector {
         for (PiiPatternCatalog.PiiPattern piiPattern : patterns) {
             Matcher matcher = piiPattern.pattern()
                 .matcher(text);
+            Predicate<String> validator = piiPattern.validator();
 
             while (matcher.find()) {
-                spans.add(SensitiveSpan.of(SensitiveKind.PII, piiPattern.type(), matcher.start(), matcher.end()));
+                if (validator != null && !validator.test(matcher.group())) {
+                    continue;
+                }
+
+                spans.add(
+                    new SensitiveSpan(
+                        SensitiveKind.PII, piiPattern.type(), matcher.start(), matcher.end(), piiPattern.score()));
             }
         }
 

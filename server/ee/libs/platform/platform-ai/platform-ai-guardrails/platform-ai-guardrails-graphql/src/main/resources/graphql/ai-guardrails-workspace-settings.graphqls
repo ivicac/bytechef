@@ -15,6 +15,7 @@ type AiGuardrailsWorkspaceSettings {
     injectionDetectionEnabled: Boolean
     scanResponses: Boolean
     blockingMode: AiGuardrailsBlockingMode
+    minConfidence: Float
 }
 
 enum AiGuardrailsBlockingMode {
@@ -31,4 +32,5 @@ input AiGuardrailsWorkspaceSettingsInput {
     injectionDetectionEnabled: Boolean
     scanResponses: Boolean
     blockingMode: AiGuardrailsBlockingMode
+    minConfidence: Float
 }
