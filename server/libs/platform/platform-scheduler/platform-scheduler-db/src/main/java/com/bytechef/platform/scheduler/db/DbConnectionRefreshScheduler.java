@@ -62,14 +62,17 @@ public class DbConnectionRefreshScheduler implements ConnectionRefreshScheduler 
             .data(new OAuth2TokenRefreshData(connectionId, tenantId))
             .scheduledTo(tokenExpirationTime.minus(TOKEN_REFRESH_OFFSET));
 
-        if (schedulerClient.reschedule(instance)) {
-            return;
+        try {
+            if (!schedulerClient.schedule(instance, SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)) {
+                logCouldNotBeScheduled(connectionId, tenantId);
+            }
+        } catch (TaskInstanceException e) {
+            logCouldNotBeScheduled(connectionId, tenantId);
         }
+    }
 
-        if (!schedulerClient.scheduleIfNotExists(instance)) {
-            log.warn(
-                "Refresh token task for connectionId: {}, tenantId: {} could not be scheduled", connectionId,
-                tenantId);
-        }
+    private void logCouldNotBeScheduled(Long connectionId, String tenantId) {
+        log.warn(
+            "Refresh token task for connectionId: {}, tenantId: {} could not be scheduled", connectionId, tenantId);
     }
 }
