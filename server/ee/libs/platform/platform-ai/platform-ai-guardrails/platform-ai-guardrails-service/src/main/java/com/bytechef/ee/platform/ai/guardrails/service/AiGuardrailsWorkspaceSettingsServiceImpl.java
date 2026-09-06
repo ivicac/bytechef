@@ -56,6 +56,7 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
     private static final String KEY_BLOCKED_TERMS = "blockedTerms";
     private static final String KEY_BLOCKING_MODE = "blockingMode";
     private static final String KEY_INJECTION_DETECTION_ENABLED = "injectionDetectionEnabled";
+    private static final String KEY_MIN_CONFIDENCE = "minConfidence";
     private static final String KEY_MODERATION_ENABLED = "moderationEnabled";
     private static final String KEY_REDACT_PII = "redactPii";
     private static final String KEY_REDACT_SECRETS = "redactSecrets";
@@ -127,6 +128,10 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
                 .name());
         }
 
+        if (settings.minConfidence() != null) {
+            value.put(KEY_MIN_CONFIDENCE, settings.minConfidence());
+        }
+
         return value;
     }
 
@@ -139,7 +144,17 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
             (Boolean) value.get(KEY_MODERATION_ENABLED),
             (Boolean) value.get(KEY_INJECTION_DETECTION_ENABLED),
             (Boolean) value.get(KEY_SCAN_RESPONSES),
-            blockingModeValue(value));
+            blockingModeValue(value),
+            minConfidenceValue(value));
+    }
+
+    // A Double unboxed carelessly (e.g. via a raw cast that widens through a Number subtype the property store
+    // deserialized) can silently become 0.0 instead of null, which disables the confidence filter entirely rather
+    // than falling back to the CE default -- so this goes through Number first rather than a direct (Double) cast.
+    private static @Nullable Double minConfidenceValue(Map<String, ?> value) {
+        Object raw = value.get(KEY_MIN_CONFIDENCE);
+
+        return raw == null ? null : ((Number) raw).doubleValue();
     }
 
     private static BlockingMode blockingModeValue(Map<String, ?> value) {

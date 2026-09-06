@@ -85,11 +85,22 @@ class PiiDetectorUtilsTest {
         assertThat(matches).anyMatch(match -> "PHONE_NUMBER".equals(match.type()));
     }
 
+    /**
+     * Previously named {@code testPhoneDetectionMatchesRawDigits} and asserted the opposite: that a bare, unformatted
+     * digit run WAS detected as {@code PHONE_NUMBER}. Both of {@code PHONE_NUMBER}'s {@code [-\s.]} separators used to
+     * be optional, so the pattern degenerated to a bare {@code \b\d{10,12}\b} run — structurally identical to
+     * {@code US_BANK_NUMBER}'s bare-digit shape, and just as prone to matching an order number or ticket number as an
+     * actual phone number. Both separators are now mandatory (see {@code PiiPatternCatalog}'s {@code PHONE_NUMBER}
+     * comment), so raw digits with no delimiter no longer match {@code PHONE_NUMBER} at all — they still surface as
+     * {@code US_BANK_NUMBER}, since that pattern's whole purpose is to catch any bare long digit run.
+     */
     @Test
-    void testPhoneDetectionMatchesRawDigits() {
+    void testRawDigitsWithNoSeparatorAreNoLongerPhoneNumber() {
         List<PiiMatch> matches = PiiDetectorUtils.detect("Call 5551234567 now", PiiDetectorUtils.DEFAULT_PII_PATTERNS);
 
-        assertThat(matches).anyMatch(match -> "PHONE_NUMBER".equals(match.type()));
+        assertThat(matches).noneMatch(match -> "PHONE_NUMBER".equals(match.type()));
+        assertThat(matches).anyMatch(match -> "US_BANK_NUMBER".equals(match.type()) && "5551234567".equals(
+            match.value()));
     }
 
     @Test
@@ -105,6 +116,34 @@ class PiiDetectorUtilsTest {
             PiiDetectorUtils.detect("CC: 4111-1111-1111-1111", PiiDetectorUtils.DEFAULT_PII_PATTERNS);
 
         assertThat(matches).anyMatch(match -> "CREDIT_CARD".equals(match.type()));
+    }
+
+    /**
+     * Mutation-evidence pair for the catalog's {@code CREDIT_CARD} Luhn validator being carried through
+     * {@link PiiDetectorUtils#DEFAULT_PII_PATTERNS}: this component's picker has no confidence threshold to fall back
+     * on (unlike the always-on platform guardrail path), so the validator is the only thing standing between an
+     * ordinary 16-digit order/invoice number and a false {@code <CREDIT_CARD>} mask. Both cases use an unformatted (no
+     * separators) run, since the separators alone were never the gap here.
+     */
+    @Test
+    void testCreditCardLuhnInvalidBareRunIsNotDetected() {
+        // A plain incrementing 16-digit run -- the exact shape of an ordinary order/invoice number -- fails Luhn.
+        List<PiiMatch> matches =
+            PiiDetectorUtils.detect("Order 1234567890123456 shipped", PiiDetectorUtils.DEFAULT_PII_PATTERNS);
+
+        assertThat(matches)
+            .as("a Luhn-invalid 16-digit run must not be masked as CREDIT_CARD")
+            .noneMatch(match -> "CREDIT_CARD".equals(match.type()));
+    }
+
+    @Test
+    void testCreditCardLuhnValidBareRunIsDetected() {
+        // The well-known Visa test number, unformatted -- Luhn-valid.
+        List<PiiMatch> matches =
+            PiiDetectorUtils.detect("CC: 4111111111111111", PiiDetectorUtils.DEFAULT_PII_PATTERNS);
+
+        assertThat(matches)
+            .anyMatch(match -> "CREDIT_CARD".equals(match.type()) && "4111111111111111".equals(match.value()));
     }
 
     @Test
@@ -223,12 +262,15 @@ class PiiDetectorUtilsTest {
 
     @Test
     void detectsEsNif() {
-        assertDetectsType("NIF A12345678 provided", "ES_NIF");
+        // Real NIF format: 8 digits + a trailing check letter -- the previous sample ("A12345678", letter-first)
+        // matched only the old, wrong ES_NIF/ES_NIE regex; see PiiPatternCatalog's class javadoc for the fix.
+        assertDetectsType("NIF 12345678Z provided", "ES_NIF");
     }
 
     @Test
     void detectsEsNie() {
-        assertDetectsType("NIE X12345678 provided", "ES_NIE");
+        // Real NIE format: X/Y/Z + 7 digits + a trailing check letter -- see PiiPatternCatalog's class javadoc.
+        assertDetectsType("NIE X1234567L provided", "ES_NIE");
     }
 
     @Test
