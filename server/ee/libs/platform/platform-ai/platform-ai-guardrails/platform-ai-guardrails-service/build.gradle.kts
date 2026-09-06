@@ -4,7 +4,9 @@ dependencies {
     implementation("org.springframework:spring-context")
     implementation("org.springframework:spring-tx")
     implementation("org.springframework.boot:spring-boot-autoconfigure")
+    implementation("tools.jackson.core:jackson-databind")
     implementation(project(":server:libs:core:commons:commons-util"))
+    implementation(project(":server:libs:core:encryption:encryption-api"))
     implementation(project(":server:libs:platform:platform-api"))
     implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
     // Resolves a job principal id (project deployment id) to its workspace for AiGuardrailsAdvisorProviderImpl.

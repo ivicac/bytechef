@@ -1158,7 +1158,7 @@ class AiGuardrailsTest {
         return new AiGuardrails(
             settingsService, null, null, metrics, SensitiveDataDetectors.builtIn(), piiRedactionEnabled, false, "",
             false, false, false, false, SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
-            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false, provider);
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false, provider, null);
     }
 
     private static AiGuardrailCustomRule customRule(

@@ -18,6 +18,7 @@ package com.bytechef.platform.ai.sensitivedata.tokenization;
 
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -177,6 +178,45 @@ public final class PiiTokenSession {
     public void close() {
         tokenToValue.clear();
         valueToToken.clear();
+    }
+
+    /**
+     * Reconstructs a session from a previously exported {@link #tokens()} map, so a conversation's tokens survive the
+     * turn that minted them.
+     *
+     * <p>
+     * Minting resumes ABOVE the highest ordinal the map holds, not at 1. Resuming at 1 would mint an ordinal a stored
+     * token already uses, and a later turn would restore the first value into the second value's place — a cross-value
+     * disclosure inside one session. An entry whose key does not parse as a token is dropped rather than raising the
+     * watermark: a token this session cannot parse is one it can never be asked to restore.
+     * </p>
+     *
+     * @param sessionId the discriminator the stored tokens were minted under
+     * @param tokens    token text to value, as returned by {@link #tokens()}
+     * @return a session holding those tokens
+     */
+    public static PiiTokenSession rehydrate(String sessionId, Map<String, String> tokens) {
+        PiiTokenSession session = new PiiTokenSession(sessionId);
+        int highestOrdinal = 0;
+
+        for (Map.Entry<String, String> entry : tokens.entrySet()) {
+            Optional<PiiToken> parsed = PiiToken.parse(entry.getKey());
+
+            if (parsed.isEmpty()) {
+                continue;
+            }
+
+            PiiToken token = parsed.get();
+
+            session.tokenToValue.put(entry.getKey(), entry.getValue());
+            session.valueToToken.put(entry.getValue(), entry.getKey());
+
+            highestOrdinal = Math.max(highestOrdinal, token.ordinal());
+        }
+
+        session.nextOrdinal.set(highestOrdinal + 1);
+
+        return session;
     }
 
     /**
