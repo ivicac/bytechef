@@ -16,6 +16,8 @@
 
 package com.bytechef.platform.scheduler.db.config;
 
+import static com.bytechef.platform.scheduler.db.task.DbSchedulerTaskDescriptors.QUARTZ_IMPORT;
+
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
@@ -24,6 +26,10 @@ import com.bytechef.platform.scheduler.ConnectionRefreshScheduler;
 import com.bytechef.platform.scheduler.TriggerScheduler;
 import com.bytechef.platform.scheduler.db.DbConnectionRefreshScheduler;
 import com.bytechef.platform.scheduler.db.DbTriggerScheduler;
+import com.bytechef.platform.scheduler.db.importer.ImportSummary;
+import com.bytechef.platform.scheduler.db.importer.QuartzImportStarter;
+import com.bytechef.platform.scheduler.db.importer.QuartzImporter;
+import com.bytechef.platform.scheduler.db.importer.QuartzJobReader;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshData;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshTaskFactory;
 import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefresher;
@@ -42,7 +48,11 @@ import com.github.kagkarlsson.scheduler.boot.autoconfigure.Jackson3Serializer;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.serializer.Serializer;
 import com.github.kagkarlsson.scheduler.task.Task;
+import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import java.util.Optional;
+import org.quartz.Scheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
@@ -59,6 +69,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 @ConditionalOnProperty(prefix = "bytechef", name = "scheduler.provider", havingValue = "db-scheduler")
 public class DbSchedulerConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(DbSchedulerConfiguration.class);
 
     @Bean
     DbSchedulerCustomizer dbSchedulerCustomizer(ObjectProvider<JsonMapper> jsonMapperProvider) {
@@ -122,5 +134,49 @@ public class DbSchedulerConfiguration {
     @Bean
     Task<ScheduleTriggerData> scheduleTriggerTask(ApplicationEventPublisher eventPublisher) {
         return ScheduleTriggerTaskFactory.create(eventPublisher);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "bytechef", name = "scheduler.db-scheduler.importer.enabled", havingValue = "true",
+        matchIfMissing = true)
+    QuartzImportStarter quartzImportStarter(@Lazy SchedulerClient schedulerClient) {
+        return new QuartzImportStarter(schedulerClient);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "bytechef", name = "scheduler.db-scheduler.importer.enabled", havingValue = "true",
+        matchIfMissing = true)
+    Task<Void> quartzImportTask(
+        ApplicationProperties applicationProperties, ObjectProvider<Scheduler> quartzSchedulerProvider,
+        @Lazy SchedulerClient schedulerClient) {
+
+        ApplicationProperties.Coordinator.Trigger.Polling polling = applicationProperties.getCoordinator()
+            .getTrigger()
+            .getPolling();
+
+        return Tasks.oneTime(QUARTZ_IMPORT)
+            .execute((taskInstance, executionContext) -> {
+                Scheduler quartzScheduler = quartzSchedulerProvider.getIfAvailable();
+
+                if (quartzScheduler == null) {
+                    log.info("No Quartz scheduler bean present, nothing to import");
+
+                    return;
+                }
+
+                QuartzImporter quartzImporter = new QuartzImporter(
+                    new QuartzJobReader(quartzScheduler), schedulerClient, polling.getCheckPeriod());
+
+                ImportSummary summary = quartzImporter.importJobs();
+
+                log.info(
+                    "Quartz import: scanned={}, imported={}, alreadyPresent={}, skippedStatic={}, "
+                        + "skippedUnknown={}, skippedComplete={}, failed={}, quartzReadable={}",
+                    summary.scanned(), summary.imported(), summary.alreadyPresent(), summary.skippedStatic(),
+                    summary.skippedUnknown(), summary.skippedComplete(), summary.failed(),
+                    summary.quartzReadable());
+            });
     }
 }
