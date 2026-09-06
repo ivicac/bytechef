@@ -18,7 +18,7 @@ package com.bytechef.component.ai.agent.guardrails.util;
 
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.Option;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -31,135 +31,33 @@ import java.util.regex.Pattern;
  *
  * @author Ivica Cardic
  */
-// REDOS is suppressed because every pattern here uses only fixed {N,M}/{N} or possessive quantifiers; no
-// catastrophic backtracking is possible. Field-level suppression is ignored due to how findsecbugs attributes
-// Pattern.compile in the static initializer, so class-level is required.
-@SuppressFBWarnings("REDOS")
 public final class PiiDetectorUtils {
 
-    public static final List<PiiPattern> DEFAULT_PII_PATTERNS = List.of(
-        // Global
-        new PiiPattern(
-            "EMAIL_ADDRESS",
-            Pattern.compile("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b")),
-        new PiiPattern(
-            "PHONE_NUMBER",
-            Pattern.compile("\\b[+]?[(]?[0-9]{3}[)]?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4,6}\\b")),
-        new PiiPattern(
-            "CREDIT_CARD",
-            Pattern.compile("\\b\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b")),
-        new PiiPattern(
-            "IP_ADDRESS",
-            Pattern.compile("\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b")),
-        new PiiPattern(
-            "IBAN_CODE",
-            Pattern.compile("\\b[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}\\b")),
-        new PiiPattern(
-            "CRYPTO",
-            Pattern.compile("\\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\\b")),
-        new PiiPattern(
-            "DATE_TIME",
-            Pattern.compile(
-                "\\b\\d{4}-\\d{2}-\\d{2}(?:[T ]\\d{2}:\\d{2}(?::\\d{2})?(?:Z|[+-]\\d{2}:?\\d{2})?)?\\b")),
-        new PiiPattern(
-            "LOCATION",
-            Pattern.compile(
-                "\\b(?:[A-Za-z]++\\s+)++(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln"
-                    + "|Place|Pl|Court|Ct|Way|Highway|Hwy)\\b")),
-        new PiiPattern(
-            "MEDICAL_LICENSE",
-            Pattern.compile("\\b[A-Z]{2}\\d{6}\\b")),
-        // USA
-        new PiiPattern(
-            "US_BANK_NUMBER",
-            Pattern.compile("\\b\\d{8,17}\\b")),
-        new PiiPattern(
-            "US_DRIVER_LICENSE",
-            Pattern.compile("\\b[A-Z]\\d{7}\\b")),
-        new PiiPattern(
-            "US_ITIN",
-            Pattern.compile("\\b9\\d{2}-\\d{2}-\\d{4}\\b")),
-        new PiiPattern(
-            "US_PASSPORT",
-            Pattern.compile("\\b[A-Z]\\d{8}\\b")),
-        new PiiPattern(
-            "US_SSN",
-            Pattern.compile("\\b\\d{3}-\\d{2}-\\d{4}\\b|\\b\\d{9}\\b")),
-        // UK
-        new PiiPattern(
-            "UK_NHS",
-            Pattern.compile("\\b\\d{3} \\d{3} \\d{4}\\b")),
-        new PiiPattern(
-            "UK_NINO",
-            Pattern.compile("\\b[A-Z]{2}\\d{6}[A-Z]\\b")),
-        // Spain
-        new PiiPattern(
-            "ES_NIF",
-            Pattern.compile("\\b[A-Z]\\d{8}\\b")),
-        new PiiPattern(
-            "ES_NIE",
-            Pattern.compile("\\b[A-Z]\\d{8}\\b")),
-        // Italy
-        new PiiPattern(
-            "IT_FISCAL_CODE",
-            Pattern.compile("\\b[A-Z]{6}\\d{2}[A-Z]\\d{2}[A-Z]\\d{3}[A-Z]\\b")),
-        new PiiPattern(
-            "IT_DRIVER_LICENSE",
-            Pattern.compile("\\b[A-Z]{2}\\d{7}\\b")),
-        new PiiPattern(
-            "IT_VAT_CODE",
-            Pattern.compile("\\bIT\\d{11}\\b")),
-        new PiiPattern(
-            "IT_PASSPORT",
-            Pattern.compile("\\b[A-Z]{2}\\d{7}\\b")),
-        new PiiPattern(
-            "IT_IDENTITY_CARD",
-            Pattern.compile("\\b[A-Z]{2}\\d{7}\\b")),
-        // Poland
-        new PiiPattern(
-            "PL_PESEL",
-            Pattern.compile("\\b\\d{11}\\b")),
-        // Singapore
-        new PiiPattern(
-            "SG_NRIC_FIN",
-            Pattern.compile("\\b[A-Z]\\d{7}[A-Z]\\b")),
-        new PiiPattern(
-            "SG_UEN",
-            Pattern.compile("\\b\\d{8}[A-Z]\\b|\\b\\d{9}[A-Z]\\b")),
-        // Australia
-        new PiiPattern(
-            "AU_ABN",
-            Pattern.compile("\\b\\d{2} \\d{3} \\d{3} \\d{3}\\b")),
-        new PiiPattern(
-            "AU_ACN",
-            Pattern.compile("\\b\\d{3} \\d{3} \\d{3}\\b")),
-        new PiiPattern(
-            "AU_TFN",
-            Pattern.compile("\\b\\d{9}\\b")),
-        new PiiPattern(
-            "AU_MEDICARE",
-            Pattern.compile("\\b\\d{4} \\d{5} \\d{1}\\b")),
-        // India
-        new PiiPattern(
-            "IN_PAN",
-            Pattern.compile("\\b[A-Z]{5}\\d{4}[A-Z]\\b")),
-        new PiiPattern(
-            "IN_AADHAAR",
-            Pattern.compile("\\b\\d{4} \\d{4} \\d{4}\\b")),
-        new PiiPattern(
-            "IN_VEHICLE_REGISTRATION",
-            Pattern.compile("\\b[A-Z]{2}\\d{2}[A-Z]{2}\\d{4}\\b")),
-        new PiiPattern(
-            "IN_VOTER",
-            Pattern.compile("\\b[A-Z]{3}\\d{7}\\b")),
-        new PiiPattern(
-            "IN_PASSPORT",
-            Pattern.compile("\\b[A-Z]\\d{7}\\b")),
-        // Finland
-        new PiiPattern(
-            "FI_PERSONAL_IDENTITY_CODE",
-            Pattern.compile("\\b\\d{6}[+-A]\\d{3}[A-Z0-9]\\b")));
+    /**
+     * The patterns this component matches against, derived from the shared platform catalog so the patterns exist
+     * exactly once ({@link PiiPatternCatalog#ALL}). This component keeps its own {@link PiiPattern} record — its
+     * callers reference it by that type — but the pattern data itself is no longer duplicated here.
+     */
+    public static final List<PiiPattern> DEFAULT_PII_PATTERNS = PiiPatternCatalog.ALL.stream()
+        .map(catalogPattern -> new PiiPattern(catalogPattern.type(), catalogPattern.pattern()))
+        .toList();
 
+    /**
+     * Returns the per-node PII detection picker options: one option per entry in {@link #DEFAULT_PII_PATTERNS}, pairing
+     * each pattern's type with a human-readable label.
+     *
+     * <p>
+     * The set of option values here must always equal the set of {@link PiiPattern#type()} values in
+     * {@link #DEFAULT_PII_PATTERNS} — an entry added to the catalog with no matching option here would be silently
+     * unselectable in the picker, and a stale option here would silently offer a type that detects nothing. This method
+     * is hand-maintained (not derived from {@link #DEFAULT_PII_PATTERNS}) because its order also fixes the generated
+     * definition JSON for the {@code pii} and {@code llm-pii} components, so it cannot simply follow the catalog's
+     * grouping order. {@code PiiDetectorUtilsTest} pins the invariant instead, in
+     * {@code testPickerOptionsMatchCatalogTypesExactly}.
+     * </p>
+     *
+     * @return the picker options for PII detection type selection
+     */
     public static List<Option<String>> getPiiDetectionOptions() {
         return List.of(
             ComponentDsl.option("Email address", "EMAIL_ADDRESS"),

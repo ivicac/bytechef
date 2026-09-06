@@ -20,6 +20,11 @@ dependencies {
     api("org.springframework.ai:spring-ai-model")
 
     api(project(":server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-api"))
+    // SensitiveDataRedactor/SensitiveDataDetectors/PiiToken/PiiTokenSession now live in the CE sensitive-data-service
+    // module; api(...) here also re-exposes platform-ai-sensitive-data-api transitively (SensitiveSpan, SensitiveKind,
+    // SensitiveDataDetector, SensitiveDataMetrics) since AiGuardrails/StreamingResponseRedactor put those on their own
+    // public surface too.
+    api(project(":server:libs:platform:platform-ai:platform-ai-sensitive-data:platform-ai-sensitive-data-service"))
 
     // ProjectDeploymentService/ProjectService are named only by the advisor tests, which build a real
     // JobPrincipalWorkspaceResolver from mocked providers.
