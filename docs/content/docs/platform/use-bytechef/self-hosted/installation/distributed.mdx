@@ -33,7 +33,7 @@ own orchestration.
 | Execution | `execution-app` | Workflow-execution read APIs (jobs, task executions). |
 | Coordinator | `coordinator-app` | The workflow engine's control plane: accepts jobs, runs task dispatchers (condition, loop, fork/join, each, map, parallel, subflow, approval), and dispatches task executions onto the message broker. Loads **no** components. |
 | Worker | `worker-app` | Executes task executions consumed from the broker. This is the only app with the component modules (all 180+) on its classpath - scale it horizontally for throughput. |
-| Scheduler | `scheduler-app` | Quartz-backed (JDBC job store) schedule and polling-trigger service. |
+| Scheduler | `scheduler-app` | Schedule and polling-trigger service; Quartz (JDBC job store) or db-scheduler, selected by `bytechef.scheduler.provider`. |
 | Webhook | `webhook-app` | Receives inbound `/webhooks/**` requests and turns them into trigger events. |
 | AI gateway | `ai-gateway-app` | Routes and meters model traffic (`/api/ai-gateway/**`). Optional. |
 | AI copilot | `ai-copilot-app` | Workflow copilot assistant service. Optional; carries its own full local configuration. |
@@ -146,7 +146,7 @@ Key properties served to all apps:
 | `bytechef.cache.provider` | `redis` |
 | `bytechef.discovery-service.provider` | `redis` - the only supported discovery backend |
 | `bytechef.data-storage.provider` / `bytechef.workflow.output-storage.provider` | `jdbc` |
-| `bytechef.scheduler.provider` | `quartz` |
+| `bytechef.scheduler.provider` | `quartz` (also `db-scheduler`, `aws`) |
 | `bytechef.internal.service-token` | `${BYTECHEF_INTERNAL_SERVICE_TOKEN}` - shared secret for internal `/remote` calls. **Fail-closed**: internal calls are rejected when unset. |
 | `bytechef.worker.task.subscriptions.*` | per-queue worker consumer counts (see below) |
 
@@ -277,6 +277,43 @@ by Quartz itself). Schedules therefore live in the database and survive a restar
   (`org.quartz.jobStore.isClustered` is never set). Run exactly one `scheduler-app` instance. Two
   non-clustered instances sharing one job store will contend and can fire a schedule twice.
 </Callout>
+
+### `DB_SCHEDULER`
+
+`bytechef.scheduler.provider: db-scheduler` runs [db-scheduler](https://github.com/kagkarlsson/db-scheduler)
+against the shared database: one `scheduled_tasks` table, created by the same `scheduler` Liquibase
+context as the Quartz tables. db-scheduler has no non-clustered mode - every node polls the table and
+row-level locking guarantees a task instance runs on exactly one node - so `scheduler-app` may be
+scaled horizontally under this provider.
+
+Tuning lives under the `db-scheduler.*` prefix (`polling-interval`, `polling-strategy`, `threads`);
+ByteChef ships `1s`, `lock-and-fetch`, `10`.
+
+**Switching from Quartz.** The first time `db-scheduler` becomes the active provider against a given
+database, a `quartz-import` task copies live Quartz jobs (schedule and polling triggers, OAuth2 token
+refreshes, dynamic-webhook refreshes, suspended-task resumes) into `scheduled_tasks`, preserving each
+job's next fire time, and never modifies Quartz rows. It runs **once per database, not on every
+startup**: `quartz-import` is itself a db-scheduler recurring task on a ~10-year schedule, so
+db-scheduler only schedules it when no row for it exists yet, and the surviving row is the completion
+marker. It logs one summary line, `Quartz import: scanned=…`. Disable the importer entirely with
+`bytechef.scheduler.db-scheduler.importer.enabled: false`.
+
+<Callout type="warn">
+  The import is one-way. Switching back to `quartz` resumes Quartz from its own rows; anything
+  scheduled while `db-scheduler` was active is not copied back.
+</Callout>
+
+To force a re-import against the same database, delete the `quartz-import` row from
+`scheduled_tasks` (for example through db-scheduler-ui, when it is not running in read-only mode) and
+restart.
+
+**Inspecting schedules.** The `db-scheduler-ui` dashboard ships in `server-app` (the monolith) only,
+at `/db-scheduler` for users with the `SYSTEM_ADMIN` authority (read-only by default;
+`db-scheduler-ui.read-only: false` enables re-run and delete). It is not wired into `scheduler-app` -
+that app has no Spring Security stack to gate the dashboard behind, so its config keeps
+`bytechef.scheduler.db-scheduler.ui.enabled: false` regardless of provider. In a distributed
+deployment, inspect `db-scheduler` schedules from a monolith instance pointed at the same database,
+or query `scheduled_tasks` directly.
 
 ### `AWS` (EventBridge Scheduler)
 
