@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.ai.guardrails.detector;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -112,5 +113,74 @@ class RegexDetectorsTest {
             .allMatch(span -> span.kind() == SensitiveKind.PII);
         assertThat(new RegexSecretDetector().detect("AKIAIOSFODNN7EXAMPLE"))
             .allMatch(span -> span.kind() == SensitiveKind.SECRET);
+    }
+
+    @Test
+    void testTokenizesPiiAndLeavesSecretsRedacted() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String text = "mail bob@example.com about AKIAIOSFODNN7EXAMPLE";
+
+        String tokenized = redactor.tokenizeWithSpans(text, BOTH, session, null)
+            .text();
+
+        assertThat(tokenized).contains("[PII_EMAIL_1_" + session.sessionId() + "]");
+        assertThat(tokenized).contains("[REDACTED_SECRET]");
+        assertThat(tokenized).doesNotContain("bob@example.com");
+        assertThat(tokenized).doesNotContain("AKIAIOSFODNN7EXAMPLE");
+    }
+
+    /**
+     * The motivating case: two different addresses must not collapse into one indistinguishable string.
+     */
+    @Test
+    void testTwoDifferentValuesBecomeTwoDifferentTokens() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String tokenized = redactor
+            .tokenizeWithSpans("forward bob@acme.io's note to alice@acme.io", BOTH, session, null)
+            .text();
+
+        assertThat(tokenized).contains("[PII_EMAIL_1_" + session.sessionId() + "]");
+        assertThat(tokenized).contains("[PII_EMAIL_2_" + session.sessionId() + "]");
+    }
+
+    @Test
+    void testTheSameValueTwiceBecomesTheSameToken() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String tokenized = redactor
+            .tokenizeWithSpans("bob@acme.io told bob@acme.io", BOTH, session, null)
+            .text();
+
+        assertThat(tokenized).isEqualTo(
+            "[PII_EMAIL_1_" + session.sessionId() + "] told [PII_EMAIL_1_" + session.sessionId() + "]");
+    }
+
+    @Test
+    void testTokenizingThenRestoringIsTheIdentityForPii() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String text = "forward bob@acme.io's note to alice@acme.io";
+
+        String restored = session.restore(
+            redactor.tokenizeWithSpans(text, BOTH, session, null)
+                .text());
+
+        assertThat(restored).isEqualTo(text);
+    }
+
+    @Test
+    void testSecretsDoNotSurviveTheRoundTrip() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String text = "token AKIAIOSFODNN7EXAMPLE";
+
+        String restored = session.restore(
+            redactor.tokenizeWithSpans(text, BOTH, session, null)
+                .text());
+
+        assertThat(restored).isEqualTo("token [REDACTED_SECRET]");
+        assertThat(restored).doesNotContain("AKIAIOSFODNN7EXAMPLE");
     }
 }
