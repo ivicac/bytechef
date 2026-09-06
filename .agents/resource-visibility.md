@@ -184,6 +184,114 @@ controller that never reaches it, while `setConnectionVisibility` rejects `ORGAN
   `client/src/shared/components/visibility/` and are shared with connections.
 
 
+### Asset files: the two-door model
+
+`AssetFileFacadeImpl` carried **no** authorization of any kind and was the common sink of three
+cross-workspace vulnerabilities, each closed at its own surface and none at the facade. Of its
+twenty methods, eleven took a bare `id` and no workspace at all, so any caller holding an id
+operated on it. It is now **two facades performing two different checks** — neither door is
+unchecked:
+
+- **`AssetFileFacade` — membership.** Is the current user a member of the workspace that owns this
+  file? Six methods take an explicit `workspaceId` and throw `AccessDeniedException`; eleven take a
+  bare `id`, resolve the owner from the row, and throw `AssetFileNotFoundException` — deliberately
+  404-shaped, so a caller cannot probe which ids exist in other workspaces. The distinction is not
+  cosmetic: a caller that *named* a workspace asserted membership and deserves to be told the
+  assertion is false; a caller that only held an id gets told nothing.
+- **`AssetFileSystemFacade` — ownership.** Does this file belong to the server-derived workspace the
+  caller was handed? Eight methods, every id-taking one self-gating through `findByIdInWorkspace`,
+  which refuses a null `workspaceId` rather than degrading to unscoped, refuses a file whose own
+  `workspaceId` is null rather than treating it as a wildcard, and returns the identical message for
+  a cross-workspace id and an unknown one.
+
+**Two implementation classes, not one implementing both interfaces**, so a caller holding the
+guarded bean cannot cast across to the system one. The guarded impl delegates to the system impl
+after its membership check, so the three methods on both interfaces give a guarded caller both
+checks and a system caller ownership only — which is the whole distinction.
+
+**The system facade's contract is load-bearing and stated on the interface:** *the workspace must be
+server-derived, and the caller's access to it must have been verified upstream on a thread that had
+a principal.* It substitutes an authorization appropriate to a caller with no user; it does not skip
+one. Three caller families qualify, and each qualifies for its own reason:
+
+- the `asset-file` **workflow component actions**, which run on execution workers with no user
+  `SecurityContext` and whose workspace comes from job → project → workspace, never from caller input;
+- the **anonymous public-link and signed download**, where the token is the authorization by design;
+- the **AG-UI agent-turn threads** `WebhookBridgeAgent` and `AiHubRoutingAgent`. `LocalAgent.runAgent`
+  hands the agent body to a bare `CompletableFuture.runAsync`, so it runs on a
+  `ForkJoinPool.commonPool()` worker where `AiHubAgentTenantBinder` binds the **tenant only** and never
+  an `Authentication`. A membership check there **denies** — `AssetFileFacadeImpl` resolves the user
+  through `fetchCurrentUser`, so a missing principal is a non-member, not an exception. That is not a
+  milder outcome: a denial fails every workflow-chat attachment upload just as completely as a throw
+  would, so the family still belongs on the system facade. Their upstream verification is
+  `AiHubApiController.enforceWorkspaceAccess` plus `enforceThreadOwnership`, on the request thread.
+
+Copilot and AI Hub **tool callbacks are not in this set**: they are wrapped in
+`RehydrateContextToolCallback`, which runs them under `SecurityUtils.runAs`, so they carry a principal
+and use the guarded facade.
+
+**`enablePublicLink`, `disablePublicLink` and `createSignedDownloadToken` are membership-only and
+deliberately absent from the system facade.** They mint *anonymous* access — converting "this job may
+touch this file" into "anyone with the URL may" — which no server-derived workspace alone should
+authorize.
+
+**`AssetFileSystemFacadeCallerScanTest` pins both sides**: the permitted caller set (16 classes, wider
+than the 12 true callers because a simple-name token match also hits the interface, its impl, the EE
+remote-client stub and the `@Configuration` class that passes it through) and the interface's method
+set (exactly 8, so the link-minting trio cannot be added later without a deliberate change). It reads files outside its own
+module, so it runs from a never-up-to-date Gradle task wired into `check` with its own `@Timeout`,
+mirroring `toolContextWorkspaceScan`. The threat it guards is not a typo — it is someone with a
+perfectly good principal reaching for the system facade because it is less trouble than getting the
+workspace right.
+
+**In EE this is a real behaviour change on an existing surface, and belongs in release notes.**
+Callers that today reach any asset file by id are refused unless they are members of its workspace.
+**In CE nothing changes**, because `WorkspaceFacade#getUserWorkspaces` returns every workspace — the
+same way `WorkspaceAccessGuard` is already permissive there.
+
+**Two authorization idioms now coexist in this module, and that is not drift.**
+`AssetFileTagServiceImpl:50` uses `@PreAuthorize`/`hasPermission`; these facades deliberately do not.
+A scope token is the right primitive for a coarse capability check; it is *not* workspace isolation,
+because CE `PermissionServiceImpl.hasWorkspaceScope` returns `SecurityUtils.isAuthenticated()`, so in
+CE the token buys authentication only. Real isolation comes from the `getUserWorkspaces` membership
+test, which is why the facades do it directly. Use the annotation for a capability, the membership
+test for isolation.
+
+**Actual cost.** The design budgeted one extra owner-resolving query per bare-id call; the
+implementation costs more than that. The guard loads the row to resolve its owner and the method body
+loads it again, so six bare-id methods issue two loads and the four that delegate to a
+`*InWorkspace` operation (`delete`, `rename`, `updateContent`, `downloadContent`) issue three, since
+`findByIdInWorkspace` loads it a third time. `getVersions` is the exception at one. Nothing caches
+across the two, and no measurement has established this matters — it is recorded so the next reader
+does not inherit the spec's estimate as fact.
+
+**Known gaps, unfixed.**
+- `assetFileTags(workspaceId)` has **never** had a membership check — not before this plan, and not in
+  the guard it deleted. It relies on the scope-token idiom above, which in CE is authentication only,
+  so a caller-supplied workspace is accepted. Out of scope here, separately ticketed.
+- `AssetFileUpdateContentAction` opens the input stream before calling `updateContentInWorkspace`, so
+  a denied call leaks a stream that previously was never opened. Own-input only, not cross-workspace.
+- `enablePublicLink` and `createSignedDownloadToken` check operator configuration before the
+  membership check, so under a kill-switch-off configuration a non-member sees `IllegalStateException`
+  rather than not-found. Judged benign: the configuration is global and id-independent, so the
+  response is identical for a caller's own files and for ids that do not exist — it is not an oracle.
+
+Spec: `docs/superpowers/specs/2026-09-02-asset-file-authorization-design.md`.
+
+#### A facade-thrown `AccessDeniedException` surfaces as 500, not 403
+
+This is repo-wide and sits directly in the path of a convention CLAUDE.md actively encourages —
+moving authorization out of controllers and down into facades. `GlobalResponseEntityExceptionHandler`
+declares `@ExceptionHandler(Throwable.class)`, which resolves an `AccessDeniedException` leaving a
+controller method **before Spring Security's `ExceptionTranslationFilter` ever sees it**. The filter
+translates the exception only if it propagates out of the filter chain; the `@ControllerAdvice` runs
+first and turns it into a 500.
+
+So a `@PreAuthorize` moved from a controller down to a facade keeps working and silently changes its
+own status code. The controller must carry its own handler — `AssetFileRestController:170` does, and
+that is why. It was found here only because a retargeted test failed; nothing in the framework warns
+about it. Check the response status, not just the refusal, whenever authorization moves down a layer.
+
 ### Per-environment workspace roles (EE)
 
 A workspace member holds either **one implicit role** (a `workspace_user` row with
