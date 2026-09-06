@@ -31,6 +31,8 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowSe
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
+import com.bytechef.platform.ai.guardrails.RedactingToolCallback;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.constant.PlatformType;
@@ -61,6 +63,7 @@ import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -76,6 +79,7 @@ public class AutomationMcpServerConfiguration {
 
     public static final String SECRET_KEY = "secretKey";
     private static final String AUTHORITIES = "authorities";
+    private static final String SURFACE = "mcp_automation";
 
     private static final McpToolAuthorizationEvaluator TOOL_AUTHORIZATION_EVALUATOR =
         new McpToolAuthorizationEvaluator();
@@ -125,6 +129,7 @@ public class AutomationMcpServerConfiguration {
         ApplicationProperties applicationProperties, McpComponentService mcpComponentService,
         McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
         AutomationMcpToolFacade mcpToolFacade,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
         ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
@@ -150,8 +155,8 @@ public class AutomationMcpServerConfiguration {
 
                 return buildToolSpecifications(
                     secretKeyObject.toString(), authorities(mcpTransportContext), mcpComponentService,
-                    mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade, workspaceToolProviders,
-                    workspaceMcpServerService);
+                    mcpProjectService, mcpServerService, mcpToolService, mcpToolFacade,
+                    mcpOutboundRedactorProviderProvider, workspaceToolProviders, workspaceMcpServerService);
             })
             .build();
     }
@@ -189,6 +194,7 @@ public class AutomationMcpServerConfiguration {
         String secretKey, Set<String> principalAuthorities, McpComponentService mcpComponentService,
         McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
         AutomationMcpToolFacade mcpToolFacade,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
         ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
@@ -200,32 +206,49 @@ public class AutomationMcpServerConfiguration {
 
         List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
 
-        mcpComponentService.getMcpServerMcpComponents(mcpServer.getId())
-            .stream()
-            .flatMap(
-                mcpComponent -> CollectionUtils.stream(
-                    mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
-            .filter(McpTool::isEnabled)
-            .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
-            .forEach(tools::add);
+        Long workspaceId = workspaceMcpServerService.fetchMcpServerWorkspaceId(mcpServer.getId())
+            .orElse(null);
+
+        authorizedComponents(
+            mcpServer, mcpComponentService.getMcpServerMcpComponents(mcpServer.getId()), principalAuthorities)
+                .stream()
+                .flatMap(
+                    mcpComponent -> CollectionUtils.stream(
+                        mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
+                .filter(McpTool::isEnabled)
+                .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(
+                    guard(
+                        mcpToolFacade.getFunctionToolCallback(mcpTool), mcpOutboundRedactorProviderProvider,
+                        workspaceId)))
+                .forEach(tools::add);
+
+        if (!isUnscopedToolSourceAuthorized(mcpServer, principalAuthorities)) {
+            return tools;
+        }
+
+        List<McpProject> mcpProjects = readMcpServerConfiguration(
+            () -> mcpProjectService.getMcpServerMcpProjects(mcpServer.getId()));
 
         // Workflow-backed tools run synchronously and can pause on a human approval — decorate them with URL-mode
         // elicitation so capable clients get pointed at the hosted approval form and receive the resumed run's
         // real output in the same tools/call.
-        mcpProjectService.getMcpServerMcpProjects(mcpServer.getId())
-            .stream()
+        mcpProjects.stream()
             .flatMap(mcpProject -> CollectionUtils.stream(mcpToolFacade.getFunctionToolCallbacks(mcpProject)))
+            .map(toolCallback -> guard(toolCallback, mcpOutboundRedactorProviderProvider, workspaceId))
             .map(McpToolUtils::toAsyncToolSpecification)
             .map(
                 toolSpecification -> ApprovalElicitingToolSpecifications.decorate(
-                    toolSpecification, mcpToolFacade, mcpServer.getId()))
+                    toolSpecification, mcpToolFacade, mcpServer.getId(), mcpOutboundRedactorProviderProvider,
+                    workspaceId, SURFACE))
             .forEach(tools::add);
 
-        workspaceMcpServerService.fetchMcpServerWorkspaceId(mcpServer.getId())
-            .ifPresent(workspaceId -> workspaceToolProviders.orderedStream()
+        if (workspaceId != null) {
+            workspaceToolProviders.orderedStream()
                 .flatMap(provider -> CollectionUtils.stream(provider.getFunctionToolCallbacks(workspaceId)))
+                .map(toolCallback -> guard(toolCallback, mcpOutboundRedactorProviderProvider, workspaceId))
                 .map(McpToolUtils::toAsyncToolSpecification)
-                .forEach(tools::add));
+                .forEach(tools::add);
+        }
 
         return tools;
     }
@@ -238,5 +261,13 @@ public class AutomationMcpServerConfiguration {
         } catch (Throwable throwable) {
             throw new IllegalStateException(throwable);
         }
+    }
+
+    private static ToolCallback guard(
+        ToolCallback toolCallback, ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId) {
+
+        return RedactingToolCallback.wrap(
+            toolCallback, mcpOutboundRedactorProviderProvider, workspaceId, SURFACE);
     }
 }

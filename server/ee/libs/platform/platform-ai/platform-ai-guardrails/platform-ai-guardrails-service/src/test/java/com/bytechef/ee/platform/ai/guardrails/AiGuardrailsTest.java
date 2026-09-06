@@ -10,6 +10,8 @@ package com.bytechef.ee.platform.ai.guardrails;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
@@ -376,7 +378,7 @@ class AiGuardrailsTest {
 
         when(settingsService.fetchSettings(7L)).thenReturn(
             Optional.of(new AiGuardrailsWorkspaceSettings(
-                7L, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null)));
+                7L, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         assertThat(guardrails.resolveBlockingMode(7L)).isEqualTo(BlockingMode.REDACT_AND_CONTINUE);
     }
@@ -809,6 +811,112 @@ class AiGuardrailsTest {
         assertThat(counter("pii_redacted")).isEqualTo(0.0);
     }
 
+    @Test
+    void testResolveMcpOutboundPolicyReturnsNullWhenTheSwitchIsOff() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, true, true, null, null, null, null, null, null, null)));
+
+        assertThat(guardrails.resolveMcpOutboundPolicy(1L))
+            .as("redactPii being on must not imply MCP outbound redaction")
+            .isNull();
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyCarriesTheWorkspacesKindsAndThreshold() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, true, false, null, null, null, null, null, 0.7, true)));
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveMcpOutboundPolicy(1L);
+
+        assertThat(policy).isNotNull();
+        assertThat(policy.kinds()).containsExactly(SensitiveKind.PII);
+        assertThat(policy.minConfidence()).isEqualTo(0.7);
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyReturnsNullWhenTheSwitchIsExplicitlyFalse() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, true, true, null, null, null, null, null, null, false)));
+
+        assertThat(guardrails.resolveMcpOutboundPolicy(1L))
+            .as("an explicit false is off, exactly as an unset switch is")
+            .isNull();
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyFallsBackToTheDefaultMinConfidence() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, true, false, null, null, null, null, null, null, true)));
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveMcpOutboundPolicy(1L);
+
+        assertThat(policy).isNotNull();
+        assertThat(policy.minConfidence()).isEqualTo(SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyReadsTheSettingsRowExactlyOnce() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, true, false, null, null, null, null, null, 0.7, true)));
+
+        guardrails.resolveMcpOutboundPolicy(1L);
+
+        verify(settingsService, times(1)).fetchSettings(1L);
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyDoesNotDegradeToEmptyKindsWhenARepeatReadWouldFail() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L))
+            .thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+                1L, true, false, null, null, null, null, null, 0.7, true)))
+            .thenThrow(new IllegalStateException("connection reset"));
+
+        PiiTokenBoundaryPolicy policy = guardrails.resolveMcpOutboundPolicy(1L);
+
+        assertThat(policy).isNotNull();
+        assertThat(policy.kinds())
+            .as("a redactor built from an empty kind set redacts nothing and emits no metric, so the raw "
+                + "payload would go out with isError false -- the same silent leak the gate read now prevents")
+            .containsExactly(SensitiveKind.PII);
+        assertThat(policy.minConfidence()).isEqualTo(0.7);
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyPropagatesASettingsLookupFailure() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenThrow(new IllegalStateException("connection reset"));
+
+        assertThatExceptionOfType(IllegalStateException.class)
+            .as("swallowing the failure would be indistinguishable from redaction being off, which returns the " +
+                "payload unredacted")
+            .isThrownBy(() -> guardrails.resolveMcpOutboundPolicy(1L));
+    }
+
+    @Test
+    void testResolveMcpOutboundPolicyDoesNotAffectIsActive() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
+
+        when(settingsService.fetchSettings(1L)).thenReturn(Optional.of(new AiGuardrailsWorkspaceSettings(
+            1L, null, null, null, null, null, null, null, null, true)));
+
+        assertThat(guardrails.isActive(1L))
+            .as("enabling MCP outbound redaction must not start attaching advisors to chat surfaces")
+            .isFalse();
+    }
+
     private AiGuardrails guardrails(
         AiGatewayInjectionClassifier injectionClassifier, boolean piiRedactionEnabled, boolean secretRedactionEnabled,
         String blockedTerms, boolean injectionDetectionEnabled, boolean responseScanEnabled) {
@@ -845,15 +953,17 @@ class AiGuardrailsTest {
         Boolean scanResponses) {
 
         return new AiGuardrailsWorkspaceSettings(
-            7L, redactPii, redactSecrets, blockedTerms, null, injectionDetectionEnabled, scanResponses, null, null);
+            7L, redactPii, redactSecrets, blockedTerms, null, injectionDetectionEnabled, scanResponses, null, null,
+            null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithModeration(Boolean moderationEnabled) {
-        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, moderationEnabled, null, null, null, null);
+        return new AiGuardrailsWorkspaceSettings(
+            7L, null, null, null, moderationEnabled, null, null, null, null, null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
-        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence);
+        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence, null);
     }
 
     private static double scoreOf(String type) {

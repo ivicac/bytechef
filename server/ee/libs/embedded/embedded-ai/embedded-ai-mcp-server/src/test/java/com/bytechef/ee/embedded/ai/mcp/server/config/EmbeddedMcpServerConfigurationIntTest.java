@@ -27,6 +27,7 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.security.service.JwtTokenService;
 import com.bytechef.ee.embedded.security.service.SigningKeyService;
+import com.bytechef.ee.platform.security.web.mcp.oauth2.McpTenantIssuerResolver;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -36,8 +37,9 @@ import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.web.mcp.McpAnonymousAuthenticationToken;
-import com.bytechef.platform.tool.execution.config.ToolExecutionConfiguration;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import io.modelcontextprotocol.common.McpTransportContext;
 import java.util.List;
@@ -63,11 +65,11 @@ class EmbeddedMcpServerConfigurationIntTest {
         ComponentDefinitionService.class, ConnectedUserService.class, EnvironmentService.class, Evaluator.class,
         IntegrationInstanceConfigurationService.class, IntegrationInstanceConfigurationWorkflowService.class,
         IntegrationInstanceService.class, IntegrationInstanceWorkflowService.class, IntegrationService.class,
-        JobCompletionAwaiter.class, JwtTokenService.class, McpComponentService.class,
-        McpIntegrationComponentService.class, McpIntegrationInstanceConfigurationService.class,
-        McpIntegrationInstanceConfigurationWorkflowService.class,
-        McpIntegrationInstanceToolService.class, McpServerService.class, McpToolService.class,
-        PrincipalJobFacade.class, SigningKeyService.class, TaskExecutionService.class, WorkflowService.class);
+        JobCompletionAwaiter.class, JobResumeFacade.class, JwtTokenService.class, McpComponentService.class,
+        McpIntegrationInstanceConfigurationService.class, McpIntegrationInstanceConfigurationWorkflowService.class,
+        McpIntegrationInstanceToolService.class, McpServerService.class, McpTenantIssuerResolver.class,
+        McpToolService.class, PrincipalJobFacade.class, SigningKeyService.class, TaskExecutionService.class,
+        TaskFileStorage.class, ToolExecutionRecorder.class, WorkflowService.class);
 
     @AfterEach
     void afterEach() {

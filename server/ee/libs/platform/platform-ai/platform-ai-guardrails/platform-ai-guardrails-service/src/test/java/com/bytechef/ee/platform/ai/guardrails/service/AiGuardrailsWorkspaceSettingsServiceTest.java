@@ -23,6 +23,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -84,7 +85,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesWorkspaceScopedProperty() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            7L, true, null, "foo,bar", null, null, null, BlockingMode.REDACT_AND_CONTINUE, null);
+            7L, true, null, "foo,bar", null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null);
 
         service.saveSettings(settings);
 
@@ -97,7 +98,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWithNullWorkspaceWritesPlatformScope() {
         AiGuardrailsWorkspaceSettings settings =
-            new AiGuardrailsWorkspaceSettings(null, null, null, null, null, null, null, null, null);
+            new AiGuardrailsWorkspaceSettings(null, null, null, null, null, null, null, null, null, null);
 
         service.saveSettings(settings);
 
@@ -108,7 +109,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesMinConfidenceWhenSet() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            7L, null, null, null, null, null, null, null, 0.95);
+            7L, null, null, null, null, null, null, null, 0.95, null);
 
         service.saveSettings(settings);
 
@@ -137,6 +138,55 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
             .orElseThrow();
 
         assertThat(settings.minConfidence()).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testRedactMcpResultsRoundTripsAndIsAbsentFromOldRows() {
+        AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
+            1L, null, null, null, null, null, null, null, null, true);
+
+        service.saveSettings(saved);
+
+        ArgumentCaptor<Map<String, Object>> valueCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(propertyService).save(
+            eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), valueCaptor.capture(), eq(Scope.WORKSPACE), eq(1L));
+
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.WORKSPACE, 1L))
+            .thenReturn(Optional.of(property(valueCaptor.getValue())));
+
+        Optional<AiGuardrailsWorkspaceSettings> fetched = service.fetchSettings(1L);
+
+        assertThat(fetched).isPresent();
+        assertThat(fetched.get()
+            .redactMcpResults()).isTrue();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testARowStoredBeforeThisFieldExistedReadsAsNull() {
+        // A property value map written by an earlier version carries no key for this field at all.
+        AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
+            1L, true, null, null, null, null, null, null, null, null);
+
+        service.saveSettings(settings);
+
+        ArgumentCaptor<Map<String, Object>> valueCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(propertyService).save(
+            eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), valueCaptor.capture(), eq(Scope.WORKSPACE), eq(1L));
+
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.WORKSPACE, 1L))
+            .thenReturn(Optional.of(property(valueCaptor.getValue())));
+
+        Optional<AiGuardrailsWorkspaceSettings> fetched = service.fetchSettings(1L);
+
+        assertThat(fetched).isPresent();
+        assertThat(fetched.get()
+            .redactMcpResults())
+                .as("absent key must read as null, not false, so it unions as 'not set at this level'")
+                .isNull();
     }
 
     private static Property property(Map<String, ?> value) {

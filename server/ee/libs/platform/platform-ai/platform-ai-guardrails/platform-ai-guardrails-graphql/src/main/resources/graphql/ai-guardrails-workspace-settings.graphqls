@@ -16,6 +16,7 @@ type AiGuardrailsWorkspaceSettings {
     scanResponses: Boolean
     blockingMode: AiGuardrailsBlockingMode
     minConfidence: Float
+    redactMcpResults: Boolean
 }
 
 enum AiGuardrailsBlockingMode {
@@ -33,4 +34,5 @@ input AiGuardrailsWorkspaceSettingsInput {
     scanResponses: Boolean
     blockingMode: AiGuardrailsBlockingMode
     minConfidence: Float
+    redactMcpResults: Boolean
 }
