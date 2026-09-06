@@ -17,7 +17,9 @@
 package com.bytechef.platform.scheduler.db.importer;
 
 import com.bytechef.platform.scheduler.db.task.DbSchedulerTaskDescriptors;
+import com.bytechef.platform.scheduler.db.task.DynamicWebhookRefreshData;
 import com.bytechef.platform.scheduler.db.task.OAuth2TokenRefreshData;
+import com.bytechef.platform.scheduler.db.task.OneTimeResumeData;
 import com.bytechef.platform.scheduler.db.task.PollingTriggerData;
 import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.github.kagkarlsson.scheduler.SchedulerClient;
@@ -46,7 +48,9 @@ class QuartzImporterTest {
                 List.of(
                     new ImportedJob.ScheduleTrigger("wfe-1", "0 0 9 * * ?", "UTC", "{}", future),
                     new ImportedJob.PollingTrigger("wfe-2", future),
-                    new ImportedJob.OAuth2TokenRefresh("00000177", 77L, "000001", future)),
+                    new ImportedJob.DynamicWebhookRefresh("wfe-3", 99L, future),
+                    new ImportedJob.OAuth2TokenRefresh("00000177", 77L, "000001", future),
+                    new ImportedJob.OneTimeResume("42", 42L, "{\"step\":\"1\"}", future)),
                 0, 0, 0, 0, true));
         Mockito.when(schedulerClient.scheduleIfNotExists(Mockito.any(SchedulableInstance.class)))
             .thenReturn(true);
@@ -55,7 +59,7 @@ class QuartzImporterTest {
 
         ArgumentCaptor<SchedulableInstance<?>> captor = ArgumentCaptor.forClass(SchedulableInstance.class);
 
-        Mockito.verify(schedulerClient, Mockito.times(3))
+        Mockito.verify(schedulerClient, Mockito.times(5))
             .scheduleIfNotExists(captor.capture());
 
         List<SchedulableInstance<?>> instances = captor.getAllValues();
@@ -66,22 +70,57 @@ class QuartzImporterTest {
         Assertions.assertThat(instances.get(0)
             .getTaskName())
             .isEqualTo(DbSchedulerTaskDescriptors.SCHEDULE_TRIGGER_NAME);
+        Assertions.assertThat(instances.get(0)
+            .getId())
+            .isEqualTo("wfe-1");
         Assertions.assertThat((ScheduleTriggerData) instances.get(0)
             .getTaskInstance()
             .getData())
             .isEqualTo(new ScheduleTriggerData("0 0 9 * * ?", "UTC", "{}"));
+        Assertions.assertThat(instances.get(1)
+            .getTaskName())
+            .isEqualTo(DbSchedulerTaskDescriptors.POLLING_TRIGGER_NAME);
+        Assertions.assertThat(instances.get(1)
+            .getId())
+            .isEqualTo("wfe-2");
         Assertions.assertThat((PollingTriggerData) instances.get(1)
             .getTaskInstance()
             .getData())
             .isEqualTo(new PollingTriggerData(5));
-        Assertions.assertThat((OAuth2TokenRefreshData) instances.get(2)
+        Assertions.assertThat(instances.get(2)
+            .getTaskName())
+            .isEqualTo(DbSchedulerTaskDescriptors.DYNAMIC_WEBHOOK_REFRESH_NAME);
+        Assertions.assertThat(instances.get(2)
+            .getId())
+            .isEqualTo("wfe-3");
+        Assertions.assertThat((DynamicWebhookRefreshData) instances.get(2)
+            .getTaskInstance()
+            .getData())
+            .isEqualTo(new DynamicWebhookRefreshData(99L));
+        Assertions.assertThat(instances.get(3)
+            .getTaskName())
+            .isEqualTo(DbSchedulerTaskDescriptors.OAUTH2_TOKEN_REFRESH_NAME);
+        Assertions.assertThat(instances.get(3)
+            .getId())
+            .isEqualTo("00000177");
+        Assertions.assertThat((OAuth2TokenRefreshData) instances.get(3)
             .getTaskInstance()
             .getData())
             .isEqualTo(new OAuth2TokenRefreshData(77L, "000001"));
+        Assertions.assertThat(instances.get(4)
+            .getTaskName())
+            .isEqualTo(DbSchedulerTaskDescriptors.ONE_TIME_RESUME_NAME);
+        Assertions.assertThat(instances.get(4)
+            .getId())
+            .isEqualTo("42");
+        Assertions.assertThat((OneTimeResumeData) instances.get(4)
+            .getTaskInstance()
+            .getData())
+            .isEqualTo(new OneTimeResumeData(42L, "{\"step\":\"1\"}"));
         Assertions.assertThat(summary.imported())
-            .isEqualTo(3);
+            .isEqualTo(5);
         Assertions.assertThat(summary.scanned())
-            .isEqualTo(3);
+            .isEqualTo(5);
     }
 
     @Test
