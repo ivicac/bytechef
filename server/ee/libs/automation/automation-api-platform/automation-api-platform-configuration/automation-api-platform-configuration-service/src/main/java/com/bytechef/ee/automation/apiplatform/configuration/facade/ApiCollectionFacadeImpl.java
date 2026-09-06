@@ -78,6 +78,7 @@ import tools.jackson.core.type.TypeReference;
 public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
 
     private final ApiCollectionAuditPublisher apiCollectionAuditPublisher;
+
     private final ApiCollectionService apiCollectionService;
     private final ApiCollectionEndpointService apiCollectionEndpointService;
     private final EnvironmentService environmentService;
@@ -110,15 +111,19 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
         this.workflowService = workflowService;
     }
 
+    /**
+     * Keyed on the project, since the DTO carries no workspace id, and checked against the environment the body then
+     * acts on -- {@code apiCollectionDTO.environment()}, which it writes onto the backing deployment a few lines below.
+     * Gate and body therefore resolve the same environment, which is the property this whole sweep exists to preserve.
+     * <p>
+     * {@code Project} registers no {@code ResourceEnvironmentResolver} -- correctly, a project does not live in an
+     * environment -- so the environment cannot come from the resolved row and has to be named explicitly, which is what
+     * this expression is for. A null keeps the environment-unaware check rather than denying or throwing; that null
+     * branch lives in the expression itself, so a client omitting the field gets today's behaviour instead of a 500.
+     */
     @Override
-    @Audited(event = ApiCollectionAuditEvents.API_COLLECTION_CREATED, data = {
-        @AuditData(key = "apiCollectionId", value = "#result?.id"),
-        @AuditData(key = "name", value = "#apiCollectionDTO.name"),
-        @AuditData(key = "projectId", value = "#apiCollectionDTO.projectId"),
-        @AuditData(key = "projectDeploymentId", value = "#result?.projectDeploymentId"),
-        @AuditData(key = "environment", value = "#apiCollectionDTO.environment")
-    })
-    @PreAuthorize("hasPermission(#apiCollectionDTO.projectId(), 'Project', 'DEPLOYMENT_PUSH')")
+    @PreAuthorize("hasResourceScopeInEnvironment(#apiCollectionDTO.projectId, 'Project', 'API_PLATFORM_CREATE', " +
+        "#apiCollectionDTO.environment) and hasPermission(#apiCollectionDTO.projectId, 'Project', 'DEPLOYMENT_PUSH')")
     public ApiCollectionDTO createApiCollection(ApiCollectionDTO apiCollectionDTO) {
         ApiCollection apiCollection = apiCollectionDTO.toApiCollection();
 
@@ -160,6 +165,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.apiCollectionId, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public ApiCollectionEndpointDTO createApiCollectionEndpoint(
         ApiCollectionEndpointDTO apiCollectionEndpointDTO) {
 
@@ -179,9 +185,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
-    @Audited(event = ApiCollectionAuditEvents.API_COLLECTION_DELETED, data = {
-        @AuditData(key = "apiCollectionId", value = "#id")
-    })
+    @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public void deleteApiCollection(long id) {
         ApiCollection apiCollection = apiCollectionService.getApiCollection(id);
 
@@ -196,11 +200,13 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_VIEW')")
     public ApiCollectionDTO getApiCollection(long id) {
         return toApiCollectionDTO(apiCollectionService.getApiCollection(id));
     }
 
     @Override
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'API_PLATFORM_VIEW', #environmentId)")
     public List<ApiCollectionDTO> getApiCollections(
         long workspaceId, Long environmentId, Long projectId, Long tagId) {
 
@@ -213,7 +219,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_VIEW')")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'API_PLATFORM_VIEW')")
     public List<Tag> getApiCollectionTags(long workspaceId) {
         List<ApiCollection> apiCollections = apiCollectionService.getApiCollections(workspaceId, null, null, null);
 
@@ -224,7 +230,10 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
                 .toList());
     }
 
+    // The collection's full published API description -- the document an attacker would want first, and
+    // ungated until now.
     @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_VIEW')")
     public String getOpenApiSpecification(long id) {
         ApiCollection apiCollection = apiCollectionService.getApiCollection(id);
 
@@ -279,11 +288,13 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'API_PLATFORM_VIEW')")
     public List<Project> getWorkspaceProjects(long workspaceId) {
         return projectService.getProjects(apiCollectionService.getApiCollectionProjectIds(workspaceId));
     }
 
     @Override
+    @PreAuthorize("hasPermission(#apiCollectionDTO.id, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public ApiCollectionDTO updateApiCollection(ApiCollectionDTO apiCollectionDTO) {
         ApiCollection apiCollection = apiCollectionDTO.toApiCollection();
 
@@ -323,6 +334,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
      * </p>
      */
     @Override
+    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.apiCollectionId, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public ApiCollectionEndpointDTO updateApiCollectionEndpoint(ApiCollectionEndpointDTO apiCollectionEndpointDTO) {
         ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointDTO.toApiCollectionEndpoint();
 
@@ -345,6 +357,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public void updateApiCollectionTags(long id, List<Tag> tags) {
         tags = checkTags(tags);
 
