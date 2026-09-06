@@ -33,6 +33,7 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProvider;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -174,8 +175,9 @@ class AbstractAiAgentChatActionWorkspaceSystemPromptTest {
 
         AiGuardrailsAdvisorProvider guardrailsProvider = mock(AiGuardrailsAdvisorProvider.class);
 
-        when(guardrailsProvider.getAdvisor(PlatformType.AUTOMATION, 42L, "ai_agent"))
-            .thenReturn(Optional.of(guardrailsAdvisor));
+        when(guardrailsProvider.getAdvisor(
+            PlatformType.AUTOMATION, 42L, "ai_agent", RestorationDestination.WORKFLOW_OUTPUT))
+                .thenReturn(Optional.of(guardrailsAdvisor));
 
         FakeWorkspaceSystemPromptAdvisor workspaceAdvisor = new FakeWorkspaceSystemPromptAdvisor();
 

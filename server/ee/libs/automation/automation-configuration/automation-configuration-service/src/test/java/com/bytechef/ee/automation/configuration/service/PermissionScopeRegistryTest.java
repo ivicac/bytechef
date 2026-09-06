@@ -14,10 +14,22 @@ import com.bytechef.automation.configuration.security.constant.PermissionScopeTy
 import com.bytechef.ee.automation.configuration.security.PermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.PermissionScopeProvider.ScopeDefinition;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
+import com.bytechef.ee.automation.configuration.security.scope.AgentPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.AiGatewayPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.ApiKeyPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.ApiPlatformPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.AppPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.ConnectionPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.DataSyncPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.DataTablePermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.scope.DeploymentPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.ExecutionPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.KnowledgeBasePermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.scope.McpPermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.scope.ProjectPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.VariablePermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.scope.WorkflowPermissionScopeProvider;
+import com.bytechef.ee.automation.configuration.security.scope.WorkspacePermissionScopeProvider;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -102,6 +114,18 @@ class PermissionScopeRegistryTest {
             .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void testAiGatewayEditRequiresAdmin() {
+        PermissionScopeRegistry registry = new PermissionScopeRegistry(
+            List.of(new AiGatewayPermissionScopeProvider()));
+
+        Set<String> viewerScopes = registry.getScopeNames(WorkspaceRole.VIEWER);
+        Set<String> adminScopes = registry.getScopeNames(WorkspaceRole.ADMIN);
+
+        assertThat(viewerScopes).doesNotContain("AI_GATEWAY_EDIT");
+        assertThat(adminScopes).contains("AI_GATEWAY_EDIT");
+    }
+
     private static Set<String> union(Set<String> first, Set<String> second) {
         return Stream.concat(first.stream(), second.stream())
             .collect(Collectors.toUnmodifiableSet());
@@ -130,10 +154,19 @@ class PermissionScopeRegistryTest {
 
         private static final Pattern SCOPE_NAME_LITERAL_PATTERN = Pattern.compile("\"([A-Z][A-Z0-9_]{2,})\"");
 
+        private static final Pattern SPEL_SCOPE_CHECK_PATTERN = Pattern.compile(
+            "has(?:Workspace|Resource)Scope\\w*\\([^)]*'([A-Z][A-Z0-9_]{2,})'");
+
         private final PermissionScopeRegistry shippedPermissionScopeRegistry = new PermissionScopeRegistry(
             List.<PermissionScopeProvider>of(
-                new DeploymentPermissionScopeProvider(), new McpPermissionScopeProvider(),
-                new ProjectPermissionScopeProvider(), new WorkflowPermissionScopeProvider()));
+                new AgentPermissionScopeProvider(), new AiGatewayPermissionScopeProvider(),
+                new ApiKeyPermissionScopeProvider(), new ApiPlatformPermissionScopeProvider(),
+                new AppPermissionScopeProvider(), new ConnectionPermissionScopeProvider(),
+                new DataSyncPermissionScopeProvider(), new DataTablePermissionScopeProvider(),
+                new DeploymentPermissionScopeProvider(), new ExecutionPermissionScopeProvider(),
+                new KnowledgeBasePermissionScopeProvider(), new McpPermissionScopeProvider(),
+                new ProjectPermissionScopeProvider(), new VariablePermissionScopeProvider(),
+                new WorkflowPermissionScopeProvider(), new WorkspacePermissionScopeProvider()));
 
         @Test
         void testEveryScopeNamedByAGateIsRegistered() {
@@ -196,6 +229,12 @@ class PermissionScopeRegistryTest {
 
                     while (hasPermissionMatcher.find()) {
                         scopeNames.add(hasPermissionMatcher.group(1));
+                    }
+
+                    Matcher spelScopeCheckMatcher = SPEL_SCOPE_CHECK_PATTERN.matcher(source);
+
+                    while (spelScopeCheckMatcher.find()) {
+                        scopeNames.add(spelScopeCheckMatcher.group(1));
                     }
 
                     Matcher programmaticScopeCheckMatcher = PROGRAMMATIC_SCOPE_CHECK_PATTERN.matcher(source);
