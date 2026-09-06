@@ -444,7 +444,7 @@ export class ConnectionApi extends runtime.BaseAPI {
     }
 
     /**
-     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id.
+     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id. The supplied parameters replace the connection\'s authorization parameters wholesale: a parameter that is not supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level properties are untouched. A successful call also marks the connection\'s credentials valid again.
      * Reauthorize a connection
      */
     async reauthorizeFrontendConnectionRaw(requestParameters: ReauthorizeFrontendConnectionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
@@ -455,7 +455,7 @@ export class ConnectionApi extends runtime.BaseAPI {
     }
 
     /**
-     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id.
+     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id. The supplied parameters replace the connection\'s authorization parameters wholesale: a parameter that is not supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level properties are untouched. A successful call also marks the connection\'s credentials valid again.
      * Reauthorize a connection
      */
     async reauthorizeFrontendConnection(requestParameters: ReauthorizeFrontendConnectionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {

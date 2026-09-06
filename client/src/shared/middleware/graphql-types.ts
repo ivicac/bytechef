@@ -808,9 +808,74 @@ export type AiGatewayWorkspaceSettingsInput = {
   workspaceId: Scalars['ID']['input'];
 };
 
+export type AiGuardrailCustomRule = {
+  __typename?: 'AiGuardrailCustomRule';
+  /** Comma-delimited keywords that raise a match's confidence when one sits near it. Raising only, never lowering. */
+  contextKeywords?: Maybe<Scalars['String']['output']>;
+  contextScore?: Maybe<Scalars['Float']['output']>;
+  contextWindow?: Maybe<Scalars['Int']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  /** 0 is PII (reversible, tokenized); 1 is SECRET (never restored). */
+  kind: Scalars['Int']['output'];
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  pattern: Scalars['String']['output'];
+  score: Scalars['Float']['output'];
+  /** The span category, and the name that appears in tokens, metrics and violation records. */
+  type: Scalars['String']['output'];
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiGuardrailCustomRuleInput = {
+  contextKeywords?: InputMaybe<Scalars['String']['input']>;
+  contextScore?: InputMaybe<Scalars['Float']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  kind: Scalars['Int']['input'];
+  pattern: Scalars['String']['input'];
+  score: Scalars['Float']['input'];
+  type: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type AiGuardrailViolation = {
+  __typename?: 'AiGuardrailViolation';
+  /**
+   * What was actually done. ALLOWED is a counterfactual - observe mode saw the violation and forwarded the content
+   * unmodified - so it must not be read as an enforcement.
+   */
+  action: AiGuardrailViolationAction;
+  /** The rule that fired, e.g. EMAIL_ADDRESS. */
+  category: Scalars['String']['output'];
+  confidence: Scalars['Float']['output'];
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environment?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['ID']['output'];
+  kind: Scalars['Int']['output'];
+  principal?: Maybe<Scalars['String']['output']>;
+  spanLength: Scalars['Int']['output'];
+  /** Where the match sat in the scanned text. Never the text itself. */
+  spanStart: Scalars['Int']['output'];
+  surface: Scalars['String']['output'];
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export enum AiGuardrailViolationAction {
+  Allowed = 'ALLOWED',
+  Blocked = 'BLOCKED',
+  Redacted = 'REDACTED'
+}
+
 export enum AiGuardrailsBlockingMode {
+  Allow = 'ALLOW',
   Block = 'BLOCK',
   RedactAndContinue = 'REDACT_AND_CONTINUE'
+}
+
+export enum AiGuardrailsSettingsScope {
+  Embedded = 'EMBEDDED',
+  Platform = 'PLATFORM',
+  Workspace = 'WORKSPACE'
 }
 
 export type AiGuardrailsWorkspaceSettings = {
@@ -818,10 +883,14 @@ export type AiGuardrailsWorkspaceSettings = {
   blockedTerms?: Maybe<Scalars['String']['output']>;
   blockingMode?: Maybe<AiGuardrailsBlockingMode>;
   injectionDetectionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  minConfidence?: Maybe<Scalars['Float']['output']>;
   moderationEnabled?: Maybe<Scalars['Boolean']['output']>;
+  redactMcpResults?: Maybe<Scalars['Boolean']['output']>;
   redactPii?: Maybe<Scalars['Boolean']['output']>;
   redactSecrets?: Maybe<Scalars['Boolean']['output']>;
+  restoreIntoWorkflowOutput?: Maybe<Scalars['Boolean']['output']>;
   scanResponses?: Maybe<Scalars['Boolean']['output']>;
+  scope?: Maybe<AiGuardrailsSettingsScope>;
   workspaceId?: Maybe<Scalars['ID']['output']>;
 };
 
@@ -829,10 +898,14 @@ export type AiGuardrailsWorkspaceSettingsInput = {
   blockedTerms?: InputMaybe<Scalars['String']['input']>;
   blockingMode?: InputMaybe<AiGuardrailsBlockingMode>;
   injectionDetectionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  minConfidence?: InputMaybe<Scalars['Float']['input']>;
   moderationEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  redactMcpResults?: InputMaybe<Scalars['Boolean']['input']>;
   redactPii?: InputMaybe<Scalars['Boolean']['input']>;
   redactSecrets?: InputMaybe<Scalars['Boolean']['input']>;
+  restoreIntoWorkflowOutput?: InputMaybe<Scalars['Boolean']['input']>;
   scanResponses?: InputMaybe<Scalars['Boolean']['input']>;
+  scope?: InputMaybe<AiGuardrailsSettingsScope>;
   workspaceId?: InputMaybe<Scalars['ID']['input']>;
 };
 
@@ -861,6 +934,8 @@ export type AiHubChat = {
   createdAt?: Maybe<Scalars['Long']['output']>;
   environmentId: Scalars['Long']['output'];
   id: Scalars['ID']['output'];
+  /** Whether the current caller is this chat's owner. */
+  isOwner: Scalars['Boolean']['output'];
   /**
    * Discriminator for the chat flavour. STANDARD (default) talks to the LLM agent; WORKFLOW_CHAT
    * binds the chat to a specific workflow execution and the client picks ChatRuntimeProvider
@@ -869,6 +944,15 @@ export type AiHubChat = {
   kind: AiHubChatKind;
   lastPreview?: Maybe<Scalars['String']['output']>;
   messageCount: Scalars['Int']['output'];
+  /** The chat owner's login, or null if the user could not be resolved. */
+  ownerName?: Maybe<Scalars['String']['output']>;
+  /** The chat owner's user id, resolved off the row's userId column. */
+  ownerUserId: Scalars['Long']['output'];
+  /**
+   * Whether a person this chat has been shared with may only follow it live (VIEW, default) or may
+   * also contribute turns (PARTICIPATE).
+   */
+  participation: AiHubChatParticipation;
   /**
    * Parent project-deployment id for the workflow execution. Used by the sidebar to group workflow chats by project.
    * Non-null when {@code kind = WORKFLOW_CHAT}.
@@ -879,6 +963,11 @@ export type AiHubChat = {
   title?: Maybe<Scalars['String']['output']>;
   updatedAt?: Maybe<Scalars['Long']['output']>;
   userId: Scalars['Long']['output'];
+  /**
+   * How far this chat reaches beyond its owner. PRIVATE (default) or WORKSPACE — a chat belongs to at
+   * most one workspace, so there is no rung that reaches further, and none is offered here.
+   */
+  visibility: AiHubChatVisibility;
   /** Composite WorkflowExecutionId string the chat is bound to. Non-null when {@code kind = WORKFLOW_CHAT}. */
   workflowExecutionId?: Maybe<Scalars['String']['output']>;
   workspaceId: Scalars['Long']['output'];
@@ -966,6 +1055,14 @@ export enum AiHubChatKind {
  */
 export type AiHubChatMessage = {
   __typename?: 'AiHubChatMessage';
+  /** The author's login, resolved from authorUserId, or null when it cannot be resolved. */
+  authorName?: Maybe<Scalars['String']['output']>;
+  /**
+   * The id of the user who sent this row, resolved from the recorded turn at the same ordinal position among
+   * USER rows. Null for every ASSISTANT row, and for a USER row with no matching turn record (a channel-born
+   * chat, whose turns never go through the REST dispatch path that records them).
+   */
+  authorUserId?: Maybe<Scalars['Long']['output']>;
   content: Scalars['String']['output'];
   role: Scalars['String']['output'];
   timestamp: Scalars['Long']['output'];
@@ -976,6 +1073,12 @@ export type AiHubChatMessage = {
    */
   toolEventsJson?: Maybe<Scalars['String']['output']>;
 };
+
+/** Whether a person a chat has been shared with may only follow it live, or may also contribute turns. */
+export enum AiHubChatParticipation {
+  Participate = 'PARTICIPATE',
+  View = 'VIEW'
+}
 
 export type AiHubChatPatchInput = {
   id: Scalars['ID']['input'];
@@ -1003,7 +1106,19 @@ export type AiHubChatToolBinding = {
   connectionId?: Maybe<Scalars['ID']['output']>;
   environment: Scalars['Int']['output'];
   parameters: Scalars['Any']['output'];
+  /** Whether the approval gate must hold this tool call for a person's decision before it executes. */
+  requiresApproval: Scalars['Boolean']['output'];
 };
+
+/**
+ * The visibility rungs an AI Hub chat can carry. Deliberately narrower than the platform's
+ * ResourceVisibility: a chat belongs to at most one workspace, so ORGANIZATION is not a rung a chat can
+ * legally carry, and publishing it would advertise a value the server always rejects.
+ */
+export enum AiHubChatVisibility {
+  Private = 'PRIVATE',
+  Workspace = 'WORKSPACE'
+}
 
 export type AiHubMcpServer = {
   __typename?: 'AiHubMcpServer';
@@ -1020,6 +1135,60 @@ export type AiHubMcpServerTool = {
   enabled: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
 };
+
+export type AiHubToolApproval = {
+  __typename?: 'AiHubToolApproval';
+  arguments: Scalars['String']['output'];
+  chatId: Scalars['ID']['output'];
+  comment?: Maybe<Scalars['String']['output']>;
+  componentName?: Maybe<Scalars['String']['output']>;
+  createdDate: Scalars['Long']['output'];
+  decidedAt?: Maybe<Scalars['Long']['output']>;
+  decidedByUserId?: Maybe<Scalars['Long']['output']>;
+  executionError?: Maybe<Scalars['String']['output']>;
+  expiresAt: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  requestedByUserId: Scalars['Long']['output'];
+  status: AiHubToolApprovalStatus;
+  toolKind: AiHubToolKind;
+  toolName: Scalars['String']['output'];
+};
+
+export type AiHubToolApprovalResolution = {
+  __typename?: 'AiHubToolApprovalResolution';
+  approval: AiHubToolApproval;
+  continuationStarted: Scalars['Boolean']['output'];
+  runId?: Maybe<Scalars['String']['output']>;
+};
+
+export type AiHubToolApprovalRule = {
+  __typename?: 'AiHubToolApprovalRule';
+  componentName?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  mode: AiHubToolApprovalRuleMode;
+  toolKind: AiHubToolKind;
+  toolName: Scalars['String']['output'];
+  workspaceId: Scalars['Long']['output'];
+};
+
+export enum AiHubToolApprovalRuleMode {
+  Exempt = 'EXEMPT',
+  Require = 'REQUIRE'
+}
+
+export enum AiHubToolApprovalStatus {
+  Approved = 'APPROVED',
+  Expired = 'EXPIRED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Rejected = 'REJECTED',
+  Superseded = 'SUPERSEDED'
+}
+
+export enum AiHubToolKind {
+  Catalog = 'CATALOG',
+  Component = 'COMPONENT'
+}
 
 export type AiHubUserConnector = {
   __typename?: 'AiHubUserConnector';
@@ -1044,6 +1213,8 @@ export type AiHubUserConnectorTool = {
   enabled: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   parameters?: Maybe<Scalars['Any']['output']>;
+  /** Whether the approval gate must hold this tool call for a person's decision before it executes. */
+  requiresApproval: Scalars['Boolean']['output'];
   title?: Maybe<Scalars['String']['output']>;
 };
 
@@ -2286,6 +2457,12 @@ export type CreateCustomRoleInput = {
   scopes: Array<Scalars['String']['input']>;
 };
 
+export type CreateDataSyncInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
 export type CreateDataTableInput = {
   baseName: Scalars['String']['input'];
   columns: Array<ColumnInput>;
@@ -2491,6 +2668,73 @@ export type DataStreamCompatibleConnection = {
   componentVersion: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+};
+
+export type DataSync = {
+  __typename?: 'DataSync';
+  description?: Maybe<Scalars['String']['output']>;
+  draftWorkflowId: Scalars['String']['output'];
+  elements: Array<DataSyncElement>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  lastPublishedVersion: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  publishedDate?: Maybe<Scalars['String']['output']>;
+  tags: Array<Tag>;
+  title: Scalars['String']['output'];
+  triggerParameters?: Maybe<Scalars['Map']['output']>;
+  triggerType: DataSyncTriggerType;
+  unpublishedChanges: Scalars['Boolean']['output'];
+  uuid: Scalars['String']['output'];
+  visibility: ResourceVisibility;
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type DataSyncDeployment = {
+  __typename?: 'DataSyncDeployment';
+  dataSyncId: Scalars['ID']['output'];
+  dataSyncTitle: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  environmentId: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  lastExecutionDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  projectVersion: Scalars['Int']['output'];
+  tags?: Maybe<Array<Tag>>;
+  triggerType: DataSyncTriggerType;
+  workflowId: Scalars['String']['output'];
+};
+
+export type DataSyncElement = {
+  __typename?: 'DataSyncElement';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  kind: DataSyncElementKind;
+  operationName: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+};
+
+export enum DataSyncElementKind {
+  Destination = 'DESTINATION',
+  Processor = 'PROCESSOR',
+  Source = 'SOURCE'
+}
+
+export enum DataSyncTriggerType {
+  Manual = 'MANUAL',
+  Schedule = 'SCHEDULE'
+}
+
+export type DataSyncVersion = {
+  __typename?: 'DataSyncVersion';
+  description?: Maybe<Scalars['String']['output']>;
+  publishedDate?: Maybe<Scalars['String']['output']>;
+  status: Scalars['String']['output'];
+  version: Scalars['Int']['output'];
 };
 
 export type DataTable = {
@@ -3537,10 +3781,20 @@ export type Mutation = {
   createAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
   createAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   /**
+   * Creates a rule, DISABLED. Enabling is a separate mutation, deliberately: writing a rule and turning it on are
+   * different decisions, and the intended route between them is observe mode — enable under BlockingMode.ALLOW, watch
+   * guardrail_allowed against real traffic, then enforce.
+   *
+   * The pattern is validated and a rejection says which defence caught it. Every quantifier must carry an upper bound:
+   * write \\d{1,20} rather than \\d+.
+   */
+  createAiGuardrailCustomRule: AiGuardrailCustomRule;
+  /**
    * Creates a new chat, or returns the existing one if the same {@code threadId} is reused. Idempotent
    * on (workspace, user, environment, threadId).
    */
   createAiHubChat: AiHubChat;
+  createAiHubToolApprovalRule: AiHubToolApprovalRule;
   createAiModel?: Maybe<AiModel>;
   createAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   createAiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
@@ -3559,6 +3813,7 @@ export type Mutation = {
   createCustomComponent: CustomComponent;
   /** Create a tenant-global custom role, assignable in every workspace. Requires tenant admin. */
   createCustomRole: CustomRole;
+  createDataSync: DataSync;
   createDataTable: Scalars['Boolean']['output'];
   createEmbeddedDataTable: Scalars['Boolean']['output'];
   createEmbeddedKnowledgeBase: Scalars['Boolean']['output'];
@@ -3621,6 +3876,7 @@ export type Mutation = {
   deleteAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayRateLimit?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayRoutingPolicy?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGuardrailCustomRule: Scalars['Boolean']['output'];
   /**
    * Hard-deletes a chat and removes its messages from the chat-memory table. Associated artifacts
    * cascade via the database FK. Returns true on success; throws Forbidden when the caller is not the
@@ -3634,6 +3890,7 @@ export type Mutation = {
    * those are agent-driven audit rows that the user cannot delete via this surface.
    */
   deleteAiHubChatArtifact: Scalars['Boolean']['output'];
+  deleteAiHubToolApprovalRule: Scalars['Boolean']['output'];
   deleteAiModel?: Maybe<Scalars['Boolean']['output']>;
   deleteAiObservabilityAlertRule?: Maybe<Scalars['Boolean']['output']>;
   deleteAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
@@ -3654,6 +3911,7 @@ export type Mutation = {
   deleteCustomComponent: Scalars['Boolean']['output'];
   /** Delete a custom role. Fails if it is still assigned to any member. Requires tenant admin. */
   deleteCustomRole: Scalars['Boolean']['output'];
+  deleteDataSync: Scalars['Boolean']['output'];
   deleteDataTableRow: Scalars['Boolean']['output'];
   deleteEmbeddedMcpServer?: Maybe<Scalars['Boolean']['output']>;
   deleteEmbeddedVariable: Scalars['Boolean']['output'];
@@ -3718,6 +3976,11 @@ export type Mutation = {
   generateWorkflowDescription: GenerateWorkflowDescriptionPayload;
   /** Grant a named workspace member sight of an agent its owner has withheld. Idempotent. (AGENT_EDIT plus owner-or-admin, EE only) */
   grantAiAgentAccess: Scalars['Boolean']['output'];
+  /**
+   * Grants a named workspace member access to a chat. The grantee must already be a member of the
+   * workspace.
+   */
+  grantAiHubChatAccess: AiHubChat;
   /** Grant a named workspace member access to a connection its owner has withheld. Idempotent. (owner or admin, EE only) */
   grantConnectionAccess: Scalars['Boolean']['output'];
   /** Grant a named workspace member access to a project its owner has withheld. Idempotent. (owner or admin, EE only) */
@@ -3749,6 +4012,7 @@ export type Mutation = {
   publishAiAgent: Scalars['Int']['output'];
   publishAutomationWorkflowProject: Scalars['Boolean']['output'];
   publishCustomComponent: CustomComponent;
+  publishDataSync: Scalars['Int']['output'];
   /** Reassign all of a user's unresolved connections to a new owner. (admin only) */
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
@@ -3787,14 +4051,21 @@ export type Mutation = {
   removeWorkspaceUserEnvironmentRole: Scalars['Boolean']['output'];
   renameDataTable: Scalars['Boolean']['output'];
   renameDataTableColumn: Scalars['Boolean']['output'];
+  resolveAiHubToolApproval: AiHubToolApprovalResolution;
   restoreAssetFileVersion: AssetFile;
   /** Revoke a grant. Silent when no grant exists. (AGENT_EDIT plus owner-or-admin, EE only) */
   revokeAiAgentAccess: Scalars['Boolean']['output'];
+  /**
+   * Revokes a named user's access to a chat. No membership check runs — someone removed from the
+   * workspace must still be revocable.
+   */
+  revokeAiHubChatAccess: AiHubChat;
   /** Revoke a grant. Silent when no grant exists. (owner or admin, EE only) */
   revokeConnectionAccess: Scalars['Boolean']['output'];
   /** Revoke a grant. Silent when no grant exists. (owner or admin, EE only) */
   revokeProjectAccess: Scalars['Boolean']['output'];
   runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
+  runDataSyncDeployment: Scalars['ID']['output'];
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
   /**
@@ -3813,12 +4084,23 @@ export type Mutation = {
   setActiveAiPromptVersion?: Maybe<Scalars['Boolean']['output']>;
   /** Set who may SEE an agent. PRIVATE withholds it from the workspace's agent and deployment lists and from every by-id read; WORKSPACE shares it. It does not change who can USE the agent: a withheld agent's Slack, WhatsApp, webhook and hosted-chat channels keep answering everyone exactly as before. Stored on the agent's hidden backing project, which is the one record either question has. ORGANIZATION is not supported. (AGENT_EDIT plus owner-or-admin, EE only) */
   setAiAgentVisibility: Scalars['Boolean']['output'];
+  setAiGuardrailCustomRuleEnabled: AiGuardrailCustomRule;
   /**
    * Toggle a user connector on/off WITHIN ONE CHAT, leaving its user-global availability untouched. This is
    * PARTICIPATION — the composer's per-connector switch. Absence of a chat-scoped record means participating,
    * so existing chats are unaffected until the user flips one.
    */
   setAiHubChatConnectorEnabled: Scalars['Boolean']['output'];
+  /**
+   * Toggle whether the approval gate must hold this attached tool's calls for a person's decision before it
+   * executes. This is the chat owner's own switch, independent of any workspace-level component rule.
+   */
+  setAiHubChatToolRequiresApproval: AiHubChatToolBinding;
+  /**
+   * Changes a chat's visibility and participation in one write. Owner-or-admin only; rejects a visibility
+   * rung the chat resource type does not support.
+   */
+  setAiHubChatVisibility: AiHubChat;
   /** Toggle an MCP server on/off. */
   setAiHubMcpServerEnabled: Scalars['Boolean']['output'];
   /** Toggle a single tool of an MCP server on/off. */
@@ -3832,10 +4114,16 @@ export type Mutation = {
   setAiHubUserConnectorToolEnabled: Scalars['Boolean']['output'];
   /** Set the pre-configured parameter values for a single tool within a user connector. */
   setAiHubUserConnectorToolParameters: Scalars['Boolean']['output'];
+  /**
+   * Toggle whether the approval gate must hold a single tool within a user connector for a person's decision
+   * before it executes.
+   */
+  setAiHubUserConnectorToolRequiresApproval: Scalars['Boolean']['output'];
   setAiObservabilityTraceTags?: Maybe<AiObservabilityTrace>;
   /** Set a connection's reach. PRIVATE withholds it from the workspace; WORKSPACE shares it. ORGANIZATION is set through createOrganizationConnection instead and is rejected here. Narrowing to PRIVATE fails while an active deployment uses the connection. (owner or admin, EE only) */
   setConnectionVisibility: Scalars['Boolean']['output'];
   setContextStoreSourceEnabled: ContextStoreSource;
+  setDataSyncElement: DataSyncElement;
   setKnowledgeBaseSourceEnabled: KnowledgeBaseSource;
   /** Set a project's reach. PRIVATE withholds it (and its workflows, deployments and executions) from the workspace; WORKSPACE shares it. ORGANIZATION is not supported for projects. (owner or admin, EE only) */
   setProjectVisibility: Scalars['Boolean']['output'];
@@ -3898,6 +4186,8 @@ export type Mutation = {
   updateAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
   updateAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   updateAiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  /** Replaces a rule's pattern. Re-validated, since the pattern is the field the gate exists for. */
+  updateAiGuardrailCustomRulePattern: AiGuardrailCustomRule;
   updateAiGuardrailsWorkspaceSettings?: Maybe<AiGuardrailsWorkspaceSettings>;
   /**
    * Partial update of a chat by primary key. At least one of {@code title}, {@code lastPreview},
@@ -3958,6 +4248,11 @@ export type Mutation = {
   updateCustomComponentSource: CustomComponent;
   /** Update a custom role. Requires tenant admin. */
   updateCustomRole: CustomRole;
+  updateDataSync: DataSync;
+  updateDataSyncDeploymentTags: Scalars['Boolean']['output'];
+  updateDataSyncElement: Scalars['Boolean']['output'];
+  updateDataSyncTags: Scalars['Boolean']['output'];
+  updateDataSyncTrigger: Scalars['Boolean']['output'];
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
   /** Chunking decides how a document is split before embedding, so without this a knowledge base created here would keep its create-time chunking for life -- the only escape being to delete it and re-upload and re-embed every document. */
@@ -4245,9 +4540,23 @@ export type MutationCreateAiGatewayRoutingPolicyArgs = {
 };
 
 
+export type MutationCreateAiGuardrailCustomRuleArgs = {
+  input: AiGuardrailCustomRuleInput;
+};
+
+
 export type MutationCreateAiHubChatArgs = {
   environment: Scalars['Int']['input'];
   threadId: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiHubToolApprovalRuleArgs = {
+  componentName?: InputMaybe<Scalars['String']['input']>;
+  mode: AiHubToolApprovalRuleMode;
+  toolKind: AiHubToolKind;
+  toolName: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -4367,6 +4676,11 @@ export type MutationCreateCustomComponentArgs = {
 
 export type MutationCreateCustomRoleArgs = {
   input: CreateCustomRoleInput;
+};
+
+
+export type MutationCreateDataSyncArgs = {
+  input: CreateDataSyncInput;
 };
 
 
@@ -4617,6 +4931,12 @@ export type MutationDeleteAiGatewayRoutingPolicyArgs = {
 };
 
 
+export type MutationDeleteAiGuardrailCustomRuleArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteAiHubChatArgs = {
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -4625,6 +4945,12 @@ export type MutationDeleteAiHubChatArgs = {
 
 export type MutationDeleteAiHubChatArtifactArgs = {
   input: DeleteAiHubChatArtifactInput;
+};
+
+
+export type MutationDeleteAiHubToolApprovalRuleArgs = {
+  ruleId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -4716,6 +5042,11 @@ export type MutationDeleteCustomComponentArgs = {
 
 
 export type MutationDeleteCustomRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteDataSyncArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -4988,6 +5319,13 @@ export type MutationGrantAiAgentAccessArgs = {
 };
 
 
+export type MutationGrantAiHubChatAccessArgs = {
+  chatId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationGrantConnectionAccessArgs = {
   connectionId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
@@ -5093,6 +5431,12 @@ export type MutationPublishCustomComponentArgs = {
 };
 
 
+export type MutationPublishDataSyncArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationReassignAllConnectionsArgs = {
   newOwnerLogin: Scalars['String']['input'];
   userLogin: Scalars['String']['input'];
@@ -5189,6 +5533,14 @@ export type MutationRenameDataTableColumnArgs = {
 };
 
 
+export type MutationResolveAiHubToolApprovalArgs = {
+  approvalId: Scalars['ID']['input'];
+  approved: Scalars['Boolean']['input'];
+  comment?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationRestoreAssetFileVersionArgs = {
   id: Scalars['ID']['input'];
   versionId: Scalars['ID']['input'];
@@ -5198,6 +5550,13 @@ export type MutationRestoreAssetFileVersionArgs = {
 export type MutationRevokeAiAgentAccessArgs = {
   agentId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
+};
+
+
+export type MutationRevokeAiHubChatAccessArgs = {
+  chatId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -5219,6 +5578,12 @@ export type MutationRunAiEvalRuleOnHistoricalTracesArgs = {
   endDate: Scalars['Long']['input'];
   ruleId: Scalars['ID']['input'];
   startDate: Scalars['Long']['input'];
+};
+
+
+export type MutationRunDataSyncDeploymentArgs = {
+  id: Scalars['ID']['input'];
+  projectDeploymentId: Scalars['ID']['input'];
 };
 
 
@@ -5283,10 +5648,32 @@ export type MutationSetAiAgentVisibilityArgs = {
 };
 
 
+export type MutationSetAiGuardrailCustomRuleEnabledArgs = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationSetAiHubChatConnectorEnabledArgs = {
   chatId: Scalars['ID']['input'];
   connectorId: Scalars['ID']['input'];
   enabled: Scalars['Boolean']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetAiHubChatToolRequiresApprovalArgs = {
+  chatToolId: Scalars['ID']['input'];
+  requiresApproval: Scalars['Boolean']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetAiHubChatVisibilityArgs = {
+  chatId: Scalars['ID']['input'];
+  participation: AiHubChatParticipation;
+  visibility: AiHubChatVisibility;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -5329,6 +5716,14 @@ export type MutationSetAiHubUserConnectorToolParametersArgs = {
 };
 
 
+export type MutationSetAiHubUserConnectorToolRequiresApprovalArgs = {
+  connectorId: Scalars['ID']['input'];
+  requiresApproval: Scalars['Boolean']['input'];
+  toolName: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationSetAiObservabilityTraceTagsArgs = {
   tagIds: Array<Scalars['ID']['input']>;
   traceId: Scalars['ID']['input'];
@@ -5345,6 +5740,11 @@ export type MutationSetConnectionVisibilityArgs = {
 export type MutationSetContextStoreSourceEnabledArgs = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSetDataSyncElementArgs = {
+  input: SetDataSyncElementInput;
 };
 
 
@@ -5610,6 +6010,13 @@ export type MutationUpdateAiGatewayWorkspaceSettingsArgs = {
 };
 
 
+export type MutationUpdateAiGuardrailCustomRulePatternArgs = {
+  id: Scalars['ID']['input'];
+  pattern: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateAiGuardrailsWorkspaceSettingsArgs = {
   input: AiGuardrailsWorkspaceSettingsInput;
 };
@@ -5797,6 +6204,31 @@ export type MutationUpdateCustomComponentSourceArgs = {
 export type MutationUpdateCustomRoleArgs = {
   id: Scalars['ID']['input'];
   input: UpdateCustomRoleInput;
+};
+
+
+export type MutationUpdateDataSyncArgs = {
+  input: UpdateDataSyncInput;
+};
+
+
+export type MutationUpdateDataSyncDeploymentTagsArgs = {
+  input: UpdateDataSyncDeploymentTagsInput;
+};
+
+
+export type MutationUpdateDataSyncElementArgs = {
+  input: UpdateDataSyncElementInput;
+};
+
+
+export type MutationUpdateDataSyncTagsArgs = {
+  input: UpdateDataSyncTagsInput;
+};
+
+
+export type MutationUpdateDataSyncTriggerArgs = {
+  input: UpdateDataSyncTriggerInput;
 };
 
 
@@ -6466,6 +6898,19 @@ export type Query = {
   aiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   aiGatewaySpendSummaries?: Maybe<Array<Maybe<AiGatewaySpendSummary>>>;
   aiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  /** A workspace's own detection rules, enabled or not, ordered by type. */
+  aiGuardrailCustomRules: Array<AiGuardrailCustomRule>;
+  /**
+   * Per-detection guardrail drill-down records for a workspace, newest first.
+   *
+   * These records never carry the matched value: spanStart/spanLength locate a match and category names the rule
+   * that fired, which is what makes a rule debuggable without building a store of the very values the guardrails
+   * exist to redact.
+   *
+   * There is deliberately no by-id read. Every read is scoped to a workspace the caller has already been authorized
+   * for, so no lookup here can confirm the existence of another workspace's record.
+   */
+  aiGuardrailViolations: Array<AiGuardrailViolation>;
   aiGuardrailsWorkspaceSettings?: Maybe<AiGuardrailsWorkspaceSettings>;
   /**
    * Paginated, filtered audit listing across all aiHubChats in the workspace. Admin-only — gated by
@@ -6482,6 +6927,8 @@ export type Query = {
    * per-chat read used by the sidebar.
    */
   aiHubChatArtifactsByAiHubChat: Array<AiHubChatArtifact>;
+  /** Users currently granted access to a chat beyond its owner. Owner-or-admin only. */
+  aiHubChatGrants: Array<Scalars['Long']['output']>;
   /**
    * Returns the message history for a chat. Ownership is verified at the service layer — a caller who
    * is not the chat's owner gets a 403-equivalent error.
@@ -6511,6 +6958,15 @@ export type Query = {
   aiHubMcpServerTools: Array<AiHubMcpServerTool>;
   /** The current user's registered MCP servers for the workspace. */
   aiHubMcpServers: Array<AiHubMcpServer>;
+  /**
+   * Lists chats other workspace members have shared with the caller: every WORKSPACE-visible chat in the
+   * workspace plus any PRIVATE chat the caller has been individually granted, both restricted to chats
+   * owned by someone else. Ordered by last update descending, same cap as aiHubChats.
+   */
+  aiHubSharedChats: Array<AiHubChat>;
+  aiHubToolApprovalDefaultToolNames: Array<Scalars['String']['output']>;
+  aiHubToolApprovalRules: Array<AiHubToolApprovalRule>;
+  aiHubToolApprovals: Array<AiHubToolApproval>;
   /**
    * The current user's globally-added connectors (the Connectors page Pre-built list). Each carries the
    * component metadata, its connection, the component-level enabled flag, and its tools with per-tool
@@ -6656,6 +7112,12 @@ export type Query = {
    * connection picker.
    */
   dataStreamCompatibleConnections: Array<DataStreamCompatibleConnection>;
+  dataSync?: Maybe<DataSync>;
+  dataSyncDeploymentTags: Array<Tag>;
+  dataSyncDeployments: Array<DataSyncDeployment>;
+  dataSyncTags: Array<Tag>;
+  dataSyncVersions: Array<DataSyncVersion>;
+  dataSyncs: Array<DataSync>;
   dataTableRows: Array<DataTableRow>;
   dataTableRowsPage: DataTableRowPage;
   dataTableStorageUsage: DataTableStorageUsage;
@@ -7090,7 +7552,19 @@ export type QueryAiGatewayWorkspaceSettingsArgs = {
 };
 
 
+export type QueryAiGuardrailCustomRulesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGuardrailViolationsArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  workspaceId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
 export type QueryAiGuardrailsWorkspaceSettingsArgs = {
+  scope?: InputMaybe<AiGuardrailsSettingsScope>;
   workspaceId?: InputMaybe<Scalars['ID']['input']>;
 };
 
@@ -7109,6 +7583,12 @@ export type QueryAiHubChatArtifactsArgs = {
 
 export type QueryAiHubChatArtifactsByAiHubChatArgs = {
   id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubChatGrantsArgs = {
+  chatId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -7144,6 +7624,23 @@ export type QueryAiHubMcpServerToolsArgs = {
 
 
 export type QueryAiHubMcpServersArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubSharedChatsArgs = {
+  environment: Scalars['Int']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubToolApprovalRulesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubToolApprovalsArgs = {
+  chatId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -7597,6 +8094,36 @@ export type QueryCustomRolesArgs = {
 
 export type QueryDataStreamCompatibleConnectionsArgs = {
   environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncDeploymentTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncDeploymentsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncVersionsArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryDataSyncsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -8302,6 +8829,16 @@ export type SearchResult = {
   type: SearchAssetType;
 };
 
+export type SetDataSyncElementInput = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  dataSyncId: Scalars['ID']['input'];
+  kind: DataSyncElementKind;
+  operationName: Scalars['String']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
 export type SharedProject = {
   __typename?: 'SharedProject';
   description?: Maybe<Scalars['String']['output']>;
@@ -8661,6 +9198,35 @@ export type UpdateCustomRoleInput = {
   name: Scalars['String']['input'];
   /** Permission scope names to grant (must be names registered by the server's PermissionScopeProvider SPI) */
   scopes: Array<Scalars['String']['input']>;
+};
+
+export type UpdateDataSyncDeploymentTagsInput = {
+  id: Scalars['ID']['input'];
+  projectDeploymentId: Scalars['ID']['input'];
+  tags?: InputMaybe<Array<TagInput>>;
+};
+
+export type UpdateDataSyncElementInput = {
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  id: Scalars['ID']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type UpdateDataSyncInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateDataSyncTagsInput = {
+  id: Scalars['ID']['input'];
+  tags?: InputMaybe<Array<TagInput>>;
+};
+
+export type UpdateDataSyncTriggerInput = {
+  id: Scalars['ID']['input'];
+  triggerParameters?: InputMaybe<Scalars['Map']['input']>;
+  triggerType: DataSyncTriggerType;
 };
 
 export type UpdateDataTableTagsInput = {

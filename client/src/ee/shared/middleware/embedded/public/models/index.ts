@@ -1,8 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
 export * from './AuthorizationType';
+export * from './AutomationProjectCodeWorkflow';
+export * from './AutomationProjectCodeWorkflowDeployResult';
+export * from './AutomationProjectCodeWorkflowTemplate';
 export * from './AutomationWorkflowProject';
 export * from './AutomationWorkflowProjectComponent';
+export * from './AutomationWorkflowProjectWorkflowInput';
 export * from './AutomationWorkflowProjectWorkflowTemplate';
 export * from './ComponentInputOptionsRequest';
 export * from './ComponentInputReference';
@@ -36,4 +40,5 @@ export * from './PublishFrontendProjectWorkflowRequest';
 export * from './ReauthorizeConnectionRequest';
 export * from './UpdateFrontendIntegrationInstanceWorkflowRequest';
 export * from './UpdateFrontendWorkflowConfigurationConnectionRequest';
+export * from './UpdateWorkflowInputsRequest';
 export * from './Workflow';

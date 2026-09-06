@@ -13,6 +13,13 @@
  */
 
 import { mapValues } from '../runtime';
+import type { AutomationWorkflowProjectWorkflowInput } from './AutomationWorkflowProjectWorkflowInput';
+import {
+    AutomationWorkflowProjectWorkflowInputFromJSON,
+    AutomationWorkflowProjectWorkflowInputFromJSONTyped,
+    AutomationWorkflowProjectWorkflowInputToJSON,
+    AutomationWorkflowProjectWorkflowInputToJSONTyped,
+} from './AutomationWorkflowProjectWorkflowInput';
 import type { AutomationWorkflowProjectComponent } from './AutomationWorkflowProjectComponent';
 import {
     AutomationWorkflowProjectComponentFromJSON,
@@ -105,6 +112,18 @@ export interface ConnectedUserProjectWorkflow {
      * @memberof ConnectedUserProjectWorkflow
      */
     components?: Array<AutomationWorkflowProjectComponent>;
+    /**
+     * The values the connected user is asked for before this workflow runs.
+     * @type {Array<AutomationWorkflowProjectWorkflowInput>}
+     * @memberof ConnectedUserProjectWorkflow
+     */
+    inputs?: Array<AutomationWorkflowProjectWorkflowInput>;
+    /**
+     * The values the connected user has already supplied, keyed by input name.
+     * @type {{ [key: string]: any; }}
+     * @memberof ConnectedUserProjectWorkflow
+     */
+    inputValues?: { [key: string]: any; };
 }
 
 
@@ -148,6 +167,8 @@ export function ConnectedUserProjectWorkflowFromJSONTyped(json: any, ignoreDiscr
         'copiedFromWorkflowUuid': json['copiedFromWorkflowUuid'] == null ? undefined : json['copiedFromWorkflowUuid'],
         'dangling': json['dangling'] == null ? undefined : json['dangling'],
         'components': json['components'] == null ? undefined : ((json['components'] as Array<any>).map(AutomationWorkflowProjectComponentFromJSON)),
+        'inputs': json['inputs'] == null ? undefined : ((json['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputFromJSON)),
+        'inputValues': json['inputValues'] == null ? undefined : json['inputValues'],
     };
 }
 
@@ -175,6 +196,8 @@ export function ConnectedUserProjectWorkflowToJSONTyped(value?: ConnectedUserPro
         'copiedFromWorkflowUuid': value['copiedFromWorkflowUuid'],
         'dangling': value['dangling'],
         'components': value['components'] == null ? undefined : ((value['components'] as Array<any>).map(AutomationWorkflowProjectComponentToJSON)),
+        'inputs': value['inputs'] == null ? undefined : ((value['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputToJSON)),
+        'inputValues': value['inputValues'],
     };
 }
 

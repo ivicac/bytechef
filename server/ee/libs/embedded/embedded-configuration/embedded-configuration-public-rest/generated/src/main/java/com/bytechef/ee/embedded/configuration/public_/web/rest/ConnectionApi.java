@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-24T22:46:07.067007+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 @Validated
 @Tag(name = "connection", description = "the connection API")
 public interface ConnectionApi {
@@ -170,7 +170,7 @@ public interface ConnectionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" } ]";
+                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -220,7 +220,7 @@ public interface ConnectionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" } ]";
+                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -268,7 +268,7 @@ public interface ConnectionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\" } ]";
+                    String exampleString = "[ { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true }, { \"id\" : 0, \"name\" : \"name\", \"environment\" : \"DEVELOPMENT\", \"componentName\" : \"componentName\", \"connectionVersion\" : 6, \"authorizationType\" : \"authorizationType\", \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"shared\" : true, \"editable\" : true } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -282,7 +282,7 @@ public interface ConnectionApi {
     String PATH_REAUTHORIZE_FRONTEND_CONNECTION = "/connections/{id}/reauthorize";
     /**
      * POST /connections/{id}/reauthorize : Reauthorize a connection
-     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id.
+     * Replace the credentials of a connection owned by the authenticated connected user, keeping its id. The supplied parameters replace the connection&#39;s authorization parameters wholesale: a parameter that is not supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level properties are untouched. A successful call also marks the connection&#39;s credentials valid again.
      *
      * @param id The id of a connection. (required)
      * @param reauthorizeConnectionRequestModel  (required)
@@ -293,7 +293,7 @@ public interface ConnectionApi {
     @Operation(
         operationId = "reauthorizeFrontendConnection",
         summary = "Reauthorize a connection",
-        description = "Replace the credentials of a connection owned by the authenticated connected user, keeping its id.",
+        description = "Replace the credentials of a connection owned by the authenticated connected user, keeping its id. The supplied parameters replace the connection's authorization parameters wholesale: a parameter that is not supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level properties are untouched. A successful call also marks the connection's credentials valid again.",
         tags = { "connection" },
         responses = {
             @ApiResponse(responseCode = "204", description = "Successful operation."),

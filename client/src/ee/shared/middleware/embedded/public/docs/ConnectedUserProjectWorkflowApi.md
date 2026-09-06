@@ -28,9 +28,11 @@ All URIs are relative to */api/embedded/v1*
 | [**publishProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#publishprojectworkflow) | **POST** /{externalUserId}/automation/workflows/{workflowUuid}/publish | Publishes existing workflow |
 | [**updateFrontendProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#updatefrontendprojectworkflow) | **PUT** /automation/workflows/{workflowUuid} | Update an existing workflow |
 | [**updateFrontendProjectWorkflowFromPrompt**](ConnectedUserProjectWorkflowApi.md#updatefrontendprojectworkflowfromprompt) | **POST** /automation/workflows/{workflowUuid}/generate | Update an existing workflow from a natural language prompt |
+| [**updateFrontendProjectWorkflowInputs**](ConnectedUserProjectWorkflowApi.md#updatefrontendprojectworkflowinputs) | **PUT** /automation/workflows/{workflowUuid}/inputs | Store workflow input values |
 | [**updateFrontendWorkflowConfigurationConnection**](ConnectedUserProjectWorkflowApi.md#updatefrontendworkflowconfigurationconnectionoperation) | **PUT** /automation/workflows/{workflowUuid}/workflow-nodes/{workflowNodeName}/connection/{workflowConnectionKey} | Update a workflow configuration connection |
 | [**updateProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#updateprojectworkflow) | **PUT** /{externalUserId}/automation/workflows/{workflowUuid} | Update an existing workflow |
 | [**updateProjectWorkflowFromPrompt**](ConnectedUserProjectWorkflowApi.md#updateprojectworkflowfromprompt) | **POST** /{externalUserId}/automation/workflows/{workflowUuid}/generate | Update an existing workflow from a natural language prompt |
+| [**updateProjectWorkflowInputs**](ConnectedUserProjectWorkflowApi.md#updateprojectworkflowinputs) | **PUT** /{externalUserId}/automation/workflows/{workflowUuid}/inputs | Store workflow input values |
 | [**updateWorkflowConfigurationConnection**](ConnectedUserProjectWorkflowApi.md#updateworkflowconfigurationconnection) | **PUT** /{externalUserId}/automation/workflows/{workflowUuid}/workflow-nodes/{workflowNodeName}/connections/{workflowConnectionKey} | Update a workflow configuration connection |
 
 
@@ -507,7 +509,11 @@ import type { DeleteFrontendProjectWorkflowRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: jwtBearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // string | The workflow reference of the workflow to delete.
@@ -542,7 +548,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[jwtBearerAuth](../README.md#jwtBearerAuth)
 
 ### HTTP request headers
 
@@ -577,7 +583,11 @@ import type { DeleteProjectWorkflowRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: bearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // string | The external user id.
@@ -615,7 +625,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[bearerAuth](../README.md#bearerAuth)
 
 ### HTTP request headers
 
@@ -784,7 +794,7 @@ example().catch(console.error);
 
 ## disableFrontendProjectWorkflow
 
-> object disableFrontendProjectWorkflow(workflowUuid, xEnvironment)
+> disableFrontendProjectWorkflow(workflowUuid, xEnvironment)
 
 Disable a workflow
 
@@ -836,7 +846,7 @@ example().catch(console.error);
 
 ### Return type
 
-**object**
+`void` (Empty response body)
 
 ### Authorization
 
@@ -859,7 +869,7 @@ example().catch(console.error);
 
 ## disableProjectWorkflow
 
-> object disableProjectWorkflow(externalUserId, workflowUuid, xEnvironment)
+> disableProjectWorkflow(externalUserId, workflowUuid, xEnvironment)
 
 Disable a workflow
 
@@ -914,7 +924,7 @@ example().catch(console.error);
 
 ### Return type
 
-**object**
+`void` (Empty response body)
 
 ### Authorization
 
@@ -937,7 +947,7 @@ example().catch(console.error);
 
 ## enableFrontendProjectWorkflow
 
-> object enableFrontendProjectWorkflow(workflowUuid, xEnvironment)
+> enableFrontendProjectWorkflow(workflowUuid, xEnvironment)
 
 Enable a workflow
 
@@ -989,7 +999,7 @@ example().catch(console.error);
 
 ### Return type
 
-**object**
+`void` (Empty response body)
 
 ### Authorization
 
@@ -1012,7 +1022,7 @@ example().catch(console.error);
 
 ## enableProjectWorkflow
 
-> object enableProjectWorkflow(externalUserId, workflowUuid, xEnvironment)
+> enableProjectWorkflow(externalUserId, workflowUuid, xEnvironment)
 
 Enable a workflow
 
@@ -1067,7 +1077,7 @@ example().catch(console.error);
 
 ### Return type
 
-**object**
+`void` (Empty response body)
 
 ### Authorization
 
@@ -1107,7 +1117,11 @@ import type { GetFrontendProjectWorkflowRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: jwtBearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // string | The workflow reference of the workflow to delete.
@@ -1142,7 +1156,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[jwtBearerAuth](../README.md#jwtBearerAuth)
 
 ### HTTP request headers
 
@@ -1177,7 +1191,11 @@ import type { GetFrontendProjectWorkflowsRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: jwtBearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // Environment | The environment. (optional)
@@ -1209,7 +1227,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[jwtBearerAuth](../README.md#jwtBearerAuth)
 
 ### HTTP request headers
 
@@ -1244,7 +1262,11 @@ import type { GetProjectWorkflowRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: bearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // string | The external user id.
@@ -1282,7 +1304,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[bearerAuth](../README.md#bearerAuth)
 
 ### HTTP request headers
 
@@ -1317,7 +1339,11 @@ import type { GetProjectWorkflowsRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ConnectedUserProjectWorkflowApi();
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: bearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
 
   const body = {
     // string | The external user id.
@@ -1352,7 +1378,7 @@ example().catch(console.error);
 
 ### Authorization
 
-No authorization required
+[bearerAuth](../README.md#bearerAuth)
 
 ### HTTP request headers
 
@@ -1445,7 +1471,7 @@ example().catch(console.error);
 
 ## provisionWorkflowReference
 
-> object provisionWorkflowReference(externalUserId, workflowUuid, xEnvironment)
+> provisionWorkflowReference(externalUserId, workflowUuid, xEnvironment)
 
 Provision a reference to a catalog code workflow
 
@@ -1500,7 +1526,7 @@ example().catch(console.error);
 
 ### Return type
 
-**object**
+`void` (Empty response body)
 
 ### Authorization
 
@@ -1832,6 +1858,83 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## updateFrontendProjectWorkflowInputs
+
+> updateFrontendProjectWorkflowInputs(workflowUuid, updateWorkflowInputsRequest, xEnvironment)
+
+Store workflow input values
+
+Store the input values the connected user supplied for a workflow.
+
+### Example
+
+```ts
+import {
+  Configuration,
+  ConnectedUserProjectWorkflowApi,
+} from '';
+import type { UpdateFrontendProjectWorkflowInputsRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: jwtBearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
+
+  const body = {
+    // string | The workflow uuid.
+    workflowUuid: workflowUuid_example,
+    // UpdateWorkflowInputsRequest
+    updateWorkflowInputsRequest: ...,
+    // Environment | The environment. (optional)
+    xEnvironment: ...,
+  } satisfies UpdateFrontendProjectWorkflowInputsRequest;
+
+  try {
+    const data = await api.updateFrontendProjectWorkflowInputs(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **workflowUuid** | `string` | The workflow uuid. | [Defaults to `undefined`] |
+| **updateWorkflowInputsRequest** | [UpdateWorkflowInputsRequest](UpdateWorkflowInputsRequest.md) |  | |
+| **xEnvironment** | `Environment` | The environment. | [Optional] [Defaults to `undefined`] [Enum: DEVELOPMENT, STAGING, PRODUCTION] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[jwtBearerAuth](../README.md#jwtBearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **204** | Successful operation. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## updateFrontendWorkflowConfigurationConnection
 
 > updateFrontendWorkflowConfigurationConnection(workflowUuid, workflowNodeName, workflowConnectionKey, updateFrontendWorkflowConfigurationConnectionRequest, xEnvironment)
@@ -2071,6 +2174,86 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | The updated workflow uuid. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## updateProjectWorkflowInputs
+
+> updateProjectWorkflowInputs(externalUserId, workflowUuid, updateWorkflowInputsRequest, xEnvironment)
+
+Store workflow input values
+
+Store the input values a connected user supplied for a workflow.
+
+### Example
+
+```ts
+import {
+  Configuration,
+  ConnectedUserProjectWorkflowApi,
+} from '';
+import type { UpdateProjectWorkflowInputsRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: bearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ConnectedUserProjectWorkflowApi(config);
+
+  const body = {
+    // string | The external user id.
+    externalUserId: externalUserId_example,
+    // string | The workflow uuid.
+    workflowUuid: workflowUuid_example,
+    // UpdateWorkflowInputsRequest
+    updateWorkflowInputsRequest: ...,
+    // Environment | The environment. (optional)
+    xEnvironment: ...,
+  } satisfies UpdateProjectWorkflowInputsRequest;
+
+  try {
+    const data = await api.updateProjectWorkflowInputs(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **externalUserId** | `string` | The external user id. | [Defaults to `undefined`] |
+| **workflowUuid** | `string` | The workflow uuid. | [Defaults to `undefined`] |
+| **updateWorkflowInputsRequest** | [UpdateWorkflowInputsRequest](UpdateWorkflowInputsRequest.md) |  | |
+| **xEnvironment** | `Environment` | The environment. | [Optional] [Defaults to `undefined`] [Enum: DEVELOPMENT, STAGING, PRODUCTION] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **204** | Successful operation. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
