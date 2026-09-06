@@ -33,6 +33,13 @@ import java.util.List;
  * request. A detector that throws is caught, logged, counted, and skipped for that call — the other detectors still
  * run. See the design spec's section 8 for the residual risk that fail-open policy accepts.
  * </p>
+ *
+ * <p>
+ * A detector that runs a regex should implement {@link #detect(String, MatchDeadline)} rather than only
+ * {@link #detect(String)}. Matching against {@code deadline.bound(text)} is what makes a pathological pattern
+ * interruptible; without it the only bound is the cooperative one between detectors, which cannot stop a match already
+ * running.
+ * </p>
  */
 public interface SensitiveDataDetector {
 
@@ -51,6 +58,27 @@ public interface SensitiveDataDetector {
      * @return the spans found, empty when none
      */
     List<SensitiveSpan> detect(String text);
+
+    /**
+     * As {@link #detect(String)}, but bounded: an implementation that runs a regex should match against
+     * {@code deadline.bound(text)} so a pathological pattern is interrupted rather than left running on the caller's
+     * thread.
+     *
+     * <p>
+     * A default that ignores the deadline, on purpose. A detector that does not run regexes has nothing to bound this
+     * way -- {@code OpenNlpSensitiveDataDetector} tokenizes first and then runs a model, and neither step reads through
+     * a {@code CharSequence} -- and forcing every implementation to declare that would be noise. The bound belongs
+     * where the hazard is.
+     * </p>
+     *
+     * @param text     the text to scan; never {@code null} and never empty
+     * @param deadline the budget for this detector's matching
+     * @return the spans found, empty when none
+     * @throws DetectionTimeoutException when matching ran past {@code deadline}
+     */
+    default List<SensitiveSpan> detect(String text, MatchDeadline deadline) {
+        return detect(text);
+    }
 
     /**
      * Returns whether this detector can be applied to an arbitrary substring of a document and give the same answer it

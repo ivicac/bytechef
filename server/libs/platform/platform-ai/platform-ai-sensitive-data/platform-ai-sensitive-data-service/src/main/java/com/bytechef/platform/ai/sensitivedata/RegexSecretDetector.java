@@ -69,6 +69,11 @@ public class RegexSecretDetector implements SensitiveDataDetector {
 
     @Override
     public List<SensitiveSpan> detect(String text) {
+        return detect(text, MatchDeadline.unbounded());
+    }
+
+    @Override
+    public List<SensitiveSpan> detect(String text, MatchDeadline deadline) {
         if (text == null || text.isEmpty()) {
             return List.of();
         }
@@ -77,7 +82,7 @@ public class RegexSecretDetector implements SensitiveDataDetector {
 
         for (SecretPatternCatalog.SecretPattern secretPattern : patterns) {
             Matcher matcher = secretPattern.pattern()
-                .matcher(text);
+                .matcher(deadline.bound(text));
 
             while (matcher.find()) {
                 spans.add(

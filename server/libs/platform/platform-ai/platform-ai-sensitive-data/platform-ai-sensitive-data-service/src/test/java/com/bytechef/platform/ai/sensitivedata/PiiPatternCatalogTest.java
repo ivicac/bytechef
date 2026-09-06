@@ -19,7 +19,11 @@ package com.bytechef.platform.ai.sensitivedata;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -382,5 +386,78 @@ class PiiPatternCatalogTest {
             .filter(piiPattern -> type.equals(piiPattern.type()))
             .findFirst()
             .orElseThrow();
+    }
+
+    /**
+     * A Low-scored pattern with no context rule is detected by NOTHING at the default threshold -- its score sits below
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. That is a deliberate state only for a type nobody names in
+     * text, and an accident for every other, so this test is what makes leaving one bare a decision rather than an
+     * oversight.
+     */
+    @Test
+    void testEveryLowScoredTypeCanBePromotedByContext() {
+        List<String> bare = PiiPatternCatalog.ALL.stream()
+            .filter(piiPattern -> piiPattern.score() < SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE)
+            .filter(piiPattern -> piiPattern.contextRule() == null)
+            .map(PiiPatternCatalog.PiiPattern::type)
+            .toList();
+
+        assertThat(bare)
+            .as("these types score below the default threshold and have no keyword that can lift them, so nothing "
+                + "detects them at all; either give them keywords or accept the gap explicitly here")
+            .isEmpty();
+    }
+
+    @Test
+    void testEveryContextRulePromotesAboveTheDefaultThreshold() {
+        // A promotion that lands below the threshold buys nothing back -- the match is still dropped.
+        // A plain loop, not a stream: SpotBugs cannot carry a null-check across a filter lambda into the next one,
+        // so the stream form reads as a possible null dereference.
+        List<String> tooLow = new ArrayList<>();
+
+        for (PiiPatternCatalog.PiiPattern piiPattern : PiiPatternCatalog.ALL) {
+            PiiPatternCatalog.ContextRule contextRule = piiPattern.contextRule();
+
+            if (contextRule != null && contextRule.score() < SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE) {
+                tooLow.add(piiPattern.type());
+            }
+        }
+
+        assertThat(tooLow).isEmpty();
+    }
+
+    @Test
+    void testContextKeywordsAreLowerCasedInTheCatalog() {
+        // Matching lower-cases the haystack, so an upper-case keyword here would never fire -- a silently dead rule
+        // that looks configured.
+        List<String> wrongCase = new ArrayList<>();
+
+        for (PiiPatternCatalog.PiiPattern piiPattern : PiiPatternCatalog.ALL) {
+            PiiPatternCatalog.ContextRule contextRule = piiPattern.contextRule();
+
+            if (contextRule == null) {
+                continue;
+            }
+
+            for (String keyword : contextRule.keywords()) {
+                if (!keyword.equals(keyword.toLowerCase(Locale.ROOT))) {
+                    wrongCase.add(keyword);
+                }
+            }
+        }
+
+        assertThat(wrongCase).isEmpty();
+    }
+
+    @Test
+    void testAContextRuleThatWouldLowerConfidenceIsRejected() {
+        // Raise-only is a security property. A lowering rule is an off switch an attacker writes into the prompt:
+        // put "order number:" in front of a real SSN and the guardrail stops firing.
+        assertThatThrownBy(
+            () -> new PiiPatternCatalog.PiiPattern(
+                "TEST_TYPE", Pattern.compile("\\d{9}"), 0.9,
+                new PiiPatternCatalog.ContextRule(Set.of("ssn"), 40, 0.2)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("RAISE");
     }
 }
