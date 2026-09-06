@@ -153,6 +153,19 @@ public final class PiiPatternCatalog {
 
     public static final Set<String> CONTEXTUAL_TYPES = Set.of("DATE_TIME", "LOCATION");
 
+    /**
+     * How far either side of a match a naming keyword may sit to promote it. Bounded on purpose: without a window, one
+     * keyword anywhere in a long document would promote every match in it.
+     */
+    private static final int CONTEXT_WINDOW = 40;
+
+    /**
+     * What a promoted match scores. High rather than medium, deliberately: a naming keyword beside one of these shapes
+     * is strong evidence, and a medium promotion would leave the type filtered at any workspace that raised its
+     * threshold above the default -- so the most careful workspaces would be the ones still missing real identifiers.
+     */
+    private static final double CONTEXT_PROMOTED_SCORE = 0.9;
+
     public static final List<PiiPattern> ALL = List.of(
         // Global
         new PiiPattern(
@@ -223,12 +236,29 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "MEDICAL_LICENSE",
             Pattern.compile("\\b[A-Z]{2}\\d{6}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "medical license",
+                    "medical licence",
+                    "dea number",
+                    "physician license",
+                    "practitioner number"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // USA
         new PiiPattern(
             "US_BANK_NUMBER",
             Pattern.compile("\\b\\d{8,17}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "bank account",
+                    "account number",
+                    "acct no",
+                    "routing number",
+                    "checking account",
+                    "savings account"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // One unrestricted letter + seven digits, no delimiter, no checksum -- the same shape class as
         // MEDICAL_LICENSE above (Task 2's catalog sweep, following the identical reasoning applied there:
         // "AB123456" fired as MEDICAL_LICENSE, and "A1234567" fires here for the same structural reason).
@@ -236,7 +266,15 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "US_DRIVER_LICENSE",
             Pattern.compile("\\b[A-Z]\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "driver license",
+                    "driver's license",
+                    "driving license",
+                    "driving licence",
+                    "dln"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         new PiiPattern(
             "US_ITIN",
             Pattern.compile("\\b9\\d{2}-\\d{2}-\\d{4}\\b"),
@@ -247,7 +285,11 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "US_PASSPORT",
             Pattern.compile("\\b[A-Z]\\d{8}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "passport"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Bare-9-digit alternative removed: it collided with AU_TFN's identical \b\d{9}\b shape and a single score
         // cannot serve both this dashed branch and that weak one. See the class javadoc.
         new PiiPattern(
@@ -299,7 +341,14 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "IT_DRIVER_LICENSE",
             Pattern.compile("\\b[A-Z]{2}\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "patente di guida",
+                    "patente",
+                    "driver license",
+                    "driving licence"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Contrast with IT_DRIVER_LICENSE just above: the literal "IT" prefix is a fixed 2-character anchor,
         // not an unrestricted letter class, so this is not the same shape -- stays High.
         new PiiPattern(
@@ -309,16 +358,33 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "IT_PASSPORT",
             Pattern.compile("\\b[A-Z]{2}\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "passaporto",
+                    "passport"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         new PiiPattern(
             "IT_IDENTITY_CARD",
             Pattern.compile("\\b[A-Z]{2}\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "carta d'identita",
+                    "carta di identita",
+                    "identity card",
+                    "documento di identita"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Poland
         new PiiPattern(
             "PL_PESEL",
             Pattern.compile("\\b\\d{11}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "pesel",
+                    "numer pesel"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Singapore
         // Bookended (letter-digits-letter) -- see UK_NINO's comment above for why this stays Medium rather
         // than joining the demoted prefix-only group. Considered during Task 2's sweep and kept. ES_NIE above
@@ -349,7 +415,13 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "AU_TFN",
             Pattern.compile("\\b\\d{9}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "tax file number",
+                    "tax file no",
+                    "tfn"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         new PiiPattern(
             "AU_MEDICARE",
             Pattern.compile("\\b\\d{4} \\d{5} \\d{1}\\b"),
@@ -376,12 +448,23 @@ public final class PiiPatternCatalog {
         new PiiPattern(
             "IN_VOTER",
             Pattern.compile("\\b[A-Z]{3}\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "voter id",
+                    "epic no",
+                    "voter card",
+                    "elector"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Same bare letter+7-digit shape as US_DRIVER_LICENSE above -- see that entry's comment.
         new PiiPattern(
             "IN_PASSPORT",
             Pattern.compile("\\b[A-Z]\\d{7}\\b"),
-            0.2),
+            0.2,
+            new ContextRule(
+                Set.of(
+                    "passport"),
+                CONTEXT_WINDOW, CONTEXT_PROMOTED_SCORE)),
         // Finland
         // CRITICAL fix: the century-marker class was originally written [+-A], which in a Java character class
         // is not the 3-character set {+, -, A} the century markers require (+ = 1800s, - = 1900s, A = 2000s) --
@@ -457,18 +540,74 @@ public final class PiiPatternCatalog {
      * @param validator an optional second gate over the matched text, applied after the regex matches and before a span
      *                  is emitted, or {@code null} when the regex match alone is the whole story
      */
-    public record PiiPattern(String type, Pattern pattern, double score, @Nullable Predicate<String> validator) {
+    public record PiiPattern(
+        String type, Pattern pattern, double score, @Nullable Predicate<String> validator,
+        @Nullable ContextRule contextRule) {
 
         public PiiPattern {
             if (!Double.isFinite(score) || score < 0.0 || score > 1.0) {
                 throw new IllegalArgumentException("score must be between 0.0 and 1.0, got: " + score);
+            }
+
+            // Raise-only is a SECURITY property, not tidiness. A rule that lowered a score would be an off switch
+            // an attacker writes into the prompt: put "Order number:" in front of a real SSN and the guardrail
+            // stops firing. Raising cannot be abused that way -- the worst an attacker achieves is being redacted.
+            if (contextRule != null && contextRule.score() <= score) {
+                throw new IllegalArgumentException(
+                    "a context rule must RAISE confidence: " + type + " scores " + score +
+                        " and its rule offers " + contextRule.score());
             }
         }
 
         // Convenience overload for the common case -- every entry but CREDIT_CARD -- so the 35 unaffected catalog
         // entries below did not need to change when this field was added.
         public PiiPattern(String type, Pattern pattern, double score) {
-            this(type, pattern, score, null);
+            this(type, pattern, score, null, null);
+        }
+
+        public PiiPattern(String type, Pattern pattern, double score, @Nullable Predicate<String> validator) {
+            this(type, pattern, score, validator, null);
+        }
+
+        // Unambiguous against the validator overload above: ContextRule and Predicate are unrelated types.
+        public PiiPattern(String type, Pattern pattern, double score, ContextRule contextRule) {
+            this(type, pattern, score, null, contextRule);
+        }
+    }
+
+    /**
+     * Raises a match's confidence when a naming keyword sits near it.
+     *
+     * <p>
+     * This is what buys back the coverage confidence scoring traded away. A pattern's score reflects how specific its
+     * own shape is, and a bare digit or alphanumeric run scores {@code 0.2} -- below
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}, so it is detected by nothing at the default threshold. That
+     * is correct for {@code Order A12345678} and wrong for {@code Passport: A12345678}, and the difference is not in
+     * the match: it is next to it.
+     * </p>
+     *
+     * @param keywords the terms that promote a match, lower-cased -- matching lower-cases the haystack, so an
+     *                 upper-case keyword here would never fire ({@code PiiPatternCatalogTest} pins that)
+     * @param window   how many characters either side of the match a keyword may sit in. Bounded on purpose: without
+     *                 it, one keyword anywhere in a long document would promote every match in it.
+     * @param score    the promoted confidence, which must exceed the pattern's own base score
+     */
+    public record ContextRule(Set<String> keywords, int window, double score) {
+
+        public ContextRule {
+            if (keywords == null || keywords.isEmpty()) {
+                throw new IllegalArgumentException("keywords must not be empty");
+            }
+
+            keywords = Set.copyOf(keywords);
+
+            if (window <= 0) {
+                throw new IllegalArgumentException("window must be > 0, got: " + window);
+            }
+
+            if (!Double.isFinite(score) || score <= 0.0 || score > 1.0) {
+                throw new IllegalArgumentException("score must be in (0.0, 1.0], got: " + score);
+            }
         }
     }
 
