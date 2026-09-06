@@ -20,10 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.agui.core.exception.AGUIException;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import java.lang.reflect.Field;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,11 +51,11 @@ final class ProjectDeploymentAgentConfigurationTest {
     void testAskAgentUsesReadToolsAndBuildAgentUsesWriteTools() throws AGUIException {
         SliceSpringAIAgent askAgent = configuration.projectDeploymentAskSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), deploymentToolCallbacksFactory,
-            securityContextRehydrator, emptyProvider());
+            securityContextRehydrator, emptyProvider(), guardrailsAdvisorFactory());
 
         SliceSpringAIAgent buildAgent = configuration.projectDeploymentBuildSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), deploymentToolCallbacksFactory,
-            securityContextRehydrator, emptyProvider());
+            securityContextRehydrator, emptyProvider(), guardrailsAdvisorFactory());
 
         assertThat(askAgent.getAgentId()).isEqualTo("project_deployment_ask");
         assertThat(buildAgent.getAgentId()).isEqualTo("project_deployment_build");
@@ -110,5 +112,9 @@ final class ProjectDeploymentAgentConfigurationTest {
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyProvider() {
         return mock(ObjectProvider.class);
+    }
+
+    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
+        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 }

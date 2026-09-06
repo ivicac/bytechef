@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
@@ -78,6 +79,7 @@ public class AutomationCopilotConfiguration {
     private final String customComponentAskSystemPrompt;
     private final String customComponentBuildSystemPrompt;
 
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final State state = new State();
 
     // RUBY-DISABLED: the prompt resources loaded below had every Ruby reference DELETED, not commented out.
@@ -99,12 +101,14 @@ public class AutomationCopilotConfiguration {
         @Value("classpath:prompt_code_workflow_ask.txt") Resource promptCodeWorkflowAskResource,
         @Value("classpath:prompt_code_workflow_build.txt") Resource promptCodeWorkflowBuildResource,
         @Value("classpath:prompt_custom_component_ask.txt") Resource promptCustomComponentAskResource,
-        @Value("classpath:prompt_custom_component_build.txt") Resource promptCustomComponentBuildResource) {
+        @Value("classpath:prompt_custom_component_build.txt") Resource promptCustomComponentBuildResource,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory) {
 
         this.codeWorkflowAskSystemPrompt = readPrompt(promptCodeWorkflowAskResource);
         this.codeWorkflowBuildSystemPrompt = readPrompt(promptCodeWorkflowBuildResource);
         this.customComponentAskSystemPrompt = readPrompt(promptCustomComponentAskResource);
         this.customComponentBuildSystemPrompt = readPrompt(promptCustomComponentBuildResource);
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
     }
 
     @Bean
@@ -119,6 +123,7 @@ public class AutomationCopilotConfiguration {
             .systemMessage(codeWorkflowAskSystemPrompt)
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of(readCodeWorkflowTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -136,6 +141,7 @@ public class AutomationCopilotConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapTools(securityContextRehydrator, List.of(codeWorkflowTools, readCodeWorkflowTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -157,7 +163,7 @@ public class AutomationCopilotConfiguration {
     private ChatClient buildCodeWorkflowAskSubAgentChatClient(
         ChatModel chatModel, ReadCodeWorkflowTools readCodeWorkflowTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(codeWorkflowAskSystemPrompt)
             .defaultTools(readCodeWorkflowTools)
             .build();
@@ -183,7 +189,7 @@ public class AutomationCopilotConfiguration {
     private ChatClient buildCodeWorkflowBuildSubAgentChatClient(
         ChatModel chatModel, CodeWorkflowTools codeWorkflowTools, ReadCodeWorkflowTools readCodeWorkflowTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(codeWorkflowBuildSystemPrompt)
             .defaultTools(codeWorkflowTools, readCodeWorkflowTools)
             .build();
@@ -201,6 +207,7 @@ public class AutomationCopilotConfiguration {
             .systemMessage(customComponentAskSystemPrompt)
             .state(state)
             .toolCallbacks(wrapTools(securityContextRehydrator, List.of(readCustomComponentTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -218,6 +225,7 @@ public class AutomationCopilotConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapTools(securityContextRehydrator, List.of(customComponentTools, readCustomComponentTools)))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .build();
     }
 
@@ -241,7 +249,7 @@ public class AutomationCopilotConfiguration {
     private ChatClient buildCustomComponentAskSubAgentChatClient(
         ChatModel chatModel, ReadCustomComponentTools readCustomComponentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(customComponentAskSystemPrompt)
             .defaultTools(readCustomComponentTools)
             .build();
@@ -270,10 +278,27 @@ public class AutomationCopilotConfiguration {
         ChatModel chatModel, CustomComponentTools customComponentTools,
         ReadCustomComponentTools readCustomComponentTools) {
 
-        return ChatClient.builder(chatModel)
+        return chatClientBuilder(chatModel)
             .defaultSystem(customComponentBuildSystemPrompt)
             .defaultTools(customComponentTools, readCustomComponentTools)
             .build();
+    }
+
+    /**
+     * Local equivalent of the private CE {@code CopilotConfiguration.chatClientBuilder}: every one-shot subagent
+     * {@link ChatClient} bean in this class must be created through this method rather than
+     * {@code ChatClient.builder(...)} directly, so guardrails coverage is a build property instead of a convention (see
+     * {@code GuardrailsAdvisorCoverageTest} in this package). Guardrails are EE-only; when no
+     * {@code AiGuardrailsAdvisorProvider} bean is on the classpath,
+     * {@link CopilotGuardrailsAdvisorFactory#guardrailsAdvisors()} returns an empty list and the returned builder
+     * simply has no guardrails advisor attached.
+     */
+    private ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        builder.defaultAdvisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors());
+
+        return builder;
     }
 
     /**

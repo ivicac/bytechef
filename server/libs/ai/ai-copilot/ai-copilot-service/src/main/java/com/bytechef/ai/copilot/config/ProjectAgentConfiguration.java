@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.ProjectSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -90,7 +91,8 @@ public class ProjectAgentConfiguration {
     ProjectSpringAIAgent projectAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectTools readProjectTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT.name() + "_" + Mode.ASK.name();
@@ -102,6 +104,7 @@ public class ProjectAgentConfiguration {
             .systemMessage(readPrompt(promptProjectAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, readProjectTools, readProjectWorkflowTools))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -111,7 +114,8 @@ public class ProjectAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
         ProjectWorkflowTools projectWorkflowTools, SecurityContextRehydrator securityContextRehydrator,
         IntelligentToolCatalog intelligentToolCatalog,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT.name() + "_" + Mode.BUILD.name();
@@ -125,6 +129,7 @@ public class ProjectAgentConfiguration {
             .toolCallbacks(
                 buildToolCallbacks(
                     securityContextRehydrator, projectTools, projectWorkflowTools, intelligentToolCatalog))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
