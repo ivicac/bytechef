@@ -52,8 +52,8 @@ class ApiKeyFacadeAuthorizationTest {
     }
 
     @Test
-    void testCreateRequiresAuthenticated() {
-        assertExpression("create", "isAuthenticated()");
+    void testCreateRequiresTenantAdminForAnAdminShapedKey() {
+        assertExpression("create", "isAuthenticated() and (#type != null or isTenantAdmin())");
     }
 
     @Test
