@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.agui.core.exception.AGUIException;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.ConfigureMcpServerToolCallback;
 import com.bytechef.ai.copilot.tool.CopilotAgentType;
@@ -37,6 +38,7 @@ import com.bytechef.automation.ai.mcp.service.McpProjectService;
 import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
@@ -67,11 +69,11 @@ final class McpServerAgentConfigurationTest {
     void testAskAgentUsesReadToolsAndBuildAgentUsesWriteTools() throws AGUIException {
         SliceSpringAIAgent askAgent = configuration.mcpServerAskSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), mcpServerToolCallbacksFactory,
-            securityContextRehydrator, emptyProvider());
+            securityContextRehydrator, emptyProvider(), guardrailsAdvisorFactory());
 
         SliceSpringAIAgent buildAgent = configuration.mcpServerBuildSpringAIAgent(
             mock(ChatMemory.class), mock(ChatModel.class), mcpServerToolCallbacksFactory,
-            securityContextRehydrator, emptyCatalog(), emptyProvider());
+            securityContextRehydrator, emptyCatalog(), emptyProvider(), guardrailsAdvisorFactory());
 
         assertThat(askAgent.getAgentId()).isEqualTo("mcp_server_ask");
         assertThat(buildAgent.getAgentId()).isEqualTo("mcp_server_build");
@@ -134,6 +136,10 @@ final class McpServerAgentConfigurationTest {
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyProvider() {
         return mock(ObjectProvider.class);
+    }
+
+    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
+        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 
     private static IntelligentToolCatalog emptyCatalog() {

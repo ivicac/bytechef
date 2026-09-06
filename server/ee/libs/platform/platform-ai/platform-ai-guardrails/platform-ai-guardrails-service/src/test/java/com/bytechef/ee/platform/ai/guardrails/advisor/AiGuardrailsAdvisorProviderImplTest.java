@@ -20,8 +20,10 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.constant.PlatformType;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -51,12 +53,13 @@ class AiGuardrailsAdvisorProviderImplTest {
     private final ObjectProvider<ProjectDeploymentService> projectDeploymentServiceProvider =
         mock(ObjectProvider.class);
     private final ObjectProvider<ProjectService> projectServiceProvider = mock(ObjectProvider.class);
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     private AiGuardrailsAdvisorProviderImpl aiGuardrailsAdvisorProvider;
 
     @BeforeEach
     void setUp() {
-        when(meterRegistryProvider.getIfAvailable()).thenReturn(new SimpleMeterRegistry());
+        when(meterRegistryProvider.getIfAvailable()).thenReturn(meterRegistry);
         when(projectDeploymentServiceProvider.getIfAvailable()).thenReturn(projectDeploymentService);
         when(projectServiceProvider.getIfAvailable()).thenReturn(projectService);
 
@@ -160,6 +163,78 @@ class AiGuardrailsAdvisorProviderImplTest {
 
         verify(projectDeploymentService, times(1)).getProjectDeployment(JOB_PRINCIPAL_ID);
         verify(projectService, times(1)).getProject(PROJECT_ID);
+    }
+
+    @Test
+    void testGetMetricsReturnsNullWhenAllGuardrailsDisabled() {
+        when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
+            .thenReturn(projectDeployment(PROJECT_ID));
+        when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(false);
+
+        SensitiveDataMetrics metrics = aiGuardrailsAdvisorProvider.getMetrics(
+            PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
+
+        assertThat(metrics).isNull();
+    }
+
+    /**
+     * Mirrors {@link #testAutomationJobPrincipalIdResolvesWorkspace}/{@link #testAllGuardrailsDisabledReturnsEmpty}:
+     * {@link AiGuardrailsAdvisorProviderImpl#getMetrics} must be non-{@code null} for exactly the same arguments
+     * {@link AiGuardrailsAdvisorProviderImpl#getAdvisor} resolves a present {@link Advisor} for, since both share the
+     * same active/inactive gate.
+     */
+    @Test
+    void testGetMetricsNonNullExactlyWhenAdvisorPresent() {
+        when(projectDeploymentService.getProjectDeployment(JOB_PRINCIPAL_ID))
+            .thenReturn(projectDeployment(PROJECT_ID));
+        when(projectService.getProject(PROJECT_ID)).thenReturn(project(WORKSPACE_ID));
+        when(aiGuardrails.isActive(WORKSPACE_ID)).thenReturn(true);
+
+        Optional<Advisor> advisor = aiGuardrailsAdvisorProvider.getAdvisor(
+            PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
+        SensitiveDataMetrics metrics = aiGuardrailsAdvisorProvider.getMetrics(
+            PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, SURFACE);
+
+        assertThat(advisor).isPresent();
+        assertThat(metrics).isNotNull();
+    }
+
+    /**
+     * The regression this guards: the canvas AI Agent surface's tool-boundary metrics used to reach either no
+     * {@link SensitiveDataMetrics} bean at all, or the AI Gateway's own instance mislabelled {@code surface=gateway}
+     * (see {@link AiGuardrailsAdvisorProviderImpl} class javadoc). This test proves two independent {@link #getMetrics}
+     * calls for two different {@code surface} arguments record into two DIFFERENT {@code surface}-tagged counters on
+     * the shared {@link MeterRegistry}, so a caller's events can never land under another caller's surface tag.
+     */
+    @Test
+    void testGetMetricsRecordsUnderTheRequestedSurfaceTagNotAnotherCallers() {
+        when(aiGuardrails.isActive(isNull())).thenReturn(true);
+
+        SensitiveDataMetrics agentMetrics = aiGuardrailsAdvisorProvider.getMetrics(
+            PlatformType.EMBEDDED, JOB_PRINCIPAL_ID, "ai_agent");
+        SensitiveDataMetrics gatewayMetrics = aiGuardrailsAdvisorProvider.getMetrics(
+            PlatformType.EMBEDDED, JOB_PRINCIPAL_ID, "gateway");
+
+        assertThat(agentMetrics).isNotNull();
+        assertThat(gatewayMetrics).isNotNull();
+
+        agentMetrics.recordToolArgsRestored();
+
+        assertThat(
+            meterRegistry.get(AiGuardrailMetrics.COUNTER_NAME)
+                .tag("event", "tool_args_restored")
+                .tag("surface", "ai_agent")
+                .counter()
+                .count())
+                    .isEqualTo(1.0);
+
+        assertThat(meterRegistry.find(AiGuardrailMetrics.COUNTER_NAME)
+            .tag("event", "tool_args_restored")
+            .tag("surface", "gateway")
+            .counter())
+                .as("recording through the ai_agent-surfaced metrics must not also increment the gateway surface")
+                .isNull();
     }
 
     private static ProjectDeployment projectDeployment(long projectId) {
