@@ -40,6 +40,41 @@ public interface SensitiveDataMetrics {
     void recordDetectorFailure(String detectorName);
 
     /**
+     * Records that a detection pass abandoned its remaining work because it exceeded its configured budget, so the
+     * spans it returned are partial. Recorded at most once per call, naming the detector that was running when the
+     * budget ran out.
+     *
+     * <p>
+     * Deliberately distinct from {@link #recordDetectorFailure}. That event means a detector threw and the engine
+     * continued without it; this one means a detector was still working and was cut off. Conflating them would lose the
+     * distinction the whole bound turns on -- the engine's fail-open catch cannot see a slow detector at all, because a
+     * slow detector never throws.
+     * </p>
+     *
+     * @param detectorName the detector that was running when the budget expired
+     */
+    default void recordDetectorTimedOut(String detectorName) {
+        // No-op default, for the same reason recordBelowConfidenceThreshold is one.
+    }
+
+    /**
+     * Records that a detector which cannot be applied to a fragment ({@link SensitiveDataDetector#streamSafe()} is
+     * {@code false}) was not run at all, because the input exceeded the configured maximum for such a detector.
+     *
+     * <p>
+     * This is the loud half of a deliberate coverage loss. Such a detector cannot be windowed by its own contract, so
+     * on a very large input the choice is between skipping it and handing it a truncated prefix. A truncated prefix
+     * would report a clean scan of a document only partly read; a skip reports, on a counter naming the detector, that
+     * it did not run.
+     * </p>
+     *
+     * @param detectorName the detector that was skipped
+     */
+    default void recordDetectorSkippedOversize(String detectorName) {
+        // No-op default, for the same reason recordBelowConfidenceThreshold is one.
+    }
+
+    /**
      * Records that at least one candidate span was dropped from a single {@code redact}/{@code redactWithSpans}/
      * {@code tokenizeWithSpans} call because its confidence fell below the caller's {@code minConfidence}. Recorded at
      * most once per call, matching the existing family's incidence-counter shape (one increment per content, not one
