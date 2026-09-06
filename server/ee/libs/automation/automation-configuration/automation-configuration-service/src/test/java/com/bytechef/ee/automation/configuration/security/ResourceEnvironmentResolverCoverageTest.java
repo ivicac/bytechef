@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,7 @@ class ResourceEnvironmentResolverCoverageTest {
     private static final Map<String, String> KNOWN_NO_ENVIRONMENT = buildKnownNoEnvironment();
 
     private static Map<String, String> buildKnownNoEnvironment() {
-        Map<String, String> reasons = new java.util.LinkedHashMap<>();
+        Map<String, String> reasons = new LinkedHashMap<>();
 
         reasons.put(
             "Workspace",
@@ -111,6 +112,20 @@ class ResourceEnvironmentResolverCoverageTest {
                 + "the environment explicitly (as ProjectDeploymentPromotionHandler and ApiCollectionPromotionHandler "
                 + "should but currently do not -- see EnvironmentAwareGateCoverageTest's KNOWN_EXEMPT), exactly as "
                 + "for 'Workspace'. Do not \"fix\" this absence by adding the resolver the guard test forbids.");
+
+        reasons.put(
+            "DataSync",
+            "The same shape as 'Project' above, and arrived from the base branch rather than from this work: the "
+                + "data_sync row carries a workspaceId and a projectId and no environment column, because a data "
+                + "sync's environments belong to the project DEPLOYMENTS DataSyncFacadeImpl materializes for every "
+                + "Environment.values() (see getDataSyncDeployments, hasAnyDeployment and syncTestConnections). A "
+                + "resolver could not answer with one of the three without picking arbitrarily, so 'DataSync'-keyed "
+                + "gates must carry the environment explicitly, exactly as 'Project' and 'Workspace' must.");
+
+        reasons.put(
+            "DataSyncElement",
+            "A row of a DataSync, keyed only by dataSyncId, with no environment column of its own -- scoped entirely "
+                + "by the parent 'DataSync' accounted for above. Nothing for a resolver to answer with.");
 
         String noEnvironmentFieldReason =
             "No environment field on the underlying domain type -- it is a sub-element or projection scoped "
@@ -196,10 +211,21 @@ class ResourceEnvironmentResolverCoverageTest {
             reachableResourceTypes.addAll(extractHasPermissionResourceTypes(text));
         }
 
+        // This sanity check guards a different failure mode than the fail(...) below, and is kept even though it
+        // shadows Connection/ProjectDeployment/McpServer from ever reaching that fail(...): it catches the file-based
+        // discovery mechanism itself finding nothing (a renamed "implements ResourceEnvironmentResolver" pattern, a
+        // moved resourceType() method body, or the file walk breaking), which would silently empty
+        // resolvedResourceTypes and make every reachable type look unaccounted-for below, including ones that are
+        // actually fine. That failure mode is worth catching on its own for exactly these four types, since they
+        // are the ones this scan is proven to depend on discovering correctly (see the class javadoc). It does not,
+        // and cannot, exercise the "reachable type has no resolver" fail(...) below for any of the four -- the
+        // negative control for that path uses a type outside this set (DataTable/ApiKey), see task-8-report.md.
         assertTrue(
-            resolvedResourceTypes.containsAll(List.of("Connection", "ProjectDeployment", "McpServer")),
-            "Expected to discover the three known ResourceEnvironmentResolver implementations (Connection, "
-                + "ProjectDeployment, McpServer) by scanning source files; found " + resolvedResourceTypes
+            resolvedResourceTypes.containsAll(
+                List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection")),
+            "Expected to discover the four known ResourceEnvironmentResolver implementations (Connection, "
+                + "ProjectDeployment, McpServer, ApiCollection) by scanning source files; found "
+                + resolvedResourceTypes
                 + " instead. If this list shrank, the file-based discovery mechanism itself is broken, which would "
                 + "make the assertion below pass vacuously for every type.");
 

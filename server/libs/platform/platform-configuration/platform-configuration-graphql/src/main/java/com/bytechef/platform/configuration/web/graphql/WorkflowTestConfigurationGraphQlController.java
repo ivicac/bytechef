@@ -44,7 +44,15 @@ class WorkflowTestConfigurationGraphQlController {
         @Argument String clusterElementWorkflowNodeName, @Argument String workflowConnectionKey,
         @Argument long connectionId, @Argument long environmentId) {
 
-        // See PrincipalEnvironment.
+        // The gate above answers "may this caller use this connection?", and answers it per environment already:
+        // Connection registers a ResourceEnvironmentResolver, so hasResourceScope checks the role the caller holds in
+        // the connection's OWN environment. It deliberately does not answer "may this caller edit this workflow in
+        // the environment they named" -- the facade below does, with
+        // hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId). Two questions, two layers.
+        //
+        // Resolving here as well as there is harmless: resolveEffectiveEnvironmentId returns its input for a session
+        // principal and the principal's own environment for a confined one, so applying it twice lands on the same
+        // value. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         workflowTestConfigurationFacade.saveClusterElementTestConfigurationConnection(
@@ -60,8 +68,7 @@ class WorkflowTestConfigurationGraphQlController {
         @Argument String workflowId, @Argument String workflowNodeName, @Argument String workflowConnectionKey,
         @Argument long connectionId, @Argument long environmentId) {
 
-        // Same gap as saveClusterElementTestConfigurationConnection above: neither gate checks environmentId. See
-        // PrincipalEnvironment.
+        // Same two-layer split as saveClusterElementTestConfigurationConnection above, and for the same reason.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         workflowTestConfigurationFacade.saveWorkflowTestConfigurationConnection(

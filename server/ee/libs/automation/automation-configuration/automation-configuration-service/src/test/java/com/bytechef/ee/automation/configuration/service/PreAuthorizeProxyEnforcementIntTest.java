@@ -21,6 +21,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -31,11 +32,14 @@ import com.bytechef.ee.automation.configuration.facade.ProjectSharingFacade;
 import com.bytechef.ee.automation.configuration.facade.ProjectSharingFacadeImpl;
 import com.bytechef.ee.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.ee.automation.configuration.facade.WorkspaceConnectionFacadeImpl;
+import com.bytechef.ee.automation.configuration.facade.WorkspaceUserFacade;
+import com.bytechef.ee.automation.configuration.facade.WorkspaceUserFacadeImpl;
 import com.bytechef.ee.automation.configuration.repository.CustomRoleRepository;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
@@ -47,7 +51,6 @@ import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,7 +108,7 @@ class PreAuthorizeProxyEnforcementIntTest {
     private GuardedResourceOwnerReads guardedResourceOwnerReads;
 
     @Autowired
-    private WorkspaceUserService workspaceUserService;
+    private WorkspaceUserFacade workspaceUserFacade;
 
     @Autowired
     private ProjectSharingFacade projectSharingFacade;
@@ -203,42 +206,42 @@ class PreAuthorizeProxyEnforcementIntTest {
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesAddWorkspaceUser() {
-        assertThatThrownBy(() -> workspaceUserService.addWorkspaceUser(2L, 1L, WorkspaceRole.VIEWER))
+    void testRealWorkspaceUserFacadeImplEnforcesAddWorkspaceUser() {
+        assertThatThrownBy(() -> workspaceUserFacade.addWorkspaceUser(2L, 1L, WorkspaceRole.VIEWER, null))
             .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesRemoveWorkspaceUser() {
-        assertThatThrownBy(() -> workspaceUserService.removeWorkspaceUser(2L, 1L))
+    void testRealWorkspaceUserFacadeImplEnforcesRemoveWorkspaceUser() {
+        assertThatThrownBy(() -> workspaceUserFacade.removeWorkspaceUser(2L, 1L))
             .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesUpdateWorkspaceUserRole() {
+    void testRealWorkspaceUserFacadeImplEnforcesUpdateWorkspaceUserRole() {
         assertThatThrownBy(
-            () -> workspaceUserService.updateWorkspaceUserRole(2L, 1L, WorkspaceRole.VIEWER))
+            () -> workspaceUserFacade.updateWorkspaceUserRole(2L, 1L, WorkspaceRole.VIEWER))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesSetEnvironmentRole() {
+    void testRealWorkspaceUserFacadeImplEnforcesSetEnvironmentRole() {
         assertThatThrownBy(
-            () -> workspaceUserService.setEnvironmentRole(
+            () -> workspaceUserFacade.setEnvironmentRole(
                 2L, 1L, Environment.PRODUCTION, WorkspaceRole.VIEWER, null))
                     .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesRemoveEnvironmentRole() {
+    void testRealWorkspaceUserFacadeImplEnforcesRemoveEnvironmentRole() {
         assertThatThrownBy(
-            () -> workspaceUserService.removeEnvironmentRole(2L, 1L, Environment.PRODUCTION))
+            () -> workspaceUserFacade.removeEnvironmentRole(2L, 1L, Environment.PRODUCTION))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesGetWorkspaceWorkspaceUsers() {
-        assertThatThrownBy(() -> workspaceUserService.getWorkspaceWorkspaceUsers(1L))
+    void testRealWorkspaceUserFacadeImplEnforcesGetWorkspaceWorkspaceUsers() {
+        assertThatThrownBy(() -> workspaceUserFacade.getWorkspaceWorkspaceUsers(1L))
             .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -291,12 +294,14 @@ class PreAuthorizeProxyEnforcementIntTest {
     // @SpringBootConfiguration (not @TestConfiguration) because @SpringBootTest(classes = Config.class) requires a
     // primary Spring Boot configuration class; @TestConfiguration is a supplemental config and Spring Boot explicitly
     // rejects it as the primary ("Classes annotated with @TestConfiguration are not considered"). The synthetic
-    // Guarded* stand-ins share one context backed by the mocked PermissionService.
+    // Guarded* stand-ins and the real WorkspaceUserFacadeImpl share one context; the mocked PermissionService backs
+    // both.
     @SpringBootConfiguration
     @EnableMethodSecurity
     @ImportAutoConfiguration(AutomationMethodSecurityConfiguration.class)
     @Import({
-        GuardedProjectMutations.class, GuardedProjectFacadeReads.class, GuardedResourceOwnerReads.class
+        GuardedProjectMutations.class, GuardedProjectFacadeReads.class, GuardedResourceOwnerReads.class,
+        WorkspaceUserFacadeImpl.class, WorkspaceUserServiceImpl.class
     })
     static class Config {
 
@@ -315,7 +320,7 @@ class PreAuthorizeProxyEnforcementIntTest {
             return mock(WorkspaceUserAuditPublisher.class);
         }
 
-        // The remaining WorkspaceUserServiceImpl collaborators, mocked like the ones above — the proxy fires the
+        // The WorkspaceUserServiceImpl collaborators, mocked like the ones above — the proxy fires the
         // @PreAuthorize check before any of them is touched, so stubs are all these enforcement tests need.
         @Bean
         CustomRoleRepository customRoleRepository() {
@@ -377,6 +382,7 @@ class PreAuthorizeProxyEnforcementIntTest {
             return new WorkspaceConnectionFacadeImpl(
                 mock(ApplicationEventPublisher.class), mock(ConnectionFacade.class),
                 mock(ConnectionLifecycleFacade.class), mock(ConnectionService.class),
+                mock(EnvironmentScopeFilter.class), environmentService(),
                 mock(ResourceVisibilityResolver.class), meterRegistryProvider,
                 mock(ProjectDeploymentWorkflowService.class), projectService, resourceGrantService,
                 mock(ResourceVisibilityPolicyRegistry.class), mock(TagService.class), mock(UserService.class),
@@ -386,48 +392,56 @@ class PreAuthorizeProxyEnforcementIntTest {
     }
 
     /**
-     * Mirrors the {@code 'Project'} {@code @PreAuthorize} expressions on the project facade/service impls. The
-     * evaluator routes the {@code 'Project'} targetType to
-     * {@code permissionService.hasWorkspaceScopeForProject(projectId, scope)}, which the mocked
-     * {@link PermissionService} stubs. The expressions on the production impls are enforced against the real facades by
-     * {@code FacadePreAuthorizeEnforcementIntTest}, which is the source of truth for drift; this stand-in only
-     * exercises the proxy chain.
+     * Mirrors the {@code 'Project'} {@code @PreAuthorize} expressions on the project facade/service impls.
+     * {@code AutomationPermissionEvaluator}'s four-argument
+     * {@code hasPermission(auth, targetId, targetType, permission)} — the form every {@code hasPermission(#id, 'Type',
+     * 'SCOPE')} annotation compiles to — routes <em>every</em> targetType, {@code 'Project'} included, to
+     * {@code permissionService.hasResourceScope(targetId, targetType, permission)}. It never branches on the type name.
+     * {@code hasWorkspaceScopeForProject} is reached only from the two-argument form, and only for a
+     * {@code ProjectDeploymentDTO} target, which is a different family of annotation from the ones stood in for here.
+     *
+     * <p>
+     * Which of the two the proxy actually takes is pinned by {@link #testAllowedWhenPermissionServiceGrants()} rather
+     * than by the denial tests: every gate is stubbed false in {@code @BeforeEach}, so a denial is green whichever
+     * method the evaluator calls. The positive control grants {@code hasResourceScope} alone and leaves
+     * {@code hasWorkspaceScopeForProject} false, so it turns red if the routing moves.
+     *
+     * <p>
+     * Kept in sync by {@link PreAuthorizeAnnotationTest}, which pins the expressions on the production impls. If the
+     * production annotation changes without updating this stand-in, the test still fires the proxy — it just exercises
+     * the old expression, so the reflection test in {@code PreAuthorizeAnnotationTest} is the source of truth for
+     * drift.
      */
     @Service
     static class GuardedProjectMutations {
 
-        private final AtomicInteger invocations = new AtomicInteger();
-
         @PreAuthorize("hasPermission(#projectId, 'Project', 'PROJECT_DELETE')")
         public void deleteProject(long projectId) {
-            invocations.incrementAndGet();
         }
 
         @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_VIEW')")
         public void getProject(long projectId) {
-            invocations.incrementAndGet();
         }
     }
 
     @Service
     static class GuardedProjectFacadeReads {
 
-        private final AtomicInteger invocations = new AtomicInteger();
-
         @PreAuthorize("isTenantAdmin() or isCurrentUser(#id)")
         public void getUserWorkspaces(long id) {
-            invocations.incrementAndGet();
         }
     }
 
     @Service
     static class GuardedResourceOwnerReads {
 
-        private final AtomicInteger invocations = new AtomicInteger();
-
         @PreAuthorize("isResourceOwner(#id, 'ApiKey')")
         public void getApiKey(long id) {
-            invocations.incrementAndGet();
         }
     }
+
+    private static EnvironmentService environmentService() {
+        return () -> List.of(Environment.values());
+    }
+
 }

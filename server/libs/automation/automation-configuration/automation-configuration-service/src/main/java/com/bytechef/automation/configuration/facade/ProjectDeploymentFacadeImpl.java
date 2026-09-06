@@ -34,6 +34,7 @@ import com.bytechef.automation.configuration.dto.ProjectDeploymentWorkflowDTO;
 import com.bytechef.automation.configuration.exception.ProjectDeploymentErrorType;
 import com.bytechef.automation.configuration.listener.ProjectDeploymentDeleteEventListener;
 import com.bytechef.automation.configuration.ownership.ProjectDeploymentOwner;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -119,6 +120,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final ProjectOwnershipService projectOwnershipService;
     private final ProjectService projectService;
+    private final EnvironmentScopeFilter environmentScopeFilter;
     private final ProjectVisibilityFilter projectVisibilityFilter;
     private final ProjectWorkflowService projectWorkflowService;
     private final TagService tagService;
@@ -132,7 +134,8 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     @SuppressFBWarnings("EI")
     public ProjectDeploymentFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ConnectionService connectionService, Evaluator evaluator,
-        EnvironmentService environmentService, PrincipalJobFacade principalJobFacade,
+        EnvironmentScopeFilter environmentScopeFilter, EnvironmentService environmentService,
+        PrincipalJobFacade principalJobFacade,
         PrincipalJobService principalJobService, JobFacade jobFacade, JobService jobService,
         List<ProjectDeploymentDeleteEventListener> projectDeploymentDeleteEventListeners,
         ProjectDeploymentService projectDeploymentService,
@@ -148,6 +151,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
         this.applicationEventPublisher = applicationEventPublisher;
         this.connectionService = connectionService;
         this.evaluator = evaluator;
+        this.environmentScopeFilter = environmentScopeFilter;
         this.environmentService = environmentService;
         this.principalJobFacade = principalJobFacade;
         this.principalJobService = principalJobService;
@@ -645,6 +649,13 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
             projectDeploymentService.getProjectDeployments(false, environment, projectId, tagId, workspaceId));
     }
 
+    /**
+     * {@code environmentId} is nullable here, unlike on the four-argument sibling above, so the gate cannot always
+     * answer the environment question and the body finishes it. With an environment named the gate has checked it and
+     * the query returns that environment alone; with none named the gate correctly permits the call and the query would
+     * otherwise return every environment in the workspace, including ones the caller holds no role in. See
+     * {@link EnvironmentScopeFilter}.
+     */
     @Override
     @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#id, 'DEPLOYMENT_VIEW', #environmentId)")
     public List<ProjectDeploymentDTO> getWorkspaceProjectDeployments(
@@ -654,6 +665,11 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
 
         List<ProjectDeployment> projectDeployments = projectDeploymentService.getProjectDeployments(
             false, environment, projectId, tagId, id);
+
+        if (environment == null) {
+            projectDeployments = environmentScopeFilter.filterByEnvironment(
+                id, "DEPLOYMENT_VIEW", projectDeployments, ProjectDeployment::getEnvironment);
+        }
 
         if (includeAllFields) {
             List<ProjectDeploymentWorkflow> projectDeploymentWorkflows = projectDeploymentWorkflowService

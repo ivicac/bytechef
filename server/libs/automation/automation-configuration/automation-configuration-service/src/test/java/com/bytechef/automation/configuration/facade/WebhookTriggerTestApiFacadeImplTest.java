@@ -40,10 +40,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 
 /**
- * hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT') on both methods is environment-agnostic, so the
- * caller-supplied environmentId is never checked -- and it mints or tears down a live webhook URL in the environment it
- * names. These tests pin the execution side: for a confined (api-key) principal, the environment reaching the shared
- * platform facade must be the principal's own, not the request argument.
+ * Both methods mint or tear down a live webhook URL in the environment named. These tests pin the execution side: for a
+ * confined (api-key) principal, the environment reaching the shared platform facade must be the principal's own, not
+ * the request argument. The gate itself -- now {@code hasWorkflowScopeInEnvironment(#workflowId, 'SCOPE',
+ * #environmentId)}, resolving the same way -- is pinned separately by
+ * {@code WebhookTriggerTestApiFacadeAuthorizationTest} and {@code WebhookTriggerTestApiFacadeDiscriminatingGateTest}.
  *
  * @author Ivica Cardic
  */

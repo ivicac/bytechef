@@ -21,10 +21,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.WorkspaceConnectionService;
+import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
@@ -98,7 +101,8 @@ class WorkspaceConnectionTagFacadeImplTest {
 
         workspaceConnectionFacade = new WorkspaceConnectionFacadeImpl(
             applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
-            resourceVisibilityResolver, emptyProvider, projectDeploymentWorkflowService, projectService, tagService,
+            mock(EnvironmentScopeFilter.class), environmentService(), resourceVisibilityResolver, emptyProvider,
+            projectDeploymentWorkflowService, projectService, tagService,
             userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
     }
 
@@ -118,4 +122,9 @@ class WorkspaceConnectionTagFacadeImplTest {
 
         assertThat(tags).hasSize(2);
     }
+
+    private static EnvironmentService environmentService() {
+        return () -> List.of(Environment.values());
+    }
+
 }

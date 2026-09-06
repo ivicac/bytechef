@@ -181,6 +181,13 @@ rebel.xml
 **/.svelte-kit
 
 ######################
+# Kotlin
+######################
+# The Kotlin Gradle plugin's session/error tracking directory. Generated at build time, one per Gradle
+# build root -- this repo has two, at the root and under buildSrc/ -- and neither has ever been tracked.
+**/.kotlin/
+
+######################
 # Docker
 ######################
 **/local.env

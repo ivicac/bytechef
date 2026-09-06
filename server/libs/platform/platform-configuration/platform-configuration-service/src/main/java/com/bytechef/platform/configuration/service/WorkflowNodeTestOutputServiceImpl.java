@@ -69,16 +69,16 @@ public class WorkflowNodeTestOutputServiceImpl implements WorkflowNodeTestOutput
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public boolean checkWorkflowNodeTestOutputExists(
         String workflowId, String workflowNodeName, @Nullable Instant createdDate, long environmentId) {
 
-        // hasPermission(#workflowId, 'Workflow', ...) above is environment-agnostic, so the caller-supplied
-        // environmentId is never checked -- and until this fix, the repository queries below did not even use it,
-        // making this an existence oracle across every environment regardless: a confined principal could learn
-        // whether a workflow node has been tested in another environment it cannot itself read. No @Cacheable /
-        // @WorkflowCacheEvict on this method, so resolving here (rather than at a caller) is safe. See
-        // PrincipalEnvironment.
+        // hasWorkflowScopeInEnvironment(...) above checks the caller-supplied environmentId, closing what was --
+        // until this fix -- an existence oracle across every environment: a confined principal could learn whether a
+        // workflow node has been tested in another environment it cannot itself read, because the gate never checked
+        // the ordinal and the repository queries below did not even use it. No @Cacheable / @WorkflowCacheEvict on
+        // this method, so resolving here (rather than at a caller) is safe, and the gate substitutes the same way --
+        // see PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         if (createdDate == null) {
@@ -91,8 +91,15 @@ public class WorkflowNodeTestOutputServiceImpl implements WorkflowNodeTestOutput
         }
     }
 
+    // @WorkflowCacheEvict's aspect reads the @EnvironmentIdParam argument via AspectJ's JoinPoint#getArgs() -- the
+    // value captured at the call site, before this method body runs -- and WorkflowNodeTestOutputApiController
+    // resolves the effective environment BEFORE calling in for exactly that reason (see the controller's own
+    // comment). So this method does not resolve internally, and the gate below is the NON-substituting
+    // hasResourceScopeInEnvironmentId(...) rather than hasWorkflowScopeInEnvironment(...): substituting here would
+    // authorize a confined principal's own environment while the aspect evicts whatever environmentId the caller
+    // actually passed, the same divergence WorkflowNodeTestOutputFacadeImpl's identically-shaped methods avoid.
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @CacheEvict(value = WORKFLOW_TEST_NODE_OUTPUT_CACHE)
     @WorkflowCacheEvict(cacheNames = {
         WorkflowNodeOutputFacade.PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE,

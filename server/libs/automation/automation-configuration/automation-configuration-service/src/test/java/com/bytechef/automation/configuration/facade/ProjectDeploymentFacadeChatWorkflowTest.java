@@ -26,6 +26,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade.ChatWorkflow;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -164,7 +165,8 @@ class ProjectDeploymentFacadeChatWorkflowTest {
      */
     private ProjectDeploymentFacadeImpl createProjectDeploymentFacade(ResourceVisibility lowestVisibleRung) {
         return new ProjectDeploymentFacadeImpl(
-            null, null, null, environmentService, null, null, null, null, List.of(), projectDeploymentService,
+            null, null, null, Mockito.mock(EnvironmentScopeFilter.class), environmentService, null, null, null, null,
+            List.of(), projectDeploymentService,
             projectDeploymentWorkflowService, projectService, createProjectVisibilityFilter(lowestVisibleRung),
             projectWorkflowService, null, triggerDefinitionService, null, null, applicationProperties, null,
             workflowService);

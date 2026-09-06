@@ -7,8 +7,14 @@
 
 package com.bytechef.ee.automation.configuration.config;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.automation.configuration.callback.ProjectCallback;
 import com.bytechef.automation.configuration.callback.ProjectWorkflowCallback;
+import com.bytechef.automation.configuration.security.ProjectOwnershipResolver;
+import com.bytechef.automation.configuration.security.WorkflowOwnershipResolver;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
 import com.bytechef.cache.config.CacheConfiguration;
 import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
@@ -25,17 +31,21 @@ import com.bytechef.ee.automation.configuration.service.PermissionScopeRegistry;
 import com.bytechef.ee.automation.configuration.service.PermissionServiceImpl;
 import com.bytechef.ee.automation.configuration.service.WorkspaceScopeCacheService;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.repository.AuthorityRepository;
 import com.bytechef.platform.user.repository.PersistentTokenRepository;
 import com.bytechef.platform.user.repository.UserRepository;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.user.service.UserServiceImpl;
+import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.cache.CacheManager;
@@ -63,8 +73,8 @@ import tools.jackson.databind.ObjectMapper;
     CurrentUserResolver.class, DeploymentPermissionScopeProvider.class,
     EmbeddedOwnerContributorsTestConfiguration.class, LiquibaseConfiguration.class, McpPermissionScopeProvider.class,
     PermissionScopeRegistry.class, PermissionServiceImpl.class, PostgreSQLContainerConfiguration.class,
-    ProjectCallback.class, ProjectPermissionScopeProvider.class, ProjectWorkflowCallback.class,
-    WorkflowPermissionScopeProvider.class,
+    ProjectCallback.class, ProjectOwnershipResolver.class, ProjectPermissionScopeProvider.class,
+    ProjectWorkflowCallback.class, WorkflowOwnershipResolver.class, WorkflowPermissionScopeProvider.class,
     WorkspacePermissionIntTestConfiguration.WorkspacePermissionJdbcConfiguration.class,
     WorkspaceScopeCacheService.class, WorkspaceUserAuditMapper.class
 })
@@ -86,12 +96,20 @@ public class WorkspacePermissionIntTestConfiguration {
     }
 
     @Bean
+    ResourceVisibilityResolver resourceVisibilityResolver() {
+        return (resourceType, workspaceId, candidates) -> candidates.stream()
+            .map(VisibilityRecord::id)
+            .collect(Collectors.toSet());
+    }
+
+    @Bean
     UserService userService(
         AuthorityRepository authorityRepository, CacheManager cacheManager, PasswordEncoder passwordEncoder,
         PersistentTokenRepository persistentTokenRepository, UserRepository userRepository) {
 
         return new UserServiceImpl(
-            authorityRepository, cacheManager, passwordEncoder, persistentTokenRepository, userRepository);
+            authorityRepository, cacheManager, passwordEncoder, persistentTokenRepository, mock(TenantService.class),
+            mock(UserAuditPublisher.class), userRepository, 5, Duration.ofMinutes(15));
     }
 
     @EnableJdbcAuditing(auditorAwareRef = "auditorProvider", dateTimeProviderRef = "auditingDateTimeProvider")

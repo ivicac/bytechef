@@ -20,6 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,10 +32,11 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
-import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -41,6 +45,7 @@ import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +80,17 @@ class ProjectDeploymentFacadeTest {
 
     @Mock
     private ApplicationProperties applicationProperties;
+
+    /**
+     * A real filter over a caller holding the scope in every environment, so the listing's environment narrowing runs
+     * through the production seam and narrows nothing -- leaving these cases about project visibility, which is what
+     * they pin. A spy for the same reason {@link #projectVisibilityFilter} is one: {@code @InjectMocks} injects only
+     * mock and spy fields, and a plain {@code @Mock} here would return no rows at all and hide every deployment for a
+     * reason none of these tests is about.
+     */
+    @Spy
+    private EnvironmentScopeFilter environmentScopeFilter = new EnvironmentScopeFilter(
+        objectProvider(permissionServiceHoldingEveryEnvironment()));
 
     @Mock
     private EnvironmentService environmentService;
@@ -287,13 +303,17 @@ class ProjectDeploymentFacadeTest {
             .doesNotThrowAnyException();
     }
 
+    /**
+     * Generic since the environment filter needs one over {@link PermissionService} as well as the visibility filter's
+     * over {@code ResourceVisibilityResolver}; the body was already type-agnostic.
+     */
     @SuppressWarnings("unchecked")
-    private static ObjectProvider<ResourceVisibilityResolver> objectProvider(
-        ResourceVisibilityResolver resourceVisibilityResolver) {
+    private static <T> ObjectProvider<T> objectProvider(T instance) {
+        ObjectProvider<T> objectProvider = mock(ObjectProvider.class);
 
-        ObjectProvider<ResourceVisibilityResolver> objectProvider = mock(ObjectProvider.class);
-
-        when(objectProvider.getIfAvailable()).thenReturn(resourceVisibilityResolver);
+        lenient()
+            .when(objectProvider.getIfAvailable())
+            .thenReturn(instance);
 
         return objectProvider;
     }
@@ -325,4 +345,19 @@ class ProjectDeploymentFacadeTest {
 
         return projectDeployment;
     }
+
+    /**
+     * A {@link PermissionService} that answers "every environment" -- the ordinary case, since a member in implicit
+     * mode holds their scopes in all of them.
+     */
+    private static PermissionService permissionServiceHoldingEveryEnvironment() {
+        PermissionService permissionService = mock(PermissionService.class);
+
+        lenient()
+            .when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
+
+        return permissionService;
+    }
+
 }

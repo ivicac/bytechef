@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
@@ -25,6 +26,8 @@ import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
 import com.bytechef.ee.automation.configuration.service.WorkspaceUserService;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
@@ -100,7 +103,8 @@ class ConnectionSharingFacadeTest {
 
         workspaceConnectionFacade = new WorkspaceConnectionFacadeImpl(
             mock(ApplicationEventPublisher.class), mock(ConnectionFacade.class), mock(ConnectionLifecycleFacade.class),
-            connectionService, mock(ResourceVisibilityResolver.class), meterRegistryProvider,
+            connectionService, mock(EnvironmentScopeFilter.class), environmentService(),
+            mock(ResourceVisibilityResolver.class), meterRegistryProvider,
             projectDeploymentWorkflowService, mock(ProjectService.class), resourceGrantService,
             connectionPolicyRegistry(), mock(TagService.class), mock(UserService.class),
             mock(WorkflowTestConfigurationService.class), workspaceConnectionService, mock(WorkspaceFacade.class),
@@ -212,4 +216,9 @@ class ConnectionSharingFacadeTest {
                     }
                 }));
     }
+
+    private static EnvironmentService environmentService() {
+        return () -> List.of(Environment.values());
+    }
+
 }

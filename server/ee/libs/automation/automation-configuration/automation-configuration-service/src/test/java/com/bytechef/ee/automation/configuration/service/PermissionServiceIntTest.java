@@ -17,9 +17,11 @@ import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.security.ResourceOwnershipResolver;
 import com.bytechef.automation.configuration.security.ResourceOwnershipResolver.ResourceOwner;
 import com.bytechef.automation.configuration.service.PermissionService;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.ee.automation.configuration.config.WorkspacePermissionIntTestConfiguration;
 import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceRepository;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -52,7 +55,11 @@ import org.springframework.web.context.request.RequestContextHolder;
  *
  * @author Ivica Cardic
  */
-@SpringBootTest(classes = WorkspacePermissionIntTestConfiguration.class, properties = "bytechef.edition=ee")
+@SpringBootTest(
+    classes = WorkspacePermissionIntTestConfiguration.class,
+    properties = {
+        "bytechef.edition=ee", "spring.liquibase.contexts=mono,dev"
+    })
 class PermissionServiceIntTest {
 
     private static final String LOGIN = "user";
@@ -75,6 +82,9 @@ class PermissionServiceIntTest {
 
     @Autowired
     private ProjectWorkflowRepository projectWorkflowRepository;
+
+    @Autowired
+    private ResourceVisibilityResolver resourceVisibilityResolver;
 
     @Autowired
     private WorkspaceRepository workspaceRepository;
@@ -503,7 +513,9 @@ class PermissionServiceIntTest {
     private PermissionService createPermissionService(ResourceOwnershipResolver resourceOwnershipResolver) {
         return new PermissionServiceImpl(
             currentUserResolver, permissionScopeRegistry, projectRepository, workspaceScopeCacheService,
-            workspaceUserRepository, List.of(resourceOwnershipResolver));
+            workspaceUserRepository, List.of(resourceOwnershipResolver), List.of(), resourceVisibilityResolver,
+            List.of(),
+            new StaticListableBeanFactory().getBeanProvider(ResourceMembershipResolver.class));
     }
 
     private static void authenticate(String login, String authority) {

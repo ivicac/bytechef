@@ -55,10 +55,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 
 /**
- * hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW') on both methods is environment-agnostic, so the
- * caller-supplied environmentId is never checked by the gate. These tests pin the execution side: for a confined
- * (api-key) principal, the environment reaching getEvaluationInputs must be the principal's own, not the request
- * argument.
+ * {@code hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)} on both methods resolves the
+ * effective environment for its own check, but that resolution is internal to the gate's evaluation and never reaches
+ * this method body. These tests pin the execution side: for a confined (api-key) principal, the environment reaching
+ * getEvaluationInputs must be the principal's own, not the request argument.
  *
  * @author Ivica Cardic
  */
