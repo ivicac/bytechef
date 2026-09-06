@@ -19,13 +19,17 @@ package com.bytechef.automation.ai.mcp.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * Pins the {@code @PreAuthorize} expressions that workspace-scope MCP server operations (T20), enforced at the facade
  * tier. Per-server delete resolves the owning workspace via {@code McpServer:ResourceRole}; list/create take a
- * {@code workspaceId} argument.
+ * {@code workspaceId} argument. {@code createWorkspaceMcpServer} is overloaded and both overloads already hold a
+ * resolved {@link com.bytechef.platform.configuration.domain.Environment}, so both are asserted.
  *
  * @author Ivica Cardic
  */
@@ -47,8 +51,9 @@ class WorkspaceMcpServerFacadeAuthorizationTest {
     }
 
     @Test
-    void testCreateRequiresEditor() {
-        assertExpression("createWorkspaceMcpServer", "hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')");
+    void testCreateRequiresEditorInTheNamedEnvironment() {
+        assertExpression(
+            "createWorkspaceMcpServer", "hasWorkspaceScopeInEnvironment(#workspaceId, 'MCP_CREATE', #environment)");
     }
 
     @Test
@@ -56,27 +61,34 @@ class WorkspaceMcpServerFacadeAuthorizationTest {
         assertExpression("deleteWorkspaceMcpServer", "hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')");
     }
 
+    /**
+     * Asserts the expression on EVERY declared method with this name, not just the first one {@code getDeclaredMethods}
+     * happens to return -- {@code getDeclaredMethods} order is unspecified, and {@code createWorkspaceMcpServer} is
+     * overloaded, so checking only one match would silently skip the other overload's guard.
+     */
     private static void assertExpression(String methodName, String expression) {
-        Method method = null;
+        List<Method> methods = new ArrayList<>();
 
         for (Method candidate : WorkspaceMcpServerFacadeImpl.class.getDeclaredMethods()) {
             if (candidate.getName()
                 .equals(methodName)) {
-                method = candidate;
-
-                break;
+                methods.add(candidate);
             }
         }
 
-        assertThat(method)
+        assertThat(methods)
             .as("method %s", methodName)
-            .isNotNull();
+            .isNotEmpty();
 
-        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        for (Method method : methods) {
+            PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
-        assertThat(preAuthorize)
-            .as("@PreAuthorize on %s", methodName)
-            .isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo(expression);
+            assertThat(preAuthorize)
+                .as("@PreAuthorize on %s%s", methodName, Arrays.toString(method.getParameterTypes()))
+                .isNotNull();
+            assertThat(preAuthorize.value())
+                .as("@PreAuthorize value on %s%s", methodName, Arrays.toString(method.getParameterTypes()))
+                .isEqualTo(expression);
+        }
     }
 }

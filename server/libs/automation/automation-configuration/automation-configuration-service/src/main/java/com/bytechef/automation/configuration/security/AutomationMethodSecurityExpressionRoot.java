@@ -22,6 +22,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import java.util.function.Supplier;
 import org.aopalliance.intercept.MethodInvocation;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.expression.SecurityExpressionRoot;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionOperations;
@@ -148,6 +149,72 @@ public final class AutomationMethodSecurityExpressionRoot
         }
 
         return permissionService.hasWorkspaceScope(workspaceId, scope, environment);
+    }
+
+    /**
+     * Requires {@code scope} in the environment the caller named, for callers that supply it as a raw ordinal rather
+     * than a resolved {@link Environment} — the case {@code hasPermission(#workspaceId, 'Workspace', ...)} cannot
+     * express, because a workspace has no environment of its own for a {@code ResourceEnvironmentResolver} to supply
+     * and the environment-unaware check therefore unions every environment the caller can reach.
+     * <p>
+     * <b>Named differently from {@link #hasWorkspaceScopeInEnvironment(long, String, Environment)} on purpose.</b> A
+     * same-name, same-arity sibling taking {@code Long} is ambiguous in Java for a {@code null} literal, and in SpEL a
+     * null argument matches both by reflection order — selecting the {@code Environment} overload and failing with an
+     * NPE on {@code environment.ordinal()}. Do not merge the two.
+     * <p>
+     * <b>A {@code null} ordinal keeps the environment-unaware check</b> rather than denying or requiring every
+     * environment. The listings that pass one use {@code null} as "no environment filter", and the clients routinely
+     * send nothing, so denying would refuse ordinary pages to exactly the members per-environment roles protect. This
+     * gate closes forgery — naming an environment the caller holds no role in — and a {@code null} names nothing. The
+     * unfiltered listing still returns rows from every environment; that is a pre-existing union leak, recorded as a
+     * limitation in the spec and not closed here.
+     * <p>
+     * <b>{@link PrincipalEnvironment#resolveEffectiveEnvironmentId(Long)} is deliberately NOT called</b>, unlike in
+     * {@link #hasWorkflowScopeInEnvironment(String, String, Long)}. Substituting a confined principal's own environment
+     * would authorise one environment while the guarded method's body, reading the raw argument, acts on another — the
+     * exact divergence this gate exists to remove. The substitution is right for a workflow run, which happens in the
+     * principal's environment whatever the request said; a listing returns what the argument names. Nothing is lost: a
+     * confined principal has no {@code user} row, so the scope check fails closed regardless.
+     */
+    public boolean hasWorkspaceScopeInEnvironmentId(long workspaceId, String scope, @Nullable Long environmentId) {
+        // Consulted for the same reason hasWorkflowScopeInEnvironment consults it, and with more at stake: no
+        // resolver claims "Workspace", so a governed principal resolves NOT_APPLICABLE, which the decider turns into
+        // DENY. That denial is what hasPermission gave these gates before they moved here, and dropping it would
+        // open every workspace surface below to an embedded connected user.
+        Outcome outcome = ResourceMembershipDecider.decide(
+            resourceMembershipResolverProvider, workspaceId, "Workspace", scope);
+
+        if (outcome == Outcome.DENY) {
+            return false;
+        }
+
+        // Outcome.GRANT is deliberately NOT short-circuited here, unlike in hasWorkflowScopeInEnvironment. Membership
+        // answers whose resource this is, never which environment it may be reached in, and returning granted on the
+        // spot would skip the environment check this method exists to perform -- reopening the gap for exactly the
+        // principals a resolver governs. The sibling can short-circuit because it substitutes the principal's own
+        // environment first, so range is all it has left to verify; this method checks the ordinal the caller sent and
+        // therefore still has the real question to answer. A GRANT falls through and is answered by the ordinary
+        // per-environment check below, which is fail-CLOSED relative to the sibling. The branch is unreachable today
+        // (no resolver claims "Workspace"), so this is a rule for whoever adds one, not a live path.
+        if (environmentId == null) {
+            if (AutomationAuthorizationContext.isSkipChecks()) {
+                return true;
+            }
+
+            return permissionService.hasWorkspaceScope(workspaceId, scope);
+        }
+
+        if (AutomationAuthorizationContext.isSkipChecks()) {
+            return true;
+        }
+
+        Environment[] environments = Environment.values();
+
+        if (environmentId < 0 || environmentId >= environments.length) {
+            return false;
+        }
+
+        return permissionService.hasWorkspaceScope(workspaceId, scope, environments[environmentId.intValue()]);
     }
 
     /**
