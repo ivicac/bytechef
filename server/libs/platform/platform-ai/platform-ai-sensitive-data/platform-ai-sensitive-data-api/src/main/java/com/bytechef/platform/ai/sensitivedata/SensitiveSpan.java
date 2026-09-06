@@ -112,6 +112,21 @@ public record SensitiveSpan(SensitiveKind kind, String category, int start, int 
     }
 
     /**
+     * Returns this span translated by {@code offset} characters, for lifting a span found in a window back into the
+     * coordinates of the document that window came from.
+     *
+     * @param offset the window's start position in the document; {@code 0} returns an equal span
+     * @return the translated span
+     */
+    public SensitiveSpan withOffset(int offset) {
+        if (offset == 0) {
+            return this;
+        }
+
+        return new SensitiveSpan(kind, category, start + offset, end + offset, confidence);
+    }
+
+    /**
      * Returns whether this span shares at least one character position with {@code other}. Ranges are half-open, so
      * spans that merely touch ({@code this.end == other.start}) do not overlap and can both be applied.
      *
