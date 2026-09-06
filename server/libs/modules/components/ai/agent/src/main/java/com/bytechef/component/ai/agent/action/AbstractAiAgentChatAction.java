@@ -57,6 +57,7 @@ import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
 import com.bytechef.platform.ai.guardrails.GuardrailSurface;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProvider;
 import com.bytechef.platform.component.ComponentConnection;
@@ -313,9 +314,16 @@ public abstract class AbstractAiAgentChatAction {
                 aiGuardrailsAdvisorProviderObjectProvider.getIfAvailable();
 
             if (aiGuardrailsAdvisorProvider != null) {
+                // A streaming agent's tokens go to whoever is listening right now -- the realtime action emits them
+                // straight back through a WebSocketEmitter to the person speaking -- so that is a conversation and
+                // restores unconditionally. Only the non-streaming action's return value becomes the task output a
+                // downstream node reads, and only that is a policy question. Tool-call arguments are gated on all
+                // three regardless; they travel on the tool context, not through this advisor.
                 aiGuardrailsAdvisorProvider
                     .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
-                        GuardrailSurface.AI_AGENT)
+                        GuardrailSurface.AI_AGENT,
+                        isStreaming() ? RestorationDestination.CONVERSATION
+                            : RestorationDestination.WORKFLOW_OUTPUT)
                     .ifPresent(workspaceAdvisors::add);
 
                 toolBoundaryMetrics = aiGuardrailsAdvisorProvider.getMetrics(

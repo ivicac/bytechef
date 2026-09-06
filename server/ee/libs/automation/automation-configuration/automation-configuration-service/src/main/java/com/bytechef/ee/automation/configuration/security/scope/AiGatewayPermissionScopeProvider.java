@@ -14,8 +14,8 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * Declares the AI-gateway / observability permission scopes. Read-only access is granted from VIEWER; there are
- * currently no edit-level AI-gateway scopes.
+ * Declares the AI-gateway / observability permission scopes. Read-only access is granted from VIEWER; editing
+ * AI-gateway settings and rules is granted from ADMIN.
  *
  * @version ee
  *
@@ -28,6 +28,7 @@ public class AiGatewayPermissionScopeProvider implements PermissionScopeProvider
     @Override
     public Set<ScopeDefinition> scopeDefinitions() {
         return Set.of(
-            new ScopeDefinition(AiGatewayPermissionScope.AI_GATEWAY_VIEW, WorkspaceRole.VIEWER));
+            new ScopeDefinition(AiGatewayPermissionScope.AI_GATEWAY_VIEW, WorkspaceRole.VIEWER),
+            new ScopeDefinition(AiGatewayPermissionScope.AI_GATEWAY_EDIT, WorkspaceRole.ADMIN));
     }
 }

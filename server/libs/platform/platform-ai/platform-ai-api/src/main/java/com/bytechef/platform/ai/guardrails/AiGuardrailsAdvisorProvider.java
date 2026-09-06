@@ -45,7 +45,28 @@ public interface AiGuardrailsAdvisorProvider {
      * @param surface        identifies the calling surface for metrics/telemetry (e.g. {@code "ai_agent"})
      * @return the guardrails advisor, or empty when none applies
      */
-    Optional<Advisor> getAdvisor(@Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface);
+    default Optional<Advisor> getAdvisor(
+        @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface) {
+
+        return getAdvisor(platformType, jobPrincipalId, surface, RestorationDestination.CONVERSATION);
+    }
+
+    /**
+     * As {@link #getAdvisor(PlatformType, Long, String)}, for a caller whose restored response text does not simply go
+     * back to whoever supplied the input.
+     *
+     * @param platformType   the platform the run belongs to (e.g. {@code AUTOMATION} or {@code EMBEDDED}), or
+     *                       {@code null} when the calling context carries none (treated as not-AUTOMATION, so the
+     *                       tenant-default workspace applies)
+     * @param jobPrincipalId the run's job principal id (e.g. a project deployment id), or {@code null} when unknown
+     * @param surface        identifies the calling surface for metrics/telemetry (e.g. {@code "ai_agent"})
+     * @param destination    where this call's restored response text goes; see {@link RestorationDestination} for why
+     *                       the surface alone cannot answer this
+     * @return the guardrails advisor, or empty when none applies
+     */
+    Optional<Advisor> getAdvisor(
+        @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface,
+        RestorationDestination destination);
 
     /**
      * Returns the {@link SensitiveDataMetrics} instance this provider would use to record events for the identical
@@ -79,7 +100,22 @@ public interface AiGuardrailsAdvisorProvider {
      * @param surface     identifies the calling surface for metrics/telemetry
      * @return the guardrails advisor, or empty when none applies
      */
-    Optional<Advisor> getAdvisorForWorkspace(@Nullable Long workspaceId, String surface);
+    default Optional<Advisor> getAdvisorForWorkspace(@Nullable Long workspaceId, String surface) {
+        return getAdvisorForWorkspace(workspaceId, surface, RestorationDestination.CONVERSATION);
+    }
+
+    /**
+     * As {@link #getAdvisorForWorkspace(Long, String)}, for a caller whose restored response text does not simply go
+     * back to whoever supplied the input.
+     *
+     * @param workspaceId the caller's resolved workspace, or {@code null} for the tenant default
+     * @param surface     identifies the calling surface for metrics/telemetry
+     * @param destination where this call's restored response text goes; see {@link RestorationDestination} for why the
+     *                    surface alone cannot answer this
+     * @return the guardrails advisor, or empty when none applies
+     */
+    Optional<Advisor> getAdvisorForWorkspace(
+        @Nullable Long workspaceId, String surface, RestorationDestination destination);
 
     /**
      * The {@link SensitiveDataMetrics} counterpart of {@link #getAdvisorForWorkspace}, resolving through the identical
