@@ -23,9 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Pins the {@code @PreAuthorize} expressions that gate workspace API-key operations (T19). Create/list authorize by
- * workspace scope (the arg is a workspaceId); delete authorizes via the {@code ApiKey:ResourceScope} token (the arg is
- * an apiKeyId).
+ * Pins the {@code @PreAuthorize} expressions that gate workspace API-key operations (T19). List authorizes by workspace
+ * scope (the arg is a workspaceId); delete authorizes via the {@code ApiKey:ResourceScope} token (the arg is an
+ * apiKeyId). {@code create}'s gate here is environment-unaware by design -- see {@code WorkspaceApiKeyFacade#create}'s
+ * javadoc for why, and {@code WorkspaceApiKeyGraphQlControllerAuthorizationTest} for the environment-aware gate that
+ * additionally covers it at the GraphQL controller.
  *
  * @author Ivica Cardic
  */
@@ -43,10 +45,22 @@ class WorkspaceApiKeyFacadeAuthorizationTest {
 
     @Test
     void testGetApiKeysRequiresApiKeyViewScope() {
-        assertExpression("getApiKeys", "hasPermission(#workspaceId, 'Workspace', 'API_KEY_VIEW')");
+        assertExpression("getApiKeys",
+            "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'API_KEY_VIEW', #environmentId)");
     }
 
     private static void assertExpression(String methodName, String expression) {
+        Method method = findMethod(methodName);
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize)
+            .as("@PreAuthorize on %s", methodName)
+            .isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo(expression);
+    }
+
+    private static Method findMethod(String methodName) {
         Method method = null;
 
         for (Method candidate : WorkspaceApiKeyFacadeImpl.class.getDeclaredMethods()) {
@@ -62,11 +76,6 @@ class WorkspaceApiKeyFacadeAuthorizationTest {
             .as("method %s", methodName)
             .isNotNull();
 
-        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
-
-        assertThat(preAuthorize)
-            .as("@PreAuthorize on %s", methodName)
-            .isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo(expression);
+        return method;
     }
 }
