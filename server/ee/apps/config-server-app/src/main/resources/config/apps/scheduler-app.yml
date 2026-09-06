@@ -24,3 +24,11 @@ spring:
   task:
     execution:
       thread-name-prefix: scheduler-app-task-
+
+db-scheduler:
+  polling-interval: 1s
+  polling-strategy: lock-and-fetch
+  threads: 10
+
+db-scheduler-ui:
+  enabled: false
