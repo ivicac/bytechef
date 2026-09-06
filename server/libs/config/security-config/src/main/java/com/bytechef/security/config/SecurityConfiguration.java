@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.Strings;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -124,6 +125,41 @@ public class SecurityConfiguration {
         this.saml2LoginCustomizers = saml2LoginCustomizersProvider.getIfAvailable(List::of);
         this.security = applicationProperties.getSecurity();
         this.twoFactorVerificationFilterProvider = twoFactorVerificationFilterProvider;
+    }
+
+    /**
+     * Security for db-scheduler-ui. Registered only when the UI is enabled (derived from
+     * bytechef.scheduler.provider=db-scheduler); the whole surface requires SYSTEM_ADMIN.
+     *
+     * @param http the {@link HttpSecurity} object used to customize security settings for the db-scheduler-ui endpoints
+     * @param mvc  a {@link PathPatternRequestMatcher.Builder} used to create matchers for specific URI patterns
+     * @return a configured {@link SecurityFilterChain} to handle security for the db-scheduler-ui dashboard and its API
+     * @throws Exception if an error occurs while configuring the security filter chain
+     */
+    @Bean
+    @ConditionalOnProperty(value = "db-scheduler-ui.enabled", havingValue = "true")
+    @Order(0)
+    public SecurityFilterChain dbSchedulerUiFilterChain(
+        HttpSecurity http, PathPatternRequestMatcher.Builder mvc) throws Exception {
+
+        http
+            .securityMatcher("/db-scheduler/**", "/db-scheduler-api/**")
+            .cors(withDefaults())
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers(mvc.matcher("/db-scheduler/**"), mvc.matcher("/db-scheduler-api/**"))
+                .hasAuthority(AuthorityConstants.SYSTEM_ADMIN))
+            .httpBasic(withDefaults())
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(new UnauthorizedBasicAuthenticationEntryPoint()));
+
+        AuthenticationProvider authenticationProvider = getSystemAuthenticationProvider(security.getSystem());
+
+        if (authenticationProvider != null) {
+            http.authenticationProvider(authenticationProvider);
+        }
+
+        return http.build();
     }
 
     /**
