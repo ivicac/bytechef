@@ -28,6 +28,7 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -114,6 +115,7 @@ public class SensitiveDataRedactor {
     private final List<SensitiveDataDetector> detectors;
     private final DetectionBounds bounds;
 
+    @Autowired
     public SensitiveDataRedactor(List<SensitiveDataDetector> detectors) {
         this(detectors, DetectionBounds.DEFAULTS);
     }
@@ -367,6 +369,20 @@ public class SensitiveDataRedactor {
         String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics,
         List<SensitiveSpan> extraCandidates) {
 
+        return redactWithSpans(text, kinds, minConfidence, metrics, extraCandidates, SensitiveSpan::placeholder);
+    }
+
+    /**
+     * As the overload without {@code replacer}, but rendering each accepted span through {@code replacer} instead of
+     * {@link SensitiveSpan#placeholder()}. This is the seam a front-end with its own notation uses — the per-node
+     * sanitizer renders {@code <TYPE>} — so the engine detects and resolves once and only the notation differs.
+     *
+     * @param replacer produces the replacement text for one accepted span
+     */
+    public RedactionResult redactWithSpans(
+        String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics,
+        List<SensitiveSpan> extraCandidates, Function<SensitiveSpan, String> replacer) {
+
         // text is non-null by contract -- callers (AiGuardrails' redactPii/redactSecrets/redactAll) guard null/empty
         // before ever delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a
         // redaction path, where failing soft (returning the input unchanged) beats throwing on a future caller that
@@ -385,7 +401,7 @@ public class SensitiveDataRedactor {
 
         List<SensitiveSpan> accepted = resolve(candidates);
 
-        return new RedactionResult(apply(text, accepted), accepted);
+        return new RedactionResult(apply(text, accepted, replacer), accepted);
     }
 
     /**

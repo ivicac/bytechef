@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.guardrails.MissingModelChildException;
 import com.bytechef.component.definition.Context;
+import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailCheckFunction;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailContext;
 import com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailStage;
@@ -43,7 +44,6 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -60,13 +60,15 @@ import reactor.core.publisher.Flux;
 class CheckForViolationsAdvisorTest {
 
     @Test
-    void testGetOrderIsHighestPrecedence() {
+    void testGetOrderIsNodeCheck() {
         CheckForViolationsAdvisor advisor = CheckForViolationsAdvisor.builder()
             .blockedMessage("BLOCKED")
             .context(mock(Context.class))
             .build();
 
-        assertThat(advisor.getOrder()).isEqualTo(Advisor.HIGHEST_PRECEDENCE);
+        assertThat(advisor.getOrder())
+            .as("the node check sits exactly one inside the workspace floor; see GuardrailAdvisorOrder")
+            .isEqualTo(GuardrailAdvisorOrder.NODE_CHECK);
     }
 
     @Test

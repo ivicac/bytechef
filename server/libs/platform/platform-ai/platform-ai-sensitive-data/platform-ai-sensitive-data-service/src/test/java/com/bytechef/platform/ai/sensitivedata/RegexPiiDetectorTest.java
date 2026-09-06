@@ -134,9 +134,10 @@ class RegexPiiDetectorTest {
     }
 
     // NOTE: the design spec (docs/superpowers/specs/2026-08-25-guardrails-consolidation-design.md) and the task brief
-    // both state the component's catalog has 37 entries. The actual source -- PiiDetectorUtils.DEFAULT_PII_PATTERNS,
-    // verified by counting `new PiiPattern(` occurrences and cross-checked against the 1:1 parallel
-    // getPiiDetectionOptions() list -- has 36. This is confirmed a stale figure in the spec (it never enumerates all
+    // both state the component's catalog has 37 entries. The actual source -- the guardrail component's former
+    // PiiDetectorUtils.DEFAULT_PII_PATTERNS, verified by counting `new PiiPattern(` occurrences and cross-checked
+    // against the 1:1 parallel picker option list -- has 36. This is confirmed a stale figure in the spec (it never
+    // enumerates all
     // 37 names, and no other branch or file in this repository's history has a 37th pattern). The sizes below reflect
     // the actual, verbatim-copied catalog: 36 total, 34 curated (36 minus DATE_TIME and LOCATION -- confidence
     // scoring, not set membership, is what now keeps low-specificity patterns like US_BANK_NUMBER from firing on
@@ -296,5 +297,165 @@ class RegexPiiDetectorTest {
 
         assertThat(redactor.redact("A12345678 (passport)", EnumSet.allOf(SensitiveKind.class), null))
             .isEqualTo("[REDACTED_US_PASSPORT] (passport)");
+    }
+
+    @Test
+    void testEmailRegexDoesNotAcceptPipeInTld() {
+        // Regression: the email pattern used [A-Z|a-z]{2,} for the TLD, which is a character class containing
+        // the literal '|' rather than alternation. Strings like "foo@bar.|x" or "foo@bar.X|Y|Z" matched as valid
+        // emails and leaked into PII masking. Pin the corrected [A-Za-z]{2,} behavior.
+        assertThat(detector.detect("foo@bar.|x"))
+            .as("'foo@bar.|x' must not be detected as an EMAIL_ADDRESS — '|' is not a valid TLD character")
+            .extracting(SensitiveSpan::category)
+            .doesNotContain("EMAIL_ADDRESS");
+        assertThat(detector.detect("foo@bar.X|Y|Z"))
+            .as("'foo@bar.X|Y|Z' must not be detected as an EMAIL_ADDRESS")
+            .extracting(SensitiveSpan::category)
+            .doesNotContain("EMAIL_ADDRESS");
+    }
+
+    @Test
+    void testEmailDetectionAcceptsSubdomainsAndPlusTags() {
+        assertThat(detector.detect("Email: first.last+filter@mail.sub.example.co.uk"))
+            .filteredOn(span -> "EMAIL_ADDRESS".equals(span.category()))
+            .isNotEmpty();
+    }
+
+    @Test
+    void testPhoneDetectionAcceptsDashDotAndParenthesisSeparators() {
+        assertDetectsType("Call 555-123-4567 today", "PHONE_NUMBER");
+        assertDetectsType("Call (555).123.4567 today", "PHONE_NUMBER");
+    }
+
+    /**
+     * Both of {@code PHONE_NUMBER}'s {@code [-\s.]} separators used to be optional, so the pattern degenerated to a
+     * bare {@code \b\d{10,12}\b} run — structurally identical to {@code US_BANK_NUMBER}'s bare-digit shape, and just as
+     * prone to matching an order number as an actual phone number. Both separators are now mandatory, so raw digits
+     * with no delimiter no longer match {@code PHONE_NUMBER} at all — they still surface as {@code US_BANK_NUMBER},
+     * since that pattern's whole purpose is to catch any bare long digit run.
+     */
+    @Test
+    void testRawDigitsWithNoSeparatorAreNoLongerPhoneNumber() {
+        List<SensitiveSpan> spans = detector.detect("Call 5551234567 now");
+
+        assertThat(spans)
+            .extracting(SensitiveSpan::category)
+            .doesNotContain("PHONE_NUMBER")
+            .contains("US_BANK_NUMBER");
+    }
+
+    @Test
+    void testCreditCardDetectionAcceptsTheDashedForm() {
+        assertDetectsType("CC: 4111-1111-1111-1111", "CREDIT_CARD");
+    }
+
+    @Test
+    void testSsnDetectionAcceptsTheDashedForm() {
+        assertDetectsType("SSN: 123-45-6789", "US_SSN");
+    }
+
+    @Test
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+    void testIpAddressDetection() {
+        assertDetectsType("Server at 192.168.1.100", "IP_ADDRESS");
+    }
+
+    @Test
+    void testEmptyAndNullInputProduceNoSpans() {
+        assertThat(detector.detect("")).isEmpty();
+        assertThat(detector.detect(null)).isEmpty();
+    }
+
+    @Test
+    void testFilterByTypesIgnoresUnknownTypesAndEmptySelections() {
+        assertThat(PiiPatternCatalog.filterByTypes(List.of("EMAIL_ADDRESS", "PHONE_NUMBER")))
+            .extracting(PiiPatternCatalog.PiiPattern::type)
+            .containsExactlyInAnyOrder("EMAIL_ADDRESS", "PHONE_NUMBER");
+        assertThat(PiiPatternCatalog.filterByTypes(List.of("EMAIL_ADDRESS", "BOGUS")))
+            .extracting(PiiPatternCatalog.PiiPattern::type)
+            .containsExactly("EMAIL_ADDRESS");
+        assertThat(PiiPatternCatalog.filterByTypes(List.of())).isEmpty();
+        assertThat(PiiPatternCatalog.filterByTypes(null)).isEmpty();
+    }
+
+    @Test
+    void testCleanProseEmitsNoSpans() {
+        assertThat(detector.detect("the quick brown fox jumps over the lazy dog")).isEmpty();
+    }
+
+    /**
+     * The catalog's known false positives, pinned as candidates rather than as outcomes: a page number is shaped like a
+     * bank account and a tax file number, and a version string is shaped like an IPv4 address. Both are emitted by the
+     * detector; whether they survive is the redactor's confidence threshold's business, not this class's.
+     */
+    @Test
+    void testNumericAndVersionProseFireKnownFalsePositiveCandidates() {
+        assertThat(detector.detect("see page 123456789 of the manual"))
+            .extracting(SensitiveSpan::category)
+            .contains("US_BANK_NUMBER", "AU_TFN");
+        assertThat(detector.detect("running version 1.2.3.4 of the library"))
+            .extracting(SensitiveSpan::category)
+            .contains("IP_ADDRESS");
+    }
+
+    @Test
+    void testDetectsTheGlobalAndLocaleSpecificVocabulary() {
+        assertDetectsType("Send funds to DE89370400440532013000 today", "IBAN_CODE");
+        assertDetectsType("Wallet: 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", "CRYPTO");
+        assertDetectsType("Provider CA123456 confirmed", "MEDICAL_LICENSE");
+        assertDetectsType("Account 123456789 verified", "US_BANK_NUMBER");
+        assertDetectsType("DL D1234567 issued", "US_DRIVER_LICENSE");
+        assertDetectsType("ITIN 912-71-1234 on file", "US_ITIN");
+        assertDetectsType("Passport A12345678 expires soon", "US_PASSPORT");
+        assertDetectsType("NHS 943 476 5919 verified", "UK_NHS");
+        assertDetectsType("NINO AB123456C provided", "UK_NINO");
+        assertDetectsType("NIF 12345678Z provided", "ES_NIF");
+        assertDetectsType("NIE X1234567L provided", "ES_NIE");
+        assertDetectsType("CF RSSMRA85M01H501U registered", "IT_FISCAL_CODE");
+        assertDetectsType("VAT IT12345678901 invoiced", "IT_VAT_CODE");
+        assertDetectsType("Patente AB1234567 rilasciata", "IT_DRIVER_LICENSE");
+        assertDetectsType("Passaporto YA1234567", "IT_PASSPORT");
+        assertDetectsType("Carta identita CA1234567 emessa", "IT_IDENTITY_CARD");
+        assertDetectsType("PESEL 44051401358 confirmed", "PL_PESEL");
+        assertDetectsType("UEN 201912345K", "SG_UEN");
+        assertDetectsType("ABN 12 345 678 901 listed", "AU_ABN");
+        assertDetectsType("TFN 123456789 supplied", "AU_TFN");
+        assertDetectsType("Medicare 2123 45678 1 valid", "AU_MEDICARE");
+        assertDetectsType("Aadhaar 1234 5678 9012 captured", "IN_AADHAAR");
+        assertDetectsType("PAN ABCDE1234F linked", "IN_PAN");
+        assertDetectsType("Indian passport A1234567 issued", "IN_PASSPORT");
+        assertDetectsType("Car: MH12AB1234", "IN_VEHICLE_REGISTRATION");
+        assertDetectsType("Voter ID ABC1234567 active", "IN_VOTER");
+        assertDetectsType("HETU 131052-308T verified", "FI_PERSONAL_IDENTITY_CODE");
+    }
+
+    /**
+     * The contextual types are absent from {@link PiiPatternCatalog#curatedDefault()}, so they are only reachable
+     * through a detector built over an explicit pattern list — which is exactly what the per-node picker does.
+     */
+    @Test
+    void testDetectsTheContextualVocabularyWhenExplicitlySelected() {
+        RegexPiiDetector wholeCatalog = new RegexPiiDetector(PiiPatternCatalog.ALL);
+
+        assertThat(wholeCatalog.detect("Appointment 2024-01-15T13:45:00Z scheduled"))
+            .extracting(SensitiveSpan::category)
+            .contains("DATE_TIME");
+        assertThat(wholeCatalog.detect("Visit 123 Main Street, Springfield"))
+            .extracting(SensitiveSpan::category)
+            .contains("LOCATION");
+    }
+
+    @Test
+    void testRenamedTypesAreNoLongerPresentUnderTheirOldNames() {
+        assertThat(detector.detect("S1234567D HETU 131052-308T"))
+            .extracting(SensitiveSpan::category)
+            .doesNotContain("SG_NRIC", "FI_PIC");
+    }
+
+    private void assertDetectsType(String content, String expectedType) {
+        assertThat(detector.detect(content))
+            .as("Expected PII type %s to be detected in: %s", expectedType, content)
+            .extracting(SensitiveSpan::category)
+            .contains(expectedType);
     }
 }
