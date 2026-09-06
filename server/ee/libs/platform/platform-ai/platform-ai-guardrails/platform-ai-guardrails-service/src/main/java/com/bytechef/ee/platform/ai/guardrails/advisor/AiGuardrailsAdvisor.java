@@ -10,11 +10,13 @@ package com.bytechef.ee.platform.ai.guardrails.advisor;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
+import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.TokenSessionHandle;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailViolationAction;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.violation.AiGuardrailViolationRecorder;
+import com.bytechef.platform.ai.guardrails.ConversationScope;
 import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
 import com.bytechef.platform.ai.guardrails.PublishedInputSpans;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
@@ -29,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
@@ -139,6 +143,15 @@ import reactor.core.publisher.Flux;
  * </p>
  *
  * <p>
+ * <b>Conversation scope</b> — the session is per call by default, so a token minted for one turn is dead in the next.
+ * When {@link ConversationScope#trustedKey} accepts this call's conversation id — only a platform-issued id with a
+ * verified user and a resolved workspace qualifies, never a workflow author's expression — the session is instead
+ * loaded from that conversation's stored tokens, minted into, and saved back before it is closed. Everything else is
+ * unchanged: no key means no load, no store, and the same fresh session as before. The save necessarily precedes
+ * {@link PiiTokenSession#close()}, which clears the mapping (see {@link #releaseSession}).
+ * </p>
+ *
+ * <p>
  * Runs at {@link GuardrailAdvisorOrder#WORKSPACE_FLOOR} — the guardrail floor must see (and, in {@code BLOCK} mode, be
  * able to reject) the final outbound request before any other advisor's rewrite, and must see the model's raw
  * completion before any other advisor post-processes it.
@@ -151,6 +164,8 @@ import reactor.core.publisher.Flux;
 public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     private static final String NAME = "AiGuardrailsAdvisor";
+
+    private static final Logger log = LoggerFactory.getLogger(AiGuardrailsAdvisor.class);
 
     private final AiGuardrails aiGuardrails;
     private final AiGuardrailMetrics metrics;
@@ -189,7 +204,10 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain callAdvisorChain) {
-        PiiTokenSession session = aiGuardrails.newTokenSession();
+        ConversationScope.@Nullable Key conversationKey = trustedConversationKey(chatClientRequest);
+        TokenSessionHandle tokenSessionHandle = newTokenSession(conversationKey);
+
+        PiiTokenSession session = tokenSessionHandle.session();
 
         try {
             ChatClientRequest guardedRequest = applyInputGuardrails(chatClientRequest, session);
@@ -200,7 +218,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
             return applyResponseGuardrails(response, session);
         } finally {
-            session.close();
+            releaseSession(conversationKey, tokenSessionHandle);
         }
     }
 
@@ -208,7 +226,10 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
     public Flux<ChatClientResponse> adviseStream(
         ChatClientRequest chatClientRequest, StreamAdvisorChain streamAdvisorChain) {
 
-        PiiTokenSession session = aiGuardrails.newTokenSession();
+        ConversationScope.@Nullable Key conversationKey = trustedConversationKey(chatClientRequest);
+        TokenSessionHandle tokenSessionHandle = newTokenSession(conversationKey);
+
+        PiiTokenSession session = tokenSessionHandle.session();
         ChatClientRequest guardedRequest;
 
         try {
@@ -217,7 +238,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         } catch (AiGuardrailViolationException exception) {
             // The chain is never subscribed to on this path, so the doFinally below never runs -- release the
             // session here explicitly, mirroring adviseCall's try/finally for the same exception.
-            session.close();
+            releaseSession(conversationKey, tokenSessionHandle);
 
             return Flux.error(exception);
         }
@@ -235,14 +256,70 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         // inconsistency between them. Applied on both the pass-through and the redacting path below, so the session
         // is released either way.
         if (redactor == null) {
-            return stream.doFinally(signalType -> session.close());
+            return stream.doFinally(signalType -> releaseSession(conversationKey, tokenSessionHandle));
         }
 
         ChatClientRequest finalGuardedRequest = guardedRequest;
 
         return stream.map(response -> redactStreamChunk(response, redactor))
             .concatWith(Flux.defer(() -> flushStreamTail(redactor, finalGuardedRequest)))
-            .doFinally(signalType -> session.close());
+            .doFinally(signalType -> releaseSession(conversationKey, tokenSessionHandle));
+    }
+
+    /**
+     * The conversation this call's tokens may be keyed to, or {@code null} when the call is request-scoped — which is
+     * every surface whose conversation id the platform did not itself issue, the canvas AI Agent's author-written
+     * expression included. See {@link ConversationScope#trustedKey}.
+     */
+    private ConversationScope.@Nullable Key trustedConversationKey(ChatClientRequest chatClientRequest) {
+        return ConversationScope.trustedKey(chatClientRequest.context(), workspaceId)
+            .orElse(null);
+    }
+
+    /**
+     * Opens the session this call mints into: the conversation's stored one, rehydrated, for a trusted key, and
+     * otherwise the same fresh, request-scoped session this advisor has always opened. The {@code null} branch
+     * deliberately calls the no-argument {@link AiGuardrails#newTokenSession()} rather than passing {@code null} on, so
+     * a request without a trusted key reaches the engine through exactly the call it did before conversation scoping
+     * existed.
+     */
+    private TokenSessionHandle newTokenSession(ConversationScope.@Nullable Key conversationKey) {
+        if (conversationKey == null) {
+            return new TokenSessionHandle(aiGuardrails.newTokenSession(), true);
+        }
+
+        return aiGuardrails.newTokenSession(conversationKey);
+    }
+
+    /**
+     * Stores {@code tokenSessionHandle}'s tokens against a trusted conversation, then closes the session. Ordering is
+     * load-bearing: {@link PiiTokenSession#close()} clears the mapping, so a save placed after it stores nothing while
+     * every test that only checks "no exception" still passes. Nothing is stored for a {@code null}
+     * {@code conversationKey} — the request-scoped case — which is what keeps an untrusted call's behaviour identical
+     * to what it was.
+     *
+     * <p>
+     * The store contract is fail-soft, but this advisor cannot verify every implementation of it, and this runs from
+     * {@link #adviseCall}'s own {@code finally}: an implementation that threw would leave the decrypted mapping live in
+     * memory and turn an already-successful model response into a failure. The close therefore sits in a
+     * {@code finally} and the save's failure is logged rather than propagated — a store outage costs cross-turn
+     * coherence, never the request.
+     * </p>
+     */
+    private void releaseSession(
+        ConversationScope.@Nullable Key conversationKey, TokenSessionHandle tokenSessionHandle) {
+
+        try {
+            if (conversationKey != null) {
+                aiGuardrails.saveTokenSession(conversationKey, tokenSessionHandle);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Could not save the conversation's token session; continuing request-scoped", exception);
+        } finally {
+            PiiTokenSession session = tokenSessionHandle.session();
+
+            session.close();
+        }
     }
 
     /**
