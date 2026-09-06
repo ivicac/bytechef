@@ -71,7 +71,6 @@ public interface BillingApi {
 
     }
 
-
     String PATH_CREATE_CHECKOUT_SESSION = "/billing/checkout";
     /**
      * POST /billing/checkout : Create a Stripe Checkout Session
@@ -112,7 +111,6 @@ public interface BillingApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_CURRENT_SUBSCRIPTION = "/billing/subscription";
     /**
@@ -155,7 +153,6 @@ public interface BillingApi {
 
     }
 
-
     String PATH_REACTIVATE_SUBSCRIPTION = "/billing/reactivate";
     /**
      * POST /billing/reactivate : Reactivate a cancelled-at-period-end billing subscription
@@ -182,7 +179,6 @@ public interface BillingApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPGRADE_SUBSCRIPTION = "/billing/subscription";
     /**
