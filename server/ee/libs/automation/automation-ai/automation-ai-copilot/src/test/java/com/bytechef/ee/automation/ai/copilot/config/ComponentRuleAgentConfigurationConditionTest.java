@@ -9,12 +9,15 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ee.automation.ai.tool.componentrule.ComponentRuleToolCallbacksFactory;
 import com.bytechef.ee.platform.component.rule.ComponentRuleService;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -47,7 +50,9 @@ class ComponentRuleAgentConfigurationConditionTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             addProperties(context, Map.of("bytechef.ai.hub.enabled", "true", "bytechef.edition", "ee"));
 
-            context.register(ComponentRuleDependenciesConfiguration.class, ComponentRuleAgentConfiguration.class);
+            context.register(
+                ComponentRuleDependenciesConfiguration.class, CopilotGuardrailsAdvisorFactory.class,
+                ComponentRuleAgentConfiguration.class);
             context.refresh();
 
             assertThat(context.getBeanNamesForType(ComponentRuleToolCallbacksFactory.class)).hasSize(1);
@@ -61,7 +66,9 @@ class ComponentRuleAgentConfigurationConditionTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             addProperties(context, Map.of("bytechef.ai.copilot.enabled", "true", "bytechef.edition", "ee"));
 
-            context.register(ComponentRuleDependenciesConfiguration.class, ComponentRuleAgentConfiguration.class);
+            context.register(
+                ComponentRuleDependenciesConfiguration.class, CopilotGuardrailsAdvisorFactory.class,
+                ComponentRuleAgentConfiguration.class);
             context.refresh();
 
             assertThat(context.getBeanNamesForType(ComponentRuleToolCallbacksFactory.class)).hasSize(1);
@@ -75,7 +82,9 @@ class ComponentRuleAgentConfigurationConditionTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             addProperties(context, Map.of("bytechef.edition", "ee"));
 
-            context.register(ComponentRuleDependenciesConfiguration.class, ComponentRuleAgentConfiguration.class);
+            context.register(
+                ComponentRuleDependenciesConfiguration.class, CopilotGuardrailsAdvisorFactory.class,
+                ComponentRuleAgentConfiguration.class);
             context.refresh();
 
             assertThat(context.getBeanNamesForType(ComponentRuleToolCallbacksFactory.class)).isEmpty();
@@ -90,7 +99,9 @@ class ComponentRuleAgentConfigurationConditionTest {
                 Map.of("bytechef.ai.copilot.enabled", "true", "bytechef.ai.hub.enabled", "true", "bytechef.edition",
                     "ce"));
 
-            context.register(ComponentRuleDependenciesConfiguration.class, ComponentRuleAgentConfiguration.class);
+            context.register(
+                ComponentRuleDependenciesConfiguration.class, CopilotGuardrailsAdvisorFactory.class,
+                ComponentRuleAgentConfiguration.class);
             context.refresh();
 
             assertThat(context.getBeanNamesForType(ComponentRuleToolCallbacksFactory.class)).isEmpty();
@@ -141,6 +152,11 @@ class ComponentRuleAgentConfigurationConditionTest {
         @Bean
         SecurityContextRehydrator securityContextRehydrator() {
             return Mockito.mock(SecurityContextRehydrator.class);
+        }
+
+        @Bean
+        SensitiveDataRedactor sensitiveDataRedactor() {
+            return new SensitiveDataRedactor(List.of());
         }
     }
 }

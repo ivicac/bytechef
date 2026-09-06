@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -86,7 +87,8 @@ public class ComponentRuleAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ComponentRuleToolCallbacksFactory componentRuleToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.COMPONENT_RULE.name() + "_" + Mode.ASK.name();
@@ -99,6 +101,7 @@ public class ComponentRuleAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, componentRuleToolCallbacksFactory.readToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -108,7 +111,8 @@ public class ComponentRuleAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ComponentRuleToolCallbacksFactory componentRuleToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.COMPONENT_RULE.name() + "_" + Mode.BUILD.name();
@@ -121,6 +125,7 @@ public class ComponentRuleAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, componentRuleToolCallbacksFactory.writeToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

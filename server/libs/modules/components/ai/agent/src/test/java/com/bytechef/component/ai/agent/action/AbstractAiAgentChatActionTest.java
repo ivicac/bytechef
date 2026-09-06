@@ -39,6 +39,9 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
@@ -64,8 +67,14 @@ import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.api.BaseChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.model.tool.ToolExecutionResult;
 
 /**
  * @author Ivica Cardic
@@ -657,13 +666,60 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null, null);
+            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null, null, null);
 
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
 
         assertThat(toolCallAdvisor).isNotNull();
         assertThat(advisors).noneMatch(BaseChatMemoryAdvisor.class::isInstance);
         assertThat(readConversationHistoryEnabled(toolCallAdvisor)).isTrue();
+    }
+
+    /**
+     * Regression coverage for the defect where the canvas AI Agent surface's tool-boundary metrics
+     * ({@code tool_args_restored}/{@code token_unresolved}/{@code tool_result_tokenized}) never fired: previously
+     * {@code AgentToolCallingManagers} resolved its {@code SensitiveDataMetrics} from an injected
+     * {@code ObjectProvider<SensitiveDataMetrics>}, which either found no bean (the production implementation is gated
+     * behind the AI gateway) or found the gateway's own instance mislabelled {@code surface=gateway}. This test
+     * exercises the real production chain -- {@code getAdvisors} builds the exact {@code ToolCallingAdvisor} used at
+     * runtime, wrapping {@code SuspendableToolCallingManager} around whatever {@code AgentToolCallingManagers} hands
+     * back -- and proves that whatever {@link SensitiveDataMetrics} instance is passed into {@code getAdvisors}
+     * actually reaches {@code PiiTokenBoundaryToolCallingManager} at the bottom of that chain and gets its
+     * {@code tool_args_restored} event recorded, not silently dropped somewhere in between.
+     */
+    @Test
+    void testGetAdvisorsThreadsToolBoundaryMetricsIntoTheToolCallingManager() throws Exception {
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(
+            Map.of("clusterElements", Map.of("model", buildModelClusterElement())));
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+
+        TestAiAgentChatAction action = new TestAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+
+        when(toolCallingManager.executeToolCalls(any(), any()))
+            .thenReturn(ToolExecutionResult.builder()
+                .conversationHistory(List.of())
+                .build());
+
+        SensitiveDataMetrics sensitiveDataMetrics = mock(SensitiveDataMetrics.class);
+
+        List<Advisor> advisors = action.getAdvisors(
+            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null, null,
+            sensitiveDataMetrics);
+
+        ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
+        ToolCallingManager wiredToolCallingManager = readToolCallingManager(toolCallAdvisor);
+
+        PiiTokenSession session = PiiTokenSession.create();
+        String token = session.tokenFor("EMAIL_ADDRESS", "bob@acme.io");
+
+        wiredToolCallingManager.executeToolCalls(
+            promptWithSession(session), chatResponseWithToolCall("sendEmail", "{\"to\":\"" + token + "\"}"));
+
+        verify(sensitiveDataMetrics).recordToolArgsRestored();
     }
 
     @Test
@@ -698,7 +754,7 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult, null, null);
+            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult, null, null, null);
 
         int chatMemoryIndex = advisors.indexOf(chatMemoryAdvisor);
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
@@ -763,6 +819,45 @@ class AbstractAiAgentChatActionTest {
                     + "field name changed in Spring AI?",
                 exception);
         }
+    }
+
+    /**
+     * Reflects out the {@code protected final ToolCallingManager toolCallingManager} field {@code getAdvisors} wires
+     * onto its {@link ToolCallingAdvisor} -- mirrors {@link #readConversationHistoryEnabled}'s technique. This is
+     * always a {@code SuspendableToolCallingManager} wrapping whatever {@code AgentToolCallingManagers} handed back
+     * (see {@code AbstractAiAgentChatAction#getAdvisors}), so calling {@code executeToolCalls} on the returned instance
+     * exercises the exact chain a real agent run does.
+     */
+    private static ToolCallingManager readToolCallingManager(ToolCallingAdvisor toolCallAdvisor) {
+        try {
+            Field field = ToolCallingAdvisor.class.getDeclaredField("toolCallingManager");
+
+            field.setAccessible(true);
+
+            return (ToolCallingManager) field.get(toolCallAdvisor);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(
+                "Unable to read toolCallingManager from ToolCallingAdvisor — field name changed in Spring AI?",
+                exception);
+        }
+    }
+
+    private static Prompt promptWithSession(PiiTokenSession session) {
+        return new Prompt(
+            List.of(),
+            ToolCallingChatOptions.builder()
+                .toolContext(PiiTokenSessionToolContext.into(Map.of(), session))
+                .build());
+    }
+
+    private static ChatResponse chatResponseWithToolCall(String toolName, String arguments) {
+        AssistantMessage.ToolCall toolCall = new AssistantMessage.ToolCall("call-1", "function", toolName, arguments);
+        AssistantMessage assistantMessage = AssistantMessage.builder()
+            .content("")
+            .toolCalls(List.of(toolCall))
+            .build();
+
+        return new ChatResponse(List.of(new Generation(assistantMessage)));
     }
 
     @Test

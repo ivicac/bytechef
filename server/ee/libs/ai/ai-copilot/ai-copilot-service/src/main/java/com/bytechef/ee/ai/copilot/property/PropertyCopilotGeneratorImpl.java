@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.copilot.property;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ee.platform.ai.agent.catalog.CatalogChatClientResolver;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.EvaluatorFunctionDefinition;
@@ -29,7 +30,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -49,6 +49,7 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
     private static final Pattern DATA_PILL_PATTERN = Pattern.compile("\\$\\{[^}]+}");
 
     private final ChatModel chatModel;
+    private final CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory;
     private final Evaluator evaluator;
     private final PropertyCopilotPromptBuilder promptBuilder;
     private final List<EvaluatorFunctionDefinitionFactory> evaluatorFunctionDefinitionFactories;
@@ -58,13 +59,15 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
     private final ObjectProvider<CatalogChatClientResolver> catalogChatClientResolverProvider;
 
     public PropertyCopilotGeneratorImpl(
-        ChatModel chatModel, Evaluator evaluator, PropertyCopilotPromptBuilder promptBuilder,
+        ChatModel chatModel, CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory, Evaluator evaluator,
+        PropertyCopilotPromptBuilder promptBuilder,
         List<EvaluatorFunctionDefinitionFactory> evaluatorFunctionDefinitionFactories,
         WorkflowNodeOutputFacade workflowNodeOutputFacade, ObjectProvider<MeterRegistry> meterRegistryProvider,
         @Value("${bytechef.ai.copilot.provider:}") String defaultProvider,
         ObjectProvider<CatalogChatClientResolver> catalogChatClientResolverProvider) {
 
         this.chatModel = chatModel;
+        this.copilotGuardrailsAdvisorFactory = copilotGuardrailsAdvisorFactory;
         this.evaluator = evaluator;
         this.promptBuilder = promptBuilder;
         this.evaluatorFunctionDefinitionFactories = evaluatorFunctionDefinitionFactories;
@@ -210,16 +213,30 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
         return builder.toString();
     }
 
+    /**
+     * Calls the model through a guarded {@link ChatClient} rather than {@code chatModel.call(new Prompt(...))}. This
+     * generator's prompt embeds {@code WorkflowNodeOutputFacade} sample output - data captured from real test runs
+     * against real connections, so the likeliest carrier of live customer records anywhere in Copilot - and
+     * {@code AiGuardrailsAdvisor} is a {@link ChatClient} advisor, so a direct {@link ChatModel} call cannot be
+     * intercepted by it at all. The catalog-override branch is guarded too: the resolver returns a client built
+     * straight from {@code ChatClient.builder(chatModel)} with no advisors of its own.
+     */
     private String call(String promptText) {
         ChatClient chatClient = resolveCatalogChatClient();
 
         if (chatClient != null) {
-            return chatClient.prompt(promptText)
+            return copilotGuardrailsAdvisorFactory.guardedChatClient(chatClient)
+                .prompt(promptText)
                 .call()
                 .content();
         }
 
-        ChatResponse chatResponse = chatModel.call(new Prompt(promptText));
+        ChatResponse chatResponse = copilotGuardrailsAdvisorFactory.guardedChatClient(chatModel)
+            .prompt(promptText)
+            .call()
+            .chatResponse();
+
+        Objects.requireNonNull(chatResponse, "chat response is required");
 
         Generation generation = Objects.requireNonNull(chatResponse.getResult(), "generation is required");
 

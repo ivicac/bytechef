@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.connection.CopilotConnectionLister;
 import com.bytechef.ai.copilot.tool.CopilotAgentType;
 import com.bytechef.ai.copilot.tool.PropertyOptionsResolver;
@@ -38,6 +39,7 @@ import com.bytechef.automation.ai.tool.ScriptTools;
 import com.bytechef.automation.ai.tool.SkillsTools;
 import com.bytechef.automation.ai.tool.WorkflowExecutionTools;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.tool.BraveWebSearchTools;
 import com.bytechef.platform.ai.tool.ComponentTools;
 import com.bytechef.platform.ai.tool.FirecrawlTools;
@@ -518,6 +520,8 @@ final class CopilotIntelligentToolContributorConfigurationTest {
         TriggerDefinitionFacade triggerDefinitionFacade = mock(TriggerDefinitionFacade.class);
         PropertyOptionsResolver propertyOptionsResolver = mock(PropertyOptionsResolver.class);
         ObjectProvider<CopilotConnectionLister> connectionListerProvider = emptyProvider();
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory =
+            new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
 
         return new CopilotConfiguration(
             promptResource, promptResource, promptResource, promptResource, promptResource, promptResource,
@@ -525,7 +529,8 @@ final class CopilotIntelligentToolContributorConfigurationTest {
             promptResource, promptResource, promptResource, workflowValidatorTools, workflowInstructionTools,
             promptResource, promptResource, connectionDefinitionService, workspaceConnectionFacade,
             componentDefinitionService, actionDefinitionService, actionDefinitionFacade, triggerDefinitionService,
-            triggerDefinitionFacade, propertyOptionsResolver, connectionListerProvider);
+            triggerDefinitionFacade, propertyOptionsResolver, connectionListerProvider,
+            copilotGuardrailsAdvisorFactory);
     }
 
     private static IntelligentToolDefinition definitionNamed(

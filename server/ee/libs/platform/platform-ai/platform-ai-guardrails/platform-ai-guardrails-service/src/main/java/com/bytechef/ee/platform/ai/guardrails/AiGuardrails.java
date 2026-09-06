@@ -19,6 +19,7 @@ import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor.RedactionResult;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
@@ -580,6 +581,33 @@ public class AiGuardrails {
      */
     public double resolveMinConfidence(@Nullable Long workspaceId) {
         return resolvePolicy(workspaceId).minConfidence();
+    }
+
+    /**
+     * Returns the effective {@link PiiTokenBoundaryPolicy} for {@code workspaceId} -- which {@link SensitiveKind}s the
+     * tool-call boundary should tokenize/redact, and at what minimum confidence -- for
+     * {@code AiGuardrailsAdvisor#withSessionInToolContext} to carry onto the {@code ToolContext} alongside the
+     * {@link PiiTokenSession} it opens for the same call, so {@code PiiTokenBoundaryToolCallingManager} honours this
+     * workspace's own {@code redactPii}/{@code redactSecrets}/{@code minConfidence} settings instead of a fixed
+     * constant. Built from the same {@link #resolvePolicy(Long)} every other policy-driven method here already uses --
+     * this is not a second resolution path.
+     *
+     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @return the effective tool-boundary policy
+     */
+    public PiiTokenBoundaryPolicy resolveToolBoundaryPolicy(@Nullable Long workspaceId) {
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+        Set<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
+
+        if (policy.redactPii()) {
+            kinds.add(SensitiveKind.PII);
+        }
+
+        if (policy.redactSecrets()) {
+            kinds.add(SensitiveKind.SECRET);
+        }
+
+        return new PiiTokenBoundaryPolicy(kinds, policy.minConfidence());
     }
 
     /**

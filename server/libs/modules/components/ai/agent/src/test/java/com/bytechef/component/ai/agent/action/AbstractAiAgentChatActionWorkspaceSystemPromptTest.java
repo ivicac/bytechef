@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -236,18 +236,31 @@ class AbstractAiAgentChatActionWorkspaceSystemPromptTest {
         return chatModel;
     }
 
+    /**
+     * Stubs both {@code ifAvailable(Consumer)} and {@code getIfAvailable()} so this one helper serves every
+     * {@code ObjectProvider} consumption style used across this file's constructor arguments -- the guardrails provider
+     * resolves itself via {@code getIfAvailable()} (see {@code getChatClientRequestSpec}'s toolBoundaryMetrics wiring,
+     * which also needs {@code AiGuardrailsAdvisorProvider#getMetrics}), while
+     * {@code WorkspaceSystemPromptAdvisorProvider} still resolves via {@code ifAvailable(Consumer)}. Both stubs are
+     * {@code lenient()} because any one caller only ever exercises one of the two styles, and the other would otherwise
+     * be flagged as an unnecessary stubbing.
+     */
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> presentProvider(T value) {
         ObjectProvider<T> provider = mock(ObjectProvider.class);
 
-        doAnswer(invocation -> {
+        lenient().doAnswer(invocation -> {
             Consumer<T> consumer = invocation.getArgument(0);
 
             consumer.accept(value);
 
             return null;
-        }).when(provider)
+        })
+            .when(provider)
             .ifAvailable(any());
+
+        lenient().when(provider.getIfAvailable())
+            .thenReturn(value);
 
         return provider;
     }

@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.ContextStoreSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -102,7 +103,8 @@ public class ContextStoreAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.CONTEXT_STORE.name() + "_" + Mode.ASK.name();
@@ -115,6 +117,7 @@ public class ContextStoreAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.readToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -124,7 +127,8 @@ public class ContextStoreAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.CONTEXT_STORE.name() + "_" + Mode.BUILD.name();
@@ -137,6 +141,7 @@ public class ContextStoreAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.writeToolCallbacks()))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

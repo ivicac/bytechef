@@ -18,6 +18,7 @@ package com.bytechef.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -81,7 +82,8 @@ public class ProjectDeploymentAgentConfiguration {
     SliceSpringAIAgent projectDeploymentAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DeploymentToolCallbacksFactory deploymentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT_DEPLOYMENT.name() + "_" + Mode.ASK.name();
@@ -93,6 +95,7 @@ public class ProjectDeploymentAgentConfiguration {
             .systemMessage(readPrompt(promptProjectDeploymentAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, deploymentToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -101,7 +104,8 @@ public class ProjectDeploymentAgentConfiguration {
     SliceSpringAIAgent projectDeploymentBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, DeploymentToolCallbacksFactory deploymentToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.PROJECT_DEPLOYMENT.name() + "_" + Mode.BUILD.name();
@@ -113,6 +117,7 @@ public class ProjectDeploymentAgentConfiguration {
             .systemMessage(readPrompt(promptProjectDeploymentBuildResource))
             .state(state)
             .toolCallbacks(buildToolCallbacks(securityContextRehydrator, deploymentToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

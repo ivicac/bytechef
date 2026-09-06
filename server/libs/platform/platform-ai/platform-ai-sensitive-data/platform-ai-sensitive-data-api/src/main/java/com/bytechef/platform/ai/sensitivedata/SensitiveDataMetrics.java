@@ -49,4 +49,51 @@ public interface SensitiveDataMetrics {
         // No-op default: most callers of this seam (e.g. detector-failure-only test doubles) have no interest in this
         // event, and making it abstract would force every existing implementation to add a body for it.
     }
+
+    /**
+     * Records that at least one PII token in a tool call's arguments was restored to its real value before
+     * {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool. Recorded at most once per
+     * {@code executeToolCalls} invocation, no matter how many of that invocation's tool calls (or how many tokens
+     * within any one of them) were actually restored -- matching {@link #recordBelowConfidenceThreshold}'s
+     * incidence-counter shape.
+     */
+    default void recordToolArgsRestored() {
+        // No-op default: a caller with no interest in the tool boundary (e.g. the response-direction-only production
+        // implementation predating this event) is not forced to add a body for it.
+    }
+
+    /**
+     * Records that at least one value in a tool's result was tokenized or redacted before
+     * {@code PiiTokenBoundaryToolCallingManager} returned it to the model. Recorded at most once per
+     * {@code executeToolCalls} invocation, no matter how many tool-response messages or accepted spans produced it --
+     * matching {@link #recordToolArgsRestored}'s incidence-counter shape (once per invocation, not once per span).
+     */
+    default void recordToolResultTokenized() {
+        // No-op default, for the same reason recordToolArgsRestored is.
+    }
+
+    /**
+     * Records that a token-shaped span found in a tool call's arguments could not be resolved back to a value -- an
+     * unknown ordinal, or one minted by another session. Reuses the same {@code token_unresolved} event the
+     * response-direction restoration path already records (see {@code AiGuardrails#restoreResponseText} and
+     * {@code StreamingResponseRedactor}), rather than inventing a separate name for the tool-boundary case. Recorded at
+     * most once per {@code executeToolCalls} invocation.
+     */
+    default void recordTokenUnresolved() {
+        // No-op default, for the same reason recordToolArgsRestored is.
+    }
+
+    /**
+     * Records that at least one assistant tool-call argument in the conversation history
+     * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out -- the tool
+     * itself already ran against the real value; this is only about the copy of that value the returned history (and,
+     * on the suspend/resume path, persisted task state) would otherwise carry forward in clear. A distinct event from
+     * {@link #recordToolResultTokenized()}: that one is about a tool's RESULT reaching the model, this one is about the
+     * assistant message that REQUESTED the tool call reaching it a turn later than intended. Recorded at most once per
+     * {@code executeToolCalls} invocation, no matter how many assistant messages or tool calls within them were
+     * retokenized -- matching {@link #recordToolResultTokenized()}'s incidence-counter shape.
+     */
+    default void recordAssistantHistoryRetokenized() {
+        // No-op default, for the same reason recordToolArgsRestored is.
+    }
 }

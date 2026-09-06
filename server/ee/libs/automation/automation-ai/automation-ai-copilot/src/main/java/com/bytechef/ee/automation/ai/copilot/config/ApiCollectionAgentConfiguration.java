@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
@@ -99,7 +100,8 @@ public class ApiCollectionAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ApiCollectionToolCallbacksFactory apiCollectionToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.API_COLLECTION.name() + "_" + Mode.ASK.name();
@@ -111,6 +113,7 @@ public class ApiCollectionAgentConfiguration {
             .systemMessage(readPrompt(promptApiCollectionAskResource))
             .state(state)
             .toolCallbacks(askToolCallbacks(securityContextRehydrator, apiCollectionToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
@@ -121,7 +124,8 @@ public class ApiCollectionAgentConfiguration {
         ChatMemory chatMemory, ChatModel chatModel,
         ApiCollectionToolCallbacksFactory apiCollectionToolCallbacksFactory,
         SecurityContextRehydrator securityContextRehydrator,
-        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
+        CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
 
         String name = Source.API_COLLECTION.name() + "_" + Mode.BUILD.name();
@@ -133,6 +137,7 @@ public class ApiCollectionAgentConfiguration {
             .systemMessage(readPrompt(promptApiCollectionBuildResource))
             .state(state)
             .toolCallbacks(buildToolCallbacks(securityContextRehydrator, apiCollectionToolCallbacksFactory))
+            .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }

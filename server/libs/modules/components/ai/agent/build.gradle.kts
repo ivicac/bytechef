@@ -7,6 +7,9 @@ dependencies {
 
     implementation(project(":server:libs:modules:components:ai:llm"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-api"))
+    // SensitiveDataRedactor / PiiTokenBoundaryToolCallingManager -- AgentToolCallingManagers wraps the tool-calling
+    // manager it hands out so tool-call arguments have PII tokens restored before a tool runs.
+    implementation(project(":server:libs:platform:platform-ai:platform-ai-sensitive-data:platform-ai-sensitive-data-service"))
     implementation(project(":server:libs:platform:platform-tool-execution:platform-tool-execution-api"))
 
     // Test-only. The end-to-end gate test needs the agent action AND the gate element, which now live in separate

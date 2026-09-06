@@ -13,6 +13,10 @@ dependencies {
     implementation(project(":server:libs:platform:platform-security-web:platform-security-web-api"))
 
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-api"))
+    // CopilotGuardrailsAdvisorFactory -- the two generators in this module call a model once, outside any
+    // agent, so they build their own guarded ChatClient through the same factory the CE module's 47 agent and
+    // sub-agent sites go through rather than re-resolving AiGuardrailsAdvisorProvider themselves.
+    implementation(project(":server:libs:ai:ai-copilot:ai-copilot-service"))
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-tool"))
 
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-api"))
