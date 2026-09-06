@@ -112,18 +112,22 @@ public class WorkflowNodeTestOutputFacadeImpl implements WorkflowNodeTestOutputF
         this.workflowTestConfigurationService = workflowTestConfigurationService;
     }
 
-    // All five gated methods below are environment-agnostic-gated (hasPermission(#workflowId, 'Workflow', ...)
-    // never checks environmentId -- see PrincipalEnvironment) AND @WorkflowCacheEvict, whose aspect
-    // (WorkflowCacheEvictAspect) reads the @EnvironmentIdParam argument via AspectJ's JoinPoint#getArgs() -- the
-    // value captured at the call site, before the method body runs. A local variable reassigned inside these
-    // methods would be invisible to it, so none of them resolve internally: doing so would evict the cache for the
-    // REQUESTED environment while the method itself read/wrote the CONFINED principal's own, permanently
-    // desynchronising eviction from the data it's supposed to evict. Every caller must resolve BEFORE calling in
-    // instead -- WorkflowNodeScriptFacadeImpl, WorkflowNodeTestOutputGraphQlController, and
-    // WorkflowNodeTestOutputApiController all do. A future edit that adds a resolve here would silently reopen this
-    // exact bug at the cache layer.
+    // All five gated methods below are @WorkflowCacheEvict, whose aspect (WorkflowCacheEvictAspect) reads the
+    // @EnvironmentIdParam argument via AspectJ's JoinPoint#getArgs() -- the value captured at the call site, before
+    // the method body runs. A local variable reassigned inside these methods would be invisible to it, so none of
+    // them resolve internally: doing so would evict the cache for the REQUESTED environment while the method itself
+    // read/wrote the CONFINED principal's own, permanently desynchronising eviction from the data it's supposed to
+    // evict. Every caller must resolve BEFORE calling in instead -- WorkflowNodeScriptFacadeImpl,
+    // WorkflowNodeTestOutputGraphQlController, and WorkflowNodeTestOutputApiController all do. A future edit that
+    // adds a resolve here would silently reopen this exact bug at the cache layer.
+    //
+    // That is also why each gate below is hasResourceScopeInEnvironmentId(...), the NON-substituting form, rather
+    // than hasWorkflowScopeInEnvironment(...): the latter would authorize a confined (api-key) principal's own
+    // environment while the cache aspect, reading the raw call-site argument, evicts whatever environmentId was
+    // actually passed -- the exact gate/body divergence this plan exists to remove. Checking the caller-supplied
+    // ordinal directly keeps the gate and the eviction it guards looking at the same value.
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @WorkflowCacheEvict(cacheNames = {
         PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE
     })
@@ -161,7 +165,7 @@ public class WorkflowNodeTestOutputFacadeImpl implements WorkflowNodeTestOutputF
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @WorkflowCacheEvict(cacheNames = {
         PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE
     })
@@ -192,7 +196,7 @@ public class WorkflowNodeTestOutputFacadeImpl implements WorkflowNodeTestOutputF
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @WorkflowCacheEvict(cacheNames = {
         PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE
     })
@@ -222,7 +226,7 @@ public class WorkflowNodeTestOutputFacadeImpl implements WorkflowNodeTestOutputF
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @WorkflowCacheEvict(cacheNames = {
         PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE
     })
@@ -255,7 +259,7 @@ public class WorkflowNodeTestOutputFacadeImpl implements WorkflowNodeTestOutputF
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasResourceScopeInEnvironmentId(#workflowId, 'Workflow', 'WORKFLOW_EDIT', #environmentId)")
     @WorkflowCacheEvict(cacheNames = {
         PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE
     })

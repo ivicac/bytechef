@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +67,7 @@ import org.junit.jupiter.api.Timeout;
  * {@code hasWorkspaceScopeInEnvironmentId(...)}, {@code hasWorkflowScopeInEnvironment(...)},
  * {@code hasWorkspaceScopeInEveryEnvironment(...)} -- shares the substring {@link #ENVIRONMENT_AWARE_MARKER}. A
  * {@code hasPermission(id, 'ResourceType', scope)} expression is also treated as environment-aware when
- * {@code ResourceType} is one of the three types a {@link ResourceEnvironmentResolver} is actually registered for
+ * {@code ResourceType} is one of the four types a {@link ResourceEnvironmentResolver} is actually registered for
  * ({@link #RESOLVED_RESOURCE_TYPES}) -- {@code hasResourceScope} resolves the environment itself in that case, even
  * though the annotation text carries no {@code InEnvironment} marker. Getting this wrong in the narrow direction
  * (treating a resolved type as unaware) would have produced false positives on already-correct call sites such as
@@ -111,8 +113,28 @@ import org.junit.jupiter.api.Timeout;
  *
  * <p>
  * Every site below is real: the scan finds each one when the exemption is removed (see the negative control in
- * {@code task-8-report.md}). Five come from the plan's own amendment; the rest were found by writing and running this
- * scan and are recorded here rather than fixed, per this task's brief.
+ * {@code task-8-report.md}). All four were found by writing and running this scan, and are recorded here rather than
+ * fixed. Two families have already left this map, and both left the same way -- by being fixed, not by being
+ * reclassified:
+ *
+ * <ul>
+ * <li>the Workflow family (5 entries -- {@code WorkflowTestConfigurationFacadeImpl#*},
+ * {@code WorkflowNodeTestOutputFacadeImpl#*}, {@code WebhookTriggerTestApiFacadeImpl#enableTrigger}/
+ * {@code #disableTrigger}), re-pointed by Task 5 across all fifteen of its sites to
+ * {@code hasWorkflowScopeInEnvironment(...)} or {@code hasResourceScopeInEnvironmentId(...)}, chosen per method body;
+ * </li>
+ * <li>{@code ProjectWorkflowExecutionFacadeImpl#getWorkflowExecutions} (site 17), which was exempt on the grounds that
+ * {@code execution-app} evaluates no {@code @PreAuthorize} at all. That was true and is still true -- but it argued
+ * about one deployment only. {@code server-app} carries both {@code automation-workflow-execution-service} and
+ * {@code security-config}, so the annotation IS evaluated in the monolith, where it was still environment-unaware. Now
+ * {@code hasWorkspaceScopeInEnvironmentId(#workspaceId, 'EXECUTION_VIEW', #environmentId)}, with the body's
+ * per-environment row filter behind it.</li>
+ * </ul>
+ *
+ * <p>
+ * Note what this map does not check: an entry naming a site that is no longer unaware is not detected, because the scan
+ * only ever looks entries up. A fixed site therefore leaves a stale exemption behind unless it is removed by hand, as
+ * site 17's was.
  *
  * @version ee
  *
@@ -130,10 +152,25 @@ class EnvironmentAwareGateCoverageTest {
      * Matches a concrete public method's modifier+returnType+name+"(" prefix, anchored at the start of a (possibly
      * indented) line so it cannot match a call expression buried inside a method body -- a local variable can never
      * carry an access modifier, so this cannot mistake a body statement for a declaration.
+     * <p>
+     * REDOS is suppressed rather than rewritten. The only input this pattern ever sees is the repository's own
+     * committed Java sources, read off disk by this test, so there is no untrusted text to weaponize the backtracking
+     * SpotBugs objects to. Narrowing the pattern to satisfy the detector would risk matching fewer real method
+     * declarations, which turns a scanner whose whole purpose is finding ungated methods into one that silently misses
+     * them -- a worse defect than the warning. The class-level {@link Timeout} bounds the scan regardless.
+     * <p>
+     * The compilation lives in its own method because SpotBugs attributes REDOS to the method holding the
+     * {@code Pattern.compile} call -- for a field initializer that is the synthetic static initializer, which a
+     * field-level annotation does not cover, so annotating the field alone leaves the warning standing.
      */
-    private static final Pattern METHOD_SIGNATURE_START_PATTERN = Pattern.compile(
-        "(?m)^[ \\t]*public\\s+(?:static\\s+)?(?:final\\s+)?"
-            + "(?:[A-Za-z_$][\\w$.]*(?:<[^;{}]*>)?(?:\\[\\])?\\s+)+([A-Za-z_]\\w*)\\s*\\(");
+    private static final Pattern METHOD_SIGNATURE_START_PATTERN = compileMethodSignatureStartPattern();
+
+    @SuppressFBWarnings("REDOS")
+    private static Pattern compileMethodSignatureStartPattern() {
+        return Pattern.compile(
+            "(?m)^[ \\t]*public\\s+(?:static\\s+)?(?:final\\s+)?"
+                + "(?:[A-Za-z_$][\\w$.]*(?:<[^;{}]*>)?(?:\\[\\])?\\s+)+([A-Za-z_]\\w*)\\s*\\(");
+    }
 
     private static final String ENVIRONMENT_AWARE_MARKER = "InEnvironment";
 
@@ -141,11 +178,12 @@ class EnvironmentAwareGateCoverageTest {
         List.of("hasPermission(", "isResourceOwner(");
 
     /**
-     * The three resource types {@code hasResourceScope} can resolve an environment for without an "InEnvironment"
-     * marker in the annotation text -- see {@code ResourceEnvironmentResolverCoverageTest} for how this set is itself
-     * kept honest.
+     * The four resource types {@code hasResourceScope} can resolve an environment for without an "InEnvironment" marker
+     * in the annotation text -- see {@code ResourceEnvironmentResolverCoverageTest} for how this set is itself kept
+     * honest.
      */
-    private static final List<String> RESOLVED_RESOURCE_TYPES = List.of("Connection", "ProjectDeployment", "McpServer");
+    private static final List<String> RESOLVED_RESOURCE_TYPES =
+        List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection");
 
     private static final Pattern RESOLVED_TYPE_HAS_PERMISSION_PATTERN = Pattern.compile(
         "hasPermission\\([^,]*,\\s*'(" + String.join("|", RESOLVED_RESOURCE_TYPES) + ")'");
@@ -167,66 +205,7 @@ class EnvironmentAwareGateCoverageTest {
     private static final Map<String, String> KNOWN_EXEMPT = buildKnownExempt();
 
     private static Map<String, String> buildKnownExempt() {
-        Map<String, String> exempt = new java.util.LinkedHashMap<>();
-
-        exempt.put(
-            "ProjectWorkflowExecutionFacadeImpl#getWorkflowExecutions",
-            "Site 17, deferred by Task 6. execution-app carries automation-workflow-execution-service (which hosts "
-                + "this method) but not automation-configuration-service, the only module with a production "
-                + "@EnableMethodSecurity -- so @PreAuthorize is never evaluated on that deployment at all, and "
-                + "re-pointing the annotation would change nothing at runtime there. Deployment-topology decision, "
-                + "maintainer's call.");
-
-        String projectPromotionReason =
-            "Confirmed vulnerable: 'Project' has no ResourceEnvironmentResolver (pinned deliberately by "
-                + "ResourceEnvironmentResolverProjectGuardTest), so hasPermission(...,'Project',...) falls to the "
-                + "environment-unaware union while the method body writes into #targetEnvironment. Out of this "
-                + "plan's approved scope; own ticket.";
-
-        exempt.put("ProjectDeploymentPromotionHandler#preview", projectPromotionReason);
-        exempt.put("ProjectDeploymentPromotionHandler#promote", projectPromotionReason);
-        exempt.put("ApiCollectionPromotionHandler#preview", projectPromotionReason);
-        exempt.put("ApiCollectionPromotionHandler#promote", projectPromotionReason);
-
-        String dataTableReason =
-            "The DataTable by-id family: confirmed unmitigated. 'DataTable' carries a real environment (each table "
-                + "lives in one) but has no registered ResourceEnvironmentResolver, so every by-id "
-                + "hasPermission(#dataTableId,'DataTable',...) gate here unions across environments while the method "
-                + "acts on the caller-supplied environmentId. Own ticket.";
-
-        for (String method : List.of(
-            "addColumn", "dropTable", "duplicateTable", "removeColumn", "renameColumn", "renameTable", "listRows",
-            "insertRow", "updateRow", "deleteRow", "exportCsv", "importCsv", "listWebhooks", "getTable", "getRow",
-            "fetchRowByExternalId", "upsertRow", "deleteRowByExternalId", "insertRows", "deleteRows", "clearRows")) {
-
-            exempt.put("WorkspaceDataTableFacadeImpl#" + method, dataTableReason);
-        }
-
-        String workflowFamilyReason =
-            "The Workflow family: mitigated only for api-key principals, since PrincipalEnvironment."
-                + "resolveEffectiveEnvironmentId returns empty for an ordinary session member. 'Workflow' carries a "
-                + "real environment but has no registered ResourceEnvironmentResolver, so "
-                + "hasPermission(#workflowId,'Workflow',...) unions across environments for everyone else. Own "
-                + "ticket.";
-
-        for (String facadeClass : List.of(
-            "WorkflowNodeDescriptionFacadeImpl", "WorkflowNodeOutputFacadeImpl", "WorkflowNodeScriptFacadeImpl",
-            "WorkflowNodeDynamicPropertiesFacadeImpl", "WorkflowNodeOptionFacadeImpl",
-            "WorkflowNodeParameterFacadeImpl", "WorkflowTestConfigurationFacadeImpl",
-            "WorkflowNodeTestOutputFacadeImpl")) {
-
-            exempt.put(facadeClass + "#*", workflowFamilyReason);
-        }
-
-        exempt.put(
-            "WebhookTriggerTestApiFacadeImpl#enableTrigger",
-            "Found by this scan, not named in the plan's amendment: a ninth/tenth Workflow-family site outside the "
-                + "eight platform-configuration facades. Same root cause and same reason as workflowFamilyReason "
-                + "above -- the method's own comment already says so ('hasPermission(#workflowId, 'Workflow', ...) "
-                + "above is environment-agnostic'). Own ticket, same one as the Workflow family.");
-        exempt.put(
-            "WebhookTriggerTestApiFacadeImpl#disableTrigger",
-            "Same as enableTrigger above -- identical annotation, identical comment, identical cause.");
+        Map<String, String> exempt = new LinkedHashMap<>();
 
         exempt.put(
             "ApiKeyFacadeImpl#update",
@@ -239,23 +218,13 @@ class EnvironmentAwareGateCoverageTest {
             "WorkspaceApiKeyFacadeImpl#create",
             "Found by this scan, not named in the plan's amendment. This is site 20's OWN facade method: Task 2 "
                 + "moved the environment-aware check to WorkspaceApiKeyGraphQlController#createWorkspaceApiKey (its "
-                + "only caller, verified), then a later commit (352d3d2) deliberately RESTORED "
+                + "only caller, verified), then a later commit (352d9a322e2) deliberately RESTORED "
                 + "hasPermission(#workspaceId,'Workspace','API_KEY_CREATE') here as defense-in-depth for any future "
                 + "caller that reaches this method without going through that controller. Passing the "
                 + "environment-specific check at the controller always implies passing this union check, so the "
                 + "restored gate cannot produce a new denial for callers going through the controller -- but taken "
                 + "on its own, this method's own annotation is genuinely environment-unaware. Documented, "
                 + "intentional design, not a live gap for today's only caller.");
-
-        exempt.put(
-            "ApiCollectionFacadeImpl#getApiCollections",
-            "Found by this scan, not named in the plan's amendment, and a different shape of finding than the rest "
-                + "of this list: this method (workspaceId, environmentId, projectId, tagId) carries no @PreAuthorize "
-                + "at all -- not merely environment-unaware, but apparently entirely unguarded. Its only production "
-                + "caller, ApiCollectionApiController#getWorkspaceApiCollections (REST, path prefix "
-                + "'/api-platform/internal'), also carries no annotation. More severe than this plan's scope and not "
-                + "confirmed exploitable end to end (an internal-path network boundary may cover it); flagged here "
-                + "for a maintainer decision and its own ticket rather than fixed in this task.");
 
         exempt.put(
             "ProjectDeploymentFacadeImpl#enableProjectDeploymentWorkflow",
@@ -509,9 +478,30 @@ class EnvironmentAwareGateCoverageTest {
     /**
      * Tracks brace depth across the whole file and records, at each point the depth returns from a member body (depth
      * 2) back to class-body level (depth 1), or a field/import statement ends at class-body level, the position right
-     * after it. A method's own preceding annotation block can contain unrelated braces (an array literal inside
-     * {@code @WorkflowCacheEvict(cacheNames = {...})}, for instance) without this being mistaken for a member boundary,
-     * because those braces never bring the depth back down to 1.
+     * after it.
+     *
+     * <p>
+     * A brace is only counted toward this depth when it is encountered at paren-depth zero -- i.e. not nested inside
+     * any {@code (...)}. This is what keeps an annotation array literal such as
+     * {@code @WorkflowCacheEvict(cacheNames = {PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE, ...})} from being mistaken for a
+     * member body: both its {@code {} } sit inside the annotation's own still-open parentheses, so paren-depth is
+     * nonzero at each and neither is counted. A real member body's opening brace always follows its parameter list's
+     * closing {@code )} at paren-depth zero -- even across a {@code throws} clause, since the clause carries no
+     * parentheses of its own -- so this rule does not need to special-case {@code throws}. Constructors are covered the
+     * same way as methods (a parameter list, then a body). Static/instance initializer blocks and record/enum bodies
+     * are not specifically special-cased; none of the classes this scan targets (FacadeImpl/Handler) use them, so this
+     * is a known, narrow limitation rather than a general-purpose Java parser.
+     *
+     * <p>
+     * Before this fix, every brace was counted regardless of paren-depth, so an annotation array literal's closing
+     * {@code }} was read as closing a member body -- moving the computed boundary to just after the array literal and
+     * silently dropping any annotation (such as {@code @PreAuthorize}) written above it. Verified against
+     * {@code WorkflowNodeTestOutputFacadeImpl}: with the old logic and the class's {@code #*} exemption removed, the
+     * scan reported all six of its unaware sites -- the five real {@code @PreAuthorize} + {@code @WorkflowCacheEvict
+     * (cacheNames = {...})} methods, plus the one overload that has never carried any annotation at all -- as carrying
+     * no {@code @PreAuthorize}, indistinguishably. With the fix, the five annotated methods report their real
+     * {@code hasPermission(#workflowId, 'Workflow', ...)} expression (the environment-unaware gate the exempt reason
+     * describes), and only the genuinely unannotated sixth still reports {@code null}.
      */
     private static List<Integer> computeMemberBoundaries(String text) {
         List<Integer> boundaries = new ArrayList<>();
@@ -519,12 +509,29 @@ class EnvironmentAwareGateCoverageTest {
         boundaries.add(0);
 
         int depth = 0;
+        int parenDepth = 0;
         boolean classOpened = false;
 
         for (int index = 0; index < text.length(); index++) {
             char character = text.charAt(index);
 
-            if (character == '{') {
+            // String and char literals are skipped whole, because a single unbalanced parenthesis inside one -- a
+            // smiley in a log message, an unclosed parenthetical in an exception string -- would permanently offset
+            // parenDepth and silently disable every boundary below it for the rest of the file. That direction fails
+            // OPEN: header spans would swallow neighbouring members, and findPreAuthorizeExpression's first-match
+            // lookup could then attribute another method's environment-aware annotation to an unguarded one, hiding
+            // exactly the gap this test exists to surface.
+            if (character == '"' || character == '\'') {
+                index = skipLiteral(text, index);
+
+                continue;
+            }
+
+            if (character == '(') {
+                parenDepth++;
+            } else if (character == ')') {
+                parenDepth = Math.max(0, parenDepth - 1);
+            } else if (character == '{' && parenDepth == 0) {
                 depth++;
 
                 if (depth == 1 && !classOpened) {
@@ -532,18 +539,41 @@ class EnvironmentAwareGateCoverageTest {
 
                     boundaries.add(index + 1);
                 }
-            } else if (character == '}') {
+            } else if (character == '}' && parenDepth == 0) {
                 if (depth == 2) {
                     boundaries.add(index + 1);
                 }
 
                 depth = Math.max(0, depth - 1);
-            } else if (character == ';' && depth == 1) {
+            } else if (character == ';' && depth == 1 && parenDepth == 0) {
                 boundaries.add(index + 1);
             }
         }
 
         return boundaries;
+    }
+
+    /**
+     * Returns the index of the closing quote of the literal opening at {@code start}, or the last index of {@code text}
+     * when the literal is unterminated. Backslash escapes are honoured so that {@code "\""} and {@code '\''} do not end
+     * their own literal. A text block's {@code """} delimiter needs no special handling here: its opening quote pairs
+     * with the second, leaving the third to open a literal that the closing delimiter's first quote ends, so the scan
+     * resynchronises either side of it.
+     */
+    private static int skipLiteral(String text, int start) {
+        char quote = text.charAt(start);
+
+        for (int index = start + 1; index < text.length(); index++) {
+            char character = text.charAt(index);
+
+            if (character == '\\') {
+                index++;
+            } else if (character == quote) {
+                return index;
+            }
+        }
+
+        return text.length() - 1;
     }
 
     private static int floorBoundary(List<Integer> boundaries, int position) {

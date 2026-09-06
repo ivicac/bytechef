@@ -439,6 +439,143 @@ class AutomationMethodSecurityExpressionRootTest {
         when(resourceMembershipResolver.resolve(1L, "Workspace", "DEPLOYMENT_VIEW")).thenReturn(decision);
     }
 
+    // -- hasResourceScopeInEnvironmentId: the caller-supplied-ordinal by-id gate for 'DataTable', 'Project', ... ---
+
+    /**
+     * The listings that pass an environment argument use {@code null} as "no environment filter", so a null ordinal
+     * must keep the environment-unaware {@code hasResourceScope} rather than deny or require every environment.
+     */
+    @Test
+    void testANullEnvironmentIdKeepsTheEnvironmentUnawareResourceCheck() {
+        when(permissionService.hasResourceScope(9L, "DataTable", "DATA_TABLE_EDIT")).thenReturn(true);
+
+        assertThat(root.hasResourceScopeInEnvironmentId(9L, "DataTable", "DATA_TABLE_EDIT", null)).isTrue();
+
+        verify(permissionService).hasResourceScope(9L, "DataTable", "DATA_TABLE_EDIT");
+        verify(permissionService, never())
+            .hasResourceScopeInEnvironment(any(), anyString(), anyString(), any(Environment.class));
+    }
+
+    /**
+     * An ordinal that cannot be resolved to an {@link Environment} is denied rather than defaulted, because an
+     * environment that cannot be identified cannot be authorised.
+     */
+    @Test
+    void testAnOutOfRangeResourceEnvironmentOrdinalDeniesRatherThanDefaulting() {
+        assertThat(root.hasResourceScopeInEnvironmentId(9L, "DataTable", "DATA_TABLE_EDIT", 99L)).isFalse();
+
+        verify(permissionService, never())
+            .hasResourceScopeInEnvironment(any(), anyString(), anyString(), any(Environment.class));
+        verifyNoInteractions(permissionService);
+    }
+
+    /**
+     * A resolvable ordinal is checked directly against that one environment -- never substituted (no
+     * {@code PrincipalEnvironment} call), and never unioned with the environment-unaware overload.
+     */
+    @Test
+    void testAResolvableResourceEnvironmentOrdinalChecksThatEnvironmentAlone() {
+        when(
+            permissionService.hasResourceScopeInEnvironment(9L, "DataTable", "DATA_TABLE_EDIT", Environment.PRODUCTION))
+                .thenReturn(true);
+
+        assertThat(
+            root.hasResourceScopeInEnvironmentId(
+                9L, "DataTable", "DATA_TABLE_EDIT", (long) Environment.PRODUCTION.ordinal()))
+                    .isTrue();
+
+        verify(permissionService, never()).hasResourceScope(any(), anyString(), anyString());
+    }
+
+    /**
+     * Skip mode must be checked before the ordinal is validated, matching {@code hasWorkspaceScopeInEnvironmentId} and
+     * {@code hasWorkflowScopeInEnvironment}: validating first would deny a delegation the skip mode is meant to permit.
+     */
+    @Test
+    void testResourceEnvironmentIdPermitsUnderSkipModeEvenWhenTheOrdinalIsInvalid() throws Throwable {
+        AutomationAuthorizationContext.callSkippingChecks(() -> {
+            assertThat(root.hasResourceScopeInEnvironmentId(9L, "DataTable", "DATA_TABLE_EDIT", null)).isTrue();
+            assertThat(root.hasResourceScopeInEnvironmentId(9L, "DataTable", "DATA_TABLE_EDIT", -1L)).isTrue();
+
+            return null;
+        });
+
+        verifyNoInteractions(permissionService);
+    }
+
+    // -- hasResourceScopeInEnvironment: the resolved-Environment by-id gate for promotion handlers, among others ---
+
+    /**
+     * The plain delegation case: a resolved {@link Environment} is checked against that environment alone, via
+     * {@link PermissionService#hasResourceScopeInEnvironment(java.io.Serializable, String, String, Environment)}, never
+     * the environment-unaware {@code hasResourceScope}.
+     */
+    @Test
+    void testHasResourceScopeInEnvironmentDelegatesToThePermissionService() {
+        when(permissionService.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION))
+            .thenReturn(true);
+
+        assertThat(root.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION))
+            .isTrue();
+
+        verify(permissionService)
+            .hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION);
+        verify(permissionService, never()).hasResourceScope(any(), anyString(), anyString());
+    }
+
+    /**
+     * A null {@link Environment} keeps the environment-unaware check, exactly as the null ordinal does on the
+     * {@code Id}-taking sibling above. The two must agree: they are the same gate reached by two argument shapes, and a
+     * caller choosing one over the other should not change what a null means.
+     * <p>
+     * This branch is what lets an expression point at a caller-supplied {@code Environment} —
+     * {@code ApiCollectionFacadeImpl#createApiCollection} does, from a DTO field a client may omit. Without it the
+     * delegation below reaches {@code environment.ordinal()} inside {@code WorkspaceScopeCacheService} and a null turns
+     * a 403 into a 500, which is why that gate was originally left environment-unaware.
+     */
+    @Test
+    void testANullEnvironmentKeepsTheEnvironmentUnawareResourceCheck() {
+        when(permissionService.hasResourceScope(5L, "Project", "DEPLOYMENT_PUSH")).thenReturn(true);
+
+        assertThat(root.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", null)).isTrue();
+
+        verify(permissionService).hasResourceScope(5L, "Project", "DEPLOYMENT_PUSH");
+        verify(permissionService, never())
+            .hasResourceScopeInEnvironment(any(), anyString(), anyString(), any(Environment.class));
+    }
+
+    /**
+     * The null branch propagates a denial rather than defaulting to allow — it is a fallback to a different check, not
+     * a bypass of checking.
+     */
+    @Test
+    void testANullEnvironmentStillDeniesWhenTheUnawareCheckDenies() {
+        when(permissionService.hasResourceScope(5L, "Project", "DEPLOYMENT_PUSH")).thenReturn(false);
+
+        assertThat(root.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", null)).isFalse();
+    }
+
+    @Test
+    void testHasResourceScopeInEnvironmentPropagatesADenial() {
+        when(permissionService.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION))
+            .thenReturn(false);
+
+        assertThat(root.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION))
+            .isFalse();
+    }
+
+    @Test
+    void testHasResourceScopeInEnvironmentShortCircuitsUnderSkipChecks() throws Throwable {
+        AutomationAuthorizationContext.callSkippingChecks(() -> {
+            assertThat(root.hasResourceScopeInEnvironment(5L, "Project", "DEPLOYMENT_PUSH", Environment.PRODUCTION))
+                .isTrue();
+
+            return null;
+        });
+
+        verifyNoInteractions(permissionService);
+    }
+
     @Test
     void testAllSixOverridesStillShortCircuitUnderFullSkip() throws Throwable {
         AutomationAuthorizationContext.callSkippingChecks(() -> {

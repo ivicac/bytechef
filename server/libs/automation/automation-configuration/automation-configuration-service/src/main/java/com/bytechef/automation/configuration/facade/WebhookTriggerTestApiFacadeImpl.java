@@ -66,18 +66,19 @@ class WebhookTriggerTestApiFacadeImpl implements WebhookTriggerTestApiFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public String enableTrigger(String workflowId, long environmentId) {
-        // hasPermission(#workflowId, 'Workflow', ...) above is environment-agnostic, so the caller-supplied
-        // environmentId is never checked -- and this mints a live webhook URL in whatever environment it names.
-        // See PrincipalEnvironment.
+        // hasWorkflowScopeInEnvironment(...) above checks the caller-supplied environmentId, closing what minted a
+        // live webhook URL in whatever environment the caller named regardless of where it held the scope. See
+        // PrincipalEnvironment: the gate substitutes a confined principal's own environment the same way this body
+        // does, so the two never diverge.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         return webhookTriggerTestFacade.enableTrigger(workflowId, effectiveEnvironmentId, PlatformType.AUTOMATION);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public void disableTrigger(String workflowId, long environmentId) {
         // See enableTrigger above. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);

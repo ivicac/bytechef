@@ -20,6 +20,7 @@ import com.bytechef.automation.configuration.security.ResourceMembershipDecider.
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
+import java.io.Serializable;
 import java.util.function.Supplier;
 import org.aopalliance.intercept.MethodInvocation;
 import org.jspecify.annotations.Nullable;
@@ -224,6 +225,22 @@ public final class AutomationMethodSecurityExpressionRoot
      * who is editor in Development would pass and could then act in Production. Use this wherever the caller supplies
      * the environment to run in.
      * <p>
+     * <b>Also correct for reads, not just runs</b> — traced end to end against
+     * {@code WorkflowNodeOutputFacadeImpl#getWorkflowNodeOutput} (platform-configuration-service). That method's body
+     * calls {@code PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId)} itself (line 151) and uses the
+     * resulting {@code effectiveEnvironmentId} for every downstream lookup (lines 160, 172) — the identical static call
+     * this gate makes below. For a confined (api-key) principal naming an environment X while confined to Y, both the
+     * gate and the body resolve to Y, because {@code PrincipalEnvironment.resolveEffectiveEnvironmentId} always prefers
+     * the principal's own environment over whatever was requested (see {@code PrincipalEnvironment}'s Javadoc). Gate
+     * and body therefore never diverge: there is no case where this authorises one environment and the body reads
+     * another. The two sibling methods that deliberately do NOT resolve internally
+     * ({@code getPreviousWorkflowNodeOutputs}/{@code getPreviousWorkflowNodeSampleOutputs}, kept unresolved only
+     * because {@code @Cacheable} builds its key before the method body runs) rely on every caller resolving before
+     * calling in — so the same conclusion holds one hop earlier rather than being an exception to it. Consequence: the
+     * ~32 {@code 'Workflow'} sites this gate will replace do not need the non-substituting
+     * {@link #hasResourceScopeInEnvironmentId(Serializable, String, String, Long)} form; this method serves runs and
+     * reads alike.
+     * <p>
      * {@code environmentId} is the caller's own ordinal and is deliberately not trusted. For a principal confined to a
      * single environment (an api-key caller: embedded connected user, embedded MCP) it is ignored outright in favour of
      * the principal's own — see {@link PrincipalEnvironment#resolveEffectiveEnvironmentId(Long)} — and the callers that
@@ -280,6 +297,112 @@ public final class AutomationMethodSecurityExpressionRoot
 
         return permissionService.hasWorkflowScope(
             workflowId, scope, environments[effectiveEnvironmentId.intValue()]);
+    }
+
+    /**
+     * Requires {@code scope} for the resource in the environment the caller named, for {@code hasPermission(#id,
+     * 'Type', ...)} families whose environment is an argument of the operation rather than a property of the resource —
+     * {@code 'DataTable'} and {@code 'Project'} among them. A resource of one of these types has no environment of its
+     * own for a {@code ResourceEnvironmentResolver} to supply, so the plain {@code hasPermission(#id, 'Type', ...)}
+     * necessarily unions the environments the caller can reach — exactly the gap
+     * {@link #hasWorkspaceScopeInEnvironmentId(long, String, Long)} closes one level up for {@code 'Workspace'}, and
+     * {@link #hasWorkflowScopeInEnvironment(String, String, Long)} closes for {@code 'Workflow'}.
+     * <p>
+     * Three branches, exactly mirroring {@link #hasWorkspaceScopeInEnvironmentId(long, String, Long)}:
+     * <ul>
+     * <li>{@code environmentId == null} — the environment-unaware
+     * {@link PermissionService#hasResourceScope(Serializable, String, String)}. The listings that pass one use
+     * {@code null} as "no environment filter", and the clients routinely send nothing, so denying would refuse ordinary
+     * pages to exactly the members per-environment roles protect.</li>
+     * <li>an ordinal outside {@link Environment#values()} — denied. An environment that cannot be identified cannot be
+     * authorised.</li>
+     * <li>a resolvable ordinal —
+     * {@link PermissionService#hasResourceScopeInEnvironment(Serializable, String, String, Environment)}, checked
+     * against that environment alone, never unioned with the environment-unaware overload.</li>
+     * </ul>
+     * <p>
+     * <b>Does not call {@link PrincipalEnvironment#resolveEffectiveEnvironmentId(Long)}</b>, unlike
+     * {@link #hasWorkflowScopeInEnvironment(String, String, Long)}. That substitution is right for a workflow RUN,
+     * which happens in the principal's own environment whatever the request said; a by-id read of a {@code DataTable}
+     * or {@code Project} returns what the argument names, so substituting here would authorise one environment while
+     * the guarded method's body, reading the raw argument, acts on another — the exact divergence this whole effort
+     * exists to remove. See {@link #hasWorkflowScopeInEnvironment(String, String, Long)}'s own Javadoc for the
+     * read-vs-run trace that settled this.
+     * <p>
+     * <b>Does not consult {@link ResourceMembershipDecider} directly</b>, unlike
+     * {@link #hasWorkspaceScopeInEnvironmentId(long, String, Long)}. That method must, because no resolver claims
+     * {@code "Workspace"} and {@code hasWorkspaceScope} never consults the decider itself. Every {@code resourceType}
+     * this method serves instead routes through {@code hasResourceScope}/{@code hasResourceScopeInEnvironment}, and
+     * both already consult the decider ahead of their own skip-checks and tenant-admin bypasses — consulting it again
+     * here would only double-answer a governed principal, never change the outcome.
+     */
+    public boolean hasResourceScopeInEnvironmentId(
+        Serializable id, String resourceType, String scope, @Nullable Long environmentId) {
+
+        if (environmentId == null) {
+            if (AutomationAuthorizationContext.isSkipChecks()) {
+                return true;
+            }
+
+            return permissionService.hasResourceScope(id, resourceType, scope);
+        }
+
+        if (AutomationAuthorizationContext.isSkipChecks()) {
+            return true;
+        }
+
+        Environment[] environments = Environment.values();
+
+        if (environmentId < 0 || environmentId >= environments.length) {
+            return false;
+        }
+
+        return permissionService.hasResourceScopeInEnvironment(
+            id, resourceType, scope, environments[environmentId.intValue()]);
+    }
+
+    /**
+     * Requires {@code scope} for the resource in {@code environment}, for a caller that already holds a resolved
+     * {@link Environment} rather than a raw ordinal — a promotion handler's {@code targetEnvironment} parameter among
+     * them. Exists for the same reason {@link #hasWorkspaceScopeInEnvironment(long, String, Environment)} exists one
+     * level up for {@code 'Workspace'}: an ordinal call such as {@code #targetEnvironment.ordinal()} inside a SpEL
+     * string is easy to mistype and cannot be checked at compile time, where a resolved-{@link Environment} parameter
+     * both reads directly off the method's own argument and fails to compile if the argument is renamed.
+     * <p>
+     * The environment must come from the guarded method's own arguments, never from {@code EnvironmentContext} — during
+     * a promotion that thread-local holds the SOURCE environment, not the target one this expression exists to
+     * authorise, and substituting it here would authorise one environment while the guarded method's body, reading its
+     * own {@code targetEnvironment} argument, writes into another.
+     * <p>
+     * Delegates straight to
+     * {@link PermissionService#hasResourceScopeInEnvironment(Serializable, String, String, Environment)}, which already
+     * consults {@link ResourceMembershipDecider} on its own account — see that method's Javadoc and its
+     * implementation's comment ("A new Environment-taking overload must do the same"). This wrapper does not consult
+     * the decider a second time, matching {@link #hasWorkspaceScopeInEnvironment(long, String, Environment)}, which
+     * delegates to {@link PermissionService#hasWorkspaceScope(long, String, Environment)} the same way and for the same
+     * reason.
+     * <p>
+     * Bypassed (returns {@code true}) under skip mode; a connected user never reaches that bypass, since
+     * {@code SkipAutomationAuthorizationAspect} arms nothing for a principal {@link ResourceMembershipResolver}
+     * governs.
+     */
+    public boolean hasResourceScopeInEnvironment(
+        Serializable id, String resourceType, String scope, @Nullable Environment environment) {
+
+        if (AutomationAuthorizationContext.isSkipChecks()) {
+            return true;
+        }
+
+        // A null environment keeps the environment-unaware check, exactly as the null branch of
+        // hasResourceScopeInEnvironmentId does, and for the same reason: an argument that names no environment gives
+        // this gate nothing to check, and denying would refuse ordinary calls. Guarding here rather than leaving it to
+        // the caller is what makes the expression safe to point at a caller-supplied Environment: without it, the path
+        // below reaches environment.ordinal() inside WorkspaceScopeCacheService and a null turns a 403 into a 500.
+        if (environment == null) {
+            return permissionService.hasResourceScope(id, resourceType, scope);
+        }
+
+        return permissionService.hasResourceScopeInEnvironment(id, resourceType, scope, environment);
     }
 
     @Override

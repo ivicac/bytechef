@@ -64,7 +64,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public void deleteWorkflowTestConfigurationConnection(
         String workflowId, String workflowNodeName, String workflowConnectionKey, long connectionId,
         long environmentId) {
@@ -98,7 +98,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public Optional<WorkflowTestConfiguration> fetchWorkflowTestConfiguration(String workflowId, long environmentId) {
         // See PrincipalEnvironment. The REST controller also resolves before calling in (no @Cacheable here to
         // force that split the way it does elsewhere), so this is redundant-but-harmless for that caller and a real
@@ -109,7 +109,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<WorkflowTestConfigurationConnection> getWorkflowTestConfigurationConnections(
         String workflowId, String workflowNodeName, long environmentId) {
 
@@ -148,7 +148,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public void saveClusterElementTestConfigurationConnection(
         String workflowId, String workflowNodeName, String clusterElementType,
         String clusterElementWorkflowNodeName, String workflowConnectionKey, long connectionId,
@@ -173,7 +173,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public void saveWorkflowTestConfigurationConnection(
         String workflowId, String workflowNodeName, String workflowConnectionKey, long connectionId,
         long environmentId) {
@@ -194,7 +194,7 @@ public class WorkflowTestConfigurationFacadeImpl implements WorkflowTestConfigur
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public void saveWorkflowTestConfigurationInputs(String workflowId, String key, Object value, long environmentId) {
         Validate.notEmpty(key, "Missing required param: " + key);
 

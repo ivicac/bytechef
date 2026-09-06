@@ -329,10 +329,27 @@ environment. Promotion's guard is `hasPermission(#projectDeploymentDTO, 'WORKFLO
 record is not, and routes to a method that never reaches the promotion branch.
 `PromotionGuardExpressionRoutingTest` pins the whole path by evaluating the real annotation.
 
-**`ResourceEnvironmentResolver`** (`automation-configuration-api`) is opt-in per resource type;
-`ProjectDeployment`, `Connection`, `McpServer` and `ApiKey` contribute one. A type with no resolver
-keeps the environment-unaware check, which is correct — a project, a workflow definition or a data
-table does not live in an environment. A resolver returning empty falls back rather than denying.
+**`ResourceEnvironmentResolver`** (`automation-configuration-api`) is opt-in per resource type. Exactly
+four contribute one — `ProjectDeployment`, `Connection`, `McpServer`, `ApiCollection` — and `ResourceEnvironmentResolverCoverageTest`
+fails if that set changes without a recorded reason. **`ApiKey` does not have one**, contrary to what
+this paragraph claimed until 2026-09-06. A resolver returning empty falls back rather than denying.
+
+A type with no resolver keeps the environment-unaware check, and that is correct **only where the
+resource genuinely has no environment of its own**. It holds for `Project`: environments belong to a
+project's deployments, not to the project, and `ResourceEnvironmentResolverProjectGuardTest` exists to
+fail if anyone adds a Project resolver. It does **not** hold as a general rule, and reading it that way
+is what let a family of gates go unexamined:
+
+- A **data table**'s rows are addressed per environment — `DataTableRef.unowned(baseName, environmentId, …)`
+  in `WorkspaceDataTableFacadeImpl`. The same table id resolves to a different row set in each one.
+- A **workflow definition** is shared across environments, but its test configurations, node outputs and
+  test runs are not, which is why `hasWorkflowScopeInEnvironment` exists and says to use it "wherever
+  the caller supplies the environment to run in".
+
+For both, the environment arrives as a method argument rather than as a property of the resource, so no
+resolver could supply it and the **gate** must carry it. The absence of a resolver is therefore not
+evidence that a type is environment-free; it only says `hasResourceScope` cannot answer the question by
+itself. See the environment-scoped authorization note below for what that left open.
 
 **The scope cache key includes the environment.** Without it the first environment checked warms the
 entry and every later one is served those scopes — silent privilege escalation that any
@@ -349,3 +366,89 @@ CE is unaffected — every new overload returns `isAuthenticated()`, since CE ha
 boundary between workspace members. Spec:
 `docs/superpowers/specs/2026-08-19-per-environment-workspace-roles-design.md` (see its As built
 section).
+
+#### 2026-09-06: closing the by-id union leak (partial)
+
+The per-environment model above was correct on paper but had a gap in how `hasResourceScope` reached
+it: it resolves a resource's environment through a `ResourceEnvironmentResolver` and only then calls
+the environment-**aware** check above. Where no resolver is registered for the resource type — or one
+is registered but returns empty — it falls through to `hasWorkspaceScope`, the environment-**unaware**
+overload, which unions the caller's scopes across every environment in the workspace. A member holding
+a role in Development only therefore passed the by-id gate for a resource whose id happened to name
+Production as an ordinary method argument, and the method body then acted on that argument unchecked.
+
+**This denies access that works today, and that is the point of the change.** A member with a role in
+one environment and not another currently sees, edits and promotes resources in both; after this sweep
+they see one, wherever the environment is named as an argument rather than left unfiltered. Nineteen
+call sites across `AiAgentFacadeImpl`, `WorkspaceMcpServerFacadeImpl`, `WorkspaceApiKeyFacadeImpl`,
+`WorkspaceConnectionFacadeImpl`, `ProjectDeploymentFacadeImpl`, `WorkspaceKnowledgeBaseFacadeImpl`,
+`McpServerPromotionHandler` and their GraphQL controllers were re-pointed at
+`hasWorkspaceScopeInEnvironment`/`hasWorkspaceScopeInEnvironmentId` or a resolver-backed
+`hasPermission`, one deferred with cause (below), and two coverage tests
+(`EnvironmentAwareGateCoverageTest`, `ResourceEnvironmentResolverCoverageTest`) now scan production
+source for the next one, multi-line signatures included.
+
+**An unfiltered listing is still allowed by its gate — but no longer answered with every environment's
+rows.** A null `environmentId` still routes to the environment-unaware union check, and must: the
+clients routinely call these facades with no environment at all (`ProjectListItem.tsx`,
+`DeployButton.tsx`, `SelectConnectionMessage.tsx`, and an AI Hub tool callback all do), and denying an
+unfiltered call would 403 ordinary pages for exactly the members per-environment roles exist to
+protect. The gate is right to allow it — there is no environment in the request for a gate to check.
+What was wrong was the answer, and that is the **body's** job:
+`EnvironmentScopeFilter` (`automation-configuration-api`, sibling of `ProjectVisibilityFilter`) narrows
+the rows to the environments the caller holds the scope in, on the three nullable listings —
+`ProjectDeploymentFacadeImpl#getWorkspaceProjectDeployments` (5-arg),
+`WorkspaceConnectionFacadeImpl#getConnections`, and
+`ProjectWorkflowExecutionFacadeImpl#getWorkflowExecutions`.
+
+Three things about that filter are load-bearing:
+
+- **It asks `hasWorkspaceScope(workspaceId, scope, environment)` per environment, never the member's
+  rows.** That check resolves an environment row if there is one and otherwise falls back to the
+  member's implicit row, so a member in **implicit mode — the default — holds their scopes in every
+  environment and is not narrowed at all**. The filter therefore cannot regress ordinary members; it
+  bites only in explicit mode, the population these roles exist for. Reading the rows directly would
+  see only the explicit ones and narrow an implicit member to nothing — every listing blank.
+- **Once per listing, never per row.** `Environment` has three values and the scope lookup is cached
+  per user/workspace/environment, so the whole question costs at most three cache reads. Inside a loop
+  it would be an N+1 authorization storm on surfaces built to avoid one.
+- **On the executions page the narrowing runs before the query, not after.** That listing returns a
+  `Page`; filtering the page would yield short pages and, once a page emptied, something
+  indistinguishable from the end of the results. Deployments carry the environment and are loaded
+  first, so restricting them restricts the page itself.
+
+`PermissionServiceCrossEnvironmentUnionGapTest` pins what remains: the gate's union check on a null
+environment, which is deliberate.
+
+**CE is unaffected.** `hasWorkspaceScope` short-circuits on `isTenantAdmin()`, and CE ships admin-only,
+so there is no non-admin workspace member for either the closed or the still-open half to touch.
+
+**What is still open**, recorded here rather than implied closed:
+
+- `ProjectWorkflowExecutionFacadeImpl#getWorkflowExecutions` (site 17) is **closed** — both halves.
+  Its body filters per environment like its two siblings, and its gate is now
+  `hasWorkspaceScopeInEnvironmentId(#workspaceId, 'EXECUTION_VIEW', #environmentId)`.
+  It is worth recording why it was deferred and why the deferral did not hold, because the reasoning
+  is reusable. `SecurityConfiguration` in `server/libs/config/security-config` is the only production
+  `@EnableMethodSecurity` in this codebase, and `execution-app` depends on neither it nor
+  `automation-configuration-service` — only on `automation-configuration-remote-client`. So
+  `@PreAuthorize` is never evaluated on *that* deployment and re-pointing it changes nothing *there*.
+  All true — and about one deployment only. `server-app` carries both
+  `automation-workflow-execution-service` and `security-config`, so the annotation **is** evaluated in
+  the monolith, where it was still unioning every environment the caller could reach. A deployment-
+  topology argument scopes to the deployment it names; it is not a statement about the annotation.
+  The two halves also protect different deployments, which is why they were never one decision: the
+  gate protects the monolith, and the body filter — which runs wherever the code runs — is the only
+  protection on `execution-app`.
+- Four `'Project'`-keyed promotion sites (`ProjectDeploymentPromotionHandler` and
+  `ApiCollectionPromotionHandler`, `preview` and `promote` on each), the `WorkspaceDataTableFacadeImpl`
+  by-id family, and an eight-class `Workflow` family (plus
+  `WebhookTriggerTestApiFacadeImpl#enableTrigger`/`disableTrigger`) carry the identical defect on
+  resource types this plan's `'Workspace'`-only scan never looked at. Own ticket.
+- `ApiCollectionFacadeImpl#getApiCollections` had **no gate at all** until commit `19b8d00d90e` ("732
+  Gate the workspace API collection listing"); the caller-supplied `environmentId` it still takes is
+  unchecked.
+
+`EnvironmentAwareGateCoverageTest.KNOWN_EXEMPT` and `ResourceEnvironmentResolverCoverageTest` are the
+detailed, current register for all three bullets above — read them for the live site list rather than
+treating this paragraph as exhaustive; they are what a future sweep diffs against.

@@ -26,6 +26,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * Pins the {@code @PreAuthorize} expressions that close the automation webhook-trigger-test IDOR (T30/B3). The
  * per-controller facade gates by workflow scope; the shared platform facade stays ungated for the embedded and runtime
  * callers.
+ * <p>
+ * Both methods are runs -- they mint or tear down a live webhook URL in the environment named -- so D2 re-points the
+ * gate to the substituting {@code hasWorkflowScopeInEnvironment(#workflowId, 'SCOPE', #environmentId)}: each body
+ * resolves {@code PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId)} itself, the identical resolution
+ * this expression performs, so gate and body can never diverge. See
+ * {@code WebhookTriggerTestApiFacadeDiscriminatingGateTest} for the behavioural proof.
  *
  * @author Ivica Cardic
  */
@@ -33,12 +39,14 @@ class WebhookTriggerTestApiFacadeAuthorizationTest {
 
     @Test
     void testEnableTriggerRequiresWorkflowEdit() {
-        assertExpression("enableTrigger", "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+        assertExpression(
+            "enableTrigger", "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
     }
 
     @Test
     void testDisableTriggerRequiresWorkflowEdit() {
-        assertExpression("disableTrigger", "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')");
+        assertExpression(
+            "disableTrigger", "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)");
     }
 
     private static void assertExpression(String methodName, String expression) {

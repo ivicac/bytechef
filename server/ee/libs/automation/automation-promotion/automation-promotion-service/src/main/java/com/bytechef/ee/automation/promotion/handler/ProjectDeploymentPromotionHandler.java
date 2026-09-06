@@ -119,8 +119,15 @@ public class ProjectDeploymentPromotionHandler implements EnvironmentPromotionHa
         return PromotionResourceType.PROJECT_DEPLOYMENT;
     }
 
+    /**
+     * Authorises {@code targetEnvironment}, the environment this preview computes the promotion into. Whether the
+     * caller must also hold the scope in the source environment is deliberately not decided here; it would need a
+     * different mechanism, since a {@link Project} has no {@code ResourceEnvironmentResolver} of its own — see
+     * {@code ResourceEnvironmentResolverProjectGuardTest} — while {@link ProjectDeployment} does.
+     */
     @Override
-    @PreAuthorize("hasPermission(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), 'Project', 'DEPLOYMENT_PUSH')")
+    @PreAuthorize("hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), "
+        + "'Project', 'DEPLOYMENT_PUSH', #targetEnvironment)")
     @Transactional(readOnly = true)
     public EnvironmentPromotionPreview preview(long sourceId, Environment targetEnvironment) {
         ProjectDeployment source = loadSource(sourceId, targetEnvironment);
@@ -159,8 +166,15 @@ public class ProjectDeploymentPromotionHandler implements EnvironmentPromotionHa
             warnings);
     }
 
+    /**
+     * Authorises {@code targetEnvironment}, the environment this promotion writes into. Whether the caller must also
+     * hold the scope in the source environment is deliberately not decided here; it would need a different mechanism,
+     * since a {@link Project} has no {@code ResourceEnvironmentResolver} of its own — see
+     * {@code ResourceEnvironmentResolverProjectGuardTest} — while {@link ProjectDeployment} does.
+     */
     @Override
-    @PreAuthorize("hasPermission(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), 'Project', 'DEPLOYMENT_PUSH')")
+    @PreAuthorize("hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), "
+        + "'Project', 'DEPLOYMENT_PUSH', #targetEnvironment)")
     @Transactional
     public EnvironmentPromotionResult promote(
         long sourceId, Environment targetEnvironment, Map<Long, Long> connectionMappings) {

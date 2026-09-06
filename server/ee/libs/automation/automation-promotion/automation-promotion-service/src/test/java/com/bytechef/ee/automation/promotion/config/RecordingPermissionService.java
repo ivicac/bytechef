@@ -11,6 +11,7 @@ import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -79,6 +80,16 @@ public class RecordingPermissionService implements PermissionService {
         return Set.of();
     }
 
+    /**
+     * Follows {@code granted} like the boolean checks do, in its set-valued form: every environment when granted, none
+     * when not. Returning an empty set while granted would make a filtered listing come back empty in a test that had
+     * asked for permission to be given.
+     */
+    @Override
+    public Set<Environment> getMyWorkspaceScopeEnvironments(long workspaceId, String scope) {
+        return granted ? EnumSet.allOf(Environment.class) : Set.of();
+    }
+
     @Override
     public @Nullable String getMyWorkspaceRole(long workspaceId) {
         return null;
@@ -91,6 +102,24 @@ public class RecordingPermissionService implements PermissionService {
 
     @Override
     public boolean hasResourceScope(Serializable id, String resourceType, String scope) {
+        resourceScopeChecks.add(new ResourceScopeCheck(id, resourceType, scope));
+
+        return granted;
+    }
+
+    /**
+     * Recorded into the same {@link #resourceScopeChecks} list as {@link #hasResourceScope}, dropping
+     * {@code environment} -- {@link ResourceScopeCheck} carries no environment field, and
+     * {@code testPromotionAuthorizerBeanReferenceResolvesAndGates} (the only production caller of this overload today,
+     * via the two {@code 'Project'} promotion handlers' {@code hasResourceScopeInEnvironment(...)} expression) asserts
+     * on the {@code (id, resourceType, scope)} tuple the {@code @promotionAuthorizer} bean reference produced, not on
+     * which overload carried it.
+     */
+    @Override
+    public boolean hasResourceScopeInEnvironment(
+        Serializable id, String resourceType, String scope,
+        Environment environment) {
+
         resourceScopeChecks.add(new ResourceScopeCheck(id, resourceType, scope));
 
         return granted;

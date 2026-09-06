@@ -120,17 +120,19 @@ public class WorkflowNodeOptionFacadeImpl implements WorkflowNodeOptionFacade {
 
     @Override
     @SuppressWarnings("unchecked")
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<Option> getClusterElementNodeOptions(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String propertyName, List<String> lookupDependsOnPaths,
         @Nullable String searchText, long environmentId) {
 
-        // hasPermission(#workflowId, 'Workflow', ...) above is environment-agnostic, so the caller-supplied
-        // environmentId is never checked by it. The value reaching getEvaluationInputs (the `vars` merge point), the
-        // @Cacheable getPreviousWorkflowNodeSampleOutputs, and the test-configuration connection lookups below must
-        // still be the caller's own environment, not an arbitrary one it names -- executeOptions ultimately makes a
-        // live outbound call using whatever connectionId those lookups resolve. See PrincipalEnvironment.
+        // hasWorkflowScopeInEnvironment(#workflowId, ...) above resolves the same effective environment for its own
+        // check, but that resolution happens inside the gate's evaluation and is not carried into the method body.
+        // The value reaching getEvaluationInputs (the `vars` merge point), the @Cacheable
+        // getPreviousWorkflowNodeSampleOutputs, and the test-configuration connection lookups below must still be
+        // resolved here as well, so that this method acts on the same environment the gate just authorised --
+        // executeOptions ultimately makes a live outbound call using whatever connectionId those lookups resolve.
+        // See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         List<WorkflowTestConfigurationConnection> connections = workflowTestConfigurationService
@@ -231,15 +233,15 @@ public class WorkflowNodeOptionFacadeImpl implements WorkflowNodeOptionFacade {
 
     @Override
     @SuppressWarnings("unchecked")
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<Option> getWorkflowNodeOptions(
         String workflowId, String workflowNodeName, String propertyName, List<String> lookupDependsOnPaths,
         @Nullable String searchText, long environmentId) {
 
-        // Same as getClusterElementNodeOptions above: the gate is environment-agnostic, so the environmentId reaching
-        // evaluation, cache, and connection lookups below must still be resolved to the caller's own. The trigger
-        // branch below never reaches WorkflowNodeOutputFacade, so before this gate existed it ran entirely ungated.
-        // See PrincipalEnvironment.
+        // Same as getClusterElementNodeOptions above: the gate's own environment resolution is internal to its
+        // evaluation, so the environmentId reaching evaluation, cache, and connection lookups below must still be
+        // resolved here to the caller's own. The trigger branch below never reaches WorkflowNodeOutputFacade, so
+        // before this resolution existed it ran entirely ungated. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         Map<String, ?> inputs = workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, effectiveEnvironmentId);

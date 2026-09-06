@@ -14,6 +14,7 @@ import static com.bytechef.ee.platform.connection.audit.ConnectionAuditEvent.CON
 
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
@@ -25,6 +26,7 @@ import com.bytechef.ee.platform.connection.audit.AuditConnection.AuditData;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
@@ -72,6 +74,7 @@ public class WorkspaceConnectionFacadeImpl
     public WorkspaceConnectionFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ConnectionFacade connectionFacade,
         ConnectionLifecycleFacade connectionLifecycleFacade, ConnectionService connectionService,
+        EnvironmentScopeFilter environmentScopeFilter, EnvironmentService environmentService,
         ResourceVisibilityResolver resourceVisibilityResolver,
         ObjectProvider<MeterRegistry> meterRegistryProvider,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
@@ -83,7 +86,8 @@ public class WorkspaceConnectionFacadeImpl
 
         super(
             applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
-            resourceVisibilityResolver, meterRegistryProvider, projectDeploymentWorkflowService, projectService,
+            environmentScopeFilter, environmentService, resourceVisibilityResolver, meterRegistryProvider,
+            projectDeploymentWorkflowService, projectService,
             tagService, userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
 
         this.resourceGrantService = resourceGrantService;

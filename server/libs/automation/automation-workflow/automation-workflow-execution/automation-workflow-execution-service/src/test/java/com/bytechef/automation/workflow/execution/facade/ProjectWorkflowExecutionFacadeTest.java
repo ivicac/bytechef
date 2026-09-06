@@ -39,6 +39,7 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -84,7 +85,8 @@ public class ProjectWorkflowExecutionFacadeTest {
         taskFileStorage = mock(TaskFileStorage.class);
 
         facade = new ProjectWorkflowExecutionFacadeImpl(
-            componentDefinitionService, contextService, evaluator, mock(EnvironmentService.class),
+            componentDefinitionService, contextService, evaluator, mock(EnvironmentScopeFilter.class),
+            mock(EnvironmentService.class),
             jobService, mock(PermissionService.class), mock(PrincipalJobService.class), mock(ProjectFacade.class),
             mock(ProjectDeploymentService.class), mock(ProjectService.class), mock(ProjectWorkflowService.class),
             mock(TaskDispatcherDefinitionService.class), taskExecutionService, taskFileStorage,

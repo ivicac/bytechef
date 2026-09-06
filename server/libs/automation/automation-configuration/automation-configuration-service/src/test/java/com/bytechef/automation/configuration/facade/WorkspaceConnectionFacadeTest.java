@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -30,11 +31,15 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.WorkspaceConnectionService;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
@@ -51,6 +56,7 @@ import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -120,7 +126,8 @@ class WorkspaceConnectionFacadeTest {
 
         workspaceConnectionFacade = new WorkspaceConnectionFacadeImpl(
             applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
-            resourceVisibilityResolver, emptyProvider, projectDeploymentWorkflowService, projectService, tagService,
+            environmentScopeFilterHoldingEveryEnvironment(), environmentService(), resourceVisibilityResolver,
+            emptyProvider, projectDeploymentWorkflowService, projectService, tagService,
             userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
     }
 
@@ -236,6 +243,7 @@ class WorkspaceConnectionFacadeTest {
 
             WorkspaceConnectionFacadeImpl facadeWithMetrics = new WorkspaceConnectionFacadeImpl(
                 applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
+                environmentScopeFilterHoldingEveryEnvironment(), environmentService(),
                 resourceVisibilityResolver, provider, projectDeploymentWorkflowService, projectService, tagService,
                 userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
 
@@ -289,6 +297,7 @@ class WorkspaceConnectionFacadeTest {
 
             WorkspaceConnectionFacadeImpl facadeWithMetrics = new WorkspaceConnectionFacadeImpl(
                 applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
+                environmentScopeFilterHoldingEveryEnvironment(), environmentService(),
                 resourceVisibilityResolver, provider, projectDeploymentWorkflowService, projectService, tagService,
                 userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
 
@@ -334,6 +343,7 @@ class WorkspaceConnectionFacadeTest {
 
             WorkspaceConnectionFacadeImpl facadeWithMetrics = new WorkspaceConnectionFacadeImpl(
                 applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
+                environmentScopeFilterHoldingEveryEnvironment(), environmentService(),
                 resourceVisibilityResolver, provider, projectDeploymentWorkflowService, projectService, tagService,
                 userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
 
@@ -495,6 +505,7 @@ class WorkspaceConnectionFacadeTest {
 
             WorkspaceConnectionFacadeImpl workspaceFacadeWithRealChain = new WorkspaceConnectionFacadeImpl(
                 applicationEventPublisher, realConnectionFacade, connectionLifecycleFacade, connectionService,
+                environmentScopeFilterHoldingEveryEnvironment(), environmentService(),
                 resourceVisibilityResolver, emptyProvider, projectDeploymentWorkflowService, projectService,
                 tagService, userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
 
@@ -586,4 +597,34 @@ class WorkspaceConnectionFacadeTest {
         when(workspace.getId()).thenReturn(WORKSPACE_ID);
         when(workspaceFacade.getUserWorkspaces(99L)).thenReturn(List.of(workspace));
     }
+
+    /**
+     * A real {@link EnvironmentScopeFilter} over a caller holding the scope in every environment, so the production
+     * filtering code genuinely runs here but narrows nothing. That is the ordinary case rather than a convenience: a
+     * member in implicit mode resolves in every environment, so this keeps the test about what it was already about
+     * while still exercising the filter.
+     */
+    private static EnvironmentScopeFilter environmentScopeFilterHoldingEveryEnvironment() {
+        PermissionService permissionService = mock(PermissionService.class);
+
+        // lenient: most tests in this class never reach a filtered listing, and MockitoExtension's strict stubs
+        // would fail every one of them for a stub this shared helper always sets up.
+        lenient()
+            .when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PermissionService> permissionServiceProvider = mock(ObjectProvider.class);
+
+        lenient()
+            .when(permissionServiceProvider.getIfAvailable())
+            .thenReturn(permissionService);
+
+        return new EnvironmentScopeFilter(permissionServiceProvider);
+    }
+
+    private static EnvironmentService environmentService() {
+        return () -> List.of(Environment.values());
+    }
+
 }

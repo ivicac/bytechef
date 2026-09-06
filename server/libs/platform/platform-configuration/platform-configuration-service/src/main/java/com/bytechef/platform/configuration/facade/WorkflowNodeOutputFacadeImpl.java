@@ -117,7 +117,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
 
     @Override
     @Nullable
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public ClusterElementOutputDTO getClusterElementOutput(
         String workflowId, String workflowNodeName, String clusterElementType, String clusterElementWorkflowNodeName,
         long environmentId) {
@@ -145,7 +145,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
 
     @Override
     @Nullable
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public WorkflowNodeOutputDTO getWorkflowNodeOutput(String workflowId, String workflowNodeName, long environmentId) {
         // See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
@@ -179,8 +179,9 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         return workflowNodeOutputDTO;
     }
 
-    // These two methods are also environment-agnostic-gated with an unchecked environmentId (see
-    // PrincipalEnvironment), but deliberately do NOT resolve it themselves the way their sibling methods above do.
+    // These two methods are gated with hasWorkflowScopeInEnvironment (see PrincipalEnvironment), which resolves the
+    // effective environment for its own check but does not rewrite the raw environmentId argument reaching this
+    // method body -- and these two deliberately do NOT resolve it themselves the way their sibling methods above do.
     // @Cacheable's default key is built from the raw method arguments BEFORE the method body runs, so resolving
     // in here would be too late: the cache would still be keyed on the caller-supplied environmentId, not the
     // effective one, letting a confined principal's PRODUCTION read (requested as DEVELOPMENT) get cached under the
@@ -193,7 +194,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
     // this step reopens the leak silently, since nothing here would catch it.
     @Override
     @Cacheable(value = PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE)
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<WorkflowNodeOutputDTO> getPreviousWorkflowNodeOutputs(
         String workflowId, String lastWorkflowNodeName, long environmentId) {
 
@@ -202,7 +203,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
 
     @Override
     @Cacheable(value = PREVIOUS_WORKFLOW_NODE_SAMPLE_OUTPUTS_CACHE)
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public Map<String, ?> getPreviousWorkflowNodeSampleOutputs(
         String workflowId, String lastWorkflowNodeName, long environmentId) {
 
@@ -210,14 +211,14 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public void checkWorkflowCache(String workflowId, String lastWorkflowNodeName, long environmentId) {
-        // hasPermission(#workflowId, 'Workflow', ...) above is environment-agnostic, so the caller-supplied
-        // environmentId is never checked. Resolved here so a confined principal evicts and later reads the same
-        // cache entry its own environment owns -- see the WorkflowNodeOutputApiController REST caller, which
-        // resolves once and passes the same effective value to this eviction call and to the @Cacheable read that
-        // follows it, and the comment on getPreviousWorkflowNodeOutputs below for why the @Cacheable methods
-        // themselves must not resolve internally. See PrincipalEnvironment.
+        // The gate above resolves the effective environment for its own check, but that resolution is internal to
+        // the gate's evaluation and never reaches this method body. Resolved here so a confined principal evicts
+        // and later reads the same cache entry its own environment owns -- see the WorkflowNodeOutputApiController
+        // REST caller, which resolves once and passes the same effective value to this eviction call and to the
+        // @Cacheable read that follows it, and the comment on getPreviousWorkflowNodeOutputs below for why the
+        // @Cacheable methods themselves must not resolve internally. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
         boolean dynamicOutputDefined = false;
