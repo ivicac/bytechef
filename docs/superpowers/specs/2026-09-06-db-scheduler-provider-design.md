@@ -95,7 +95,7 @@ today, so the importer renames rather than re-keys.
 | Task | Kind | Instance id | Task data | Schedule |
 | --- | --- | --- | --- | --- |
 | `schedule-trigger` | recurring, persistent schedule (`Tasks.recurringWithPersistentSchedule`) | `workflowExecutionId` | `{cron, zoneId, output}` | `CronSchedule(cron, zoneId, CronStyle.QUARTZ)` |
-| `polling-trigger` | recurring, static schedule | `workflowExecutionId` | `{}` | `fixedDelay(bytechef.coordinator.trigger.polling.check-period minutes)` |
+| `polling-trigger` | recurring, persistent schedule | `workflowExecutionId` | `{checkPeriodMinutes}` | `FixedDelay.ofMinutes(checkPeriodMinutes)` |
 | `dynamic-webhook-refresh` | one-time, self-rescheduling | `workflowExecutionId` | `{connectionId}` | `scheduledTo(webhookExpirationDate)`; reschedules itself to the expiry the refresh returns |
 | `oauth2-token-refresh` | one-time, self-rescheduling | `tenantId + connectionId` | `{connectionId, tenantId}` | `scheduledTo(expiry − 5 min)`; reschedules to `now + expiresIn − 5 min` |
 | `one-time-resume` | one-time | `jobId` | `{jobId, continueParameters?}` | `scheduledTo(expiresAt)` |
@@ -216,7 +216,7 @@ Pinned versions, verified against Maven Central metadata on 2026-09-06:
 UI's minimum) and `no.bekk.db-scheduler-ui:db-scheduler-ui-spring-boot-4-starter` **5.0.0**. The
 UI serves at `/db-scheduler` with its API under
 `/db-scheduler-api/**`, in whichever app hosts the scheduler beans: `server-app` (monolith) and
-`scheduler-app` (EE). Defaults: `read-only: true`, `task-data: true`, `history: false`.
+`scheduler-app` (EE). Defaults: `read-only: true`, `task-data: true`, `db-scheduler-ui.log.enabled: false`. `scheduler-app` has `spring-boot-starter-web` but no Spring Security stack (`security-config` is not a dependency), so `db-scheduler-ui` is wired into `server-app` only. `scheduler-app` keeps `db-scheduler-ui.enabled=false` until it gains a security chain; tracked in §7.
 
 ### 5.2 Security
 
@@ -231,10 +231,7 @@ UI is enabled; under `quartz` the paths 404.
 - New fields on `ApplicationProperties.Scheduler` (binding is strict, so they must be fields):
   `dbScheduler.import.enabled` and `dbScheduler.ui.enabled`, both default `true`.
 - `db-scheduler.*` tuning in `server-app` `application.yml` and EE `scheduler-app.yml`.
-- The starter's own `db-scheduler.enabled` flag cannot be derived from another property in YAML, so
-  the starter autoconfiguration is excluded globally and `@Import`-ed from the provider-gated
-  configuration. It also joins the exclusion list in `application-liquibase.yml`, as
-  `QuartzAutoConfiguration` already does, so the Liquibase-only profile starts no scheduler.
+- The starters are gated by `DbSchedulerEnvironmentPostProcessor` (registered in `META-INF/spring.factories`), which adds a lowest-precedence property source setting `db-scheduler.enabled` and `db-scheduler-ui.enabled` from `bytechef.scheduler.provider`. Importing the autoconfiguration from a regular `@Configuration` would evaluate its `@ConditionalOnBean(DataSource.class)` before the DataSource autoconfiguration runs; the post-processor keeps autoconfiguration ordering intact. `application-liquibase.yml` sets both flags to `false` explicitly, which wins over the post-processor.
 - `spring.quartz.*` is untouched.
 
 ### 5.4 Schema
@@ -297,6 +294,7 @@ Nothing in the Quartz module changes, so its tests stay as they are — includin
 
 ## 7. Open follow-ups (not blocking)
 
+- Wire `db-scheduler-ui` into `scheduler-app` once it has a Spring Security chain.
 - Reverse exporter if production round-tripping is ever wanted.
 - Fix #5651 in the Quartz provider, or retire the path with Quartz.
 - Once db-scheduler is the default in every environment: retire Quartz, drop `QRTZ_*`, remove the
