@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <!--
+        Workspace-defined detection patterns.
+
+        workspace_id is NOT NULL on purpose. The design scopes custom rules per workspace, and a nullable owner would
+        have needed the partial-unique-index treatment that 20260825000001_platform_configuration_property_unique_null_scope_id.xml
+        exists to apply: Postgres treats every NULL as distinct, so a plain unique index over a nullable column never
+        fires for the NULL rows and two concurrent creates both insert. Requiring an owner removes that failure mode by
+        construction instead of guarding it.
+
+        No new includeAll line is needed in master.xml, because this directory is already registered by the
+        ai_guardrail_violation changeset, and includeAll picks up whatever is in it. That is exactly why this changeset
+        has an integration test: a directory registered with errorIfMissingOrEmpty="false" fails silently, so "the
+        table exists" is a claim only a real database can settle.
+    -->
+    <changeSet id="20260903000002" author="Ivica Cardic">
+        <createTable tableName="ai_guardrail_custom_rule">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pattern" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="score" type="NUMERIC(3,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="context_keywords" type="VARCHAR(1024)"/>
+            <column name="context_window" type="INT"/>
+            <column name="context_score" type="NUMERIC(3,2)"/>
+            <column name="enabled" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_date" type="TIMESTAMP"/>
+            <column name="version" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!--
+            A workspace cannot define one type twice: the type is the span category and the token name, so two rules
+            sharing it would mint tokens that cannot be told apart.
+        -->
+        <addUniqueConstraint tableName="ai_guardrail_custom_rule" columnNames="workspace_id,type"
+                             constraintName="uk_ai_guardrail_custom_rule_workspace_type"/>
+    </changeSet>
+</databaseChangeLog>
