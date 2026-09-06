@@ -68,8 +68,6 @@ import com.bytechef.ee.platform.ai.gateway.service.AiGatewayModelDeploymentServi
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayRoutingPolicyService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewaySpendService;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiToken;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.Money;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -83,6 +81,8 @@ import com.bytechef.ee.platform.ai.observability.service.AiObservabilitySessionS
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilitySpanService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceService;
 import com.bytechef.ee.platform.ai.prompt.AiPromptVersionService;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -512,7 +512,7 @@ class AiGatewayFacadeTest {
         AiGatewayChatCompletionResponse response = facade.chatCompletion(request,
             new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of()));
 
-        assertEquals("Contact [REDACTED_EMAIL]", response.choices()
+        assertEquals("Contact [REDACTED_EMAIL_ADDRESS]", response.choices()
             .get(0)
             .message()
             .content());
@@ -520,11 +520,11 @@ class AiGatewayFacadeTest {
 
     /**
      * End-to-end proof that the facade threads one token session across both guardrail calls in {@code chatCompletion}:
-     * the outbound prompt carries a session token (not an irreversible {@code [REDACTED_EMAIL]} placeholder) for the
-     * tokenized PII, and once the "model" echoes that token back in its completion, the facade's response carries the
-     * real value again — restored, not left as a token and not re-redacted. A reversed scan-then-restore order in
-     * {@code AiGatewayGuardrails.redactResponse} would show up here as the assertion failing with
-     * {@code [REDACTED_EMAIL]} in place of the real address (see
+     * the outbound prompt carries a session token (not an irreversible {@code [REDACTED_EMAIL_ADDRESS]} placeholder)
+     * for the tokenized PII, and once the "model" echoes that token back in its completion, the facade's response
+     * carries the real value again — restored, not left as a token and not re-redacted. A reversed scan-then-restore
+     * order in {@code AiGatewayGuardrails.redactResponse} would show up here as the assertion failing with
+     * {@code [REDACTED_EMAIL_ADDRESS]} in place of the real address (see
      * {@code AiGatewayGuardrailsTest.testRedactResponseWithSessionScansBeforeRestoring} for that same failure mode
      * proven directly against the adapter).
      */

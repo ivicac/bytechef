@@ -20,6 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bytechef.component.ai.agent.guardrails.util.PiiDetectorUtils.PiiMatch;
 import com.bytechef.component.ai.agent.guardrails.util.PiiDetectorUtils.PiiPattern;
+import com.bytechef.component.definition.Option;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -367,5 +369,38 @@ class PiiDetectorUtilsTest {
         assertThat(matches)
             .extracting(PiiMatch::type)
             .contains(expectedType);
+    }
+
+    @Test
+    void testPatternsAreTheSharedCatalog() {
+        assertThat(PiiDetectorUtils.DEFAULT_PII_PATTERNS)
+            .extracting(PiiPattern::type)
+            .containsExactlyElementsOf(
+                PiiPatternCatalog.ALL.stream()
+                    .map(PiiPatternCatalog.PiiPattern::type)
+                    .toList());
+
+        assertThat(PiiDetectorUtils.DEFAULT_PII_PATTERNS)
+            .extracting(piiPattern -> piiPattern.pattern()
+                .pattern())
+            .containsExactlyElementsOf(
+                PiiPatternCatalog.ALL.stream()
+                    .map(piiPattern -> piiPattern.pattern()
+                        .pattern())
+                    .toList());
+    }
+
+    @Test
+    void testPickerOptionsMatchCatalogTypesExactly() {
+        // getPiiDetectionOptions() is hand-maintained (its option order feeds generated definition JSON in the
+        // pii and llm-pii components, so it can't just follow DEFAULT_PII_PATTERNS/catalog order). This pins the
+        // one invariant that matters: the set of option values must equal the set of catalog types, so a pattern
+        // added to the catalog without a matching option (or a stale option left behind) fails loudly here.
+        assertThat(PiiDetectorUtils.getPiiDetectionOptions())
+            .extracting(Option::getValue)
+            .containsExactlyInAnyOrderElementsOf(
+                PiiPatternCatalog.ALL.stream()
+                    .map(PiiPatternCatalog.PiiPattern::type)
+                    .toList());
     }
 }

@@ -53,8 +53,6 @@ import com.bytechef.ee.platform.ai.gateway.service.AiGatewayRoutingPolicyService
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewaySpendService;
 import com.bytechef.ee.platform.ai.gateway.util.AiGatewayConstraintMatchers;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiToken;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.Money;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -75,6 +73,8 @@ import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceSer
 import com.bytechef.ee.platform.ai.prompt.AiPrompt;
 import com.bytechef.ee.platform.ai.prompt.AiPromptVersion;
 import com.bytechef.ee.platform.ai.prompt.AiPromptVersionService;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiToken;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -2965,12 +2965,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
      * reusable ones for no benefit. This method's PII-token check exists specifically to stop that: a request carrying
      * a token is simply never cached, on either the read or the write side.</li>
      * <li>Keying on the PRE-tokenization request instead (the obvious-looking "fix" for the above — do NOT do this):
-     * before tokenization, two different users' different PII values redacted to the identical {@code [REDACTED_EMAIL]}
-     * placeholder, so they legitimately shared one cache key and one cached response — safe, because the cached
-     * response itself never held a real value. Now that responses are restored with real values before being returned,
-     * a cache entry keyed on pre-tokenization content would let one user's session restore and serve BACK ANOTHER
-     * USER'S real PII value that a completely different request happened to trigger — a cross-session PII leak. This is
-     * why the fix is "skip the cache", not "key on something more stable".</li>
+     * before tokenization, two different users' different PII values redacted to the identical
+     * {@code [REDACTED_EMAIL_ADDRESS]} placeholder, so they legitimately shared one cache key and one cached response —
+     * safe, because the cached response itself never held a real value. Now that responses are restored with real
+     * values before being returned, a cache entry keyed on pre-tokenization content would let one user's session
+     * restore and serve BACK ANOTHER USER'S real PII value that a completely different request happened to trigger — a
+     * cross-session PII leak. This is why the fix is "skip the cache", not "key on something more stable".</li>
      * </ol>
      *
      * @see PiiToken#pattern()

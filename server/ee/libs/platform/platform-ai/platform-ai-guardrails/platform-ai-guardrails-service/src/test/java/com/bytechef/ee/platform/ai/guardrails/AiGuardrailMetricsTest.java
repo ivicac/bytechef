@@ -45,4 +45,17 @@ class AiGuardrailMetricsTest {
 
         assertThatCode(() -> metrics.record("pii_redacted")).doesNotThrowAnyException();
     }
+
+    @Test
+    void testRecordDetectorFailureDelegatesToDetectorFailedEventUnderThisInstancesSurface() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+        AiGuardrailMetrics metrics = new AiGuardrailMetrics(meterRegistry, "ai_hub");
+
+        metrics.recordDetectorFailure("opennlp");
+
+        assertThat(meterRegistry.counter(
+            AiGuardrailMetrics.COUNTER_NAME, "event", "detector_failed", "surface", "ai_hub")
+            .count()).isEqualTo(1.0);
+    }
 }
