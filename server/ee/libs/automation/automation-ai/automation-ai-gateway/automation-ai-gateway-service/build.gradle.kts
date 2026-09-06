@@ -14,6 +14,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-mail")
     implementation("org.springframework.data:spring-data-jdbc")
     implementation(project(":server:ee:libs:automation:automation-ai:automation-ai-gateway:automation-ai-gateway-api"))
+    implementation(project(":server:libs:platform:platform-ai:platform-ai-api"))
     implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api"))
     // The standalone guardrail engine that AiGatewayGuardrails now delegates to.
     implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-service"))
@@ -43,6 +44,7 @@ dependencies {
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.springframework.boot:spring-boot-starter-cache")
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-service"))
+    testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-workspace"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-llm-usage:platform-ai-llm-usage-service"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-model-catalog:platform-ai-model-catalog-service"))
     testImplementation(project(":server:ee:libs:platform:platform-ai:platform-ai-prompt:platform-ai-prompt-service"))
