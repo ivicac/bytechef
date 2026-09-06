@@ -81,7 +81,7 @@ customizing the standby factory harmlessly.
 
 | Direction | Behaviour |
 | --- | --- |
-| `quartz → db-scheduler` | The importer runs on **every** startup while `db-scheduler` is active (§4). It is idempotent, so jobs created during a later spell on Quartz are picked up on the next flip. Quartz rows are never modified. |
+| `quartz → db-scheduler` | The importer runs **once per database** (§4): the surviving `quartz-import` row in `scheduled_tasks` is the marker, so jobs created during a later spell on Quartz are picked up only if that row is deleted first. Quartz rows are never modified. |
 | `db-scheduler → quartz` | Quartz resumes from its own rows. Anything scheduled while on db-scheduler — new deployments, refreshed OAuth expiries, new suspended-task timers — is **not** exported back. Quartz's default misfire handling fires any past-due rows once on start. |
 
 The asymmetry is accepted for evaluation on dev/staging and documented in the operator docs. A
@@ -151,12 +151,15 @@ moot for this provider.
 
 ### 4.1 Trigger
 
-Under `db-scheduler` only (the importer is a bean of the gated module), on `ApplicationReadyEvent`
-the module calls `scheduleIfNotExists` for a one-time task `quartz-import`, instance `"startup"`,
-due now. In a multi-node rollout every node attempts it, one row wins, one node executes. A
-completed one-time row is deleted, so the next startup schedules it again — "runs on every startup"
-without a marker table. `bytechef.scheduler.db-scheduler.import.enabled` (default `true`) disables
-it.
+Under `db-scheduler` only (the importer is a bean of the gated module), `quartz-import` is a
+*recurring* task on a ~10-year `FixedDelay` schedule, not a one-time task. db-scheduler schedules
+every recurring `Task` bean on startup with schedule-if-not-exists semantics: the first startup ever
+creates the `scheduled_tasks` row and runs the import; every later startup finds that row already
+present and leaves it alone, so the import runs exactly once per database. In a multi-node rollout
+every node attempts the initial schedule, one row wins, one node executes. The surviving
+`quartz-import` row is the completion marker — no separate marker table, and it is visible and
+deletable in db-scheduler-ui, so forcing a re-import means deleting that row.
+`bytechef.scheduler.db-scheduler.importer.enabled` (default `true`) disables it.
 
 ### 4.2 Reading Quartz
 
