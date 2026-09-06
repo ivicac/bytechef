@@ -25,6 +25,7 @@ class BlockingModeStabilityTest {
     void testBlockingModeOrdinalsArePinned() {
         assertThat(BlockingMode.BLOCK.ordinal()).isEqualTo(0);
         assertThat(BlockingMode.REDACT_AND_CONTINUE.ordinal()).isEqualTo(1);
-        assertThat(BlockingMode.values()).hasSize(2);
+        assertThat(BlockingMode.ALLOW.ordinal()).isEqualTo(2);
+        assertThat(BlockingMode.values()).hasSize(3);
     }
 }
