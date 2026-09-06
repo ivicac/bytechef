@@ -18,6 +18,7 @@ package com.bytechef.platform.ai.sensitivedata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -237,5 +238,63 @@ class RegexPiiDetectorTest {
             .findFirst()
             .orElseThrow()
             .confidence();
+    }
+
+    /**
+     * The whole point of context keywords, asserted as an OUTCOME rather than as a score: at the default threshold a
+     * named passport number survives redaction and a bare one does not. Asserting the number would pin the arithmetic
+     * and miss whether it changes anything.
+     */
+    @Test
+    void testANamedIdentifierIsRedactedWhereABareOneIsNot() {
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+
+        assertThat(redactor.redact("Passport: A12345678", EnumSet.allOf(SensitiveKind.class), null))
+            .as("a naming keyword beside the shape is what makes it identifiable")
+            .isEqualTo("Passport: [REDACTED_US_PASSPORT]");
+
+        assertThat(redactor.redact("Order A12345678", EnumSet.allOf(SensitiveKind.class), null))
+            .as("the same shape with no keyword is an order code, and the false positive the confidence work fixed")
+            .isEqualTo("Order A12345678");
+    }
+
+    @Test
+    void testTheTaxFileNumberCaseFromTheConsolidationSpec() {
+        // The concrete regression the confidence work knowingly accepted: a real TFN was forwarded in the clear
+        // because its shape is a bare 9-digit run. A keyword buys it back without re-redacting ticket numbers.
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+
+        assertThat(redactor.redact("TFN 123456789", EnumSet.allOf(SensitiveKind.class), null))
+            .isEqualTo("TFN [REDACTED_AU_TFN]");
+        assertThat(redactor.redact("ticket 123456789", EnumSet.allOf(SensitiveKind.class), null))
+            .isEqualTo("ticket 123456789");
+    }
+
+    @Test
+    void testAKeywordOutsideTheWindowDoesNotPromote() {
+        // Without a bounded window, one keyword anywhere in a long document would promote every match in it -- which
+        // would reintroduce exactly the false positives the confidence rubric exists to suppress.
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+        String text = "passport" + " ".repeat(80) + "A12345678";
+
+        assertThat(redactor.redact(text, EnumSet.allOf(SensitiveKind.class), null)).isEqualTo(text);
+    }
+
+    @Test
+    void testKeywordMatchingIsCaseInsensitive() {
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+
+        assertThat(redactor.redact("PASSPORT: A12345678", EnumSet.allOf(SensitiveKind.class), null))
+            .isEqualTo("PASSPORT: [REDACTED_US_PASSPORT]");
+    }
+
+    @Test
+    void testAKeywordAfterTheMatchPromotesToo() {
+        // The window is two-sided. "A12345678 (passport)" is as clear as "passport A12345678", and a one-sided
+        // window would silently cover only half of how people actually write.
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(SensitiveDataDetectors.builtIn());
+
+        assertThat(redactor.redact("A12345678 (passport)", EnumSet.allOf(SensitiveKind.class), null))
+            .isEqualTo("[REDACTED_US_PASSPORT] (passport)");
     }
 }
