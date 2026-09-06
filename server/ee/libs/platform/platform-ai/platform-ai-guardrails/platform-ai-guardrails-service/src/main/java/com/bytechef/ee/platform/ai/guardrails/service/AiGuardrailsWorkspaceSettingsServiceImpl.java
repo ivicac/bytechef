@@ -58,6 +58,7 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
     private static final String KEY_INJECTION_DETECTION_ENABLED = "injectionDetectionEnabled";
     private static final String KEY_MIN_CONFIDENCE = "minConfidence";
     private static final String KEY_MODERATION_ENABLED = "moderationEnabled";
+    private static final String KEY_REDACT_MCP_RESULTS = "redactMcpResults";
     private static final String KEY_REDACT_PII = "redactPii";
     private static final String KEY_REDACT_SECRETS = "redactSecrets";
     private static final String KEY_SCAN_RESPONSES = "scanResponses";
@@ -132,6 +133,10 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
             value.put(KEY_MIN_CONFIDENCE, settings.minConfidence());
         }
 
+        if (settings.redactMcpResults() != null) {
+            value.put(KEY_REDACT_MCP_RESULTS, settings.redactMcpResults());
+        }
+
         return value;
     }
 
@@ -145,7 +150,8 @@ class AiGuardrailsWorkspaceSettingsServiceImpl implements AiGuardrailsWorkspaceS
             (Boolean) value.get(KEY_INJECTION_DETECTION_ENABLED),
             (Boolean) value.get(KEY_SCAN_RESPONSES),
             blockingModeValue(value),
-            minConfidenceValue(value));
+            minConfidenceValue(value),
+            (Boolean) value.get(KEY_REDACT_MCP_RESULTS));
     }
 
     // A Double unboxed carelessly (e.g. via a raw cast that widens through a Number subtype the property store
