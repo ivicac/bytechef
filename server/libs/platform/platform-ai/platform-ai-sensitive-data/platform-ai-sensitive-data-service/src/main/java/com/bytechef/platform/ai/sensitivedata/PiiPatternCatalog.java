@@ -147,8 +147,9 @@ import org.jspecify.annotations.Nullable;
  */
 // REDOS is suppressed because every pattern here uses only fixed {N,M}/{N} or possessive quantifiers; no
 // catastrophic backtracking is possible. Field-level suppression is ignored due to how findsecbugs attributes
-// Pattern.compile in the static initializer, so class-level is required. Copied from the source of these patterns,
-// PiiDetectorUtils, which carries the identical suppression for the identical reason.
+// Pattern.compile in the static initializer, so class-level is required. Inherited from the guardrail component's
+// former PiiDetectorUtils, the source of these patterns, which carried the identical suppression for the identical
+// reason before it was folded into this catalog.
 @SuppressFBWarnings("REDOS")
 public final class PiiPatternCatalog {
 
@@ -501,9 +502,9 @@ public final class PiiPatternCatalog {
     }
 
     /**
-     * Returns the patterns whose types appear in {@code selectedTypes}, preserving catalog order. Mirrors
-     * {@code PiiDetectorUtils.filterByTypes}'s selection semantics exactly, including returning an empty list when
-     * {@code selectedTypes} is {@code null} or empty.
+     * Returns the patterns whose types appear in {@code selectedTypes}, preserving catalog order. Returns an empty list
+     * when {@code selectedTypes} is {@code null} or empty — the per-node picker turns that into a fail-closed
+     * configuration error rather than silently scanning nothing.
      *
      * @param selectedTypes the type names a caller opted into
      * @return the matching patterns
