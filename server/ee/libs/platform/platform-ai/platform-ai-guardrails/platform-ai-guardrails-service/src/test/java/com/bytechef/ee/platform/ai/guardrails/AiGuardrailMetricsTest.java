@@ -10,8 +10,12 @@ package com.bytechef.ee.platform.ai.guardrails;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -128,5 +132,47 @@ class AiGuardrailMetricsTest {
         assertThat(meterRegistry.counter(
             AiGuardrailMetrics.COUNTER_NAME, "event", "assistant_history_retokenized", "surface", "ai_hub")
             .count()).isEqualTo(1.0);
+    }
+
+    /**
+     * Every event on the {@link SensitiveDataMetrics} seam past the single abstract one is a {@code default} no-op, and
+     * that is deliberate -- the interface is a {@link FunctionalInterface} so a test double can stay
+     * {@code recorded::add}. The cost is that the production implementation can silently fail to implement a new event:
+     * it compiles, it runs, and the counter simply never moves. That is the same failure the guardrail surface registry
+     * exists to prevent, arriving through a different door.
+     *
+     * <p>
+     * So this asserts the property the default no-ops give away: {@link AiGuardrailMetrics} declares its own body for
+     * every method the seam declares. It is a reflection test because there is no other way to notice -- a new default
+     * method left unimplemented produces no compiler diagnostic and no test failure anywhere else.
+     * </p>
+     */
+    @Test
+    void testEverySensitiveDataMetricsEventIsImplementedRatherThanLeftAsANoOpDefault() {
+        List<String> unimplemented = new ArrayList<>();
+
+        for (Method seamMethod : SensitiveDataMetrics.class.getDeclaredMethods()) {
+            if (seamMethod.isSynthetic()) {
+                continue;
+            }
+
+            try {
+                Method override =
+                    AiGuardrailMetrics.class.getDeclaredMethod(seamMethod.getName(), seamMethod.getParameterTypes());
+
+                if (override.isDefault()) {
+                    unimplemented.add(seamMethod.getName());
+                }
+            } catch (NoSuchMethodException noSuchMethodException) {
+                unimplemented.add(seamMethod.getName());
+            }
+        }
+
+        assertThat(unimplemented)
+            .as("AiGuardrailMetrics inherits SensitiveDataMetrics' no-op default for these events, so they are "
+                + "recorded nowhere in production. The interface's defaults exist to keep test doubles as single "
+                + "method references, not to make the real implementation optional -- give each one a body that "
+                + "records through record(String), or delete it from the seam.")
+            .isEmpty();
     }
 }

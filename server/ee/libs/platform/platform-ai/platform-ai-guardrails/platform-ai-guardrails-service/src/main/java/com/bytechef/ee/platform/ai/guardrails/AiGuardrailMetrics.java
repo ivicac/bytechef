@@ -26,14 +26,16 @@ import org.springframework.stereotype.Component;
  * {@code response_redacted}, {@code pii_restored} (a token minted for this request was substituted back to its real
  * value in the response), {@code token_unresolved} (a token-shaped span — in the response, or in a tool call's
  * arguments — could not be resolved back to a value — an unknown ordinal, or a token minted by another session),
- * {@code blocked_term}, {@code moderation_flagged}, {@code injection_flagged}, {@code detector_failed} (a
- * {@code SensitiveDataDetector} threw and was skipped for that call), {@code below_confidence_threshold} (at least one
- * candidate span was dropped from a call because its confidence fell below {@code SensitiveDataRedactor}'s
- * {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a tool call's arguments was restored
- * before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool), {@code tool_result_tokenized} (at least
- * one value in a tool's result was tokenized/redacted before it reached the model), or
- * {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation history
- * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
+ * {@code blocked_term}, {@code moderation_flagged}, {@code injection_flagged}, {@code guardrail_allowed} (a blocking
+ * violation was detected under {@code BlockingMode.ALLOW} and the content was forwarded unmodified -- observe mode's
+ * entire product, and the reason {@code ALLOW} is distinguishable from the guardrail simply being off),
+ * {@code detector_failed} (a {@code SensitiveDataDetector} threw and was skipped for that call),
+ * {@code below_confidence_threshold} (at least one candidate span was dropped from a call because its confidence fell
+ * below {@code SensitiveDataRedactor}'s {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a
+ * tool call's arguments was restored before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool),
+ * {@code tool_result_tokenized} (at least one value in a tool's result was tokenized/redacted before it reached the
+ * model), or {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation
+ * history {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
  * {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter).
  * Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays cheap on unbounded
  * multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without an actuator
