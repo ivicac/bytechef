@@ -947,6 +947,24 @@ class AiGuardrailsTest {
             .isThrownBy(guardrails::resolveEmbeddedMcpOutboundPolicy);
     }
 
+    @Test
+    void testCheckInputCarriesTheUnmaskedTextAlongsideTheMaskedOne() {
+        // The engine stays mode-agnostic: it computes both candidates and the caller chooses. If unmaskedText ever
+        // returns the same string as text for a blocked term, BlockingMode.ALLOW silently stops working -- and it
+        // would still pass every advisor test that only checks the masked path.
+        AiGuardrails guardrails = guardrails(null, false, false, "classified", false, false);
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        AiGuardrails.GuardrailCheckResult result = guardrails.checkInputs(
+            List.of("Summarize the CLASSIFIED memo"), 7L, metrics)
+            .getFirst();
+
+        assertThat(result.category()).isEqualTo("blocked_term");
+        assertThat(result.text()).isEqualTo("Summarize the [REDACTED_BLOCKED_TERM] memo");
+        assertThat(result.unmaskedText()).isEqualTo("Summarize the CLASSIFIED memo");
+    }
+
     private AiGuardrails guardrails(
         AiGatewayInjectionClassifier injectionClassifier, boolean piiRedactionEnabled, boolean secretRedactionEnabled,
         String blockedTerms, boolean injectionDetectionEnabled, boolean responseScanEnabled) {
