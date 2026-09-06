@@ -100,6 +100,27 @@ public class WorkflowExecutionSpringAIAgent extends CopilotSpringAIAgent {
         return systemMessage;
     }
 
+    /**
+     * Narrows the environment to the run being diagnosed, and deliberately leaves the workspace alone.
+     *
+     * <p>
+     * {@link WorkflowExecutionToolContextKeys#WORKSPACE_ID} and
+     * {@code AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY} are the same literal string, so
+     * {@link CopilotToolContextUtils#toToolContext} has already written that key from
+     * {@code CopilotConstants.STATE_VERIFIED_WORKSPACE_ID} - the id whose membership the chat facade checked. An
+     * earlier revision wrote it again from {@code state.parameters}, which is raw client input, so the unverified value
+     * overwrote the verified one: a member of one workspace could read and enumerate another workspace's runs through
+     * {@code WorkflowExecutionTools} by naming it in the request. Nothing may write this key here.
+     * </p>
+     *
+     * <p>
+     * The environment is different in kind. {@code parameters.environmentId} is the environment of the execution on
+     * screen, which is legitimately not the environment the session's selector points at, so the narrower value wins
+     * over the session default. It is client-supplied, as the session-level one already is on every Copilot surface;
+     * the environment dimension is unverified across this whole surface rather than in this agent, and narrowing it
+     * only ever scopes within the workspace verified above.
+     * </p>
+     */
     @Override
     protected Map<String, Object> toolContext(RunAgentInput input) {
         State state = input.state();
@@ -109,7 +130,6 @@ public class WorkflowExecutionSpringAIAgent extends CopilotSpringAIAgent {
         Object parametersObject = state.get("parameters");
 
         if (parametersObject instanceof Map<?, ?> parameters) {
-            putLong(toolContext, WorkflowExecutionToolContextKeys.WORKSPACE_ID, parameters.get("workspaceId"));
             putLong(toolContext, WorkflowExecutionToolContextKeys.ENVIRONMENT_ID, parameters.get("environmentId"));
         }
 
@@ -123,8 +143,8 @@ public class WorkflowExecutionSpringAIAgent extends CopilotSpringAIAgent {
             try {
                 target.put(key, Long.parseLong(string));
             } catch (NumberFormatException numberFormatException) {
-                // Leave the key unset — a malformed workspace/environment id degrades to "unscoped",
-                // which listWorkflowExecutions treats as an empty result rather than a hard failure.
+                // Leave the key unset — a malformed environment id keeps whatever the session resolved,
+                // which is a wider listing rather than a hard failure.
                 log.debug("Ignoring malformed long value '{}' for key '{}'", string, key);
             }
         }

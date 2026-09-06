@@ -11,9 +11,9 @@ import com.bytechef.ai.copilot.tool.ask.SubAgentQuestionRenderer;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.automation.ai.tool.WorkspaceScopedFlatToolCallback;
 import com.bytechef.automation.ai.tool.WorkspaceScopedSubAgentToolCallback;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,11 +67,12 @@ public class AutomationCopilotMcpContributorConfiguration {
 
     @Bean
     McpServerToolCallbackContributor automationCopilotAgentToolCallbackContributor(
-        IntelligentToolCatalog intelligentToolCatalog, WorkspaceService workspaceService) {
+        IntelligentToolCatalog intelligentToolCatalog, AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> intelligentToolCatalog.getByNames(
             INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
-            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback, workspaceService),
+            (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(toolCallback,
+                accessibleWorkspaceResolver),
             SubAgentQuestionRenderer.PLAIN_TEXT);
     }
 
@@ -116,7 +117,7 @@ public class AutomationCopilotMcpContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor contextStoreFlatCrudMcpContributor(
         ObjectProvider<ContextStoreToolCallbacksFactory> contextStoreToolCallbacksFactoryProvider,
-        WorkspaceService workspaceService) {
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory = contextStoreToolCallbacksFactoryProvider
@@ -129,7 +130,7 @@ public class AutomationCopilotMcpContributorConfiguration {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             for (ToolCallback toolCallback : contextStoreToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService));
+                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver));
             }
 
             return toolCallbacks;

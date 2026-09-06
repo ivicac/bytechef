@@ -18,7 +18,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +51,7 @@ class EmbeddedCopilotMcpContributorConfigurationTest {
 
         McpServerToolCallbackContributor contributor =
             configuration.embeddedWorkflowEditorMcpToolCallbackContributor(
-                intelligentToolCatalog, mock(WorkspaceService.class));
+                intelligentToolCatalog, mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).singleElement()
             .satisfies(toolCallback -> {
