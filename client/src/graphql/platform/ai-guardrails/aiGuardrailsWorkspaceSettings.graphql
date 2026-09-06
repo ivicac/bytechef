@@ -4,6 +4,7 @@ query aiGuardrailsWorkspaceSettings($workspaceId: ID) {
         blockingMode
         injectionDetectionEnabled
         moderationEnabled
+        redactMcpResults
         redactPii
         redactSecrets
         scanResponses
@@ -17,6 +18,7 @@ mutation updateAiGuardrailsWorkspaceSettings($input: AiGuardrailsWorkspaceSettin
         blockingMode
         injectionDetectionEnabled
         moderationEnabled
+        redactMcpResults
         redactPii
         redactSecrets
         scanResponses
