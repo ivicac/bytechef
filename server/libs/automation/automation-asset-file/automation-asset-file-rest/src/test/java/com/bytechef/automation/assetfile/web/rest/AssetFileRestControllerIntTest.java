@@ -33,25 +33,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.domain.AssetFileSource;
+import com.bytechef.automation.assetfile.exception.AssetFileNotFoundException;
 import com.bytechef.automation.assetfile.exception.AssetFileQuotaExceededException;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
 import com.bytechef.automation.assetfile.metric.AssetFileMetrics;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.automation.assetfile.web.rest.config.AutomationAssetFileRestTestConfiguration;
-import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.facade.WorkspaceFacade;
-import com.bytechef.platform.user.domain.User;
-import com.bytechef.platform.user.service.UserService;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -68,7 +65,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @WithMockUser
 class AssetFileRestControllerIntTest {
 
-    private static final long CALLER_USER_ID = 7L;
     private static final long ALLOWED_WORKSPACE_ID = 1L;
     private static final long FOREIGN_WORKSPACE_ID = 99L;
 
@@ -86,26 +82,10 @@ class AssetFileRestControllerIntTest {
     @MockitoBean
     private AssetFileMetrics assetFileMetrics;
 
+    // Not exercised here, but the test configuration's component scan also constructs
+    // AssetFilePublicDownloadController, which requires this bean.
     @MockitoBean
-    private UserService userService;
-
-    @MockitoBean
-    private WorkspaceFacade workspaceFacade;
-
-    @BeforeEach
-    void setUpAuth() {
-        User user = new User();
-
-        user.setId(CALLER_USER_ID);
-
-        when(userService.getCurrentUser()).thenReturn(user);
-
-        Workspace allowed = new Workspace();
-
-        allowed.setId(ALLOWED_WORKSPACE_ID);
-
-        when(workspaceFacade.getUserWorkspaces(CALLER_USER_ID)).thenReturn(List.of(allowed));
-    }
+    private AssetFileSystemFacade assetFileSystemFacade;
 
     @Test
     void testUploadReturns201AndDto() throws Exception {
@@ -146,6 +126,10 @@ class AssetFileRestControllerIntTest {
         String contentType = "text/markdown";
         byte[] content = "# Heading".getBytes(StandardCharsets.UTF_8);
 
+        when(assetFileFacade.createFromUpload(
+            eq(FOREIGN_WORKSPACE_ID), anyInt(), eq(filename), eq(contentType), any(InputStream.class)))
+                .thenThrow(new AccessDeniedException("Workspace is not accessible to the current user"));
+
         MockMultipartFile file = new MockMultipartFile("file", filename, contentType, content);
 
         mockMvc
@@ -159,7 +143,7 @@ class AssetFileRestControllerIntTest {
                 }))
             .andExpect(status().isForbidden());
 
-        verify(assetFileFacade, never()).createFromUpload(
+        verify(assetFileFacade).createFromUpload(
             eq(FOREIGN_WORKSPACE_ID), anyInt(), eq(filename), eq(contentType), any(InputStream.class));
     }
 
@@ -172,7 +156,6 @@ class AssetFileRestControllerIntTest {
 
         AssetFile assetFile = createAssetFile(id, filename, contentType, contentBytes.length);
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(ALLOWED_WORKSPACE_ID);
         when(assetFileFacade.findById(id)).thenReturn(assetFile);
         when(assetFileFacade.downloadContent(id)).thenReturn(new ByteArrayInputStream(contentBytes));
 
@@ -197,7 +180,6 @@ class AssetFileRestControllerIntTest {
 
         AssetFile assetFile = createAssetFile(id, filename, contentType, contentBytes.length);
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(ALLOWED_WORKSPACE_ID);
         when(assetFileFacade.findById(id)).thenReturn(assetFile);
         when(assetFileFacade.downloadContent(id)).thenReturn(new ByteArrayInputStream(contentBytes));
 
@@ -221,7 +203,6 @@ class AssetFileRestControllerIntTest {
 
         AssetFile assetFile = createAssetFile(id, filename, contentType, contentBytes.length);
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(ALLOWED_WORKSPACE_ID);
         when(assetFileFacade.findById(id)).thenReturn(assetFile);
         when(assetFileFacade.downloadContent(id)).thenReturn(new ByteArrayInputStream(contentBytes));
 
@@ -240,7 +221,7 @@ class AssetFileRestControllerIntTest {
     void testDownloadForeignWorkspaceReturns404() throws Exception {
         Long id = 42L;
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(FOREIGN_WORKSPACE_ID);
+        when(assetFileFacade.findById(id)).thenThrow(new AssetFileNotFoundException("Asset file 42 not found"));
 
         mockMvc
             .perform(get("/api/automation/internal/asset-files/{id}/content", id))
@@ -258,7 +239,6 @@ class AssetFileRestControllerIntTest {
 
         AssetFile updated = createAssetFile(id, filename, contentType, updatedBytes.length);
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(ALLOWED_WORKSPACE_ID);
         when(assetFileFacade.updateContent(eq(id), eq(contentType), any(InputStream.class))).thenReturn(updated);
 
         MockMultipartFile file = new MockMultipartFile("file", filename, contentType, updatedBytes);
@@ -285,7 +265,8 @@ class AssetFileRestControllerIntTest {
         String contentType = "text/markdown";
         byte[] updatedBytes = "# Updated".getBytes(StandardCharsets.UTF_8);
 
-        when(assetFileFacade.getOwningWorkspaceId(id)).thenReturn(FOREIGN_WORKSPACE_ID);
+        when(assetFileFacade.updateContent(eq(id), eq(contentType), any(InputStream.class)))
+            .thenThrow(new AssetFileNotFoundException("Asset file 42 not found"));
 
         MockMultipartFile file = new MockMultipartFile("file", filename, contentType, updatedBytes);
 
@@ -299,7 +280,7 @@ class AssetFileRestControllerIntTest {
                 }))
             .andExpect(status().isNotFound());
 
-        verify(assetFileFacade, never()).updateContent(eq(id), eq(contentType), any(InputStream.class));
+        verify(assetFileFacade).updateContent(eq(id), eq(contentType), any(InputStream.class));
     }
 
     @Test

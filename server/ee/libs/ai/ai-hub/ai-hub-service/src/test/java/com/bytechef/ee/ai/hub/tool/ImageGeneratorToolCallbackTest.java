@@ -8,12 +8,15 @@
 package com.bytechef.ee.ai.hub.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.automation.ai.tool.AutomationToolInvocationContext;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -38,6 +42,34 @@ class ImageGeneratorToolCallbackTest {
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @Test
+    void testCallForwardsTheParentToolContextToTheSubagent() {
+        ChatClient imageGeneratorChatClient = mock(ChatClient.class);
+        ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
+        CallResponseSpec responseSpec = mock(CallResponseSpec.class);
+
+        when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(responseSpec);
+        when(responseSpec.content()).thenReturn("ok");
+
+        ImageGeneratorToolCallback callback = new ImageGeneratorToolCallback(imageGeneratorChatClient);
+
+        Map<String, Object> parentContext = Map.of(
+            AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L);
+
+        callback.call("{\"prompt\":\"a cat\"}", new ToolContext(parentContext));
+
+        ArgumentCaptor<Map<String, Object>> contextCaptor = ArgumentCaptor.captor();
+
+        verify(requestSpec).toolContext(contextCaptor.capture());
+
+        assertThat(contextCaptor.getValue())
+            .as("without this the subagent runs with an empty tool context, so its asset-file callbacks "
+                + "short-circuit on \"Workspace context unavailable\" and the feature silently does nothing")
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L);
+    }
+
+    @Test
     void testCallReturnsSummaryWhenSubagentSucceeds() {
         String summary = "Generated banner image and saved as banner.png.";
 
@@ -46,6 +78,7 @@ class ImageGeneratorToolCallbackTest {
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
         when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(summary);
 
@@ -63,6 +96,7 @@ class ImageGeneratorToolCallbackTest {
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
         when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
@@ -103,6 +137,7 @@ class ImageGeneratorToolCallbackTest {
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
         when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(null);
 
@@ -123,6 +158,7 @@ class ImageGeneratorToolCallbackTest {
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
         when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(new RuntimeException("OpenAI rate limit"));
 
@@ -161,6 +197,7 @@ class ImageGeneratorToolCallbackTest {
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
         when(imageGeneratorChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(requestSpec.toolContext(anyMap())).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(upstreamException);
 

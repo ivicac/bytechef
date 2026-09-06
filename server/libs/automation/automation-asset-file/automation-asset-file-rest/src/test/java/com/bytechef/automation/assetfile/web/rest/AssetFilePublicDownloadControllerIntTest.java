@@ -16,6 +16,7 @@
 
 package com.bytechef.automation.assetfile.web.rest;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -28,17 +29,17 @@ import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
 import com.bytechef.automation.assetfile.metric.AssetFileMetrics;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.automation.assetfile.web.rest.config.AutomationAssetFileRestTestConfiguration;
-import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.file.storage.token.FileEntryTokens;
-import com.bytechef.platform.user.service.UserService;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -70,13 +71,10 @@ class AssetFilePublicDownloadControllerIntTest {
     private AssetFileMetrics assetFileMetrics;
 
     @MockitoBean
+    private AssetFileSystemFacade assetFileSystemFacade;
+
+    @MockitoBean
     private FileEntryTokens fileEntryTokens;
-
-    @MockitoBean
-    private UserService userService;
-
-    @MockitoBean
-    private WorkspaceFacade workspaceFacade;
 
     @Test
     void testPublicDownloadStreamsContentAsAttachment() throws Exception {
@@ -88,7 +86,7 @@ class AssetFilePublicDownloadControllerIntTest {
         assetFile.setMimeType("text/html");
         assetFile.setFile(fileEntry);
 
-        when(assetFileFacade.fetchByPublicLinkToken("good-token")).thenReturn(Optional.of(assetFile));
+        when(assetFileSystemFacade.fetchByPublicLinkToken("good-token")).thenReturn(Optional.of(assetFile));
         when(assetFileFileStorage.getInputStream(fileEntry))
             .thenReturn(new ByteArrayInputStream("<h1>hi</h1>".getBytes(StandardCharsets.UTF_8)));
 
@@ -107,10 +105,51 @@ class AssetFilePublicDownloadControllerIntTest {
 
     @Test
     void testPublicDownloadReturns404ForUnknownToken() throws Exception {
-        when(assetFileFacade.fetchByPublicLinkToken("bad-token")).thenReturn(Optional.empty());
+        when(assetFileSystemFacade.fetchByPublicLinkToken("bad-token")).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/automation/asset-files/public/bad-token"))
             .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Pins the wiring, not a no-principal guarantee: the positive {@code verify(assetFileSystemFacade)} below fails if
+     * the controller is ever wired back to a different facade bean, since the real call would then never reach this
+     * mock instance. {@code @WithAnonymousUser} (overriding the class-level {@code @WithMockUser}) exercises the
+     * request as the anonymous caller this endpoint actually serves in production.
+     *
+     * <p>
+     * This test does NOT prove absence-of-principal safety. {@code fetchByPublicLinkToken} was never one of Task 2's
+     * six workspace-membership-guarded methods, so it never consulted the current user on either facade — the swap to
+     * {@link AssetFileSystemFacade} here is architectural (matching the shape every other no-principal caller in this
+     * plan uses), not a fix for a security hole specific to this method. {@code @WithAnonymousUser} itself also still
+     * yields an {@code Authentication} ({@code anonymousUser}), not an empty {@code SecurityContext}.
+     * </p>
+     */
+    @Test
+    @WithAnonymousUser
+    void testPublicDownloadResolvesThroughSystemFacadeForAnonymousCaller() throws Exception {
+        FileEntry fileEntry = new FileEntry("notes.txt", "asset_files/notes.txt");
+        AssetFile assetFile = new AssetFile();
+
+        assetFile.setId(7L);
+        assetFile.setName("notes.txt");
+        assetFile.setMimeType("text/plain");
+        assetFile.setFile(fileEntry);
+
+        when(assetFileSystemFacade.fetchByPublicLinkToken("anon-token")).thenReturn(Optional.of(assetFile));
+        when(assetFileFileStorage.getInputStream(fileEntry))
+            .thenReturn(new ByteArrayInputStream("hi".getBytes(StandardCharsets.UTF_8)));
+
+        MvcResult mvcResult = mockMvc
+            .perform(get("/api/automation/asset-files/public/anon-token"))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+
+        mockMvc.perform(asyncDispatch(mvcResult))
+            .andExpect(status().isOk())
+            .andExpect(content().string("hi"));
+
+        verify(assetFileSystemFacade).fetchByPublicLinkToken("anon-token");
     }
 
     @Test

@@ -24,7 +24,7 @@ import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.FileEntry;
@@ -40,18 +40,20 @@ import java.io.InputStream;
  */
 public class AssetFileDownloadAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileDownloadAction(assetFileFacade, contextResolver).build();
+        return new AssetFileDownloadAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileDownloadAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileDownloadAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -75,9 +77,9 @@ public class AssetFileDownloadAction {
         long workspaceId = contextResolver.resolveWorkspaceId(actionContext);
         long assetFileId = inputParameters.getRequiredLong(ASSET_FILE_ID);
 
-        AssetFile assetFile = assetFileFacade.findByIdInWorkspace(assetFileId, workspaceId);
+        AssetFile assetFile = assetFileSystemFacade.findByIdInWorkspace(assetFileId, workspaceId);
 
-        try (InputStream inputStream = assetFileFacade.downloadContent(assetFileId)) {
+        try (InputStream inputStream = assetFileSystemFacade.downloadContentInWorkspace(assetFileId, workspaceId)) {
             return actionContext.file(file -> file.storeContent(assetFile.getName(), inputStream));
         }
     }

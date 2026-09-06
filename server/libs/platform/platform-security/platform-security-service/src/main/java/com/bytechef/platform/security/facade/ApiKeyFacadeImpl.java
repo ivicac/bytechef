@@ -42,8 +42,14 @@ public class ApiKeyFacadeImpl implements ApiKeyFacade {
         this.userService = userService;
     }
 
+    /**
+     * A {@code null} type marks a platform-admin key: it is what {@link #getAdminApiKeys} lists, behind
+     * {@code isTenantAdmin()}, and what the management MCP endpoint accepts as a credential. Minting one therefore
+     * requires the same tenant-admin standing that reading one does. A typed key stays open to any authenticated
+     * caller, which is what the automation and embedded API-key pages create.
+     */
     @Override
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated() and (#type != null or isTenantAdmin())")
     public ApiKey create(ApiKey apiKey, PlatformType type) {
         User user = userService.getCurrentUser();
 

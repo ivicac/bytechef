@@ -21,9 +21,6 @@ import com.bytechef.automation.assetfile.exception.AssetFileNotFoundException;
 import com.bytechef.automation.assetfile.exception.AssetFileQuotaExceededException;
 import com.bytechef.automation.assetfile.metric.AssetFileMetrics;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
-import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.facade.WorkspaceFacade;
-import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,6 +31,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,10 +43,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
+ * Authenticated asset file upload and content transfer. Workspace-membership authorization belongs to
+ * {@link AssetFileFacade}, which every endpoint here reaches before touching a file: {@code createFromUpload} refuses a
+ * workspace the caller named but is not a member of with an {@code AccessDeniedException} (→ 403), while the bare-id
+ * {@code findById} and {@code updateContent} refuse with {@link AssetFileNotFoundException} (→ 404) for both "no such
+ * file" and "file in another workspace", so a caller cannot enumerate ids belonging to other workspaces.
+ *
  * @author Ivica Cardic
  */
 @RestController
@@ -61,26 +64,17 @@ public class AssetFileRestController {
 
     private final AssetFileFacade assetFileFacade;
     private final AssetFileMetrics assetFileMetrics;
-    private final UserService userService;
-    private final WorkspaceFacade workspaceFacade;
 
     @SuppressFBWarnings("EI2")
-    public AssetFileRestController(
-        AssetFileFacade assetFileFacade, AssetFileMetrics assetFileMetrics, UserService userService,
-        WorkspaceFacade workspaceFacade) {
-
+    public AssetFileRestController(AssetFileFacade assetFileFacade, AssetFileMetrics assetFileMetrics) {
         this.assetFileFacade = assetFileFacade;
         this.assetFileMetrics = assetFileMetrics;
-        this.userService = userService;
-        this.workspaceFacade = workspaceFacade;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AssetFileDTO> upload(
         @RequestParam Long workspaceId, @RequestParam(defaultValue = "0") int environment,
         @RequestParam MultipartFile file) throws IOException {
-
-        verifyUserCanAccessWorkspaceForUpload(workspaceId);
 
         AssetFile created = assetFileFacade.createFromUpload(
             workspaceId, environment, file.getOriginalFilename(), file.getContentType(), file.getInputStream());
@@ -93,9 +87,9 @@ public class AssetFileRestController {
     public ResponseEntity<StreamingResponseBody> download(
         @PathVariable Long id, @RequestParam(required = false) String disposition) {
 
-        Long workspaceId = verifyUserCanAccessFile(id);
-
         AssetFile assetFile = assetFileFacade.findById(id);
+
+        Long workspaceId = assetFile.getWorkspaceId();
 
         StreamingResponseBody body = out -> {
             try (InputStream in = assetFileFacade.downloadContent(id)) {
@@ -132,8 +126,6 @@ public class AssetFileRestController {
     public ResponseEntity<AssetFileDTO> replaceContent(
         @PathVariable Long id, @RequestParam MultipartFile file) throws IOException {
 
-        verifyUserCanAccessFile(id);
-
         AssetFile updated = assetFileFacade.updateContent(id, file.getContentType(), file.getInputStream());
 
         return ResponseEntity.ok(AssetFileDTO.from(updated));
@@ -169,56 +161,16 @@ public class AssetFileRestController {
     }
 
     /**
-     * Confirms the calling user is a member of {@code workspaceId} when the workspace id was supplied directly by the
-     * caller (upload). Returns 403 because the caller is asserting "I want to upload to this workspace" and a 404 would
-     * misrepresent the failure as "workspace does not exist". Sibling controllers in the EE module use the same shape
-     * via {@code WorkspaceAccessGuard}, which throws a {@code ForbiddenException} that maps to 403; this module has no
-     * equivalent domain exception so {@link ResponseStatusException} is used directly. The companion
-     * {@link #verifyUserCanAccessFile(long)} keeps the 404 shape because there the file id is the lookup key and
-     * distinguishing "missing" from "wrong workspace" would let a caller enumerate ids.
+     * Maps {@link AssetFileFacade}'s refusal of an explicitly named workspace to 403. This mapping is not optional:
+     * {@code GlobalResponseEntityExceptionHandler} declares {@code @ExceptionHandler(Throwable.class)}, so an
+     * {@link AccessDeniedException} leaving a controller method is resolved there as a 500 and never reaches Spring
+     * Security's {@code ExceptionTranslationFilter}. A controller-local handler takes precedence over that advice and
+     * keeps the status this endpoint has always returned for a workspace the caller is not a member of.
      */
-    private void verifyUserCanAccessWorkspaceForUpload(long workspaceId) {
-        long userId = userService.getCurrentUser()
-            .getId();
-
-        if (!isUserWorkspaceMember(userId, workspaceId)) {
-            log.warn(
-                "AssetFileRestController returning 403 (security-audit event): user {} attempted to upload to workspace",
-                userId);
-
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Workspace not accessible");
-        }
-    }
-
-    /**
-     * Resolves the workspace owning {@code fileId}, verifies the caller is a member, and returns the workspace id so
-     * the caller can avoid a second {@link AssetFileFacade#getOwningWorkspaceId(Long)} round-trip. Throws
-     * {@link AssetFileNotFoundException} (→ 404) for both "file does not exist" and "file exists in another workspace"
-     * — the two cases are intentionally indistinguishable so workspace members cannot enumerate file ids belonging to
-     * other workspaces.
-     */
-    private Long verifyUserCanAccessFile(long fileId) {
-        Long workspaceId = assetFileFacade.getOwningWorkspaceId(fileId);
-
-        long userId = userService.getCurrentUser()
-            .getId();
-
-        if (!isUserWorkspaceMember(userId, workspaceId)) {
-            log.warn(
-                "AssetFileRestController returning 404 (security-audit event): user {} attempted to access foreign file",
-                userId);
-
-            throw new AssetFileNotFoundException("Asset file not accessible");
-        }
-
-        return workspaceId;
-    }
-
-    private boolean isUserWorkspaceMember(long userId, long workspaceId) {
-        return workspaceFacade.getUserWorkspaces(userId)
-            .stream()
-            .map(Workspace::getId)
-            .anyMatch(id -> id != null && id == workspaceId);
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("error", exception.getMessage()));
     }
 
     public record ErrorResponse(String code, String message, long attempted, long limit) {

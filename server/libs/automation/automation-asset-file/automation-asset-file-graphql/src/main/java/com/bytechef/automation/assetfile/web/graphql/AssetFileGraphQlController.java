@@ -47,7 +47,6 @@ import org.springframework.stereotype.Controller;
 @SuppressFBWarnings("EI")
 public class AssetFileGraphQlController {
 
-    private final AssetFileGraphQlAccessGuard accessGuard;
     private final AutomationAssetFileQuotaProperties quotaProperties;
     private final AutomationAssetFileSharingProperties sharingProperties;
     private final TagService tagService;
@@ -56,11 +55,9 @@ public class AssetFileGraphQlController {
 
     @SuppressFBWarnings("EI")
     public AssetFileGraphQlController(
-        AssetFileGraphQlAccessGuard accessGuard, AutomationAssetFileQuotaProperties quotaProperties,
-        AutomationAssetFileSharingProperties sharingProperties, TagService tagService,
-        AssetFileFacade assetFileFacade, AssetFileTagService assetFileTagService) {
+        AutomationAssetFileQuotaProperties quotaProperties, AutomationAssetFileSharingProperties sharingProperties,
+        TagService tagService, AssetFileFacade assetFileFacade, AssetFileTagService assetFileTagService) {
 
-        this.accessGuard = accessGuard;
         this.quotaProperties = quotaProperties;
         this.sharingProperties = sharingProperties;
         this.tagService = tagService;
@@ -70,8 +67,6 @@ public class AssetFileGraphQlController {
 
     @QueryMapping
     public AssetFile assetFile(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         return assetFileFacade.findById(id);
     }
 
@@ -79,8 +74,6 @@ public class AssetFileGraphQlController {
     public List<AssetFile> assetFiles(
         @Argument Long workspaceId, @Argument Integer environment, @Argument List<Long> tagIds,
         @Argument String mimeTypePrefix) {
-
-        accessGuard.verifyWorkspaceAccess(workspaceId);
 
         // Default to DEVELOPMENT (ordinal 0) when the client did not pass environment so legacy callers do not
         // suddenly receive an empty list. Once every consumer is updated this default can become a hard error.
@@ -107,8 +100,6 @@ public class AssetFileGraphQlController {
 
     @QueryMapping
     public String assetFileTextContent(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         AssetFile assetFile = assetFileFacade.findById(id);
 
         if (assetFile.getSizeBytes() > quotaProperties.maxTextEditBytes()) {
@@ -124,8 +115,6 @@ public class AssetFileGraphQlController {
 
     @MutationMapping
     public AssetFile updateAssetFile(@Argument UpdateAssetFileInput input) {
-        accessGuard.verifyFileAccess(input.id());
-
         if (input.name() != null) {
             assetFileFacade.rename(input.id(), input.name());
         }
@@ -141,16 +130,12 @@ public class AssetFileGraphQlController {
 
     @MutationMapping
     public AssetFile updateAssetFileTextContent(@Argument Long id, @Argument String content) {
-        accessGuard.verifyFileAccess(id);
-
         return assetFileFacade.updateContent(
             id, "text/plain", new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
     }
 
     @MutationMapping
     public boolean deleteAssetFile(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         assetFileFacade.delete(id);
 
         return true;
@@ -158,29 +143,21 @@ public class AssetFileGraphQlController {
 
     @QueryMapping
     public List<AssetFileVersion> assetFileVersions(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         return assetFileFacade.getVersions(id);
     }
 
     @QueryMapping
     public String assetFileSignedDownloadUrl(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         return "/api/automation/asset-files/signed/%s".formatted(assetFileFacade.createSignedDownloadToken(id));
     }
 
     @MutationMapping
     public AssetFile restoreAssetFileVersion(@Argument Long id, @Argument Long versionId) {
-        accessGuard.verifyFileAccess(id);
-
         return assetFileFacade.restoreVersion(id, versionId);
     }
 
     @MutationMapping
     public AssetFile enableAssetFilePublicLink(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         assetFileFacade.enablePublicLink(id);
 
         return assetFileFacade.findById(id);
@@ -188,16 +165,20 @@ public class AssetFileGraphQlController {
 
     @MutationMapping
     public AssetFile disableAssetFilePublicLink(@Argument Long id) {
-        accessGuard.verifyFileAccess(id);
-
         assetFileFacade.disablePublicLink(id);
 
         return assetFileFacade.findById(id);
     }
 
+    /**
+     * The tag write goes through {@link AssetFileTagService}, which performs no authorization of its own, so the file
+     * is loaded through {@link AssetFileFacade#findById} first: that call refuses a file owned by a workspace the
+     * caller is not a member of, and refusing before the write is what keeps a foreign file's tags immutable. The
+     * second read reflects the newly applied tags.
+     */
     @MutationMapping
     public AssetFile updateAssetFileTags(@Argument UpdateAssetFileTagsInput input) {
-        accessGuard.verifyFileAccess(input.id());
+        assetFileFacade.findById(input.id());
 
         List<Tag> tags = input.tags() == null
             ? List.of()

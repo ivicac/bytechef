@@ -19,7 +19,7 @@ import com.agui.core.message.Role;
 import com.agui.server.LocalAgent;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.definition.TriggerDefinition.WebhookBody.ContentType;
 import com.bytechef.component.definition.TriggerDefinition.WebhookMethod;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
@@ -80,13 +80,13 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>
  * <b>Attachments:</b> the bridge reads attachment metadata from {@code RunAgentInput.forwardedProps} under the
  * {@code attachments} key — see {@link #buildWebhookRequest} for the contract. Each {@code {name, contentType, base64}}
- * entry is decoded, persisted as a first-class workspace asset file via {@link AssetFileFacade#createFromUpload}, and
- * wrapped in {@link BridgedFileEntry} (which implements the SDK {@link com.bytechef.component.definition.FileEntry}
+ * entry is decoded, persisted as a first-class workspace asset file via {@link AssetFileSystemFacade#createFromUpload},
+ * and wrapped in {@link BridgedFileEntry} (which implements the SDK {@link com.bytechef.component.definition.FileEntry}
  * interface) so {@code ChatNewRequestTrigger} sees real file entries — its {@code list.getFirst() instanceof FileEntry}
  * discriminator picks the file-list branch the same way as the legacy multipart upload path. Promoting through
- * {@link AssetFileFacade} (rather than a transient temp scope) means a file dropped in either flavour of chat becomes
- * browsable in the Files panel and survives across the chat lifecycle, matching how the rest of the CC surface treats
- * user-supplied content.
+ * {@link AssetFileSystemFacade} (rather than a transient temp scope) means a file dropped in either flavour of chat
+ * becomes browsable in the Files panel and survives across the chat lifecycle, matching how the rest of the CC surface
+ * treats user-supplied content.
  * </p>
  *
  * @version ee
@@ -107,9 +107,9 @@ public class WebhookBridgeAgent extends LocalAgent {
     /**
      * Maximum decoded size for a single workflow-chat attachment. 25 MB is comfortably above any normal user upload
      * (images, PDFs, transcripts) but small enough that a hostile or buggy client base64-attaching a gigabyte file
-     * can't OOM the ai-hub service before {@link AssetFileFacade#createFromUpload}'s workspace- quota check fires. Hard
-     * cap rather than a configurable limit because the bridge is hot-path code: any legitimate workflow that needs >25
-     * MB inputs should use direct asset-file upload, not the inline base64 channel.
+     * can't OOM the ai-hub service before {@link AssetFileSystemFacade#createFromUpload}'s workspace- quota check
+     * fires. Hard cap rather than a configurable limit because the bridge is hot-path code: any legitimate workflow
+     * that needs >25 MB inputs should use direct asset-file upload, not the inline base64 channel.
      */
     private static final int MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
@@ -127,7 +127,14 @@ public class WebhookBridgeAgent extends LocalAgent {
     private final WebhookResumeRegistry resumeRegistry;
     private final HttpClient resumeHttpClient;
     private final JsonMapper jsonMapper;
-    private final AssetFileFacade assetFileFacade;
+
+    /**
+     * The system facade, not {@code AssetFileFacade}: this runs on a {@code ForkJoinPool.commonPool()} worker where
+     * {@code AiHubAgentTenantBinder} has bound the tenant but no {@code Authentication}, so a membership check would
+     * throw rather than deny. The workspace comes from the chat row and the caller's access to it was verified by
+     * {@code AiHubApiController.enforceWorkspaceAccess} on the request thread.
+     */
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final WorkflowChatMetrics metrics;
     private final WorkflowChatJobRegistry jobRegistry;
     private final AiHubSessionMemory sessionMemory;
@@ -138,7 +145,7 @@ public class WebhookBridgeAgent extends LocalAgent {
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public WebhookBridgeAgent(
         WebhookWorkflowExecutor webhookWorkflowExecutor, AiHubChatService chatService,
-        WebhookResumeRegistry resumeRegistry, JsonMapper jsonMapper, AssetFileFacade assetFileFacade,
+        WebhookResumeRegistry resumeRegistry, JsonMapper jsonMapper, AssetFileSystemFacade assetFileSystemFacade,
         WorkflowChatMetrics metrics, WorkflowChatJobRegistry jobRegistry, AiHubSessionMemory sessionMemory,
         WorkflowChatGuard guard, @Nullable JobFacade jobFacade) throws AGUIException {
 
@@ -152,7 +159,7 @@ public class WebhookBridgeAgent extends LocalAgent {
         this.chatService = chatService;
         this.resumeRegistry = resumeRegistry;
         this.jsonMapper = jsonMapper;
-        this.assetFileFacade = assetFileFacade;
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.metrics = metrics;
         this.jobRegistry = jobRegistry;
         this.sessionMemory = sessionMemory;
@@ -1075,11 +1082,11 @@ public class WebhookBridgeAgent extends LocalAgent {
      * <b>Attachment contract (forwardedProps):</b> the AG-UI client signals attachments through {@code forwardedProps}
      * as a {@code Map} with key {@code "attachments"} holding a {@code List} of {@code Map<String, Object>} entries
      * shaped like {@code {name: String, contentType: String, base64: String}}. Each entry is decoded, stored through
-     * {@link AssetFileFacade#createFromUpload} so the file becomes a first-class workspace artifact (browsable in the
-     * Files panel, queryable by other tools, retained per workspace quota), and the resulting {@code FileEntry} is
+     * {@link AssetFileSystemFacade#createFromUpload} so the file becomes a first-class workspace artifact (browsable in
+     * the Files panel, queryable by other tools, retained per workspace quota), and the resulting {@code FileEntry} is
      * wrapped in {@link BridgedFileEntry} for the trigger's {@code instanceof FileEntry} discriminator. Same storage
-     * shape the legacy multipart upload path produced — using AssetFileFacade rather than the older temp file scope
-     * means a file dropped in either flavour of chat (workflow-chat or standard) becomes a first-class workspace
+     * shape the legacy multipart upload path produced — using AssetFileSystemFacade rather than the older temp file
+     * scope means a file dropped in either flavour of chat (workflow-chat or standard) becomes a first-class workspace
      * artifact instead of vanishing after the turn.
      * </p>
      */
@@ -1112,8 +1119,8 @@ public class WebhookBridgeAgent extends LocalAgent {
     /**
      * Promotes the raw client-shape attachment list ({@code [{name, contentType, base64}, ...]}) into a list of SDK
      * {@link com.bytechef.component.definition.FileEntry} instances by uploading each base64 payload through
-     * {@link AssetFileFacade#createFromUpload} (so the file becomes a first-class workspace artifact) and wrapping the
-     * resulting {@link AssetFile}'s underlying platform {@code FileEntry} in {@link BridgedFileEntry}.
+     * {@link AssetFileSystemFacade#createFromUpload} (so the file becomes a first-class workspace artifact) and
+     * wrapping the resulting {@link AssetFile}'s underlying platform {@code FileEntry} in {@link BridgedFileEntry}.
      *
      * <p>
      * Why we promote here rather than leave raw maps: webhook triggers — notably {@code ChatNewRequestTrigger.checkMap}
@@ -1125,7 +1132,7 @@ public class WebhookBridgeAgent extends LocalAgent {
      * <p>
      * Asset files inherit the chat's workspace + environment so they sit alongside whatever LLM- or workflow-emitted
      * artifacts the user already has in the Files panel. The {@code AssetFileSource} defaults to the upload variant
-     * (set by {@code AssetFileFacade.createFromUpload}) — distinct from the AI-generated source — so listings can
+     * (set by {@code AssetFileSystemFacade.createFromUpload}) — distinct from the AI-generated source — so listings can
      * filter on origin if needed.
      * </p>
      */
@@ -1161,7 +1168,7 @@ public class WebhookBridgeAgent extends LocalAgent {
                 // Reason categorisation here is best-effort — we want to know "storage backend is flaky" vs
                 // "client sent garbage" without doing per-exception-type matching. IllegalArgumentException
                 // from the Base64 decoder lands as decode_failure; everything else is upload_failure (covers
-                // workspace-quota, size-limit, and storage-backend errors from AssetFileFacade).
+                // workspace-quota, size-limit, and storage-backend errors from AssetFileSystemFacade).
                 String reason = exception instanceof IllegalArgumentException ? "decode_failure" : "upload_failure";
 
                 metrics.recordAttachmentFailure(reason);
@@ -1218,7 +1225,7 @@ public class WebhookBridgeAgent extends LocalAgent {
 
         // createFromUpload runs workspace quota + size-limit checks. The chat's environment ordinal is used
         // so dev-uploaded attachments don't leak into prod's Files panel listings (env is part of every list query).
-        AssetFile assetFile = assetFileFacade.createFromUpload(
+        AssetFile assetFile = assetFileSystemFacade.createFromUpload(
             chatService.getWorkspaceId(chat.getId()), chat.getEnvironment()
                 .ordinal(),
             filename, contentType, new ByteArrayInputStream(bytes));

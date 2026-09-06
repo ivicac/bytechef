@@ -18,14 +18,16 @@ package com.bytechef.automation.assetfile.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -39,28 +41,28 @@ import com.bytechef.automation.assetfile.config.AutomationAssetFileSharingProper
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.domain.AssetFileSource;
 import com.bytechef.automation.assetfile.domain.AssetFileVersion;
+import com.bytechef.automation.assetfile.exception.AssetFileNotFoundException;
 import com.bytechef.automation.assetfile.exception.AssetFileQuotaExceededException;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
 import com.bytechef.automation.assetfile.metric.AssetFileMetrics;
 import com.bytechef.automation.assetfile.repository.AssetFileVersionRepository;
-import com.bytechef.exception.QuotaLimitExceededException;
+import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.file.storage.token.FileEntryTokens;
-import com.bytechef.platform.plan.domain.PlanLimits;
-import com.bytechef.platform.plan.domain.PlanTier;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
+import com.bytechef.platform.user.domain.User;
+import com.bytechef.platform.user.service.UserService;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
-import org.apache.tika.Tika;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -87,6 +89,9 @@ class AssetFileFacadeTest {
     private AssetFileVersionRepository versionRepository;
 
     @Mock
+    private AssetFileSystemFacade assetFileSystemFacade;
+
+    @Mock
     private ObjectProvider<FileEntryTokens> fileEntryTokensObjectProvider;
 
     @Mock
@@ -94,6 +99,12 @@ class AssetFileFacadeTest {
 
     @Mock
     private ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private WorkspaceFacade workspaceFacade;
 
     private AssetFileFacade facade;
 
@@ -106,33 +117,47 @@ class AssetFileFacadeTest {
     void setUp() {
         quota = new AutomationAssetFileQuotaProperties(26_214_400L, 1_073_741_824L, 1_048_576L, 10);
 
+        User currentUser = new User();
+
+        currentUser.setId(1L);
+
+        lenient().when(userService.fetchCurrentUser())
+            .thenReturn(Optional.of(currentUser));
+        lenient().when(workspaceFacade.getUserWorkspaces(anyLong()))
+            .thenReturn(List.of(
+                new Workspace(1L, "workspace-1"), new Workspace(7L, "workspace-7"),
+                new Workspace(8L, "workspace-8")));
+
         facade = newFacade();
     }
 
     private AssetFileFacade newFacade() {
+        AssetFileWriteSupport writeSupport = new AssetFileWriteSupport(
+            service, fileStorage, metrics, orphanBlobRecorder, planLimitRejectionCounterObjectProvider,
+            planLimitsProviderObjectProvider, quota);
+
         return new AssetFileFacadeImpl(
-            service, fileStorage, metrics, orphanBlobRecorder, versionRepository, fileEntryTokensObjectProvider,
-            planLimitRejectionCounterObjectProvider, planLimitsProviderObjectProvider, quota, sharingProperties,
-            new Tika());
+            service, fileStorage, metrics, versionRepository, assetFileSystemFacade, writeSupport,
+            fileEntryTokensObjectProvider, quota, sharingProperties, userService, workspaceFacade);
     }
 
     @Test
     void testCreateFromUploadHappyPath() {
         byte[] bytes = "hello world".getBytes(StandardCharsets.UTF_8);
         FileEntry stored = new FileEntry("hello.txt", "asset-files/hello.txt");
+        AssetFile expected = new AssetFile();
 
-        when(fileStorage.storeFile(eq("hello.txt"), any(InputStream.class))).thenReturn(stored);
-        when(service.sumSizeBytesByWorkspaceIdAndEnvironment(1L, 0)).thenReturn(0L);
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-        when(service.create(any(AssetFile.class), eq(1L))).thenAnswer(invocation -> {
-            AssetFile assetFile = invocation.getArgument(0);
+        expected.setId(10L);
+        expected.setName("hello.txt");
+        expected.setSizeBytes(bytes.length);
+        expected.setSource(AssetFileSource.USER_UPLOAD);
+        expected.setMimeType("text/plain");
+        expected.setFile(stored);
+        expected.setWorkspaceId(1L);
 
-            assetFile.setId(10L);
-            assetFile.setWorkspaceId(invocation.getArgument(1));
-
-            return assetFile;
-        });
+        when(assetFileSystemFacade.createFromUpload(
+            eq(1L), eq(0), eq("hello.txt"), eq("text/plain"), any(InputStream.class)))
+                .thenReturn(expected);
 
         AssetFile result = facade.createFromUpload(1L, 0, "hello.txt", "text/plain", new ByteArrayInputStream(bytes));
 
@@ -143,114 +168,22 @@ class AssetFileFacadeTest {
         assertThat(result.getMimeType()).isNotNull();
         assertThat(result.getFile()).isEqualTo(stored);
         assertThat(result.getWorkspaceId()).isEqualTo(1L);
-
-        verify(metrics).recordCreate(eq(AssetFileSource.USER_UPLOAD), anyString());
     }
 
     @Test
-    void testCreateFromUploadRejectsWhenSingleFileOverLimit() {
-        quota = new AutomationAssetFileQuotaProperties(1024L, 1_073_741_824L, 1_048_576L, 10);
-
-        facade = newFacade();
-
-        byte[] bytes = new byte[2048];
-
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-
-        assertThatThrownBy(
-            () -> facade.createFromUpload(1L, 0, "big.bin", "application/octet-stream",
-                new ByteArrayInputStream(bytes)))
-                    .isInstanceOf(AssetFileQuotaExceededException.class);
-
-        verifyNoInteractions(fileStorage);
-        verify(service, never()).create(any(AssetFile.class), anyLong());
-    }
-
-    @Test
-    void testCreateFromUploadRejectsWhenWorkspaceTotalOver() {
-        quota = new AutomationAssetFileQuotaProperties(1_000_000L, 10_000L, 1_048_576L, 10);
-
-        facade = newFacade();
-
-        byte[] bytes = new byte[2];
-
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-        when(service.sumSizeBytesByWorkspaceIdAndEnvironment(1L, 0)).thenReturn(9999L);
-
-        assertThatThrownBy(
-            () -> facade.createFromUpload(1L, 0, "small.txt", "text/plain", new ByteArrayInputStream(bytes)))
-                .isInstanceOf(AssetFileQuotaExceededException.class);
-
-        verifyNoInteractions(fileStorage);
-        verify(service, never()).create(any(AssetFile.class), anyLong());
-    }
-
-    @Test
-    void testCreateFromUploadRejectsWhenPlanStorageQuotaOver() {
-        stubMaxStorageBytes(10L);
-
-        when(service.sumSizeBytes()).thenReturn(10L);
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-
-        byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
-
-        assertThatThrownBy(
-            () -> facade.createFromUpload(1L, 0, "hello.txt", "text/plain", new ByteArrayInputStream(bytes)))
-                .isInstanceOf(QuotaLimitExceededException.class);
-
-        verifyNoInteractions(fileStorage);
-        verify(service, never()).create(any(AssetFile.class), anyLong());
-    }
-
-    @Test
-    void testCreateFromUploadAllowedBelowPlanStorageQuota() {
-        stubMaxStorageBytes(1_000_000L);
-
-        when(service.sumSizeBytes()).thenReturn(100L);
-        when(service.sumSizeBytesByWorkspaceIdAndEnvironment(1L, 0)).thenReturn(100L);
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-
-        byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
-        FileEntry stored = new FileEntry("hello.txt", "asset-files/hello.txt");
-
-        when(fileStorage.storeFile(eq("hello.txt"), any(InputStream.class))).thenReturn(stored);
-        when(service.create(any(AssetFile.class), eq(1L))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        AssetFile result = facade.createFromUpload(1L, 0, "hello.txt", "text/plain", new ByteArrayInputStream(bytes));
-
-        assertThat(result.getSizeBytes()).isEqualTo(bytes.length);
-    }
-
-    private void stubMaxStorageBytes(Long maxStorageBytes) {
-        PlanLimits planLimits = new PlanLimits(
-            PlanTier.FREE, null, null, null, null, PlanLimits.DEFAULT_BURST_MULTIPLIER, null, null, null, null,
-            maxStorageBytes, null, null);
-
-        when(planLimitsProviderObjectProvider.getIfAvailable()).thenReturn(tenantId -> planLimits);
-    }
-
-    @Test
-    void testCreateFromUploadDeletesBlobIfDbWriteFails() {
+    void testCreateFromUploadPropagatesExceptionFromSystemFacade() {
         byte[] bytes = "data".getBytes(StandardCharsets.UTF_8);
-        FileEntry stored = new FileEntry("a.txt", "asset-files/a.txt");
 
-        when(fileStorage.storeFile(eq("a.txt"), any(InputStream.class))).thenReturn(stored);
-        when(service.sumSizeBytesByWorkspaceIdAndEnvironment(1L, 0)).thenReturn(0L);
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(eq(1L), anyInt(), anyString()))
-            .thenReturn(Optional.empty());
-        when(service.create(any(AssetFile.class), eq(1L)))
-            .thenThrow(new RuntimeException("db failure"));
+        when(assetFileSystemFacade.createFromUpload(
+            eq(1L), eq(0), eq("a.txt"), eq("text/plain"), any(InputStream.class)))
+                .thenThrow(new RuntimeException("db failure"));
 
         assertThatThrownBy(() -> facade.createFromUpload(1L, 0, "a.txt", "text/plain", new ByteArrayInputStream(bytes)))
             .isInstanceOf(RuntimeException.class)
             .hasMessage("db failure");
 
-        verify(fileStorage).deleteFile(stored);
-        verify(metrics, never()).recordCreate(any(AssetFileSource.class), anyString());
+        verify(assetFileSystemFacade).createFromUpload(
+            eq(1L), eq(0), eq("a.txt"), eq("text/plain"), any(InputStream.class));
     }
 
     @Test
@@ -323,11 +256,7 @@ class AssetFileFacadeTest {
     }
 
     @Test
-    void testUpdateContentEnforcesDeltaQuota() {
-        quota = new AutomationAssetFileQuotaProperties(1_000_000L, 10_000L, 1_048_576L, 10);
-
-        facade = newFacade();
-
+    void testUpdateContentPropagatesExceptionFromSystemFacade() {
         AssetFile existing = new AssetFile();
 
         existing.setId(5L);
@@ -337,7 +266,10 @@ class AssetFileFacadeTest {
         existing.setWorkspaceId(1L);
 
         when(service.findById(5L)).thenReturn(existing);
-        when(service.sumSizeBytesByWorkspaceIdAndEnvironment(1L, 0)).thenReturn(9000L);
+        when(assetFileSystemFacade.updateContentInWorkspace(
+            eq(5L), eq(1L), eq("text/markdown"), any(InputStream.class)))
+                .thenThrow(new AssetFileQuotaExceededException(
+                    "Workspace total 14000 would exceed limit 10000", 14000, 10000));
 
         byte[] newBytes = new byte[5900];
 
@@ -345,56 +277,48 @@ class AssetFileFacadeTest {
             () -> facade.updateContent(5L, "text/markdown", new ByteArrayInputStream(newBytes)))
                 .isInstanceOf(AssetFileQuotaExceededException.class);
 
-        verify(fileStorage, never()).storeFile(anyString(), any(InputStream.class));
-        verify(service, never()).update(any(AssetFile.class));
+        verify(assetFileSystemFacade).updateContentInWorkspace(
+            eq(5L), eq(1L), eq("text/markdown"), any(InputStream.class));
     }
 
     @Test
-    void testRenameCollisionAppendsSuffix() {
+    void testRenameDelegatesToSystemFacadeAndReturnsItsResult() {
         AssetFile existing = new AssetFile();
 
         existing.setId(5L);
         existing.setName("old.md");
         existing.setWorkspaceId(1L);
 
-        AssetFile other = new AssetFile();
+        AssetFile renamed = new AssetFile();
 
-        other.setId(6L);
-        other.setName("foo.md");
-        other.setWorkspaceId(1L);
+        renamed.setId(5L);
+        renamed.setName("foo-2.md");
+        renamed.setWorkspaceId(1L);
 
         when(service.findById(5L)).thenReturn(existing);
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(1L, 0, "foo.md")).thenReturn(Optional.of(other));
-        when(service.fetchByWorkspaceIdAndEnvironmentAndName(1L, 0, "foo-2.md")).thenReturn(Optional.empty());
-        when(service.update(any(AssetFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(assetFileSystemFacade.renameInWorkspace(5L, 1L, "foo.md")).thenReturn(renamed);
 
         AssetFile result = facade.rename(5L, "foo.md");
 
         assertThat(result.getName()).isEqualTo("foo-2.md");
+
+        verify(assetFileSystemFacade).renameInWorkspace(5L, 1L, "foo.md");
     }
 
     @Test
-    void testDeleteDeletesRowBeforeBlob() {
-        // Pins the post-fix ordering: the DB row must be deleted FIRST so a transaction rollback can never
-        // leave a row pointing at a missing blob. The blob delete is then deferred to afterCommit; outside
-        // an active transaction (this unit test), the facade falls back to deleting the blob synchronously
-        // after the DB delete returns.
+    void testDeleteDelegatesToSystemFacadeWithResolvedWorkspace() {
         FileEntry fileEntry = new FileEntry("x.txt", "asset-files/x.txt");
         AssetFile existing = new AssetFile();
 
         existing.setId(11L);
         existing.setFile(fileEntry);
+        existing.setWorkspaceId(1L);
 
         when(service.findById(11L)).thenReturn(existing);
 
         facade.delete(11L);
 
-        InOrder inOrder = inOrder(fileStorage, service);
-
-        inOrder.verify(service)
-            .delete(11L);
-        inOrder.verify(fileStorage)
-            .deleteFile(fileEntry);
+        verify(assetFileSystemFacade).deleteInWorkspace(11L, 1L);
     }
 
     @Test
@@ -402,6 +326,7 @@ class AssetFileFacadeTest {
         AssetFile assetFile = new AssetFile();
 
         assetFile.setId(42L);
+        assetFile.setWorkspaceId(1L);
 
         when(service.findById(42L)).thenReturn(assetFile);
 
@@ -414,18 +339,19 @@ class AssetFileFacadeTest {
 
         assetFile.setId(1L);
 
-        when(service.findAllByWorkspaceIdAndEnvironment(7L, 0, null)).thenReturn(List.of(assetFile));
-        when(service.findAllByWorkspaceIdAndEnvironment(eq(8L), anyInt(), anyList())).thenReturn(List.of(assetFile));
+        when(assetFileSystemFacade.findAllByWorkspaceIdAndEnvironment(7L, 0, null)).thenReturn(List.of(assetFile));
+        when(assetFileSystemFacade.findAllByWorkspaceIdAndEnvironment(eq(8L), anyInt(), anyList()))
+            .thenReturn(List.of(assetFile));
 
         assertThat(facade.findAllByWorkspaceIdAndEnvironment(7L, 0, null)).hasSize(1);
         assertThat(facade.findAllByWorkspaceIdAndEnvironment(8L, 0, List.of(2L, 3L))).hasSize(1);
 
-        verify(service, times(1)).findAllByWorkspaceIdAndEnvironment(7L, 0, null);
-        verify(service, times(1)).findAllByWorkspaceIdAndEnvironment(8L, 0, List.of(2L, 3L));
+        verify(assetFileSystemFacade, times(1)).findAllByWorkspaceIdAndEnvironment(7L, 0, null);
+        verify(assetFileSystemFacade, times(1)).findAllByWorkspaceIdAndEnvironment(8L, 0, List.of(2L, 3L));
     }
 
     @Test
-    void testGetOwningWorkspaceIdReturnsLink() {
+    void testBareIdOperationResolvesOwnerFromTheRowsWorkspaceLink() {
         AssetFile assetFile = new AssetFile();
 
         assetFile.setId(42L);
@@ -433,102 +359,112 @@ class AssetFileFacadeTest {
 
         when(service.findById(42L)).thenReturn(assetFile);
 
-        assertThat(facade.getOwningWorkspaceId(42L)).isEqualTo(11L);
+        assertThatThrownBy(() -> facade.findById(42L))
+            .as("workspace 11 is not among the caller's workspaces, so the owner read off the row denies the call")
+            .isInstanceOf(AssetFileNotFoundException.class)
+            .hasMessageContaining("42");
+
+        assetFile.setWorkspaceId(1L);
+
+        assertThat(facade.findById(42L)).isSameAs(assetFile);
     }
 
     @Test
-    void testGetOwningWorkspaceIdThrowsWhenLinkMissing() {
+    void testBareIdOperationThrowsNotFoundWhenTheIdIsUnknown() {
         when(service.findById(42L)).thenThrow(new IllegalArgumentException("AssetFile 42 not found"));
 
-        assertThatThrownBy(() -> facade.getOwningWorkspaceId(42L))
-            .isInstanceOf(com.bytechef.automation.assetfile.exception.AssetFileNotFoundException.class)
+        assertThatThrownBy(() -> facade.findById(42L))
+            .isInstanceOf(AssetFileNotFoundException.class)
             .hasMessageContaining("42");
     }
 
     @Test
-    void testUpdateContentSnapshotsPreviousContentAsVersion() {
-        FileEntry previousFile = new FileEntry("note.md", "asset-files/old.md");
-        AssetFile existing = new AssetFile();
+    void testBareIdOperationThrowsNotFoundWhenTheRowHasNoWorkspaceLink() {
+        AssetFile unlinked = new AssetFile();
 
-        existing.setId(5L);
-        existing.setName("note.md");
-        existing.setMimeType("text/markdown");
-        existing.setSizeBytes(100);
-        existing.setFile(previousFile);
-        existing.setWorkspaceId(1L);
+        unlinked.setId(42L);
 
-        FileEntry stored = new FileEntry("note.md", "asset-files/new.md");
+        when(service.findById(42L)).thenReturn(unlinked);
 
-        when(service.findById(5L)).thenReturn(existing);
-        when(fileStorage.storeFile(eq("note.md"), any(InputStream.class))).thenReturn(stored);
-        when(service.update(any(AssetFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(versionRepository.findFirstByAssetFileIdOrderByVersionNumberDesc(5L)).thenReturn(Optional.empty());
-        when(versionRepository.findAllByAssetFileIdOrderByVersionNumberDesc(5L)).thenReturn(List.of());
+        assertThatThrownBy(() -> facade.findById(42L))
+            .as("a row with no owning workspace has no membership that could be satisfied, so it is not found")
+            .isInstanceOf(AssetFileNotFoundException.class)
+            .hasMessageContaining("42");
+    }
 
-        byte[] newBytes = "new content".getBytes(StandardCharsets.UTF_8);
+    /**
+     * The security property of the bare-id 404 shape is indistinguishability: an id that does not exist, an id whose
+     * row carries no owning workspace, and an id owned by a workspace the caller is not a member of must be inseparable
+     * from outside, or the difference between them is a membership oracle that enumerates ids in other workspaces. The
+     * three results are compared to each other rather than to a literal so the invariant survives a rewording of the
+     * message.
+     */
+    @Test
+    void testTheThreeBareIdRefusalsAreIndistinguishable() {
+        AssetFile unlinked = new AssetFile();
 
-        AssetFile result = facade.updateContent(5L, "text/markdown", new ByteArrayInputStream(newBytes));
+        unlinked.setId(42L);
 
-        assertThat(result.getFile()).isEqualTo(stored);
+        AssetFile foreign = new AssetFile();
 
-        ArgumentCaptor<AssetFileVersion> versionCaptor = ArgumentCaptor.forClass(AssetFileVersion.class);
+        foreign.setId(42L);
+        foreign.setWorkspaceId(11L);
 
-        verify(versionRepository).save(versionCaptor.capture());
+        doThrow(new IllegalArgumentException("AssetFile 42 not found")).when(service)
+            .findById(42L);
 
-        AssetFileVersion snapshot = versionCaptor.getValue();
+        Throwable unknownId = catchThrowable(() -> facade.findById(42L));
 
-        assertThat(snapshot.getAssetFileId()).isEqualTo(5L);
-        assertThat(snapshot.getVersionNumber()).isEqualTo(1);
-        assertThat(snapshot.getFile()).isEqualTo(previousFile);
-        assertThat(snapshot.getMimeType()).isEqualTo("text/markdown");
-        assertThat(snapshot.getSizeBytes()).isEqualTo(100);
+        doReturn(unlinked).when(service)
+            .findById(42L);
 
-        // The prior blob now belongs to the version row — it must NOT be deleted on a content update.
-        verify(fileStorage, never()).deleteFile(previousFile);
+        Throwable nullOwningWorkspace = catchThrowable(() -> facade.findById(42L));
+
+        doReturn(foreign).when(service)
+            .findById(42L);
+
+        Throwable nonMember = catchThrowable(() -> facade.findById(42L));
+
+        assertThat(List.of(unknownId, nullOwningWorkspace, nonMember))
+            .as("all three refusals must be AssetFileNotFoundException - a different type is itself the oracle")
+            .allSatisfy(throwable -> assertThat(throwable).isInstanceOf(AssetFileNotFoundException.class));
+
+        assertThat(nullOwningWorkspace.getMessage())
+            .as("a row with no owning workspace must be indistinguishable from an id that does not exist")
+            .isEqualTo(unknownId.getMessage());
+
+        assertThat(nonMember.getMessage())
+            .as("a file owned by another workspace must be indistinguishable from an id that does not exist")
+            .isEqualTo(unknownId.getMessage());
     }
 
     @Test
-    void testUpdateContentPrunesVersionsBeyondCap() {
-        quota = new AutomationAssetFileQuotaProperties(26_214_400L, 1_073_741_824L, 1_048_576L, 1);
-
-        facade = newFacade();
-
-        FileEntry previousFile = new FileEntry("note.md", "asset-files/old.md");
+    void testUpdateContentDelegatesToSystemFacadeAndReturnsItsResult() {
         AssetFile existing = new AssetFile();
 
         existing.setId(5L);
         existing.setName("note.md");
         existing.setSizeBytes(100);
-        existing.setFile(previousFile);
+        existing.setFile(new FileEntry("note.md", "asset-files/old.md"));
         existing.setWorkspaceId(1L);
 
-        AssetFileVersion newest = new AssetFileVersion();
+        AssetFile updated = new AssetFile();
 
-        newest.setId(200L);
-        newest.setAssetFileId(5L);
-        newest.setVersionNumber(2);
-        newest.setFile(previousFile);
-
-        AssetFileVersion oldest = new AssetFileVersion();
-
-        oldest.setId(100L);
-        oldest.setAssetFileId(5L);
-        oldest.setVersionNumber(1);
-        oldest.setFile(new FileEntry("note.md", "asset-files/ancient.md"));
+        updated.setId(5L);
+        updated.setWorkspaceId(1L);
 
         when(service.findById(5L)).thenReturn(existing);
-        when(fileStorage.storeFile(eq("note.md"), any(InputStream.class)))
-            .thenReturn(new FileEntry("note.md", "asset-files/new.md"));
-        when(service.update(any(AssetFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(versionRepository.findFirstByAssetFileIdOrderByVersionNumberDesc(5L))
-            .thenReturn(Optional.of(oldest));
-        when(versionRepository.findAllByAssetFileIdOrderByVersionNumberDesc(5L))
-            .thenReturn(List.of(newest, oldest));
+        when(assetFileSystemFacade.updateContentInWorkspace(
+            eq(5L), eq(1L), eq("text/markdown"), any(InputStream.class)))
+                .thenReturn(updated);
 
-        facade.updateContent(5L, "text/markdown", new ByteArrayInputStream("x".getBytes(StandardCharsets.UTF_8)));
+        AssetFile result = facade.updateContent(
+            5L, "text/markdown", new ByteArrayInputStream("x".getBytes(StandardCharsets.UTF_8)));
 
-        verify(versionRepository).deleteById(100L);
-        verify(fileStorage).deleteFile(oldest.getFile());
+        assertThat(result).isSameAs(updated);
+
+        verify(assetFileSystemFacade).updateContentInWorkspace(
+            eq(5L), eq(1L), eq("text/markdown"), any(InputStream.class));
     }
 
     @Test
@@ -600,52 +536,39 @@ class AssetFileFacadeTest {
         when(versionRepository.findById(77L)).thenReturn(Optional.of(foreignVersion));
 
         assertThatThrownBy(() -> facade.restoreVersion(5L, 77L))
-            .isInstanceOf(com.bytechef.automation.assetfile.exception.AssetFileNotFoundException.class);
+            .isInstanceOf(AssetFileNotFoundException.class);
     }
 
     @Test
-    void testDeleteSchedulesVersionBlobDeletes() {
-        FileEntry fileEntry = new FileEntry("x.txt", "asset-files/x.txt");
-        FileEntry versionFileEntry = new FileEntry("x.txt", "asset-files/x-v1.txt");
-
+    void testDeleteThrowsWhenAssetFileHasNoWorkspaceId() {
         AssetFile existing = new AssetFile();
 
         existing.setId(11L);
-        existing.setFile(fileEntry);
-
-        AssetFileVersion version = new AssetFileVersion();
-
-        version.setId(1L);
-        version.setAssetFileId(11L);
-        version.setFile(versionFileEntry);
+        existing.setFile(new FileEntry("x.txt", "asset-files/x.txt"));
 
         when(service.findById(11L)).thenReturn(existing);
-        when(versionRepository.findAllByAssetFileIdOrderByVersionNumberDesc(11L)).thenReturn(List.of(version));
 
-        facade.delete(11L);
+        assertThatThrownBy(() -> facade.delete(11L))
+            .isInstanceOf(AssetFileNotFoundException.class);
 
-        verify(fileStorage).deleteFile(fileEntry);
-        verify(fileStorage).deleteFile(versionFileEntry);
+        verifyNoInteractions(assetFileSystemFacade);
     }
 
     @Test
-    void testDeleteEnqueuesOrphanWhenBlobDeleteFails() {
-        FileEntry fileEntry = new FileEntry("x.txt", "asset-files/x.txt");
+    void testDeletePropagatesFailureFromSystemFacade() {
         AssetFile existing = new AssetFile();
 
         existing.setId(11L);
-        existing.setFile(fileEntry);
+        existing.setWorkspaceId(1L);
 
         when(service.findById(11L)).thenReturn(existing);
-        when(versionRepository.findAllByAssetFileIdOrderByVersionNumberDesc(11L)).thenReturn(List.of());
         doThrow(new RuntimeException("storage down"))
-            .when(fileStorage)
-            .deleteFile(fileEntry);
+            .when(assetFileSystemFacade)
+            .deleteInWorkspace(11L, 1L);
 
-        facade.delete(11L);
-
-        verify(orphanBlobRecorder).record(fileEntry);
-        verify(metrics).recordBlobOrphan("RuntimeException");
+        assertThatThrownBy(() -> facade.delete(11L))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessage("storage down");
     }
 
     @Test
@@ -681,23 +604,13 @@ class AssetFileFacadeTest {
     }
 
     @Test
-    void testFetchByPublicLinkTokenEmptyWhenKillSwitchOff() {
-        sharingProperties = new AutomationAssetFileSharingProperties(false);
-
-        facade = newFacade();
-
-        assertThat(facade.fetchByPublicLinkToken("some-token")).isEmpty();
-
-        verifyNoInteractions(service);
-    }
-
-    @Test
     void testCreateSignedDownloadTokenDelegatesToFileEntryTokens() {
         FileEntry fileEntry = new FileEntry("x.txt", "asset-files/x.txt");
         AssetFile existing = new AssetFile();
 
         existing.setId(5L);
         existing.setFile(fileEntry);
+        existing.setWorkspaceId(1L);
 
         FileEntryTokens fileEntryTokens = mock(FileEntryTokens.class);
 

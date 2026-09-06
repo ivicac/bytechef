@@ -7,7 +7,12 @@
 
 package com.bytechef.ee.ai.hub.agent;
 
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -17,15 +22,22 @@ import com.agui.core.agent.AgentSubscriber;
 import com.agui.core.agent.RunAgentParameters;
 import com.agui.core.exception.AGUIException;
 import com.agui.core.message.BaseMessage;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.domain.AssetFile;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatKind;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.platform.configuration.domain.Environment;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * Unit tests for {@link AiHubRoutingAgent}. The router's only behaviour worth pinning is "the right kind goes to the
@@ -46,7 +58,7 @@ class AiHubRoutingAgentTest {
     private WebhookBridgeAgent webhookBridgeAgent;
     private AiHubChatService chatService;
     private AgentSubscriber subscriber;
-    private AssetFileFacade assetFileFacade;
+    private AssetFileSystemFacade assetFileSystemFacade;
 
     @BeforeEach
     void setUp() {
@@ -54,12 +66,17 @@ class AiHubRoutingAgentTest {
         webhookBridgeAgent = mock(WebhookBridgeAgent.class);
         chatService = mock(AiHubChatService.class);
         subscriber = mock(AgentSubscriber.class);
-        assetFileFacade = mock(AssetFileFacade.class);
+        assetFileSystemFacade = mock(AssetFileSystemFacade.class);
 
         when(llmAgent.runAgent(any(RunAgentParameters.class), any(AgentSubscriber.class)))
             .thenReturn(CompletableFuture.completedFuture(null));
         when(webhookBridgeAgent.runAgent(any(RunAgentParameters.class), any(AgentSubscriber.class)))
             .thenReturn(CompletableFuture.completedFuture(null));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -70,7 +87,7 @@ class AiHubRoutingAgentTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
 
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(THREAD_ID), subscriber)
             .join();
@@ -90,7 +107,7 @@ class AiHubRoutingAgentTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
 
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(THREAD_ID), subscriber)
             .join();
@@ -107,13 +124,66 @@ class AiHubRoutingAgentTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
 
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(THREAD_ID), subscriber)
             .join();
 
         verify(llmAgent).runAgent(any(RunAgentParameters.class), any(AgentSubscriber.class));
         verify(webhookBridgeAgent, never()).runAgent(any(), any());
+    }
+
+    /**
+     * The highest-value test in this class: {@code uploadAttachmentsBestEffort} runs on the same
+     * {@code ForkJoinPool.commonPool()} worker as the rest of {@code runAgent}, where {@code AiHubAgentTenantBinder}
+     * binds the tenant but establishes no {@code Authentication}. A membership check on that thread denies — the
+     * guarded facade resolves the user through {@code fetchCurrentUser}, so a missing principal is a non-member rather
+     * than an exception — and the surrounding try/catch in {@code uploadAttachmentsBestEffort} swallows that denial as
+     * a WARN, so the regression this guards against is silent: the chat turn still completes, but the attachment
+     * quietly never becomes a workspace asset file. Deliberately does NOT stub a current user — stubbing one would hide
+     * exactly this defect.
+     */
+    @Test
+    void testAttachmentUploadSucceedsWithNoSecurityContextEstablished() throws AGUIException {
+        SecurityContextHolder.clearContext();
+
+        AiHubChat chat = mock(AiHubChat.class);
+
+        when(chat.getId()).thenReturn(11L);
+        when(chat.getKind()).thenReturn(AiHubChatKind.STANDARD);
+        when(chat.getEnvironment()).thenReturn(Environment.PRODUCTION);
+        when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
+        when(chatService.getWorkspaceId(11L)).thenReturn(42L);
+
+        AssetFile assetFile = new AssetFile();
+
+        assetFile.setName("no-auth.pdf");
+        assetFile.setMimeType("application/pdf");
+        assetFile.setFile(new FileEntry("no-auth.pdf", "file:///workspace/no-auth.pdf"));
+
+        when(
+            assetFileSystemFacade.createFromUpload(
+                anyLong(), anyInt(), anyString(), anyString(), any(InputStream.class)))
+                    .thenReturn(assetFile);
+
+        Map<String, Object> attachment = Map.of(
+            "name", "no-auth.pdf",
+            "contentType", "application/pdf",
+            "base64", "JVBERi0=");
+        Map<String, Object> forwardedProps = Map.of("attachments", List.of(attachment));
+
+        AiHubRoutingAgent agent =
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
+
+        assertThatNoException()
+            .as("this runs on a commonPool worker where only the tenant is bound; requiring a principal here "
+                + "breaks every best-effort attachment upload for standard chats")
+            .isThrownBy(() -> agent.runAgent(parametersOf(THREAD_ID, forwardedProps), subscriber)
+                .join());
+
+        verify(assetFileSystemFacade).createFromUpload(
+            eq(42L), anyInt(), eq("no-auth.pdf"), eq("application/pdf"), any(InputStream.class));
+        verify(llmAgent).runAgent(any(RunAgentParameters.class), any(AgentSubscriber.class));
     }
 
     @Test
@@ -124,7 +194,7 @@ class AiHubRoutingAgentTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.empty());
 
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(THREAD_ID), subscriber)
             .join();
@@ -144,7 +214,7 @@ class AiHubRoutingAgentTest {
         when(chatService.findByThreadId(THREAD_ID)).thenReturn(Optional.of(chat));
 
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, null, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, null, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(THREAD_ID), subscriber)
             .join();
@@ -158,7 +228,7 @@ class AiHubRoutingAgentTest {
         // findByThreadId(null) would explode. The router's resolveKind short-circuits on blank/null threadId
         // and returns STANDARD (the safe default). Pin: chatService is NEVER called.
         AiHubRoutingAgent agent =
-            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileFacade);
+            new AiHubRoutingAgent(AGENT_ID, llmAgent, webhookBridgeAgent, chatService, assetFileSystemFacade);
 
         agent.runAgent(parametersOf(null), subscriber)
             .join();
@@ -168,9 +238,14 @@ class AiHubRoutingAgentTest {
     }
 
     private static RunAgentParameters parametersOf(String threadId) {
+        return parametersOf(threadId, null);
+    }
+
+    private static RunAgentParameters parametersOf(String threadId, Object forwardedProps) {
         RunAgentParameters.Builder builder = RunAgentParameters.builder()
             .runId("run-1")
-            .messages(List.<BaseMessage>of());
+            .messages(List.<BaseMessage>of())
+            .forwardedProps(forwardedProps);
 
         if (threadId != null) {
             builder.threadId(threadId);

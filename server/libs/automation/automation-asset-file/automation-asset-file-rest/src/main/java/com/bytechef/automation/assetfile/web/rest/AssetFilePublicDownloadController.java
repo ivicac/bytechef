@@ -18,7 +18,7 @@ package com.bytechef.automation.assetfile.web.rest;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.file.storage.exception.FileStorageException;
 import com.bytechef.file.storage.token.FileEntryTokens;
@@ -46,7 +46,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
  * file's link is enabled AND the operator-level {@code bytechef.asset-file.sharing.public-link-enabled} kill-switch is
  * on.</li>
  * <li>{@code /signed/{token}} — a short-lived HMAC-signed token minted via
- * {@link AssetFileFacade#createSignedDownloadToken}. Expires with the platform signed-URL TTL.</li>
+ * {@code AssetFileFacade#createSignedDownloadToken}. Expires with the platform signed-URL TTL.</li>
  * </ul>
  *
  * Every failure mode maps to a uniform 404 — an anonymous caller must not be able to distinguish "no such token",
@@ -61,23 +61,31 @@ public class AssetFilePublicDownloadController {
 
     private static final Logger log = LoggerFactory.getLogger(AssetFilePublicDownloadController.class);
 
-    private final AssetFileFacade assetFileFacade;
+    /**
+     * The system facade, not {@code AssetFileFacade}: this endpoint serves anonymous callers holding a capability
+     * token, so there is no {@code Authentication} to check membership against — a membership check would deny every
+     * request, which is exactly the anonymous download this endpoint exists to serve.
+     * {@link AssetFileSystemFacade#fetchByPublicLinkToken} carries no ownership check either, because it names no
+     * workspace: the unguessable token is the authorization, and the resolution succeeds only while the file's own
+     * public-link flag and the operator kill-switch both permit it.
+     */
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileFileStorage assetFileFileStorage;
     private final ObjectProvider<FileEntryTokens> fileEntryTokensObjectProvider;
 
     @SuppressFBWarnings("EI2")
     public AssetFilePublicDownloadController(
-        AssetFileFacade assetFileFacade, AssetFileFileStorage assetFileFileStorage,
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileFileStorage assetFileFileStorage,
         ObjectProvider<FileEntryTokens> fileEntryTokensObjectProvider) {
 
-        this.assetFileFacade = assetFileFacade;
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.assetFileFileStorage = assetFileFileStorage;
         this.fileEntryTokensObjectProvider = fileEntryTokensObjectProvider;
     }
 
     @GetMapping("/public/{token}")
     public ResponseEntity<StreamingResponseBody> downloadPublic(@PathVariable String token) {
-        Optional<AssetFile> assetFile = assetFileFacade.fetchByPublicLinkToken(token);
+        Optional<AssetFile> assetFile = assetFileSystemFacade.fetchByPublicLinkToken(token);
 
         if (assetFile.isEmpty()) {
             return ResponseEntity.notFound()

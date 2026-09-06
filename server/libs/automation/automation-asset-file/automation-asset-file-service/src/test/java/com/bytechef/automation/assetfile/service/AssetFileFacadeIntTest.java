@@ -18,11 +18,17 @@ package com.bytechef.automation.assetfile.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.assetfile.config.AssetFileIntTestConfiguration;
 import com.bytechef.automation.assetfile.domain.AssetFile;
+import com.bytechef.automation.assetfile.exception.AssetFileNotFoundException;
 import com.bytechef.automation.assetfile.exception.AssetFileQuotaExceededException;
 import com.bytechef.automation.assetfile.repository.AssetFileRepository;
+import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -57,8 +63,16 @@ class AssetFileFacadeIntTest {
     @Autowired
     private AssetFileRepository assetFileRepository;
 
+    @Autowired
+    private WorkspaceFacade workspaceFacade;
+
     private Long workspaceId;
 
+    /**
+     * The facade under test now enforces workspace membership. {@code workspaceFacade} is stubbed from the workspace id
+     * captured here rather than the old query-every-workspace-row test double, so a second workspace row in a future
+     * test can't silently make membership checks a no-op again.
+     */
     @BeforeEach
     public void beforeEach() {
         assetFileRepository.deleteAll();
@@ -74,6 +88,11 @@ class AssetFileFacadeIntTest {
 
         workspaceId = Objects.requireNonNull(
             jdbcTemplate.queryForObject("SELECT id FROM workspace WHERE name = ?", Long.class, "test-workspace"));
+
+        reset(workspaceFacade);
+
+        when(workspaceFacade.getUserWorkspaces(anyLong()))
+            .thenReturn(List.of(new Workspace(workspaceId, "test-workspace")));
     }
 
     @AfterEach
@@ -137,7 +156,7 @@ class AssetFileFacadeIntTest {
         assertThat(assetFileRepository.findById(createdId)).isNotPresent();
 
         assertThatThrownBy(() -> assetFileFacade.downloadContent(createdId))
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(AssetFileNotFoundException.class);
     }
 
     @Test

@@ -21,10 +21,33 @@ import com.bytechef.automation.assetfile.domain.AssetFileFormat;
 import com.bytechef.automation.assetfile.domain.AssetFileVersion;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * Principal-facing entry point to workspace asset files. Every method that names a workspace or an asset file
+ * authorizes the current user itself, so callers need no guard of their own:
+ *
+ * <ul>
+ * <li>Methods taking an explicit {@code workspaceId} verify the current user is a member of that workspace and throw
+ * {@link org.springframework.security.access.AccessDeniedException} when they are not — the caller named the workspace,
+ * so it is told plainly that the assertion failed.</li>
+ * <li>Methods taking only an asset file id resolve the owning workspace from the id and throw
+ * {@link com.bytechef.automation.assetfile.exception.AssetFileNotFoundException} both when the id does not exist and
+ * when it belongs to another workspace. The two cases are deliberately indistinguishable so a caller cannot probe which
+ * ids exist elsewhere.</li>
+ * </ul>
+ *
+ * <p>
+ * {@link #getMaxFileSizeBytes} is the one exception and needs none: it names neither a workspace nor a file, and
+ * returns an operator-wide configuration constant that is identical for every caller.
+ * </p>
+ *
+ * <p>
+ * There is deliberately no operation that maps an arbitrary id to its owning workspace: such a method is a membership
+ * oracle. Callers that hold a workspace context should use {@link #findByIdInWorkspace} instead. Callers with no
+ * authenticated principal must not use this interface at all — see {@link AssetFileSystemFacade}.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public interface AssetFileFacade {
@@ -81,17 +104,6 @@ public interface AssetFileFacade {
      */
     AssetFile findByIdInWorkspace(Long id, Long workspaceId);
 
-    /**
-     * Returns the workspace id that owns the given asset file. Used by the REST layer to translate a file id into a
-     * workspace before checking caller membership: download/replace endpoints take only the file id in the path, so
-     * resolving the workspace at the controller level is the only way to apply a workspace-membership gate without
-     * forcing every client to thread the workspace through the URL.
-     *
-     * @throws com.bytechef.automation.assetfile.exception.AssetFileNotFoundException when the id does not resolve to a
-     *                                                                                workspace asset file
-     */
-    Long getOwningWorkspaceId(Long id);
-
     AssetFile rename(Long id, String newName);
 
     /**
@@ -125,12 +137,6 @@ public interface AssetFileFacade {
     String enablePublicLink(Long id);
 
     void disablePublicLink(Long id);
-
-    /**
-     * Resolves a public-link token to its asset file. Returns empty when the token is unknown OR when the operator has
-     * switched public sharing off — an existing link stops resolving the moment the kill-switch flips.
-     */
-    Optional<AssetFile> fetchByPublicLinkToken(String token);
 
     /**
      * Mints a short-lived HMAC-signed download token for the file's current content, redeemable anonymously at the

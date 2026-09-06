@@ -24,7 +24,7 @@ import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
-import com.bytechef.automation.assetfile.service.AssetFileFacade;
+import com.bytechef.automation.assetfile.service.AssetFileSystemFacade;
 import com.bytechef.component.assetfile.util.AssetFileContextResolver;
 import com.bytechef.component.assetfile.util.AssetFileUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -41,18 +41,20 @@ import java.util.Map;
  */
 public class AssetFileFindAction {
 
-    private final AssetFileFacade assetFileFacade;
+    private final AssetFileSystemFacade assetFileSystemFacade;
     private final AssetFileContextResolver contextResolver;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
 
-        return new AssetFileFindAction(assetFileFacade, contextResolver).build();
+        return new AssetFileFindAction(assetFileSystemFacade, contextResolver).build();
     }
 
-    private AssetFileFindAction(AssetFileFacade assetFileFacade, AssetFileContextResolver contextResolver) {
-        this.assetFileFacade = assetFileFacade;
+    private AssetFileFindAction(
+        AssetFileSystemFacade assetFileSystemFacade, AssetFileContextResolver contextResolver) {
+
+        this.assetFileSystemFacade = assetFileSystemFacade;
         this.contextResolver = contextResolver;
     }
 
@@ -81,8 +83,8 @@ public class AssetFileFindAction {
 
         List<Long> tagIds = inputParameters.getList(TAG_IDS, Long.class, List.of());
 
-        List<AssetFile> assetFiles = assetFileFacade.findAllByWorkspaceIdAndEnvironment(workspaceId, environment,
-            tagIds);
+        List<AssetFile> assetFiles = assetFileSystemFacade.findAllByWorkspaceIdAndEnvironment(
+            workspaceId, environment, tagIds);
 
         return AssetFileUtils.toMaps(assetFiles);
     }
