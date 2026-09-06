@@ -84,6 +84,20 @@ public record AiGuardrailsWorkspaceSettings(
     public enum BlockingMode {
 
         BLOCK,
-        REDACT_AND_CONTINUE
+        REDACT_AND_CONTINUE,
+
+        /**
+         * Observe mode: the violation is detected and recorded, and the content is forwarded unmodified. Governs the
+         * three blocking guardrails only -- blocked terms, injection, moderation -- exactly as the other two values do;
+         * PII and secret redaction are applied inline on every path and are unaffected by this setting.
+         *
+         * <p>
+         * Exists so a guardrail can be turned on against real traffic before it enforces: run a week in {@code ALLOW},
+         * read the {@code guardrail_allowed} counter, then promote to {@code REDACT_AND_CONTINUE} or {@code BLOCK}.
+         * Without it every guardrail change is a leap taken on production traffic, and the cost of being wrong is a
+         * blocked or mangled production call.
+         * </p>
+         */
+        ALLOW
     }
 }

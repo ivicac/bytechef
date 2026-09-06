@@ -43,11 +43,29 @@ public record PiiToken(String category, int ordinal, String sessionId) {
 
     public static final int SESSION_ID_LENGTH = 4;
 
-    private static final Pattern PATTERN =
-        Pattern.compile("\\[PII_([A-Z][A-Z0-9_]*)_(\\d+)_([a-z0-9]{" + SESSION_ID_LENGTH + "})\\]");
+    /**
+     * The characters a session-id discriminator is drawn from. Lives here, beside the patterns that must accept it,
+     * rather than in {@code PiiTokenSession} which mints from it -- the same reason {@link #SESSION_ID_LENGTH} does.
+     *
+     * <p>
+     * It was written three times before this: once as the minting alphabet and twice as a {@code [a-z0-9]} character
+     * class in the two patterns below. Nothing tied them together, so widening the alphabet (adding uppercase, say)
+     * would have kept minting tokens that this type's own patterns silently refuse to parse -- and an unparseable token
+     * is a value that can never be restored, which surfaces only as a rising {@code token_unresolved} counter.
+     * {@code PiiTokenTest} pins that every character here is accepted by {@link #SESSION_ID_PATTERN}, which is the one
+     * correspondence the derivation below cannot enforce by construction.
+     * </p>
+     */
+    public static final String SESSION_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+    private static final String SESSION_ID_CHARACTER_CLASS = "[a-z0-9]";
+
+    private static final Pattern PATTERN = Pattern.compile(
+        "\\[PII_([A-Z][A-Z0-9_]*)_(\\d+)_(" + SESSION_ID_CHARACTER_CLASS + "{" + SESSION_ID_LENGTH + "})\\]");
 
     private static final Pattern CATEGORY_PATTERN = Pattern.compile("[A-Z][A-Z0-9_]*");
-    private static final Pattern SESSION_ID_PATTERN = Pattern.compile("[a-z0-9]{" + SESSION_ID_LENGTH + "}");
+    private static final Pattern SESSION_ID_PATTERN =
+        Pattern.compile(SESSION_ID_CHARACTER_CLASS + "{" + SESSION_ID_LENGTH + "}");
 
     public PiiToken {
         Objects.requireNonNull(category, "category must not be null");

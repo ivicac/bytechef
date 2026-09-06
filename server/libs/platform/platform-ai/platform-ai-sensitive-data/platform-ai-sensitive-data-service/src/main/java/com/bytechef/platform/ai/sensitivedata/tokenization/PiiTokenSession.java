@@ -42,8 +42,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class PiiTokenSession {
 
-    private static final String SESSION_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final AtomicInteger nextOrdinal = new AtomicInteger(1);
@@ -64,7 +62,8 @@ public final class PiiTokenSession {
         StringBuilder builder = new StringBuilder(PiiToken.SESSION_ID_LENGTH);
 
         for (int index = 0; index < PiiToken.SESSION_ID_LENGTH; index++) {
-            builder.append(SESSION_ID_ALPHABET.charAt(SECURE_RANDOM.nextInt(SESSION_ID_ALPHABET.length())));
+            builder.append(PiiToken.SESSION_ID_ALPHABET.charAt(
+                SECURE_RANDOM.nextInt(PiiToken.SESSION_ID_ALPHABET.length())));
         }
 
         return new PiiTokenSession(builder.toString());
