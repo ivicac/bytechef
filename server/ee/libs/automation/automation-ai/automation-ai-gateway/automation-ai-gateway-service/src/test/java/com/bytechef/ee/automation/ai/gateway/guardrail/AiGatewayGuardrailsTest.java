@@ -23,6 +23,7 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -443,6 +444,151 @@ class AiGatewayGuardrailsTest {
 
         assertThat(counter("pii_redacted")).isEqualTo(0.0);
         assertThat(counter("secret_redacted")).isEqualTo(0.0);
+    }
+
+    @Test
+    void testApplyWithSessionTokenizesInsteadOfRedacting() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false);
+        PiiTokenSession session = guardrails.newTokenSession();
+
+        AiGatewayChatCompletionRequest result =
+            guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
+
+        String content = result.messages()
+            .getFirst()
+            .content();
+
+        assertThat(content).isEqualTo("Contact [PII_EMAIL_1_" + session.sessionId() + "]");
+    }
+
+    @Test
+    void testApplyWithNullSessionRedactsExactlyAsToday() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false);
+
+        AiGatewayChatCompletionRequest withoutSessionParam = guardrails.apply(requestOf("Contact bob@acme.io"), null);
+        AiGatewayChatCompletionRequest withNullSession =
+            guardrails.apply(requestOf("Contact bob@acme.io"), null, null, null);
+
+        assertThat(withNullSession.messages()
+            .getFirst()
+            .content()).isEqualTo(withoutSessionParam.messages()
+                .getFirst()
+                .content());
+        assertThat(withNullSession.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+    }
+
+    @Test
+    void testApplyWithSessionStillRejectsBlockedTerm() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "classified", false, false, false);
+        PiiTokenSession session = guardrails.newTokenSession();
+
+        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(
+            () -> guardrails.apply(requestOf("the CLASSIFIED memo"), null, null, session));
+    }
+
+    @Test
+    void testNewTokenSessionCreatesFreshSession() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        PiiTokenSession first = guardrails.newTokenSession();
+        PiiTokenSession second = guardrails.newTokenSession();
+
+        assertThat(first.sessionId()).isNotEqualTo(second.sessionId());
+    }
+
+    /**
+     * Mutation-sensitive: the model's completion text carries this call's own session token (simulating the model
+     * echoing back what it was given) alongside a brand-new, never-tokenized email address. A correct scan-then-restore
+     * implementation leaves the new address masked (still-active response scanning catches genuinely new PII) while
+     * restoring the known token back to its real value. Reversing the order would additionally re-redact the restored
+     * value once the scanner saw it in the clear, collapsing both addresses down to the same {@code [REDACTED_EMAIL]}
+     * placeholder and making this assertion fail.
+     */
+    @Test
+    void testRedactResponseWithSessionScansBeforeRestoring() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, true);
+        PiiTokenSession session = guardrails.newTokenSession();
+
+        guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
+
+        String token = "[PII_EMAIL_1_" + session.sessionId() + "]";
+
+        AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
+            responseOf("Sure, reaching out to " + token + " now; also cc alice@acme.io"), null, null, session);
+
+        String content = redacted.choices()
+            .getFirst()
+            .message()
+            .content();
+
+        assertThat(content).isEqualTo("Sure, reaching out to bob@acme.io now; also cc [REDACTED_EMAIL]");
+    }
+
+    /**
+     * {@code restoreResponseText} records {@code pii_restored}/{@code token_unresolved} through the metrics instance
+     * this adapter passes it — its own field, tagged {@code surface=gateway} (see the {@code counter} helper below) —
+     * so these two events must be observable at the adapter level, not just proven at the engine level in
+     * {@code AiGuardrailsTest}.
+     */
+    @Test
+    void testRedactResponseWithSessionRecordsPiiRestoredUnderGatewaySurface() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, true);
+        PiiTokenSession session = guardrails.newTokenSession();
+
+        guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
+
+        String token = "[PII_EMAIL_1_" + session.sessionId() + "]";
+
+        guardrails.redactResponse(responseOf("Reaching out to " + token + " now"), null, null, session);
+
+        assertThat(counter("pii_restored")).isEqualTo(1.0);
+        assertThat(counter("token_unresolved")).isEqualTo(0.0);
+    }
+
+    /**
+     * A token-shaped span this session never minted (a different session id than {@code session}'s own) is left exactly
+     * as-is in the restored text and counted as {@code token_unresolved} — the anomaly signal for a mangled or
+     * cross-session token, recorded under this adapter's own {@code surface=gateway} instance.
+     */
+    @Test
+    void testRedactResponseWithSessionRecordsTokenUnresolvedUnderGatewaySurface() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, true);
+        PiiTokenSession session = guardrails.newTokenSession();
+
+        // Mint one real token so this test also proves resolved and unresolved tokens are counted independently in
+        // the same call, not just that an empty session can flag one (see AiGuardrailsTest and PiiTokenSessionTest
+        // for that case: restoreWithUnresolvedCount() no longer short-circuits to "0 unresolved" when the session
+        // minted nothing).
+        guardrails.apply(requestOf("Contact bob@acme.io"), null, null, session);
+
+        AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
+            responseOf("Reaching out to [PII_EMAIL_1_zzzz] now"), null, null, session);
+
+        assertThat(counter("token_unresolved")).isEqualTo(1.0);
+        assertThat(redacted.choices()
+            .getFirst()
+            .message()
+            .content()).contains("[PII_EMAIL_1_zzzz]");
+    }
+
+    @Test
+    void testRedactResponseWithNullSessionRedactsExactlyAsToday() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, true);
+
+        AiGatewayChatCompletionResponse withoutSessionParam = guardrails.redactResponse(
+            responseOf("contact bob@acme.io"), null);
+        AiGatewayChatCompletionResponse withNullSession = guardrails.redactResponse(
+            responseOf("contact bob@acme.io"), null, null, null);
+
+        assertThat(withNullSession.choices()
+            .getFirst()
+            .message()
+            .content()).isEqualTo(withoutSessionParam.choices()
+                .getFirst()
+                .message()
+                .content());
     }
 
     private double counter(String event) {
