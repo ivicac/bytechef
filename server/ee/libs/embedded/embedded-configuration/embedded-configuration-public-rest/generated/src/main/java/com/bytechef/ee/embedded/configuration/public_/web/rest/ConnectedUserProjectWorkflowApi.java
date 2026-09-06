@@ -441,9 +441,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "De-provision a reference to an automation workflow template for the authenticated connected user.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
-            }),
+            @ApiResponse(responseCode = "204", description = "Successful operation."),
             @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
@@ -457,7 +455,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_FRONTEND_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Object> disableFrontendProjectWorkflow(
+    default ResponseEntity<Void> disableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
@@ -492,9 +490,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Disable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
-            }),
+            @ApiResponse(responseCode = "204", description = "Successful operation."),
             @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
@@ -508,7 +504,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Object> disableProjectWorkflow(
+    default ResponseEntity<Void> disableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
@@ -543,9 +539,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
-            }),
+            @ApiResponse(responseCode = "204", description = "Successful operation."),
             @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
@@ -559,7 +553,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_FRONTEND_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Object> enableFrontendProjectWorkflow(
+    default ResponseEntity<Void> enableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
@@ -594,9 +588,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
-            }),
+            @ApiResponse(responseCode = "204", description = "Successful operation."),
             @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
@@ -610,7 +602,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Object> enableProjectWorkflow(
+    default ResponseEntity<Void> enableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
@@ -664,7 +656,7 @@ public interface ConnectedUserProjectWorkflowApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] }";
+                    String exampleString = "{ \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -708,7 +700,7 @@ public interface ConnectedUserProjectWorkflowApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] }, { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] } ]";
+                    String exampleString = "[ { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } }, { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -756,7 +748,7 @@ public interface ConnectedUserProjectWorkflowApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] }";
+                    String exampleString = "{ \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -802,7 +794,7 @@ public interface ConnectedUserProjectWorkflowApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] }, { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ] } ]";
+                    String exampleString = "[ { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } }, { \"createdDate\" : \"2000-01-23T04:56:07.000+00:00\", \"description\" : \"description\", \"definition\" : \"definition\", \"lastModifiedDate\" : \"2000-01-23T04:56:07.000+00:00\", \"enabled\" : true, \"label\" : \"label\", \"workflowUuid\" : \"workflowUuid\", \"workflowVersion\" : 0, \"kind\" : \"COPY\", \"catalogWorkflowUuid\" : \"catalogWorkflowUuid\", \"copiedFromWorkflowUuid\" : \"copiedFromWorkflowUuid\", \"dangling\" : true, \"components\" : [ { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" }, { \"name\" : \"name\", \"title\" : \"title\", \"icon\" : \"icon\" } ], \"inputs\" : [ { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true }, { \"name\" : \"name\", \"label\" : \"label\", \"type\" : \"type\", \"required\" : true } ], \"inputValues\" : { \"key\" : \"\" } } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -880,9 +872,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Explicitly provision a reference to a catalog code workflow ahead of first invocation.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
-            }),
+            @ApiResponse(responseCode = "204", description = "Successful operation."),
             @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
@@ -896,7 +886,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_PROVISION_WORKFLOW_REFERENCE,
         produces = { "application/json" }
     )
-    default ResponseEntity<Object> provisionWorkflowReference(
+    default ResponseEntity<Void> provisionWorkflowReference(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
@@ -1085,10 +1075,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Store the input values the connected user supplied for a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required workflow input has no value; the reference stays disabled.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingInputErrorModel.class))
-            })
+            @ApiResponse(responseCode = "204", description = "Successful operation.")
         },
         security = {
             @SecurityRequirement(name = "jwtBearerAuth")
@@ -1097,7 +1084,6 @@ public interface ConnectedUserProjectWorkflowApi {
     @RequestMapping(
         method = RequestMethod.PUT,
         value = ConnectedUserProjectWorkflowApi.PATH_UPDATE_FRONTEND_PROJECT_WORKFLOW_INPUTS,
-        produces = { "application/json" },
         consumes = { "application/json" }
     )
     default ResponseEntity<Void> updateFrontendProjectWorkflowInputs(
@@ -1105,15 +1091,6 @@ public interface ConnectedUserProjectWorkflowApi {
         @Parameter(name = "UpdateWorkflowInputsRequestModel", description = "", required = true) @Valid @RequestBody UpdateWorkflowInputsRequestModel updateWorkflowInputsRequestModel,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
-        getRequest().ifPresent(request -> {
-            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
-                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"missingInputName\" : \"missingInputName\" }";
-                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
-                    break;
-                }
-            }
-        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
@@ -1259,10 +1236,7 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Store the input values a connected user supplied for a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required workflow input has no value; the reference stays disabled.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingInputErrorModel.class))
-            })
+            @ApiResponse(responseCode = "204", description = "Successful operation.")
         },
         security = {
             @SecurityRequirement(name = "bearerAuth")
@@ -1271,7 +1245,6 @@ public interface ConnectedUserProjectWorkflowApi {
     @RequestMapping(
         method = RequestMethod.PUT,
         value = ConnectedUserProjectWorkflowApi.PATH_UPDATE_PROJECT_WORKFLOW_INPUTS,
-        produces = { "application/json" },
         consumes = { "application/json" }
     )
     default ResponseEntity<Void> updateProjectWorkflowInputs(
@@ -1280,15 +1253,6 @@ public interface ConnectedUserProjectWorkflowApi {
         @Parameter(name = "UpdateWorkflowInputsRequestModel", description = "", required = true) @Valid @RequestBody UpdateWorkflowInputsRequestModel updateWorkflowInputsRequestModel,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
-        getRequest().ifPresent(request -> {
-            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
-                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"missingInputName\" : \"missingInputName\" }";
-                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
-                    break;
-                }
-            }
-        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }

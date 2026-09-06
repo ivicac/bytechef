@@ -13,6 +13,13 @@
  */
 
 import { mapValues } from '../runtime';
+import type { AutomationWorkflowProjectWorkflowInput } from './AutomationWorkflowProjectWorkflowInput';
+import {
+    AutomationWorkflowProjectWorkflowInputFromJSON,
+    AutomationWorkflowProjectWorkflowInputFromJSONTyped,
+    AutomationWorkflowProjectWorkflowInputToJSON,
+    AutomationWorkflowProjectWorkflowInputToJSONTyped,
+} from './AutomationWorkflowProjectWorkflowInput';
 import type { AutomationWorkflowProjectComponent } from './AutomationWorkflowProjectComponent';
 import {
     AutomationWorkflowProjectComponentFromJSON,
@@ -43,6 +50,10 @@ export interface AutomationWorkflowProjectWorkflowTemplate {
      * The list of components used in this workflow.
      */
     components?: Array<AutomationWorkflowProjectComponent>;
+    /**
+     * The values the connected user is asked for before this workflow runs.
+     */
+    inputs?: Array<AutomationWorkflowProjectWorkflowInput>;
 }
 
 /**
@@ -66,6 +77,7 @@ export function AutomationWorkflowProjectWorkflowTemplateFromJSONTyped(json: any
         'label': json['label'] == null ? undefined : json['label'],
         'description': json['description'] == null ? undefined : json['description'],
         'components': json['components'] == null ? undefined : ((json['components'] as Array<any>).map(AutomationWorkflowProjectComponentFromJSON)),
+        'inputs': json['inputs'] == null ? undefined : ((json['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputFromJSON)),
     };
 }
 
@@ -84,6 +96,7 @@ export function AutomationWorkflowProjectWorkflowTemplateToJSONTyped(value?: Aut
         'label': value['label'],
         'description': value['description'],
         'components': value['components'] == null ? undefined : ((value['components'] as Array<any>).map(AutomationWorkflowProjectComponentToJSON)),
+        'inputs': value['inputs'] == null ? undefined : ((value['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputToJSON)),
     };
 }
 

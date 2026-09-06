@@ -46,6 +46,10 @@ public class ConnectionModel {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime createdDate;
 
+  private @Nullable Boolean shared;
+
+  private @Nullable Boolean editable;
+
   public ConnectionModel() {
     super();
   }
@@ -205,6 +209,48 @@ public class ConnectionModel {
     this.createdDate = createdDate;
   }
 
+  public ConnectionModel shared(@Nullable Boolean shared) {
+    this.shared = shared;
+    return this;
+  }
+
+  /**
+   * Whether a tenant admin marked this connection shared with every connected user in the environment. Shared and owned are independent: a connected user may own a connection the admin also shared, and can still modify that one -- see `editable`.
+   * @return shared
+   */
+  
+  @Schema(name = "shared", description = "Whether a tenant admin marked this connection shared with every connected user in the environment. Shared and owned are independent: a connected user may own a connection the admin also shared, and can still modify that one -- see `editable`.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("shared")
+  public @Nullable Boolean getShared() {
+    return shared;
+  }
+
+  @JsonProperty("shared")
+  public void setShared(@Nullable Boolean shared) {
+    this.shared = shared;
+  }
+
+  public ConnectionModel editable(@Nullable Boolean editable) {
+    this.editable = editable;
+    return this;
+  }
+
+  /**
+   * Whether THIS connected user may reconnect or delete the connection, which is true only of the ones they own. A shared connection they do not own is listed and selectable but never modifiable: it belongs to the tenant admin who shared it, and changing it would act on every connected user at once.
+   * @return editable
+   */
+  
+  @Schema(name = "editable", description = "Whether THIS connected user may reconnect or delete the connection, which is true only of the ones they own. A shared connection they do not own is listed and selectable but never modifiable: it belongs to the tenant admin who shared it, and changing it would act on every connected user at once.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("editable")
+  public @Nullable Boolean getEditable() {
+    return editable;
+  }
+
+  @JsonProperty("editable")
+  public void setEditable(@Nullable Boolean editable) {
+    this.editable = editable;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -220,12 +266,14 @@ public class ConnectionModel {
         Objects.equals(this.componentName, connection.componentName) &&
         Objects.equals(this.connectionVersion, connection.connectionVersion) &&
         Objects.equals(this.authorizationType, connection.authorizationType) &&
-        Objects.equals(this.createdDate, connection.createdDate);
+        Objects.equals(this.createdDate, connection.createdDate) &&
+        Objects.equals(this.shared, connection.shared) &&
+        Objects.equals(this.editable, connection.editable);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, environment, componentName, connectionVersion, authorizationType, createdDate);
+    return Objects.hash(id, name, environment, componentName, connectionVersion, authorizationType, createdDate, shared, editable);
   }
 
   @Override
@@ -239,6 +287,8 @@ public class ConnectionModel {
     sb.append("    connectionVersion: ").append(toIndentedString(connectionVersion)).append("\n");
     sb.append("    authorizationType: ").append(toIndentedString(authorizationType)).append("\n");
     sb.append("    createdDate: ").append(toIndentedString(createdDate)).append("\n");
+    sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
+    sb.append("    editable: ").append(toIndentedString(editable)).append("\n");
     sb.append("}");
     return sb.toString();
   }
