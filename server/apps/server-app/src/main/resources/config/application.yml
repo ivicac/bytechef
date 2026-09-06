@@ -319,6 +319,17 @@ spring:
     virtual:
       enabled: true
 
+db-scheduler:
+  polling-interval: 1s
+  polling-strategy: lock-and-fetch
+  threads: 10
+
+db-scheduler-ui:
+  read-only: true
+  task-data: true
+  log:
+    enabled: false
+
 # The Quartz Manager starters are developmentOnly dependencies, so these are inert in a packaged application.
 # They are kept outside the dev profile because bootRun puts the starters on the classpath whichever profile is
 # active, and Quartz Manager fails to start without them. Only the dashboard itself is limited to the dev profile.
