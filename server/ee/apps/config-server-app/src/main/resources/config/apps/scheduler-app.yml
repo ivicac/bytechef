@@ -16,6 +16,7 @@ spring:
   liquibase:
     contexts: scheduler
   quartz:
+    auto-startup: false
     job-store-type: jdbc
     jdbc:
       initialize-schema: never
