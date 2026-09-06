@@ -1,8 +1,15 @@
 # MCP outbound guardrails — design
 
-**Status:** approved, not implemented
+**Status:** **Implemented.** Plan at `docs/superpowers/plans/2026-09-02-mcp-outbound-guardrails.md`;
+all five wrap points, the SPI seam, the `redactMcpResults` switch, the fail-closed decorator and the
+per-module coverage scans are in the tree. The status line read "approved, not implemented" until
+2026-09-06, when a reconciliation pass found the work had shipped — the same stale-label failure the
+settings-scope spec had. Three passages were superseded after this spec was written and are corrected
+in place below, each marked: the `Problem` section's gap grep, `resolveMcpOutboundPolicy`'s signature,
+and the whole of "Embedded resolves to the tenant default".
 **Ticket:** 732
 **Date:** 2026-09-02
+**Reconciled:** 2026-09-06
 
 ## Problem
 
@@ -21,6 +28,10 @@ grep -rln 'guardrail\|Guardrail\|SensitiveDataRedactor\|PiiToken' \
 ```
 
 returns nothing. Authentication exists; content inspection does not.
+
+> **Superseded 2026-09-06.** That grep now returns five files, three of them tests including
+> `McpOutboundGuardrailsCoverageTest`. It is kept because it is the evidence the gap was real when this
+> spec was written; it is no longer a check a reader should run expecting silence.
 
 Copilot, the canvas AI Agent, and AI Hub all talk to a provider the tenant configured under the
 tenant's own key. MCP does not — the receiving party is an external agent the tenant did not
@@ -192,6 +203,12 @@ A new method on `AiGuardrails` (EE):
 public @Nullable PiiTokenBoundaryPolicy resolveMcpOutboundPolicy(@Nullable Long workspaceId)
 ```
 
+> **Superseded 2026-09-06** by `2026-09-05-embedded-guardrail-settings-scope-design.md`, which replaced
+> the bare `Long` on every settings-reading method with a scope-carrying target. The shipped signature is
+> `resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget target)`. Everything else in this section — the
+> reuse of the policy record, the exclusion from `isActive`, the switch-not-a-category-list rule —
+> holds as written. The record itself has since been renamed `SensitiveDataPolicy`; see below.
+
 returning null when `redactMcpResults` is unset/false, and otherwise the kinds (from the
 workspace's own `redactPii` / `redactSecrets`) and `minConfidence`.
 
@@ -208,6 +225,28 @@ separate change, since it is referenced from `PiiTokenBoundaryToolCallingManager
 not part of this work** — it is recorded here so the naming debt is deliberate and visible rather
 than accidental.
 
+> ### ✅ Debt paid, 2026-09-06
+>
+> `PiiTokenBoundaryPolicy` → `SensitiveDataPolicy` and `PiiTokenBoundaryPolicyToolContext` →
+> `SensitiveDataPolicyToolContext`, with the in-process `ToolContext` key moved to
+> `bytechef.sensitive-data-policy`. `PiiTokenBoundaryToolCallingManager` deliberately keeps its name — it
+> *is* the PII token boundary — and `resolveToolBoundaryPolicy` / `toolBoundaryPolicyOf` were already
+> surface-neutral.
+>
+> **One premise above has expired, and the rename did not fix it.** This paragraph says the record's
+> fields are "a kinds-and-threshold pair with nothing token-specific in it". That was true on 2026-09-02.
+> It gained a third component since — `restoreOutboundArguments`, from the restoration-destination work —
+> which decides whether PII *tokens* in a tool call's outbound arguments are restored to real values
+> before the delegate runs. That is token-specific and boundary-specific, and both MCP resolvers now pass
+> a hardcoded `true` for it that no MCP code path ever reads. It is harmless only because
+> `RedactingToolCallback` has no outbound direction to gate — not because `true` is the right answer
+> there.
+>
+> Splitting that component onto its own type is the real fix. It is deliberately not part of the rename
+> either: it changes the tool boundary's `SensitiveDataPolicy#DEFAULT` fallback semantics, which wants
+> its own decision rather than riding along. Recorded on the record's own javadoc as well, so a reader
+> arriving from the code sees it without finding this spec.
+
 **It must not participate in `AiGuardrails.isActive`.** `isActive` gates whether chat surfaces
 attach a guardrails advisor at all; adding `redactMcpResults` to its union would make enabling MCP
 redaction start attaching advisors to Copilot and the canvas agent — precisely the cross-surface
@@ -216,15 +255,29 @@ surprise this design avoids.
 `redactMcpResults` is the switch, not a duplicate category list: which kinds and what threshold
 come from the settings the workspace already has.
 
-### Embedded resolves to the tenant default
+### Embedded resolves the embedded row
 
-`EmbeddedMcpToolFacade` carries `ToolExecutionSurface.MCP_EMBEDDED` but no `workspaceId` —
-embedded is `Property.Scope.EMBEDDED`, not workspace-scoped. It passes `workspaceId = null`, which
-resolves the tenant-default settings row. This matches embedded Copilot, which already resolves
-`getAdvisor(null, null, ...)`.
+> **Corrected 2026-09-06.** This section was titled "Embedded resolves to the tenant default" and said
+> so. It is no longer true, and the change was deliberate: see below.
 
-Consequence, stated so it is not discovered later: an embedded deployment cannot vary MCP outbound
-redaction per workspace. There is one setting for the tenant.
+`EmbeddedMcpToolFacade` carries `ToolExecutionSurface.MCP_EMBEDDED` but no `workspaceId` — embedded is
+`Property.Scope.EMBEDDED`, not workspace-scoped. As first written it passed `workspaceId = null` and
+resolved the **tenant-default** row, matching embedded Copilot.
+
+What shipped instead routes on the surface: `McpOutboundRedactorProviderImpl` branches on the surface
+constant and calls `resolveEmbeddedMcpOutboundPolicy()`, which reads the **EMBEDDED** settings row —
+the row the embedded settings page writes. It is pinned by
+`McpOutboundRedactorProviderTest#testRoutesTheEmbeddedSurfaceToTheEmbeddedScopeNotTheTenantDefault`.
+
+That surface-derived branch is why `redactMcpResults` was, for a time, the *only* control on the
+embedded guardrails page that did anything: it is the one setting that never went through the
+workspace resolver, which collapsed platform type and workspace into a single `@Nullable Long` and so
+could not express EMBEDDED at all. That defect is recorded and fixed in
+`2026-09-05-embedded-guardrail-settings-scope-design.md`.
+
+The consequence this section originally stated survives, for a different reason than it gave: an
+embedded deployment still cannot vary MCP outbound redaction per workspace. Not because it falls back
+to the tenant default, but because embedded has exactly one settings row of its own.
 
 ## Failure policy — fail closed
 
@@ -251,7 +304,7 @@ and there is no second chance. A broken integration is recoverable; an exfiltrat
 |---|---|---|
 | `McpOutboundRedactorProvider`, `McpOutboundRedactor` | `platform-ai-api` (CE) | the seam |
 | `McpOutboundRedactorProviderImpl` | `platform-ai-guardrails-service` (EE) | resolve policy, build a surface-tagged redactor |
-| `AiGuardrails#resolveMcpOutboundPolicy` | `platform-ai-guardrails-service` (EE) | settings → `PiiTokenBoundaryPolicy` or null |
+| `AiGuardrails#resolveMcpOutboundPolicy` / `#resolveEmbeddedMcpOutboundPolicy` | `platform-ai-guardrails-service` (EE) | settings → `SensitiveDataPolicy` or null; the second reads the EMBEDDED row |
 | `RedactingToolCallback` | `platform-ai-api` (CE) | the decorator; per-call resolution; fail closed |
 | `guard(ToolCallback)` helper | each MCP configuration | one wrap site per file |
 | `redactMcpResults` | `AiGuardrailsWorkspaceSettings` (EE api) + its service impl | the switch |
@@ -295,7 +348,8 @@ must pass.
 - present when set, carrying the kinds implied by `redactPii` / `redactSecrets`
 - honours the workspace's `minConfidence`, falling back to
   `SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE`
-- `workspaceId = null` resolves the tenant-default row
+- `workspaceId = null` resolves the tenant-default row, and the `mcp_embedded` surface resolves the
+  EMBEDDED row rather than that default
 
 **Settings round-trip** (`AiGuardrailsWorkspaceSettingsServiceTest`): a stored map without the new
 key deserializes to `null`, and a settings object with `null` does not write the key.

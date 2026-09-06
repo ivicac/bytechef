@@ -14,6 +14,7 @@ import com.bytechef.automation.configuration.security.constant.PermissionScopeTy
 import com.bytechef.ee.automation.configuration.security.PermissionScopeProvider;
 import com.bytechef.ee.automation.configuration.security.PermissionScopeProvider.ScopeDefinition;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
+import com.bytechef.ee.automation.configuration.security.scope.AiGatewayPermissionScopeProvider;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -87,6 +88,18 @@ class PermissionScopeRegistryTest {
 
         assertThatThrownBy(() -> new PermissionScopeRegistry(List.of(first, second)))
             .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void testAiGatewayEditRequiresAdmin() {
+        PermissionScopeRegistry registry = new PermissionScopeRegistry(
+            List.of(new AiGatewayPermissionScopeProvider()));
+
+        Set<String> viewerScopes = registry.getScopeNames(WorkspaceRole.VIEWER);
+        Set<String> adminScopes = registry.getScopeNames(WorkspaceRole.ADMIN);
+
+        assertThat(viewerScopes).doesNotContain("AI_GATEWAY_EDIT");
+        assertThat(adminScopes).contains("AI_GATEWAY_EDIT");
     }
 
     private static Set<String> union(Set<String> first, Set<String> second) {
