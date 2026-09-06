@@ -28,6 +28,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
 import com.bytechef.automation.ai.agent.facade.AiAgentFacade;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.automation.ai.tool.AssetFileToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.aiagent.AiAgentToolCallbacksFactory;
@@ -35,7 +36,6 @@ import com.bytechef.automation.ai.tool.datatable.DataTableToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
@@ -71,7 +71,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             intelligentDefinition("debugWorkflowExecution"), intelligentDefinition("importWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), intelligentToolCatalog, mock(WorkspaceService.class));
+            emptyProvider(), intelligentToolCatalog, mock(AccessibleWorkspaceResolver.class));
 
         // Pins that copilotAgentToolCallbackContributor's getByNames call correctly passes the fed-in fake
         // definitions through to its output; the real ChatClient-to-callback wiring for those six is
@@ -93,7 +93,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void contributesNothingWhenAllAbsent() {
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), catalogOf(), mock(WorkspaceService.class));
+            emptyProvider(), catalogOf(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -106,7 +106,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             intelligentDefinition("debugWorkflowExecution"), intelligentDefinition("importWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), intelligentToolCatalog, mock(WorkspaceService.class));
+            emptyProvider(), intelligentToolCatalog, mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
@@ -119,7 +119,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(AssetFileFacade.class), null);
 
         McpServerToolCallbackContributor contributor = configuration.assetFileFlatCrudMcpContributor(
-            presentAssetFileFactory(assetFileToolCallbacksFactory), mock(WorkspaceService.class));
+            presentAssetFileFactory(assetFileToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -132,7 +132,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void assetFileContributorSkipsWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.assetFileFlatCrudMcpContributor(
-            absentAssetFileFactory(), mock(WorkspaceService.class));
+            absentAssetFileFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -143,7 +143,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(AssetFileFacade.class), null);
 
         McpServerToolCallbackContributor contributor = configuration.assetFileFlatCrudMcpContributor(
-            presentAssetFileFactory(assetFileToolCallbacksFactory), mock(WorkspaceService.class));
+            presentAssetFileFactory(assetFileToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
@@ -157,7 +157,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             null);
 
         McpServerToolCallbackContributor contributor = configuration.dataTableFlatCrudMcpContributor(
-            presentDataTableFactory(dataTableToolCallbacksFactory), mock(WorkspaceService.class));
+            presentDataTableFactory(dataTableToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -171,7 +171,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void dataTableContributorSkipsWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.dataTableFlatCrudMcpContributor(
-            absentDataTableFactory(), mock(WorkspaceService.class));
+            absentDataTableFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -183,7 +183,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             null);
 
         McpServerToolCallbackContributor contributor = configuration.dataTableFlatCrudMcpContributor(
-            presentDataTableFactory(dataTableToolCallbacksFactory), mock(WorkspaceService.class));
+            presentDataTableFactory(dataTableToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
@@ -198,7 +198,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(KnowledgeBaseDocumentService.class), null);
 
         McpServerToolCallbackContributor contributor = configuration.knowledgeBaseFlatCrudMcpContributor(
-            presentKnowledgeBaseFactory(knowledgeBaseToolCallbacksFactory), mock(WorkspaceService.class));
+            presentKnowledgeBaseFactory(knowledgeBaseToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -211,7 +211,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void knowledgeBaseContributorSkipsWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.knowledgeBaseFlatCrudMcpContributor(
-            absentKnowledgeBaseFactory(), mock(WorkspaceService.class));
+            absentKnowledgeBaseFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -224,7 +224,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(KnowledgeBaseDocumentService.class), null);
 
         McpServerToolCallbackContributor contributor = configuration.knowledgeBaseFlatCrudMcpContributor(
-            presentKnowledgeBaseFactory(knowledgeBaseToolCallbacksFactory), mock(WorkspaceService.class));
+            presentKnowledgeBaseFactory(knowledgeBaseToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
@@ -237,7 +237,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             new AiAgentToolCallbacksFactory(mock(AiAgentFacade.class));
 
         McpServerToolCallbackContributor contributor = configuration.aiAgentFlatCrudMcpContributor(
-            presentAiAgentFactory(aiAgentToolCallbacksFactory), mock(WorkspaceService.class));
+            presentAiAgentFactory(aiAgentToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -251,7 +251,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void aiAgentContributorSkipsWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.aiAgentFlatCrudMcpContributor(
-            absentAiAgentFactory(), mock(WorkspaceService.class));
+            absentAiAgentFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -262,7 +262,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             new AiAgentToolCallbacksFactory(mock(AiAgentFacade.class));
 
         McpServerToolCallbackContributor contributor = configuration.aiAgentFlatCrudMcpContributor(
-            presentAiAgentFactory(aiAgentToolCallbacksFactory), mock(WorkspaceService.class));
+            presentAiAgentFactory(aiAgentToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
@@ -275,7 +275,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(ProjectDeploymentFacade.class));
 
         McpServerToolCallbackContributor contributor = configuration.deploymentFlatCrudMcpContributor(
-            presentFactory(deploymentToolCallbacksFactory), mock(WorkspaceService.class));
+            presentFactory(deploymentToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -288,7 +288,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     @Test
     void deploymentContributorSkipsWhenFactoryAbsent() {
         McpServerToolCallbackContributor contributor = configuration.deploymentFlatCrudMcpContributor(
-            absentFactory(), mock(WorkspaceService.class));
+            absentFactory(), mock(AccessibleWorkspaceResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -299,7 +299,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             mock(ProjectDeploymentFacade.class));
 
         McpServerToolCallbackContributor contributor = configuration.deploymentFlatCrudMcpContributor(
-            presentFactory(deploymentToolCallbacksFactory), mock(WorkspaceService.class));
+            presentFactory(deploymentToolCallbacksFactory), mock(AccessibleWorkspaceResolver.class));
 
         List<ToolCallback> toolCallbacks = contributor.getToolCallbacks();
 

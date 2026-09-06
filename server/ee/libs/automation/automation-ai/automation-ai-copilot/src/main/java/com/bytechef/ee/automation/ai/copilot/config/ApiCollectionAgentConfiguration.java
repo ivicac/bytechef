@@ -17,8 +17,8 @@ import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.automation.ai.tool.WorkspaceScopedFlatToolCallback;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.ee.automation.ai.tool.ApiCollectionToolCallbacksFactory;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import java.io.IOException;
@@ -217,7 +217,8 @@ public class ApiCollectionAgentConfiguration {
     @Bean
     @ConditionalOnBean(ApiCollectionFacade.class)
     McpServerToolCallbackContributor apiCollectionFlatCrudMcpContributor(
-        ApiCollectionToolCallbacksFactory apiCollectionToolCallbacksFactory, WorkspaceService workspaceService) {
+        ApiCollectionToolCallbacksFactory apiCollectionToolCallbacksFactory,
+        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -228,7 +229,7 @@ public class ApiCollectionAgentConfiguration {
 
                 toolCallbacks.add(
                     WORKSPACE_SCOPED_API_COLLECTION_TOOL_NAMES.contains(name)
-                        ? new WorkspaceScopedFlatToolCallback(toolCallback, workspaceService)
+                        ? new WorkspaceScopedFlatToolCallback(toolCallback, accessibleWorkspaceResolver)
                         : toolCallback);
             }
 

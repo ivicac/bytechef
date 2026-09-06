@@ -22,6 +22,7 @@ import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
@@ -721,12 +722,13 @@ class AiGatewayGuardrailsTest {
         Boolean injectionDetectionEnabled, Boolean scanResponses) {
 
         return new AiGuardrailsWorkspaceSettings(
-            7L, redactPii, redactSecrets, blockedTerms, moderationEnabled, injectionDetectionEnabled, scanResponses,
-            null, null, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, redactPii, redactSecrets, blockedTerms, moderationEnabled,
+            injectionDetectionEnabled, scanResponses, null, null, null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
-        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence, null);
+        return new AiGuardrailsWorkspaceSettings(
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, minConfidence, null);
     }
 
     private static double scoreOf(String type) {
