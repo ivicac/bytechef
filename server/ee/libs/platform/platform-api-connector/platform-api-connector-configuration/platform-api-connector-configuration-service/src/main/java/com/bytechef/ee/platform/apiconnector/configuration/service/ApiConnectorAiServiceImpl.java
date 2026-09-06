@@ -10,16 +10,20 @@ package com.bytechef.ee.platform.apiconnector.configuration.service;
 import com.bytechef.commons.util.UrlValidator;
 import com.bytechef.ee.platform.apiconnector.configuration.exception.ApiConnectorErrorType;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
@@ -60,6 +64,7 @@ public class ApiConnectorAiServiceImpl implements ApiConnectorAiService {
             The output should start with 'openapi: "3.0.0"' or 'openapi: "3.0.1"'.
             """;
 
+    private final ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider;
     private final ApiConnectorGenerationJobService apiConnectorGenerationJobService;
     private final ChatModel chatModel;
     private final WebScrapeService webScrapeService;
@@ -68,11 +73,13 @@ public class ApiConnectorAiServiceImpl implements ApiConnectorAiService {
 
     @SuppressFBWarnings("EI")
     public ApiConnectorAiServiceImpl(
+        ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider,
         ApiConnectorGenerationJobService apiConnectorGenerationJobService, ChatModel chatModel,
         WebScrapeService webScrapeService,
         @Value("${bytechef.security.ssrf.enabled:true}") boolean ssrfEnabled,
         @Value("${bytechef.security.ssrf.allowed-hosts:}") Set<String> ssrfAllowedHosts) {
 
+        this.aiGuardrailsAdvisorProviderProvider = aiGuardrailsAdvisorProviderProvider;
         this.apiConnectorGenerationJobService = apiConnectorGenerationJobService;
         this.chatModel = chatModel;
         this.webScrapeService = webScrapeService;
@@ -88,15 +95,50 @@ public class ApiConnectorAiServiceImpl implements ApiConnectorAiService {
             "Analyze the following API documentation and generate an OpenAPI 3.0 specification:\n\n%s",
             documentationContent);
 
-        Prompt prompt = new Prompt(SYSTEM_PROMPT + "\n\nUser: " + userPrompt);
-
-        String response = extractResponseText(chatModel.call(prompt));
+        String response = extractResponseText(guardedChatClient()
+            .prompt(SYSTEM_PROMPT + "\n\nUser: " + userPrompt)
+            .call()
+            .chatResponse());
 
         return cleanOpenApiResponse(response);
     }
 
-    private static String extractResponseText(ChatResponse chatResponse) {
-        Generation generation = chatResponse.getResult();
+    /**
+     * Wraps {@code chatModel} in a {@link ChatClient} carrying the tenant's guardrails advisor.
+     *
+     * <p>
+     * The prompt embeds the free-text instructions an admin typed plus documentation scraped from a URL they named.
+     * {@code AiGuardrailsAdvisor} is a {@link ChatClient} advisor, so the previous {@code chatModel.call(new
+     * Prompt(...))} could not be intercepted by it at all -- no settings change could bring this call under guardrails.
+     * </p>
+     *
+     * <p>
+     * The workspace is always null here, and deliberately: API connectors are tenant-level and admin-only, so there is
+     * no workspace to resolve and the tenant-default settings row is the correct one -- see
+     * {@link GuardrailSurface#API_CONNECTOR}.
+     * </p>
+     */
+    private ChatClient guardedChatClient() {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = aiGuardrailsAdvisorProviderProvider.getIfAvailable();
+
+        if (aiGuardrailsAdvisorProvider != null) {
+            aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(null, GuardrailSurface.API_CONNECTOR)
+                .ifPresent(builder::defaultAdvisors);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * The parameter is nullable where it was not before: {@code chatModel.call(prompt)} always returned a response, but
+     * {@code ChatClient…call().chatResponse()} is declared nullable and returns null when the advisor chain
+     * short-circuits — which is exactly what a blocking guardrail does. Null is the same condition as an empty
+     * generation, so it takes the same typed failure rather than an NPE.
+     */
+    private static String extractResponseText(@Nullable ChatResponse chatResponse) {
+        Generation generation = chatResponse == null ? null : chatResponse.getResult();
 
         String text = generation == null ? null
             : generation.getOutput()
@@ -196,9 +238,10 @@ public class ApiConnectorAiServiceImpl implements ApiConnectorAiService {
                 promptMessage = promptMessage + "\n\nUser instructions:\n" + userInstructions;
             }
 
-            Prompt prompt = new Prompt(SYSTEM_PROMPT + "\n\nUser: " + promptMessage);
-
-            String response = extractResponseText(chatModel.call(prompt));
+            String response = extractResponseText(guardedChatClient()
+                .prompt(SYSTEM_PROMPT + "\n\nUser: " + promptMessage)
+                .call()
+                .chatResponse());
 
             if (apiConnectorGenerationJobService.isCancellationRequested(jobId)) {
                 log.debug("Job {} was cancelled after AI generation", jobId);
