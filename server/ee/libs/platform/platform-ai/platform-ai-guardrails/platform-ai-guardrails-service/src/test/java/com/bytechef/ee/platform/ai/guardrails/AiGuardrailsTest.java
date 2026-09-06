@@ -18,7 +18,7 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifi
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -46,11 +46,11 @@ class AiGuardrailsTest {
             "Email me at jane.doe@example.com or call 415-555-0132. SSN 123-45-6789, card 4111 1111 1111 1111, " +
                 "host 192.168.1.20.");
 
-        assertThat(redacted).contains("[REDACTED_EMAIL]");
-        assertThat(redacted).contains("[REDACTED_SSN]");
-        assertThat(redacted).contains("[REDACTED_CC]");
-        assertThat(redacted).contains("[REDACTED_PHONE]");
-        assertThat(redacted).contains("[REDACTED_IP]");
+        assertThat(redacted).contains("[REDACTED_EMAIL_ADDRESS]");
+        assertThat(redacted).contains("[REDACTED_US_SSN]");
+        assertThat(redacted).contains("[REDACTED_CREDIT_CARD]");
+        assertThat(redacted).contains("[REDACTED_PHONE_NUMBER]");
+        assertThat(redacted).contains("[REDACTED_IP_ADDRESS]");
         assertThat(redacted).doesNotContain("jane.doe@example.com");
         assertThat(redacted).doesNotContain("123-45-6789");
     }
@@ -114,7 +114,7 @@ class AiGuardrailsTest {
 
         List<String> result = guardrails.applyToInputs(List.of("Contact bob@acme.io"), null);
 
-        assertThat(result.getFirst()).isEqualTo("Contact [REDACTED_EMAIL]");
+        assertThat(result.getFirst()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -147,7 +147,7 @@ class AiGuardrailsTest {
 
         List<String> result = guardrails.applyToInputs(List.of("Contact bob@acme.io"), 7L);
 
-        assertThat(result.getFirst()).isEqualTo("Contact [REDACTED_EMAIL]");
+        assertThat(result.getFirst()).isEqualTo("Contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -223,7 +223,7 @@ class AiGuardrailsTest {
             "The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io", null);
 
         assertThat(scanned).contains("[REDACTED_SECRET]");
-        assertThat(scanned).contains("[REDACTED_EMAIL]");
+        assertThat(scanned).contains("[REDACTED_EMAIL_ADDRESS]");
         assertThat(scanned).doesNotContain("AKIAIOSFODNN7EXAMPLE");
         assertThat(scanned).doesNotContain("bob@acme.io");
     }
@@ -235,7 +235,8 @@ class AiGuardrailsTest {
         when(settingsService.fetchSettings(7L))
             .thenReturn(Optional.of(settings(null, null, null, null, true)));
 
-        assertThat(guardrails.scanResponseText("contact bob@acme.io", 7L)).isEqualTo("contact [REDACTED_EMAIL]");
+        assertThat(guardrails.scanResponseText("contact bob@acme.io", 7L))
+            .isEqualTo("contact [REDACTED_EMAIL_ADDRESS]");
     }
 
     @Test
@@ -524,8 +525,8 @@ class AiGuardrailsTest {
         String text = results.getFirst()
             .text();
 
-        assertThat(text).contains("[PII_EMAIL_1_" + session.sessionId() + "]");
-        assertThat(text).contains("[PII_EMAIL_2_" + session.sessionId() + "]");
+        assertThat(text).contains("[PII_EMAIL_ADDRESS_1_" + session.sessionId() + "]");
+        assertThat(text).contains("[PII_EMAIL_ADDRESS_2_" + session.sessionId() + "]");
     }
 
     @Test
@@ -608,7 +609,7 @@ class AiGuardrailsTest {
 
         String text = result.getFirst();
 
-        assertThat(text).isEqualTo("Contact [PII_EMAIL_1_" + session.sessionId() + "]");
+        assertThat(text).isEqualTo("Contact [PII_EMAIL_ADDRESS_1_" + session.sessionId() + "]");
         assertThat(guardrails.restoreResponseText(text, session, metrics)).isEqualTo("Contact bob@acme.io");
     }
 

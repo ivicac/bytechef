@@ -16,6 +16,7 @@
 
 package com.bytechef.component.ai.agent.guardrails.util;
 
+import com.bytechef.platform.ai.sensitivedata.SecretPatternCatalog;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,17 +55,37 @@ public final class SecretKeyDetectorUtils {
     private record NamedPattern(String type, Pattern pattern) {
     }
 
-    private static final List<NamedPattern> NAMED_PROVIDER_PATTERNS = List.of(
-        new NamedPattern("AWS_ACCESS_KEY", Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b")),
-        new NamedPattern("AWS_SECRET_KEY", Pattern.compile("(?i)aws.{0,20}?[\"'][0-9a-zA-Z/+]{40}[\"']")),
-        new NamedPattern("GITHUB_PAT", Pattern.compile("\\bghp_[0-9A-Za-z]{36}\\b")),
-        new NamedPattern("GITHUB_FINE_GRAINED_PAT", Pattern.compile("\\bgithub_pat_[0-9A-Za-z_]{82}\\b")),
-        new NamedPattern("SLACK_TOKEN", Pattern.compile("\\bxox[abp]-[0-9A-Za-z-]{10,48}\\b")),
-        new NamedPattern("STRIPE_KEY", Pattern.compile("\\b(?:sk|pk)_(?:live|test)_[0-9A-Za-z]{16,}\\b")),
-        new NamedPattern("GOOGLE_API_KEY", Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}\\b")),
-        new NamedPattern("OPENAI_KEY", Pattern.compile("\\bsk-[0-9A-Za-z]{20,}\\b")),
-        new NamedPattern("JWT",
-            Pattern.compile("\\bey[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\b")));
+    /**
+     * The catalog type this component never surfaces: PEM private-key blocks are a platform-only detection (see
+     * {@link SecretPatternCatalog}'s javadoc), so the component's public {@link #detect(String, Permissiveness)} must
+     * never report it even though the shared catalog carries it.
+     */
+    private static final String PEM_PRIVATE_KEY_TYPE = "PEM_PRIVATE_KEY";
+
+    /**
+     * The catalog split {@code SecretPatternCatalog} carries as two entries (so the platform detector can exclude the
+     * publishable one) but this component reports under its original, pre-split single type. Before the split, this
+     * component's own {@code STRIPE_KEY} regex already matched both {@code sk_}/{@code pk_} shapes and reported them
+     * both as {@code STRIPE_KEY}; folding the two catalog entries back into that one type here keeps the component's
+     * observable behavior — what {@link SecretMatch#type()} reports — unchanged by the split. See
+     * {@link SecretPatternCatalog}'s javadoc for why the platform-side split exists.
+     */
+    private static final Map<String, String> CATALOG_TYPE_OVERRIDES = Map.of(
+        "STRIPE_SECRET_KEY", "STRIPE_KEY",
+        "STRIPE_PUBLISHABLE_KEY", "STRIPE_KEY");
+
+    /**
+     * The named-provider patterns this component matches against, derived from the shared platform catalog so the
+     * patterns exist exactly once ({@link SecretPatternCatalog#ALL}), minus {@link #PEM_PRIVATE_KEY_TYPE} and with
+     * {@link #CATALOG_TYPE_OVERRIDES} applied. This component keeps its own {@link NamedPattern} record — its matching
+     * loop references it by that type — but the pattern data itself is no longer duplicated here.
+     */
+    private static final List<NamedPattern> NAMED_PROVIDER_PATTERNS = SecretPatternCatalog.ALL.stream()
+        .filter(secretPattern -> !secretPattern.type()
+            .equals(PEM_PRIVATE_KEY_TYPE))
+        .map(secretPattern -> new NamedPattern(
+            CATALOG_TYPE_OVERRIDES.getOrDefault(secretPattern.type(), secretPattern.type()), secretPattern.pattern()))
+        .toList();
 
     private static final NamedPattern KEY_EQUALS_VALUE = new NamedPattern(
         "GENERIC_SECRET",

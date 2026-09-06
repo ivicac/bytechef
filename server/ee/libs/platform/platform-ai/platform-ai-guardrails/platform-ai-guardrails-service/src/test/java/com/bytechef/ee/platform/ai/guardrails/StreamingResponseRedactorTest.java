@@ -9,12 +9,12 @@ package com.bytechef.ee.platform.ai.guardrails;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataDetector;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataDetectors;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveDataRedactor;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveKind;
-import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
-import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetectors;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
+import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
+import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
+import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.EnumSet;
