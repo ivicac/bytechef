@@ -20,6 +20,8 @@ Name | Type
 `copiedFromWorkflowUuid` | string
 `dangling` | boolean
 `components` | [Array&lt;AutomationWorkflowProjectComponent&gt;](AutomationWorkflowProjectComponent.md)
+`inputs` | [Array&lt;AutomationWorkflowProjectWorkflowInput&gt;](AutomationWorkflowProjectWorkflowInput.md)
+`inputValues` | { [key: string]: any; }
 
 ## Example
 
@@ -41,6 +43,8 @@ const example = {
   "copiedFromWorkflowUuid": null,
   "dangling": null,
   "components": null,
+  "inputs": null,
+  "inputValues": null,
 } satisfies ConnectedUserProjectWorkflow
 
 console.log(example)

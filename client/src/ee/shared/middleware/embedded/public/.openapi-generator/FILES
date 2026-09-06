@@ -1,3 +1,4 @@
+apis/AutomationProjectCodeWorkflowApi.ts
 apis/AutomationWorkflowProjectApi.ts
 apis/ConnectedUserApi.ts
 apis/ConnectedUserProjectWorkflowApi.ts
@@ -7,9 +8,14 @@ apis/IntegrationInstanceApi.ts
 apis/IntegrationInstanceWorkflowApi.ts
 apis/index.ts
 docs/AuthorizationType.md
+docs/AutomationProjectCodeWorkflow.md
+docs/AutomationProjectCodeWorkflowApi.md
+docs/AutomationProjectCodeWorkflowDeployResult.md
+docs/AutomationProjectCodeWorkflowTemplate.md
 docs/AutomationWorkflowProject.md
 docs/AutomationWorkflowProjectApi.md
 docs/AutomationWorkflowProjectComponent.md
+docs/AutomationWorkflowProjectWorkflowInput.md
 docs/AutomationWorkflowProjectWorkflowTemplate.md
 docs/ComponentInputOptionsRequest.md
 docs/ComponentInputReference.md
@@ -49,11 +55,16 @@ docs/PublishFrontendProjectWorkflowRequest.md
 docs/ReauthorizeConnectionRequest.md
 docs/UpdateFrontendIntegrationInstanceWorkflowRequest.md
 docs/UpdateFrontendWorkflowConfigurationConnectionRequest.md
+docs/UpdateWorkflowInputsRequest.md
 docs/Workflow.md
 index.ts
 models/AuthorizationType.ts
+models/AutomationProjectCodeWorkflow.ts
+models/AutomationProjectCodeWorkflowDeployResult.ts
+models/AutomationProjectCodeWorkflowTemplate.ts
 models/AutomationWorkflowProject.ts
 models/AutomationWorkflowProjectComponent.ts
+models/AutomationWorkflowProjectWorkflowInput.ts
 models/AutomationWorkflowProjectWorkflowTemplate.ts
 models/ComponentInputOptionsRequest.ts
 models/ComponentInputReference.ts
@@ -87,6 +98,7 @@ models/PublishFrontendProjectWorkflowRequest.ts
 models/ReauthorizeConnectionRequest.ts
 models/UpdateFrontendIntegrationInstanceWorkflowRequest.ts
 models/UpdateFrontendWorkflowConfigurationConnectionRequest.ts
+models/UpdateWorkflowInputsRequest.ts
 models/Workflow.ts
 models/index.ts
 runtime.ts

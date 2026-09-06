@@ -3,6 +3,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectComponentModel;
+import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowInputModel;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -11,7 +12,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.lang.Nullable;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -30,7 +33,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ConnectedUserProjectWorkflow", description = "A group of tasks that make one logical workflow.")
 @JsonTypeName("ConnectedUserProjectWorkflow")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-24T21:16:52.073543+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class ConnectedUserProjectWorkflowModel {
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -95,6 +98,10 @@ public class ConnectedUserProjectWorkflowModel {
   private @Nullable Boolean dangling;
 
   private List<@Valid AutomationWorkflowProjectComponentModel> components = new ArrayList<>();
+
+  private List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs = new ArrayList<>();
+
+  private Map<String, Object> inputValues = new HashMap<>();
 
   public ConnectedUserProjectWorkflowModel createdDate(@Nullable OffsetDateTime createdDate) {
     this.createdDate = createdDate;
@@ -377,6 +384,64 @@ public class ConnectedUserProjectWorkflowModel {
     this.components = components;
   }
 
+  public ConnectedUserProjectWorkflowModel inputs(List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs) {
+    this.inputs = inputs;
+    return this;
+  }
+
+  public ConnectedUserProjectWorkflowModel addInputsItem(AutomationWorkflowProjectWorkflowInputModel inputsItem) {
+    if (this.inputs == null) {
+      this.inputs = new ArrayList<>();
+    }
+    this.inputs.add(inputsItem);
+    return this;
+  }
+
+  /**
+   * The values the connected user is asked for before this workflow runs.
+   * @return inputs
+   */
+  @Valid 
+  @Schema(name = "inputs", description = "The values the connected user is asked for before this workflow runs.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("inputs")
+  public List<@Valid AutomationWorkflowProjectWorkflowInputModel> getInputs() {
+    return inputs;
+  }
+
+  @JsonProperty("inputs")
+  public void setInputs(List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs) {
+    this.inputs = inputs;
+  }
+
+  public ConnectedUserProjectWorkflowModel inputValues(Map<String, Object> inputValues) {
+    this.inputValues = inputValues;
+    return this;
+  }
+
+  public ConnectedUserProjectWorkflowModel putInputValuesItem(String key, Object inputValuesItem) {
+    if (this.inputValues == null) {
+      this.inputValues = new HashMap<>();
+    }
+    this.inputValues.put(key, inputValuesItem);
+    return this;
+  }
+
+  /**
+   * The values the connected user has already supplied, keyed by input name.
+   * @return inputValues
+   */
+  
+  @Schema(name = "inputValues", description = "The values the connected user has already supplied, keyed by input name.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("inputValues")
+  public Map<String, Object> getInputValues() {
+    return inputValues;
+  }
+
+  @JsonProperty("inputValues")
+  public void setInputValues(Map<String, Object> inputValues) {
+    this.inputValues = inputValues;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -398,12 +463,14 @@ public class ConnectedUserProjectWorkflowModel {
         Objects.equals(this.catalogWorkflowUuid, connectedUserProjectWorkflow.catalogWorkflowUuid) &&
         Objects.equals(this.copiedFromWorkflowUuid, connectedUserProjectWorkflow.copiedFromWorkflowUuid) &&
         Objects.equals(this.dangling, connectedUserProjectWorkflow.dangling) &&
-        Objects.equals(this.components, connectedUserProjectWorkflow.components);
+        Objects.equals(this.components, connectedUserProjectWorkflow.components) &&
+        Objects.equals(this.inputs, connectedUserProjectWorkflow.inputs) &&
+        Objects.equals(this.inputValues, connectedUserProjectWorkflow.inputValues);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components);
+    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues);
   }
 
   @Override
@@ -423,6 +490,8 @@ public class ConnectedUserProjectWorkflowModel {
     sb.append("    copiedFromWorkflowUuid: ").append(toIndentedString(copiedFromWorkflowUuid)).append("\n");
     sb.append("    dangling: ").append(toIndentedString(dangling)).append("\n");
     sb.append("    components: ").append(toIndentedString(components)).append("\n");
+    sb.append("    inputs: ").append(toIndentedString(inputs)).append("\n");
+    sb.append("    inputValues: ").append(toIndentedString(inputValues)).append("\n");
     sb.append("}");
     return sb.toString();
   }
