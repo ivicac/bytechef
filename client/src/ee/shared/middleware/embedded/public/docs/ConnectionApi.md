@@ -400,7 +400,7 @@ example().catch(console.error);
 
 Reauthorize a connection
 
-Replace the credentials of a connection owned by the authenticated connected user, keeping its id.
+Replace the credentials of a connection owned by the authenticated connected user, keeping its id. The supplied parameters replace the connection\&#39;s authorization parameters wholesale: a parameter that is not supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level properties are untouched. A successful call also marks the connection\&#39;s credentials valid again.
 
 ### Example
 

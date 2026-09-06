@@ -2,6 +2,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 
 import java.net.URI;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -17,12 +18,12 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * A value the connected user supplies before an automation workflow runs.
+ * A value the connected user supplies before a catalog workflow runs.
  */
 
-@Schema(name = "AutomationWorkflowProjectWorkflowInput", description = "A value the connected user supplies before an automation workflow runs.")
+@Schema(name = "AutomationWorkflowProjectWorkflowInput", description = "A value the connected user supplies before a catalog workflow runs.")
 @JsonTypeName("AutomationWorkflowProjectWorkflowInput")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.743535+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class AutomationWorkflowProjectWorkflowInputModel {
 
   private @Nullable String name;
