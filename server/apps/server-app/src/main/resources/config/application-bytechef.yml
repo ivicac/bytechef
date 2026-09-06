@@ -141,8 +141,15 @@ bytechef:
   resources:
     web: file:///opt/bytechef/client/
   scheduler:
-    # Trigger scheduler provider (aws(ee) | quartz) default: quartz
+    # Trigger scheduler provider (aws(ee) | db-scheduler | quartz) default: quartz
     provider: quartz
+    db-scheduler:
+      importer:
+        # Copy live Quartz jobs into db-scheduler on every startup while provider is db-scheduler
+        enabled: true
+      ui:
+        # Serve db-scheduler-ui at /db-scheduler (SYSTEM_ADMIN only)
+        enabled: true
   script:
     # Task runner allowlist. A runner absent from this map is disabled, which is the intended default for the
     # out-of-process runners but not for GraalVM, the in-process runner every script action falls back to.

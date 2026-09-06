@@ -5918,18 +5918,89 @@ public class ApplicationProperties {
              */
             AWS,
             /**
+             * db-scheduler (single-table, cluster-safe JDBC scheduler)
+             */
+            DB_SCHEDULER,
+            /**
              * Quartz Scheduler
              */
             QUARTZ
         }
 
         /**
+         * db-scheduler provider settings.
+         */
+        public static class DbScheduler {
+
+            /**
+             * One-way Quartz import that runs on every startup while db-scheduler is the active provider.
+             */
+            public static class Importer {
+
+                private boolean enabled = true;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            /**
+             * db-scheduler-ui, served at /db-scheduler for SYSTEM_ADMIN.
+             */
+            public static class Ui {
+
+                private boolean enabled = true;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            private Importer importer = new Importer();
+            private Ui ui = new Ui();
+
+            public Importer getImporter() {
+                return importer;
+            }
+
+            public Ui getUi() {
+                return ui;
+            }
+
+            public void setImporter(Importer importer) {
+                this.importer = importer;
+            }
+
+            public void setUi(Ui ui) {
+                this.ui = ui;
+            }
+        }
+
+        private DbScheduler dbScheduler = new DbScheduler();
+
+        /**
          * Scheduler provider
          */
         private Provider provider = Provider.QUARTZ;
 
+        public DbScheduler getDbScheduler() {
+            return dbScheduler;
+        }
+
         public Provider getProvider() {
             return provider;
+        }
+
+        public void setDbScheduler(DbScheduler dbScheduler) {
+            this.dbScheduler = dbScheduler;
         }
 
         public void setProvider(Provider provider) {
