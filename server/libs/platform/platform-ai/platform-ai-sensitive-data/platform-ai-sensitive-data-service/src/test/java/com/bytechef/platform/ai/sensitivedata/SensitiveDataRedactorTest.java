@@ -24,7 +24,10 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class SensitiveDataRedactorTest {
 
@@ -454,5 +457,85 @@ class SensitiveDataRedactorTest {
         public void recordBelowConfidenceThreshold() {
             belowConfidenceThresholdCount++;
         }
+    }
+
+    /**
+     * The end-to-end claim: a pathological pattern inside a detector is cut off, the pass survives, the other
+     * detectors' spans are kept, and it is reported as a TIMEOUT rather than as a detector failure. Those were
+     * different facts and only one of them used to be observable at all.
+     */
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void testAPathologicalPatternIsCutOffAndReportedAsATimeout() {
+        RecordingMetrics metrics = new RecordingMetrics();
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(
+            List.of(
+                fixed("cheap", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3)),
+                runaway("runaway", "(x+x+)+y")),
+            new SensitiveDataRedactor.DetectionBounds(Duration.ofMillis(100), Integer.MAX_VALUE));
+
+        List<SensitiveSpan> spans = redactor.detectCandidates("x".repeat(1000), metrics);
+
+        assertThat(spans)
+            .as("a cut-off detector must not cost the others their spans")
+            .anyMatch(span -> "EMAIL_ADDRESS".equals(span.category()));
+        assertThat(metrics.timedOut).containsExactly("runaway");
+        assertThat(metrics.failures)
+            .as("a match cut off mid-run is not the same fact as a detector that threw")
+            .isEmpty();
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void testAStackOverflowInADetectorDoesNotKillThePass() {
+        // Measured, not hypothetical: (a|aa)+$ over 4,000 characters overflows the stack in about 8ms on this JVM --
+        // faster than any useful deadline, and an Error, so the RuntimeException catch never saw it. Left uncaught it
+        // takes the guarded call down with it.
+        RecordingMetrics metrics = new RecordingMetrics();
+        SensitiveDataRedactor redactor = new SensitiveDataRedactor(
+            List.of(
+                fixed("cheap", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3)),
+                runaway("deep", "(a|aa)+$")),
+            new SensitiveDataRedactor.DetectionBounds(Duration.ofSeconds(30), Integer.MAX_VALUE));
+
+        List<SensitiveSpan> spans = redactor.detectCandidates("a".repeat(4000) + "b", metrics);
+
+        assertThat(spans).anyMatch(span -> "EMAIL_ADDRESS".equals(span.category()));
+        assertThat(metrics.failures).containsExactly("deep");
+    }
+
+    /**
+     * A detector running one supplied pattern under whatever deadline it is handed.
+     *
+     * <p>
+     * The patterns the two tests above pass in were chosen by MEASUREMENT, not reputation. Several textbook ReDoS
+     * patterns -- {@code (a+)+$}, {@code (a*)*b}, {@code ([a-zA-Z]+)*$} -- do not explode in this JVM's engine at any
+     * input length worth testing. {@code (x+x+)+y} runs about three seconds on 1,000 characters; {@code (a|aa)+$}
+     * overflows the stack on 4,000. Substituting a more famous pattern would make those tests vacuous.
+     * </p>
+     */
+    private static SensitiveDataDetector runaway(String name, String regex) {
+        Pattern pattern = Pattern.compile(regex);
+
+        return new SensitiveDataDetector() {
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public List<SensitiveSpan> detect(String text) {
+                return detect(text, MatchDeadline.unbounded());
+            }
+
+            @Override
+            public List<SensitiveSpan> detect(String text, MatchDeadline deadline) {
+                pattern.matcher(deadline.bound(text))
+                    .find();
+
+                return List.of();
+            }
+        };
     }
 }
