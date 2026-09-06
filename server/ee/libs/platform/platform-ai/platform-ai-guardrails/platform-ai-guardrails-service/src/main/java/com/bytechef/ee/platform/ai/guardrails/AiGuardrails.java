@@ -406,7 +406,7 @@ public class AiGuardrails {
             return text;
         }
 
-        return redactAll(text, recordingMetrics);
+        return redactAll(text, policy.minConfidence(), recordingMetrics);
     }
 
     /**
@@ -445,7 +445,7 @@ public class AiGuardrails {
             return null;
         }
 
-        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, recordingMetrics);
+        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, policy.minConfidence(), recordingMetrics);
     }
 
     /**
@@ -503,7 +503,8 @@ public class AiGuardrails {
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
         @Nullable Long workspaceId, @Nullable AiGuardrailMetrics recordingMetrics, PiiTokenSession session) {
 
-        boolean streamingScanActive = globalStreamingResponseScanEnabled && resolvePolicy(workspaceId).scanResponses();
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+        boolean streamingScanActive = globalStreamingResponseScanEnabled && policy.scanResponses();
 
         if (!streamingScanActive && session.size() == 0) {
             return null;
@@ -512,7 +513,8 @@ public class AiGuardrails {
         EnumSet<SensitiveKind> kinds =
             streamingScanActive ? EnumSet.allOf(SensitiveKind.class) : EnumSet.noneOf(SensitiveKind.class);
 
-        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, recordingMetrics, session, kinds);
+        return new StreamingResponseRedactor(
+            streamSafeSensitiveDataRedactor, policy.minConfidence(), recordingMetrics, session, kinds);
     }
 
     /**
@@ -534,6 +536,21 @@ public class AiGuardrails {
     }
 
     /**
+     * As {@link #newStreamingResponseRedactor()}, but honoring an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. For callers that have already decided streaming scanning
+     * applies but still need to resolve a workspace's own threshold themselves — the AI Gateway's project-level
+     * overlay, where workspace policy alone did not trigger streaming (so {@link #newStreamingResponseRedactor(Long)}
+     * returned {@code null}) but the project override turned it on; without this overload that path fell back to
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} regardless of what the workspace had configured.
+     *
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @return a fresh streaming redactor
+     */
+    public StreamingResponseRedactor newStreamingResponseRedactor(double minConfidence) {
+        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, minConfidence, metrics);
+    }
+
+    /**
      * Returns the effective {@link BlockingMode} for the workspace: the workspace's configured mode, or {@code BLOCK}
      * when no settings row exists (or the row does not configure a mode).
      *
@@ -548,6 +565,21 @@ public class AiGuardrails {
         }
 
         return settings.blockingMode();
+    }
+
+    /**
+     * Returns the effective minimum confidence for {@code workspaceId}: the workspace's configured
+     * {@link AiGuardrailsWorkspaceSettings#minConfidence()} override, or
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} when no settings row exists or the row does not configure
+     * one. For callers outside this engine (the AI Gateway adapter's response-direction and project-overlay paths) that
+     * need to resolve the threshold themselves rather than going through one of this class's own threshold-applying
+     * methods.
+     *
+     * @param workspaceId the workspace to resolve, or {@code null} for the tenant default
+     * @return the effective minimum confidence
+     */
+    public double resolveMinConfidence(@Nullable Long workspaceId) {
+        return resolvePolicy(workspaceId).minConfidence();
     }
 
     /**
@@ -569,51 +601,110 @@ public class AiGuardrails {
     }
 
     /**
-     * Replaces personally-identifiable data in {@code content} with {@code [REDACTED_*]} placeholders.
+     * Replaces personally-identifiable data in {@code content} with {@code [REDACTED_*]} placeholders, at
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}.
      */
     public @Nullable String redactPii(@Nullable String content) {
+        return redactPii(content, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+    }
+
+    /**
+     * As {@link #redactPii(String)}, but with an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
+     * threshold (see {@link #resolveMinConfidence(Long)}).
+     *
+     * @param content       the content to redact
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @return the redacted content, or {@code content} unchanged when nothing applies
+     */
+    public @Nullable String redactPii(@Nullable String content, double minConfidence) {
         if (content == null || content.isEmpty()) {
             return content;
         }
 
-        return sensitiveDataRedactor.redact(content, EnumSet.of(SensitiveKind.PII), metrics);
+        return sensitiveDataRedactor.redact(content, EnumSet.of(SensitiveKind.PII), minConfidence, metrics);
     }
 
     /**
      * Replaces recognised developer-secret shapes (cloud/provider API keys, tokens, JWTs, PEM private keys) in
-     * {@code content} with a {@code [REDACTED_SECRET]} placeholder.
+     * {@code content} with a {@code [REDACTED_SECRET]} placeholder, at
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}.
      */
     public @Nullable String redactSecrets(@Nullable String content) {
+        return redactSecrets(content, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+    }
+
+    /**
+     * As {@link #redactSecrets(String)}, but with an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
+     * threshold (see {@link #resolveMinConfidence(Long)}).
+     *
+     * @param content       the content to redact
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @return the redacted content, or {@code content} unchanged when nothing applies
+     */
+    public @Nullable String redactSecrets(@Nullable String content, double minConfidence) {
         if (content == null || content.isEmpty()) {
             return content;
         }
 
-        return sensitiveDataRedactor.redact(content, EnumSet.of(SensitiveKind.SECRET), metrics);
+        return sensitiveDataRedactor.redact(content, EnumSet.of(SensitiveKind.SECRET), minConfidence, metrics);
     }
 
     /**
      * Applies both PII and secret redaction to {@code content} in ONE detection pass, resolving any overlap between the
-     * two in favour of the secret. Used for response-direction scanning where both categories are masked regardless of
-     * the request-direction toggles.
+     * two in favour of the secret, at {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. Used for response-direction
+     * scanning where both categories are masked regardless of the request-direction toggles.
      */
     public @Nullable String redactAll(@Nullable String content) {
-        return redactAll(content, metrics);
+        return redactAll(content, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics);
+    }
+
+    /**
+     * As {@link #redactAll(String)}, but with an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for callers that have already resolved a workspace's own
+     * threshold (see {@link #resolveMinConfidence(Long)}).
+     *
+     * @param content       the text to redact
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @return the redacted text, or {@code content} unchanged when nothing applies
+     */
+    public @Nullable String redactAll(@Nullable String content, double minConfidence) {
+        return redactAll(content, minConfidence, metrics);
     }
 
     /**
      * As {@link #redactAll(String)}, but counting detector failures through {@code recordingMetrics} rather than this
-     * engine's own bean, so the failure is attributed to the surface that actually ran the redaction.
+     * engine's own bean, so the failure is attributed to the surface that actually ran the redaction — at
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}.
      *
      * @param content          the text to redact
      * @param recordingMetrics the instance to count detector failures through, or {@code null}
      * @return the redacted text, or {@code content} unchanged when nothing applies
      */
     public @Nullable String redactAll(@Nullable String content, @Nullable AiGuardrailMetrics recordingMetrics) {
+        return redactAll(content, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, recordingMetrics);
+    }
+
+    /**
+     * As {@link #redactAll(String, AiGuardrailMetrics)}, but with an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}. The single implementation every other {@code redactAll}
+     * overload delegates to.
+     *
+     * @param content          the text to redact
+     * @param minConfidence    the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param recordingMetrics the instance to count detector failures through, or {@code null}
+     * @return the redacted text, or {@code content} unchanged when nothing applies
+     */
+    public @Nullable String redactAll(
+        @Nullable String content, double minConfidence, @Nullable AiGuardrailMetrics recordingMetrics) {
+
         if (content == null || content.isEmpty()) {
             return content;
         }
 
-        return sensitiveDataRedactor.redact(content, EnumSet.allOf(SensitiveKind.class), recordingMetrics);
+        return sensitiveDataRedactor.redact(content, EnumSet.allOf(SensitiveKind.class), minConfidence,
+            recordingMetrics);
     }
 
     /**
@@ -751,8 +842,9 @@ public class AiGuardrails {
         }
 
         RedactionResult redactionResult = session == null
-            ? sensitiveDataRedactor.redactWithSpans(content, kinds, recordingMetrics)
-            : sensitiveDataRedactor.tokenizeWithSpans(content, kinds, session, recordingMetrics);
+            ? sensitiveDataRedactor.redactWithSpans(content, kinds, policy.minConfidence(), recordingMetrics)
+            : sensitiveDataRedactor.tokenizeWithSpans(
+                content, kinds, session, policy.minConfidence(), recordingMetrics);
 
         List<SensitiveSpan> accepted = redactionResult.accepted();
 
@@ -806,7 +898,18 @@ public class AiGuardrails {
         boolean scanResponses = globalResponseScanEnabled ||
             (settings != null && Boolean.TRUE.equals(settings.scanResponses()));
 
-        return new EffectivePolicy(redactPii, redactSecrets, blockedTerms, detectInjection, moderate, scanResponses);
+        // Override, not union: unlike the booleans above, a workspace either sets its own threshold or it doesn't --
+        // there is no global counterpart to combine it with. `settings.minConfidence()` is a Double; unboxing it only
+        // inside this ternary (never assigning it to a primitive double first) keeps a null settings row or a null
+        // field from ever being coerced through 0.0, which -- with the >= comparison in
+        // SensitiveDataRedactor#filterByConfidence -- would silently disable the confidence filter entirely instead
+        // of falling back to the CE default.
+        double minConfidence = settings != null && settings.minConfidence() != null
+            ? settings.minConfidence()
+            : SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE;
+
+        return new EffectivePolicy(
+            redactPii, redactSecrets, blockedTerms, detectInjection, moderate, scanResponses, minConfidence);
     }
 
     private @Nullable AiGuardrailsWorkspaceSettings findSettings(@Nullable Long workspaceId) {
@@ -901,7 +1004,7 @@ public class AiGuardrails {
      */
     private record EffectivePolicy(
         boolean redactPii, boolean redactSecrets, Set<String> blockedTerms, boolean detectInjection, boolean moderate,
-        boolean scanResponses) {
+        boolean scanResponses, double minConfidence) {
 
         boolean anyInputGuardrailActive() {
             return redactPii || redactSecrets || !blockedTerms.isEmpty() || detectInjection;

@@ -47,6 +47,20 @@ import org.springframework.core.io.Resource;
  * and produce spans at positions that never held an entity.
  * </p>
  *
+ * <p>
+ * <b>Two thresholds in sequence.</b> A span this detector reports has already cleared {@link #minConfidence}, a
+ * <em>model noise floor</em> — "is this span real?" — computed from the NER model's own per-span probability. That
+ * survivor is then handed to {@code SensitiveDataRedactor}, which applies a second, independent threshold: the
+ * pipeline's confidence floor, a <em>policy floor</em> — "is this type of match worth acting on?" — set by the default
+ * ({@code SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE}) or a workspace override. A span must clear both to be
+ * redacted; the pipeline cannot rescue a span this detector already discarded, no matter how low the policy floor is
+ * set. This is a genuine behaviour change for anyone already running OpenNLP: an operator who previously tuned only
+ * {@code minConfidence} may now see fewer redactions, because spans that used to reach the output unconditionally can
+ * still be dropped by the pipeline's own floor. See
+ * {@code SensitiveDataRedactorTest#testSpansSurvivingTheModelFloorStillFaceThePipelineThreshold} (CE,
+ * {@code platform-ai-sensitive-data-service}) for the composition this documents.
+ * </p>
+ *
  * @version ee
  *
  * @author Ivica Cardic
