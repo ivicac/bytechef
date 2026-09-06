@@ -965,7 +965,12 @@ public class AiGuardrails {
             return null;
         }
 
-        return toolBoundaryPolicyOf(effectivePolicyOf(settings), true);
+        // false, not true: this surface only ever REDACTS. RedactingToolCallback has no outbound direction, so
+        // nothing here reads restoreOutboundArguments today and the value is inert -- but true means "restore
+        // real values on an outbound argument path", and this path ends at an external agent. Were an outbound
+        // direction ever added, true would de-tokenize on the one surface that must never de-tokenize, silently.
+        // false also agrees with this class's own stated posture: only an explicit true allows restoration.
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings), false);
     }
 
     /**
@@ -989,7 +994,12 @@ public class AiGuardrails {
             return null;
         }
 
-        return toolBoundaryPolicyOf(effectivePolicyOf(settings), true);
+        // false, not true: this surface only ever REDACTS. RedactingToolCallback has no outbound direction, so
+        // nothing here reads restoreOutboundArguments today and the value is inert -- but true means "restore
+        // real values on an outbound argument path", and this path ends at an external agent. Were an outbound
+        // direction ever added, true would de-tokenize on the one surface that must never de-tokenize, silently.
+        // false also agrees with this class's own stated posture: only an explicit true allows restoration.
+        return toolBoundaryPolicyOf(effectivePolicyOf(settings), false);
     }
 
     /**

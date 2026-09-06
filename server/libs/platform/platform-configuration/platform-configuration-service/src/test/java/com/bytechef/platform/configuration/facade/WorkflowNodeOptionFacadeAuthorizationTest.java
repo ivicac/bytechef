@@ -40,10 +40,11 @@ import com.bytechef.platform.component.facade.ActionDefinitionFacade;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.configuration.facade.WorkflowScopeGateTestSupport.GateExpressionHandler;
+import com.bytechef.platform.configuration.facade.WorkflowScopeGateTestSupport.GateRecorder;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
-import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -58,13 +59,10 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.access.PermissionEvaluator;
-import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -74,19 +72,27 @@ import org.springframework.security.core.context.SecurityContextHolder;
  * previously carried no authorization at all, so any authenticated principal in the tenant could read any workflow's
  * {@code vars} and test-configuration inputs, its test-configuration connection ids and its previous nodes' sample
  * outputs, and then have {@code executeOptions} make a live outbound call using the connection those lookups resolved.
+ * The gate was later re-pointed from {@code hasPermission(#workflowId, 'Workflow', ...)} (which unions the caller's
+ * scope across every environment) to {@code hasWorkflowScopeInEnvironment(#workflowId, ..., #environmentId)}, which
+ * checks the caller-supplied environment specifically -- see the class carrying that expression for why.
  *
  * <p>
  * Both halves matter. The denial tests prove the gate is reached before any collaborator is touched — a gate that runs
  * after the leak has already happened is not a gate. The permit tests prove it is not a gate that denies everybody,
  * which would look secure and be a broken feature: with {@code WORKFLOW_VIEW} granted the method runs to completion and
- * returns its options.
+ * returns its options. {@link #testGetWorkflowNodeOptionsPermitsDevelopmentAndDeniesProductionForSameMember()}
+ * additionally proves the per-environment branch is real, not merely reachable: a single fixture that only holds the
+ * scope in DEVELOPMENT is permitted when the caller names DEVELOPMENT and denied when it names PRODUCTION, without
+ * resetting the fixture in between.
  *
  * <p>
- * The stub {@link PermissionEvaluator} stands in for {@code AutomationPermissionEvaluator}, which lives in
- * {@code automation-configuration-service}; this is a platform module and must not depend on it. What is pinned here is
- * therefore the wiring — that the expression parses, reaches the evaluator, and hands it this caller's own
- * {@code workflowId}, the {@code 'Workflow'} target type and the {@code 'WORKFLOW_VIEW'} scope — while the evaluator's
- * own semantics (membership precedence, skip modes, workspace scope) are pinned beside it. The connected-user leg,
+ * The {@link GateRecorder}/{@link GateExpressionHandler} stub stands in for
+ * {@code AutomationMethodSecurityExpressionRoot}, which lives in {@code automation-configuration-service}; this is a
+ * platform module and must not depend on it. What is pinned here is therefore the wiring — that the expression parses,
+ * resolves to a method of this name and arity, and hands it this caller's own {@code workflowId}, the
+ * {@code 'WORKFLOW_VIEW'} scope, and its own {@code environmentId} — while the function's own semantics (ordinal
+ * resolution, fail-closed on an unidentifiable environment, skip-mode ordering) are pinned by
+ * {@code AutomationMethodSecurityExpressionRootTest} beside the production implementation. The connected-user leg,
  * where the real evaluator and the real {@code ConnectedUserResourceMembershipResolver} decide, is pinned by
  * {@code ConnectedUserResourceMembershipEnforcementIntTest}.
  *
@@ -96,8 +102,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @ExtendWith(ObjectMapperSetupExtension.class)
 class WorkflowNodeOptionFacadeAuthorizationTest {
 
-    private static final long ENVIRONMENT_ID = 0L;
-    private static final String VIEW_EXPRESSION = "hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')";
+    private static final long DEVELOPMENT_ENVIRONMENT_ID = 0L;
+    private static final long PRODUCTION_ENVIRONMENT_ID = 2L;
+    private static final long ENVIRONMENT_ID = DEVELOPMENT_ENVIRONMENT_ID;
+    private static final String VIEW_EXPRESSION =
+        "hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)";
     private static final String WORKFLOW_ID = "workflow-1";
 
     private static final Workflow WORKFLOW_WITH_TRIGGER = new Workflow(
@@ -150,7 +159,7 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
     private Evaluator evaluator;
 
     @Autowired
-    private RecordingPermissionEvaluator permissionEvaluator;
+    private GateRecorder gateRecorder;
 
     @Autowired
     private TriggerDefinitionFacade triggerDefinitionFacade;
@@ -177,6 +186,8 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
             triggerDefinitionFacade, workflowEvaluationInputsFacade, workflowNodeOutputFacade, workflowService,
             workflowTestConfigurationService);
 
+        gateRecorder.reset();
+
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken(
                 "user@localhost.com", "n/a", List.of(new SimpleGrantedAuthority("ROLE_USER"))));
@@ -189,24 +200,46 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
 
     @Test
     void testGetWorkflowNodeOptionsDeniesCallerWithoutWorkflowViewScope() {
-        permissionEvaluator.permit(false);
+        gateRecorder.permit(false);
 
         assertThatThrownBy(
             () -> workflowNodeOptionFacade.getWorkflowNodeOptions(
                 WORKFLOW_ID, "trigger-1", "property", List.of(), "search", ENVIRONMENT_ID))
                     .isInstanceOf(AccessDeniedException.class);
 
-        assertThat(permissionEvaluator.getCallCount()).isEqualTo(1);
-        assertThat(permissionEvaluator.getObservedWorkflowId()).isEqualTo(WORKFLOW_ID);
-        assertThat(permissionEvaluator.getObservedTargetType()).isEqualTo("Workflow");
-        assertThat(permissionEvaluator.getObservedPermission()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getCallCount()).isEqualTo(1);
+        assertThat(gateRecorder.getWorkflowId()).isEqualTo(WORKFLOW_ID);
+        assertThat(gateRecorder.getScope()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getEnvironmentId()).isEqualTo(ENVIRONMENT_ID);
 
         verifyNothingWasReadOrCalled();
     }
 
+    /**
+     * Proves the per-environment branch is real. A single fixture that only holds {@code WORKFLOW_VIEW} in DEVELOPMENT
+     * is never reset between the two calls below, so the second call's denial cannot be attributed to a different
+     * simulated caller -- only to the environment named in the request differing from the one the fixture grants.
+     */
+    @Test
+    void testGetWorkflowNodeOptionsPermitsDevelopmentAndDeniesProductionForSameMember() {
+        gateRecorder.permitOnlyForEnvironment(DEVELOPMENT_ENVIRONMENT_ID);
+
+        stubTriggerBranch();
+
+        List<Option> options = workflowNodeOptionFacade.getWorkflowNodeOptions(
+            WORKFLOW_ID, "trigger-1", "property", List.of(), "search", DEVELOPMENT_ENVIRONMENT_ID);
+
+        assertThat(options).isEmpty();
+
+        assertThatThrownBy(
+            () -> workflowNodeOptionFacade.getWorkflowNodeOptions(
+                WORKFLOW_ID, "trigger-1", "property", List.of(), "search", PRODUCTION_ENVIRONMENT_ID))
+                    .isInstanceOf(AccessDeniedException.class);
+    }
+
     @Test
     void testGetWorkflowNodeOptionsPermitsCallerWithWorkflowViewScope() {
-        permissionEvaluator.permit(true);
+        gateRecorder.permit(true);
 
         stubTriggerBranch();
 
@@ -214,31 +247,31 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
             WORKFLOW_ID, "trigger-1", "property", List.of(), "search", ENVIRONMENT_ID);
 
         assertThat(options).isEmpty();
-        assertThat(permissionEvaluator.getCallCount()).isEqualTo(1);
-        assertThat(permissionEvaluator.getObservedWorkflowId()).isEqualTo(WORKFLOW_ID);
-        assertThat(permissionEvaluator.getObservedPermission()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getCallCount()).isEqualTo(1);
+        assertThat(gateRecorder.getWorkflowId()).isEqualTo(WORKFLOW_ID);
+        assertThat(gateRecorder.getScope()).isEqualTo("WORKFLOW_VIEW");
     }
 
     @Test
     void testGetClusterElementNodeOptionsDeniesCallerWithoutWorkflowViewScope() {
-        permissionEvaluator.permit(false);
+        gateRecorder.permit(false);
 
         assertThatThrownBy(
             () -> workflowNodeOptionFacade.getClusterElementNodeOptions(
                 WORKFLOW_ID, "node-1", "model", "openAi_1", "property", List.of(), "search", ENVIRONMENT_ID))
                     .isInstanceOf(AccessDeniedException.class);
 
-        assertThat(permissionEvaluator.getCallCount()).isEqualTo(1);
-        assertThat(permissionEvaluator.getObservedWorkflowId()).isEqualTo(WORKFLOW_ID);
-        assertThat(permissionEvaluator.getObservedTargetType()).isEqualTo("Workflow");
-        assertThat(permissionEvaluator.getObservedPermission()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getCallCount()).isEqualTo(1);
+        assertThat(gateRecorder.getWorkflowId()).isEqualTo(WORKFLOW_ID);
+        assertThat(gateRecorder.getScope()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getEnvironmentId()).isEqualTo(ENVIRONMENT_ID);
 
         verifyNothingWasReadOrCalled();
     }
 
     @Test
     void testGetClusterElementNodeOptionsPermitsCallerWithWorkflowViewScope() {
-        permissionEvaluator.permit(true);
+        gateRecorder.permit(true);
 
         stubClusterElementBranch();
 
@@ -246,9 +279,9 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
             WORKFLOW_ID, "node-1", "model", "openAi_1", "property", List.of(), "search", ENVIRONMENT_ID);
 
         assertThat(options).isEmpty();
-        assertThat(permissionEvaluator.getCallCount()).isEqualTo(1);
-        assertThat(permissionEvaluator.getObservedWorkflowId()).isEqualTo(WORKFLOW_ID);
-        assertThat(permissionEvaluator.getObservedPermission()).isEqualTo("WORKFLOW_VIEW");
+        assertThat(gateRecorder.getCallCount()).isEqualTo(1);
+        assertThat(gateRecorder.getWorkflowId()).isEqualTo(WORKFLOW_ID);
+        assertThat(gateRecorder.getScope()).isEqualTo("WORKFLOW_VIEW");
     }
 
     @Test
@@ -346,19 +379,13 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
         }
 
         @Bean
-        MethodSecurityExpressionHandler methodSecurityExpressionHandler(
-            RecordingPermissionEvaluator permissionEvaluator) {
-            DefaultMethodSecurityExpressionHandler methodSecurityExpressionHandler =
-                new DefaultMethodSecurityExpressionHandler();
-
-            methodSecurityExpressionHandler.setPermissionEvaluator(permissionEvaluator);
-
-            return methodSecurityExpressionHandler;
+        GateRecorder gateRecorder() {
+            return new GateRecorder();
         }
 
         @Bean
-        RecordingPermissionEvaluator permissionEvaluator() {
-            return new RecordingPermissionEvaluator();
+        MethodSecurityExpressionHandler methodSecurityExpressionHandler(GateRecorder gateRecorder) {
+            return new GateExpressionHandler(gateRecorder);
         }
 
         @Bean
@@ -406,60 +433,6 @@ class WorkflowNodeOptionFacadeAuthorizationTest {
         @Bean
         WorkflowTestConfigurationService workflowTestConfigurationService() {
             return mock(WorkflowTestConfigurationService.class);
-        }
-    }
-
-    /**
-     * Records what the SpEL expression handed the evaluator, so the tests can assert the gate keys on the caller's own
-     * workflow id under the intended target type and scope rather than on some constant that would pass either way.
-     */
-    static final class RecordingPermissionEvaluator implements PermissionEvaluator {
-
-        private boolean permitted;
-        private int callCount;
-        private String observedWorkflowId;
-        private String observedTargetType;
-        private String observedPermission;
-
-        void permit(boolean value) {
-            permitted = value;
-            callCount = 0;
-            observedWorkflowId = null;
-            observedTargetType = null;
-            observedPermission = null;
-        }
-
-        int getCallCount() {
-            return callCount;
-        }
-
-        String getObservedWorkflowId() {
-            return observedWorkflowId;
-        }
-
-        String getObservedTargetType() {
-            return observedTargetType;
-        }
-
-        String getObservedPermission() {
-            return observedPermission;
-        }
-
-        @Override
-        public boolean hasPermission(Authentication authentication, Object targetDomainObject, Object permission) {
-            return false;
-        }
-
-        @Override
-        public boolean hasPermission(
-            Authentication authentication, Serializable targetId, String targetType, Object permission) {
-
-            callCount++;
-            observedWorkflowId = String.valueOf(targetId);
-            observedTargetType = targetType;
-            observedPermission = String.valueOf(permission);
-
-            return permitted;
         }
     }
 }
