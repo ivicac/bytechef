@@ -27,6 +27,7 @@ import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -188,6 +189,19 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     /**
+     * Drops the {@link Environment} and runs exactly what {@link #hasResourceScope(Serializable, String, String)} runs.
+     * CE has no per-environment roles — {@link #hasWorkspaceScope(long, String, Environment)} is itself
+     * environment-blind — so nothing is lost, and routing both overloads through the same {@code hasResourceScope} call
+     * is what keeps them from disagreeing about the same resource.
+     */
+    @Override
+    public boolean hasResourceScopeInEnvironment(
+        Serializable id, String resourceType, String scope, Environment environment) {
+
+        return hasResourceScope(id, resourceType, scope);
+    }
+
+    /**
      * Whether the current principal may see the resource at all, delegating to the same resolver the list path uses so
      * the two cannot drift. A resource type with no registered provider has not opted into visibility and is
      * unrestricted by it; a registered type whose resource does not exist fails closed.
@@ -244,6 +258,22 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     public Set<String> getMyWorkspaceScopes(long workspaceId) {
         return Collections.emptySet();
+    }
+
+    /**
+     * Every environment, because CE has no per-environment roles and the listings that call this use the result to
+     * narrow their rows.
+     *
+     * <p>
+     * Note this returns <em>all</em> where {@link #getMyWorkspaceScopes(long)} directly above returns <em>none</em>,
+     * and the two are consistent rather than contradictory: that one feeds UI hints, where an empty set costs nothing
+     * in an edition whose gates all pass anyway, while this one is a filter, where an empty set would silently blank
+     * every listing that applies it. A permissive answer is {@code true} for a check and <em>everything</em> for a
+     * filter — not the same value.
+     */
+    @Override
+    public Set<Environment> getMyWorkspaceScopeEnvironments(long workspaceId, String scope) {
+        return EnumSet.allOf(Environment.class);
     }
 
     @Override

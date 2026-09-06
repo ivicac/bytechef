@@ -12,12 +12,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacadeImpl;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.WorkspaceOwnershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -29,10 +31,13 @@ import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
@@ -87,9 +92,14 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
     private static final String LOGIN = "alice";
     private static final long USER_ID = 42L;
     private static final long WORKSPACE_ID = 7L;
+    private static final long DEVELOPMENT_CONNECTION_ID = 100L;
+    private static final long PRODUCTION_CONNECTION_ID = 200L;
 
     @Autowired
     private PermissionService permissionService;
+
+    @Autowired
+    private ConnectionFacade connectionFacade;
 
     @Autowired
     private WorkspaceConnectionFacade workspaceConnectionFacade;
@@ -126,6 +136,52 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
         assertThat(result).isEmpty();
     }
 
+    /**
+     * D4 of {@code docs/superpowers/specs/2026-09-06-environment-scoped-authorization-remaining-families-design.md}:
+     * being let through with no environment named is not the same as being shown every environment's rows. The two
+     * tests above pin the gate; this one pins the body. Without the {@code EnvironmentScopeFilter} call in
+     * {@code getConnections} the Production row comes back to a member who holds nothing in Production -- the gate
+     * cannot catch it, because there was no environment for the gate to check.
+     *
+     * <p>
+     * Asserting on the Development row as well as against the Production one matters: "returns only Development" and
+     * "returns nothing" both satisfy an assertion that merely denies Production, and the second would be a filter that
+     * empties the page for everyone.
+     */
+    @Test
+    void testDevelopmentOnlyViewerSeesOnlyDevelopmentRowsWhenNoEnvironmentIsNamed() {
+        when(workspaceConnectionService.getWorkspaceConnections(WORKSPACE_ID))
+            .thenReturn(
+                List.of(
+                    new WorkspaceConnection(DEVELOPMENT_CONNECTION_ID, WORKSPACE_ID),
+                    new WorkspaceConnection(PRODUCTION_CONNECTION_ID, WORKSPACE_ID)));
+
+        when(
+            connectionFacade.getConnections(
+                null, null, List.of(DEVELOPMENT_CONNECTION_ID, PRODUCTION_CONNECTION_ID), null, null,
+                PlatformType.AUTOMATION))
+                    .thenReturn(
+                        List.of(
+                            connectionDTO(DEVELOPMENT_CONNECTION_ID, Environment.DEVELOPMENT),
+                            connectionDTO(PRODUCTION_CONNECTION_ID, Environment.PRODUCTION)));
+
+        List<ConnectionDTO> result = workspaceConnectionFacade.getConnections(WORKSPACE_ID, null, null, null, null);
+
+        assertThat(result)
+            .extracting(ConnectionDTO::id)
+            .containsExactly(DEVELOPMENT_CONNECTION_ID);
+    }
+
+    private static ConnectionDTO connectionDTO(long id, Environment environment) {
+        return ConnectionDTO.builder()
+            .id(id)
+            .componentName("dummy")
+            .name("connection-" + id)
+            .environmentId(environment.ordinal())
+            .visibility(ResourceVisibility.WORKSPACE)
+            .build();
+    }
+
     @Test
     void testDevelopmentOnlyViewerIsDeniedWhenNamingProduction() {
         assertThatThrownBy(
@@ -146,6 +202,7 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
         WorkspaceConnectionFacade workspaceConnectionFacade(
             ApplicationEventPublisher applicationEventPublisher, ConnectionFacade connectionFacade,
             ConnectionLifecycleFacade connectionLifecycleFacade, ConnectionService connectionService,
+            EnvironmentScopeFilter environmentScopeFilter, EnvironmentService environmentService,
             ResourceVisibilityResolver resourceVisibilityResolver,
             ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
             TagService tagService, UserService userService,
@@ -154,7 +211,8 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
 
             return new WorkspaceConnectionFacadeImpl(
                 applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
-                resourceVisibilityResolver, mock(ObjectProvider.class), projectDeploymentWorkflowService,
+                environmentScopeFilter, environmentService, resourceVisibilityResolver, mock(ObjectProvider.class),
+                projectDeploymentWorkflowService,
                 projectService, tagService, userService, workflowTestConfigurationService,
                 workspaceConnectionService, workspaceFacade);
         }
@@ -166,12 +224,29 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
             // The fixture: EXPLICIT mode, one row naming DEVELOPMENT, holding VIEWER (which carries
             // CONNECTION_VIEW) -- and deliberately NO environment-null row, so the member holds nothing in
             // PRODUCTION and nothing implicit to fall back to.
+            //
+            // Both lookups the member's DEVELOPMENT row can be reached through are stubbed, and both are needed.
+            // findAllByUserIdAndWorkspaceId feeds the environment-UNAWARE union
+            // (WorkspaceScopeCacheService.getWorkspaceScopes(userId, workspaceId));
+            // findByUserIdAndWorkspaceIdAndEnvironment
+            // feeds the per-environment lookup. Stubbing only the former, as this fixture originally did, leaves the
+            // member holding the scope through the union while holding NOTHING in any single environment -- which
+            // still satisfies "allowed with no environment named" and still satisfies "denied when naming
+            // PRODUCTION", because a member who holds nothing anywhere is denied everywhere. The PRODUCTION denial
+            // then passes without being environment-specific at all. The DEVELOPMENT stub is what makes the denial
+            // mean what the test says it means.
             when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironmentIsNull(USER_ID, WORKSPACE_ID))
                 .thenReturn(Optional.empty());
             when(workspaceUserRepository.findAllByUserIdAndWorkspaceId(USER_ID, WORKSPACE_ID))
                 .thenReturn(
                     List.of(
                         WorkspaceUser.forRole(USER_ID, WORKSPACE_ID, WorkspaceRole.VIEWER, Environment.DEVELOPMENT)));
+            when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironment(
+                USER_ID, WORKSPACE_ID, Environment.DEVELOPMENT.ordinal()))
+                    .thenReturn(
+                        Optional.of(
+                            WorkspaceUser.forRole(
+                                USER_ID, WORKSPACE_ID, WorkspaceRole.VIEWER, Environment.DEVELOPMENT)));
             when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironment(
                 USER_ID, WORKSPACE_ID, Environment.PRODUCTION.ordinal()))
                     .thenReturn(Optional.empty());
@@ -255,9 +330,12 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
             return mock(ConnectionService.class);
         }
 
+        // Permissive rather than a bare mock: filterVisible runs BEFORE the environment filter in getConnections,
+        // and a mock returns no visible ids, so every row would be dropped for a reason this test is not about --
+        // and the environment assertion would pass without the filter under test ever running.
         @Bean
         ResourceVisibilityResolver resourceVisibilityResolver() {
-            return mock(ResourceVisibilityResolver.class);
+            return permissiveResolver();
         }
 
         @Bean
@@ -295,5 +373,20 @@ class WorkspaceConnectionEnvironmentScopedReadRegressionIntTest {
                 .map(VisibilityRecord::id)
                 .collect(Collectors.toSet());
         }
+
+        /**
+         * The REAL {@link EnvironmentScopeFilter} over the REAL {@code PermissionService} bean above, so the
+         * per-environment narrowing this test pins runs for real rather than being simulated.
+         */
+        @Bean
+        EnvironmentScopeFilter environmentScopeFilter(ObjectProvider<PermissionService> permissionServiceProvider) {
+            return new EnvironmentScopeFilter(permissionServiceProvider);
+        }
+
+        @Bean
+        EnvironmentService environmentService() {
+            return () -> List.of(Environment.values());
+        }
+
     }
 }

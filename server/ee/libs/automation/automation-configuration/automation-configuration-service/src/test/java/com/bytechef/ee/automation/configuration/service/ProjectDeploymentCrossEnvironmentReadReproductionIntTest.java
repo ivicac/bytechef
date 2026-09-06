@@ -27,6 +27,7 @@ import com.bytechef.automation.configuration.listener.ProjectDeploymentDeleteEve
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.security.WorkspaceOwnershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
@@ -110,6 +111,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
 
     private static final String LOGIN = "alice";
+    private static final long DEVELOPMENT_DEPLOYMENT_ID = 800L;
     private static final long PRODUCTION_DEPLOYMENT_ID = 900L;
     private static final long PROJECT_ID = 55L;
     private static final long USER_ID = 42L;
@@ -194,9 +196,9 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
     /**
      * The companion R1 assertion: a {@code null} environment keeps today's behaviour rather than becoming a second,
      * accidental denial. The same DEVELOPMENT-only member, asking for no particular environment, falls back to the
-     * environment-unaware {@code hasWorkspaceScope(workspaceId, scope)} check and is let through -- unfiltered listings
-     * are a pre-existing, separately tracked union leak (see {@code hasWorkspaceScopeInEnvironmentId}'s javadoc), not
-     * something this gate is meant to close.
+     * environment-unaware {@code hasWorkspaceScope(workspaceId, scope)} check and is let through -- the gate is right
+     * to allow the call, because there is no environment in it to check. What the caller then sees is the body's
+     * question, pinned by the test below.
      */
     @Test
     void testDevelopmentOnlyViewerIsAllowedWhenNoEnvironmentIsNamed() {
@@ -204,6 +206,50 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
             WORKSPACE_ID, null, null, null, false);
 
         assertThat(result).isEmpty();
+    }
+
+    /**
+     * D4 of {@code docs/superpowers/specs/2026-09-06-environment-scoped-authorization-remaining-families-design.md}.
+     * The test above proves the call is allowed; this one proves being allowed is not the same as being shown
+     * everything. With no environment named the query returns every environment's deployments, so before the
+     * {@code EnvironmentScopeFilter} call in {@code getWorkspaceProjectDeployments} the Production row reached a member
+     * holding nothing in Production -- and no gate could have stopped it, because the request named no environment for
+     * a gate to check.
+     *
+     * <p>
+     * The Development row is asserted present, not merely the Production row absent: "returns only Development" and
+     * "returns nothing at all" both satisfy an assertion that only denies Production, and the second would be a filter
+     * that empties the page for every member instead of narrowing it.
+     */
+    @Test
+    void testDevelopmentOnlyViewerSeesOnlyDevelopmentRowsWhenNoEnvironmentIsNamed() {
+        ProjectDeployment developmentDeployment = new ProjectDeployment();
+
+        developmentDeployment.setId(DEVELOPMENT_DEPLOYMENT_ID);
+        developmentDeployment.setName("Customer Sync (Development)");
+        developmentDeployment.setProjectId(PROJECT_ID);
+        developmentDeployment.setEnvironment(Environment.DEVELOPMENT);
+
+        ProjectDeployment productionDeployment = new ProjectDeployment();
+
+        productionDeployment.setId(PRODUCTION_DEPLOYMENT_ID);
+        productionDeployment.setName("Customer Sync (Production)");
+        productionDeployment.setProjectId(PROJECT_ID);
+        productionDeployment.setEnvironment(Environment.PRODUCTION);
+
+        // Stubbed here rather than in @BeforeEach on purpose: the R1 test above asserts an EMPTY result, and it can
+        // only mean "allowed, nothing to show" while the null-environment query returns nothing.
+        when(
+            projectDeploymentService.getProjectDeployments(
+                eq(false), isNull(), isNull(), isNull(), eq(WORKSPACE_ID)))
+                    .thenReturn(List.of(developmentDeployment, productionDeployment));
+
+        List<ProjectDeploymentDTO> result = projectDeploymentFacade.getWorkspaceProjectDeployments(
+            WORKSPACE_ID, null, null, null, false);
+
+        assertThat(result)
+            .extracting(ProjectDeploymentDTO::id)
+            .containsExactly(DEVELOPMENT_DEPLOYMENT_ID);
     }
 
     // @SpringBootConfiguration (not @TestConfiguration) because @SpringBootTest(classes = Config.class) requires a
@@ -223,7 +269,8 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
         @Bean
         ProjectDeploymentFacade projectDeploymentFacade(
             ApplicationEventPublisher applicationEventPublisher, ConnectionService connectionService,
-            Evaluator evaluator, EnvironmentService environmentService, PrincipalJobFacade principalJobFacade,
+            Evaluator evaluator, EnvironmentScopeFilter environmentScopeFilter,
+            EnvironmentService environmentService, PrincipalJobFacade principalJobFacade,
             PrincipalJobService principalJobService, JobFacade jobFacade, JobService jobService,
             ProjectDeploymentService projectDeploymentService,
             ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
@@ -234,7 +281,8 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
             WorkflowService workflowService) {
 
             return new ProjectDeploymentFacadeImpl(
-                applicationEventPublisher, connectionService, evaluator, environmentService, principalJobFacade,
+                applicationEventPublisher, connectionService, evaluator, environmentScopeFilter, environmentService,
+                principalJobFacade,
                 principalJobService, jobFacade, jobService, List.<ProjectDeploymentDeleteEventListener>of(),
                 projectDeploymentService, projectDeploymentWorkflowService, projectService, projectVisibilityFilter,
                 projectWorkflowService, tagService, triggerDefinitionService, triggerExecutionService,
@@ -248,12 +296,29 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
             // The fixture: EXPLICIT mode, one row naming DEVELOPMENT, holding VIEWER (which carries
             // DEPLOYMENT_VIEW) -- and deliberately NO environment-null row, so the member holds nothing in
             // PRODUCTION and nothing implicit to fall back to.
+            //
+            // Both lookups the member's DEVELOPMENT row can be reached through are stubbed, and both are needed.
+            // findAllByUserIdAndWorkspaceId feeds the environment-UNAWARE union
+            // (WorkspaceScopeCacheService.getWorkspaceScopes(userId, workspaceId));
+            // findByUserIdAndWorkspaceIdAndEnvironment
+            // feeds the per-environment lookup. Stubbing only the former, as this fixture originally did, leaves the
+            // member holding the scope through the union while holding NOTHING in any single environment -- which
+            // still satisfies "allowed with no environment named" and still satisfies "denied when naming
+            // PRODUCTION", because a member who holds nothing anywhere is denied everywhere. The PRODUCTION denial
+            // then passes without being environment-specific at all. The DEVELOPMENT stub is what makes the denial
+            // mean what the test says it means.
             when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironmentIsNull(USER_ID, WORKSPACE_ID))
                 .thenReturn(Optional.empty());
             when(workspaceUserRepository.findAllByUserIdAndWorkspaceId(USER_ID, WORKSPACE_ID))
                 .thenReturn(
                     List.of(
                         WorkspaceUser.forRole(USER_ID, WORKSPACE_ID, WorkspaceRole.VIEWER, Environment.DEVELOPMENT)));
+            when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironment(
+                USER_ID, WORKSPACE_ID, Environment.DEVELOPMENT.ordinal()))
+                    .thenReturn(
+                        Optional.of(
+                            WorkspaceUser.forRole(
+                                USER_ID, WORKSPACE_ID, WorkspaceRole.VIEWER, Environment.DEVELOPMENT)));
             when(workspaceUserRepository.findByUserIdAndWorkspaceIdAndEnvironment(
                 USER_ID, WORKSPACE_ID, Environment.PRODUCTION.ordinal()))
                     .thenReturn(Optional.empty());
@@ -422,5 +487,15 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
                 .map(VisibilityRecord::id)
                 .collect(Collectors.toSet());
         }
+
+        /**
+         * The REAL {@link EnvironmentScopeFilter} over the REAL {@code PermissionService} bean, so the per-environment
+         * narrowing of the nullable listing runs for real rather than being simulated.
+         */
+        @Bean
+        EnvironmentScopeFilter environmentScopeFilter(ObjectProvider<PermissionService> permissionServiceProvider) {
+            return new EnvironmentScopeFilter(permissionServiceProvider);
+        }
+
     }
 }

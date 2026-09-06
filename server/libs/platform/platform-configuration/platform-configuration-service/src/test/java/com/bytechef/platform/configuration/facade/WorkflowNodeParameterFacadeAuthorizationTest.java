@@ -23,10 +23,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Pins the {@code @PreAuthorize} expressions that close workflow-node-parameter IDOR (T22). Every operation keys on its
- * {@code workflowId} and resolves the owning project's workspace via {@code hasPermission(#workflowId, 'Workflow',
- * ...)}; reads require {@code WORKFLOW_VIEW}, mutations {@code WORKFLOW_EDIT}. These facade methods are invoked only by
- * the workflow-editor REST/GraphQL controllers (no worker/execution callers), so a per-workflow gate is safe.
+ * Pins the {@code @PreAuthorize} expressions that close workflow-node-parameter IDOR (T22). Six of the eight operations
+ * key on their {@code workflowId} AND the caller-supplied {@code environmentId} via
+ * {@code hasWorkflowScopeInEnvironment(#workflowId, ..., #environmentId)}, which substitutes a confined principal's own
+ * environment and checks per-environment scope rather than unioning across every environment the caller happens to hold
+ * a scope in; reads require {@code WORKFLOW_VIEW}, mutations {@code WORKFLOW_EDIT}. The remaining two --
+ * {@code getClusterElementMissingRequiredProperties} and {@code getWorkflowNodeMissingRequiredProperties} -- take no
+ * {@code environmentId} and stay on the environment-agnostic {@code hasPermission(#workflowId, 'Workflow', ...)}. These
+ * facade methods are invoked only by the workflow-editor REST/GraphQL controllers (no worker/execution callers), so a
+ * per-workflow gate is safe.
  *
  * @author Ivica Cardic
  */
@@ -34,17 +39,17 @@ class WorkflowNodeParameterFacadeAuthorizationTest {
 
     @Test
     void testDeleteClusterElementParameterRequiresEdit() {
-        assertExpression("deleteClusterElementParameter", "WORKFLOW_EDIT");
+        assertEnvironmentAwareExpression("deleteClusterElementParameter", "WORKFLOW_EDIT");
     }
 
     @Test
     void testDeleteWorkflowNodeParameterRequiresEdit() {
-        assertExpression("deleteWorkflowNodeParameter", "WORKFLOW_EDIT");
+        assertEnvironmentAwareExpression("deleteWorkflowNodeParameter", "WORKFLOW_EDIT");
     }
 
     @Test
     void testGetClusterElementDisplayConditionsRequiresView() {
-        assertExpression("getClusterElementDisplayConditions", "WORKFLOW_VIEW");
+        assertEnvironmentAwareExpression("getClusterElementDisplayConditions", "WORKFLOW_VIEW");
     }
 
     @Test
@@ -54,7 +59,7 @@ class WorkflowNodeParameterFacadeAuthorizationTest {
 
     @Test
     void testGetWorkflowNodeDisplayConditionsRequiresView() {
-        assertExpression("getWorkflowNodeDisplayConditions", "WORKFLOW_VIEW");
+        assertEnvironmentAwareExpression("getWorkflowNodeDisplayConditions", "WORKFLOW_VIEW");
     }
 
     @Test
@@ -64,12 +69,12 @@ class WorkflowNodeParameterFacadeAuthorizationTest {
 
     @Test
     void testUpdateClusterElementParameterRequiresEdit() {
-        assertExpression("updateClusterElementParameter", "WORKFLOW_EDIT");
+        assertEnvironmentAwareExpression("updateClusterElementParameter", "WORKFLOW_EDIT");
     }
 
     @Test
     void testUpdateWorkflowNodeParameterRequiresEdit() {
-        assertExpression("updateWorkflowNodeParameter", "WORKFLOW_EDIT");
+        assertEnvironmentAwareExpression("updateWorkflowNodeParameter", "WORKFLOW_EDIT");
     }
 
     /**
@@ -99,6 +104,20 @@ class WorkflowNodeParameterFacadeAuthorizationTest {
     }
 
     private static void assertExpression(String methodName, String scope) {
+        Method match = findPreAuthorizeMethod(methodName);
+
+        assertThat(match.getAnnotation(PreAuthorize.class)
+            .value()).isEqualTo("hasPermission(#workflowId, 'Workflow', '" + scope + "')");
+    }
+
+    private static void assertEnvironmentAwareExpression(String methodName, String scope) {
+        Method match = findPreAuthorizeMethod(methodName);
+
+        assertThat(match.getAnnotation(PreAuthorize.class)
+            .value()).isEqualTo("hasWorkflowScopeInEnvironment(#workflowId, '" + scope + "', #environmentId)");
+    }
+
+    private static Method findPreAuthorizeMethod(String methodName) {
         Method match = null;
 
         for (Method candidate : WorkflowNodeParameterFacadeImpl.class.getDeclaredMethods()) {
@@ -114,7 +133,7 @@ class WorkflowNodeParameterFacadeAuthorizationTest {
         assertThat(match)
             .as("@PreAuthorize-annotated method %s", methodName)
             .isNotNull();
-        assertThat(match.getAnnotation(PreAuthorize.class)
-            .value()).isEqualTo("hasPermission(#workflowId, 'Workflow', '" + scope + "')");
+
+        return match;
     }
 }

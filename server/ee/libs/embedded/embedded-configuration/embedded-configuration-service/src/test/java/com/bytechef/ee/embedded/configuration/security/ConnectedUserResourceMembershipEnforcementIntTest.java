@@ -28,14 +28,14 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.facade.ProjectDeploymentFacadeImpl;
+import com.bytechef.automation.configuration.facade.ProjectFacadeImpl;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacadeImpl;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
-import com.bytechef.automation.configuration.service.ProjectDeploymentServiceImpl;
 import com.bytechef.automation.configuration.service.ProjectService;
-import com.bytechef.automation.configuration.service.ProjectServiceImpl;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.workflow.execution.facade.ProjectWorkflowExecutionFacadeImpl;
 import com.bytechef.ee.automation.configuration.facade.ProjectGitFacadeImpl;
@@ -62,6 +62,7 @@ import com.bytechef.platform.configuration.facade.WorkflowNodeScriptFacade;
 import com.bytechef.platform.configuration.facade.WorkflowNodeScriptFacadeImpl;
 import com.bytechef.platform.configuration.facade.WorkflowNodeTestOutputFacade;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
+import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TempFileStorage;
@@ -135,19 +136,19 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
     private static final long CONNECTION_B_ID = 302L;
     private static final long JOB_A_ID = 401L;
     private static final long JOB_B_ID = 402L;
-    private static final long CATALOG_JOB_A_ID = 403L;
-    private static final long CATALOG_JOB_B_ID = 404L;
+    private static final long AUTOMATION_WORKFLOW_JOB_A_ID = 403L;
+    private static final long AUTOMATION_WORKFLOW_JOB_B_ID = 404L;
     private static final long CONNECTED_USER_PROJECT_A_ID = 55L;
     private static final long PROJECT_DEPLOYMENT_A_ID = 501L;
     private static final long PROJECT_DEPLOYMENT_B_ID = 502L;
-    private static final long CATALOG_PROJECT_ID = 909L;
+    private static final long AUTOMATION_WORKFLOW_PROJECT_ID = 909L;
 
     private static final Long PRODUCTION_ENVIRONMENT_ID = (long) Environment.PRODUCTION.ordinal();
 
     private static final String WORKFLOW_A_ID = "workflow-a";
     private static final String WORKFLOW_B_ID = "workflow-b";
-    private static final String CATALOG_WORKFLOW_ID = "workflow-catalog";
-    private static final String CATALOG_WORKFLOW_UUID = "3f1b9c60-0000-4000-8000-00000000cafe";
+    private static final String AUTOMATION_WORKFLOW_WORKFLOW_ID = "workflow-automation workflow";
+    private static final String AUTOMATION_WORKFLOW_WORKFLOW_UUID = "3f1b9c60-0000-4000-8000-00000000cafe";
 
     @Autowired
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
@@ -160,6 +161,9 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
     @Autowired
     private ConnectedUserService connectedUserService;
+
+    @Autowired
+    private ConnectionService connectionService;
 
     @Autowired
     private GuardedEmbeddedReads guardedEmbeddedReads;
@@ -212,7 +216,8 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         when(projectService.fetchWorkflowProject(WORKFLOW_A_ID)).thenReturn(Optional.of(project(PROJECT_A_ID)));
         when(projectService.fetchWorkflowProject(WORKFLOW_B_ID)).thenReturn(Optional.of(project(PROJECT_B_ID)));
 
-        // No published catalog templates, so the Workflow predicate's catalog arm never rescues B's workflow.
+        // No published automation workflow templates, so the Workflow predicate's automation workflow arm never rescues
+        // B's workflow.
         when(automationWorkflowProjectFacade.getPublishedProjects(anyString(), any(Environment.class)))
             .thenReturn(List.of());
 
@@ -223,26 +228,44 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
             CONNECTED_USER_A_ID, Environment.PRODUCTION)).thenReturn(List.of(integrationInstance));
         when(connectedUserConnectionService.getConnectionIds(CONNECTED_USER_A_ID)).thenReturn(List.of());
 
+        // Owned connections are filtered to the caller's environment, so both test connections exist as embedded
+        // connections in PRODUCTION, the environment the principal rides.
+        when(connectionService.getConnections(anyList())).thenAnswer(invocation -> {
+            List<Long> connectionIds = invocation.getArgument(0);
+
+            return connectionIds.stream()
+                .map(ConnectedUserResourceMembershipEnforcementIntTest::embeddedProductionConnection)
+                .toList();
+        });
+
         when(jobService.fetchJob(JOB_A_ID)).thenReturn(Optional.of(job(WORKFLOW_A_ID)));
         when(jobService.fetchJob(JOB_B_ID)).thenReturn(Optional.of(job(WORKFLOW_B_ID)));
 
         // A's own ProjectDeployment set: no deployment of project A itself, one reference deployment provisioned on
-        // the CATALOG project -- the shape ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference leaves
+        // the CATALOG project -- the shape ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference leaves
         // behind. B's deployment 502 is in neither source.
         when(projectDeploymentService.getProjectDeployments(PROJECT_A_ID)).thenReturn(List.of());
         when(connectedUserProjectWorkflowService.getConnectedUserProjectWorkflows(CONNECTED_USER_PROJECT_A_ID))
             .thenReturn(List.of(connectedUserProjectWorkflow(PROJECT_DEPLOYMENT_A_ID)));
 
-        // Both catalog jobs run the SAME admin-owned catalog workflow; only the deployment they ran under differs.
-        when(jobService.fetchJob(CATALOG_JOB_A_ID)).thenReturn(Optional.of(job(CATALOG_WORKFLOW_ID)));
-        when(jobService.fetchJob(CATALOG_JOB_B_ID)).thenReturn(Optional.of(job(CATALOG_WORKFLOW_ID)));
-        when(principalJobService.fetchJobPrincipalId(CATALOG_JOB_A_ID, PlatformType.AUTOMATION))
+        // Both automation workflow jobs run the SAME admin-owned automation workflow; only the deployment they ran
+        // under differs.
+        when(jobService.fetchJob(AUTOMATION_WORKFLOW_JOB_A_ID))
+            .thenReturn(Optional.of(job(AUTOMATION_WORKFLOW_WORKFLOW_ID)));
+        when(jobService.fetchJob(AUTOMATION_WORKFLOW_JOB_B_ID))
+            .thenReturn(Optional.of(job(AUTOMATION_WORKFLOW_WORKFLOW_ID)));
+        when(principalJobService.fetchJobPrincipalId(AUTOMATION_WORKFLOW_JOB_A_ID, PlatformType.AUTOMATION))
             .thenReturn(Optional.of(PROJECT_DEPLOYMENT_A_ID));
-        when(principalJobService.fetchJobPrincipalId(CATALOG_JOB_B_ID, PlatformType.AUTOMATION))
+        when(principalJobService.fetchJobPrincipalId(AUTOMATION_WORKFLOW_JOB_B_ID, PlatformType.AUTOMATION))
             .thenReturn(Optional.of(PROJECT_DEPLOYMENT_B_ID));
 
         // The ordinary RBAC path grants everything, so nothing below can pass through it by accident.
         when(permissionService.hasResourceScope(any(), anyString(), anyString())).thenReturn(true);
+
+        // hasWorkflowScopeInEnvironment's ungoverned/no-skip branch calls this overload directly rather than
+        // hasResourceScope, so it needs its own stub to keep "the ordinary RBAC path grants everything" true for it
+        // too -- see testUngovernedPrincipalWithoutSkipStillReachesPermissionService.
+        when(permissionService.hasWorkflowScope(anyString(), anyString(), any(Environment.class))).thenReturn(true);
     }
 
     @AfterEach
@@ -252,7 +275,8 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         reset(
             testWorkflowExecutor, automationWorkflowProjectFacade, connectedUserConnectionService,
             connectedUserProjectService, connectedUserProjectWorkflowService,
-            connectedUserService, integrationInstanceService, jobService, permissionService, principalJobService,
+            connectedUserService, connectionService, integrationInstanceService, jobService, permissionService,
+            principalJobService,
             projectDeploymentService, projectService, projectWorkflowService);
     }
 
@@ -349,23 +373,24 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
     }
 
     /**
-     * Ticket 1051 residual 2, at the proxy. Both jobs run the SAME visible catalog template, so before the narrowing
-     * both were granted {@code EXECUTION_VIEW} purely because A could see the template -- a within-tenant cross-user
-     * read of B's job inputs, outputs and logs. The only difference between them is the {@code ProjectDeployment} they
-     * ran under, which is what the resolver now discriminates on.
+     * Ticket 1051 residual 2, at the proxy. Both jobs run the SAME visible automation workflow template, so before the
+     * narrowing both were granted {@code EXECUTION_VIEW} purely because A could see the template -- a within-tenant
+     * cross-user read of B's job inputs, outputs and logs. The only difference between them is the
+     * {@code ProjectDeployment} they ran under, which is what the resolver now discriminates on.
      *
      * <p>
-     * A's own catalog run must stay readable: a referenced catalog workflow is executed with no copy taken, so denying
-     * the arm outright would hide users' own executions from them.
+     * A's own automation workflow run must stay readable: a referenced automation workflow is executed with no copy
+     * taken, so denying the arm outright would hide users' own executions from them.
      */
     @Test
-    void testGrantsOwnCatalogRunAndDeniesAnotherConnectedUsersRunOfTheSameCatalogWorkflow() throws Throwable {
-        stubVisibleCatalogWorkflow();
+    void testGrantsOwnCatalogRunAndDeniesAnotherConnectedUsersRunOfTheSameAutomationWorkflow() throws Throwable {
+        stubVisibleAutomationWorkflow();
 
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatCode(() -> guardedEmbeddedReads.viewExecution(CATALOG_JOB_A_ID)).doesNotThrowAnyException();
+            assertThatCode(() -> guardedEmbeddedReads.viewExecution(AUTOMATION_WORKFLOW_JOB_A_ID))
+                .doesNotThrowAnyException();
 
-            assertThatThrownBy(() -> guardedEmbeddedReads.viewExecution(CATALOG_JOB_B_ID))
+            assertThatThrownBy(() -> guardedEmbeddedReads.viewExecution(AUTOMATION_WORKFLOW_JOB_B_ID))
                 .isInstanceOf(AccessDeniedException.class);
 
             return null;
@@ -374,24 +399,26 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
     /**
      * Ticket 1051 residual 3, at the proxy, and the last of the three.
-     * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.getOrCreateReference} provisions a {@code ProjectDeployment}
-     * on the CATALOG project, and the whole call chain down to {@code ProjectDeploymentServiceImpl.create} is ungated
-     * except for that method's own {@code hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')} --
-     * where {@code projectId} is the catalog project's, not the caller's. Until {@code resolveProject} grew its catalog
+     * {@code ConnectedUserWorkflowReferenceFacadeImpl.getOrCreateReference} provisions a {@code ProjectDeployment} on
+     * the CATALOG project, and the whole call chain down to {@code ProjectDeploymentFacadeImpl.createProjectDeployment}
+     * is ungated except for that method's own
+     * {@code hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')} -- where {@code projectId} is
+     * the automation workflow project's, not the caller's. Until {@code resolveProject} grew its automation workflow
      * arm the ownership test was the whole answer, so a governed connected user was denied; the resolver is consulted
      * ahead of the skip check, so {@code @SkipAutomationAuthorization} on the reference facade did not rescue it, and
      * FIRST-USE provisioning of a reference 403'd before the enable toggle residual 1 unblocks was ever reachable.
      *
      * <p>
-     * This test replaces the one that pinned that denial. The predicate is the catalog listing's, so both halves are
-     * asserted: a catalog project A can SEE grants {@code DEPLOYMENT_PUSH}, and one A cannot see still denies it.
+     * This test replaces the one that pinned that denial. The predicate is the automation workflow listing's, so both
+     * halves are asserted: a automation workflow project A can SEE grants {@code DEPLOYMENT_PUSH}, and one A cannot see
+     * still denies it.
      */
     @Test
-    void testGrantsProvisioningAReferenceDeploymentOnAVisibleCatalogProject() throws Throwable {
-        stubVisibleCatalogWorkflow();
+    void testGrantsProvisioningAReferenceDeploymentOnAVisibleAutomationWorkflowProject() throws Throwable {
+        stubVisibleAutomationWorkflow();
 
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatCode(() -> guardedEmbeddedReads.createProjectDeployment(CATALOG_PROJECT_ID))
+            assertThatCode(() -> guardedEmbeddedReads.createProjectDeployment(AUTOMATION_WORKFLOW_PROJECT_ID))
                 .doesNotThrowAnyException();
 
             // The caller's own project is granted too, so the grant above is not standing in for a blanket one.
@@ -403,13 +430,14 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
     }
 
     /**
-     * The other half: {@code setUp} installs an EMPTY catalog listing, so {@value #CATALOG_PROJECT_ID} is a catalog
-     * project this connected user cannot see -- and an entitlement nobody granted grants nothing.
+     * The other half: {@code setUp} installs an EMPTY automation workflow listing, so
+     * {@value #AUTOMATION_WORKFLOW_PROJECT_ID} is a automation workflow project this connected user cannot see -- and
+     * an entitlement nobody granted grants nothing.
      */
     @Test
-    void testDeniesProvisioningAReferenceDeploymentOnACatalogProjectTheCallerCannotSee() throws Throwable {
+    void testDeniesProvisioningAReferenceDeploymentOnAAutomationWorkflowProjectTheCallerCannotSee() throws Throwable {
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatThrownBy(() -> guardedEmbeddedReads.createProjectDeployment(CATALOG_PROJECT_ID))
+            assertThatThrownBy(() -> guardedEmbeddedReads.createProjectDeployment(AUTOMATION_WORKFLOW_PROJECT_ID))
                 .isInstanceOf(AccessDeniedException.class);
 
             return null;
@@ -418,21 +446,22 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
     /**
      * The allowlist guard, through the real evaluator and the real resolver, and the half that matters most: seeing a
-     * catalog project entitles this connected user to provision a reference deployment against it and to NOTHING else.
-     * The owned branch of {@code resolveProject} grants every verb, so an entitled branch that did the same would hand
-     * every connected user {@code PROJECT_DELETE}, {@code WORKFLOW_CREATE} and the rest on the tenant admin's catalog
-     * project -- and a GRANT returns ahead of the tenant-admin check and RBAC, so nothing downstream would refuse it.
+     * automation workflow project entitles this connected user to provision a reference deployment against it and to
+     * NOTHING else. The owned branch of {@code resolveProject} grants every verb, so an entitled branch that did the
+     * same would hand every connected user {@code PROJECT_DELETE}, {@code WORKFLOW_CREATE} and the rest on the tenant
+     * admin's automation workflow project -- and a GRANT returns ahead of the tenant-admin check and RBAC, so nothing
+     * downstream would refuse it.
      */
     @Test
-    void testDeniesEveryOtherProjectScopeOnAVisibleCatalogProject() throws Throwable {
-        stubVisibleCatalogWorkflow();
+    void testDeniesEveryOtherProjectScopeOnAVisibleAutomationWorkflowProject() throws Throwable {
+        stubVisibleAutomationWorkflow();
 
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatThrownBy(() -> guardedEmbeddedReads.addWorkflow(CATALOG_PROJECT_ID))
+            assertThatThrownBy(() -> guardedEmbeddedReads.addWorkflow(AUTOMATION_WORKFLOW_PROJECT_ID))
                 .isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> guardedEmbeddedReads.deleteProject(CATALOG_PROJECT_ID))
+            assertThatThrownBy(() -> guardedEmbeddedReads.deleteProject(AUTOMATION_WORKFLOW_PROJECT_ID))
                 .isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> guardedEmbeddedReads.pullProjectFromGit(CATALOG_PROJECT_ID))
+            assertThatThrownBy(() -> guardedEmbeddedReads.pullProjectFromGit(AUTOMATION_WORKFLOW_PROJECT_ID))
                 .isInstanceOf(AccessDeniedException.class);
 
             // ... while the caller's own project keeps granting all three.
@@ -445,28 +474,29 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
     }
 
     /**
-     * An admin-owned catalog workflow on {@value #CATALOG_PROJECT_ID} that connected user A can SEE in the published
-     * listing -- matched by the template uuid, the key the catalog listing itself uses. Overrides the empty listing
-     * {@code setUp} installs.
+     * An admin-owned automation workflow on {@value #AUTOMATION_WORKFLOW_PROJECT_ID} that connected user A can SEE in
+     * the published listing -- matched by the template uuid, the key the automation workflow listing itself uses.
+     * Overrides the empty listing {@code setUp} installs.
      */
-    private void stubVisibleCatalogWorkflow() {
-        when(projectService.fetchWorkflowProject(CATALOG_WORKFLOW_ID))
-            .thenReturn(Optional.of(project(CATALOG_PROJECT_ID)));
+    private void stubVisibleAutomationWorkflow() {
+        when(projectService.fetchWorkflowProject(AUTOMATION_WORKFLOW_WORKFLOW_ID))
+            .thenReturn(Optional.of(project(AUTOMATION_WORKFLOW_PROJECT_ID)));
 
-        ProjectWorkflow catalogProjectWorkflow = mock(ProjectWorkflow.class);
+        ProjectWorkflow automationWorkflowProjectWorkflow = mock(ProjectWorkflow.class);
 
-        when(catalogProjectWorkflow.getUuidAsString()).thenReturn(CATALOG_WORKFLOW_UUID);
-        when(projectWorkflowService.fetchWorkflowProjectWorkflow(CATALOG_WORKFLOW_ID))
-            .thenReturn(Optional.of(catalogProjectWorkflow));
+        when(automationWorkflowProjectWorkflow.getUuidAsString()).thenReturn(AUTOMATION_WORKFLOW_WORKFLOW_UUID);
+        when(projectWorkflowService.fetchWorkflowProjectWorkflow(AUTOMATION_WORKFLOW_WORKFLOW_ID))
+            .thenReturn(Optional.of(automationWorkflowProjectWorkflow));
 
         ConnectedUserWorkflowTemplateDTO template = new ConnectedUserWorkflowTemplateDTO(
-            CATALOG_WORKFLOW_UUID, "Template", "", null, List.of(), List.of(), List.of(), null);
+            AUTOMATION_WORKFLOW_WORKFLOW_UUID, "Template", "", null, List.of(), List.of(), List.of(), null);
 
-        AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            CATALOG_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+        AutomationWorkflowProjectDTO automationWorkflowProject = new AutomationWorkflowProjectDTO(
+            AUTOMATION_WORKFLOW_PROJECT_ID, "Automation workflow", "", null, List.of(), true, 1, 1, List.of(template),
+            null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_A, Environment.PRODUCTION))
-            .thenReturn(List.of(catalogProject));
+            .thenReturn(List.of(automationWorkflowProject));
     }
 
     private static ConnectedUserProjectWorkflow connectedUserProjectWorkflow(long projectDeploymentId) {
@@ -479,19 +509,26 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
     /**
      * The embedded workflow builder's property dropdowns. {@code WorkflowNodeOptionFacadeImpl}'s two methods carried no
-     * authorization at all until they were gated with {@code WORKFLOW_VIEW}; that gate is a new denial surface for the
-     * connected users who drive that builder, so both halves are asserted here through the real evaluator and the real
-     * resolver. A's own workflow passes and B's is refused -- the scope argument is ignored by
-     * {@code ConnectedUserResourceMembershipResolver#resolve}, so {@code WORKFLOW_VIEW} and {@code WORKFLOW_EDIT} get
-     * the identical answer and this covers the whole family.
+     * authorization at all until they were gated with {@code WORKFLOW_VIEW}, later re-pointed from
+     * {@code hasPermission(#workflowId, 'Workflow', ...)} to {@code hasWorkflowScopeInEnvironment(#workflowId, ...,
+     * #environmentId)}; that gate is a new denial surface for the connected users who drive that builder, so both
+     * halves are asserted here through the real evaluator and the real resolver. A's own workflow passes and B's is
+     * refused -- the scope argument is ignored by {@code ConnectedUserResourceMembershipResolver#resolve}, so
+     * {@code WORKFLOW_VIEW} and {@code WORKFLOW_EDIT} get the identical answer and this covers the whole family. The
+     * environment named is resolvable ({@code PRODUCTION_ENVIRONMENT_ID}) in both calls, since the gate's GRANT branch
+     * for a governed principal requires only that the caller-named environment be identifiable, not that it match
+     * anything further -- see {@code AutomationMethodSecurityExpressionRoot#hasWorkflowScopeInEnvironment}.
      */
     @Test
     void testGrantsOwnWorkflowIdAndDeniesAnotherOnWorkflowNodeOptions() throws Throwable {
         AutomationAuthorizationContext.callSkippingChecks(() -> {
-            assertThatCode(() -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_A_ID)).doesNotThrowAnyException();
+            assertThatCode(
+                () -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_A_ID, PRODUCTION_ENVIRONMENT_ID))
+                    .doesNotThrowAnyException();
 
-            assertThatThrownBy(() -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_B_ID))
-                .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(
+                () -> guardedEmbeddedReads.getWorkflowNodeOptions(WORKFLOW_B_ID, PRODUCTION_ENVIRONMENT_ID))
+                    .isInstanceOf(AccessDeniedException.class);
 
             return null;
         });
@@ -600,15 +637,17 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
                 preAuthorizeValue(
                     ProjectWorkflowExecutionFacadeImpl.class.getMethod("getWorkflowExecution", long.class)));
 
-        assertThat(preAuthorizeValue(GuardedEmbeddedReads.class.getMethod("getWorkflowNodeOptions", String.class)))
-            .isEqualTo(
-                preAuthorizeValue(
-                    WorkflowNodeOptionFacadeImpl.class.getMethod(
-                        "getWorkflowNodeOptions", String.class, String.class, String.class, List.class, String.class,
-                        long.class)));
+        assertThat(
+            preAuthorizeValue(
+                GuardedEmbeddedReads.class.getMethod("getWorkflowNodeOptions", String.class, long.class)))
+                    .isEqualTo(
+                        preAuthorizeValue(
+                            WorkflowNodeOptionFacadeImpl.class.getMethod(
+                                "getWorkflowNodeOptions", String.class, String.class, String.class, List.class,
+                                String.class, long.class)));
 
         assertThat(preAuthorizeValue(GuardedEmbeddedReads.class.getMethod("deleteProject", long.class)))
-            .isEqualTo(preAuthorizeValue(ProjectServiceImpl.class.getMethod("delete", long.class)));
+            .isEqualTo(preAuthorizeValue(ProjectFacadeImpl.class.getMethod("deleteProject", long.class)));
 
         assertThat(preAuthorizeValue(GuardedEmbeddedReads.class.getMethod("pullProjectFromGit", long.class)))
             .isEqualTo(preAuthorizeValue(ProjectGitFacadeImpl.class.getMethod("pullProjectFromGit", long.class)));
@@ -617,14 +656,18 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
     /**
      * The provisioning stand-in cannot be pinned by string equality -- production names the id through
      * {@code #projectDeployment.projectId} while the stand-in takes a bare {@code long} -- so the load-bearing half is
-     * pinned directly instead: the resource type and the scope TOKEN. {@code CATALOG_PROVISIONABLE_PROJECT_SCOPES}
-     * contains exactly {@code DEPLOYMENT_PUSH}, so retokenising this gate would silently stop the catalog arm covering
-     * the flow it exists for, and first-use provisioning would go back to 403ing.
+     * pinned directly instead: the resource type and the scope TOKEN.
+     * {@code AUTOMATION_WORKFLOW_PROVISIONABLE_PROJECT_SCOPES} contains exactly {@code DEPLOYMENT_PUSH}, so
+     * retokenising this gate would silently stop the automation workflow arm covering the flow it exists for, and
+     * first-use provisioning would go back to 403ing.
      */
     @Test
     void testProvisioningGateStillUsesDeploymentPushOnProject() throws NoSuchMethodException {
-        assertThat(preAuthorizeValue(ProjectDeploymentServiceImpl.class.getMethod("create", ProjectDeployment.class)))
-            .isEqualTo("hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')");
+        assertThat(
+            preAuthorizeValue(
+                ProjectDeploymentFacadeImpl.class.getMethod(
+                    "createProjectDeployment", ProjectDeployment.class, List.class, List.class)))
+                        .isEqualTo("hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')");
     }
 
     /**
@@ -847,7 +890,7 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         SecurityContextHolder.getContext()
             .setAuthentication(
                 new EmbeddedApiKeyAuthenticationToken(
-                    Environment.PRODUCTION.ordinal(), new User(externalUserId, "", List.of())));
+                    Environment.PRODUCTION.ordinal(), 0L, new User(externalUserId, "", List.of()), true));
     }
 
     /**
@@ -881,6 +924,16 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         connectedUserProject.setProjectId(PROJECT_A_ID);
 
         return connectedUserProject;
+    }
+
+    private static Connection embeddedProductionConnection(long connectionId) {
+        Connection connection = new Connection();
+
+        connection.setEnvironmentId(Environment.PRODUCTION.ordinal());
+        connection.setId(connectionId);
+        connection.setType(PlatformType.EMBEDDED);
+
+        return connection;
     }
 
     private static Job job(String workflowId) {
@@ -1056,9 +1109,9 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         }
 
         /**
-         * {@code ProjectServiceImpl.delete} -- a {@code 'Project'}-keyed token from a DIFFERENT enum
-         * ({@code ProjectPermissionScope}) than the one the catalog arm allows, so it shows the allowlist is not merely
-         * excluding the rest of {@code DeploymentPermissionScope}.
+         * {@code ProjectFacadeImpl.deleteProject} -- a {@code 'Project'}-keyed token from a DIFFERENT enum
+         * ({@code ProjectPermissionScope}) than the one the automation workflow arm allows, so it shows the allowlist
+         * is not merely excluding the rest of {@code DeploymentPermissionScope}.
          */
         @PreAuthorize("hasPermission(#id, 'Project', 'PROJECT_DELETE')")
         public void deleteProject(long id) {
@@ -1066,7 +1119,7 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
 
         /**
          * EE {@code ProjectGitFacadeImpl.pullProjectFromGit} -- {@code DEPLOYMENT_PULL}, the sibling
-         * {@code DeploymentPermissionScope} token the catalog arm must NOT grant just because it grants
+         * {@code DeploymentPermissionScope} token the automation workflow arm must NOT grant just because it grants
          * {@code DEPLOYMENT_PUSH}.
          */
         @PreAuthorize("hasPermission(#projectId, 'Project', 'DEPLOYMENT_PULL')")
@@ -1081,13 +1134,13 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         public void viewExecution(long id) {
         }
 
-        @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
-        public void getWorkflowNodeOptions(String workflowId) {
+        @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
+        public void getWorkflowNodeOptions(String workflowId, long environmentId) {
         }
 
         /**
          * {@code ProjectDeploymentFacadeImpl.enableProjectDeploymentWorkflow(long, String, boolean)} -- what
-         * {@code ConnectedUserCodeWorkflowReferenceFacadeImpl.enableReference} calls, and the surface behind the
+         * {@code ConnectedUserWorkflowReferenceFacadeImpl.enableReference} calls, and the surface behind the
          * automation-hub enable toggle.
          */
         @PreAuthorize("hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
@@ -1095,7 +1148,7 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
         }
 
         /**
-         * {@code ProjectDeploymentServiceImpl.create} -- reached, ungated the whole way, from
+         * {@code ProjectDeploymentFacadeImpl.createProjectDeployment} -- reached, ungated the whole way, from
          * {@code getOrCreateReference} when a reference is provisioned for the first time. Note the resource type is
          * {@code 'Project'} and the id is the CATALOG project's.
          */

@@ -87,7 +87,7 @@ public class WorkflowNodeDynamicPropertiesFacadeImpl implements WorkflowNodeDyna
 
     @Override
     @SuppressWarnings("unchecked")
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<Property> getClusterElementDynamicProperties(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String propertyName, List<String> lookupDependsOnPaths,
@@ -175,7 +175,7 @@ public class WorkflowNodeDynamicPropertiesFacadeImpl implements WorkflowNodeDyna
 
     @Override
     @SuppressWarnings("unchecked")
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public List<? extends BaseProperty> getWorkflowNodeDynamicProperties(
         String workflowId, String workflowNodeName, String propertyName, List<String> lookupDependsOnPaths,
         long environmentId) {
