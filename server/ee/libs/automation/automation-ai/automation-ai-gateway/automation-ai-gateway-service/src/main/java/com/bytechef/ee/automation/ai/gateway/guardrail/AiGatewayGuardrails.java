@@ -182,7 +182,7 @@ public class AiGatewayGuardrails {
 
             if (content != null) {
                 processed = redactOrTokenize(content, workspaceId, session);
-                processed = applyProjectOverlay(processed, projectSettings);
+                processed = applyProjectOverlay(processed, projectSettings, workspaceId);
             }
 
             if (moderate && processed != null && moderationClassifier.isFlagged(processed)) {
@@ -264,7 +264,7 @@ public class AiGatewayGuardrails {
         boolean changed = false;
 
         for (String input : engineProcessed) {
-            String processed = applyProjectOverlay(input, projectSettings);
+            String processed = applyProjectOverlay(input, projectSettings, workspaceId);
 
             if (!processed.equals(input)) {
                 changed = true;
@@ -391,7 +391,10 @@ public class AiGatewayGuardrails {
             String scanned = aiGuardrails.scanResponseText(content, workspaceId);
 
             if (projectScanResponses) {
-                scanned = aiGuardrails.redactAll(scanned);
+                // 2026-08-31 final-branch-review fix: this project-only extra scan used to run at
+                // SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE regardless of the workspace's own threshold, unlike
+                // scanResponseText just above, which already resolves it. Same fix as applyProjectOverlay's.
+                scanned = aiGuardrails.redactAll(scanned, aiGuardrails.resolveMinConfidence(workspaceId));
             }
 
             // scanResponseText/redactAll are declared @Nullable, so scanned is compared null-safely rather than
@@ -532,7 +535,12 @@ public class AiGatewayGuardrails {
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
 
         if (projectSettings != null && Boolean.TRUE.equals(projectSettings.scanResponses())) {
-            return aiGuardrails.newStreamingResponseRedactor();
+            // 2026-08-31 final-branch-review fix: this project-triggered branch used to call the zero-arg
+            // newStreamingResponseRedactor(), which runs at SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE
+            // unconditionally -- the workspace's own threshold was never consulted here, even though
+            // newStreamingResponseRedactor(Long) just above already resolves it when workspace policy alone
+            // triggers streaming.
+            return aiGuardrails.newStreamingResponseRedactor(aiGuardrails.resolveMinConfidence(workspaceId));
         }
 
         return null;
@@ -553,16 +561,30 @@ public class AiGatewayGuardrails {
      * project enables it and the workspace/global policy did not. A project can only enable a guardrail or add blocked
      * terms — it never turns one off — so it is safe to always layer this on top, regardless of what the engine already
      * applied.
+     *
+     * <p>
+     * 2026-08-31 final-branch-review fix: the extra PII/secret redaction below used to call
+     * {@link AiGuardrails#redactPii(String)}/{@link AiGuardrails#redactSecrets(String)} with no threshold, which run at
+     * {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} regardless of what {@code workspaceId} configured. This is a
+     * response/request-direction redact-only path with a workspace id already in scope, so it now resolves and passes
+     * the workspace's own threshold like every other call site.
+     * </p>
+     *
+     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed, used only to
+     *                    resolve the effective minimum confidence for the extra redaction below
      */
-    private String applyProjectOverlay(String text, @Nullable AiGatewayProjectSettings projectSettings) {
+    private String applyProjectOverlay(
+        String text, @Nullable AiGatewayProjectSettings projectSettings, @Nullable Long workspaceId) {
+
         if (projectSettings == null) {
             return text;
         }
 
         String result = text;
+        double minConfidence = aiGuardrails.resolveMinConfidence(workspaceId);
 
         if (Boolean.TRUE.equals(projectSettings.redactPii())) {
-            String redacted = aiGuardrails.redactPii(result);
+            String redacted = aiGuardrails.redactPii(result, minConfidence);
 
             // aiGuardrails.redactPii is declared @Nullable, so redacted is compared null-safely rather than
             // dereferenced -- result is never actually null here (callers only ever pass non-null, non-empty text
@@ -575,7 +597,7 @@ public class AiGatewayGuardrails {
         }
 
         if (Boolean.TRUE.equals(projectSettings.redactSecrets())) {
-            String redacted = aiGuardrails.redactSecrets(result);
+            String redacted = aiGuardrails.redactSecrets(result, minConfidence);
 
             // Same null-safety reasoning as the redactPii branch above.
             if (!Objects.equals(redacted, result)) {

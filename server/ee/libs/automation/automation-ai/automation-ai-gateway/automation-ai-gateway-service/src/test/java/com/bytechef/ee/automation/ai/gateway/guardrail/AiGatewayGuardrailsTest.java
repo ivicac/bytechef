@@ -21,8 +21,11 @@ import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatRole;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
@@ -329,6 +332,34 @@ class AiGatewayGuardrailsTest {
         assertThat(guardrails.newStreamingResponseRedactor(null)).isNotNull();
     }
 
+    /**
+     * Mutation evidence for a finding-4 gap beyond what the review's table explicitly enumerated: this
+     * project-triggered branch used to call the engine's zero-arg {@code newStreamingResponseRedactor()}, which -- like
+     * every other site this finding covers -- runs at {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} regardless
+     * of the workspace's own threshold. Here ONLY the project enables streaming response scanning (workspace/global
+     * {@code scanResponses} stay off, so {@code AiGuardrails#newStreamingResponseRedactor(Long)} above returns
+     * {@code null} and this project branch is the sole thing that can construct a redactor), isolating this specific
+     * call site. Reverting the fix makes this test fail: the streamed email comes back redacted instead of untouched.
+     */
+    @Test
+    void testProjectOverlayStreamingRedactorHonorsWorkspaceThreshold() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false, true);
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(aboveEmailAddressScore)));
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
+
+        StreamingResponseRedactor redactor = guardrails.newStreamingResponseRedactor(7L, 3L);
+
+        assertThat(redactor).isNotNull();
+
+        String emitted = redactor.push("mail bob@acme.io") + redactor.flush();
+
+        assertThat(emitted).isEqualTo("mail bob@acme.io");
+    }
+
     @Test
     void testProjectOverlayEnablesRedaction() {
         AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
@@ -371,6 +402,60 @@ class AiGatewayGuardrailsTest {
             .content();
 
         assertThat(content).isEqualTo("mail [REDACTED_EMAIL_ADDRESS] key [REDACTED_SECRET]");
+    }
+
+    /**
+     * Mutation evidence for the finding-4 fix: {@code applyProjectOverlay} used to call
+     * {@code aiGuardrails.redactPii(result)}/{@code redactSecrets(result)} with no threshold at all, which run at
+     * {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} regardless of the workspace's own
+     * {@code AiGuardrailsWorkspaceSettings.minConfidence} override -- silently, even though a {@code workspaceId} was
+     * already in scope. Setting the workspace threshold above {@code EMAIL_ADDRESS}'s own score must suppress the
+     * project-only redaction the same way it already suppresses the engine's own request-direction redaction. Reverting
+     * the fix (dropping the {@code minConfidence} argument back out of {@code applyProjectOverlay}'s {@code redactPii}
+     * call) makes this test fail.
+     */
+    @Test
+    void testProjectOverlayHonorsWorkspaceThreshold() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(aboveEmailAddressScore)));
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(true, null, null, null, null, null)));
+
+        AiGatewayChatCompletionRequest result = guardrails.apply(requestOf("Contact bob@acme.io"), 7L, 3L);
+
+        assertThat(result.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact bob@acme.io");
+    }
+
+    /**
+     * Mutation evidence for the finding-4 fix: {@code scanResponse}'s project-only extra scan used to call
+     * {@code aiGuardrails.redactAll(scanned)} with no threshold, unlike {@code scanResponseText} just above it in the
+     * same method, which already resolves the workspace's own threshold. Here ONLY the project turns on response
+     * scanning (workspace/global {@code scanResponses} stay off), so {@code scanResponseText} itself is a no-op and the
+     * project-only branch is the sole thing that can redact -- isolating exactly the call site finding 4 named.
+     * Reverting the fix makes this test fail.
+     */
+    @Test
+    void testProjectOverlayResponseScanHonorsWorkspaceThreshold() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(aboveEmailAddressScore)));
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
+
+        AiGatewayChatCompletionResponse redacted =
+            guardrails.redactResponse(responseOf("contact bob@acme.io"), 7L, 3L);
+
+        assertThat(redacted.choices()
+            .getFirst()
+            .message()
+            .content()).isEqualTo("contact bob@acme.io");
     }
 
     @Test
@@ -637,7 +722,23 @@ class AiGatewayGuardrailsTest {
 
         return new AiGuardrailsWorkspaceSettings(
             7L, redactPii, redactSecrets, blockedTerms, moderationEnabled, injectionDetectionEnabled, scanResponses,
-            null);
+            null, null);
+    }
+
+    private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
+        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence);
+    }
+
+    private static double scoreOf(String type) {
+        for (PiiPattern pattern : PiiPatternCatalog.ALL) {
+            if (pattern.type()
+                .equals(type)) {
+
+                return pattern.score();
+            }
+        }
+
+        throw new IllegalArgumentException("no catalog entry for " + type);
     }
 
     private static AiGatewayProjectSettings projectSettings(
