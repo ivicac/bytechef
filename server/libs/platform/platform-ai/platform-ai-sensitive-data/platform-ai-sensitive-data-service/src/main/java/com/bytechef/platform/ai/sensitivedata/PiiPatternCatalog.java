@@ -18,6 +18,7 @@ package com.bytechef.platform.ai.sensitivedata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -573,6 +574,45 @@ public final class PiiPatternCatalog {
         public PiiPattern(String type, Pattern pattern, double score, ContextRule contextRule) {
             this(type, pattern, score, null, contextRule);
         }
+    }
+
+    /**
+     * Returns the confidence a match should carry: {@code baseScore}, or {@code contextRule}'s promoted score when one
+     * of its keywords sits within its window of the match.
+     *
+     * <p>
+     * Lives here, beside {@link ContextRule}, rather than in the detector that first needed it. Two detectors now apply
+     * this rule -- the built-in catalog's and the one evaluating a workspace's own patterns -- and two copies of a
+     * promotion rule is precisely the duplication the consolidation work spent a sub-project removing.
+     * </p>
+     *
+     * @param contextRule the rule to apply, or {@code null} for no promotion
+     * @param baseScore   the pattern's own score
+     * @param text        the full text being scanned
+     * @param matchStart  the match's start, inclusive
+     * @param matchEnd    the match's end, exclusive
+     * @return the confidence to report
+     */
+    public static double promotedScore(
+        @Nullable ContextRule contextRule, double baseScore, String text, int matchStart, int matchEnd) {
+
+        if (contextRule == null) {
+            return baseScore;
+        }
+
+        int window = contextRule.window();
+        // Clamped to the text, so a match at either end still sees whatever context exists on the side that has any.
+        String context = text.substring(
+            Math.max(0, matchStart - window), Math.min(text.length(), matchEnd + window))
+            .toLowerCase(Locale.ROOT);
+
+        for (String keyword : contextRule.keywords()) {
+            if (context.contains(keyword)) {
+                return contextRule.score();
+            }
+        }
+
+        return baseScore;
     }
 
     /**
