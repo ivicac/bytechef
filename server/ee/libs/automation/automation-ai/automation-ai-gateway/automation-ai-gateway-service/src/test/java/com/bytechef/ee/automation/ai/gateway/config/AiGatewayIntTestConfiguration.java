@@ -10,16 +10,19 @@ package com.bytechef.ee.automation.ai.gateway.config;
 import com.bytechef.commons.data.jdbc.converter.EncryptedStringWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToEncryptedStringWrapperConverter;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.encryption.Encryption;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.file.storage.base64.config.Base64FileStorageConfiguration;
 import com.bytechef.jackson.config.JacksonConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
 import java.util.List;
 import org.jspecify.annotations.NonNull;
+import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
@@ -99,6 +102,27 @@ public class AiGatewayIntTestConfiguration {
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
+    }
+
+    // McpOutboundRedactorProviderImpl lives in com.bytechef.ee.platform.ai.guardrails.mcp, inside the guardrails
+    // package this configuration scans, and autowires a SensitiveDataRedactor. AiGuardrails itself never needed one
+    // -- it builds its own -- so nothing in this context supplied the bean, and adding that component made the whole
+    // integration context fail to start with NoSuchBeanDefinitionException. An empty-detector instance is enough:
+    // these tests exercise the gateway, not MCP outbound redaction. In production the bean is a @Component in
+    // platform-ai-sensitive-data-service, which platform-ai-guardrails-service depends on.
+    @Bean
+    SensitiveDataRedactor sensitiveDataRedactor() {
+        return new SensitiveDataRedactor(List.of());
+    }
+
+    // AiGuardrailsAdvisorProviderImpl is picked up by the guardrails package scan above and autowires a
+    // JobPrincipalWorkspaceResolver to resolve the workspace a guarded call belongs to. That resolver lives in
+    // com.bytechef.ee.platform.ai.workspace, outside every package this configuration scans, so the real bean does
+    // not exist here and the whole integration context fails to start. These tests exercise gateway routing rather
+    // than per-workspace guardrail resolution, so a mock is enough.
+    @Bean
+    JobPrincipalWorkspaceResolver jobPrincipalWorkspaceResolver() {
+        return Mockito.mock(JobPrincipalWorkspaceResolver.class);
     }
 
     // AiObservabilityWebhookDeliveryServiceImpl autowires a TaskScheduler for its delayed-retry logic. No other

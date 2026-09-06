@@ -722,11 +722,11 @@ class AiGatewayGuardrailsTest {
 
         return new AiGuardrailsWorkspaceSettings(
             7L, redactPii, redactSecrets, blockedTerms, moderationEnabled, injectionDetectionEnabled, scanResponses,
-            null, null);
+            null, null, null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
-        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence);
+        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence, null);
     }
 
     private static double scoreOf(String type) {
