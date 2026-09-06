@@ -96,6 +96,15 @@
     -->
     <includeAll path="classpath:config/liquibase/changelog/platform/ai/eval/dataset" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
     <!--
+        platform/ai/guardrails holds ai_guardrail_violation - per-detection guardrail drill-down records. Carries its
+        own nullable workspace_id column; there is no workspace_ai_guardrail_violation relation table. No foreign
+        keys, so its position is free; kept beside the other platform/ai changelogs.
+
+        NOTE the table deliberately has NO column for the matched value, and none may be added - see
+        docs/superpowers/specs/2026-09-03-guardrail-violation-records-design.md section 2.
+    -->
+    <includeAll path="classpath:config/liquibase/changelog/platform/ai/guardrails" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
+    <!--
         platform/ai/eval/experiment holds ai_eval_experiment + ai_eval_experiment_run — extracted from
         automation/ai_gateway. ai_eval_experiment carries its own nullable workspace_id column; there is no
         workspace_ai_eval_experiment relation table. Loaded AFTER platform/ai/eval/dataset because the experiment

@@ -130,6 +130,7 @@ public class AiGuardrails {
     private final @Nullable AiGatewayInjectionClassifier injectionClassifier;
     private final @Nullable AiGatewayModerationClassifier moderationClassifier;
     private final @Nullable AiGuardrailMetrics metrics;
+    private final boolean globalViolationRecordingEnabled;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     // Resolved once at construction rather than per streamed response -- streamSafeView() logs an exclusion line for
     // each non-stream-safe detector, and newStreamingResponseRedactor() is called once per streamed response, so
@@ -160,7 +161,7 @@ public class AiGuardrails {
             SensitiveDataDetectors.builtIn(), piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
             injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
             SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
-            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput());
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false);
     }
 
     /**
@@ -187,7 +188,7 @@ public class AiGuardrails {
             sensitiveDataDetectors, piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
             injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
             SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
-            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput());
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false);
     }
 
     // Three constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this
@@ -211,7 +212,8 @@ public class AiGuardrails {
         // These two sit under bytechef.ai.guardrails, not the gateway prefix above: they bound the shared CE
         // detection engine rather than anything the AI Gateway owns.
         @Value("${bytechef.ai.guardrails.detection.timeout:2s}") Duration detectionTimeout,
-        @Value("${bytechef.ai.guardrails.detection.max-unwindowable-input:262144}") int maxUnwindowableInput) {
+        @Value("${bytechef.ai.guardrails.detection.max-unwindowable-input:262144}") int maxUnwindowableInput,
+        @Value("${bytechef.ai.guardrails.violation.enabled:false}") boolean violationRecordingEnabled) {
 
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
@@ -224,6 +226,7 @@ public class AiGuardrails {
         this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
         this.metrics = metrics;
+        this.globalViolationRecordingEnabled = violationRecordingEnabled;
         this.sensitiveDataRedactor = new SensitiveDataRedactor(
             sensitiveDataDetectors,
             new SensitiveDataRedactor.DetectionBounds(detectionTimeout, maxUnwindowableInput));
@@ -588,6 +591,24 @@ public class AiGuardrails {
     }
 
     /**
+     * Returns whether per-detection drill-down records should be written for this call.
+     *
+     * <p>
+     * Global today, and default false. The design calls for this to be a per-workspace setting, and it should become
+     * one -- but the property that decision protects is "a deployment that never asked for drill-down writes nothing
+     * and pays nothing", and a default-false global flag delivers that in full. What is deferred is granularity, not
+     * the safe default, and adding the workspace field later is additive rather than a migration.
+     * </p>
+     *
+     * @param workspaceId accepted now so the per-workspace form is a body change rather than a signature change
+     * @return whether to record
+     */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    public boolean isViolationRecordingEnabled(@Nullable Long workspaceId) {
+        return globalViolationRecordingEnabled;
+    }
+
+    /**
      * Returns the effective {@link BlockingMode} for the workspace: the workspace's configured mode, or {@code BLOCK}
      * when no settings row exists (or the row does not configure a mode).
      *
@@ -893,7 +914,9 @@ public class AiGuardrails {
             return null;
         }
 
-        String result = redactPiiAndSecrets(content, policy, metrics, session);
+        // The AI Gateway's throwing path has no use for the spans -- it either returns the text or throws -- so it
+        // takes the text and its behaviour is untouched by this carrier.
+        String result = redactPiiAndSecrets(content, policy, metrics, session).text();
 
         if (findBlockedTerm(result, policy.blockedTerms()) != null) {
             record(metrics, "blocked_term");
@@ -931,32 +954,35 @@ public class AiGuardrails {
         @Nullable PiiTokenSession session) {
 
         if (content == null) {
-            return new GuardrailCheckResult(null, null, null);
+            return new GuardrailCheckResult(null, null, null, List.of());
         }
 
-        String redacted = redactPiiAndSecrets(content, policy, recordingMetrics, session);
+        RedactedContent redactedContent = redactPiiAndSecrets(content, policy, recordingMetrics, session);
+        String redacted = redactedContent.text();
+        List<SensitiveSpan> spans = redactedContent.accepted();
 
         String blockedTerm = findBlockedTerm(redacted, policy.blockedTerms());
 
         if (blockedTerm != null) {
             record(recordingMetrics, "blocked_term");
 
-            return new GuardrailCheckResult(maskBlockedTerm(redacted, blockedTerm), redacted, "blocked_term");
+            return new GuardrailCheckResult(
+                maskBlockedTerm(redacted, blockedTerm), redacted, "blocked_term", spans);
         }
 
         if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(redacted)) {
             record(recordingMetrics, "injection_flagged");
 
-            return new GuardrailCheckResult(redacted, redacted, "injection_flagged");
+            return new GuardrailCheckResult(redacted, redacted, "injection_flagged", spans);
         }
 
         if (policy.moderate() && moderationClassifier != null && moderationClassifier.isFlagged(redacted)) {
             record(recordingMetrics, "moderation_flagged");
 
-            return new GuardrailCheckResult(MODERATION_PLACEHOLDER, redacted, "moderation_flagged");
+            return new GuardrailCheckResult(MODERATION_PLACEHOLDER, redacted, "moderation_flagged", spans);
         }
 
-        return new GuardrailCheckResult(redacted, redacted, null);
+        return new GuardrailCheckResult(redacted, redacted, null, spans);
     }
 
     /**
@@ -971,7 +997,7 @@ public class AiGuardrails {
      *
      * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
      */
-    private String redactPiiAndSecrets(
+    private RedactedContent redactPiiAndSecrets(
         String content, EffectivePolicy policy, @Nullable AiGuardrailMetrics recordingMetrics,
         @Nullable PiiTokenSession session) {
 
@@ -1003,7 +1029,15 @@ public class AiGuardrails {
             record(recordingMetrics, "secret_redacted");
         }
 
-        return redactionResult.text();
+        return new RedactedContent(redactionResult.text(), accepted);
+    }
+
+    /**
+     * The redacted (or tokenized) text together with the spans that produced it. Exists because the spans were already
+     * computed here to decide which counters to increment, and a caller recording per-detection drill-down has no other
+     * source for them.
+     */
+    private record RedactedContent(String text, List<SensitiveSpan> accepted) {
     }
 
     private static boolean containsKind(List<SensitiveSpan> spans, SensitiveKind kind) {
@@ -1149,9 +1183,19 @@ public class AiGuardrails {
      *                     rather than resolving the mode itself, keeping {@link #checkInputs}' documented contract that
      *                     the CALLER decides how to handle a blocking violation.
      * @param category     the violation category, or {@code null} when nothing blocking fired
+     * @param spans        the PII/secret spans this engine actually acted on, empty when none. Carried out rather than
+     *                     discarded so a caller can record WHICH pattern fired and where -- the counter this engine
+     *                     already increments carries only an event name and a surface, by design, so it can say how
+     *                     much is happening and never what. Never the matched text: a span is
+     *                     {@code (category, start, end, confidence)}, which locates a match without reproducing it.
      */
     public record GuardrailCheckResult(
-        @Nullable String text, @Nullable String unmaskedText, @Nullable String category) {
+        @Nullable String text, @Nullable String unmaskedText, @Nullable String category,
+        List<SensitiveSpan> spans) {
+
+        public GuardrailCheckResult {
+            spans = spans == null ? List.of() : List.copyOf(spans);
+        }
 
         public boolean blocked() {
             return category != null;

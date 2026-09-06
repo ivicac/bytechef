@@ -1454,6 +1454,16 @@ public class ApplicationProperties {
 
             private OpenNlp openNlp = new OpenNlp();
 
+            private Violation violation = new Violation();
+
+            public Violation getViolation() {
+                return violation;
+            }
+
+            public void setViolation(Violation violation) {
+                this.violation = violation;
+            }
+
             public Detection getDetection() {
                 return detection;
             }
@@ -1500,6 +1510,68 @@ public class ApplicationProperties {
 
                 public void setMaxUnwindowableInput(int maxUnwindowableInput) {
                     this.maxUnwindowableInput = maxUnwindowableInput;
+                }
+            }
+
+            /**
+             * Per-detection drill-down records. Off by default: the guardrail counter stays the free path, and this is
+             * the row-per-detection store a deployment opts into.
+             *
+             * <p>
+             * Defaults must match {@code AiGuardrailViolationRecorder} and {@code AiGuardrailViolationRetentionJob}
+             * exactly; two sets of defaults that can drift is how a documented value stops being the real one.
+             * </p>
+             */
+            public static class Violation {
+
+                private boolean enabled;
+
+                private int dailyCap = 100000;
+
+                private int queueCapacity = 1000;
+
+                private long retentionDays = 30;
+
+                private String retentionCron = "0 30 2 * * *";
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+
+                public int getDailyCap() {
+                    return dailyCap;
+                }
+
+                public void setDailyCap(int dailyCap) {
+                    this.dailyCap = dailyCap;
+                }
+
+                public int getQueueCapacity() {
+                    return queueCapacity;
+                }
+
+                public void setQueueCapacity(int queueCapacity) {
+                    this.queueCapacity = queueCapacity;
+                }
+
+                public long getRetentionDays() {
+                    return retentionDays;
+                }
+
+                public void setRetentionDays(long retentionDays) {
+                    this.retentionDays = retentionDays;
+                }
+
+                public String getRetentionCron() {
+                    return retentionCron;
+                }
+
+                public void setRetentionCron(String retentionCron) {
+                    this.retentionCron = retentionCron;
                 }
             }
 
