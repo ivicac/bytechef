@@ -218,8 +218,11 @@ Pinned versions, verified against Maven Central metadata on 2026-09-06:
 `com.github.kagkarlsson:db-scheduler-spring-boot-4-starter` **16.12.0** (newest release, and the
 UI's minimum) and `no.bekk.db-scheduler-ui:db-scheduler-ui-spring-boot-4-starter` **5.0.0**. The
 UI serves at `/db-scheduler` with its API under
-`/db-scheduler-api/**`, in whichever app hosts the scheduler beans: `server-app` (monolith) and
-`scheduler-app` (EE). Defaults: `read-only: true`, `task-data: true`, `db-scheduler-ui.log.enabled: false`. `scheduler-app` has `spring-boot-starter-web` but no Spring Security stack (`security-config` is not a dependency), so `db-scheduler-ui` is wired into `server-app` only. `scheduler-app` keeps `db-scheduler-ui.enabled=false` until it gains a security chain; tracked in §7.
+`/db-scheduler-api/**`, in `server-app` (monolith) only. Defaults: `read-only: true`,
+`task-data: true`, `db-scheduler-ui.log.enabled: false`. `scheduler-app` (EE) has
+`spring-boot-starter-web` but no Spring Security stack (`security-config` is not a dependency), so
+`db-scheduler-ui` cannot be gated there safely; it keeps `db-scheduler-ui.enabled=false` until it
+gains a security chain, tracked in §7.
 
 ### 5.2 Security
 
@@ -302,3 +305,6 @@ Nothing in the Quartz module changes, so its tests stay as they are — includin
 - Fix #5651 in the Quartz provider, or retire the path with Quartz.
 - Once db-scheduler is the default in every environment: retire Quartz, drop `QRTZ_*`, remove the
   importer.
+- `BillingSchedulingConfiguration` gates on the non-existent key
+  `bytechef.coordinator.trigger.scheduler.provider`; harmless today because the default resolves to
+  `quartz`, but it should read `bytechef.scheduler.provider`.
