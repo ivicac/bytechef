@@ -81,6 +81,16 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
+ * <b>2026-08-31 final-branch-review fix: this class now holds its own confidence threshold.</b> Every {@link #push}/
+ * {@link #flush} scan used to run at {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} unconditionally — this class
+ * carried no {@code minConfidence} field or constructor parameter at all — so a workspace that raised or lowered its
+ * threshold via {@code AiGuardrailsWorkspaceSettings.minConfidence} got that override on request-direction redaction
+ * but never on a streamed response, silently. The package-private constructors taking an explicit {@code minConfidence}
+ * exist for {@code AiGuardrails}, the only caller with a workspace policy to resolve; the public constructors keep
+ * defaulting to {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} for source compatibility.
+ * </p>
+ *
+ * <p>
  * Not thread-safe; use one instance per stream subscription.
  * </p>
  *
@@ -95,6 +105,7 @@ public final class StreamingResponseRedactor {
     private final StringBuilder carry = new StringBuilder();
     private final EnumSet<SensitiveKind> kinds;
     private final @Nullable AiGuardrailMetrics metrics;
+    private final double minConfidence;
     private final @Nullable PiiTokenSession session;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     private final int window;
@@ -108,7 +119,9 @@ public final class StreamingResponseRedactor {
      *                              whole document, so it is excluded rather than silently mis-scanned.
      */
     public StreamingResponseRedactor(SensitiveDataRedactor sensitiveDataRedactor) {
-        this(sensitiveDataRedactor, DEFAULT_WINDOW, null, null, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, DEFAULT_WINDOW, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, null, null,
+            EnumSet.allOf(SensitiveKind.class));
     }
 
     /**
@@ -121,7 +134,26 @@ public final class StreamingResponseRedactor {
     public StreamingResponseRedactor(
         SensitiveDataRedactor sensitiveDataRedactor, @Nullable AiGuardrailMetrics metrics) {
 
-        this(sensitiveDataRedactor, DEFAULT_WINDOW, metrics, null, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, DEFAULT_WINDOW, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics, null,
+            EnumSet.allOf(SensitiveKind.class));
+    }
+
+    /**
+     * As the two-argument form, but with an explicit minimum confidence instead of
+     * {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for a caller that has already resolved a workspace's own
+     * threshold ({@code AiGuardrails#resolveMinConfidence}). Without this overload, every streamed response was scanned
+     * at the CE default regardless of what the workspace configured, since this class held no threshold of its own at
+     * all.
+     *
+     * @param sensitiveDataRedactor a redactor restricted to stream-safe detectors
+     * @param minConfidence         the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param metrics               the instance to count detector failures through, or {@code null}
+     */
+    StreamingResponseRedactor(
+        SensitiveDataRedactor sensitiveDataRedactor, double minConfidence, @Nullable AiGuardrailMetrics metrics) {
+
+        this(sensitiveDataRedactor, DEFAULT_WINDOW, minConfidence, metrics, null, EnumSet.allOf(SensitiveKind.class));
     }
 
     /**
@@ -136,7 +168,9 @@ public final class StreamingResponseRedactor {
         SensitiveDataRedactor sensitiveDataRedactor, @Nullable AiGuardrailMetrics metrics,
         @Nullable PiiTokenSession session) {
 
-        this(sensitiveDataRedactor, DEFAULT_WINDOW, metrics, session, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, DEFAULT_WINDOW, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics, session,
+            EnumSet.allOf(SensitiveKind.class));
     }
 
     /**
@@ -154,37 +188,65 @@ public final class StreamingResponseRedactor {
         SensitiveDataRedactor sensitiveDataRedactor, @Nullable AiGuardrailMetrics metrics, PiiTokenSession session,
         EnumSet<SensitiveKind> kinds) {
 
-        this(sensitiveDataRedactor, DEFAULT_WINDOW, metrics, session, kinds);
+        this(
+            sensitiveDataRedactor, DEFAULT_WINDOW, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics, session,
+            kinds);
+    }
+
+    /**
+     * As the four-argument {@code (SensitiveDataRedactor, AiGuardrailMetrics, PiiTokenSession, EnumSet)} form, but with
+     * an explicit minimum confidence instead of {@link SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} — for a caller
+     * that has already resolved a workspace's own threshold.
+     *
+     * @param sensitiveDataRedactor a redactor restricted to stream-safe detectors
+     * @param minConfidence         the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param metrics               the instance to count detector failures through, or {@code null}
+     * @param session               the session that tokenized this call's request
+     * @param kinds                 the kinds to scan the streamed text for; empty to restore tokens without scanning
+     */
+    StreamingResponseRedactor(
+        SensitiveDataRedactor sensitiveDataRedactor, double minConfidence, @Nullable AiGuardrailMetrics metrics,
+        PiiTokenSession session, EnumSet<SensitiveKind> kinds) {
+
+        this(sensitiveDataRedactor, DEFAULT_WINDOW, minConfidence, metrics, session, kinds);
     }
 
     StreamingResponseRedactor(SensitiveDataRedactor sensitiveDataRedactor, int window) {
-        this(sensitiveDataRedactor, window, null, null, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, window, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, null, null,
+            EnumSet.allOf(SensitiveKind.class));
     }
 
     StreamingResponseRedactor(
         SensitiveDataRedactor sensitiveDataRedactor, int window, @Nullable AiGuardrailMetrics metrics) {
 
-        this(sensitiveDataRedactor, window, metrics, null, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, window, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, metrics, null,
+            EnumSet.allOf(SensitiveKind.class));
     }
 
     StreamingResponseRedactor(
         SensitiveDataRedactor sensitiveDataRedactor, int window, @Nullable PiiTokenSession session) {
 
-        this(sensitiveDataRedactor, window, null, session, EnumSet.allOf(SensitiveKind.class));
+        this(
+            sensitiveDataRedactor, window, SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE, null, session,
+            EnumSet.allOf(SensitiveKind.class));
     }
 
     /**
      * The canonical constructor every other one delegates to.
      *
-     * @param kinds the kinds to scan the streamed text for; empty to restore {@code session}'s tokens without scanning
-     *              at all
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param kinds         the kinds to scan the streamed text for; empty to restore {@code session}'s tokens without
+     *                      scanning at all
      */
     StreamingResponseRedactor(
-        SensitiveDataRedactor sensitiveDataRedactor, int window, @Nullable AiGuardrailMetrics metrics,
-        @Nullable PiiTokenSession session, EnumSet<SensitiveKind> kinds) {
+        SensitiveDataRedactor sensitiveDataRedactor, int window, double minConfidence,
+        @Nullable AiGuardrailMetrics metrics, @Nullable PiiTokenSession session, EnumSet<SensitiveKind> kinds) {
 
         this.sensitiveDataRedactor = sensitiveDataRedactor;
         this.window = window;
+        this.minConfidence = minConfidence;
         this.metrics = metrics;
         this.session = session;
         // Defensive copy: nothing needs the caller's live set, and the field's immutability should be structural
@@ -256,7 +318,7 @@ public final class StreamingResponseRedactor {
         // value it just restored, which the scanner would immediately re-redact, making the round trip a no-op.
         // When kinds is empty this is a no-op over rawSegment -- see SensitiveDataRedactor#redactWithSpans's own
         // empty-kinds short-circuit, pinned by SensitiveDataRedactorTest#testEmptyKindSetRedactsNothing.
-        String scanned = sensitiveDataRedactor.redact(rawSegment, kinds, metrics);
+        String scanned = sensitiveDataRedactor.redact(rawSegment, kinds, minConfidence, metrics);
 
         if (!scanned.equals(rawSegment)) {
             redacted = true;
@@ -301,7 +363,7 @@ public final class StreamingResponseRedactor {
         String raw = carry.toString();
 
         // Scan first, restore second -- see the class javadoc and push()'s matching comment.
-        String scanned = sensitiveDataRedactor.redact(raw, kinds, metrics);
+        String scanned = sensitiveDataRedactor.redact(raw, kinds, minConfidence, metrics);
 
         if (!scanned.equals(raw)) {
             redacted = true;

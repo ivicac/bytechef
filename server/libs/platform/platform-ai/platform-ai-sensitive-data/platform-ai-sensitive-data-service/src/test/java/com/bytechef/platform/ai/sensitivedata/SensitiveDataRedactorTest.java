@@ -204,6 +204,106 @@ class SensitiveDataRedactorTest {
         assertThat(redactor.redact("abc def", EnumSet.noneOf(SensitiveKind.class), null)).isEqualTo("abc def");
     }
 
+    @Test
+    void testDropsSpansBelowTheThreshold() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("weak", true, new SensitiveSpan(SensitiveKind.PII, "WEAK", 0, 3, 0.2)));
+
+        assertThat(redactor.redact("abc def", BOTH, 0.5, null)).isEqualTo("abc def");
+    }
+
+    @Test
+    void testKeepsSpansAtOrAboveTheThreshold() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("strong", true, new SensitiveSpan(SensitiveKind.PII, "STRONG", 0, 3, 0.9)));
+
+        assertThat(redactor.redact("abc def", BOTH, 0.5, null)).isEqualTo("[REDACTED_STRONG] def");
+    }
+
+    @Test
+    void testFilteringHappensBeforeResolutionSoAWeakSpanCannotWinATieBreak() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("weak", true, new SensitiveSpan(SensitiveKind.PII, "AAA_WEAK", 0, 3, 0.2)),
+            fixed("strong", true, new SensitiveSpan(SensitiveKind.PII, "ZZZ_STRONG", 0, 3, 0.9)));
+
+        // Same span, same length. Category ascending would pick AAA_WEAK, but it is below the
+        // threshold and must be gone before resolution ever compares them.
+        assertThat(redactor.redact("abc def", BOTH, 0.5, null)).isEqualTo("[REDACTED_ZZZ_STRONG] def");
+    }
+
+    @Test
+    void testDetectCandidatesStaysUnfilteredForTheStreamingSafeCut() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("weak", true, new SensitiveSpan(SensitiveKind.PII, "WEAK", 0, 3, 0.2)));
+
+        assertThat(redactor.detectCandidates("abc def", null)).hasSize(1);
+    }
+
+    @Test
+    void testConfidenceThresholdExactlyAtTheBoundaryIsKept() {
+        // Pins the boundary semantics: >= keeps a span whose confidence exactly equals minConfidence. A future change
+        // to either the operator or the default must not silently flip this without a test noticing.
+        SensitiveDataRedactor redactor = redactor(
+            fixed("boundary", true, new SensitiveSpan(SensitiveKind.PII, "BOUNDARY", 0, 3, 0.5)));
+
+        assertThat(redactor.redact("abc def", BOTH, 0.5, null)).isEqualTo("[REDACTED_BOUNDARY] def");
+    }
+
+    @Test
+    void testRecordsBelowConfidenceThresholdWhenASpanIsDropped() {
+        RecordingMetrics metrics = new RecordingMetrics();
+
+        SensitiveDataRedactor redactor = redactor(
+            fixed("weak", true, new SensitiveSpan(SensitiveKind.PII, "WEAK", 0, 3, 0.2)));
+
+        assertThat(redactor.redact("abc def", BOTH, 0.5, metrics)).isEqualTo("abc def");
+        assertThat(metrics.belowConfidenceThresholdCount).isEqualTo(1);
+    }
+
+    @Test
+    void testRecordsBelowConfidenceThresholdAtMostOncePerCallEvenWithMultipleDroppedSpans() {
+        // The obvious-looking but wrong refactor is to record inside filterByConfidence's per-span loop, which would
+        // fire once per dropped span instead of once per call. Three non-overlapping weak spans exercise that: a
+        // per-span recorder would report 3, the correct per-call recorder reports 1.
+        RecordingMetrics metrics = new RecordingMetrics();
+
+        SensitiveDataRedactor redactor = redactor(
+            fixed("weak", true,
+                new SensitiveSpan(SensitiveKind.PII, "WEAK", 0, 3, 0.2),
+                new SensitiveSpan(SensitiveKind.PII, "WEAK", 4, 7, 0.2),
+                new SensitiveSpan(SensitiveKind.PII, "WEAK", 8, 11, 0.2)));
+
+        assertThat(redactor.redact("abc def ghi", BOTH, 0.5, metrics)).isEqualTo("abc def ghi");
+        assertThat(metrics.belowConfidenceThresholdCount).isEqualTo(1);
+    }
+
+    @Test
+    void testSpansSurvivingTheModelFloorStillFaceThePipelineThreshold() {
+        // A span the detector itself accepts (above its own minConfidence, e.g. OpenNlpSensitiveDataDetector's model
+        // noise floor) but which the pipeline rejects, because the pipeline's policy floor is higher than the model's
+        // noise floor. This module cannot depend on the EE OpenNLP module, so a fixed span stands in for one the real
+        // detector would have already let through -- what is under test is the pipeline's own threshold, applied on top
+        // of a detector-reported confidence, not OpenNLP itself. See OpenNlpSensitiveDataDetector's javadoc for the
+        // production-facing explanation this test backs.
+        SensitiveDataRedactor redactor = redactor(
+            fixed("opennlp-ner", false, new SensitiveSpan(SensitiveKind.PII, "PERSON", 0, 5, 0.55)));
+
+        assertThat(redactor.redact("Alice went home", BOTH, 0.8, null)).isEqualTo("Alice went home");
+        assertThat(redactor.redact("Alice went home", BOTH, 0.5, null)).isEqualTo("[REDACTED_PERSON] went home");
+    }
+
+    @Test
+    void testDoesNotRecordBelowConfidenceThresholdWhenNothingIsDropped() {
+        // The negative case: without it, "at most once" would be satisfied trivially by a recorder that always fires.
+        RecordingMetrics metrics = new RecordingMetrics();
+
+        SensitiveDataRedactor redactor = redactor(
+            fixed("strong", true, new SensitiveSpan(SensitiveKind.PII, "STRONG", 0, 3, 0.9)));
+
+        assertThat(redactor.redact("abc def", BOTH, 0.5, metrics)).isEqualTo("[REDACTED_STRONG] def");
+        assertThat(metrics.belowConfidenceThresholdCount).isZero();
+    }
+
     private static SensitiveDataRedactor redactor(SensitiveDataDetector... detectors) {
         return new SensitiveDataRedactor(List.of(detectors));
     }
@@ -247,9 +347,16 @@ class SensitiveDataRedactorTest {
 
         private final List<String> failures = new ArrayList<>();
 
+        private int belowConfidenceThresholdCount;
+
         @Override
         public void recordDetectorFailure(String detectorName) {
             failures.add(detectorName);
+        }
+
+        @Override
+        public void recordBelowConfidenceThreshold() {
+            belowConfidenceThresholdCount++;
         }
     }
 }

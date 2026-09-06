@@ -72,7 +72,7 @@ class AiGuardrailsWorkspaceSettingsGraphQlControllerTest {
     @Test
     void testAiGuardrailsWorkspaceSettingsWithNullWorkspaceIdFetchesTenantDefault() {
         AiGuardrailsWorkspaceSettings tenantDefault = new AiGuardrailsWorkspaceSettings(
-            null, true, true, "secret", false, true, false, BlockingMode.REDACT_AND_CONTINUE);
+            null, true, true, "secret", false, true, false, BlockingMode.REDACT_AND_CONTINUE, null);
 
         when(aiGuardrailsWorkspaceSettingsService.fetchSettings(isNull())).thenReturn(Optional.of(tenantDefault));
 
@@ -98,10 +98,10 @@ class AiGuardrailsWorkspaceSettingsGraphQlControllerTest {
     void testUpdateAiGuardrailsWorkspaceSettingsRoundTripsThroughService() {
         AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput input =
             new AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput(
-                1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK);
+                1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75);
 
         AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
-            1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK);
+            1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75);
 
         when(aiGuardrailsWorkspaceSettingsService.saveSettings(eq(saved))).thenReturn(saved);
 

@@ -80,7 +80,9 @@ public class RegexSecretDetector implements SensitiveDataDetector {
                 .matcher(text);
 
             while (matcher.find()) {
-                spans.add(SensitiveSpan.of(SensitiveKind.SECRET, CATEGORY, matcher.start(), matcher.end()));
+                spans.add(
+                    new SensitiveSpan(
+                        SensitiveKind.SECRET, CATEGORY, matcher.start(), matcher.end(), secretPattern.score()));
             }
         }
 

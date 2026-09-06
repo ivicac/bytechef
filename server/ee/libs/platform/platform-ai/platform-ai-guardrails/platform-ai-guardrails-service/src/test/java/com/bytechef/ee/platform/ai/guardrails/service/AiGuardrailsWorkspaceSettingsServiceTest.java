@@ -84,7 +84,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesWorkspaceScopedProperty() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            7L, true, null, "foo,bar", null, null, null, BlockingMode.REDACT_AND_CONTINUE);
+            7L, true, null, "foo,bar", null, null, null, BlockingMode.REDACT_AND_CONTINUE, null);
 
         service.saveSettings(settings);
 
@@ -97,12 +97,46 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWithNullWorkspaceWritesPlatformScope() {
         AiGuardrailsWorkspaceSettings settings =
-            new AiGuardrailsWorkspaceSettings(null, null, null, null, null, null, null, null);
+            new AiGuardrailsWorkspaceSettings(null, null, null, null, null, null, null, null, null);
 
         service.saveSettings(settings);
 
         verify(propertyService).save(
             eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), eq(Map.of()), eq(Scope.PLATFORM), isNull());
+    }
+
+    @Test
+    void testSaveSettingsWritesMinConfidenceWhenSet() {
+        AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
+            7L, null, null, null, null, null, null, null, 0.95);
+
+        service.saveSettings(settings);
+
+        verify(propertyService).save(
+            eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), eq(Map.of("minConfidence", 0.95)), eq(Scope.WORKSPACE),
+            eq(7L));
+    }
+
+    @Test
+    void testFetchSettingsReadsMinConfidenceWhenPresent() {
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.WORKSPACE, 7L))
+            .thenReturn(Optional.of(property(Map.of("minConfidence", 0.95))));
+
+        AiGuardrailsWorkspaceSettings settings = service.fetchSettings(7L)
+            .orElseThrow();
+
+        assertThat(settings.minConfidence()).isEqualTo(0.95);
+    }
+
+    @Test
+    void testFetchSettingsMinConfidenceIsNullWhenAbsent() {
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.WORKSPACE, 7L))
+            .thenReturn(Optional.of(property(Map.of("redactPii", true))));
+
+        AiGuardrailsWorkspaceSettings settings = service.fetchSettings(7L)
+            .orElseThrow();
+
+        assertThat(settings.minConfidence()).isNull();
     }
 
     private static Property property(Map<String, ?> value) {

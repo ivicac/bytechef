@@ -18,6 +18,9 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifi
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
@@ -239,6 +242,27 @@ class AiGuardrailsTest {
             .isEqualTo("contact [REDACTED_EMAIL_ADDRESS]");
     }
 
+    /**
+     * Mutation evidence for the finding-4 fix: {@code scanResponseText} used to resolve {@code EffectivePolicy}, read
+     * {@code policy.scanResponses()} off it, and then drop {@code policy.minConfidence()} two lines later, running
+     * {@code redactAll} at {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} regardless of what the workspace
+     * configured -- every response-direction scan silently ignored a workspace's own threshold. Setting the workspace
+     * threshold above {@code EMAIL_ADDRESS}'s own score must now suppress it on the RESPONSE path exactly as
+     * {@link #testWorkspaceThresholdOverridesTheCoreDefault()} already proves for the request path. Reverting the fix
+     * (passing {@code DEFAULT_MIN_CONFIDENCE} instead of {@code policy.minConfidence()} into {@code redactAll}) makes
+     * this test fail.
+     */
+    @Test
+    void testScanResponseTextHonorsWorkspaceThreshold() {
+        AiGuardrails guardrails = guardrails(null, false, false, "", false, true);
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(aboveEmailAddressScore)));
+
+        assertThat(guardrails.scanResponseText("mail bob@acme.io", 7L)).isEqualTo("mail bob@acme.io");
+    }
+
     @Test
     void testScanResponseTextReturnsSameWhenDisabled() {
         AiGuardrails guardrails = guardrails(null, false, false, "", false, false);
@@ -350,9 +374,74 @@ class AiGuardrailsTest {
 
         when(settingsService.fetchSettings(7L)).thenReturn(
             Optional.of(new AiGuardrailsWorkspaceSettings(
-                7L, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE)));
+                7L, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null)));
 
         assertThat(guardrails.resolveBlockingMode(7L)).isEqualTo(BlockingMode.REDACT_AND_CONTINUE);
+    }
+
+    /**
+     * The threshold is derived from {@code EMAIL_ADDRESS}'s own catalog score rather than a hardcoded literal like
+     * {@code 0.95}: what actually suppresses a High-band pattern depends on the current band values, not on a number
+     * picked before those bands existed. Setting the workspace threshold just above the pattern's own score is what
+     * "override the default" means regardless of what the bands turn out to be, and stays correct if a score changes.
+     */
+    @Test
+    void testWorkspaceThresholdOverridesTheCoreDefault() {
+        AiGuardrails guardrails = guardrails(null, true, false, "", false, false);
+        double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(aboveEmailAddressScore)));
+
+        List<AiGuardrails.GuardrailCheckResult> results = guardrails.checkInputs(
+            List.of("mail bob@acme.io"), 7L, metrics);
+
+        // A workspace threshold set above EMAIL_ADDRESS's own score means even that pattern -- High band, the
+        // strongest score in the catalog -- falls below the bar, so nothing is redacted.
+        assertThat(results.getFirst()
+            .text()).isEqualTo("mail bob@acme.io");
+    }
+
+    /**
+     * Brackets the resolved value from BOTH sides, not just one. The email case alone only proves "null does not
+     * suppress everything" -- it holds just as well at 0.3, 0.2, or even 0.0, since EMAIL_ADDRESS's score (High band)
+     * clears any of those. It does not distinguish a correctly-resolved
+     * {@code SensitiveDataRedactor#DEFAULT_MIN_CONFIDENCE} from a carelessly-unboxed {@code 0.0}, which -- under the
+     * {@code >=} comparison in {@code SensitiveDataRedactor#filterByConfidence} -- disables the filter entirely and
+     * silently reintroduces the exact false-positive bug this feature exists to fix, for every workspace that has never
+     * set an override (i.e. all of them, since nothing migrates a value in).
+     * <p>
+     * The second assertion closes that gap with the same business-identifier fixture
+     * {@code RegexDetectorsTest#testOrdinaryBusinessIdentifiersProduceNoSpansAtTheDefaultThreshold} uses as a
+     * known-good input: a bare 10-digit run matches only {@code US_BANK_NUMBER} (Low band), which clears the real
+     * default ({@code 0.4}) but not a coerced {@code 0.0}. Together the two assertions pin the resolved value to
+     * somewhere in {@code (0.2, 0.9]} -- the email case rules out anything above {@code 0.9}, the bare-digit case rules
+     * out anything at or below {@code 0.2} -- which is as tight a bracket as two catalog scores can draw around the
+     * real default of {@code 0.4}.
+     */
+    @Test
+    void testNullWorkspaceThresholdFallsBackToTheCoreDefault() {
+        // Fails loudly, rather than passing misleadingly, if a future catalog change ever moved US_BANK_NUMBER's
+        // score up to or past the real default -- at which point "invoice 4500123987" below would stop
+        // distinguishing the real default from a coerced 0.0 and a different bare-digit fixture would be needed.
+        assertThat(scoreOf("US_BANK_NUMBER")).isLessThan(SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE);
+
+        AiGuardrails guardrails = guardrails(null, true, false, "", false, false);
+
+        when(settingsService.fetchSettings(7L))
+            .thenReturn(Optional.of(settingsWithMinConfidence(null)));
+
+        List<AiGuardrails.GuardrailCheckResult> results = guardrails.checkInputs(
+            List.of("mail bob@acme.io", "invoice 4500123987 total 1234.56"), 7L, metrics);
+
+        // EMAIL_ADDRESS (High band, above DEFAULT_MIN_CONFIDENCE) still redacts -- rules out a resolved value above
+        // its score.
+        assertThat(results.get(0)
+            .text()).isEqualTo("mail [REDACTED_EMAIL_ADDRESS]");
+        // A bare digit run matching only US_BANK_NUMBER (Low band, below DEFAULT_MIN_CONFIDENCE) is NOT redacted --
+        // rules out a resolved value at or below its score, in particular a Double unboxed carelessly into 0.0.
+        assertThat(results.get(1)
+            .text()).isEqualTo("invoice 4500123987 total 1234.56");
     }
 
     @Test
@@ -703,10 +792,26 @@ class AiGuardrailsTest {
         Boolean scanResponses) {
 
         return new AiGuardrailsWorkspaceSettings(
-            7L, redactPii, redactSecrets, blockedTerms, null, injectionDetectionEnabled, scanResponses, null);
+            7L, redactPii, redactSecrets, blockedTerms, null, injectionDetectionEnabled, scanResponses, null, null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithModeration(Boolean moderationEnabled) {
-        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, moderationEnabled, null, null, null);
+        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, moderationEnabled, null, null, null, null);
+    }
+
+    private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
+        return new AiGuardrailsWorkspaceSettings(7L, null, null, null, null, null, null, null, minConfidence);
+    }
+
+    private static double scoreOf(String type) {
+        for (PiiPattern pattern : PiiPatternCatalog.ALL) {
+            if (pattern.type()
+                .equals(type)) {
+
+                return pattern.score();
+            }
+        }
+
+        throw new IllegalStateException("No PiiPattern named '" + type + "' in the catalog");
     }
 }

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,10 +37,19 @@ public final class PiiDetectorUtils {
     /**
      * The patterns this component matches against, derived from the shared platform catalog so the patterns exist
      * exactly once ({@link PiiPatternCatalog#ALL}). This component keeps its own {@link PiiPattern} record — its
-     * callers reference it by that type — but the pattern data itself is no longer duplicated here.
+     * callers reference it by that type — but the pattern data itself, including each entry's optional
+     * {@link PiiPatternCatalog.PiiPattern#validator() validator}, is no longer duplicated here.
+     *
+     * <p>
+     * Carrying the validator through matters more on this path than on the platform one: the platform detector's
+     * matches are still filtered by {@code SensitiveDataRedactor}'s confidence threshold afterward, but this
+     * component's per-node picker has no threshold at all — a pattern's own precision (and any validator it supplies)
+     * is the only defence against, e.g., a bare 16-digit order number being masked as {@code CREDIT_CARD}.
+     * </p>
      */
     public static final List<PiiPattern> DEFAULT_PII_PATTERNS = PiiPatternCatalog.ALL.stream()
-        .map(catalogPattern -> new PiiPattern(catalogPattern.type(), catalogPattern.pattern()))
+        .map(catalogPattern -> new PiiPattern(
+            catalogPattern.type(), catalogPattern.pattern(), catalogPattern.validator()))
         .toList();
 
     /**
@@ -130,10 +140,15 @@ public final class PiiDetectorUtils {
             try {
                 CharSequence bounded = RegexParserUtils.bounded(content);
                 Pattern pattern = piiPattern.pattern();
+                Predicate<String> validator = piiPattern.validator();
 
                 Matcher matcher = pattern.matcher(bounded);
 
                 while (matcher.find()) {
+                    if (validator != null && !validator.test(matcher.group())) {
+                        continue;
+                    }
+
                     matches.add(
                         new PiiMatch(matcher.group(), matcher.start(), matcher.end(), piiPattern.type()));
                 }
@@ -202,9 +217,17 @@ public final class PiiDetectorUtils {
      *
      * <p>
      * Overlapping matches are deduplicated with a longest-wins policy before masking: when two patterns match the same
-     * span (e.g. {@code [A-Z]\d{7}} fires for both US_DRIVER_LICENSE and IT_PASSPORT, or {@code \b\d{9}\b} overlaps
-     * US_SSN and AU_TFN), only the longest span is kept. Without this, the first {@code builder.replace(start,end,…)}
-     * mutates the buffer so the second replace writes into the middle of the first mask token and corrupts the output.
+     * span (e.g. {@code [A-Z]\d{7}} fires for both US_DRIVER_LICENSE and IN_PASSPORT — byte-identical regexes — or
+     * {@code \b\d{9}\b} overlaps AU_TFN and, as one of the digit lengths {@code \b\d{8,17}\b} spans, US_BANK_NUMBER),
+     * only the longest span is kept. Without this, the first {@code builder.replace(start,end,…)} mutates the buffer so
+     * the second replace writes into the middle of the first mask token and corrupts the output.
+     *
+     * <p>
+     * {@code US_SSN} no longer belongs in either example: it used to carry a bare-{@code \b\d{9}\b} alternative that
+     * overlapped {@code AU_TFN} identically, but that alternative was dropped (see {@code PiiPatternCatalog}'s class
+     * javadoc) — {@code US_SSN} now matches only the dashed form, so it can no longer overlap a bare 9-digit run at
+     * all.
+     * </p>
      *
      * @param content the content to mask
      * @param matches the PII matches to mask
@@ -268,10 +291,25 @@ public final class PiiDetectorUtils {
     /**
      * A PII pattern definition.
      *
-     * @param type    the type of PII (e.g., EMAIL_ADDRESS, PHONE_NUMBER)
-     * @param pattern the regex pattern to detect this PII type
+     * <p>
+     * {@code validator}, when present, is applied to each regex match's matched text — after the pattern matches and
+     * before a {@link PiiMatch} is emitted — exactly mirroring how {@code RegexPiiDetector} applies
+     * {@link PiiPatternCatalog.PiiPattern#validator()} on the platform path: generically, in {@link #detect}, with no
+     * per-type branch. {@code CREDIT_CARD}'s Luhn check is the only validator any catalog entry supplies today.
+     * </p>
+     *
+     * @param type      the type of PII (e.g., EMAIL_ADDRESS, PHONE_NUMBER)
+     * @param pattern   the regex pattern to detect this PII type
+     * @param validator an optional second gate over the matched text, applied after the regex matches and before a
+     *                  match is emitted, or {@code null} when the regex match alone is the whole story
      */
-    public record PiiPattern(String type, Pattern pattern) {
+    public record PiiPattern(String type, Pattern pattern, Predicate<String> validator) {
+
+        // Convenience overload for the common case -- every entry but CREDIT_CARD -- mirrors
+        // PiiPatternCatalog.PiiPattern's identical convenience overload.
+        public PiiPattern(String type, Pattern pattern) {
+            this(type, pattern, null);
+        }
     }
 
     /**
