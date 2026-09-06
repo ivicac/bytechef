@@ -33,5 +33,13 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation(project(":server:libs:config:jackson-config"))
+    // Brings master.xml onto the integration-test classpath so ai_guardrail_violation is actually created from the
+    // changelog rather than assumed to be creatable.
+    testImplementation(project(":server:libs:config:liquibase-config"))
+    testImplementation(project(":server:libs:test:test-int-support"))
     testImplementation(project(":server:libs:test:test-support"))
 }

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <!--
+        Per-detection guardrail drill-down records.
+
+        This table deliberately has NO column for the matched value, and none may be added. A record useful for
+        debugging obviously wants the matched text; storing it would make this a plaintext database of exactly the
+        values the guardrails exist to redact, retained longer than the request that produced them and fronted by a
+        read API. span_start/span_length locate the match, category names the rule that fired. See
+        docs/superpowers/specs/2026-09-03-guardrail-violation-records-design.md section 2.
+    -->
+    <changeSet id="20260903000001" author="Ivica Cardic">
+        <createTable tableName="ai_guardrail_violation">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT"/>
+            <column name="environment" type="INT"/>
+            <column name="surface" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="span_start" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="span_length" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="confidence" type="NUMERIC(3,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="principal" type="VARCHAR(256)"/>
+            <column name="created_date" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Serves both reads that matter: the workspace-scoped drill-down query and the daily per-workspace cap. -->
+        <createIndex tableName="ai_guardrail_violation" indexName="idx_ai_guardrail_violation_workspace_created">
+            <column name="workspace_id"/>
+            <column name="created_date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
