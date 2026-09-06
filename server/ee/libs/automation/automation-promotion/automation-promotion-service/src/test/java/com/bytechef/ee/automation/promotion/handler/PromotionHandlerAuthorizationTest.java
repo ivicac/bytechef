@@ -75,14 +75,16 @@ class PromotionHandlerAuthorizationTest {
     void testApiCollectionPromotionHandlerPreviewRequiresProjectDeploymentPush() {
         assertPromotionExpression(
             ApiCollectionPromotionHandler.class, "preview", PREVIEW_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.projectIdOfApiCollection(#sourceId), 'Project', 'DEPLOYMENT_PUSH')");
+            "hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfApiCollection(#sourceId), 'Project', "
+                + "'DEPLOYMENT_PUSH', #targetEnvironment)");
     }
 
     @Test
     void testApiCollectionPromotionHandlerPromoteRequiresProjectDeploymentPush() {
         assertPromotionExpression(
             ApiCollectionPromotionHandler.class, "promote", PROMOTE_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.projectIdOfApiCollection(#sourceId), 'Project', 'DEPLOYMENT_PUSH')");
+            "hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfApiCollection(#sourceId), 'Project', "
+                + "'DEPLOYMENT_PUSH', #targetEnvironment)");
     }
 
     @Test
@@ -117,16 +119,16 @@ class PromotionHandlerAuthorizationTest {
     void testProjectDeploymentPromotionHandlerPreviewRequiresProjectDeploymentPush() {
         assertPromotionExpression(
             ProjectDeploymentPromotionHandler.class, "preview", PREVIEW_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), 'Project', " +
-                "'DEPLOYMENT_PUSH')");
+            "hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), " +
+                "'Project', 'DEPLOYMENT_PUSH', #targetEnvironment)");
     }
 
     @Test
     void testProjectDeploymentPromotionHandlerPromoteRequiresProjectDeploymentPush() {
         assertPromotionExpression(
             ProjectDeploymentPromotionHandler.class, "promote", PROMOTE_PARAMETER_TYPES,
-            "hasPermission(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), 'Project', " +
-                "'DEPLOYMENT_PUSH')");
+            "hasResourceScopeInEnvironment(@promotionAuthorizer.projectIdOfProjectDeployment(#sourceId), " +
+                "'Project', 'DEPLOYMENT_PUSH', #targetEnvironment)");
     }
 
     @Test

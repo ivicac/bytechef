@@ -50,8 +50,9 @@ import org.springframework.security.core.userdetails.User;
 
 /**
  * All six {@code environmentId}-taking methods on this facade share a single private helper,
- * {@code fetchWorkflowTestContext}, which is where {@code hasPermission(#workflowId, 'Workflow', ...)}'s
- * environment-agnostic gate is compensated for -- see the comment there. This test exercises one representative method,
+ * {@code fetchWorkflowTestContext}, which resolves the effective environment for the method body -- a resolution the
+ * gate, {@code hasWorkflowScopeInEnvironment(#workflowId, ..., #environmentId)}, performs only for its own check and
+ * never carries into the body -- see the comment there. This test exercises one representative method,
  * {@code getWorkflowNodeDisplayConditions}; the mechanism is identical for the other five.
  *
  * @author Ivica Cardic

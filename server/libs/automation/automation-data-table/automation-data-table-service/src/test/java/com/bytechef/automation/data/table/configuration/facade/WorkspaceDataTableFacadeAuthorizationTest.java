@@ -53,62 +53,86 @@ class WorkspaceDataTableFacadeAuthorizationTest {
 
     @Test
     void testAddColumnRequiresTableEditor() {
-        assertExpression("addColumn", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "addColumn",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testDropRequiresTableEditor() {
-        assertExpression("dropTable", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "dropTable",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testDuplicateRequiresTableEditor() {
-        assertExpression("duplicateTable", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "duplicateTable",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testRemoveColumnRequiresTableEditor() {
-        assertExpression("removeColumn", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "removeColumn",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testRenameColumnRequiresTableEditor() {
-        assertExpression("renameColumn", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "renameColumn",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testRenameTableRequiresTableEditor() {
-        assertExpression("renameTable", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "renameTable",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testListRowsRequiresTableViewer() {
-        assertExpression("listRows", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "listRows",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testInsertRowRequiresTableEditor() {
-        assertExpression("insertRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "insertRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testUpdateRowRequiresTableEditor() {
-        assertExpression("updateRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "updateRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testDeleteRowRequiresTableEditor() {
-        assertExpression("deleteRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "deleteRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testExportCsvRequiresTableViewer() {
-        assertExpression("exportCsv", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "exportCsv",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testImportCsvRequiresTableEditor() {
-        assertExpression("importCsv", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "importCsv",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
@@ -118,12 +142,16 @@ class WorkspaceDataTableFacadeAuthorizationTest {
 
     @Test
     void testListWebhooksRequiresTableViewer() {
-        assertExpression("listWebhooks", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "listWebhooks",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testGetTableRequiresTableViewer() {
-        assertExpression("getTable", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "getTable",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
@@ -133,52 +161,72 @@ class WorkspaceDataTableFacadeAuthorizationTest {
 
     @Test
     void testListRowsOverloadsBothRequireTableViewer() {
-        assertExpression("listRows", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "listRows",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testGetRowRequiresTableViewer() {
-        assertExpression("getRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "getRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testFetchRowByExternalIdRequiresTableViewer() {
-        assertExpression("fetchRowByExternalId", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW')");
+        assertExpression(
+            "fetchRowByExternalId",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_VIEW', #environmentId)");
     }
 
     @Test
     void testInsertRowOverloadsBothRequireTableEditor() {
-        assertExpression("insertRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "insertRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testUpdateRowOverloadsBothRequireTableEditor() {
-        assertExpression("updateRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "updateRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testUpsertRowRequiresTableEditor() {
-        assertExpression("upsertRow", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "upsertRow",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testDeleteRowByExternalIdRequiresTableEditor() {
-        assertExpression("deleteRowByExternalId", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "deleteRowByExternalId",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testInsertRowsRequiresTableEditor() {
-        assertExpression("insertRows", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "insertRows",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testDeleteRowsRequiresTableEditor() {
-        assertExpression("deleteRows", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "deleteRows",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test
     void testClearRowsRequiresTableEditor() {
-        assertExpression("clearRows", "hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')");
+        assertExpression(
+            "clearRows",
+            "hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)");
     }
 
     @Test

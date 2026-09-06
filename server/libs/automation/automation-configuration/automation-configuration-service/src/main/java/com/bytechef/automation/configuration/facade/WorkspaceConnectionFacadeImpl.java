@@ -18,6 +18,7 @@ package com.bytechef.automation.configuration.facade;
 
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
@@ -26,6 +27,7 @@ import com.bytechef.automation.configuration.service.WorkspaceConnectionService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnCEVersion;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
@@ -75,6 +77,8 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     protected final ConnectionFacade connectionFacade;
     protected final ConnectionLifecycleFacade connectionLifecycleFacade;
     protected final ConnectionService connectionService;
+    protected final EnvironmentScopeFilter environmentScopeFilter;
+    protected final EnvironmentService environmentService;
     protected final ResourceVisibilityResolver resourceVisibilityResolver;
     protected final MeterRegistry meterRegistry;
     protected final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
@@ -91,6 +95,7 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     public WorkspaceConnectionFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ConnectionFacade connectionFacade,
         ConnectionLifecycleFacade connectionLifecycleFacade, ConnectionService connectionService,
+        EnvironmentScopeFilter environmentScopeFilter, EnvironmentService environmentService,
         ResourceVisibilityResolver resourceVisibilityResolver,
         ObjectProvider<MeterRegistry> meterRegistryProvider,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
@@ -102,6 +107,8 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
         this.connectionFacade = connectionFacade;
         this.connectionLifecycleFacade = connectionLifecycleFacade;
         this.connectionService = connectionService;
+        this.environmentScopeFilter = environmentScopeFilter;
+        this.environmentService = environmentService;
         this.resourceVisibilityResolver = resourceVisibilityResolver;
         this.meterRegistry = meterRegistryProvider.getIfAvailable();
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
@@ -265,6 +272,17 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
         connectionFacade.update(connectionId, tags);
     }
 
+    /**
+     * {@code environmentId} is nullable, so the gate answers the environment question only when one is named. With none
+     * named it correctly permits the call and the query returns connections from every environment in the workspace,
+     * including ones the caller holds no role in; the filter below finishes what the gate could not start. See
+     * {@link EnvironmentScopeFilter}.
+     *
+     * <p>
+     * The AI-provider connections are narrowed too. That they "bypass visibility resolution" is about workspace and
+     * private sharing, not about environments — the comment below calls them environment-scoped in the same breath — so
+     * a caller who holds no role in an environment should no more see its provider connections than its own.
+     */
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'CONNECTION_VIEW', #environmentId)")
@@ -287,7 +305,15 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
         List<ConnectionDTO> aiProviderConnections = connectionFacade.getAiProviderConnections(
             componentName, connectionVersion, environmentId, tagId);
 
-        return CollectionUtils.concat(workspaceConnections, aiProviderConnections);
+        List<ConnectionDTO> connections = CollectionUtils.concat(workspaceConnections, aiProviderConnections);
+
+        if (environmentId != null) {
+            return connections;
+        }
+
+        return environmentScopeFilter.filterByEnvironment(
+            workspaceId, "CONNECTION_VIEW", connections,
+            connection -> environmentService.getEnvironment(connection.environmentId()));
     }
 
     /**

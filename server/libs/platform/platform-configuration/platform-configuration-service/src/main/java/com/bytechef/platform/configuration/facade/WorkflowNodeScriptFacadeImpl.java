@@ -88,7 +88,7 @@ public class WorkflowNodeScriptFacadeImpl implements WorkflowNodeScriptFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public Map<String, Object> getClusterElementScriptInput(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, long environmentId) {
@@ -143,7 +143,7 @@ public class WorkflowNodeScriptFacadeImpl implements WorkflowNodeScriptFacade {
 
     @Override
     @SuppressWarnings("unchecked")
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public Map<String, Object> getWorkflowNodeScriptInput(
         String workflowId, String workflowNodeName, long environmentId) {
 
@@ -193,7 +193,7 @@ public class WorkflowNodeScriptFacadeImpl implements WorkflowNodeScriptFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ScriptTestExecutionDTO testClusterElementScript(
         String workflowId, String workflowNodeName, String clusterElementType,
         String clusterElementWorkflowNodeName, long environmentId, Map<String, Object> inputParameters) {
@@ -215,7 +215,7 @@ public class WorkflowNodeScriptFacadeImpl implements WorkflowNodeScriptFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_EDIT', #environmentId)")
     public ScriptTestExecutionDTO testWorkflowNodeScript(
         String workflowId, String workflowNodeName, long environmentId, Map<String, Object> inputParameters) {
 
