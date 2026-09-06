@@ -25,11 +25,16 @@ import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import com.github.kagkarlsson.scheduler.SchedulerClient;
+import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException;
+import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException;
 import com.github.kagkarlsson.scheduler.task.SchedulableInstance;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,20 +43,34 @@ import org.mockito.Mockito;
 @ExtendWith(ObjectMapperSetupExtension.class)
 class DbTriggerSchedulerTest {
 
+    private final Set<String> existingInstanceKeys = new HashSet<>();
     private final SchedulerClient schedulerClient = Mockito.mock(SchedulerClient.class);
     private final DbTriggerScheduler triggerScheduler = new DbTriggerScheduler(schedulerClient, 5);
     private final WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
         PlatformType.AUTOMATION, 1L, "workflow-uuid", "trigger_1");
 
+    @BeforeEach
+    void setUp() {
+        // Mirrors the real db-scheduler SchedulerClient contract verified against the pinned 16.12.0
+        // bytecode: reschedule(...) THROWS TaskInstanceNotFoundException for an instance that does not
+        // exist yet rather than returning false. Stubbing it that way, instead of a bare
+        // thenReturn(false), means a regression back to the old reschedule-then-create order fails these
+        // tests with an uncaught exception instead of silently passing.
+        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
+            .thenAnswer(invocation -> rescheduleExistingInstanceOrThrow(invocation.getArgument(0)));
+        Mockito.when(schedulerClient.scheduleIfNotExists(Mockito.any(SchedulableInstance.class)))
+            .thenAnswer(invocation -> existingInstanceKeys.add(instanceKey(invocation.getArgument(0))));
+        Mockito.when(schedulerClient.schedule(
+            Mockito.any(SchedulableInstance.class), Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)))
+            .thenAnswer(invocation -> scheduleWithWhenExistsReschedule(invocation.getArgument(0)));
+    }
+
     @Test
     void testScheduleScheduleTriggerStoresCronZoneAndOutputAccordingToData() {
-        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
-            .thenReturn(false);
-
         triggerScheduler.scheduleScheduleTrigger(
             "0 0 9 * * ?", "Europe/Zagreb", Map.of("expression", "0 9 * * *"), workflowExecutionId);
 
-        SchedulableInstance<?> instance = capturedScheduleIfNotExists();
+        SchedulableInstance<?> instance = capturedSchedule();
 
         Assertions.assertThat(instance.getTaskName())
             .isEqualTo(DbSchedulerTaskDescriptors.SCHEDULE_TRIGGER_NAME);
@@ -64,13 +83,11 @@ class DbTriggerSchedulerTest {
 
     @Test
     void testSchedulePollingTriggerIsDueNowWithConfiguredPeriod() {
-        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
-            .thenReturn(false);
         Instant before = Instant.now();
 
         triggerScheduler.schedulePollingTrigger(workflowExecutionId);
 
-        SchedulableInstance<?> instance = capturedScheduleIfNotExists();
+        SchedulableInstance<?> instance = capturedSchedule();
 
         Assertions.assertThat(instance.getTaskName())
             .isEqualTo(DbSchedulerTaskDescriptors.POLLING_TRIGGER_NAME);
@@ -83,13 +100,11 @@ class DbTriggerSchedulerTest {
 
     @Test
     void testScheduleDynamicWebhookTriggerRefreshUsesExpiryAndConnectionId() {
-        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
-            .thenReturn(false);
         Instant expiry = Instant.parse("2031-01-01T00:00:00Z");
 
         triggerScheduler.scheduleDynamicWebhookTriggerRefresh(expiry, "component", 1, workflowExecutionId, 77L);
 
-        SchedulableInstance<?> instance = capturedScheduleIfNotExists();
+        SchedulableInstance<?> instance = capturedSchedule();
 
         Assertions.assertThat(instance.getTaskName())
             .isEqualTo(DbSchedulerTaskDescriptors.DYNAMIC_WEBHOOK_REFRESH_NAME);
@@ -102,8 +117,6 @@ class DbTriggerSchedulerTest {
 
     @Test
     void testScheduleOneTimeTaskStoresContinueParametersOnlyWhenPresent() {
-        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
-            .thenReturn(false);
         Instant executeAt = Instant.parse("2031-01-01T00:00:00Z");
 
         triggerScheduler.scheduleOneTimeTask(executeAt, Map.of("k", "v"), 42L);
@@ -112,7 +125,7 @@ class DbTriggerSchedulerTest {
         ArgumentCaptor<SchedulableInstance<?>> captor = ArgumentCaptor.forClass(SchedulableInstance.class);
 
         Mockito.verify(schedulerClient, Mockito.times(2))
-            .scheduleIfNotExists(captor.capture());
+            .schedule(captor.capture(), Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE));
 
         Assertions.assertThat((OneTimeResumeData) captor.getAllValues()
             .get(0)
@@ -127,14 +140,27 @@ class DbTriggerSchedulerTest {
     }
 
     @Test
-    void testScheduleReplacesExistingInstanceViaReschedule() {
-        Mockito.when(schedulerClient.reschedule(Mockito.any(SchedulableInstance.class)))
-            .thenReturn(true);
-
+    void testScheduleOfExistingInstanceReschedulesInPlaceViaSingleUpsertCall() {
+        triggerScheduler.schedulePollingTrigger(workflowExecutionId);
         triggerScheduler.schedulePollingTrigger(workflowExecutionId);
 
+        Mockito.verify(schedulerClient, Mockito.times(2))
+            .schedule(
+                Mockito.any(SchedulableInstance.class),
+                Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE));
         Mockito.verify(schedulerClient, Mockito.never())
             .scheduleIfNotExists(Mockito.any(SchedulableInstance.class));
+    }
+
+    @Test
+    void testScheduleDoesNotThrowWhenInstanceIsCurrentlyExecuting() {
+        Mockito.when(schedulerClient.schedule(
+            Mockito.any(SchedulableInstance.class), Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE)))
+            .thenThrow(new TaskInstanceCurrentlyExecutingException(
+                DbSchedulerTaskDescriptors.POLLING_TRIGGER_NAME, workflowExecutionId.toString()));
+
+        Assertions.assertThatCode(() -> triggerScheduler.schedulePollingTrigger(workflowExecutionId))
+            .doesNotThrowAnyException();
     }
 
     @Test
@@ -163,12 +189,32 @@ class DbTriggerSchedulerTest {
             .doesNotThrowAnyException();
     }
 
-    private SchedulableInstance<?> capturedScheduleIfNotExists() {
+    private SchedulableInstance<?> capturedSchedule() {
         ArgumentCaptor<SchedulableInstance<?>> captor = ArgumentCaptor.forClass(SchedulableInstance.class);
 
         Mockito.verify(schedulerClient)
-            .scheduleIfNotExists(captor.capture());
+            .schedule(captor.capture(), Mockito.eq(SchedulerClient.ScheduleOptions.WHEN_EXISTS_RESCHEDULE));
 
         return captor.getValue();
+    }
+
+    private boolean rescheduleExistingInstanceOrThrow(SchedulableInstance<?> instance) {
+        if (!existingInstanceKeys.contains(instanceKey(instance))) {
+            throw new TaskInstanceNotFoundException(instance.getTaskName(), instance.getId());
+        }
+
+        return true;
+    }
+
+    private boolean scheduleWithWhenExistsReschedule(SchedulableInstance<?> instance) {
+        if (existingInstanceKeys.add(instanceKey(instance))) {
+            return true;
+        }
+
+        return rescheduleExistingInstanceOrThrow(instance);
+    }
+
+    private static String instanceKey(SchedulableInstance<?> instance) {
+        return instance.getTaskName() + "|" + instance.getId();
     }
 }
