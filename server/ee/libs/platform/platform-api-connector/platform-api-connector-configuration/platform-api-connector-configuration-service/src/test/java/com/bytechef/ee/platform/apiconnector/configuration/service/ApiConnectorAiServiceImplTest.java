@@ -21,13 +21,22 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.platform.apiconnector.configuration.service.WebScrapeService.CrawlResult;
 import com.bytechef.ee.platform.apiconnector.configuration.service.WebScrapeService.ScrapeResult;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @version ee
@@ -36,19 +45,77 @@ import org.springframework.ai.chat.prompt.Prompt;
  */
 class ApiConnectorAiServiceImplTest {
 
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider =
+        mock(ObjectProvider.class);
     private final ApiConnectorGenerationJobService jobService = mock(ApiConnectorGenerationJobService.class);
     private final ChatModel chatModel = mock(ChatModel.class);
     private final WebScrapeService webScrapeService = mock(WebScrapeService.class);
 
-    private final ApiConnectorAiServiceImpl service =
-        new ApiConnectorAiServiceImpl(jobService, chatModel, webScrapeService, false, java.util.Set.of());
+    private final ApiConnectorAiServiceImpl service = new ApiConnectorAiServiceImpl(
+        aiGuardrailsAdvisorProviderProvider, jobService, chatModel, webScrapeService, false, java.util.Set.of());
 
     private void givenLlmReturns(String text) {
         ChatResponse chatResponse = ChatResponse.builder()
             .generations(List.of(new Generation(new AssistantMessage(text))))
             .build();
 
+        // A ChatClient asks the model for its default options while building the request, before any call reaches
+        // the model. A bare mock answers null there and the client NPEs.
+        when(chatModel.getOptions()).thenReturn(ChatOptions.builder()
+            .build());
         when(chatModel.call(any(Prompt.class))).thenReturn(chatResponse);
+    }
+
+    /**
+     * The point of routing generation through a {@code ChatClient}: the tenant's guardrails advisor sits in the chain
+     * and sees the prompt, which carries the admin's free-text instructions. Reverting either call site to
+     * {@code chatModel.call(new Prompt(...))} turns this red -- an advisor cannot intercept a call that never enters an
+     * advisor chain.
+     */
+    @Test
+    void testGenerationPassesThroughTheGuardrailsAdvisor() {
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = mock(AiGuardrailsAdvisorProvider.class);
+        RecordingAdvisor recordingAdvisor = new RecordingAdvisor();
+
+        when(aiGuardrailsAdvisorProviderProvider.getIfAvailable()).thenReturn(aiGuardrailsAdvisorProvider);
+        when(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(null, GuardrailSurface.API_CONNECTOR))
+            .thenReturn(Optional.of(recordingAdvisor));
+        when(webScrapeService.scrape("https://docs.example.com"))
+            .thenReturn(ScrapeResult.success("# API docs"));
+
+        givenLlmReturns("openapi: \"3.0.0\"");
+
+        service.generateOpenApiSpecification("https://docs.example.com");
+
+        assertThat(recordingAdvisor.advisedCall).isTrue();
+    }
+
+    /**
+     * Records that the advisor chain actually ran, then delegates unchanged. A mocked {@code CallAdvisor} would not do:
+     * the chain would have nothing to delegate to and the call would never reach the model, so the test could pass
+     * without the model call happening at all.
+     */
+    private static final class RecordingAdvisor implements CallAdvisor {
+
+        private boolean advisedCall;
+
+        @Override
+        public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain callAdvisorChain) {
+            advisedCall = true;
+
+            return callAdvisorChain.nextCall(chatClientRequest);
+        }
+
+        @Override
+        public String getName() {
+            return "RecordingAdvisor";
+        }
+
+        @Override
+        public int getOrder() {
+            return 0;
+        }
     }
 
     @Test

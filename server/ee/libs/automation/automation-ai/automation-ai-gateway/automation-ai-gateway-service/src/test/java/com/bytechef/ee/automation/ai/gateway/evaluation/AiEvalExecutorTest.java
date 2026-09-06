@@ -25,6 +25,7 @@ import com.bytechef.ee.platform.ai.eval.domain.AiEvalRuleTarget;
 import com.bytechef.ee.platform.ai.eval.service.AiEvalExecutionService;
 import com.bytechef.ee.platform.ai.eval.service.AiEvalRuleService;
 import com.bytechef.ee.platform.ai.eval.service.AiEvalScoreConfigService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilitySpan;
@@ -33,6 +34,8 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityTrace;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityTraceSource;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilitySpanService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceService;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -40,8 +43,19 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataAccessResourceFailureException;
 
@@ -167,6 +181,7 @@ class AiEvalExecutorTest {
                 .thenReturn(List.of());
 
         AiEvalExecutor executor = new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             mock(AiEvalExecutionService.class),
             mock(AiEvalRuleService.class),
             mock(AiEvalScoreConfigService.class),
@@ -214,6 +229,7 @@ class AiEvalExecutorTest {
         });
 
         AiEvalExecutor executor = new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             aiEvalExecutionService,
             mock(AiEvalRuleService.class),
             mock(AiEvalScoreConfigService.class),
@@ -265,6 +281,7 @@ class AiEvalExecutorTest {
         when(traceService.getTrace(123L)).thenThrow(jdbcWrapped);
 
         AiEvalExecutor executor = new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             executionService,
             ruleService,
             mock(AiEvalScoreConfigService.class),
@@ -324,6 +341,7 @@ class AiEvalExecutorTest {
         when(traceService.getTrace(456L)).thenThrow(nonInterruptFailure);
 
         AiEvalExecutor executor = new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             executionService,
             ruleService,
             mock(AiEvalScoreConfigService.class),
@@ -373,6 +391,7 @@ class AiEvalExecutorTest {
             .thenThrow(new RuntimeException("simulated DB outage on create"));
 
         AiEvalExecutor executor = new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             aiEvalExecutionService,
             aiEvalRuleService,
             mock(AiEvalScoreConfigService.class),
@@ -408,6 +427,7 @@ class AiEvalExecutorTest {
 
     private static AiEvalExecutor newExecutor() {
         return new AiEvalExecutor(
+            staticGuardrailsAdvisorProvider(),
             mock(AiEvalExecutionService.class),
             mock(AiEvalRuleService.class),
             mock(AiEvalScoreConfigService.class),
@@ -456,6 +476,189 @@ class AiEvalExecutorTest {
         } catch (ReflectiveOperationException reflectiveOperationException) {
             throw new IllegalStateException(
                 "Could not stamp " + fieldName + " on " + target, reflectiveOperationException);
+        }
+    }
+
+    /**
+     * The existing tests never reach the model call, so an empty provider is the honest fixture: it yields an unadvised
+     * client, exactly as a CE classpath would.
+     */
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<AiGuardrailsAdvisorProvider> staticGuardrailsAdvisorProvider() {
+        return mock(ObjectProvider.class);
+    }
+
+    /**
+     * The heaviest of the three guardrails fixes, and the one whose absence mattered most: the evaluation prompt
+     * replays the trace's own input and output, so this call re-sends to a judge model whatever the evaluated call
+     * already sent. Pinned here is that the model call runs inside the advisor chain, and that the workspace it
+     * resolves comes from the trace row rather than from whoever asked for the evaluation.
+     *
+     * <p>
+     * Everything after the model call is left to fail — {@code executeEvaluation} catches {@code Exception} and records
+     * the failure — because the advisor has already run by then. Reverting the call to
+     * {@code chatModel.call(new Prompt(...))} turns this red.
+     * </p>
+     */
+    @Test
+    void testEvaluationModelCallPassesThroughTheTraceWorkspaceGuardrailsAdvisor() throws Exception {
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = mock(AiGuardrailsAdvisorProvider.class);
+        RecordingAdvisor recordingAdvisor = new RecordingAdvisor();
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider = mock(ObjectProvider.class);
+
+        when(aiGuardrailsAdvisorProviderProvider.getIfAvailable()).thenReturn(aiGuardrailsAdvisorProvider);
+        when(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(42L, GuardrailSurface.AI_EVAL))
+            .thenReturn(Optional.of(recordingAdvisor));
+
+        AiGatewayProvider provider = mock(AiGatewayProvider.class);
+
+        when(provider.getName()).thenReturn("openai");
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        // A ChatClient asks the model for its default options while building the request, before any call reaches
+        // the model. A bare mock answers null there and the client NPEs before the advisor ever runs.
+        when(chatModel.getOptions()).thenReturn(ChatOptions.builder()
+            .build());
+        when(chatModel.call(any(Prompt.class))).thenReturn(ChatResponse.builder()
+            .generations(List.of(new Generation(new AssistantMessage("0.9"))))
+            .build());
+
+        AiGatewayProviderService aiGatewayProviderService = mock(AiGatewayProviderService.class);
+
+        when(aiGatewayProviderService.getProviders()).thenReturn(List.of(provider));
+
+        AiGatewayChatModelFactory aiGatewayChatModelFactory = mock(AiGatewayChatModelFactory.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(provider)).thenReturn(chatModel);
+
+        AiObservabilitySpanService aiObservabilitySpanService = mock(AiObservabilitySpanService.class);
+
+        when(aiObservabilitySpanService.getSpansByTrace(any())).thenReturn(List.of());
+
+        AiEvalExecutor executor = new AiEvalExecutor(
+            aiGuardrailsAdvisorProviderProvider,
+            mock(AiEvalExecutionService.class),
+            mock(AiEvalRuleService.class),
+            mock(AiEvalScoreConfigService.class),
+            mock(WorkspaceAiEvalScoreService.class),
+            mock(WorkspaceAiEvalRuleService.class),
+            aiGatewayChatModelFactory,
+            aiGatewayProviderService,
+            mock(AiObservabilityTraceService.class), mock(WorkspaceAiObservabilityTraceService.class),
+            aiObservabilitySpanService,
+            staticProvider(new SimpleMeterRegistry()));
+
+        AiObservabilityTrace trace = traceWith("q", "a", "{}");
+
+        trace.setWorkspaceId(42L);
+        stamp(trace, "id", 7L);
+
+        Method executeEvaluation = AiEvalExecutor.class.getDeclaredMethod(
+            "executeEvaluation", AiEvalExecution.class, AiEvalRule.class, AiObservabilityTrace.class);
+
+        executeEvaluation.setAccessible(true);
+        executeEvaluation.invoke(executor, mock(AiEvalExecution.class), aiEvalRule(1L, 42L, "rule"), trace);
+
+        assertThat(recordingAdvisor.advisedCall).isTrue();
+    }
+
+    /**
+     * A workspace the caller never supplied: it is read off the trace row. Stubbing the provider for workspace 42 and
+     * pointing the trace at 99 leaves the advisor unattached, so this fails if the workspace ever starts coming from
+     * somewhere other than the loaded row.
+     */
+    @Test
+    void testTheGuardrailsWorkspaceComesFromTheTraceRow() throws Exception {
+        AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = mock(AiGuardrailsAdvisorProvider.class);
+        RecordingAdvisor recordingAdvisor = new RecordingAdvisor();
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider = mock(ObjectProvider.class);
+
+        when(aiGuardrailsAdvisorProviderProvider.getIfAvailable()).thenReturn(aiGuardrailsAdvisorProvider);
+        when(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(any(), eq(GuardrailSurface.AI_EVAL)))
+            .thenReturn(Optional.empty());
+        when(aiGuardrailsAdvisorProvider.getAdvisorForWorkspace(99L, GuardrailSurface.AI_EVAL))
+            .thenReturn(Optional.of(recordingAdvisor));
+
+        AiGatewayProvider provider = mock(AiGatewayProvider.class);
+
+        when(provider.getName()).thenReturn("openai");
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(chatModel.getOptions()).thenReturn(ChatOptions.builder()
+            .build());
+        when(chatModel.call(any(Prompt.class))).thenReturn(ChatResponse.builder()
+            .generations(List.of(new Generation(new AssistantMessage("0.9"))))
+            .build());
+
+        AiGatewayProviderService aiGatewayProviderService = mock(AiGatewayProviderService.class);
+
+        when(aiGatewayProviderService.getProviders()).thenReturn(List.of(provider));
+
+        AiGatewayChatModelFactory aiGatewayChatModelFactory = mock(AiGatewayChatModelFactory.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(provider)).thenReturn(chatModel);
+
+        AiObservabilitySpanService aiObservabilitySpanService = mock(AiObservabilitySpanService.class);
+
+        when(aiObservabilitySpanService.getSpansByTrace(any())).thenReturn(List.of());
+
+        AiEvalExecutor executor = new AiEvalExecutor(
+            aiGuardrailsAdvisorProviderProvider,
+            mock(AiEvalExecutionService.class),
+            mock(AiEvalRuleService.class),
+            mock(AiEvalScoreConfigService.class),
+            mock(WorkspaceAiEvalScoreService.class),
+            mock(WorkspaceAiEvalRuleService.class),
+            aiGatewayChatModelFactory,
+            aiGatewayProviderService,
+            mock(AiObservabilityTraceService.class), mock(WorkspaceAiObservabilityTraceService.class),
+            aiObservabilitySpanService,
+            staticProvider(new SimpleMeterRegistry()));
+
+        AiObservabilityTrace trace = traceWith("q", "a", "{}");
+
+        trace.setWorkspaceId(99L);
+        stamp(trace, "id", 7L);
+
+        Method executeEvaluation = AiEvalExecutor.class.getDeclaredMethod(
+            "executeEvaluation", AiEvalExecution.class, AiEvalRule.class, AiObservabilityTrace.class);
+
+        executeEvaluation.setAccessible(true);
+        executeEvaluation.invoke(executor, mock(AiEvalExecution.class), aiEvalRule(1L, 42L, "rule"), trace);
+
+        assertThat(recordingAdvisor.advisedCall).isTrue();
+    }
+
+    /**
+     * Records that the advisor chain actually ran, then delegates unchanged. A mocked {@code CallAdvisor} would not do:
+     * the chain would have nothing to delegate to and the call would never reach the model, so the test could pass
+     * without the model call happening at all.
+     */
+    private static final class RecordingAdvisor implements CallAdvisor {
+
+        private boolean advisedCall;
+
+        @Override
+        public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain callAdvisorChain) {
+            advisedCall = true;
+
+            return callAdvisorChain.nextCall(chatClientRequest);
+        }
+
+        @Override
+        public String getName() {
+            return "RecordingAdvisor";
+        }
+
+        @Override
+        public int getOrder() {
+            return 0;
         }
     }
 }

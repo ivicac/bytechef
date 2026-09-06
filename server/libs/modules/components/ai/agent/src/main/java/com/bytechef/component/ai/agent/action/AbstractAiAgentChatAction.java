@@ -59,6 +59,7 @@ import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder.AgentConversation;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProvider;
 import com.bytechef.platform.component.ComponentConnection;
@@ -316,11 +317,12 @@ public abstract class AbstractAiAgentChatAction {
             if (aiGuardrailsAdvisorProvider != null) {
                 aiGuardrailsAdvisorProvider
                     .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
-                        "ai_agent")
+                        GuardrailSurface.AI_AGENT)
                     .ifPresent(workspaceAdvisors::add);
 
                 toolBoundaryMetrics = aiGuardrailsAdvisorProvider.getMetrics(
-                    actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(), "ai_agent");
+                    actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
+                    GuardrailSurface.AI_AGENT);
             }
         }
 
@@ -332,7 +334,7 @@ public abstract class AbstractAiAgentChatAction {
             workspaceSystemPromptAdvisorProviderObjectProvider.ifAvailable(
                 provider -> provider
                     .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
-                        "ai_agent")
+                        GuardrailSurface.AI_AGENT)
                     .ifPresent(workspaceAdvisors::add));
         }
 
