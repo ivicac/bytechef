@@ -15,6 +15,9 @@ import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailViolationAction;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.violation.AiGuardrailViolationRecorder;
+import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
+import com.bytechef.platform.ai.guardrails.PublishedInputSpans;
+import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
@@ -136,9 +139,9 @@ import reactor.core.publisher.Flux;
  * </p>
  *
  * <p>
- * Runs at {@link org.springframework.core.Ordered#HIGHEST_PRECEDENCE} — the guardrail floor must see (and, in
- * {@code BLOCK} mode, be able to reject) the final outbound request before any other advisor's rewrite, and must see
- * the model's raw completion before any other advisor post-processes it.
+ * Runs at {@link GuardrailAdvisorOrder#WORKSPACE_FLOOR} — the guardrail floor must see (and, in {@code BLOCK} mode, be
+ * able to reject) the final outbound request before any other advisor's rewrite, and must see the model's raw
+ * completion before any other advisor post-processes it.
  * </p>
  *
  * @version ee
@@ -181,7 +184,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     @Override
     public int getOrder() {
-        return HIGHEST_PRECEDENCE;
+        return GuardrailAdvisorOrder.WORKSPACE_FLOOR;
     }
 
     @Override
@@ -312,6 +315,8 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         submitViolationRecords(results, blockingMode, workspaceId);
 
+        List<SensitiveSpan> publishedSpans = userMessageSpans(instructions, guardedIndexes, results);
+
         List<Message> patched = new ArrayList<>(instructions);
         boolean changed = false;
 
@@ -335,15 +340,21 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
             }
         }
 
-        if (!changed) {
+        if (!changed && publishedSpans.isEmpty()) {
             return chatClientRequest;
         }
 
-        Prompt patchedPrompt = new Prompt(patched, prompt.getOptions());
+        ChatClientRequest.Builder builder = chatClientRequest.mutate();
 
-        return chatClientRequest.mutate()
-            .prompt(patchedPrompt)
-            .build();
+        if (changed) {
+            builder.prompt(new Prompt(patched, prompt.getOptions()));
+        }
+
+        if (!publishedSpans.isEmpty()) {
+            builder.context(PublishedInputSpans.CONTEXT_KEY, publishedSpans);
+        }
+
+        return builder.build();
     }
 
     /**
@@ -641,5 +652,29 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         }
 
         return AiGuardrailViolationAction.REDACTED;
+    }
+
+    /**
+     * The spans the floor detected in the caller's USER messages, for {@link PublishedInputSpans}. SYSTEM messages are
+     * guarded too, but their spans are the operator's prompt, not the caller's input, and a per-node input check judges
+     * the latter.
+     */
+    private static List<SensitiveSpan> userMessageSpans(
+        List<Message> instructions, List<Integer> guardedIndexes, List<GuardrailCheckResult> results) {
+
+        List<SensitiveSpan> spans = new ArrayList<>();
+
+        for (int i = 0; i < guardedIndexes.size(); i++) {
+            Message message = instructions.get(guardedIndexes.get(i));
+
+            if (message.getMessageType() != MessageType.USER) {
+                continue;
+            }
+
+            spans.addAll(results.get(i)
+                .spans());
+        }
+
+        return List.copyOf(spans);
     }
 }

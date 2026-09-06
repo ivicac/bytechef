@@ -146,7 +146,8 @@ public final class MaskEntityMapUtils {
 
         List<Span> spans = new ArrayList<>();
         Map<String, Pattern> patternCache = new HashMap<>();
-        CharSequence bounded = RegexParserUtils.bounded(text);
+        CharSequence bounded = GuardrailMatchDeadline.start()
+            .bound(text);
 
         for (Pair pair : pairs) {
             Pattern pattern = patternCache.computeIfAbsent(pair.value(), MaskEntityMapUtils::boundaryAwarePattern);
