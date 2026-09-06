@@ -17,10 +17,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.platform.ai.guardrails.McpOutboundRedactor;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicy;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -38,15 +39,15 @@ class McpOutboundRedactorProviderTest {
 
     @Test
     void testEmptyWhenTheWorkspaceHasOutboundRedactionOff() {
-        when(aiGuardrails.resolveMcpOutboundPolicy(1L)).thenReturn(null);
+        when(aiGuardrails.resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget.workspace(1L))).thenReturn(null);
 
         assertThat(newProvider().fetchRedactor(1L, "mcp_automation")).isEmpty();
     }
 
     @Test
     void testRedactsWithTheResolvedPolicysKindsAndThreshold() {
-        when(aiGuardrails.resolveMcpOutboundPolicy(1L))
-            .thenReturn(new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII), 0.7));
+        when(aiGuardrails.resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget.workspace(1L)))
+            .thenReturn(new SensitiveDataPolicy(Set.of(SensitiveKind.PII), 0.7, true));
         when(
             sensitiveDataRedactor.redact(
                 eq("bob@acme.io"), eq(Set.of(SensitiveKind.PII)), eq(0.7), any()))
@@ -61,7 +62,8 @@ class McpOutboundRedactorProviderTest {
 
     @Test
     void testPropagatesAPolicyResolutionFailureRatherThanReportingNoRedaction() {
-        when(aiGuardrails.resolveMcpOutboundPolicy(1L)).thenThrow(new IllegalStateException("connection reset"));
+        when(aiGuardrails.resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget.workspace(1L)))
+            .thenThrow(new IllegalStateException("connection reset"));
 
         McpOutboundRedactorProviderImpl provider = newProvider();
 
@@ -72,8 +74,8 @@ class McpOutboundRedactorProviderTest {
 
     @Test
     void testResolvesTheTenantDefaultForANullWorkspace() {
-        when(aiGuardrails.resolveMcpOutboundPolicy(null))
-            .thenReturn(new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII), 0.4));
+        when(aiGuardrails.resolveMcpOutboundPolicy(AiGuardrailsSettingsTarget.platform()))
+            .thenReturn(new SensitiveDataPolicy(Set.of(SensitiveKind.PII), 0.4, true));
 
         assertThat(newProvider().fetchRedactor(null, "mcp_automation")).isPresent();
     }
@@ -81,11 +83,11 @@ class McpOutboundRedactorProviderTest {
     @Test
     void testRoutesTheEmbeddedSurfaceToTheEmbeddedScopeNotTheTenantDefault() {
         when(aiGuardrails.resolveEmbeddedMcpOutboundPolicy())
-            .thenReturn(new PiiTokenBoundaryPolicy(Set.of(SensitiveKind.PII), 0.4));
+            .thenReturn(new SensitiveDataPolicy(Set.of(SensitiveKind.PII), 0.4, true));
 
         assertThat(newProvider().fetchRedactor(null, "mcp_embedded")).isPresent();
 
-        verify(aiGuardrails, never()).resolveMcpOutboundPolicy(any());
+        verify(aiGuardrails, never()).resolveMcpOutboundPolicy(any(AiGuardrailsSettingsTarget.class));
     }
 
     @SuppressWarnings("unchecked")

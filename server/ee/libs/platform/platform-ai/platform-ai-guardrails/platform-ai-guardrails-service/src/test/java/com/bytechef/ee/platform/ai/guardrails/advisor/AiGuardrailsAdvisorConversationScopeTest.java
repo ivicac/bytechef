@@ -14,8 +14,11 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.guardrails.ConversationScope;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.PiiTokenSessionStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.HashMap;
@@ -200,7 +203,9 @@ class AiGuardrailsAdvisorConversationScopeTest {
             false, false, false, false, piiTokenSessionStore);
 
         return new AiGuardrailsAdvisor(
-            aiGuardrails, WORKSPACE_ID, new AiGuardrailMetrics(new SimpleMeterRegistry(), "ai_hub"));
+            aiGuardrails, AiGuardrailsSettingsTarget.workspace(WORKSPACE_ID),
+            new AiGuardrailMetrics(new SimpleMeterRegistry(), "ai_hub"),
+            GuardrailSurface.AI_HUB, RestorationDestination.CONVERSATION);
     }
 
     /**

@@ -236,7 +236,9 @@ class AiGatewayGuardrailsTest {
 
     @Test
     void testRedactResponseScrubsPiiAndSecretsWhenEnabled() {
-        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, true);
+        // Both categories are enabled here (unlike the pre-category-switch behaviour this used to pin) since
+        // response scanning now redacts only the kinds the workspace turned on.
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, true, "", false, false, true);
 
         AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
             responseOf("The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io"), null);
@@ -256,8 +258,10 @@ class AiGatewayGuardrailsTest {
     void testRedactResponseScansWhenWorkspaceSettingEnablesIt() {
         AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
 
+        // The workspace row also turns PII redaction on -- scanResponses alone no longer redacts every kind, so the
+        // category has to be enabled somewhere for this scan to have anything to do.
         when(settingsService.fetchSettings(7L))
-            .thenReturn(Optional.of(settings(null, null, null, null, null, true)));
+            .thenReturn(Optional.of(settings(true, null, null, null, null, true)));
 
         AiGatewayChatCompletionResponse redacted =
             guardrails.redactResponse(responseOf("contact bob@acme.io"), 7L);
@@ -338,13 +342,21 @@ class AiGatewayGuardrailsTest {
      * project-triggered branch used to call the engine's zero-arg {@code newStreamingResponseRedactor()}, which -- like
      * every other site this finding covers -- runs at {@code SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE} regardless
      * of the workspace's own threshold. Here ONLY the project enables streaming response scanning (workspace/global
-     * {@code scanResponses} stay off, so {@code AiGuardrails#newStreamingResponseRedactor(Long)} above returns
-     * {@code null} and this project branch is the sole thing that can construct a redactor), isolating this specific
-     * call site. Reverting the fix makes this test fail: the streamed email comes back redacted instead of untouched.
+     * {@code scanResponses} stay off, so {@code AiGuardrails#newStreamingResponseRedactor(AiGuardrailsSettingsTarget,
+     * AiGuardrailMetrics)} above returns {@code null} and this project branch is the sole thing that can construct a
+     * redactor), isolating this specific call site. Reverting the fix makes this test fail: the streamed email comes
+     * back redacted instead of untouched.
+     *
+     * <p>
+     * Global PII redaction is on so the redactor built here actually has a category to redact -- see I1 (2026-09-05
+     * final-branch-review fix): the target-based overload now composes with the category switches, so with both
+     * categories off the redactor would filter this email out on kind alone and this test would no longer be evidence
+     * for the confidence threshold specifically.
+     * </p>
      */
     @Test
     void testProjectOverlayStreamingRedactorHonorsWorkspaceThreshold() {
-        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false, true);
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false, true);
         double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
 
         when(settingsService.fetchSettings(7L))
@@ -359,6 +371,35 @@ class AiGatewayGuardrailsTest {
         String emitted = redactor.push("mail bob@acme.io") + redactor.flush();
 
         assertThat(emitted).isEqualTo("mail bob@acme.io");
+    }
+
+    /**
+     * I1 (2026-09-05 final-branch-review fix): kind-discriminating evidence for the same project-triggered streaming
+     * branch as the test above, which until now only ever asserted non-nullness or an entirely-unredacted string --
+     * neither distinguishes "redacted every kind" from "redacted only the enabled kind". Only the project enables
+     * streaming response scanning here; the workspace/global policy enables PII but not secrets. Before this fix, the
+     * branch called {@code AiGuardrails#newStreamingResponseRedactor(double)}, which redacted
+     * {@code EnumSet.allOf(SensitiveKind.class)} unconditionally, so the secret below would have been redacted too.
+     */
+    @Test
+    void testProjectOverlayStreamingRedactorRedactsOnlyTheWorkspacesEnabledKinds() {
+        // Global PII redaction is on so the redactor built here actually has a category to redact; redactSecrets
+        // stays off throughout, so a secret in the streamed text must survive untouched.
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false, true);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
+
+        StreamingResponseRedactor redactor = guardrails.newStreamingResponseRedactor(null, 3L);
+
+        assertThat(redactor).isNotNull();
+
+        String emitted = redactor.push("The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io") +
+            redactor.flush();
+
+        assertThat(emitted).contains("[REDACTED_EMAIL_ADDRESS]");
+        assertThat(emitted).doesNotContain("bob@acme.io");
+        assertThat(emitted).contains("AKIAIOSFODNN7EXAMPLE");
     }
 
     @Test
@@ -442,7 +483,10 @@ class AiGatewayGuardrailsTest {
      */
     @Test
     void testProjectOverlayResponseScanHonorsWorkspaceThreshold() {
-        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+        // Global PII redaction is on so the project-overlay branch actually has a category to redact; otherwise the
+        // empty kind set introduced by testProjectOverlayResponseScanRedactsOnlyEnabledKinds below would short-circuit
+        // before the confidence threshold this test targets is ever consulted.
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false);
         double aboveEmailAddressScore = scoreOf("EMAIL_ADDRESS") + 0.05;
 
         when(settingsService.fetchSettings(7L))
@@ -461,7 +505,10 @@ class AiGatewayGuardrailsTest {
 
     @Test
     void testProjectOverlayEnablesResponseScanning() {
-        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+        // Global PII redaction is on so the redacted category is actually enabled; the project overlay's job here is
+        // only to turn response scanning ON (workspace/global scanResponses stay off), not to widen which categories
+        // are redacted -- see testProjectOverlayResponseScanRedactsOnlyEnabledKinds below for that half.
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, false);
 
         when(projectSettingsService.findByProjectId(3L))
             .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
@@ -473,6 +520,56 @@ class AiGatewayGuardrailsTest {
             .getFirst()
             .message()
             .content()).isEqualTo("contact [REDACTED_EMAIL_ADDRESS]");
+    }
+
+    @Test
+    void testProjectOverlayResponseScanRedactsOnlyEnabledKinds() {
+        // Workspace/global redactPii and redactSecrets are both off; only the project's own scanResponses flag turns
+        // scanning on. The project-overlay branch must consult the same category switches as scanResponseText rather
+        // than redacting every kind regardless of policy.
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
+
+        AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
+            responseOf("The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io"), null, 3L);
+
+        assertThat(redacted.choices()
+            .getFirst()
+            .message()
+            .content()).isEqualTo("The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io");
+    }
+
+    /**
+     * I2 (2026-09-05 final-branch-review fix): companion to
+     * {@link #testProjectOverlayResponseScanRedactsOnlyEnabledKinds} above, which pins the case where the project turns
+     * scanning on but adds no categories of its own. Here the project ALSO turns its own {@code redactPii} on (but not
+     * {@code redactSecrets}), with workspace/global categories both off throughout -- the project's own categories must
+     * widen response-direction redaction the same way they already widen the request direction in
+     * {@code applyProjectOverlay}, rather than the workspace's (empty) kind set silently overriding what the project
+     * itself asked for.
+     */
+    @Test
+    void testProjectOverlayResponseScanHonorsProjectsOwnCategories() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(true, null, null, null, null, true)));
+
+        AiGatewayChatCompletionResponse redacted = guardrails.redactResponse(
+            responseOf("The leaked key is AKIAIOSFODNN7EXAMPLE and the contact is bob@acme.io"), null, 3L);
+
+        String content = redacted.choices()
+            .getFirst()
+            .message()
+            .content();
+
+        assertThat(content).contains("[REDACTED_EMAIL_ADDRESS]");
+        assertThat(content).doesNotContain("bob@acme.io");
+        // The project did not turn its own redactSecrets on, and the workspace's is off too, so the secret is left
+        // untouched -- proving this is a genuine union (only PII widened), not an accidental redact-everything.
+        assertThat(content).contains("AKIAIOSFODNN7EXAMPLE");
     }
 
     @Test
@@ -515,7 +612,8 @@ class AiGatewayGuardrailsTest {
 
     @Test
     void testMetricsRecordResponseRedaction() {
-        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, true);
+        // PII redaction must be enabled for the response scan to have a category to redact.
+        AiGatewayGuardrails guardrails = guardrails(null, null, true, false, "", false, false, true);
 
         guardrails.redactResponse(responseOf("contact bob@acme.io"), null);
 
@@ -723,12 +821,14 @@ class AiGatewayGuardrailsTest {
 
         return new AiGuardrailsWorkspaceSettings(
             AiGuardrailsSettingsScope.WORKSPACE, 7L, redactPii, redactSecrets, blockedTerms, moderationEnabled,
-            injectionDetectionEnabled, scanResponses, null, null, null);
+            injectionDetectionEnabled, scanResponses, null, null, null,
+            null);
     }
 
     private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
         return new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, minConfidence, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, minConfidence, null,
+            null);
     }
 
     private static double scoreOf(String type) {

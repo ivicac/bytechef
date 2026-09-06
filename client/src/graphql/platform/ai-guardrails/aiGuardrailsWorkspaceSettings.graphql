@@ -8,6 +8,7 @@ query aiGuardrailsWorkspaceSettings($workspaceId: ID, $scope: AiGuardrailsSettin
         redactMcpResults
         redactPii
         redactSecrets
+        restoreIntoWorkflowOutput
         scanResponses
         scope
         workspaceId
@@ -24,6 +25,7 @@ mutation updateAiGuardrailsWorkspaceSettings($input: AiGuardrailsWorkspaceSettin
         redactMcpResults
         redactPii
         redactSecrets
+        restoreIntoWorkflowOutput
         scanResponses
         workspaceId
     }

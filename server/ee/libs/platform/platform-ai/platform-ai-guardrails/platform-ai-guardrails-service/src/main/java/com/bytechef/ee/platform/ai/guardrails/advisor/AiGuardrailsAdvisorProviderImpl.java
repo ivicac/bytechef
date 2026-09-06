@@ -9,8 +9,10 @@ package com.bytechef.ee.platform.ai.guardrails.advisor;
 
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.workspace.JobPrincipalWorkspaceResolver;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.constant.PlatformType;
@@ -24,9 +26,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 /**
- * EE implementation of the CE {@link AiGuardrailsAdvisorProvider} SPI: resolves the calling run's workspace via
- * {@link JobPrincipalWorkspaceResolver} and, when at least one guardrail is active for it, returns an
- * {@link AiGuardrailsAdvisor} bound to that workspace.
+ * EE implementation of the CE {@link AiGuardrailsAdvisorProvider} SPI: resolves which
+ * {@link AiGuardrailsSettingsTarget} settings row applies to the calling run and, when at least one guardrail is active
+ * for it, returns an {@link AiGuardrailsAdvisor} bound to that target. The target is built from BOTH the run's
+ * {@link PlatformType} and the workspace {@link JobPrincipalWorkspaceResolver} resolves for it --
+ * {@code PlatformType.EMBEDDED} always resolves the {@code EMBEDDED} settings row regardless of what the workspace
+ * resolver returns (it always returns {@code null} for an embedded run, since embedded has no workspaces), and every
+ * other platform type resolves a workspace row (or the tenant-default {@code PLATFORM} row when the workspace resolver
+ * returns {@code null}). See {@link AiGuardrailsSettingsTarget#resolve(PlatformType, Long)}.
  *
  * <p>
  * Only the workspace SCOPE is fail-open (see {@link JobPrincipalWorkspaceResolver}): guardrails themselves are never
@@ -58,39 +65,47 @@ public class AiGuardrailsAdvisorProviderImpl implements AiGuardrailsAdvisorProvi
 
     @Override
     public Optional<Advisor> getAdvisor(
-        @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface) {
+        @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface,
+        RestorationDestination destination) {
 
-        Long workspaceId = jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId);
-        AiGuardrailMetrics metrics = buildMetricsIfActive(workspaceId, surface);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(
+            platformType, jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId));
+        AiGuardrailMetrics metrics = buildMetricsIfActive(target, surface);
 
         if (metrics == null) {
             return Optional.empty();
         }
 
-        return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, workspaceId, metrics));
+        return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, target, metrics, surface, destination));
     }
 
     @Override
     public @Nullable SensitiveDataMetrics getMetrics(
         @Nullable PlatformType platformType, @Nullable Long jobPrincipalId, String surface) {
 
-        return buildMetricsIfActive(jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId), surface);
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(
+            platformType, jobPrincipalWorkspaceResolver.resolve(platformType, jobPrincipalId));
+
+        return buildMetricsIfActive(target, surface);
     }
 
     @Override
-    public Optional<Advisor> getAdvisorForWorkspace(@Nullable Long workspaceId, String surface) {
-        AiGuardrailMetrics metrics = buildMetricsIfActive(workspaceId, surface);
+    public Optional<Advisor> getAdvisorForWorkspace(
+        @Nullable Long workspaceId, String surface, RestorationDestination destination) {
+
+        AiGuardrailsSettingsTarget target = AiGuardrailsSettingsTarget.resolve(null, workspaceId);
+        AiGuardrailMetrics metrics = buildMetricsIfActive(target, surface);
 
         if (metrics == null) {
             return Optional.empty();
         }
 
-        return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, workspaceId, metrics));
+        return Optional.of(new AiGuardrailsAdvisor(aiGuardrails, target, metrics, surface, destination));
     }
 
     @Override
     public @Nullable SensitiveDataMetrics getMetricsForWorkspace(@Nullable Long workspaceId, String surface) {
-        return buildMetricsIfActive(workspaceId, surface);
+        return buildMetricsIfActive(AiGuardrailsSettingsTarget.resolve(null, workspaceId), surface);
     }
 
     /**
@@ -101,8 +116,8 @@ public class AiGuardrailsAdvisorProviderImpl implements AiGuardrailsAdvisorProvi
      * {@link #getAdvisorForWorkspace}) would hand to {@link AiGuardrailsAdvisor} for the identical arguments, not a
      * second, independently-gated instance that could disagree with it.
      */
-    private @Nullable AiGuardrailMetrics buildMetricsIfActive(@Nullable Long workspaceId, String surface) {
-        if (!aiGuardrails.isActive(workspaceId)) {
+    private @Nullable AiGuardrailMetrics buildMetricsIfActive(AiGuardrailsSettingsTarget target, String surface) {
+        if (!aiGuardrails.isActive(target)) {
             return null;
         }
 

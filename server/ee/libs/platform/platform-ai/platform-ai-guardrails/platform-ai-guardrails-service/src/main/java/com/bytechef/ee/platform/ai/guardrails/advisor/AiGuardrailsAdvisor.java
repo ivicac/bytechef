@@ -13,17 +13,20 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.GuardrailCheckResult;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails.TokenSessionHandle;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailViolationAction;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsTarget;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
 import com.bytechef.ee.platform.ai.guardrails.violation.AiGuardrailViolationRecorder;
 import com.bytechef.platform.ai.guardrails.ConversationScope;
 import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.platform.ai.guardrails.PublishedInputSpans;
+import com.bytechef.platform.ai.guardrails.RestorationDestination;
 import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
-import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicyToolContext;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicy;
+import com.bytechef.platform.ai.sensitivedata.tokenization.SensitiveDataPolicyToolContext;
 import com.bytechef.platform.security.util.SecurityUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -104,11 +107,11 @@ import reactor.core.publisher.Flux;
  * <p>
  * {@link StreamAdvisor#adviseStream} instead pipes each chunk through a single {@link StreamingResponseRedactor}
  * obtained from the session-carrying
- * {@link AiGuardrails#newStreamingResponseRedactor(Long, AiGuardrailMetrics, PiiTokenSession)} so a value split across
- * a chunk boundary is never emitted in the clear, flushing the redactor's held-back remainder as one trailing chunk
- * once the upstream stream completes and recording {@code response_redacted} at most once per stream (mirroring the AI
- * Gateway's own SSE redaction path in {@code AiGatewayFacadeImpl}). {@link StreamingResponseRedactor} scans each
- * emitted segment and then restores this call's session tokens through it, same ordering and same reason as
+ * {@link AiGuardrails#newStreamingResponseRedactor(AiGuardrailsSettingsTarget, AiGuardrailMetrics, PiiTokenSession)} so
+ * a value split across a chunk boundary is never emitted in the clear, flushing the redactor's held-back remainder as
+ * one trailing chunk once the upstream stream completes and recording {@code response_redacted} at most once per stream
+ * (mirroring the AI Gateway's own SSE redaction path in {@code AiGatewayFacadeImpl}). {@link StreamingResponseRedactor}
+ * scans each emitted segment and then restores this call's session tokens through it, same ordering and same reason as
  * {@link #applyResponseGuardrails} above — see its class javadoc. The session is opened once at the top of
  * {@link #adviseStream} and released via {@code Flux#doFinally} on the returned stream, so completion, error and
  * cancellation all release it exactly once; the one path outside that {@code Flux} — the request being rejected under
@@ -170,26 +173,43 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
     private final AiGuardrails aiGuardrails;
     private final AiGuardrailMetrics metrics;
     private final @Nullable AiGuardrailViolationRecorder aiGuardrailViolationRecorder;
-    private final @Nullable Long workspaceId;
+    private final AiGuardrailsSettingsTarget target;
+    private final RestorationDestination destination;
+    // Explicit rather than read off metrics.getSurface() at gate-check time: withSessionInToolContext's
+    // workflowSurface gate is a security boundary, and metrics is telemetry. A rename or split of the metrics
+    // surface tag reads as a telemetry-only change and would silently disable the gate if it stayed keyed on
+    // metrics -- this field is set once, at construction, from the identical `surface` argument the caller already
+    // passes to build metrics, so that coupling is visible at every call site instead of buried inside this class.
+    private final String surface;
 
-    public AiGuardrailsAdvisor(AiGuardrails aiGuardrails, @Nullable Long workspaceId, AiGuardrailMetrics metrics) {
-        this(aiGuardrails, workspaceId, metrics, null);
+    public AiGuardrailsAdvisor(
+        AiGuardrails aiGuardrails, AiGuardrailsSettingsTarget target, AiGuardrailMetrics metrics, String surface,
+        RestorationDestination destination) {
+
+        this(aiGuardrails, target, metrics, surface, null, destination);
     }
 
     /**
+     * @param surface                      the calling surface -- the identical value the caller used to build
+     *                                     {@code metrics} -- gating {@link #withSessionInToolContext}'s outbound
+     *                                     tool-argument restoration; see this class's {@code surface} field javadoc
      * @param aiGuardrailViolationRecorder the per-detection drill-down recorder, or {@code null} where none is wired.
      *                                     Optional rather than required so the nine existing construction sites -- and
      *                                     any deployment that has not turned recording on -- are unaffected.
+     * @param destination                  where this advisor's restored response text goes; see
+     *                                     {@link RestorationDestination} for why the surface alone cannot answer this
      */
     @SuppressFBWarnings("EI2")
     public AiGuardrailsAdvisor(
-        AiGuardrails aiGuardrails, @Nullable Long workspaceId, AiGuardrailMetrics metrics,
-        @Nullable AiGuardrailViolationRecorder aiGuardrailViolationRecorder) {
+        AiGuardrails aiGuardrails, AiGuardrailsSettingsTarget target, AiGuardrailMetrics metrics, String surface,
+        @Nullable AiGuardrailViolationRecorder aiGuardrailViolationRecorder, RestorationDestination destination) {
 
         this.aiGuardrails = Objects.requireNonNull(aiGuardrails, "aiGuardrails");
-        this.workspaceId = workspaceId;
+        this.target = Objects.requireNonNull(target, "target");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
+        this.surface = Objects.requireNonNull(surface, "surface");
         this.aiGuardrailViolationRecorder = aiGuardrailViolationRecorder;
+        this.destination = Objects.requireNonNull(destination, "destination");
     }
 
     @Override
@@ -212,11 +232,27 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         try {
             ChatClientRequest guardedRequest = applyInputGuardrails(chatClientRequest, session);
 
-            guardedRequest = withSessionInToolContext(guardedRequest, session);
+            // Resolved once, here, and threaded into both halves below as a parameter -- never cached on a field,
+            // since a field would silently go stale if this advisor instance ever stopped being per-call, and a
+            // parameter cannot. withSessionInToolContext needs it only for the canvas AI Agent surface;
+            // applyResponseGuardrails needs it only for a WORKFLOW_OUTPUT destination -- resolving it whenever
+            // EITHER half would consult it, and skipping the lookup entirely otherwise, is what keeps a
+            // CONVERSATION-destination call from any other surface (AI Hub, Copilot) paying zero settings reads,
+            // exactly as before this method existed. adviseStream resolves the same lookup with a narrower,
+            // surface-only gate below -- see its own comment -- since its response half never consults this
+            // setting at all (D8: a streamed response always restores).
+            boolean workflowSurface = GuardrailSurface.AI_AGENT.equals(surface);
+            boolean restoreIntoWorkflowOutput = true;
+
+            if (workflowSurface || destination == RestorationDestination.WORKFLOW_OUTPUT) {
+                restoreIntoWorkflowOutput = aiGuardrails.isRestoreIntoWorkflowOutput(target);
+            }
+
+            guardedRequest = withSessionInToolContext(guardedRequest, session, restoreIntoWorkflowOutput);
 
             ChatClientResponse response = callAdvisorChain.nextCall(guardedRequest);
 
-            return applyResponseGuardrails(response, session);
+            return applyResponseGuardrails(response, session, restoreIntoWorkflowOutput);
         } finally {
             releaseSession(conversationKey, tokenSessionHandle);
         }
@@ -234,7 +270,19 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         try {
             guardedRequest = applyInputGuardrails(chatClientRequest, session);
-            guardedRequest = withSessionInToolContext(guardedRequest, session);
+
+            // adviseStream's own RESPONSE half never consults this setting at all -- D8: a streamed response
+            // restores unconditionally through StreamingResponseRedactor below, untouched by this task. This
+            // lookup exists only for withSessionInToolContext's outbound tool-call-argument gate, so unlike
+            // adviseCall's resolution above, the gate here stays surface-only -- unchanged from before this task.
+            boolean workflowSurface = GuardrailSurface.AI_AGENT.equals(surface);
+            boolean restoreIntoWorkflowOutput = true;
+
+            if (workflowSurface) {
+                restoreIntoWorkflowOutput = aiGuardrails.isRestoreIntoWorkflowOutput(target);
+            }
+
+            guardedRequest = withSessionInToolContext(guardedRequest, session, restoreIntoWorkflowOutput);
         } catch (AiGuardrailViolationException exception) {
             // The chain is never subscribed to on this path, so the doFinally below never runs -- release the
             // session here explicitly, mirroring adviseCall's try/finally for the same exception.
@@ -246,7 +294,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         // Null exactly when streaming scanning is inactive AND session minted nothing -- see the overload's javadoc.
         // Restoration is not gated on the streaming-scan flag, but a session with nothing to restore and nothing to
         // scan should not pay the lookahead buffer's latency for no benefit.
-        StreamingResponseRedactor redactor = aiGuardrails.newStreamingResponseRedactor(workspaceId, metrics, session);
+        StreamingResponseRedactor redactor = aiGuardrails.newStreamingResponseRedactor(target, metrics, session);
         Flux<ChatClientResponse> stream = streamAdvisorChain.nextStream(guardedRequest);
 
         // Releases session on every termination of the returned Flux -- completion, error and cancellation alike.
@@ -272,7 +320,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * expression included. See {@link ConversationScope#trustedKey}.
      */
     private ConversationScope.@Nullable Key trustedConversationKey(ChatClientRequest chatClientRequest) {
-        return ConversationScope.trustedKey(chatClientRequest.context(), workspaceId)
+        return ConversationScope.trustedKey(chatClientRequest.context(), target.workspaceId())
             .orElse(null);
     }
 
@@ -366,20 +414,20 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         }
 
         List<GuardrailCheckResult> results = session == null
-            ? aiGuardrails.checkInputs(texts, workspaceId, metrics)
-            : aiGuardrails.tokenizeInputs(texts, workspaceId, session, metrics);
+            ? aiGuardrails.checkInputs(texts, target, metrics)
+            : aiGuardrails.tokenizeInputs(texts, target, session, metrics);
         boolean anyBlocked = results.stream()
             .anyMatch(GuardrailCheckResult::blocked);
 
         // Resolved only when something is blocked, so an unblocked request costs exactly the settings lookups it
         // did before ALLOW existed.
-        BlockingMode blockingMode = anyBlocked ? aiGuardrails.resolveBlockingMode(workspaceId) : null;
+        BlockingMode blockingMode = anyBlocked ? aiGuardrails.resolveBlockingMode(target) : null;
 
         if (blockingMode == BlockingMode.BLOCK) {
             // Submitted BEFORE the throw. Records exist to explain what the guardrails did, and a blocked call is the
             // one an operator is most likely to be asked about -- leaving it as the single case with no record would
             // be the worst possible gap.
-            submitViolationRecords(results, blockingMode, workspaceId);
+            submitViolationRecords(results, blockingMode, target);
 
             String category = results.stream()
                 .filter(GuardrailCheckResult::blocked)
@@ -390,7 +438,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
             throw new AiGuardrailViolationException(category);
         }
 
-        submitViolationRecords(results, blockingMode, workspaceId);
+        submitViolationRecords(results, blockingMode, target);
 
         List<SensitiveSpan> publishedSpans = userMessageSpans(instructions, guardedIndexes, results);
 
@@ -446,17 +494,34 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * the only shape {@code ToolContext} is actually threaded through to a running tool call (see
      * {@code DefaultChatClientUtils#toChatClientRequest}: a {@code ChatClientRequest}'s own {@code context()} map is a
      * separate, advisor-only channel that tool callbacks never see). {@link PiiTokenSessionToolContext#into} and
-     * {@link PiiTokenBoundaryPolicyToolContext#into} both merge rather than replace, so every existing entry --
-     * including {@code AgentToolInvocationContext}'s workspace/user/environment/tenant/authentication keys, which live
-     * in this same map -- survives untouched.
+     * {@link SensitiveDataPolicyToolContext#into} both merge rather than replace, so every existing entry -- including
+     * {@code AgentToolInvocationContext}'s workspace/user/environment/tenant/authentication keys, which live in this
+     * same map -- survives untouched.
      * </p>
      *
      * <p>
-     * Carries {@link AiGuardrails#resolveToolBoundaryPolicy(Long)} onto the same map, alongside the session -- this is
-     * what lets {@code PiiTokenBoundaryToolCallingManager} honour this workspace's own
+     * Carries {@link AiGuardrails#resolveToolBoundaryPolicy(AiGuardrailsSettingsTarget)} onto the same map, alongside
+     * the session -- this is what lets {@code PiiTokenBoundaryToolCallingManager} honour this workspace's own
      * {@code redactPii}/{@code redactSecrets}/{@code minConfidence} settings at the tool-call boundary instead of a
-     * fixed constant. Resolved once per call, from the same {@code workspaceId} every other guardrail check here
-     * already uses.
+     * fixed constant. The 1-arg overload never itself resolves {@code restoreOutboundArguments} (it always returns
+     * {@code true} there); this method builds the effective policy from that base plus
+     * {@code restoreIntoWorkflowOutput} so the kinds/threshold still come from the same {@code target} every other
+     * guardrail check here already uses, without this method re-reading the setting
+     * {@code adviseCall}/{@code adviseStream} already resolved.
+     * </p>
+     *
+     * <p>
+     * Overrides the base policy's {@code restoreOutboundArguments} with
+     * {@code !workflowSurface || restoreIntoWorkflowOutput} -- {@code workflowSurface} is
+     * {@code GuardrailSurface.AI_AGENT.equals(surface)}, keyed on this advisor's own {@code surface} field,
+     * deliberately NOT on {@link #destination} and deliberately not read off {@code metrics.getSurface()} (see the
+     * field's own javadoc for why). A tool call leaves the agent for a system the workflow author chose no matter how
+     * the agent's own reply reaches its caller, so all three canvas AI Agent actions gate their OUTBOUND tool-call
+     * arguments on {@code restoreIntoWorkflowOutput}, streaming included -- even a streaming call, whose own response
+     * always restores because {@link #destination} is {@code CONVERSATION}, still withholds its tool arguments when the
+     * workspace setting is off. Every other surface behind this advisor (Copilot, AI Hub) resolves
+     * {@code workflowSurface} {@code false} here and so always restores outbound arguments, matching
+     * {@link SensitiveDataPolicy#DEFAULT}, regardless of what {@code restoreIntoWorkflowOutput} carries.
      * </p>
      *
      * <p>
@@ -466,9 +531,15 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * options type this codebase's {@code ChatModel}s produce implements {@link ToolCallingChatOptions}, so this is a
      * defensive fallback rather than an expected path.
      * </p>
+     *
+     * @param restoreIntoWorkflowOutput {@code AiGuardrails#isRestoreIntoWorkflowOutput(AiGuardrailsSettingsTarget)}'s
+     *                                  result, resolved once by the caller ({@code adviseCall}/{@code adviseStream}) --
+     *                                  never read here directly, so this method never re-triggers the settings lookup
      */
 
-    private ChatClientRequest withSessionInToolContext(ChatClientRequest chatClientRequest, PiiTokenSession session) {
+    private ChatClientRequest withSessionInToolContext(
+        ChatClientRequest chatClientRequest, PiiTokenSession session, boolean restoreIntoWorkflowOutput) {
+
         Prompt prompt = chatClientRequest.prompt();
         ChatOptions chatOptions = prompt.getOptions();
 
@@ -480,8 +551,11 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
         Map<String, Object> toolContextWithSession = PiiTokenSessionToolContext.into(
             existingToolContext == null ? Map.of() : existingToolContext, session);
 
-        PiiTokenBoundaryPolicy policy = aiGuardrails.resolveToolBoundaryPolicy(workspaceId);
-        Map<String, Object> mergedToolContext = PiiTokenBoundaryPolicyToolContext.into(toolContextWithSession, policy);
+        boolean workflowSurface = GuardrailSurface.AI_AGENT.equals(surface);
+        SensitiveDataPolicy basePolicy = aiGuardrails.resolveToolBoundaryPolicy(target);
+        SensitiveDataPolicy policy = new SensitiveDataPolicy(
+            basePolicy.kinds(), basePolicy.minConfidence(), !workflowSurface || restoreIntoWorkflowOutput);
+        Map<String, Object> mergedToolContext = SensitiveDataPolicyToolContext.into(toolContextWithSession, policy);
 
         ChatOptions mergedChatOptions = toolCallingChatOptions.mutate()
             .toolContext(mergedToolContext)
@@ -519,20 +593,52 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * tokenization existed). Returns {@code response} unchanged when neither step changed anything in any generation.
      * </p>
      *
-     * @param session the session that tokenized this call's request, never {@code null} — only {@link #adviseCall}
-     *                calls this method, and it always opens a real session first
+     * <p>
+     * Restoration itself is gated on {@link #destination}: a conversation always restores, since it goes back to
+     * whoever just supplied the value. A workflow output restores only while {@code restoreIntoWorkflowOutput} says the
+     * workspace still wants that -- resolved ONCE by {@link #adviseCall}, before this method and
+     * {@link #withSessionInToolContext} both run, and passed in here as a parameter rather than read again from
+     * {@link AiGuardrails#isRestoreIntoWorkflowOutput(AiGuardrailsSettingsTarget)}. That single resolution is what
+     * stops a multi-generation response from reading the setting twice and disagreeing with itself -- and, more
+     * importantly, stops the request half ({@code withSessionInToolContext}'s outbound tool-call-argument restoration)
+     * and this response half from disagreeing with each other were the workspace toggle flipped mid-call. When
+     * restoration is withheld, {@code restore_suppressed} is recorded at most once per call (not once per generation,
+     * matching {@code response_redacted}/{@code pii_restored}'s own incidence-counter shape), and only when withholding
+     * actually changed something -- a call whose response carried no resolvable token in the first place has nothing to
+     * suppress, and must not tick the same counter a genuine withholding does (see
+     * {@code SensitiveDataMetrics#recordRestoreSuppressed()}).
+     * </p>
+     *
+     * <p>
+     * That once-per-call guarantee is per boundary, not per agent turn: {@code PiiTokenBoundaryToolCallingManager}
+     * records its own {@code restore_suppressed} independently, for outbound tool-call arguments, under the identical
+     * gate. A single canvas-agent turn passes through both boundaries, so a turn that withholds restoration on both the
+     * response text AND a tool call's arguments records {@code restore_suppressed} twice, both tagged
+     * {@code surface=ai_agent}. That is harmless for the question the metric exists to answer -- whether a workspace is
+     * withholding data at all -- but the counter should not be read as a count of turns.
+     * </p>
+     *
+     * @param session                   the session that tokenized this call's request, never {@code null} — only
+     *                                  {@link #adviseCall} calls this method, and it always opens a real session first
+     * @param restoreIntoWorkflowOutput {@code AiGuardrails#isRestoreIntoWorkflowOutput(AiGuardrailsSettingsTarget)}'s
+     *                                  result, resolved once by {@link #adviseCall} -- never read here directly
      */
-    private ChatClientResponse applyResponseGuardrails(ChatClientResponse response, PiiTokenSession session) {
+    private ChatClientResponse applyResponseGuardrails(
+        ChatClientResponse response, PiiTokenSession session, boolean restoreIntoWorkflowOutput) {
+
         ChatResponse chatResponse = response.chatResponse();
 
         if (chatResponse == null) {
             return response;
         }
 
+        boolean restoring = destination == RestorationDestination.CONVERSATION || restoreIntoWorkflowOutput;
+
         List<Generation> generations = chatResponse.getResults();
         List<Generation> rewrittenGenerations = new ArrayList<>(generations.size());
         boolean responseRedacted = false;
         boolean piiRestored = false;
+        boolean restoreSuppressed = false;
 
         for (Generation generation : generations) {
             AssistantMessage original = generation.getOutput();
@@ -544,8 +650,20 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
                 continue;
             }
 
-            String scanned = aiGuardrails.scanResponseText(text, workspaceId, metrics);
-            String restored = aiGuardrails.restoreResponseText(scanned, session, metrics);
+            String scanned = aiGuardrails.scanResponseText(text, target, metrics);
+            String restored;
+
+            if (restoring) {
+                restored = aiGuardrails.restoreResponseText(scanned, session, metrics);
+            } else {
+                restored = scanned;
+
+                PiiTokenSession.RestoreResult wouldHaveRestored = session.restoreWithUnresolvedCount(scanned);
+
+                if (!Objects.equals(wouldHaveRestored.text(), scanned)) {
+                    restoreSuppressed = true;
+                }
+            }
 
             // restoreResponseText is declared @Nullable but only ever returns null for a null input, and scanned is
             // provably non-null at this point (text is non-null, and scanResponseText only returns null for a null
@@ -570,6 +688,10 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
                 .build();
 
             rewrittenGenerations.add(new Generation(rewritten, generation.getMetadata()));
+        }
+
+        if (restoreSuppressed) {
+            metrics.recordRestoreSuppressed();
         }
 
         if (!responseRedacted && !piiRestored) {
@@ -692,13 +814,13 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
      * </p>
      */
     private void submitViolationRecords(
-        List<GuardrailCheckResult> results, @Nullable BlockingMode blockingMode, @Nullable Long workspaceId) {
+        List<GuardrailCheckResult> results, @Nullable BlockingMode blockingMode, AiGuardrailsSettingsTarget target) {
 
         if (aiGuardrailViolationRecorder == null) {
             return;
         }
 
-        boolean enabled = aiGuardrails.isViolationRecordingEnabled(workspaceId);
+        boolean enabled = aiGuardrails.isViolationRecordingEnabled(target);
 
         if (!enabled) {
             return;
@@ -708,7 +830,7 @@ public final class AiGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
         for (GuardrailCheckResult result : results) {
             aiGuardrailViolationRecorder.submit(
-                result.spans(), true, action, metrics.getSurface(), workspaceId, null,
+                result.spans(), true, action, metrics.getSurface(), target.workspaceId(), null,
                 SecurityUtils.fetchCurrentUserLogin()
                     .orElse(null),
                 metrics::record);

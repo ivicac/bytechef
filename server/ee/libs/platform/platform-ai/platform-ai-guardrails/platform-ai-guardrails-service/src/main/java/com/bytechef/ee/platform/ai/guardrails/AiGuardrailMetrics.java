@@ -40,12 +40,14 @@ import org.springframework.stereotype.Component;
  * below {@code SensitiveDataRedactor}'s {@code minConfidence}), {@code tool_args_restored} (at least one PII token in a
  * tool call's arguments was restored before {@code PiiTokenBoundaryToolCallingManager}'s delegate ran the tool),
  * {@code tool_result_tokenized} (at least one value in a tool's result was tokenized/redacted before it reached the
- * model), or {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation
- * history {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out) — and by
- * {@code surface}, identifying which caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter).
- * Only these two low-cardinality tags are used (no workspace/project dimension) so the meter stays cheap on unbounded
- * multi-tenant deployments. Wired through {@link ObjectProvider} so lightweight app variants without an actuator
- * {@link MeterRegistry} start cleanly and recording is a no-op.
+ * model), {@code assistant_history_retokenized} (at least one assistant tool-call argument in the conversation history
+ * {@code PiiTokenBoundaryToolCallingManager} returns was retokenized before that history went out), or
+ * {@code restore_suppressed} (a response carried a resolvable token but it was left in place because the destination
+ * was a workflow output and {@code restoreIntoWorkflowOutput} is off) — and by {@code surface}, identifying which
+ * caller is applying guardrails (e.g. {@code gateway} for the AI Gateway adapter). Only these two low-cardinality tags
+ * are used (no workspace/project dimension) so the meter stays cheap on unbounded multi-tenant deployments. Wired
+ * through {@link ObjectProvider} so lightweight app variants without an actuator {@link MeterRegistry} start cleanly
+ * and recording is a no-op.
  *
  * <p>
  * The {@code surface} is fixed per bean instance (constructor argument) rather than passed per {@link #record} call.
@@ -80,6 +82,7 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     private static final String TOOL_RESULT_TOKENIZED_EVENT = "tool_result_tokenized";
     private static final String TOKEN_UNRESOLVED_EVENT = "token_unresolved";
     private static final String ASSISTANT_HISTORY_RETOKENIZED_EVENT = "assistant_history_retokenized";
+    private static final String RESTORE_SUPPRESSED_EVENT = "restore_suppressed";
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     private final @Nullable MeterRegistry meterRegistry;
@@ -210,5 +213,14 @@ public class AiGuardrailMetrics implements SensitiveDataMetrics {
     @Override
     public void recordAssistantHistoryRetokenized() {
         record(ASSISTANT_HISTORY_RETOKENIZED_EVENT);
+    }
+
+    /**
+     * {@link SensitiveDataMetrics} seam for a response restoration withheld by workspace policy. Delegates to
+     * {@link #record(String)} with the {@code restore_suppressed} event.
+     */
+    @Override
+    public void recordRestoreSuppressed() {
+        record(RESTORE_SUPPRESSED_EVENT);
     }
 }

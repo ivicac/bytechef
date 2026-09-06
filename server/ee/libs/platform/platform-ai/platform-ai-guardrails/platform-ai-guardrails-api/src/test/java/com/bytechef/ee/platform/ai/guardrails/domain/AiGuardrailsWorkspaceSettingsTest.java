@@ -77,6 +77,7 @@ class AiGuardrailsWorkspaceSettingsTest {
 
     private static AiGuardrailsWorkspaceSettings settingsWithMinConfidence(Double minConfidence) {
         return new AiGuardrailsWorkspaceSettings(
-            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, minConfidence, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, minConfidence, null,
+            null);
     }
 }

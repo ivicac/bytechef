@@ -18,5 +18,6 @@ import com.bytechef.automation.configuration.security.constant.PermissionScopeTy
  */
 public enum AiGatewayPermissionScope implements PermissionScopeType {
 
-    AI_GATEWAY_VIEW
+    AI_GATEWAY_VIEW,
+    AI_GATEWAY_EDIT
 }
