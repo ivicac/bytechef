@@ -15,7 +15,7 @@ import com.bytechef.ai.copilot.advisor.CopilotGuardrailsAdvisorFactory;
 import com.bytechef.ai.copilot.agent.SliceSpringAIAgent;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.automation.ai.tool.AccessibleWorkspaceResolver;
 import com.bytechef.ee.automation.ai.tool.ApiCollectionToolCallbacksFactory;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import java.lang.reflect.Field;
@@ -74,7 +74,7 @@ final class ApiCollectionAgentConfigurationTest {
     @Test
     void testMcpContributorRegistersAllThreeToolsFlat() {
         McpServerToolCallbackContributor contributor = configuration.apiCollectionFlatCrudMcpContributor(
-            apiCollectionToolCallbacksFactory, mock(WorkspaceService.class));
+            apiCollectionToolCallbacksFactory, mock(AccessibleWorkspaceResolver.class));
 
         List<String> toolNames = toolNames(contributor.getToolCallbacks());
 
@@ -85,7 +85,7 @@ final class ApiCollectionAgentConfigurationTest {
     @Test
     void testMcpContributorOnlyWrapsTheWorkspaceScopedListTool() {
         McpServerToolCallbackContributor contributor = configuration.apiCollectionFlatCrudMcpContributor(
-            apiCollectionToolCallbacksFactory, mock(WorkspaceService.class));
+            apiCollectionToolCallbacksFactory, mock(AccessibleWorkspaceResolver.class));
 
         Map<String, ToolCallback> toolCallbacksByName = contributor.getToolCallbacks()
             .stream()

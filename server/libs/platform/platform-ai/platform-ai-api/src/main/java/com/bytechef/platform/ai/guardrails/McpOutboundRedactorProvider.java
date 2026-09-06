@@ -34,9 +34,19 @@ import org.jspecify.annotations.Nullable;
 public interface McpOutboundRedactorProvider {
 
     /**
+     * The automation MCP server's surface, passed by {@code AutomationMcpServerConfiguration}.
+     */
+    String SURFACE_AUTOMATION = "mcp_automation";
+
+    /**
+     * The embedded MCP server's surface, passed by {@code EmbeddedMcpServerConfiguration}.
+     */
+    String SURFACE_EMBEDDED = "mcp_embedded";
+
+    /**
      * @param workspaceId the MCP server's workspace, or {@code null} for the tenant default (embedded MCP servers are
      *                    {@code Scope.EMBEDDED}, not workspace-scoped, and always pass {@code null})
-     * @param surface     {@code "mcp_automation"} or {@code "mcp_embedded"}, for metrics tagging
+     * @param surface     {@link #SURFACE_AUTOMATION} or {@link #SURFACE_EMBEDDED}, for metrics tagging
      * @return a resolved redactor, or empty when outbound redaction is off for this workspace
      */
     Optional<McpOutboundRedactor> fetchRedactor(@Nullable Long workspaceId, String surface);

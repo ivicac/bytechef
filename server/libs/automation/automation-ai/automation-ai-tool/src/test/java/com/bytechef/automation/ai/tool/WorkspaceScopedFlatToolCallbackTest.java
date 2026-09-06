@@ -17,12 +17,12 @@
 package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,14 +38,16 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 class WorkspaceScopedFlatToolCallbackTest {
 
     private ContextCapturingDelegate delegate;
-    private WorkspaceService workspaceService;
+    private AccessibleWorkspaceResolver accessibleWorkspaceResolver;
     private WorkspaceScopedFlatToolCallback toolCallback;
 
     @BeforeEach
     void beforeEach() {
         delegate = new ContextCapturingDelegate();
-        workspaceService = mock(WorkspaceService.class);
-        toolCallback = new WorkspaceScopedFlatToolCallback(delegate, workspaceService);
+        accessibleWorkspaceResolver = mock(AccessibleWorkspaceResolver.class);
+        toolCallback = new WorkspaceScopedFlatToolCallback(delegate, accessibleWorkspaceResolver);
+
+        when(accessibleWorkspaceResolver.isAccessible(anyLong())).thenReturn(true);
     }
 
     @Test
@@ -100,7 +102,7 @@ class WorkspaceScopedFlatToolCallbackTest {
         workspace.setId(7L);
         workspace.setName("Main");
 
-        when(workspaceService.getWorkspaces()).thenReturn(List.of(workspace));
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces()).thenReturn(List.of(workspace));
 
         String result = toolCallback.call("{\"name\": \"my server\"}");
 
@@ -121,7 +123,8 @@ class WorkspaceScopedFlatToolCallbackTest {
         secondWorkspace.setId(2L);
         secondWorkspace.setName("Beta");
 
-        when(workspaceService.getWorkspaces()).thenReturn(List.of(firstWorkspace, secondWorkspace));
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces())
+            .thenReturn(List.of(firstWorkspace, secondWorkspace));
 
         String result = toolCallback.call("{\"name\": \"my server\"}");
 
@@ -168,7 +171,7 @@ class WorkspaceScopedFlatToolCallbackTest {
         workspace.setId(9L);
         workspace.setName("Main");
 
-        when(workspaceService.getWorkspaces()).thenReturn(List.of(workspace));
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces()).thenReturn(List.of(workspace));
 
         String result = toolCallback.call("{}");
 
@@ -181,6 +184,59 @@ class WorkspaceScopedFlatToolCallbackTest {
      * Fake delegate that records the forwarded input and ToolContext and answers directly, so the wrapper's behaviour
      * is observable without a real facade.
      */
+
+    @Test
+    void testExplicitWorkspaceIdTheCallerCannotReachIsRefused() {
+        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+
+        String result = toolCallback.call("{\"name\": \"my server\", \"workspaceId\": 99}");
+
+        assertThat(result)
+            .as("the management MCP key binds the caller to no workspace, so an unchecked id here reached tools "
+                + "whose facade has no authorization of its own")
+            .contains("not accessible");
+        assertThat(delegate.capturedContext)
+            .as("the delegate must not run at all for a workspace the caller cannot reach")
+            .isNull();
+    }
+
+    @Test
+    void testRefusalDoesNotRevealWhetherTheWorkspaceExists() {
+        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+
+        String result = toolCallback.call("{\"name\": \"my server\", \"workspaceId\": 99}");
+
+        assertThat(result)
+            .as("a distinguishable 'no such workspace' would let a caller probe which ids are real")
+            .doesNotContain("99")
+            .doesNotContain("not found")
+            .doesNotContain("does not exist");
+    }
+
+    @Test
+    void testCandidateListOffersOnlyWorkspacesTheCallerCanReach() {
+        Workspace ownWorkspace = new Workspace();
+
+        ownWorkspace.setId(1L);
+        ownWorkspace.setName("Alpha");
+
+        Workspace otherOwnWorkspace = new Workspace();
+
+        otherOwnWorkspace.setId(2L);
+        otherOwnWorkspace.setName("Beta");
+
+        when(accessibleWorkspaceResolver.getAccessibleWorkspaces())
+            .thenReturn(List.of(ownWorkspace, otherOwnWorkspace));
+
+        String result = toolCallback.call("{\"name\": \"my server\"}");
+
+        assertThat(result)
+            .as("this listing used to come from a tenant-wide findAll(), handing the caller every workspace's id "
+                + "and name as a target list")
+            .contains("Alpha")
+            .contains("Beta");
+    }
+
     private static final class ContextCapturingDelegate implements ToolCallback {
 
         private Map<String, Object> capturedContext;

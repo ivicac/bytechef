@@ -29,6 +29,7 @@ public final class CopilotConstants {
     public static final String STATE_TENANT_ID = "tenantId";
     public static final String STATE_USER_SELECTED_LLM_PROVIDER = "userSelectedLlmProvider";
     public static final String STATE_USER_SELECTED_LLM_MODEL = "userSelectedLlmModel";
+    public static final String STATE_VERIFIED_WORKSPACE_ID = "verifiedWorkspaceId";
     public static final String STATE_WORKSPACE_ID = "workspaceId";
 
     private CopilotConstants() {

@@ -8,16 +8,20 @@
 package com.bytechef.ee.platform.ai.guardrails.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,7 +89,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesWorkspaceScopedProperty() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            7L, true, null, "foo,bar", null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, true, null, "foo,bar", null, null, null,
+            BlockingMode.REDACT_AND_CONTINUE, null, null);
 
         service.saveSettings(settings);
 
@@ -97,8 +102,8 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
 
     @Test
     void testSaveSettingsWithNullWorkspaceWritesPlatformScope() {
-        AiGuardrailsWorkspaceSettings settings =
-            new AiGuardrailsWorkspaceSettings(null, null, null, null, null, null, null, null, null, null);
+        AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
+            AiGuardrailsSettingsScope.PLATFORM, null, null, null, null, null, null, null, null, null, null);
 
         service.saveSettings(settings);
 
@@ -109,7 +114,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @Test
     void testSaveSettingsWritesMinConfidenceWhenSet() {
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            7L, null, null, null, null, null, null, null, 0.95, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 7L, null, null, null, null, null, null, null, 0.95, null);
 
         service.saveSettings(settings);
 
@@ -144,7 +149,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     @SuppressWarnings("unchecked")
     void testRedactMcpResultsRoundTripsAndIsAbsentFromOldRows() {
         AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
-            1L, null, null, null, null, null, null, null, null, true);
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, null, null, null, null, null, null, null, null, true);
 
         service.saveSettings(saved);
 
@@ -168,7 +173,7 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
     void testARowStoredBeforeThisFieldExistedReadsAsNull() {
         // A property value map written by an earlier version carries no key for this field at all.
         AiGuardrailsWorkspaceSettings settings = new AiGuardrailsWorkspaceSettings(
-            1L, true, null, null, null, null, null, null, null, null);
+            AiGuardrailsSettingsScope.WORKSPACE, 1L, true, null, null, null, null, null, null, null, null);
 
         service.saveSettings(settings);
 
@@ -187,6 +192,67 @@ class AiGuardrailsWorkspaceSettingsServiceTest {
             .redactMcpResults())
                 .as("absent key must read as null, not false, so it unions as 'not set at this level'")
                 .isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testEmbeddedSettingsRoundTripIndependentlyOfAnyWorkspaceRow() {
+        service.saveSettings(new AiGuardrailsWorkspaceSettings(
+            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true));
+
+        ArgumentCaptor<Map<String, Object>> valueCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(propertyService).save(
+            eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), valueCaptor.capture(), eq(Scope.EMBEDDED), isNull());
+
+        when(propertyService.fetchProperty(AiGuardrailsWorkspaceSettings.PROPERTY_KEY, Scope.EMBEDDED, null))
+            .thenReturn(Optional.of(property(valueCaptor.getValue())));
+
+        Optional<AiGuardrailsWorkspaceSettings> fetched = service.fetchEmbeddedSettings();
+
+        assertThat(fetched).isPresent();
+        assertThat(fetched.get()
+            .redactMcpResults()).isTrue();
+    }
+
+    @Test
+    void testEmbeddedAndPlatformScopesAreDistinctRows() {
+        Map<String, Property> propertiesByScopeKey = new HashMap<>();
+
+        doAnswer(invocation -> {
+            Scope scope = invocation.getArgument(2);
+            Long scopeId = invocation.getArgument(3);
+
+            propertiesByScopeKey.put(scopeKey(scope, scopeId), property(invocation.getArgument(1)));
+
+            return null;
+        }).when(propertyService)
+            .save(eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), any(), any(), any());
+
+        when(propertyService.fetchProperty(eq(AiGuardrailsWorkspaceSettings.PROPERTY_KEY), any(), any()))
+            .thenAnswer(invocation -> {
+                Scope scope = invocation.getArgument(1);
+                Long scopeId = invocation.getArgument(2);
+
+                return Optional.ofNullable(propertiesByScopeKey.get(scopeKey(scope, scopeId)));
+            });
+
+        service.saveSettings(new AiGuardrailsWorkspaceSettings(
+            AiGuardrailsSettingsScope.EMBEDDED, null, null, null, null, null, null, null, null, null, true));
+
+        assertThat(service.fetchSettings(null))
+            .as("an embedded row must not be readable as the tenant default, or the two scopes collapse "
+                + "into the ambiguity this change exists to remove")
+            .isEmpty();
+
+        assertThat(service.fetchEmbeddedSettings())
+            .as("the row saved under EMBEDDED must still be readable through the EMBEDDED-scoped fetch, "
+                + "so an empty PLATFORM read above is scope isolation and not just an empty store")
+            .isPresent();
+    }
+
+    private static String scopeKey(Scope scope, Long scopeId) {
+        return scope + ":" + scopeId;
     }
 
     private static Property property(Map<String, ?> value) {

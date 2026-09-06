@@ -39,10 +39,12 @@ import org.springframework.stereotype.Component;
  * itself can check - a caller that never calls {@link #guardrailsAdvisors()} is invisible to it.
  *
  * <p>
- * Every call resolves the tenant-default guardrails workspace ({@code platformType = null}, {@code jobPrincipalId =
- * null}): none of Copilot's panel agents or AI Hub's delegation sub-agents carry a job principal - they are a code
- * assistant and a delegation hub scoped to a user and a project/workspace, not a workflow run - so the resolved
- * workspace is always the tenant default. See {@link AiGuardrailsAdvisorProvider#getAdvisor}.
+ * The {@link DeferredGuardrailsAdvisor} this list carries resolves the session's server-verified workspace - read off
+ * the prompt's {@code ToolCallingChatOptions} tool context on every call, the same channel
+ * {@code AgentToolInvocationContext} travels on - via {@link AiGuardrailsAdvisorProvider#getAdvisorForWorkspace},
+ * falling back to the tenant default ({@code workspaceId = null}) only when the prompt carries none. The tool-boundary
+ * metrics supplier below is the one remaining caller still pinned to the tenant default; see {@link #getMetrics()} for
+ * why.
  * </p>
  *
  * <p>
@@ -163,6 +165,34 @@ public class CopilotGuardrailsAdvisorFactory {
             .build();
     }
 
+    /**
+     * Resolves the tool-boundary {@link SensitiveDataMetrics}.
+     *
+     * <p>
+     * This still resolves the tenant default ({@code workspaceId = null}), unlike {@link DeferredGuardrailsAdvisor}.
+     * The constraint is not visibility -- {@code PiiTokenBoundaryToolCallingManager#executeToolCalls(Prompt,
+     * ChatResponse)} has the prompt and its tool context in scope, and already reads the workspace-resolved advisor's
+     * {@code PiiTokenSession} from exactly that map -- it is the {@code Supplier<SensitiveDataMetrics>} shape this
+     * factory hands to {@link PiiTokenBoundaryToolCallingManager#wrap}: a zero-argument supplier fixed once here at
+     * wrap time, with no per-call channel to pass a workspace through. That shape is shared by two other callers (the
+     * canvas AI Agent component and AI Hub's tool search), so widening it belongs to a separate change.
+     * </p>
+     *
+     * <p>
+     * Redaction itself is unaffected: whether tool-call arguments are restored and tool results are tokenized/redacted
+     * is decided entirely by the {@code PiiTokenSession} and {@code PiiTokenBoundaryPolicy} the workspace-resolved
+     * advisor seeds onto the prompt's tool context, both read independently of this metrics supplier. What is lost is
+     * observability -- and {@code AiGuardrailMetrics} tags its counters only by {@code event} and {@code surface},
+     * carrying no workspace dimension even when one is resolved elsewhere, so this is not a "wrong tag" gap.
+     * Concretely: for a workspace that has guardrails on while the tenant default has them off -- the configuration
+     * this task exists to support -- {@code getAdvisorForWorkspace} resolves an advisor and redaction runs, while this
+     * method's {@code getMetrics(null, null, GUARDRAILS_SURFACE)} call resolves against the (inactive) tenant default
+     * and {@code AiGuardrailsAdvisorProviderImpl#buildMetricsIfActive} returns {@code null} for it -- so the tool
+     * boundary redacts correctly but records no counters at all for that workspace. Closing this means giving the
+     * metrics supplier access to the tool context so it can call
+     * {@link AiGuardrailsAdvisorProvider#getMetricsForWorkspace} instead.
+     * </p>
+     */
     private @Nullable SensitiveDataMetrics getMetrics() {
         AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider = aiGuardrailsAdvisorProviderProvider.getIfAvailable();
 

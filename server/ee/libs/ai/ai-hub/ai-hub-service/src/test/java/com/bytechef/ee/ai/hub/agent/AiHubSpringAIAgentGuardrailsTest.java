@@ -19,6 +19,7 @@ import com.agui.core.state.State;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrailMetrics;
 import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.exception.AiGuardrailViolationException;
@@ -120,7 +121,8 @@ class AiHubSpringAIAgentGuardrailsTest {
     void testResolveChatClientRedactAndContinueMasksAndProceeds() throws AGUIException {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         CapturingChatModel capturingChatModel = new CapturingChatModel();
 

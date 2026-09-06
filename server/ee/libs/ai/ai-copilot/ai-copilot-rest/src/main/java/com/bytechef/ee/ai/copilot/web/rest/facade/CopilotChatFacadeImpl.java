@@ -14,8 +14,10 @@ import com.agui.server.spring.AgUiService;
 import com.bytechef.ai.copilot.constant.CopilotConstants;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.ai.hub.security.WorkspaceAccessGuard;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.user.domain.User;
@@ -46,7 +48,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <p>
  * The optional {@code PermissionService} / {@code ProjectWorkflowService} / {@code UserService} dependencies are
  * carried over unchanged from the controller, along with what absence means for each: the two authorization services
- * fail the run closed, while an absent {@code UserService} only skips the user-id injection.
+ * fail the run closed, while an absent {@code UserService} only skips the user-id injection. The optional
+ * {@code WorkspaceFacade} added beside them fails a workspace-carrying run closed, and is absent only in an app variant
+ * that has no automation configuration on its classpath.
+ *
+ * <p>
+ * The workflow guard covers only a run that names a workflow; the workspace guard beside it covers the rest, which is
+ * every run the workflow guard's early return lets through.
  *
  * @version ee
  *
@@ -63,11 +71,13 @@ class CopilotChatFacadeImpl implements CopilotChatFacade {
     private final PermissionService permissionService;
     private final ProjectWorkflowService projectWorkflowService;
     private final UserService userService;
+    private final WorkspaceFacade workspaceFacade;
 
     @SuppressFBWarnings("EI")
     CopilotChatFacadeImpl(
         AgUiService agUiService, List<LocalAgent> localAgents, Optional<PermissionService> permissionService,
-        Optional<ProjectWorkflowService> projectWorkflowService, Optional<UserService> userService) {
+        Optional<ProjectWorkflowService> projectWorkflowService, Optional<UserService> userService,
+        Optional<WorkspaceFacade> workspaceFacade) {
 
         this.agUiService = agUiService;
         this.localAgentMap = localAgents.stream()
@@ -75,6 +85,7 @@ class CopilotChatFacadeImpl implements CopilotChatFacade {
         this.permissionService = permissionService.orElse(null);
         this.projectWorkflowService = projectWorkflowService.orElse(null);
         this.userService = userService.orElse(null);
+        this.workspaceFacade = workspaceFacade.orElse(null);
     }
 
     @Override
@@ -84,6 +95,7 @@ class CopilotChatFacadeImpl implements CopilotChatFacade {
         Object mode = stateMap.get("mode");
 
         authorizeWorkflowAccess(stateMap, mode);
+        authorizeAndInjectWorkspace(stateMap);
 
         injectAuthenticatedUserId(stateMap);
         stateMap.put(CopilotConstants.STATE_TENANT_ID, TenantContext.getCurrentTenantId());
@@ -123,6 +135,94 @@ class CopilotChatFacadeImpl implements CopilotChatFacade {
             .flatMap(userService::fetchUserByLogin)
             .map(User::getId)
             .ifPresent(userId -> stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, userId));
+    }
+
+    /**
+     * Authorizes the client-supplied workspace id carried in the run state and re-injects it under a server-controlled
+     * key. Without this gate a client could submit another tenant's workspace id and have every workspace-scoped tool
+     * -- and, once guardrails are workspace-scoped, the guardrail policy itself -- resolve against a workspace it
+     * cannot access. Mirrors {@code AiHubApiController.enforceWorkspaceAccess}, including its defensive overwrite of
+     * the unverified key so a later regression reading the old one still gets server-controlled data. Fails closed when
+     * the authorization services are not wired in the running app variant.
+     *
+     * <p>
+     * An absent id returns early rather than throwing: not every copilot surface carries a workspace, and refusing
+     * those would take the surface down rather than scope it. An id that is present but does not parse is refused
+     * instead, because early-returning on it would reopen the very hole this gate closes: {@link #asLong} is stricter
+     * than the {@code NumberUtils.asLong} that {@code CopilotToolContextUtils} later applies to the same value, which
+     * falls back to {@code new BigDecimal(string).longValue()}. A quoted {@code "99.0"} therefore parses to null here
+     * and to 99 there, so skipping the check on an unparseable value would hand a workspace-scoped tool an id this
+     * method never authorized. Refusing closes that differential whatever the downstream parser accepts, which is
+     * sturdier than keeping two parsers in agreement.
+     */
+    private void authorizeAndInjectWorkspace(Map<String, Object> stateMap) {
+        // The state map is the raw client request body, so the server-owned key has to be cleared before the early
+        // return below can carry a forged one into the run.
+        stateMap.remove(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID);
+
+        Object rawWorkspaceId = stateMap.get(CopilotConstants.STATE_WORKSPACE_ID);
+
+        if (isWorkspaceIdAbsent(rawWorkspaceId)) {
+            return;
+        }
+
+        Long requestedWorkspaceId = asLong(rawWorkspaceId);
+
+        if (requestedWorkspaceId == null) {
+            throw new AccessDeniedException("Malformed workspace id in request state");
+        }
+
+        if (workspaceFacade == null || userService == null) {
+            throw new AccessDeniedException("Workspace authorization is not available");
+        }
+
+        long userId = SecurityUtils.fetchCurrentUserLogin()
+            .flatMap(userService::fetchUserByLogin)
+            .map(User::getId)
+            .orElseThrow(() -> new AccessDeniedException("Workspace authorization is not available"));
+
+        if (!WorkspaceAccessGuard.isMember(workspaceFacade, userId, requestedWorkspaceId)) {
+            throw new AccessDeniedException("Access denied to workspace " + requestedWorkspaceId);
+        }
+
+        stateMap.put(CopilotConstants.STATE_VERIFIED_WORKSPACE_ID, requestedWorkspaceId);
+        stateMap.put(CopilotConstants.STATE_WORKSPACE_ID, requestedWorkspaceId);
+    }
+
+    /**
+     * Whether the run state names no workspace at all. A blank string counts as absent rather than malformed: it is
+     * what an unset client-side field serializes to, and {@code NumberUtils.asLong} makes null of it too, so there is
+     * no parser differential to close and no reason to refuse the run.
+     */
+    private static boolean isWorkspaceIdAbsent(Object value) {
+        return value == null || value instanceof String stringValue && stringValue.isBlank();
+    }
+
+    /**
+     * Stands in for {@code NumberUtils.asLong}, which this module does not have on its compile classpath: the run state
+     * arrives as deserialized JSON, so a workspace id can reach here as any {@link Number} or as a numeric string.
+     *
+     * <p>
+     * Deliberately <em>stricter</em> than that helper rather than equivalent to it — it accepts only {@link Number} and
+     * {@link String} where the helper calls {@code toString()} on any object, and it rejects a decimal string where the
+     * helper's {@code new BigDecimal(string).longValue()} fallback would truncate one. Being stricter is safe only
+     * because the caller refuses a null return rather than skipping the check on it; were that early return restored,
+     * every input this method rejects and the helper accepts would become an unauthorized workspace id.
+     */
+    private static Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (value instanceof String stringValue) {
+            try {
+                return Long.parseLong(stringValue.trim());
+            } catch (NumberFormatException exception) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
