@@ -105,6 +105,7 @@ const ApiConnectorEditPage = lazy(
 );
 const EmbeddedApiKeys = lazy(() => import('@/ee/pages/settings/embedded/api-keys/ApiKeys'));
 const EmbeddedVariables = lazy(() => import('@/ee/pages/settings/embedded/variables/Variables'));
+const EmbeddedGuardrails = lazy(() => import('@/ee/pages/settings/embedded/guardrails/EmbeddedGuardrails'));
 const AppEvents = lazy(() => import('@/ee/pages/embedded/app-events/AppEvents'));
 const AdminApiKeys = lazy(() => import('@/ee/pages/settings/platform/admin-api-keys/AdminApiKeys'));
 const AuditEvents = lazy(() => import('@/ee/pages/settings/platform/audit-events/AuditEvents'));
@@ -1610,6 +1611,18 @@ export const getRouter = (queryClient: QueryClient) =>
                                             ),
                                             path: 'variables',
                                         },
+                                        {
+                                            element: (
+                                                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}>
+                                                    <EEVersion>
+                                                        <LazyLoadWrapper>
+                                                            <EmbeddedGuardrails />
+                                                        </LazyLoadWrapper>
+                                                    </EEVersion>
+                                                </PrivateRoute>
+                                            ),
+                                            path: 'guardrails',
+                                        },
                                         ...platformSettingsRoutes.children,
                                     ],
                                     element: (
@@ -1626,6 +1639,10 @@ export const getRouter = (queryClient: QueryClient) =>
                                                 {
                                                     href: '/embedded/settings/variables',
                                                     title: 'Variables',
+                                                },
+                                                {
+                                                    href: '/embedded/settings/guardrails',
+                                                    title: 'Guardrails',
                                                 },
                                                 organizationSettingsNavItem,
                                                 ...platformSettingsRoutes.navItems,
