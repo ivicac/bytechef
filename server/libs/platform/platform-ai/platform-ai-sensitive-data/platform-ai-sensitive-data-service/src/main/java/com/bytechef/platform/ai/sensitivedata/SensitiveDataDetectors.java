@@ -37,6 +37,6 @@ public final class SensitiveDataDetectors {
      * @return the PII and secret detectors
      */
     public static List<SensitiveDataDetector> builtIn() {
-        return List.of(new PresidioRegexPiiDetector(), new RegexSecretDetector());
+        return List.of(new RegexPiiDetector(), new RegexSecretDetector());
     }
 }

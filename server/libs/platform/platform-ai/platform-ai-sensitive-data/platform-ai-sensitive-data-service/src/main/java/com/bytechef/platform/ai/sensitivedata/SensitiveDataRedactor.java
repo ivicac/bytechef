@@ -62,6 +62,23 @@ import org.slf4j.LoggerFactory;
  */
 public class SensitiveDataRedactor {
 
+    /**
+     * The default minimum confidence a candidate span must meet or exceed to survive into resolution, {@code 0.4}.
+     *
+     * <p>
+     * Task 1's catalogs score every pattern into one of three fixed bands — low ({@code 0.2}, the bare digit runs this
+     * feature exists to suppress: an unadorned {@code \d{9}} or similar matches almost any nine-digit run, PII or not),
+     * medium ({@code 0.6}, most named entity patterns with some structure but no checksum, e.g. {@code PHONE_NUMBER} or
+     * a spaced/dashed national-identifier group like {@code UK_NHS}), and high ({@code 0.9}, patterns with essentially
+     * no false-positive surface, e.g. {@code EMAIL_ADDRESS}, {@code IBAN_CODE}, or — since 2026-08-31, when
+     * {@code CREDIT_CARD} gained a {@link PiiPatternCatalog.PiiPattern#validator()} — a Luhn-validated credit-card
+     * match). {@code 0.4} sits in the open gap between low and medium, so it drops every low-band pattern while keeping
+     * every medium- and high-band one — the intended effect — and, being strictly between rather than on a band edge,
+     * remains correct regardless of whether the comparison at the boundary is {@code >=} or {@code >}.
+     * </p>
+     */
+    public static final double DEFAULT_MIN_CONFIDENCE = 0.4;
+
     private static final Logger log = LoggerFactory.getLogger(SensitiveDataRedactor.class);
 
     private static final Comparator<SensitiveSpan> RESOLUTION_ORDER = Comparator
@@ -144,7 +161,24 @@ public class SensitiveDataRedactor {
     public String redact(
         String text, Set<SensitiveKind> kinds, @Nullable SensitiveDataMetrics metrics) {
 
-        return redactWithSpans(text, kinds, metrics).text();
+        return redact(text, kinds, DEFAULT_MIN_CONFIDENCE, metrics);
+    }
+
+    /**
+     * As {@link #redact(String, Set, SensitiveDataMetrics)}, but with an explicit minimum confidence instead of
+     * {@link #DEFAULT_MIN_CONFIDENCE}.
+     *
+     * @param text          the text to redact
+     * @param kinds         the kinds the caller's policy has enabled
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param metrics       the metrics instance to count detector failures and below-threshold drops through, or
+     *                      {@code null}
+     * @return the redacted text, or {@code text} unchanged when nothing applies
+     */
+    public String redact(
+        String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics) {
+
+        return redactWithSpans(text, kinds, minConfidence, metrics).text();
     }
 
     /**
@@ -167,6 +201,29 @@ public class SensitiveDataRedactor {
     public RedactionResult redactWithSpans(
         String text, Set<SensitiveKind> kinds, @Nullable SensitiveDataMetrics metrics) {
 
+        return redactWithSpans(text, kinds, DEFAULT_MIN_CONFIDENCE, metrics);
+    }
+
+    /**
+     * As {@link #redactWithSpans(String, Set, SensitiveDataMetrics)}, but with an explicit minimum confidence instead
+     * of {@link #DEFAULT_MIN_CONFIDENCE}.
+     *
+     * <p>
+     * The confidence filter is applied to the CANDIDATES, before resolution, for the same reason {@link #filterByKind}
+     * is: a weak span that resolution would otherwise let win an overlap must not be able to consume that overlap and
+     * then be discarded, which would leave a stronger overlapping span unredacted. It runs before the kind filter.
+     * </p>
+     *
+     * @param text          the text to redact
+     * @param kinds         the kinds the caller's policy has enabled
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be redacted
+     * @param metrics       the metrics instance to count detector failures and below-threshold drops through, or
+     *                      {@code null}
+     * @return the redacted text and the spans applied to produce it; the spans are empty when nothing applied
+     */
+    public RedactionResult redactWithSpans(
+        String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics) {
+
         // text is non-null by contract -- callers (AiGuardrails' redactPii/redactSecrets/redactAll) guard null/empty
         // before ever delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a
         // redaction path, where failing soft (returning the input unchanged) beats throwing on a future caller that
@@ -175,7 +232,8 @@ public class SensitiveDataRedactor {
             return new RedactionResult(text, List.of());
         }
 
-        List<SensitiveSpan> candidates = filterByKind(detectCandidates(text, metrics), kinds);
+        List<SensitiveSpan> candidates = filterByKind(
+            filterByConfidence(detectCandidates(text, metrics), minConfidence, metrics), kinds);
 
         if (candidates.isEmpty()) {
             return new RedactionResult(text, List.of());
@@ -205,6 +263,25 @@ public class SensitiveDataRedactor {
     public RedactionResult tokenizeWithSpans(
         String text, Set<SensitiveKind> kinds, PiiTokenSession session, @Nullable SensitiveDataMetrics metrics) {
 
+        return tokenizeWithSpans(text, kinds, session, DEFAULT_MIN_CONFIDENCE, metrics);
+    }
+
+    /**
+     * As {@link #tokenizeWithSpans(String, Set, PiiTokenSession, SensitiveDataMetrics)}, but with an explicit minimum
+     * confidence instead of {@link #DEFAULT_MIN_CONFIDENCE}.
+     *
+     * @param text          the text to tokenize
+     * @param kinds         the kinds the caller's policy has enabled
+     * @param session       the session minting tokens for this request
+     * @param minConfidence the minimum confidence, inclusive, a candidate span must meet to be tokenized/redacted
+     * @param metrics       the metrics instance to count detector failures and below-threshold drops through, or
+     *                      {@code null}
+     * @return the tokenized text and the spans applied to produce it
+     */
+    public RedactionResult tokenizeWithSpans(
+        String text, Set<SensitiveKind> kinds, PiiTokenSession session, double minConfidence,
+        @Nullable SensitiveDataMetrics metrics) {
+
         // text is non-null by contract -- callers (AiGuardrails' redactPiiAndSecrets) guard null/empty before ever
         // delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a redaction path,
         // where failing soft (returning the input unchanged) beats throwing on a future caller that does not honour
@@ -213,7 +290,8 @@ public class SensitiveDataRedactor {
             return new RedactionResult(text, List.of());
         }
 
-        List<SensitiveSpan> candidates = filterByKind(detectCandidates(text, metrics), kinds);
+        List<SensitiveSpan> candidates = filterByKind(
+            filterByConfidence(detectCandidates(text, metrics), minConfidence, metrics), kinds);
 
         if (candidates.isEmpty()) {
             return new RedactionResult(text, List.of());
@@ -266,6 +344,45 @@ public class SensitiveDataRedactor {
         }
 
         return filtered;
+    }
+
+    /**
+     * Returns the subset of {@code candidates} whose {@link SensitiveSpan#confidence()} is at or above
+     * {@code minConfidence}, recording at most one {@code below_confidence_threshold} event through {@code metrics}
+     * regardless of how many candidates were dropped.
+     *
+     * <p>
+     * Runs before resolution, for the same reason {@link #filterByKind} does: a low-confidence span that resolution
+     * would let win a tie-break must not be able to consume that overlap and then be discarded, which would leave a
+     * stronger overlapping span unredacted. {@link #detectCandidates} deliberately does not call this — the streaming
+     * safe-cut pulls its emit boundary back for any candidate, so a low-confidence match must still not be splittable
+     * across chunks even though it will never be redacted.
+     * </p>
+     *
+     * @param candidates    the unresolved candidate spans
+     * @param minConfidence the minimum confidence, inclusive, a candidate must meet to be kept
+     * @param metrics       the metrics instance to count the drop through, or {@code null}
+     * @return the matching candidates, in their original order
+     */
+    static List<SensitiveSpan> filterByConfidence(
+        List<SensitiveSpan> candidates, double minConfidence, @Nullable SensitiveDataMetrics metrics) {
+
+        List<SensitiveSpan> kept = new ArrayList<>(candidates.size());
+        boolean dropped = false;
+
+        for (SensitiveSpan candidate : candidates) {
+            if (candidate.confidence() >= minConfidence) {
+                kept.add(candidate);
+            } else {
+                dropped = true;
+            }
+        }
+
+        if (dropped && metrics != null) {
+            metrics.recordBelowConfidenceThreshold();
+        }
+
+        return kept;
     }
 
     /**

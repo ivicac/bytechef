@@ -77,37 +77,48 @@ public final class SecretPatternCatalog {
         // component's own named-type reporting.
         new SecretPattern(
             "PEM_PRIVATE_KEY",
-            Pattern.compile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----")),
+            Pattern.compile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+            0.9),
         new SecretPattern(
             "AWS_ACCESS_KEY",
-            Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b")),
+            Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"),
+            0.9),
         new SecretPattern(
             "AWS_SECRET_KEY",
-            Pattern.compile("(?i)aws.{0,20}?[\"'][0-9a-zA-Z/+]{40}[\"']")),
+            Pattern.compile("(?i)aws.{0,20}?[\"'][0-9a-zA-Z/+]{40}[\"']"),
+            0.6),
         new SecretPattern(
             "GITHUB_PAT",
-            Pattern.compile("\\bgh[pousr]_[A-Za-z0-9]{36}\\b")),
+            Pattern.compile("\\bgh[pousr]_[A-Za-z0-9]{36}\\b"),
+            0.9),
         new SecretPattern(
             "GITHUB_FINE_GRAINED_PAT",
-            Pattern.compile("\\bgithub_pat_[A-Za-z0-9_]{22,}\\b")),
+            Pattern.compile("\\bgithub_pat_[A-Za-z0-9_]{22,}\\b"),
+            0.9),
         new SecretPattern(
             "SLACK_TOKEN",
-            Pattern.compile("\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b")),
+            Pattern.compile("\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"),
+            0.9),
         new SecretPattern(
             "STRIPE_SECRET_KEY",
-            Pattern.compile("\\b(?:sk_(?:live|test)_[0-9A-Za-z]{16,}|[sr]k_live_[0-9a-zA-Z]{24})\\b")),
+            Pattern.compile("\\b(?:sk_(?:live|test)_[0-9A-Za-z]{16,}|[sr]k_live_[0-9a-zA-Z]{24})\\b"),
+            0.9),
         new SecretPattern(
             "STRIPE_PUBLISHABLE_KEY",
-            Pattern.compile("\\bpk_(?:live|test)_[0-9A-Za-z]{16,}\\b")),
+            Pattern.compile("\\bpk_(?:live|test)_[0-9A-Za-z]{16,}\\b"),
+            0.9),
         new SecretPattern(
             "GOOGLE_API_KEY",
-            Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}\\b")),
+            Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}\\b"),
+            0.9),
         new SecretPattern(
             "OPENAI_KEY",
-            Pattern.compile("\\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\\b")),
+            Pattern.compile("\\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\\b"),
+            0.9),
         new SecretPattern(
             "JWT",
-            Pattern.compile("\\bey[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\b")));
+            Pattern.compile("\\bey[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\.[0-9A-Za-z_-]+\\b"),
+            0.9));
 
     private SecretPatternCatalog() {
     }
@@ -119,7 +130,15 @@ public final class SecretPatternCatalog {
      *                directly; {@code PEM_PRIVATE_KEY}, {@code STRIPE_SECRET_KEY} and {@code STRIPE_PUBLISHABLE_KEY}
      *                are the documented exceptions -- see the class javadoc.
      * @param pattern the recognising regex
+     * @param score   detection confidence between {@code 0.0} and {@code 1.0}, always one of {@code 0.2}/{@code 0.6}/
+     *                {@code 0.9} per {@code docs/superpowers/specs/2026-08-25-sensitive-data-confidence-scores.md}
      */
-    public record SecretPattern(String type, Pattern pattern) {
+    public record SecretPattern(String type, Pattern pattern, double score) {
+
+        public SecretPattern {
+            if (!Double.isFinite(score) || score < 0.0 || score > 1.0) {
+                throw new IllegalArgumentException("score must be between 0.0 and 1.0, got: " + score);
+            }
+        }
     }
 }
