@@ -21,6 +21,7 @@ import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilitySpanService;
 import com.bytechef.ee.platform.ai.observability.service.AiObservabilityTraceService;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -87,6 +88,7 @@ class AiEvalExecutorAsyncProxyTest {
             // Mocked dependencies are sufficient — we don't invoke any method, only assert the bean is
             // proxied. @Async annotations are detected by class scan, not by call execution.
             return new AiEvalExecutor(
+                staticGuardrailsAdvisorProvider(),
                 mock(AiEvalExecutionService.class),
                 mock(AiEvalRuleService.class),
                 mock(AiEvalScoreConfigService.class),
@@ -107,5 +109,14 @@ class AiEvalExecutorAsyncProxyTest {
 
             return provider;
         }
+    }
+
+    /**
+     * The existing tests never reach the model call, so an empty provider is the honest fixture: it yields an unadvised
+     * client, exactly as a CE classpath would.
+     */
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<AiGuardrailsAdvisorProvider> staticGuardrailsAdvisorProvider() {
+        return mock(ObjectProvider.class);
     }
 }

@@ -17,6 +17,7 @@
 package com.bytechef.ai.copilot.advisor;
 
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailSurface;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryToolCallingManager;
@@ -92,7 +93,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CopilotGuardrailsAdvisorFactory {
 
-    private static final String GUARDRAILS_SURFACE = "copilot";
+    private static final String GUARDRAILS_SURFACE = GuardrailSurface.COPILOT;
 
     private final ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderProvider;
     private final SensitiveDataRedactor sensitiveDataRedactor;
