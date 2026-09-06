@@ -19,7 +19,6 @@ package com.bytechef.platform.ai.sensitivedata;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import org.springframework.stereotype.Component;
@@ -94,42 +93,12 @@ public class RegexPiiDetector implements SensitiveDataDetector {
                 spans.add(
                     new SensitiveSpan(
                         SensitiveKind.PII, piiPattern.type(), matcher.start(), matcher.end(),
-                        confidenceOf(piiPattern, text, matcher.start(), matcher.end())));
+                        PiiPatternCatalog.promotedScore(
+                            piiPattern.contextRule(), piiPattern.score(), text, matcher.start(),
+                            matcher.end())));
             }
         }
 
         return spans;
-    }
-
-    /**
-     * Returns the match's confidence: the pattern's base score, or its context rule's promoted score when a naming
-     * keyword sits within the rule's window of the match.
-     *
-     * <p>
-     * The window is measured from the match's own boundaries and clamped to the text, so a match at either end of the
-     * input still gets whatever context exists on the side that has any.
-     * </p>
-     */
-    private static double confidenceOf(
-        PiiPatternCatalog.PiiPattern piiPattern, String text, int matchStart, int matchEnd) {
-
-        PiiPatternCatalog.ContextRule contextRule = piiPattern.contextRule();
-
-        if (contextRule == null) {
-            return piiPattern.score();
-        }
-
-        int window = contextRule.window();
-        String context = text.substring(
-            Math.max(0, matchStart - window), Math.min(text.length(), matchEnd + window))
-            .toLowerCase(Locale.ROOT);
-
-        for (String keyword : contextRule.keywords()) {
-            if (context.contains(keyword)) {
-                return contextRule.score();
-            }
-        }
-
-        return piiPattern.score();
     }
 }

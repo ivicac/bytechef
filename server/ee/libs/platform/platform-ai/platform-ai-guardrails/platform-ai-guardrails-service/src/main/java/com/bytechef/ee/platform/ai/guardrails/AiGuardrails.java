@@ -10,9 +10,15 @@ package com.bytechef.ee.platform.ai.guardrails;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailCustomRule;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
+import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailCustomRuleService;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.platform.ai.sensitivedata.CustomPattern;
+import com.bytechef.platform.ai.sensitivedata.CustomPatternEvaluator;
+import com.bytechef.platform.ai.sensitivedata.MatchDeadline;
+import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetector;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetectors;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
@@ -22,8 +28,11 @@ import com.bytechef.platform.ai.sensitivedata.SensitiveSpan;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,10 +42,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -109,9 +120,18 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnEEVersion
+// CT_CONSTRUCTOR_THROW: these constructors validate their inputs -- DetectionBounds rejects a null timeout, and the
+// blocked-term parsing rejects malformed configuration -- so they can throw, which SpotBugs flags because this class
+// is not final and a subclass could in principle be attacked through a finalizer. It cannot be made final:
+// AiGuardrailsAdvisorTest spies on it to assert session lifecycle. Nothing in this hierarchy declares a finalizer,
+// and rejecting misconfiguration at construction is worth more than the theoretical attack -- the same trade
+// SensitiveDataRedactor records for the same finding.
+@SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
 public class AiGuardrails {
 
     private static final Logger log = LoggerFactory.getLogger(AiGuardrails.class);
+
+    private static final SensitiveKind[] SENSITIVE_KIND_VALUES = SensitiveKind.values();
 
     private static final String BLOCKED_TERM_PLACEHOLDER = "[REDACTED_BLOCKED_TERM]";
     // A moderation verdict has no locatable span (the classifier judges the whole message), so a REDACT_AND_CONTINUE
@@ -130,6 +150,7 @@ public class AiGuardrails {
     private final @Nullable AiGatewayInjectionClassifier injectionClassifier;
     private final @Nullable AiGatewayModerationClassifier moderationClassifier;
     private final @Nullable AiGuardrailMetrics metrics;
+    private final @Nullable AiGuardrailCustomRuleService aiGuardrailCustomRuleService;
     private final boolean globalViolationRecordingEnabled;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     // Resolved once at construction rather than per streamed response -- streamSafeView() logs an exclusion line for
@@ -161,7 +182,11 @@ public class AiGuardrails {
             SensitiveDataDetectors.builtIn(), piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
             injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
             SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
-            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false);
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false,
+            // No custom-rule service in the hand-assembled forms: every direct construction site is a test, and a
+            // test exercising custom rules drives CustomPatternEvaluator directly rather than inheriting a
+            // workspace's stored rules.
+            null);
     }
 
     /**
@@ -188,7 +213,11 @@ public class AiGuardrails {
             sensitiveDataDetectors, piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
             injectionDetectionEnabled, moderationEnabled, responseScanEnabled, streamingResponseScanEnabled,
             SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
-            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false);
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false,
+            // No custom-rule service in the hand-assembled forms: every direct construction site is a test, and a
+            // test exercising custom rules drives CustomPatternEvaluator directly rather than inheriting a
+            // workspace's stored rules.
+            null);
     }
 
     // Three constructors are declared, so Spring cannot pick an autowire candidate implicitly. @Autowired marks this
@@ -213,7 +242,8 @@ public class AiGuardrails {
         // detection engine rather than anything the AI Gateway owns.
         @Value("${bytechef.ai.guardrails.detection.timeout:2s}") Duration detectionTimeout,
         @Value("${bytechef.ai.guardrails.detection.max-unwindowable-input:262144}") int maxUnwindowableInput,
-        @Value("${bytechef.ai.guardrails.violation.enabled:false}") boolean violationRecordingEnabled) {
+        @Value("${bytechef.ai.guardrails.violation.enabled:false}") boolean violationRecordingEnabled,
+        @Nullable ObjectProvider<AiGuardrailCustomRuleService> aiGuardrailCustomRuleServiceProvider) {
 
         this.aiGuardrailsWorkspaceSettingsService = aiGuardrailsWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
@@ -226,6 +256,8 @@ public class AiGuardrails {
         this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
         this.metrics = metrics;
+        this.aiGuardrailCustomRuleService = aiGuardrailCustomRuleServiceProvider == null
+            ? null : aiGuardrailCustomRuleServiceProvider.getIfAvailable();
         this.globalViolationRecordingEnabled = violationRecordingEnabled;
         this.sensitiveDataRedactor = new SensitiveDataRedactor(
             sensitiveDataDetectors,
@@ -1011,10 +1043,17 @@ public class AiGuardrails {
             kinds.add(SensitiveKind.SECRET);
         }
 
+        // Evaluated here and handed in as extra candidates, so a workspace rule overlapping a built-in pattern is
+        // settled by the redactor's own span ordering. Merging after resolution would settle it by which list a span
+        // came from, which is a second precedence concept the design refuses.
+        List<SensitiveSpan> customSpans = CustomPatternEvaluator.detect(
+            content, policy.customRules(), MatchDeadline.unbounded());
+
         RedactionResult redactionResult = session == null
-            ? sensitiveDataRedactor.redactWithSpans(content, kinds, policy.minConfidence(), recordingMetrics)
+            ? sensitiveDataRedactor.redactWithSpans(
+                content, kinds, policy.minConfidence(), recordingMetrics, customSpans)
             : sensitiveDataRedactor.tokenizeWithSpans(
-                content, kinds, session, policy.minConfidence(), recordingMetrics);
+                content, kinds, session, policy.minConfidence(), recordingMetrics, customSpans);
 
         List<SensitiveSpan> accepted = redactionResult.accepted();
 
@@ -1051,7 +1090,75 @@ public class AiGuardrails {
     }
 
     private EffectivePolicy resolvePolicy(@Nullable Long workspaceId) {
-        return effectivePolicyOf(findSettings(workspaceId));
+        return effectivePolicyOf(findSettings(workspaceId), resolveCustomRules(workspaceId));
+    }
+
+    /**
+     * Compiles the workspace's ENABLED custom rules into their runtime form.
+     *
+     * <p>
+     * Compiled per resolution rather than cached, and that is a considered choice. Compiling a handful of short
+     * patterns costs microseconds against a model call, and a cache would introduce a staleness window: an operator who
+     * has just enabled a rule would see it take effect at an unpredictable time. If this ever becomes measurable the
+     * fix is a cache invalidated on write, not one expiring on a timer.
+     * </p>
+     *
+     * <p>
+     * A rule whose stored pattern no longer compiles is skipped rather than allowed to fail the whole call. It cannot
+     * normally happen -- {@code CustomPatternValidator} compiles every pattern before it is saved -- so it would mean a
+     * row written around the service, and one broken row must not disable a workspace's other rules.
+     * </p>
+     */
+    private List<CustomPattern> resolveCustomRules(@Nullable Long workspaceId) {
+        if (aiGuardrailCustomRuleService == null || workspaceId == null) {
+            return List.of();
+        }
+
+        List<AiGuardrailCustomRule> customRules = aiGuardrailCustomRuleService.getEnabledRules(workspaceId);
+
+        if (customRules.isEmpty()) {
+            return List.of();
+        }
+
+        List<CustomPattern> customPatterns = new ArrayList<>(customRules.size());
+
+        for (AiGuardrailCustomRule customRule : customRules) {
+            try {
+                customPatterns.add(toCustomPattern(customRule));
+            } catch (RuntimeException runtimeException) {
+                log.warn(
+                    "Custom guardrail rule '{}' in workspace {} could not be compiled and is skipped for this call",
+                    customRule.getType(), workspaceId, runtimeException);
+            }
+        }
+
+        return customPatterns;
+    }
+
+    private static CustomPattern toCustomPattern(AiGuardrailCustomRule customRule) {
+        String keywords = customRule.getContextKeywords();
+        // Read into locals so the null check below is visible to static analysis: SpotBugs cannot carry a check on
+        // an accessor into a later call to the same accessor, and reads the direct form as a possible null deref.
+        Integer contextWindow = customRule.getContextWindow();
+        BigDecimal contextScore = customRule.getContextScore();
+        PiiPatternCatalog.ContextRule contextRule = null;
+
+        if (keywords != null && !keywords.isBlank() && contextWindow != null && contextScore != null) {
+            contextRule = new PiiPatternCatalog.ContextRule(
+                Arrays.stream(keywords.split(","))
+                    .map(String::trim)
+                    .filter(keyword -> !keyword.isEmpty())
+                    .map(keyword -> keyword.toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toUnmodifiableSet()),
+                contextWindow, contextScore.doubleValue());
+        }
+
+        return new CustomPattern(
+            customRule.getType(), Pattern.compile(customRule.getPattern()),
+            SENSITIVE_KIND_VALUES[customRule.getKind()],
+            customRule.getScore()
+                .doubleValue(),
+            contextRule);
     }
 
     /**
@@ -1061,6 +1168,14 @@ public class AiGuardrails {
      * are nullable reference types, so {@code resolvePolicy(null)} would be ambiguous at every existing call site.
      */
     private EffectivePolicy effectivePolicyOf(@Nullable AiGuardrailsWorkspaceSettings settings) {
+        // The MCP outbound paths resolve policy from an already-fetched settings row and do NOT carry custom rules
+        // today. Stated rather than silently implied: extending custom rules to MCP outbound redaction is a small
+        // follow-up, and claiming coverage it does not have would be worse than the gap.
+        return effectivePolicyOf(settings, List.of());
+    }
+
+    private EffectivePolicy effectivePolicyOf(
+        @Nullable AiGuardrailsWorkspaceSettings settings, List<CustomPattern> customRules) {
         // Union semantics across global -> workspace: a level can enable a guardrail (or add blocked terms) but never
         // turn one off. A null field on `settings` just means "not set at this level" -- it unions with the GLOBAL
         // properties above, not with the tenant-default (null-workspaceId) row; a real workspace's settings never
@@ -1095,7 +1210,8 @@ public class AiGuardrails {
             : SensitiveDataRedactor.DEFAULT_MIN_CONFIDENCE;
 
         return new EffectivePolicy(
-            redactPii, redactSecrets, blockedTerms, detectInjection, moderate, scanResponses, minConfidence);
+            redactPii, redactSecrets, blockedTerms, detectInjection, moderate, scanResponses, minConfidence,
+            customRules);
     }
 
     private @Nullable AiGuardrailsWorkspaceSettings findSettings(@Nullable Long workspaceId) {
@@ -1211,7 +1327,7 @@ public class AiGuardrails {
      */
     private record EffectivePolicy(
         boolean redactPii, boolean redactSecrets, Set<String> blockedTerms, boolean detectInjection, boolean moderate,
-        boolean scanResponses, double minConfidence) {
+        boolean scanResponses, double minConfidence, List<CustomPattern> customRules) {
 
         boolean anyInputGuardrailActive() {
             return redactPii || redactSecrets || !blockedTerms.isEmpty() || detectInjection;
