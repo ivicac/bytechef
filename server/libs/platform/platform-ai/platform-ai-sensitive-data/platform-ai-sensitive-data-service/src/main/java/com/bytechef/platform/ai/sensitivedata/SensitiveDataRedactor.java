@@ -347,6 +347,26 @@ public class SensitiveDataRedactor {
     public RedactionResult redactWithSpans(
         String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics) {
 
+        return redactWithSpans(text, kinds, minConfidence, metrics, List.of());
+    }
+
+    /**
+     * As the overload without {@code extraCandidates}, but folding in spans a caller found itself.
+     *
+     * <p>
+     * The extra spans join <b>before</b> confidence filtering, kind filtering and resolution -- which is the entire
+     * point, not an implementation detail. A workspace's own rule overlapping a built-in pattern has to be settled by
+     * the one span-ordering rule that already exists; spans merged after resolution would be settled by which list they
+     * came from, which is a second precedence concept the design explicitly refuses to introduce.
+     * </p>
+     *
+     * @param extraCandidates spans found outside this redactor, e.g. by {@code CustomPatternEvaluator} over a
+     *                        workspace's own rules. Empty is the common case and costs nothing.
+     */
+    public RedactionResult redactWithSpans(
+        String text, Set<SensitiveKind> kinds, double minConfidence, @Nullable SensitiveDataMetrics metrics,
+        List<SensitiveSpan> extraCandidates) {
+
         // text is non-null by contract -- callers (AiGuardrails' redactPii/redactSecrets/redactAll) guard null/empty
         // before ever delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a
         // redaction path, where failing soft (returning the input unchanged) beats throwing on a future caller that
@@ -356,7 +376,8 @@ public class SensitiveDataRedactor {
         }
 
         List<SensitiveSpan> candidates = filterByKind(
-            filterByConfidence(detectCandidates(text, metrics), minConfidence, metrics), kinds);
+            filterByConfidence(withExtras(detectCandidates(text, metrics), extraCandidates), minConfidence, metrics),
+            kinds);
 
         if (candidates.isEmpty()) {
             return new RedactionResult(text, List.of());
@@ -405,6 +426,26 @@ public class SensitiveDataRedactor {
         String text, Set<SensitiveKind> kinds, PiiTokenSession session, double minConfidence,
         @Nullable SensitiveDataMetrics metrics) {
 
+        return tokenizeWithSpans(text, kinds, session, minConfidence, metrics, List.of());
+    }
+
+    /**
+     * As the overload without {@code extraCandidates}, but folding in spans a caller found itself.
+     *
+     * <p>
+     * The extra spans join <b>before</b> confidence filtering, kind filtering and resolution -- which is the entire
+     * point, not an implementation detail. A workspace's own rule overlapping a built-in pattern has to be settled by
+     * the one span-ordering rule that already exists; spans merged after resolution would be settled by which list they
+     * came from, which is a second precedence concept the design explicitly refuses to introduce.
+     * </p>
+     *
+     * @param extraCandidates spans found outside this redactor, e.g. by {@code CustomPatternEvaluator} over a
+     *                        workspace's own rules. Empty is the common case and costs nothing.
+     */
+    public RedactionResult tokenizeWithSpans(
+        String text, Set<SensitiveKind> kinds, PiiTokenSession session, double minConfidence,
+        @Nullable SensitiveDataMetrics metrics, List<SensitiveSpan> extraCandidates) {
+
         // text is non-null by contract -- callers (AiGuardrails' redactPiiAndSecrets) guard null/empty before ever
         // delegating here. The `text == null` arm is kept anyway as defence-in-depth: this sits on a redaction path,
         // where failing soft (returning the input unchanged) beats throwing on a future caller that does not honour
@@ -414,7 +455,8 @@ public class SensitiveDataRedactor {
         }
 
         List<SensitiveSpan> candidates = filterByKind(
-            filterByConfidence(detectCandidates(text, metrics), minConfidence, metrics), kinds);
+            filterByConfidence(withExtras(detectCandidates(text, metrics), extraCandidates), minConfidence, metrics),
+            kinds);
 
         if (candidates.isEmpty()) {
             return new RedactionResult(text, List.of());
@@ -579,6 +621,21 @@ public class SensitiveDataRedactor {
         }
 
         return builder.toString();
+    }
+
+    private static List<SensitiveSpan> withExtras(
+        List<SensitiveSpan> detected, List<SensitiveSpan> extraCandidates) {
+
+        if (extraCandidates.isEmpty()) {
+            return detected;
+        }
+
+        List<SensitiveSpan> merged = new ArrayList<>(detected.size() + extraCandidates.size());
+
+        merged.addAll(detected);
+        merged.addAll(extraCandidates);
+
+        return merged;
     }
 
     private void collectSpans(

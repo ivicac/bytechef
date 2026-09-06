@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.ai.guardrails;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -18,20 +19,25 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
+import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailCustomRule;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsSettingsScope;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
+import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailCustomRuleService;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog;
 import com.bytechef.platform.ai.sensitivedata.PiiPatternCatalog.PiiPattern;
+import com.bytechef.platform.ai.sensitivedata.SensitiveDataDetectors;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import com.bytechef.platform.ai.sensitivedata.SensitiveKind;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenBoundaryPolicy;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Engine-level tests moved from the AI Gateway's guardrail test suite (the AI Gateway's own tests continue to pin the
@@ -1011,6 +1017,159 @@ class AiGuardrailsTest {
         assertThat(result.category()).isEqualTo("blocked_term");
         assertThat(result.text()).isEqualTo("Summarize the [REDACTED_BLOCKED_TERM] memo");
         assertThat(result.unmaskedText()).isEqualTo("Summarize the CLASSIFIED memo");
+    }
+
+    @Test
+    void testAWorkspacesEnabledRuleIsApplied() {
+        // The end of Phase B's wiring: a rule that exists in storage actually redacts. Until this, rules were
+        // stored and detected nothing.
+        AiGuardrails guardrails = guardrailsWithCustomRules(
+            customRule(7L, "ACME_ACCOUNT_ID", "\\bACME-\\d{4}-[A-Z]{2}\\b", true));
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        assertThat(
+            guardrails.checkInputs(List.of("charge ACME-4417-XY"), 7L, metrics)
+                .getFirst()
+                .text())
+                    .isEqualTo("charge [REDACTED_ACME_ACCOUNT_ID]");
+    }
+
+    @Test
+    void testADisabledRuleDetectsNothing() {
+        // Rules are created disabled and enabling is a deliberate second act, so this is the state a freshly written
+        // rule is in. If a disabled rule detected, "created disabled" would be decorative.
+        AiGuardrails guardrails = guardrailsWithCustomRules();
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        assertThat(
+            guardrails.checkInputs(List.of("charge ACME-4417-XY"), 7L, metrics)
+                .getFirst()
+                .text())
+                    .isEqualTo("charge ACME-4417-XY");
+    }
+
+    @Test
+    void testAnotherWorkspacesRuleIsNotApplied() {
+        // The service is queried with the CALL's workspace, so workspace 8 never sees workspace 7's rules. A shared
+        // rule set would be a cross-workspace policy leak dressed as a feature.
+        AiGuardrailCustomRuleService customRuleService = mock(AiGuardrailCustomRuleService.class);
+
+        when(customRuleService.getEnabledRules(7L))
+            .thenReturn(List.of(customRule(7L, "ACME_ACCOUNT_ID", "\\bACME-\\d{4}-[A-Z]{2}\\b", true)));
+        when(customRuleService.getEnabledRules(8L)).thenReturn(List.of());
+        when(settingsService.fetchSettings(8L)).thenReturn(Optional.empty());
+
+        AiGuardrails guardrails = guardrails(customRuleService);
+
+        assertThat(
+            guardrails.checkInputs(List.of("charge ACME-4417-XY"), 8L, metrics)
+                .getFirst()
+                .text())
+                    .isEqualTo("charge ACME-4417-XY");
+
+        verify(customRuleService).getEnabledRules(8L);
+        verify(customRuleService, never()).getEnabledRules(7L);
+    }
+
+    @Test
+    void testAnUnattributedCallAppliesNoCustomRules() {
+        // A null workspace has no rules by definition, and must not trigger a lookup that would have to invent a
+        // default set.
+        AiGuardrailCustomRuleService customRuleService = mock(AiGuardrailCustomRuleService.class);
+        AiGuardrails guardrails = guardrails(customRuleService);
+
+        when(settingsService.fetchSettings(null)).thenReturn(Optional.empty());
+
+        guardrails.checkInputs(List.of("charge ACME-4417-XY"), null, metrics);
+
+        verify(customRuleService, never()).getEnabledRules(anyLong());
+    }
+
+    @Test
+    void testARuleWhoseStoredPatternNoLongerCompilesIsSkippedRatherThanFailingTheCall() {
+        // Cannot normally happen -- the validator compiles every pattern before it is saved -- so it would mean a row
+        // written around the service. One broken row must not disable a workspace's other rules, or a bad write turns
+        // into a total loss of custom detection.
+        AiGuardrails guardrails = guardrailsWithCustomRules(
+            customRule(7L, "ACME_BROKEN", "\\bACME-[0-9\\b", true),
+            customRule(7L, "ACME_GOOD", "\\bACME-\\d{4}-[A-Z]{2}\\b", true));
+
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        assertThat(
+            guardrails.checkInputs(List.of("charge ACME-4417-XY"), 7L, metrics)
+                .getFirst()
+                .text())
+                    .isEqualTo("charge [REDACTED_ACME_GOOD]");
+    }
+
+    /**
+     * Surprising enough to be worth pinning: an operator writes a rule, enables it, and it detects nothing because a
+     * DIFFERENT setting is off.
+     *
+     * <p>
+     * That is nonetheless the coherent behaviour. A custom rule of kind {@code PII} is PII redaction, and
+     * {@code redactPii} is the switch that governs whether this workspace does PII redaction at all. Letting a custom
+     * rule fire with the master switch off would make custom rules the one way to get redaction a workspace has not
+     * asked for. The trap is real and shared with the built-in catalog; the fix is a clearer settings UI, not an
+     * exception here.
+     * </p>
+     */
+    @Test
+    void testACustomPiiRuleIsGatedOnThePiiMasterSwitch() {
+        AiGuardrailCustomRuleService customRuleService = mock(AiGuardrailCustomRuleService.class);
+
+        when(customRuleService.getEnabledRules(anyLong()))
+            .thenReturn(List.of(customRule(7L, "ACME_ACCOUNT_ID", "\\bACME-\\d{4}-[A-Z]{2}\\b", true)));
+        when(settingsService.fetchSettings(7L)).thenReturn(Optional.empty());
+
+        assertThat(
+            guardrails(customRuleService, false).checkInputs(List.of("charge ACME-4417-XY"), 7L, metrics)
+                .getFirst()
+                .text())
+                    .isEqualTo("charge ACME-4417-XY");
+    }
+
+    private AiGuardrails guardrailsWithCustomRules(AiGuardrailCustomRule... customRules) {
+        AiGuardrailCustomRuleService customRuleService = mock(AiGuardrailCustomRuleService.class);
+
+        when(customRuleService.getEnabledRules(anyLong())).thenReturn(List.of(customRules));
+
+        return guardrails(customRuleService);
+    }
+
+    private AiGuardrails guardrails(AiGuardrailCustomRuleService customRuleService) {
+        return guardrails(customRuleService, true);
+    }
+
+    /**
+     * @param piiRedactionEnabled the workspace's PII master switch. A custom rule of kind {@code PII} IS PII redaction,
+     *                            so it is gated on this like every built-in pattern -- see
+     *                            {@link #testACustomPiiRuleIsGatedOnThePiiMasterSwitch()}.
+     */
+    private AiGuardrails guardrails(AiGuardrailCustomRuleService customRuleService, boolean piiRedactionEnabled) {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AiGuardrailCustomRuleService> provider = mock(ObjectProvider.class);
+
+        when(provider.getIfAvailable()).thenReturn(customRuleService);
+
+        return new AiGuardrails(
+            settingsService, null, null, metrics, SensitiveDataDetectors.builtIn(), piiRedactionEnabled, false, "",
+            false, false, false, false, SensitiveDataRedactor.DetectionBounds.DEFAULTS.timeout(),
+            SensitiveDataRedactor.DetectionBounds.DEFAULTS.maxUnwindowableInput(), false, provider);
+    }
+
+    private static AiGuardrailCustomRule customRule(
+        long workspaceId, String type, String pattern, boolean enabled) {
+
+        AiGuardrailCustomRule customRule = new AiGuardrailCustomRule(
+            workspaceId, type, pattern, SensitiveKind.PII.ordinal(), new BigDecimal("0.90"), null, null, null);
+
+        customRule.setEnabled(enabled);
+
+        return customRule;
     }
 
     private AiGuardrails guardrails(

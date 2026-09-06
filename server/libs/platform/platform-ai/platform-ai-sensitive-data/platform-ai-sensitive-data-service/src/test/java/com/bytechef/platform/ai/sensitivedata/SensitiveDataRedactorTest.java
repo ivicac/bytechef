@@ -538,4 +538,72 @@ class SensitiveDataRedactorTest {
             }
         };
     }
+
+    @Test
+    void testExtraCandidatesAreRedactedAlongsideTheDetectedOnes() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("pii", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL", 0, 3)));
+
+        SensitiveDataRedactor.RedactionResult result = redactor.redactWithSpans(
+            "abc def", BOTH, 0.0, null, List.of(SensitiveSpan.of(SensitiveKind.PII, "ACME_ID", 4, 7)));
+
+        assertThat(result.text()).isEqualTo("[REDACTED_EMAIL] [REDACTED_ACME_ID]");
+    }
+
+    /**
+     * The property the whole seam exists for: an extra span overlapping a detected one is settled by the redactor's own
+     * span ordering, not by which list it arrived in.
+     *
+     * <p>
+     * SECRET beats an overlapping PII by the existing rule, so an extra SECRET span must win over a detected PII one —
+     * and it must win for that reason, which is why the same pair is also asserted with the roles reversed.
+     * </p>
+     */
+    @Test
+    void testAnExtraCandidateOverlappingADetectedOneResolvesByTheExistingRule() {
+        SensitiveDataRedactor piiDetected = redactor(
+            fixed("pii", true, SensitiveSpan.of(SensitiveKind.PII, "CC", 5, 21)));
+
+        assertThat(
+            piiDetected.redactWithSpans(
+                "call 4111111111111111 now", BOTH, 0.0, null,
+                List.of(SensitiveSpan.of(SensitiveKind.SECRET, "ACME_KEY", 5, 21)))
+                .text())
+                    .as("SECRET beats an overlapping PII, whichever list it came from")
+                    .isEqualTo("call [REDACTED_ACME_KEY] now");
+
+        SensitiveDataRedactor secretDetected = redactor(
+            fixed("secret", true, SensitiveSpan.of(SensitiveKind.SECRET, "ACME_KEY", 5, 21)));
+
+        assertThat(
+            secretDetected.redactWithSpans(
+                "call 4111111111111111 now", BOTH, 0.0, null,
+                List.of(SensitiveSpan.of(SensitiveKind.PII, "CC", 5, 21)))
+                .text())
+                    .as("and the same pair resolves the same way with the roles reversed")
+                    .isEqualTo("call [REDACTED_ACME_KEY] now");
+    }
+
+    @Test
+    void testAnExtraCandidateBelowTheThresholdIsDroppedLikeAnyOther() {
+        // Extras join BEFORE confidence filtering, so a workspace rule scoring low is filtered by the same bar as a
+        // built-in pattern. Joining after would exempt them from the threshold entirely.
+        SensitiveDataRedactor redactor = redactor(fixed("pii", true));
+
+        assertThat(
+            redactor.redactWithSpans(
+                "abc def", BOTH, 0.5, null,
+                List.of(new SensitiveSpan(SensitiveKind.PII, "ACME_WEAK", 0, 3, 0.2)))
+                .text())
+                    .isEqualTo("abc def");
+    }
+
+    @Test
+    void testNoExtraCandidatesBehavesExactlyAsTheOverloadWithout() {
+        SensitiveDataRedactor redactor = redactor(
+            fixed("pii", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL", 0, 3)));
+
+        assertThat(redactor.redactWithSpans("abc def", BOTH, 0.0, null, List.of()))
+            .isEqualTo(redactor.redactWithSpans("abc def", BOTH, 0.0, null));
+    }
 }
