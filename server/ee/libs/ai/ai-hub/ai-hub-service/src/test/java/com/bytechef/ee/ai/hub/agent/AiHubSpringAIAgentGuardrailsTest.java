@@ -120,7 +120,7 @@ class AiHubSpringAIAgentGuardrailsTest {
     void testResolveChatClientRedactAndContinueMasksAndProceeds() throws AGUIException {
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null)));
+                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         CapturingChatModel capturingChatModel = new CapturingChatModel();
 
