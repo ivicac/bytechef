@@ -35,6 +35,34 @@ independent of the engine bean, which is registered unconditionally under EE.
     dep — absent bean → project layer skipped. Per-API-key scoping is NOT implemented (no api-key
     `Property` scope). This overlay was deliberately NOT generalized to the other agent surfaces —
     neither the canvas AI Agent nor AI Hub has a natural project scope at the call site.
+- **PII tokenization (sync path only)**: `AiGatewayFacadeImpl#chatCompletion` opens one
+  `PiiTokenSession` per HTTP exchange and threads it through `apply`/`redactResponse` via 4-arg,
+  session-carrying overloads (`apply(request, workspaceId, projectId, session)` /
+  `redactResponse(response, workspaceId, projectId, session)`), closed in a `finally` around both
+  calls. `apply`'s session path delegates to the engine's tokenizing, throwing
+  `AiGuardrails#applyToInputs(inputs, workspaceId, session)` overload rather than the
+  moderation-checking `tokenizeInputs` — see `.agents/ai-guardrails.md`'s "PII tokenization" section
+  for why that distinction matters (double-moderation). Passing `null` for `session` on either
+  overload reproduces today's irreversible redaction exactly. **Not yet threaded**: the streaming
+  `chatCompletionStream` path (still calls the non-session `apply`/`newStreamingResponseRedactor`
+  overloads) and the embeddings endpoint (still calls the non-session `applyToInputs`) — both still
+  redact PII irreversibly.
+- **Tokenized requests never use the response cache.** `AiGatewayFacadeImpl#isCacheable` (all four
+  cache read/write call sites in `chatCompletionDirect`/`chatCompletionWithRouting` now go through
+  this one method, not a repeated inline condition) adds a `containsPiiToken` check on top of the
+  pre-existing `isWorkspaceCachingEnabled`/`AiGatewayResponseCache#shouldCache` gate. This is required,
+  not optional hardening: `AiGatewayResponseCache#computeCacheKey` hashes `request.messages()`, and a
+  session mints a fresh random `sessionId` per exchange, so a tokenized PII value never hashes to the
+  same key twice — the cache could never hit for a PII-bearing prompt anyway, and every miss would
+  still `put()`, permanently filling a shared cache with single-use entries. The tempting-looking
+  alternative fix — key the cache on the PRE-tokenization request instead — is a cross-session PII
+  leak, not a fix: before tokenization two different users' different values redacted to the identical
+  `[REDACTED_EMAIL_ADDRESS]` placeholder, so sharing one cache entry was safe (the cached response never held a
+  real value); now that responses are restored with real values before being returned, sharing an
+  entry would serve one user's real PII to a different user whose earlier request happened to produce
+  the same pre-tokenization key. See `AiGatewayFacadeImpl#isCacheable`'s javadoc for the full
+  reasoning and `AiGatewayFacadeTest#testChatCompletionSkipsCacheWhenRequestContainsPiiToken` for the
+  pinning test.
 - Dual-directional: response scanning (`response-scan-enabled` / `scanResponses`) redacts
   PII+secrets from the completion via the engine's `scanResponseText` before it is traced/returned.
   Redaction only, never blocks. Streaming responses are also covered (opt-in): when the operator
