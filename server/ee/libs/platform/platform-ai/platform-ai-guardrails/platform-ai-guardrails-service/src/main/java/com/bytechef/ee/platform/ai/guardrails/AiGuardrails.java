@@ -19,12 +19,14 @@ import com.bytechef.ee.platform.ai.guardrails.detector.SensitiveSpan;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings.BlockingMode;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -46,8 +48,13 @@ import org.springframework.stereotype.Component;
  * today) and the request workspace's {@link AiGuardrailsWorkspaceSettings}.
  *
  * <ul>
- * <li><b>PII redaction</b> — {@code pii-redaction-enabled} / workspace {@code redactPii}. Email, US SSN, credit-card,
- * phone, and IPv4 matches are replaced with {@code [REDACTED_*]} placeholders.</li>
+ * <li><b>PII redaction / tokenization</b> — {@code pii-redaction-enabled} / workspace {@code redactPii}. Email, US SSN,
+ * credit-card, phone, and IPv4 matches are, when the caller threads a {@link PiiTokenSession} into the call (e.g.
+ * {@link #applyToInputs(List, Long, PiiTokenSession)}, {@link #tokenizeInputs}), replaced with reversible
+ * {@code [PII_<CATEGORY>_<ordinal>_<sessionId>]} tokens that are substituted back to their real values via
+ * {@link #restoreResponseText} once the response comes back; without a session, matches are replaced with irreversible
+ * {@code [REDACTED_*]} placeholders, as secrets always are regardless of a session. See "PII tokenization" in
+ * {@code .agents/ai-guardrails.md} for the full round-trip.</li>
  * <li><b>Secret redaction</b> — {@code secret-redaction-enabled} / workspace {@code redactSecrets}. High-signal
  * developer-secret shapes (cloud/provider API keys, tokens, JWTs, PEM private keys) are replaced with
  * {@code [REDACTED_SECRET]}.</li>
@@ -188,7 +195,8 @@ public class AiGuardrails {
 
     /**
      * Returns the input strings with request-direction guardrails applied: PII and secrets redacted, blocked terms and
-     * injection attempts rejected. Returns the inputs unchanged when no relevant guardrail is active.
+     * injection attempts rejected. Returns the inputs unchanged when no relevant guardrail is active. Equivalent to
+     * {@link #applyToInputs(List, Long, PiiTokenSession)} with a {@code null} session.
      *
      * @param inputs      the input strings
      * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed (global guardrails
@@ -197,6 +205,36 @@ public class AiGuardrails {
      * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
      */
     public List<String> applyToInputs(List<String> inputs, @Nullable Long workspaceId) {
+        return applyToInputs(inputs, workspaceId, null);
+    }
+
+    /**
+     * As {@link #applyToInputs(List, Long)}, additionally tokenizing PII into {@code session}'s reversible tokens
+     * instead of redacting it irreversibly when {@code session} is not {@code null} — secrets are still redacted
+     * irreversibly either way, and blocked-term/injection handling — including the unconditional throw on a blocking
+     * violation — is unchanged. {@code session == null} reproduces {@link #applyToInputs(List, Long)} exactly (the two
+     * used to be separate, near-identical loops; {@link #redactPiiAndSecrets} already branches on
+     * {@code session == null} to decide redact-vs-tokenize, so one loop serves both).
+     *
+     * <p>
+     * Deliberately does NOT check moderation, for the same reason as when {@code session} is {@code null}: this
+     * method's only caller is the AI Gateway adapter's throwing request path, and the adapter already moderates its own
+     * DTO pipeline with its own classifier wiring — moderating here too would double-moderate every gateway call.
+     * Routing a tokenizing call through the non-throwing {@link #tokenizeInputs} instead (which DOES check moderation,
+     * for the advisor's benefit) would silently reintroduce exactly that double-moderation, so this method keeps its
+     * own throwing loop rather than reusing {@link #checkOrTokenizeInputs}.
+     * </p>
+     *
+     * @param inputs      the input strings
+     * @param workspaceId the workspace the call is attributed to, or {@code null} when unattributed (global guardrails
+     *                    still apply)
+     * @param session     the session minting tokens for this call, or {@code null} to redact PII irreversibly
+     * @return the guardrailed inputs, PII tokenized rather than redacted when {@code session} is not {@code null}
+     * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
+     */
+    public List<String> applyToInputs(
+        List<String> inputs, @Nullable Long workspaceId, @Nullable PiiTokenSession session) {
+
         if (inputs == null || inputs.isEmpty()) {
             return inputs;
         }
@@ -210,7 +248,7 @@ public class AiGuardrails {
         List<String> guardrailedInputs = new ArrayList<>(inputs.size());
 
         for (String input : inputs) {
-            guardrailedInputs.add(checkAndRedact(input, policy));
+            guardrailedInputs.add(checkAndRedact(input, policy, session));
         }
 
         return guardrailedInputs;
@@ -255,18 +293,75 @@ public class AiGuardrails {
     public List<GuardrailCheckResult> checkInputs(
         @Nullable List<String> inputs, @Nullable Long workspaceId, AiGuardrailMetrics metrics) {
 
-        if (inputs == null || inputs.isEmpty()) {
-            return List.of();
+        return checkOrTokenizeInputs(inputs, workspaceId, metrics, null);
+    }
+
+    /**
+     * Returns a fresh token session for one request.
+     *
+     * @return the session; the caller owns closing it on every termination path
+     */
+    public PiiTokenSession newTokenSession() {
+        return PiiTokenSession.create();
+    }
+
+    /**
+     * The tokenizing counterpart of {@link #checkInputs}: identical blocked-term, injection and moderation handling,
+     * differing only in that PII becomes session-minted tokens instead of {@code [REDACTED_*]} placeholders. Secrets
+     * are still redacted irreversibly.
+     *
+     * @param inputs      the input strings
+     * @param workspaceId the workspace the call is attributed to, or {@code null}
+     * @param session     the session minting tokens for this request
+     * @param metrics     the metrics instance to record through
+     * @return one result per input, in order
+     */
+    public List<GuardrailCheckResult> tokenizeInputs(
+        @Nullable List<String> inputs, @Nullable Long workspaceId, PiiTokenSession session,
+        AiGuardrailMetrics metrics) {
+
+        return checkOrTokenizeInputs(inputs, workspaceId, metrics, session);
+    }
+
+    /**
+     * Substitutes values back for tokens {@code session} minted. Runs AFTER response scanning — see the design spec's
+     * "scan, then restore" ordering rule
+     * ({@code docs/superpowers/specs/2026-08-24-guardrails-pii-tokenization-design.md}, §7); restoring first would let
+     * response scanning immediately re-redact what was just restored, making the whole round trip a no-op. Mirrors
+     * {@link #scanResponseText(String, Long, AiGuardrailMetrics)}'s shape so both halves of the round trip are
+     * available to every caller (this advisor today, the AI Gateway adapter once it adopts tokenization) without
+     * duplicating the restore-and-record logic.
+     *
+     * <p>
+     * Records {@code pii_restored} when at least one token was substituted, and {@code token_unresolved} when one or
+     * more tokens in {@code text} could not be resolved back to a value (an anomaly — the model mangled a token, or
+     * emitted one this session never minted). Both are incidence counters — recorded at most once per call, not once
+     * per token — matching how {@code pii_redacted}/{@code pii_tokenized}/{@code secret_redacted} are recorded once per
+     * call rather than once per span (see {@link #redactPiiAndSecrets}); mixing volume and incidence semantics across
+     * events in the same metric family would make cross-event comparisons meaningless.
+     * </p>
+     *
+     * @param text             the model's response text, already scanned
+     * @param session          the session that tokenized the request
+     * @param recordingMetrics the instance to record {@code pii_restored}/{@code token_unresolved} through, or
+     *                         {@code null}
+     * @return the text with known tokens restored, or {@code null} when {@code text} was {@code null}
+     */
+    public @Nullable String restoreResponseText(
+        String text, PiiTokenSession session, @Nullable AiGuardrailMetrics recordingMetrics) {
+
+        PiiTokenSession.RestoreResult restoreResult = session.restoreWithUnresolvedCount(text);
+        String restored = restoreResult.text();
+
+        if (restoreResult.unresolvedCount() > 0) {
+            record(recordingMetrics, "token_unresolved");
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
-        List<GuardrailCheckResult> results = new ArrayList<>(inputs.size());
-
-        for (String input : inputs) {
-            results.add(checkInput(input, policy, metrics));
+        if (!Objects.equals(restored, text)) {
+            record(recordingMetrics, "pii_restored");
         }
 
-        return results;
+        return restored;
     }
 
     /**
@@ -351,6 +446,73 @@ public class AiGuardrails {
         }
 
         return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, recordingMetrics);
+    }
+
+    /**
+     * As {@link #newStreamingResponseRedactor(Long, AiGuardrailMetrics)}, but the returned redactor also restores
+     * {@code session}'s tokens back to their real values as each emitted segment is scanned — see
+     * {@link StreamingResponseRedactor}'s class javadoc for the scan-then-restore ordering. Without this overload, a
+     * caller that tokenizes a streamed request (see {@link #tokenizeInputs}) would have no way to give the streamed
+     * response half a session to restore through, and the caller would end up forwarding raw {@code [PII_*]} tokens —
+     * worse than not tokenizing at all.
+     *
+     * <p>
+     * A 3-argument overload rather than a {@code PiiTokenSession} sibling of the 2-argument form: that would leave two
+     * distinct 3-argument overloads differing only in the type of a nullable reference-type third parameter
+     * ({@code AiGuardrailMetrics} vs. {@code PiiTokenSession}), which is ambiguous for a caller passing a bare
+     * {@code null} — the same hazard already documented on {@link #newStreamingResponseRedactor()}. This overload
+     * instead adds {@code session} as a genuinely new (non-nullable) parameter onto the existing 2-argument shape, so
+     * arity alone disambiguates every call site.
+     * </p>
+     *
+     * <p>
+     * <b>Restoration is not scanning, but it still needs something to restore.</b> The
+     * {@code response-scan-streaming-enabled} operator flag and the workspace's {@code scanResponses} setting govern
+     * only whether NEW sensitive spans in the model's output get masked — a lookahead-latency trade-off the operator
+     * opts into. Restoring a token {@code session} itself minted is a different thing: it is completing a
+     * transformation this engine's own {@link #tokenizeInputs} already started on the request, not an additional scan,
+     * so it is NOT gated on that flag. But when {@code session} minted nothing ({@link PiiTokenSession#size()} is zero
+     * — e.g. a workspace with PII tokenization disabled, or a request with no PII in it) there is nothing to restore
+     * either, and forcing every such stream through the lookahead buffer regardless would silently reintroduce the
+     * exact latency the operator opted out of, for every workspace that never tokenizes anything. This method therefore
+     * returns {@code null} exactly when NEITHER applies — streaming scanning is inactive AND {@code session} minted
+     * nothing — mirroring the 2-argument form's contract for a caller with nothing to gain from a redactor. When it
+     * returns a redactor, that redactor restores {@code session}'s tokens unconditionally and additionally scans for
+     * new PII/secrets only when the policy gate is active.
+     * </p>
+     *
+     * <p>
+     * <b>Known gap: a foreign/dead token cannot be counted on this null-returning path.</b> {@code token_unresolved} is
+     * recorded only by a redactor's own {@code restore()} step (see {@link StreamingResponseRedactor}); when this
+     * method returns {@code null} — {@code session} minted nothing here — no redactor is ever created, so a
+     * token-shaped string that arrives anyway (e.g. an earlier turn's token replayed from retained chat history, see
+     * {@code .agents/ai-guardrails.md}'s "PII tokenization" §Phase 1 constraint) is never inspected and the metric
+     * never fires for it. Detecting it here would mean buffering every stream through the lookahead window
+     * unconditionally to check token shape, which is precisely the per-request cost this null-return path exists to
+     * avoid for the common case (a workspace/session with nothing of its own to restore) — deliberately left unresolved
+     * rather than reintroducing that cost for every stream to catch an anomaly on this one path.
+     * </p>
+     *
+     * @param workspaceId      the workspace the call is attributed to, or {@code null} when unattributed
+     * @param recordingMetrics the instance to count detector failures through, or {@code null}
+     * @param session          the session that tokenized this call's request
+     * @return a fresh streaming redactor restoring {@code session}'s tokens (and additionally scanning for new
+     *         PII/secrets when streaming response scanning is active for the workspace), or {@code null} when streaming
+     *         scanning is inactive AND {@code session} minted nothing
+     */
+    public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
+        @Nullable Long workspaceId, @Nullable AiGuardrailMetrics recordingMetrics, PiiTokenSession session) {
+
+        boolean streamingScanActive = globalStreamingResponseScanEnabled && resolvePolicy(workspaceId).scanResponses();
+
+        if (!streamingScanActive && session.size() == 0) {
+            return null;
+        }
+
+        EnumSet<SensitiveKind> kinds =
+            streamingScanActive ? EnumSet.allOf(SensitiveKind.class) : EnumSet.noneOf(SensitiveKind.class);
+
+        return new StreamingResponseRedactor(streamSafeSensitiveDataRedactor, recordingMetrics, session, kinds);
     }
 
     /**
@@ -454,14 +616,51 @@ public class AiGuardrails {
         return sensitiveDataRedactor.redact(content, EnumSet.allOf(SensitiveKind.class), recordingMetrics);
     }
 
-    private String checkAndRedact(@Nullable String content, EffectivePolicy policy) {
+    /**
+     * The shared outer loop behind both {@link #checkInputs} and {@link #tokenizeInputs}: same null/empty guard, same
+     * policy resolution, same per-input dispatch to {@link #checkInput}. The two public methods differ only in whether
+     * {@code session} is {@code null} (redact) or a real session (tokenize), which {@link #checkInput} and
+     * {@link #redactPiiAndSecrets} already resolve per input — this method exists so that shape does not have to be
+     * copied a second time for the outer loop.
+     *
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
+     */
+    private List<GuardrailCheckResult> checkOrTokenizeInputs(
+        @Nullable List<String> inputs, @Nullable Long workspaceId, AiGuardrailMetrics metrics,
+        @Nullable PiiTokenSession session) {
+
+        if (inputs == null || inputs.isEmpty()) {
+            return List.of();
+        }
+
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+        List<GuardrailCheckResult> results = new ArrayList<>(inputs.size());
+
+        for (String input : inputs) {
+            results.add(checkInput(input, policy, metrics, session));
+        }
+
+        return results;
+    }
+
+    /**
+     * The single throwing check-and-transform loop body behind BOTH {@code applyToInputs} overloads: same blocked-term
+     * and injection handling and the same unconditional throw either way. {@code session} is passed straight through to
+     * {@link #redactPiiAndSecrets}, which is itself already the one place that decides redact-vs-tokenize on a
+     * {@code session == null} check — so this method needed no branch of its own to serve both the redacting
+     * ({@code session == null}) and tokenizing ({@code session != null}) callers; it used to exist twice, as
+     * {@code checkAndRedact}/{@code checkAndTokenize}, differing only in that one literal argument.
+     *
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly
+     */
+    private String checkAndRedact(@Nullable String content, EffectivePolicy policy, @Nullable PiiTokenSession session) {
         if (content == null) {
             return null;
         }
 
-        String redacted = redactPiiAndSecrets(content, policy, metrics);
+        String result = redactPiiAndSecrets(content, policy, metrics, session);
 
-        if (findBlockedTerm(redacted, policy.blockedTerms()) != null) {
+        if (findBlockedTerm(result, policy.blockedTerms()) != null) {
             record(metrics, "blocked_term");
 
             log.warn("Content rejected by content guardrail (blocked term matched)");
@@ -469,7 +668,7 @@ public class AiGuardrails {
             throw new AiGatewayGuardrailException("Request rejected by content guardrail: matched a blocked term");
         }
 
-        if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(redacted)) {
+        if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(result)) {
             record(metrics, "injection_flagged");
 
             log.warn("Content rejected by injection detection");
@@ -477,27 +676,30 @@ public class AiGuardrails {
             throw new AiGatewayGuardrailException("Request rejected by prompt-injection detection");
         }
 
-        return redacted;
+        return result;
     }
 
     /**
-     * The non-throwing counterpart of {@link #checkAndRedact} used by {@link #checkInputs}: same PII/secret redaction
-     * and blocking-violation detection, but a blocking violation is reported via
-     * {@link GuardrailCheckResult#category()} (with the offending term masked out of the text, or — for moderation —
-     * the whole text replaced) instead of being thrown. Records through {@code recordingMetrics} — the caller-supplied
-     * instance from {@link #checkInputs} — rather than this engine's own bean. Moderation is checked LAST and only
-     * here, never in {@link #checkAndRedact}: the throwing path is the AI Gateway adapter's, which already moderates
-     * its own DTO pipeline with its own classifier wiring, so moderating here too would double-moderate gateway
-     * traffic.
+     * The non-throwing counterpart of {@link #checkAndRedact} used by {@link #checkInputs} and {@link #tokenizeInputs}:
+     * same PII/secret redaction (or tokenization, when {@code session} is not {@code null}) and blocking-violation
+     * detection, but a blocking violation is reported via {@link GuardrailCheckResult#category()} (with the offending
+     * term masked out of the text, or — for moderation — the whole text replaced) instead of being thrown. Records
+     * through {@code recordingMetrics} — the caller-supplied instance from {@link #checkInputs} /
+     * {@link #tokenizeInputs} — rather than this engine's own bean. Moderation is checked LAST and only here, never in
+     * {@link #checkAndRedact}: the throwing path is the AI Gateway adapter's, which already moderates its own DTO
+     * pipeline with its own classifier wiring, so moderating here too would double-moderate gateway traffic.
+     *
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
      */
     private GuardrailCheckResult checkInput(
-        @Nullable String content, EffectivePolicy policy, AiGuardrailMetrics recordingMetrics) {
+        @Nullable String content, EffectivePolicy policy, AiGuardrailMetrics recordingMetrics,
+        @Nullable PiiTokenSession session) {
 
         if (content == null) {
             return new GuardrailCheckResult(null, null);
         }
 
-        String redacted = redactPiiAndSecrets(content, policy, recordingMetrics);
+        String redacted = redactPiiAndSecrets(content, policy, recordingMetrics, session);
 
         String blockedTerm = findBlockedTerm(redacted, policy.blockedTerms());
 
@@ -523,14 +725,20 @@ public class AiGuardrails {
     }
 
     /**
-     * Redacts PII/secrets in {@code content}, recording {@code pii_redacted} / {@code secret_redacted} through
-     * {@code recordingMetrics} when a redaction actually changed the text. Shared by both the throwing
-     * ({@link #checkAndRedact}, passed this engine's own bean) and non-throwing ({@link #checkInput}, passed the
-     * caller-supplied instance) paths, which differ only in which {@link AiGuardrailMetrics} instance they record
-     * through.
+     * Redacts (or, when {@code session} is not {@code null}, tokenizes) PII/secrets in {@code content}, recording
+     * {@code pii_redacted}/{@code pii_tokenized} and {@code secret_redacted} through {@code recordingMetrics} when a
+     * redaction actually changed the text. Shared by the throwing ({@link #checkAndRedact}, passed this engine's own
+     * bean; {@code session} is {@code null} when reached from the redacting {@link #applyToInputs(List, Long)} overload
+     * but a real session when reached from the tokenizing {@link #applyToInputs(List, Long, PiiTokenSession)} overload)
+     * and non-throwing ({@link #checkInput}, passed the caller-supplied instance and, from {@link #tokenizeInputs}, a
+     * real session) paths, which differ only in which {@link AiGuardrailMetrics} instance they record through and
+     * whether a session is present.
+     *
+     * @param session the session minting tokens for this call, or {@code null} to redact PII irreversibly as today
      */
     private String redactPiiAndSecrets(
-        String content, EffectivePolicy policy, @Nullable AiGuardrailMetrics recordingMetrics) {
+        String content, EffectivePolicy policy, @Nullable AiGuardrailMetrics recordingMetrics,
+        @Nullable PiiTokenSession session) {
 
         Set<SensitiveKind> kinds = EnumSet.noneOf(SensitiveKind.class);
 
@@ -542,7 +750,9 @@ public class AiGuardrails {
             kinds.add(SensitiveKind.SECRET);
         }
 
-        RedactionResult redactionResult = sensitiveDataRedactor.redactWithSpans(content, kinds, recordingMetrics);
+        RedactionResult redactionResult = session == null
+            ? sensitiveDataRedactor.redactWithSpans(content, kinds, recordingMetrics)
+            : sensitiveDataRedactor.tokenizeWithSpans(content, kinds, session, recordingMetrics);
 
         List<SensitiveSpan> accepted = redactionResult.accepted();
 
@@ -550,7 +760,7 @@ public class AiGuardrails {
         // actually redacted. Under the old chain an overlap could record pii_redacted for a match that the secret
         // pattern would have covered better; now exactly the winning kind is counted.
         if (containsKind(accepted, SensitiveKind.PII)) {
-            record(recordingMetrics, "pii_redacted");
+            record(recordingMetrics, session == null ? "pii_redacted" : "pii_tokenized");
         }
 
         if (containsKind(accepted, SensitiveKind.SECRET)) {

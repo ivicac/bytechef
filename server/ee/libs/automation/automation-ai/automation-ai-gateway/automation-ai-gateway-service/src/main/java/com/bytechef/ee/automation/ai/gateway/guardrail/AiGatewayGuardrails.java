@@ -20,6 +20,7 @@ import com.bytechef.ee.platform.ai.guardrails.AiGuardrails;
 import com.bytechef.ee.platform.ai.guardrails.StreamingResponseRedactor;
 import com.bytechef.ee.platform.ai.guardrails.domain.AiGuardrailsWorkspaceSettings;
 import com.bytechef.ee.platform.ai.guardrails.service.AiGuardrailsWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.guardrails.tokenization.PiiTokenSession;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.ArrayList;
 import java.util.List;
@@ -103,6 +104,18 @@ public class AiGatewayGuardrails {
     }
 
     /**
+     * Returns a fresh token session for one HTTP exchange, so the facade can thread it through both
+     * {@link #apply(AiGatewayChatCompletionRequest, Long, Long, PiiTokenSession)} and
+     * {@link #redactResponse(AiGatewayChatCompletionResponse, Long, Long, PiiTokenSession)}. The caller owns closing it
+     * on every termination path, including a downstream exception — see {@link PiiTokenSession}'s javadoc.
+     *
+     * @return the session
+     */
+    public PiiTokenSession newTokenSession() {
+        return aiGuardrails.newTokenSession();
+    }
+
+    /**
      * Returns the chat-completion request with request-direction guardrails applied for the given workspace: PII and
      * secrets redacted, blocked terms rejected, and — when enabled and a classifier is available — content flagged by
      * moderation or injection detection rejected. Returns the request unchanged when no guardrail is active.
@@ -134,6 +147,29 @@ public class AiGatewayGuardrails {
     public AiGatewayChatCompletionRequest apply(
         AiGatewayChatCompletionRequest request, @Nullable Long workspaceId, @Nullable Long projectId) {
 
+        return apply(request, workspaceId, projectId, null);
+    }
+
+    /**
+     * As {@link #apply(AiGatewayChatCompletionRequest, Long, Long)}, additionally tokenizing PII into {@code session}'s
+     * reversible tokens instead of redacting it irreversibly — secrets are still redacted irreversibly either way, and
+     * blocked-term/moderation/injection rejection is unchanged. Pass {@code null} for a detached call with no session
+     * to thread (the facade cannot always create one, e.g. an internal caller outside one HTTP exchange); behaviour is
+     * then byte-for-byte {@link #apply(AiGatewayChatCompletionRequest, Long, Long)}.
+     *
+     * @param request     the inbound chat-completion request
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @param session     the session minting PII tokens for this exchange, or {@code null} to redact PII irreversibly
+     *                    as today
+     * @return the guardrailed request
+     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation or injection
+     *                                     detection
+     */
+    public AiGatewayChatCompletionRequest apply(
+        AiGatewayChatCompletionRequest request, @Nullable Long workspaceId, @Nullable Long projectId,
+        @Nullable PiiTokenSession session) {
+
         AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
         boolean moderate = moderationClassifier != null && resolveModerationEnabled(workspaceId, projectSettings);
 
@@ -145,8 +181,7 @@ public class AiGatewayGuardrails {
             String processed = content;
 
             if (content != null) {
-                processed = aiGuardrails.applyToInputs(List.of(content), workspaceId)
-                    .getFirst();
+                processed = redactOrTokenize(content, workspaceId, session);
                 processed = applyProjectOverlay(processed, projectSettings);
             }
 
@@ -175,6 +210,18 @@ public class AiGatewayGuardrails {
             request.model(), guardrailedMessages, request.temperature(), request.maxTokens(), request.topP(),
             request.stream(), request.routingPolicy(), request.cache(), request.toolChoice(), request.tools(),
             request.tags());
+    }
+
+    /**
+     * Redacts (when {@code session} is {@code null}) or tokenizes (otherwise) PII/secrets in one message's content for
+     * the request path via {@link AiGuardrails#applyToInputs(List, Long, PiiTokenSession)}, which already throws
+     * {@link AiGatewayGuardrailException} for a blocked term or flagged injection and never checks moderation (that
+     * stays this adapter's own concern, applied separately in {@link #apply}) regardless of whether {@code session} is
+     * {@code null} — so this method adds no behaviour of its own beyond the single delegating call.
+     */
+    private String redactOrTokenize(String content, @Nullable Long workspaceId, @Nullable PiiTokenSession session) {
+        return aiGuardrails.applyToInputs(List.of(content), workspaceId, session)
+            .getFirst();
     }
 
     /**
@@ -249,7 +296,9 @@ public class AiGatewayGuardrails {
 
     /**
      * As {@link #redactResponse(AiGatewayChatCompletionResponse, Long)}, additionally honoring the project's response
-     * scanning override.
+     * scanning override. Scan-only — identical to {@link #scanResponse(AiGatewayChatCompletionResponse, Long, Long)},
+     * kept as its own public entry point for callers with no session to restore through (this overload predates
+     * tokenization).
      *
      * @param response    the completion response
      * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
@@ -257,6 +306,62 @@ public class AiGatewayGuardrails {
      * @return the response with redacted content, or the original when response scanning is inactive or nothing matched
      */
     public AiGatewayChatCompletionResponse redactResponse(
+        AiGatewayChatCompletionResponse response, @Nullable Long workspaceId, @Nullable Long projectId) {
+
+        return scanResponse(response, workspaceId, projectId);
+    }
+
+    /**
+     * As {@link #redactResponse(AiGatewayChatCompletionResponse, Long, Long)}, additionally restoring {@code
+     * session}'s tokens back to their real values after scanning when {@code session} is not {@code null}. A thin
+     * composition of {@link #scanResponse(AiGatewayChatCompletionResponse, Long, Long)} followed by
+     * {@link #restoreResponse(AiGatewayChatCompletionResponse, PiiTokenSession)} — kept as one call for callers (this
+     * adapter's own tests, and any future caller) that do not need anything to happen between the two steps.
+     *
+     * <p>
+     * <b>The AI Gateway facade does NOT use this combined method for its live request path.</b> It calls
+     * {@link #scanResponse} and {@link #restoreResponse} separately with tracing sandwiched in between, so that a
+     * gateway trace/span records the response as the provider actually produced it — scanned for genuinely new
+     * PII/secrets, but with this exchange's own tokens still in place — rather than the real values restoration would
+     * otherwise have already substituted back in by the time tracing ran. See
+     * {@code AiGatewayFacadeImpl#chatCompletion} and the design spec's "scan → trace → restore" ordering note.
+     * </p>
+     *
+     * @param response    the completion response
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @param session     the session that tokenized this exchange's request, or {@code null} to redact PII irreversibly
+     *                    as today
+     * @return the response with redacted content and/or restored tokens, or the original when nothing changed
+     */
+    public AiGatewayChatCompletionResponse redactResponse(
+        AiGatewayChatCompletionResponse response, @Nullable Long workspaceId, @Nullable Long projectId,
+        @Nullable PiiTokenSession session) {
+
+        return restoreResponse(scanResponse(response, workspaceId, projectId), session);
+    }
+
+    /**
+     * Returns the completion response with each choice's message content scanned for PII and secrets when response
+     * scanning is enabled for the workspace (or globally) or the project overrides it on, otherwise the response
+     * unchanged. This is the SCAN half only — no session tokens are restored, so a caller that also tokenized the
+     * request gets back a response that still carries this exchange's own {@code [PII_*]} tokens verbatim (a token
+     * never matches a PII/secret pattern, so scanning never disturbs it). Records {@code response_redacted} when
+     * scanning masked anything in any choice.
+     *
+     * <p>
+     * Split out from the combined {@link #redactResponse(AiGatewayChatCompletionResponse, Long, Long, PiiTokenSession)}
+     * so a caller can trace/log the response exactly as scanned, before restoration puts this exchange's real PII
+     * values back in — see that method's javadoc and {@code AiGatewayFacadeImpl#chatCompletion}, the one caller that
+     * needs the two steps kept apart.
+     * </p>
+     *
+     * @param response    the completion response
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @return the scanned response, or the original when response scanning is inactive or nothing matched
+     */
+    public AiGatewayChatCompletionResponse scanResponse(
         AiGatewayChatCompletionResponse response, @Nullable Long workspaceId, @Nullable Long projectId) {
 
         if (response == null || response.choices() == null || response.choices()
@@ -269,7 +374,8 @@ public class AiGatewayGuardrails {
         boolean projectScanResponses = projectSettings != null && Boolean.TRUE.equals(projectSettings.scanResponses());
 
         List<AiGatewayChatCompletionResponse.Choice> choices = response.choices();
-        List<AiGatewayChatCompletionResponse.Choice> redactedChoices = new ArrayList<>(choices.size());
+        List<AiGatewayChatCompletionResponse.Choice> scannedChoices = new ArrayList<>(choices.size());
+        boolean responseRedacted = false;
         boolean changed = false;
 
         for (AiGatewayChatCompletionResponse.Choice choice : choices) {
@@ -277,7 +383,7 @@ public class AiGatewayGuardrails {
             String content = message == null ? null : message.content();
 
             if (content == null) {
-                redactedChoices.add(choice);
+                scannedChoices.add(choice);
 
                 continue;
             }
@@ -290,31 +396,101 @@ public class AiGatewayGuardrails {
 
             // scanResponseText/redactAll are declared @Nullable, so scanned is compared null-safely rather than
             // dereferenced -- the compiler cannot see that content != null (checked above) makes both calls return
-            // non-null here. That is also why the assignment below hands scanned to the constructor unchecked: it is
-            // provably non-null at this point, just not statically so.
+            // non-null here.
+            if (!Objects.equals(scanned, content)) {
+                responseRedacted = true;
+            }
+
             if (Objects.equals(scanned, content)) {
-                redactedChoices.add(choice);
+                scannedChoices.add(choice);
 
                 continue;
             }
 
             changed = true;
 
-            AiGatewayChatMessage redactedMessage = new AiGatewayChatMessage(
+            AiGatewayChatMessage scannedMessage = new AiGatewayChatMessage(
                 message.role(), scanned, message.contentBlocks(), message.toolCalls(), message.toolCallId());
 
-            redactedChoices.add(
-                new AiGatewayChatCompletionResponse.Choice(choice.index(), redactedMessage, choice.finishReason()));
+            scannedChoices.add(
+                new AiGatewayChatCompletionResponse.Choice(choice.index(), scannedMessage, choice.finishReason()));
+        }
+
+        if (responseRedacted) {
+            record("response_redacted");
         }
 
         if (!changed) {
             return response;
         }
 
-        record("response_redacted");
+        return new AiGatewayChatCompletionResponse(
+            response.id(), response.object(), response.created(), response.model(), scannedChoices, response.usage(),
+            response.gatewayMetadata());
+    }
+
+    /**
+     * Returns an already-scanned completion response with {@code session}'s tokens restored back to their real values
+     * in each choice, or the response unchanged when {@code session} is {@code null}. This is the RESTORE half only —
+     * it does not scan for new PII/secrets, so it must only ever be called on a response
+     * {@link #scanResponse(AiGatewayChatCompletionResponse, Long, Long)} has already produced; reversing that order
+     * would hand a not-yet-scanned response straight back to the caller with no scanning ever applied. Records
+     * {@code pii_restored}/{@code token_unresolved} through {@link AiGuardrails#restoreResponseText} itself.
+     *
+     * @param response the already-scanned completion response
+     * @param session  the session that tokenized this exchange's request, or {@code null} to leave the response
+     *                 unchanged (nothing to restore)
+     * @return the response with {@code session}'s tokens restored, or the original when {@code session} is {@code null}
+     *         or nothing needed restoring
+     */
+    public AiGatewayChatCompletionResponse restoreResponse(
+        AiGatewayChatCompletionResponse response, @Nullable PiiTokenSession session) {
+
+        if (session == null || response == null || response.choices() == null || response.choices()
+            .isEmpty()) {
+
+            return response;
+        }
+
+        List<AiGatewayChatCompletionResponse.Choice> choices = response.choices();
+        List<AiGatewayChatCompletionResponse.Choice> restoredChoices = new ArrayList<>(choices.size());
+        boolean changed = false;
+
+        for (AiGatewayChatCompletionResponse.Choice choice : choices) {
+            AiGatewayChatMessage message = choice.message();
+            String content = message == null ? null : message.content();
+
+            if (content == null) {
+                restoredChoices.add(choice);
+
+                continue;
+            }
+
+            // restoreResponseText is declared @Nullable but only ever returns null for a null input, and content is
+            // provably non-null at this point, just not statically so.
+            String restored = aiGuardrails.restoreResponseText(content, session, metrics);
+
+            if (Objects.equals(restored, content)) {
+                restoredChoices.add(choice);
+
+                continue;
+            }
+
+            changed = true;
+
+            AiGatewayChatMessage restoredMessage = new AiGatewayChatMessage(
+                message.role(), restored, message.contentBlocks(), message.toolCalls(), message.toolCallId());
+
+            restoredChoices.add(
+                new AiGatewayChatCompletionResponse.Choice(choice.index(), restoredMessage, choice.finishReason()));
+        }
+
+        if (!changed) {
+            return response;
+        }
 
         return new AiGatewayChatCompletionResponse(
-            response.id(), response.object(), response.created(), response.model(), redactedChoices, response.usage(),
+            response.id(), response.object(), response.created(), response.model(), restoredChoices, response.usage(),
             response.gatewayMetadata());
     }
 
