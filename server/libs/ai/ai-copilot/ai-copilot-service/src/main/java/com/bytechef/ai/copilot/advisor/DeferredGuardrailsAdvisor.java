@@ -19,6 +19,7 @@ package com.bytechef.ai.copilot.advisor;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.commons.util.NumberUtils;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
+import com.bytechef.platform.ai.guardrails.GuardrailAdvisorOrder;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -61,8 +62,8 @@ import reactor.core.publisher.Flux;
  * </p>
  *
  * <p>
- * {@link #getOrder()} returns {@link Advisor#HIGHEST_PRECEDENCE}, matching what {@code AiGuardrailsAdvisor} itself
- * returns, so substituting this advisor for it leaves chain ordering unchanged.
+ * {@link #getOrder()} returns {@link GuardrailAdvisorOrder#WORKSPACE_FLOOR}, matching what {@code AiGuardrailsAdvisor}
+ * itself returns, so substituting this advisor for it leaves chain ordering unchanged.
  * </p>
  *
  * @author Ivica Cardic
@@ -88,7 +89,7 @@ final class DeferredGuardrailsAdvisor implements CallAdvisor, StreamAdvisor {
 
     @Override
     public int getOrder() {
-        return HIGHEST_PRECEDENCE;
+        return GuardrailAdvisorOrder.WORKSPACE_FLOOR;
     }
 
     @Override
