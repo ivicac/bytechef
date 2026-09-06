@@ -134,7 +134,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null)));
+                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
@@ -801,7 +801,7 @@ class AiGuardrailsAdvisorTest {
 
         when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
             new AiGuardrailsWorkspaceSettings(
-                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null)));
+                WORKSPACE_ID, null, null, null, null, null, null, BlockingMode.REDACT_AND_CONTINUE, null, null)));
 
         AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
         ChatClientRequest request = requestWithUserMessage("Describe something unsafe");

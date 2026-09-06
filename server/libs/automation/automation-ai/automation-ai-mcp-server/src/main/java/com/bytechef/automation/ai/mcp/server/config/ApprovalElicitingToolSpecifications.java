@@ -18,6 +18,8 @@ package com.bytechef.automation.ai.mcp.server.config;
 
 import com.bytechef.automation.ai.mcp.server.facade.AutomationMcpToolFacade;
 import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedaction;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.tenant.TenantContext;
 import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -27,6 +29,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -49,6 +52,12 @@ import reactor.core.scheduler.Schedulers;
  * per tool call. Declined/cancelled elicitations, clients without either capability, and any elicitation transport
  * failure all fall back to the plain descriptor result.
  *
+ * <p>
+ * The resumed run's output does not pass through the {@code ToolCallback} that {@code AutomationMcpServerConfiguration}
+ * guards, so {@code runOnBoundedElastic} redacts it directly via {@link McpOutboundRedaction} — the same fail-closed
+ * rule the guarded callback path uses, applied here so the approval-resume path cannot bypass it.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public final class ApprovalElicitingToolSpecifications {
@@ -63,7 +72,8 @@ public final class ApprovalElicitingToolSpecifications {
 
     public static McpServerFeatures.AsyncToolSpecification decorate(
         McpServerFeatures.AsyncToolSpecification toolSpecification, AutomationMcpToolFacade mcpToolFacade,
-        long mcpServerId) {
+        long mcpServerId, ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface) {
 
         return new McpServerFeatures.AsyncToolSpecification(
             toolSpecification.tool(),
@@ -74,14 +84,17 @@ public final class ApprovalElicitingToolSpecifications {
 
                 return toolSpecification.callHandler()
                     .apply(exchange, request)
-                    .flatMap(result -> elicitApprovalIfPending(exchange, result, mcpToolFacade, tenantId, mcpServerId,
-                        1));
+                    .flatMap(result -> elicitApprovalIfPending(
+                        exchange, result, mcpToolFacade, tenantId, mcpServerId, mcpOutboundRedactorProviderProvider,
+                        workspaceId, surface, 1));
             });
     }
 
     private static Mono<McpSchema.CallToolResult> elicitApprovalIfPending(
         McpAsyncServerExchange exchange, McpSchema.CallToolResult result, AutomationMcpToolFacade mcpToolFacade,
-        String tenantId, long mcpServerId, int round) {
+        String tenantId, long mcpServerId,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface, int round) {
 
         if (round > MAX_ELICITATION_ROUNDS) {
             return Mono.just(result);
@@ -133,8 +146,12 @@ public final class ApprovalElicitingToolSpecifications {
                 // configured public URL; form elicitation only needs the resume token and therefore still works when
                 // no public URL is configured.
                 Mono<McpSchema.CallToolResult> elicited = supportsUrlElicitation(exchange) && formUrl != null
-                    ? elicitViaUrl(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result)
-                    : elicitViaForm(exchange, mcpToolFacade, tenantId, message, resumeToken, jobId.longValue(), result);
+                    ? elicitViaUrl(
+                        exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result,
+                        mcpOutboundRedactorProviderProvider, workspaceId, surface)
+                    : elicitViaForm(
+                        exchange, mcpToolFacade, tenantId, message, resumeToken, jobId.longValue(), result,
+                        mcpOutboundRedactorProviderProvider, workspaceId, surface);
 
                 // A run that pauses on a SECOND approval after resuming produces a fresh pending descriptor —
                 // re-elicit it, bounded by the round counter so a long chain degrades to descriptor text.
@@ -142,7 +159,8 @@ public final class ApprovalElicitingToolSpecifications {
                     nextResult -> nextResult == result
                         ? Mono.just(nextResult)
                         : elicitApprovalIfPending(
-                            exchange, nextResult, mcpToolFacade, tenantId, mcpServerId, round + 1));
+                            exchange, nextResult, mcpToolFacade, tenantId, mcpServerId,
+                            mcpOutboundRedactorProviderProvider, workspaceId, surface, round + 1));
             });
     }
 
@@ -151,7 +169,9 @@ public final class ApprovalElicitingToolSpecifications {
 
     private static Mono<McpSchema.CallToolResult> elicitViaUrl(
         McpAsyncServerExchange exchange, AutomationMcpToolFacade mcpToolFacade, String tenantId, String message,
-        String formUrl, long jobId, McpSchema.CallToolResult fallbackResult) {
+        String formUrl, long jobId, McpSchema.CallToolResult fallbackResult,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface) {
 
         McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitUrlRequest
             .builder(message, formUrl, "approval-" + jobId)
@@ -159,7 +179,9 @@ public final class ApprovalElicitingToolSpecifications {
 
         return exchange.createElicitation(elicitRequest)
             .flatMap(elicitResult -> elicitResult.action() == McpSchema.ElicitResult.Action.ACCEPT
-                ? runOnBoundedElastic(() -> mcpToolFacade.awaitApprovedWorkflowRun(jobId), tenantId)
+                ? runOnBoundedElastic(
+                    () -> mcpToolFacade.awaitApprovedWorkflowRun(jobId), tenantId, mcpOutboundRedactorProviderProvider,
+                    workspaceId, surface)
                 : Mono.just(fallbackResult))
             .onErrorResume(exception -> {
                 log.warn("Approval URL elicitation failed; returning the pending descriptor: {}",
@@ -171,7 +193,9 @@ public final class ApprovalElicitingToolSpecifications {
 
     private static Mono<McpSchema.CallToolResult> elicitViaForm(
         McpAsyncServerExchange exchange, AutomationMcpToolFacade mcpToolFacade, String tenantId, String message,
-        String resumeToken, long jobId, McpSchema.CallToolResult fallbackResult) {
+        String resumeToken, long jobId, McpSchema.CallToolResult fallbackResult,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface) {
 
         McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitFormRequest
             .builder(message, decisionSchema())
@@ -197,7 +221,8 @@ public final class ApprovalElicitingToolSpecifications {
                 }
 
                 return runOnBoundedElastic(
-                    () -> mcpToolFacade.resolveApprovalAndAwait(resumeToken, data, jobId), tenantId);
+                    () -> mcpToolFacade.resolveApprovalAndAwait(resumeToken, data, jobId), tenantId,
+                    mcpOutboundRedactorProviderProvider, workspaceId, surface);
             })
             .onErrorResume(exception -> {
                 log.warn("Approval form elicitation failed; returning the pending descriptor: {}",
@@ -208,7 +233,9 @@ public final class ApprovalElicitingToolSpecifications {
     }
 
     private static Mono<McpSchema.CallToolResult> runOnBoundedElastic(
-        java.util.concurrent.Callable<@Nullable Object> callable, String tenantId) {
+        java.util.concurrent.Callable<@Nullable Object> callable, String tenantId,
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface) {
 
         return Mono
             .fromCallable(() -> TenantContext.callWithTenantId(tenantId, () -> {
@@ -221,23 +248,52 @@ public final class ApprovalElicitingToolSpecifications {
                 }
             }))
             .subscribeOn(Schedulers.boundedElastic())
-            .map(output -> McpSchema.CallToolResult.builder()
-                .addTextContent(output == null ? "" : JsonUtils.write(output))
-                .isError(false)
-                .build())
-            // A failure of the resumed RUN (a workflow error after approval) must surface as a tool error, not be
-            // swallowed by the caller's onErrorResume and reported as "returning the pending descriptor" — that would
-            // re-prompt the reviewer for an approval that was already resolved. Only elicitation-TRANSPORT failures
-            // (from exchange.createElicitation) should degrade to the pending descriptor.
+            .map(output -> {
+                String text = output == null ? "" : JsonUtils.write(output);
+
+                String redactedText = McpOutboundRedaction.redact(
+                    text, mcpOutboundRedactorProviderProvider, workspaceId, surface);
+
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent(redactedText)
+                    .isError(false)
+                    .build();
+            })
+            // A failure of the resumed RUN (a workflow error after approval, or a redaction failure on its output)
+            // must surface as a tool error, not be swallowed by the caller's onErrorResume and reported as "returning
+            // the pending descriptor" — that would re-prompt the reviewer for an approval that was already resolved.
+            // Only elicitation-TRANSPORT failures (from exchange.createElicitation) should degrade to the pending
+            // descriptor.
             .onErrorResume(exception -> {
                 log.warn("Awaiting the resumed run after approval failed: {}", exception.getMessage());
 
                 return Mono.just(McpSchema.CallToolResult.builder()
                     .addTextContent(
-                        "The workflow run failed after the approval was resolved: " + exception.getMessage())
+                        failureText(
+                            exception, mcpOutboundRedactorProviderProvider, workspaceId, surface))
                     .isError(true)
                     .build());
             });
+    }
+
+    /**
+     * The tool-error text for a run that failed after its approval was resolved. A run failure's message is as
+     * payload-derived as its output -- a component rethrows the provider's raw HTTP response body, a task error is
+     * rethrown verbatim -- so it is redacted on the way out, and dropped entirely when redacting it fails rather than
+     * falling back to the raw message.
+     */
+    private static String failureText(
+        Throwable exception, ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider,
+        @Nullable Long workspaceId, String surface) {
+
+        String redactedMessage = McpOutboundRedaction.redactFailureMessage(
+            exception.getMessage(), mcpOutboundRedactorProviderProvider, workspaceId, surface);
+
+        if (redactedMessage == null) {
+            return "The workflow run failed after the approval was resolved.";
+        }
+
+        return "The workflow run failed after the approval was resolved: " + redactedMessage;
     }
 
     /**

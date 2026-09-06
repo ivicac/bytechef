@@ -63,13 +63,14 @@ class AiGuardrailsWorkspaceSettingsGraphQlController {
         return aiGuardrailsWorkspaceSettingsService.saveSettings(new AiGuardrailsWorkspaceSettings(
             input.workspaceId(), input.redactPii(), input.redactSecrets(), input.blockedTerms(),
             input.moderationEnabled(), input.injectionDetectionEnabled(), input.scanResponses(),
-            input.blockingMode(), input.minConfidence()));
+            input.blockingMode(), input.minConfidence(), input.redactMcpResults()));
     }
 
     public record AiGuardrailsWorkspaceSettingsInput(
         @Nullable Long workspaceId, @Nullable Boolean redactPii, @Nullable Boolean redactSecrets,
         @Nullable String blockedTerms, @Nullable Boolean moderationEnabled,
         @Nullable Boolean injectionDetectionEnabled, @Nullable Boolean scanResponses,
-        @Nullable BlockingMode blockingMode, @Nullable Double minConfidence) {
+        @Nullable BlockingMode blockingMode, @Nullable Double minConfidence,
+        @Nullable Boolean redactMcpResults) {
     }
 }

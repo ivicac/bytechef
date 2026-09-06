@@ -26,6 +26,7 @@ import com.bytechef.automation.ai.mcp.server.facade.AutomationMcpToolFacade;
 import com.bytechef.automation.ai.mcp.server.spi.McpServerWorkspaceToolCallbackContributor;
 import com.bytechef.automation.ai.mcp.service.McpProjectService;
 import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
+import com.bytechef.platform.ai.guardrails.McpOutboundRedactorProvider;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpComponent;
@@ -113,6 +114,8 @@ class AutomationMcpServerConfigurationTest {
         McpProjectService mcpProjectService = mock(McpProjectService.class);
         WorkspaceMcpServerService workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
         AutomationMcpToolFacade mcpToolFacade = mock(AutomationMcpToolFacade.class);
+        ObjectProvider<McpOutboundRedactorProvider> mcpOutboundRedactorProviderProvider =
+            (ObjectProvider<McpOutboundRedactorProvider>) mock(ObjectProvider.class);
         ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders =
             (ObjectProvider<McpServerWorkspaceToolCallbackContributor>) mock(ObjectProvider.class);
 
@@ -135,7 +138,8 @@ class AutomationMcpServerConfigurationTest {
         List<McpServerFeatures.AsyncToolSpecification> toolSpecifications =
             AutomationMcpServerConfiguration.buildToolSpecifications(
                 "secret", Set.of(), mcpComponentService, mcpProjectService, mcpServerService, mcpToolService,
-                mcpToolFacade, workspaceToolProviders, workspaceMcpServerService);
+                mcpToolFacade, mcpOutboundRedactorProviderProvider, workspaceToolProviders,
+                workspaceMcpServerService);
 
         assertThat(toolSpecifications).hasSize(1);
         verify(mcpToolFacade, never()).getFunctionToolCallback(disabledMcpTool);

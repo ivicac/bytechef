@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -72,7 +73,7 @@ class AiGuardrailsWorkspaceSettingsGraphQlControllerTest {
     @Test
     void testAiGuardrailsWorkspaceSettingsWithNullWorkspaceIdFetchesTenantDefault() {
         AiGuardrailsWorkspaceSettings tenantDefault = new AiGuardrailsWorkspaceSettings(
-            null, true, true, "secret", false, true, false, BlockingMode.REDACT_AND_CONTINUE, null);
+            null, true, true, "secret", false, true, false, BlockingMode.REDACT_AND_CONTINUE, null, null);
 
         when(aiGuardrailsWorkspaceSettingsService.fetchSettings(isNull())).thenReturn(Optional.of(tenantDefault));
 
@@ -98,10 +99,10 @@ class AiGuardrailsWorkspaceSettingsGraphQlControllerTest {
     void testUpdateAiGuardrailsWorkspaceSettingsRoundTripsThroughService() {
         AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput input =
             new AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput(
-                1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75);
+                1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75, null);
 
         AiGuardrailsWorkspaceSettings saved = new AiGuardrailsWorkspaceSettings(
-            1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75);
+            1L, true, false, "foo,bar", true, false, true, BlockingMode.BLOCK, 0.75, null);
 
         when(aiGuardrailsWorkspaceSettingsService.saveSettings(eq(saved))).thenReturn(saved);
 
@@ -111,5 +112,23 @@ class AiGuardrailsWorkspaceSettingsGraphQlControllerTest {
         assertThat(result).isEqualTo(saved);
 
         verify(aiGuardrailsWorkspaceSettingsService).saveSettings(eq(saved));
+    }
+
+    @Test
+    void testUpdateAiGuardrailsWorkspaceSettingsPassesRedactMcpResultsThrough() {
+        AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput input =
+            new AiGuardrailsWorkspaceSettingsGraphQlController.AiGuardrailsWorkspaceSettingsInput(
+                1L, null, null, null, null, null, null, null, null, true);
+
+        aiGuardrailsWorkspaceSettingsGraphQlController.updateAiGuardrailsWorkspaceSettings(input);
+
+        ArgumentCaptor<AiGuardrailsWorkspaceSettings> captor =
+            ArgumentCaptor.forClass(AiGuardrailsWorkspaceSettings.class);
+
+        verify(aiGuardrailsWorkspaceSettingsService).saveSettings(captor.capture());
+
+        AiGuardrailsWorkspaceSettings saved = captor.getValue();
+
+        assertThat(saved.redactMcpResults()).isTrue();
     }
 }
