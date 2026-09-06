@@ -162,6 +162,16 @@ public final class PiiTokenSession {
     }
 
     /**
+     * Returns a copy of every token this session minted, mapped to its value. For callers that hold the map themselves
+     * — the Mask action returns it as its output, and Unmask restores from it later without a session.
+     *
+     * @return token text to value, in no particular order
+     */
+    public Map<String, String> tokens() {
+        return Map.copyOf(tokenToValue);
+    }
+
+    /**
      * Clears the mapping. Must be called on every termination path.
      */
     public void close() {

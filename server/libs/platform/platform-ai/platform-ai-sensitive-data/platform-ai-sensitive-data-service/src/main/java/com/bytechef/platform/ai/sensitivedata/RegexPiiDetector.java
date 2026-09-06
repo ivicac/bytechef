@@ -59,7 +59,22 @@ import org.springframework.stereotype.Component;
 @ConditionalOnEEVersion
 public class RegexPiiDetector implements SensitiveDataDetector {
 
-    private final List<PiiPatternCatalog.PiiPattern> patterns = PiiPatternCatalog.curatedDefault();
+    private final List<PiiPatternCatalog.PiiPattern> patterns;
+
+    public RegexPiiDetector() {
+        this(PiiPatternCatalog.curatedDefault());
+    }
+
+    /**
+     * A detector over an explicit pattern list — how a per-node picker restricts detection to the types its author
+     * selected. Restricting at the detector rather than filtering spans afterwards matters: filtering after resolution
+     * would let an unselected type win an overlap and then be discarded, leaving the selected one undetected.
+     *
+     * @param patterns the patterns to run, in catalog order
+     */
+    public RegexPiiDetector(List<PiiPatternCatalog.PiiPattern> patterns) {
+        this.patterns = List.copyOf(patterns);
+    }
 
     @Override
     public String name() {

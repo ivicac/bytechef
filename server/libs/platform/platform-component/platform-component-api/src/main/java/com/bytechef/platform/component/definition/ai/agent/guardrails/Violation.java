@@ -22,14 +22,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A detected guardrail violation. Three variants: {@link PatternViolation} (rule-based, with matched substrings),
- * {@link ClassifiedViolation} (LLM-based, with confidence score), and {@link ExecutionFailureViolation} (the check
- * could not run). Use the {@code of...} factory methods rather than constructing records directly.
+ * A detected guardrail violation. Four variants: {@link PatternViolation} (rule-based, with matched substrings),
+ * {@link ClassifiedViolation} (LLM-based, with confidence score), {@link SpanViolation} (derived from detected spans,
+ * with a match count), and {@link ExecutionFailureViolation} (the check could not run). Use the {@code of...} factory
+ * methods rather than constructing records directly.
  *
  * @author Ivica Cardic
  */
-public sealed interface Violation
-    permits Violation.PatternViolation, Violation.ClassifiedViolation, Violation.ExecutionFailureViolation {
+public sealed interface Violation permits Violation.PatternViolation, Violation.ClassifiedViolation,
+    Violation.SpanViolation, Violation.ExecutionFailureViolation {
 
     String guardrail();
 
@@ -65,6 +66,10 @@ public sealed interface Violation
         String guardrail, double confidenceScore, Map<String, ? extends Serializable> info) {
 
         return new ClassifiedViolation(guardrail, confidenceScore, copyInfo(info));
+    }
+
+    static Violation ofSpans(String guardrail, int matchCount, Map<String, ? extends Serializable> info) {
+        return new SpanViolation(guardrail, matchCount, copyInfo(info));
     }
 
     static Violation ofExecutionFailure(String guardrail, Throwable cause) {
@@ -105,6 +110,29 @@ public sealed interface Violation
             }
 
             matchedSubstrings = List.copyOf(matchedSubstrings);
+            info = info == null ? Map.of() : Map.copyOf(info);
+        }
+    }
+
+    /**
+     * A verdict derived from spans rather than matched text — the workspace floor's published detection, unioned with a
+     * child's own. Carries a count only: a span locates a match without reproducing it, and the public view of a
+     * {@link PatternViolation} never exposed more than a count either.
+     */
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
+    record SpanViolation(String guardrail, int matchCount, Map<String, Serializable> info) implements Violation {
+
+        public SpanViolation {
+            if (guardrail == null || guardrail.isBlank()) {
+                throw new IllegalArgumentException("guardrail must be non-blank");
+            }
+
+            if (matchCount < 1) {
+                throw new IllegalArgumentException("matchCount must be positive, got " + matchCount);
+            }
+
             info = info == null ? Map.of() : Map.copyOf(info);
         }
     }
