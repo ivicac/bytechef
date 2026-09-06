@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.ai.guardrails.advisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -156,6 +157,96 @@ class AiGuardrailsAdvisorTest {
         assertThat(forwardedText).doesNotContain("CLASSIFIED");
         assertThat(forwardedText).contains("[REDACTED_BLOCKED_TERM]");
         assertThat(counter(advisorMeterRegistry, "blocking_downgraded", "copilot")).isEqualTo(1.0);
+    }
+
+    @Test
+    void testAllowForwardsTheBlockedTermUnmaskedAndRecordsGuardrailAllowed() {
+        // Observe mode's entire product: the violation is seen and counted, and the text goes out as it came in.
+        // The fixture deliberately leaves PII and secret redaction off -- BlockingMode governs the three BLOCKING
+        // guardrails only, so with redaction on this assertion would be pinning redaction rather than ALLOW.
+        AiGuardrails aiGuardrails = guardrails(false, false, "classified", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
+            new AiGuardrailsWorkspaceSettings(
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.ALLOW, null, null)));
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithUserMessage("Summarize the CLASSIFIED memo");
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextCall(forwardedRequestCaptor.capture())).thenReturn(emptyResponse());
+
+        advisor.adviseCall(request, chain);
+
+        ChatClientRequest forwardedRequest = forwardedRequestCaptor.getValue();
+        String forwardedText = forwardedRequest.prompt()
+            .getInstructions()
+            .getFirst()
+            .getText();
+
+        assertThat(forwardedText).isEqualTo("Summarize the CLASSIFIED memo");
+
+        // Both halves. A mode that modifies nothing and reports nothing is indistinguishable from the guardrail
+        // being off, which would be worse than useless -- it would look like coverage.
+        assertThat(counter(advisorMeterRegistry, "blocked_term", "copilot")).isEqualTo(1.0);
+        assertThat(counter(advisorMeterRegistry, "guardrail_allowed", "copilot")).isEqualTo(1.0);
+
+        // Reporting it as blocking_downgraded would claim a redaction that did not happen.
+        assertThat(counter(advisorMeterRegistry, "blocking_downgraded", "copilot")).isEqualTo(0.0);
+    }
+
+    @Test
+    void testAllowDoesNotThrowOnAPayloadBlockModeWouldReject() {
+        // The A/B against testBlockedTermRecordsUnderAdvisorSurfaceInBlockMode: same engine, same payload, and the
+        // only difference is the mode.
+        AiGuardrails aiGuardrails = guardrails(false, false, "classified", false, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
+            new AiGuardrailsWorkspaceSettings(
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.ALLOW, null, null)));
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithUserMessage("the CLASSIFIED memo");
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+
+        when(chain.nextCall(any())).thenReturn(emptyResponse());
+
+        assertThatCode(() -> advisor.adviseCall(request, chain)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void testModerationAllowForwardsTheWholeMessageUnmodified() {
+        // The second masking arm, and the one with the most to hide: moderation has no locatable span, so its
+        // downgrade replaces the ENTIRE message. If ALLOW only suppressed blocked-term masking, this test would
+        // still see [REDACTED_MODERATED] and observe mode would be silently useless for moderation.
+        AiGuardrails aiGuardrails = guardrails(content -> true, false, false, "", false, true, false, false);
+
+        when(settingsService.fetchSettings(WORKSPACE_ID)).thenReturn(Optional.of(
+            new AiGuardrailsWorkspaceSettings(
+                AiGuardrailsSettingsScope.WORKSPACE, WORKSPACE_ID, null, null, null, null, null, null,
+                BlockingMode.ALLOW, null, null)));
+
+        AiGuardrailsAdvisor advisor = new AiGuardrailsAdvisor(aiGuardrails, WORKSPACE_ID, advisorMetrics);
+        ChatClientRequest request = requestWithUserMessage("Describe something unsafe");
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        ArgumentCaptor<ChatClientRequest> forwardedRequestCaptor = ArgumentCaptor.forClass(ChatClientRequest.class);
+
+        when(chain.nextCall(forwardedRequestCaptor.capture())).thenReturn(emptyResponse());
+
+        advisor.adviseCall(request, chain);
+
+        ChatClientRequest forwardedRequest = forwardedRequestCaptor.getValue();
+        String forwardedText = forwardedRequest.prompt()
+            .getInstructions()
+            .getFirst()
+            .getText();
+
+        assertThat(forwardedText).isEqualTo("Describe something unsafe");
+        assertThat(counter(advisorMeterRegistry, "moderation_flagged", "copilot")).isEqualTo(1.0);
+        assertThat(counter(advisorMeterRegistry, "guardrail_allowed", "copilot")).isEqualTo(1.0);
     }
 
     @Test
