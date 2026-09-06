@@ -289,13 +289,20 @@ bytechef:
   resources:
     web: file:///opt/bytechef/client/
   scheduler:
-    # Trigger scheduler provider (AWS(EE) | QUARTZ) default: QUARTZ
+    # Trigger scheduler provider (AWS(EE) | DB_SCHEDULER | QUARTZ) default: QUARTZ
     provider: QUARTZ
     quartz:
       # Clustered mode: required when more than one coordinator runs (EE). default: false
       clustered: false
       # How often a clustered scheduler checks in, in milliseconds. default: 15000
       cluster-checkin-interval: 15000
+    db-scheduler:
+      importer:
+        # Copy live Quartz jobs into db-scheduler on every startup while provider is db-scheduler
+        enabled: true
+      ui:
+        # Serve db-scheduler-ui at /db-scheduler (SYSTEM_ADMIN only)
+        enabled: true
   script:
     # Task runner allowlist. A runner absent from this map is disabled, which is the intended default for the
     # out-of-process runners but not for GraalVM, the in-process runner every script action falls back to.
