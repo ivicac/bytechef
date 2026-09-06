@@ -1,0 +1,151 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.platform.ai.guardrails.tokenization;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.junit.jupiter.api.Test;
+
+/**
+ * @version ee
+ */
+class PiiTokenSessionTest {
+
+    @Test
+    void testTheSameValueAlwaysGetsTheSameToken() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String first = session.tokenFor("EMAIL", "bob@acme.io");
+        String second = session.tokenFor("EMAIL", "bob@acme.io");
+
+        assertThat(first).isEqualTo(second);
+        assertThat(session.size()).isEqualTo(1);
+    }
+
+    @Test
+    void testDifferentValuesGetDifferentTokens() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String bob = session.tokenFor("EMAIL", "bob@acme.io");
+        String alice = session.tokenFor("EMAIL", "alice@acme.io");
+
+        assertThat(bob).isNotEqualTo(alice);
+        assertThat(session.size()).isEqualTo(2);
+    }
+
+    @Test
+    void testRestoreSubstitutesEveryKnownToken() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String bob = session.tokenFor("EMAIL", "bob@acme.io");
+        String alice = session.tokenFor("EMAIL", "alice@acme.io");
+
+        assertThat(session.restore("forward " + bob + " to " + alice))
+            .isEqualTo("forward bob@acme.io to alice@acme.io");
+    }
+
+    @Test
+    void testRestoreLeavesAnUnknownTokenUntouched() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String text = "see [PII_EMAIL_9_" + session.sessionId() + "]";
+
+        assertThat(session.restore(text)).isEqualTo(text);
+    }
+
+    @Test
+    void testRestoreLeavesAForeignSessionTokenUntouched() {
+        PiiTokenSession session = PiiTokenSession.create();
+        PiiTokenSession other = PiiTokenSession.create();
+
+        String foreign = other.tokenFor("EMAIL", "bob@acme.io");
+
+        assertThat(session.restore("see " + foreign)).isEqualTo("see " + foreign);
+    }
+
+    /**
+     * The exact shape {@code token_unresolved} exists to catch: a turn whose own session minted nothing (its request
+     * had no PII, or PII tokenization was never active for it) but whose response nonetheless carries a token-shaped
+     * string minted by some OTHER session — e.g. an earlier turn's now-closed-session token replayed back from retained
+     * chat history. {@code restoreWithUnresolvedCount} must not special-case an empty {@code tokenToValue} mapping as
+     * "nothing to look for": the whole point is to look regardless, since a session having minted nothing itself says
+     * nothing about whether foreign tokens are present in the text being restored.
+     */
+    @Test
+    void testRestoreWithUnresolvedCountReportsAForeignTokenEvenWhenThisSessionMintedNothing() {
+        PiiTokenSession session = PiiTokenSession.create();
+        PiiTokenSession other = PiiTokenSession.create();
+
+        String foreign = other.tokenFor("EMAIL", "bob@acme.io");
+
+        assertThat(session.size()).isZero();
+
+        PiiTokenSession.RestoreResult result = session.restoreWithUnresolvedCount("see " + foreign);
+
+        assertThat(result.unresolvedCount()).isEqualTo(1);
+        assertThat(result.text()).isEqualTo("see " + foreign);
+    }
+
+    @Test
+    void testCloseClearsTheMapping() {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        String token = session.tokenFor("EMAIL", "bob@acme.io");
+
+        session.close();
+
+        assertThat(session.size()).isZero();
+        assertThat(session.restore("see " + token)).isEqualTo("see " + token);
+    }
+
+    @Test
+    void testSessionsGetDistinctIds() {
+        Set<String> ids = new HashSet<>();
+
+        for (int attempt = 0; attempt < 50; attempt++) {
+            ids.add(PiiTokenSession.create()
+                .sessionId());
+        }
+
+        assertThat(ids).hasSizeGreaterThan(1);
+    }
+
+    @Test
+    void testConcurrentMintingKeepsOneTokenPerValue() throws Exception {
+        PiiTokenSession session = PiiTokenSession.create();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(8);
+
+        try {
+            List<Future<String>> futures = new ArrayList<>();
+
+            for (int attempt = 0; attempt < 200; attempt++) {
+                futures.add(executorService.submit(() -> session.tokenFor("EMAIL", "bob@acme.io")));
+            }
+
+            Set<String> minted = ConcurrentHashMap.newKeySet();
+
+            for (Future<String> future : futures) {
+                minted.add(future.get());
+            }
+
+            assertThat(minted).hasSize(1);
+            assertThat(session.size()).isEqualTo(1);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+}
