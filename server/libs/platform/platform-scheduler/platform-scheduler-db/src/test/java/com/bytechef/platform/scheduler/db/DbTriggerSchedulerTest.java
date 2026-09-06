@@ -23,6 +23,7 @@ import com.bytechef.platform.scheduler.db.task.OneTimeResumeData;
 import com.bytechef.platform.scheduler.db.task.PollingTriggerData;
 import com.bytechef.platform.scheduler.db.task.ScheduleTriggerData;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
@@ -131,12 +132,26 @@ class DbTriggerSchedulerTest {
             .get(0)
             .getTaskInstance()
             .getData())
-            .isEqualTo(new OneTimeResumeData(42L, "{\"k\":\"v\"}"));
+            .isEqualTo(new OneTimeResumeData(42L, "{\"k\":\"v\"}", TenantContext.DEFAULT_TENANT_ID));
         Assertions.assertThat((OneTimeResumeData) captor.getAllValues()
             .get(1)
             .getTaskInstance()
             .getData())
-            .isEqualTo(new OneTimeResumeData(43L, null));
+            .isEqualTo(new OneTimeResumeData(43L, null, TenantContext.DEFAULT_TENANT_ID));
+    }
+
+    @Test
+    void testScheduleOneTimeTaskCapturesCurrentTenantId() {
+        Instant executeAt = Instant.parse("2031-01-01T00:00:00Z");
+
+        TenantContext.runWithTenantId(
+            "tenant_1", () -> triggerScheduler.scheduleOneTimeTask(executeAt, Map.of(), 44L));
+
+        SchedulableInstance<?> instance = capturedSchedule();
+
+        Assertions.assertThat((OneTimeResumeData) instance.getTaskInstance()
+            .getData())
+            .isEqualTo(new OneTimeResumeData(44L, null, "tenant_1"));
     }
 
     @Test
