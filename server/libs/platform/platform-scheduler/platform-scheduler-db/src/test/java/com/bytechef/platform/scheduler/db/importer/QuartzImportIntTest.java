@@ -209,7 +209,12 @@ class QuartzImportIntTest {
         Assertions.assertThat(second)
             .isEqualTo(new ImportSummary(5, 0, 5, 1, 0, 0, 0, true));
 
-        Assertions.assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scheduled_tasks", Integer.class))
+        Assertions.assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM scheduled_tasks WHERE task_name IN (?, ?, ?, ?, ?)", Integer.class,
+            DbSchedulerTaskDescriptors.SCHEDULE_TRIGGER_NAME, DbSchedulerTaskDescriptors.POLLING_TRIGGER_NAME,
+            DbSchedulerTaskDescriptors.DYNAMIC_WEBHOOK_REFRESH_NAME,
+            DbSchedulerTaskDescriptors.OAUTH2_TOKEN_REFRESH_NAME, DbSchedulerTaskDescriptors.ONE_TIME_RESUME_NAME))
+            .as("only the five task kinds actually imported in this test, independent of any other task's rows")
             .isEqualTo(5);
 
         Assertions.assertThat(schedulerClient.getScheduledExecution(
