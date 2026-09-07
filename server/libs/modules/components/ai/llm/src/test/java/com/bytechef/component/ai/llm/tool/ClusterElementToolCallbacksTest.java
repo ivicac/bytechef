@@ -19,7 +19,6 @@ package com.bytechef.component.ai.llm.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -39,11 +38,9 @@ import com.bytechef.platform.component.rule.ComponentRuleEnforcer.Decision;
 import com.bytechef.platform.component.rule.ComponentRuleEnforcer.ToolCall;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
-import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
@@ -53,7 +50,6 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 /**
  * @author Ivica Cardic
  */
-@ExtendWith(ObjectMapperSetupExtension.class)
 class ClusterElementToolCallbacksTest {
 
     private final AiAgentToolFacade aiAgentToolFacade = mock(AiAgentToolFacade.class);
@@ -62,6 +58,11 @@ class ClusterElementToolCallbacksTest {
     private final ClusterElementToolCallbacks clusterElementToolCallbacks =
         new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService, List.of());
 
+    /**
+     * The branch AiAgentUtilsTaskTool omitted. Ten of the thirteen aiAgentUtils tool elements are
+     * ToolCallbackProviderFunction, so without this branch a subagent received a facade-built FunctionToolCallback --
+     * whose input schema comes from the element's parameters rather than the provider -- instead of the real tools.
+     */
     @Test
     void testProviderFunctionElementReturnsTheProvidersCallbacks() {
         ToolCallback providerToolCallback = mock(ToolCallback.class);
@@ -108,7 +109,7 @@ class ClusterElementToolCallbacksTest {
             .thenReturn(new Object());
         when(
             aiAgentToolFacade.getFunctionToolCallback(
-                any(ClusterElement.class), any(ComponentConnection.class), anyBoolean()))
+                any(ClusterElement.class), any(ComponentConnection.class), any(ActionContext.class)))
                     .thenReturn(facadeToolCallback);
 
         List<ToolCallback> toolCallbacks = clusterElementToolCallbacks.build(
@@ -146,7 +147,7 @@ class ClusterElementToolCallbacksTest {
         when(componentConnection.connectionId()).thenReturn(42L);
         when(
             aiAgentToolFacade.getFunctionToolCallback(
-                any(ClusterElement.class), any(ComponentConnection.class), anyBoolean()))
+                any(ClusterElement.class), any(ComponentConnection.class), any(ActionContext.class)))
                     .thenReturn(facadeToolCallback);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(new Decision.Allow());
 
@@ -170,10 +171,6 @@ class ClusterElementToolCallbacksTest {
             .connectionId()).isEqualTo(42L);
     }
 
-    /**
-     * A provider that throws must fail with a message naming the element, not with the bare IllegalStateException the
-     * task tool's copy produced.
-     */
     @Test
     void testInitializationFailureNamesTheClusterElement() {
         ToolCallbackProviderFunction toolCallbackProviderFunction = (
@@ -187,16 +184,10 @@ class ClusterElementToolCallbacksTest {
 
         ActionContext actionContext = mock(ActionContext.class);
 
-        try {
-            clusterElementToolCallbacks.build(
-                clusterElement("aiAgentUtils/v1/grepTool", "grepTool_1"), Map.of(), actionContext, List.of());
-
-            assertThat(false)
-                .as("expected an IllegalStateException")
-                .isTrue();
-        } catch (IllegalStateException illegalStateException) {
-            assertThat(illegalStateException.getMessage()).contains("grepTool", "aiAgentUtils", "boom");
-        }
+        assertThatThrownBy(() -> clusterElementToolCallbacks.build(
+            clusterElement("aiAgentUtils/v1/grepTool", "grepTool_1"), Map.of(), actionContext))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContainingAll("grepTool", "aiAgentUtils", "boom");
     }
 
     /**
@@ -216,7 +207,7 @@ class ClusterElementToolCallbacksTest {
         RuleEnforcingToolCallback ruleEnforcingToolCallback = new RuleEnforcingToolCallback(
             innerToolCallback, clusterElement("slack/v1/sendMessage", "slack_1"), List.of(componentRuleEnforcer), null,
             mock(ActionContextAware.class, withSettings().extraInterfaces(ActionContext.class)),
-            List.of(), Map.of(), clusterElementDefinitionService, null);
+            List.of(), Map.of(), clusterElementDefinitionService, null, null);
 
         // Stands in for the gate: a delegating wrapper sitting over an already-governed callback.
         DelegatingToolCallback delegatingToolCallback = new DelegatingToolCallback() {
