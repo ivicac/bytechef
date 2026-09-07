@@ -25,6 +25,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -485,17 +486,24 @@ class SensitiveDataRedactorTest {
             .isEmpty();
     }
 
+    /**
+     * Why the detector raises the Error directly rather than through a pattern: the {@code catch (StackOverflowError)}
+     * branch exists because a detector CAN overflow the stack instead of throwing a RuntimeException -- measured on
+     * this JVM, {@code (a|aa)+$} over 4,000 characters does it in about 8ms, faster than any useful deadline. But
+     * whether a given JVM, stack size and JIT state actually overflow on a given input is not ours to control, and
+     * driving this through a real pattern made the test flaky: it failed once and passed on re-run in the same session.
+     * The property under test is the redactor's contract -- an Error from one detector is recorded and the pass
+     * continues -- not the regex engine's behaviour, which
+     * {@link #testAPathologicalPatternIsCutOffAndReportedAsATimeout} still exercises for real against a deadline.
+     */
     @Test
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     void testAStackOverflowInADetectorDoesNotKillThePass() {
-        // Measured, not hypothetical: (a|aa)+$ over 4,000 characters overflows the stack in about 8ms on this JVM --
-        // faster than any useful deadline, and an Error, so the RuntimeException catch never saw it. Left uncaught it
-        // takes the guarded call down with it.
         RecordingMetrics metrics = new RecordingMetrics();
         SensitiveDataRedactor redactor = new SensitiveDataRedactor(
             List.of(
                 fixed("cheap", true, SensitiveSpan.of(SensitiveKind.PII, "EMAIL_ADDRESS", 0, 3)),
-                runaway("deep", "(a|aa)+$")),
+                throwing("deep", StackOverflowError::new)),
             new SensitiveDataRedactor.DetectionBounds(Duration.ofSeconds(30), Integer.MAX_VALUE));
 
         List<SensitiveSpan> spans = redactor.detectCandidates("a".repeat(4000) + "b", metrics);
@@ -505,10 +513,34 @@ class SensitiveDataRedactorTest {
     }
 
     /**
+     * A detector that always raises the supplied {@link Error}, so a test can reach a catch branch that exists for a
+     * condition the JVM only produces under circumstances a test cannot pin down.
+     */
+    private static SensitiveDataDetector throwing(String name, Supplier<? extends Error> errorSupplier) {
+        return new SensitiveDataDetector() {
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public List<SensitiveSpan> detect(String text) {
+                throw errorSupplier.get();
+            }
+
+            @Override
+            public List<SensitiveSpan> detect(String text, MatchDeadline deadline) {
+                throw errorSupplier.get();
+            }
+        };
+    }
+
+    /**
      * A detector running one supplied pattern under whatever deadline it is handed.
      *
      * <p>
-     * The patterns the two tests above pass in were chosen by MEASUREMENT, not reputation. Several textbook ReDoS
+     * The pattern the timeout test above passes in was chosen by MEASUREMENT, not reputation. Several textbook ReDoS
      * patterns -- {@code (a+)+$}, {@code (a*)*b}, {@code ([a-zA-Z]+)*$} -- do not explode in this JVM's engine at any
      * input length worth testing. {@code (x+x+)+y} runs about three seconds on 1,000 characters; {@code (a|aa)+$}
      * overflows the stack on 4,000. Substituting a more famous pattern would make those tests vacuous.
