@@ -134,7 +134,8 @@ class AbstractAiAgentChatActionResumeGateTest {
                 .description("Send a Slack message")
                 .inputSchema("{}")
                 .build());
-        when(aiAgentToolFacade.getFunctionToolCallback(any(), anyMap(), eq(false))).thenReturn(toolCallback);
+        when(aiAgentToolFacade.getFunctionToolCallback(any(), anyMap(), any(ActionContext.class)))
+            .thenReturn(toolCallback);
     }
 
     @Test

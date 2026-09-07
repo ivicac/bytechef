@@ -18,7 +18,6 @@ package com.bytechef.component.ai.llm.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -112,7 +111,7 @@ class ClusterElementToolCallbacksTest {
             .thenReturn(new Object());
         when(
             aiAgentToolFacade.getFunctionToolCallback(
-                any(ClusterElement.class), any(ComponentConnection.class), anyBoolean()))
+                any(ClusterElement.class), any(ComponentConnection.class), any(ActionContext.class)))
                     .thenReturn(facadeToolCallback);
 
         List<ToolCallback> toolCallbacks = clusterElementToolCallbacks.build(
@@ -150,7 +149,7 @@ class ClusterElementToolCallbacksTest {
         when(componentConnection.connectionId()).thenReturn(42L);
         when(
             aiAgentToolFacade.getFunctionToolCallback(
-                any(ClusterElement.class), any(ComponentConnection.class), anyBoolean()))
+                any(ClusterElement.class), any(ComponentConnection.class), any(ActionContext.class)))
                     .thenReturn(facadeToolCallback);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(new Decision.Allow());
 

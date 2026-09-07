@@ -31,6 +31,7 @@ import com.bytechef.platform.component.ComponentDefinitionRegistry;
 import com.bytechef.platform.component.context.ContextFactory;
 import com.bytechef.platform.component.definition.LogEntryBufferAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +52,10 @@ public class ActionDefinitionServiceTest {
         ComponentDefinitionRegistry componentDefinitionRegistry = mock(ComponentDefinitionRegistry.class);
         ContextFactory contextFactory = mock(ContextFactory.class);
 
-        actionDefinitionService = new ActionDefinitionServiceImpl(componentDefinitionRegistry, contextFactory);
+        // No visibility providers: these tests are about perform/resume dispatch, and an empty provider list leaves
+        // every component visible (allMatch over an empty stream), so visibility cannot be what decides them.
+        actionDefinitionService = new ActionDefinitionServiceImpl(
+            componentDefinitionRegistry, contextFactory, List.of());
 
         actionContext = mock(ActionContext.class, withSettings().extraInterfaces(LogEntryBufferAware.class));
         actionDefinition = mock(com.bytechef.component.definition.ActionDefinition.class);

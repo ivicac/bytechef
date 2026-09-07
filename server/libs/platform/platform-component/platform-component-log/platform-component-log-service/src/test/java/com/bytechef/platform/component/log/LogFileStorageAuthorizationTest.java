@@ -54,10 +54,10 @@ class LogFileStorageAuthorizationTest {
 
     @Test
     void testStoreLogEntryIsNotGated() {
-        Method match = findMethod("storeLogEntry");
+        Method match = findMethod("storeLogEntries");
 
         assertThat(match.isAnnotationPresent(PreAuthorize.class))
-            .as("worker write path storeLogEntry must NOT carry @PreAuthorize")
+            .as("worker write path storeLogEntries must NOT carry @PreAuthorize")
             .isFalse();
     }
 
