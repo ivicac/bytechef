@@ -18,7 +18,9 @@ package com.bytechef.automation.workflow.execution.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.automation.workflow.execution.security.TriggerExecutionOwnershipResolver;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -59,6 +61,49 @@ class ProjectWorkflowExecutionFacadeAuthorizationTest {
         assertExpression(
             "getWorkflowExecutions",
             "hasWorkspaceScopeInEnvironmentId(#workspaceId, 'EXECUTION_VIEW', #environmentId)");
+    }
+
+    /**
+     * The trigger-row read keys on {@code triggerExecutionId}, not on a job id: the rows this endpoint serves are
+     * precisely the trigger executions that never produced a job, so {@code 'Job'} could not resolve them. The
+     * {@code 'TriggerExecution'} token resolves trigger execution &rarr; project deployment &rarr; project &rarr;
+     * workspace instead.
+     */
+    @Test
+    void testGetTriggerExecutionWorkflowExecutionRequiresExecutionView() {
+        assertExpression(
+            "getTriggerExecutionWorkflowExecution",
+            "hasPermission(#triggerExecutionId, 'TriggerExecution', 'EXECUTION_VIEW')");
+    }
+
+    /**
+     * {@code #triggerExecutionId} is resolved by name at runtime against the method's real parameter name. Renaming the
+     * parameter would make the expression evaluate against null rather than fail loudly, so bind the two together here.
+     * Requires {@code -parameters}, which the build sets; asserted rather than passed over vacuously.
+     */
+    @Test
+    void testTriggerExecutionGateSpelArgumentNameMatchesTheMethodParameter() throws NoSuchMethodException {
+        Method method = ProjectWorkflowExecutionFacadeImpl.class.getMethod(
+            "getTriggerExecutionWorkflowExecution", long.class);
+
+        assertThat(method.getParameters()[0].isNamePresent())
+            .as("compiled without -parameters, so SpEL argument names cannot be verified")
+            .isTrue();
+
+        assertThat(method.getParameters())
+            .extracting(Parameter::getName)
+            .contains("triggerExecutionId");
+    }
+
+    /**
+     * The {@code 'TriggerExecution'} token is only a live gate while a resolver claims that exact resourceType: an
+     * unclaimed type makes {@code hasResourceScope} return false for every caller, turning the read into a blanket 403
+     * that a tenant admin (who short-circuits earlier) would never notice. Bind token and resolver together.
+     */
+    @Test
+    void testTriggerExecutionTokenIsClaimedByAResolver() {
+        assertThat(new TriggerExecutionOwnershipResolver(null, null, null).resourceType())
+            .isEqualTo("TriggerExecution");
     }
 
     private static void assertExpression(String methodName, String expression) {
