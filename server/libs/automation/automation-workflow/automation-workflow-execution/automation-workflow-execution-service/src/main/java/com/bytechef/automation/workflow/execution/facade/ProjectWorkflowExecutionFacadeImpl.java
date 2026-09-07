@@ -179,6 +179,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#triggerExecutionId, 'TriggerExecution', 'EXECUTION_VIEW')")
     public WorkflowExecutionDTO getTriggerExecutionWorkflowExecution(long triggerExecutionId) {
         TriggerExecution triggerExecution = triggerExecutionService.getTriggerExecution(triggerExecutionId);
 
