@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -43,6 +44,8 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -51,6 +54,7 @@ import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.constant.PlatformType;
@@ -63,6 +67,7 @@ import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
 import com.bytechef.platform.workflow.execution.service.WorkflowExecutionRowService;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -71,6 +76,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -113,7 +119,8 @@ class ProjectWorkflowExecutionFacadeTriggerRowsTest {
 
         facade = new ProjectWorkflowExecutionFacadeImpl(
             componentDefinitionService, mock(ContextService.class), mock(Evaluator.class),
-            mock(EnvironmentService.class), workflowExecutionRowService, mock(JobService.class),
+            environmentScopeFilterHoldingEveryEnvironment(), mock(EnvironmentService.class),
+            workflowExecutionRowService, mock(JobService.class), permissionServiceGrantingEveryResource(),
             mock(PrincipalJobService.class), mock(ProjectFacade.class), projectDeploymentService, projectService,
             projectWorkflowService, mock(TaskDispatcherDefinitionService.class), mock(TaskExecutionService.class),
             mock(TaskFileStorage.class), triggerExecutionService, mock(TriggerFileStorage.class), workflowService);
@@ -260,5 +267,41 @@ class ProjectWorkflowExecutionFacadeTriggerRowsTest {
             .title());
         assertEquals(WORKFLOW_ID, detail.workflow()
             .getId());
+    }
+
+    /**
+     * A real {@link EnvironmentScopeFilter} over a caller holding the scope in every environment, so the production
+     * filtering code runs but narrows nothing — this class is about which rows the query yields, not about environment
+     * narrowing.
+     */
+    private static EnvironmentScopeFilter environmentScopeFilterHoldingEveryEnvironment() {
+        PermissionService permissionService = mock(PermissionService.class);
+
+        lenient()
+            .when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PermissionService> permissionServiceProvider = mock(ObjectProvider.class);
+
+        lenient()
+            .when(permissionServiceProvider.getIfAvailable())
+            .thenReturn(permissionService);
+
+        return new EnvironmentScopeFilter(permissionServiceProvider);
+    }
+
+    /**
+     * The facade denies a named filter id it cannot resolve, so a plain mock would 403 every listing here. This class
+     * is about which rows the query yields, not about who may see them.
+     */
+    private static PermissionService permissionServiceGrantingEveryResource() {
+        PermissionService permissionService = mock(PermissionService.class);
+
+        lenient()
+            .when(permissionService.hasResourceScope(any(), anyString(), anyString()))
+            .thenReturn(true);
+
+        return permissionService;
     }
 }

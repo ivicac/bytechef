@@ -49,6 +49,7 @@ import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.file.storage.TriggerFileStorage;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
+import com.bytechef.platform.workflow.execution.service.WorkflowExecutionRowService;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import java.util.EnumSet;
 import java.util.List;
@@ -76,6 +77,7 @@ class ProjectWorkflowExecutionFacadeVisibilityTest {
 
     private final PermissionService permissionService = mock(PermissionService.class);
     private final PrincipalJobService principalJobService = mock(PrincipalJobService.class);
+    private final WorkflowExecutionRowService workflowExecutionRowService = mock(WorkflowExecutionRowService.class);
     private final ProjectDeploymentService projectDeploymentService = mock(ProjectDeploymentService.class);
     private final ProjectService projectService = mock(ProjectService.class);
     private final ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
@@ -86,7 +88,8 @@ class ProjectWorkflowExecutionFacadeVisibilityTest {
     void setUp() {
         projectWorkflowExecutionFacade = new ProjectWorkflowExecutionFacadeImpl(
             mock(ComponentDefinitionService.class), mock(ContextService.class), mock(Evaluator.class),
-            environmentScopeFilterHoldingEveryEnvironment(), mock(EnvironmentService.class), mock(JobService.class),
+            environmentScopeFilterHoldingEveryEnvironment(), mock(EnvironmentService.class),
+            workflowExecutionRowService, mock(JobService.class),
             permissionService, principalJobService,
             mock(ProjectFacade.class), projectDeploymentService, projectService,
             projectWorkflowService, mock(TaskDispatcherDefinitionService.class), mock(TaskExecutionService.class),
@@ -168,8 +171,8 @@ class ProjectWorkflowExecutionFacadeVisibilityTest {
                     projectDeployment(DEVELOPMENT_DEPLOYMENT_ID, Environment.DEVELOPMENT),
                     projectDeployment(PRODUCTION_DEPLOYMENT_ID, Environment.PRODUCTION)));
         when(
-            principalJobService.getJobIds(
-                any(), any(), any(), anyList(), any(), anyList(), anyBoolean(), anyInt()))
+            workflowExecutionRowService.getWorkflowExecutionRows(
+                any(), any(), any(), anyList(), any(), anyList(), anyBoolean(), anyList(), anyInt()))
                     .thenReturn(Page.empty());
 
         ProjectWorkflowExecutionFacadeImpl developmentOnlyFacade = facadeHolding(EnumSet.of(Environment.DEVELOPMENT));
@@ -180,8 +183,9 @@ class ProjectWorkflowExecutionFacadeVisibilityTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Long>> projectDeploymentIdsCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(principalJobService).getJobIds(
-            any(), any(), any(), projectDeploymentIdsCaptor.capture(), any(), anyList(), anyBoolean(), anyInt());
+        verify(workflowExecutionRowService).getWorkflowExecutionRows(
+            any(), any(), any(), projectDeploymentIdsCaptor.capture(), any(), anyList(), anyBoolean(), anyList(),
+            anyInt());
 
         // Both halves matter: the Production deployment must be absent, and the Development one present. A narrowing
         // that asked for nothing at all would also omit Production, and would empty the executions page for everyone.
@@ -216,7 +220,8 @@ class ProjectWorkflowExecutionFacadeVisibilityTest {
         return new ProjectWorkflowExecutionFacadeImpl(
             mock(ComponentDefinitionService.class), mock(ContextService.class), mock(Evaluator.class),
             new EnvironmentScopeFilter(permissionServiceProvider), mock(EnvironmentService.class),
-            mock(JobService.class), permissionService, principalJobService, mock(ProjectFacade.class),
+            workflowExecutionRowService, mock(JobService.class), permissionService, principalJobService,
+            mock(ProjectFacade.class),
             projectDeploymentService, projectService, projectWorkflowService,
             mock(TaskDispatcherDefinitionService.class), mock(TaskExecutionService.class), mock(TaskFileStorage.class),
             mock(TriggerExecutionService.class), mock(TriggerFileStorage.class), mock(WorkflowService.class));
