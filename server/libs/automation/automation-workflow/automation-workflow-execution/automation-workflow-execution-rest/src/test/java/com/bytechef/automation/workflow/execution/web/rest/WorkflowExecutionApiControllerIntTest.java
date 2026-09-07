@@ -77,6 +77,16 @@ class WorkflowExecutionApiControllerIntTest {
     }
 
     @Test
+    void getTriggerExecutionWorkflowExecutionPassesTheTriggerExecutionId() throws Exception {
+        mockMvc.perform(
+            get("/internal/workflow-executions/trigger-executions/4200")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+
+        verify(projectWorkflowExecutionFacade).getTriggerExecutionWorkflowExecution(4200L);
+    }
+
+    @Test
     void getWorkflowExecutionIsNotLazyByDefault() throws Exception {
         mockMvc.perform(
             get("/internal/workflow-executions/5")
