@@ -109,11 +109,15 @@ public class ComponentDefinitionServiceTest {
 
         return new ComponentDefinitionServiceImpl(
             List.of(new AllComponentDefinitionFilter()), componentDefinitionRegistry,
-            Mockito.mock(ContextFactory.class));
+            Mockito.mock(ContextFactory.class), List.of());
     }
 
     private static class AllComponentDefinitionFilter implements ComponentDefinitionFilter {
 
+        /**
+         * Passes every component through: these tests are about version selection and search, so the filter must not be
+         * what decides which components they see.
+         */
         @Override
         public boolean filter(ComponentDefinition componentDefinition) {
             return true;

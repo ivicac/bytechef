@@ -435,12 +435,12 @@ public class TriggerDefinitionServiceTest {
                 List.of(), Map.of(), false);
 
         when(mockTriggerDefinition.getPoll()).thenReturn(Optional.of(mockPollFunction));
-        when(mockTriggerDefinition.getBatch()).thenReturn(Optional.of(false));
+        when(mockTriggerDefinition.getBatch()).thenReturn(false);
         when(componentDefinitionRegistry.getTriggerDefinition("testComponent", 1, "testTrigger"))
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         triggerDefinitionService.executeTrigger(
             "testComponent", 1, "testTrigger", null, null, 4200L, Collections.emptyMap(), null, null, null, null,
