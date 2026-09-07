@@ -318,8 +318,7 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
                     } else if (basePerformFunction instanceof MultipleConnectionsStreamPerformFunction performFunction) {
                         result = executeMultipleConnectionsStreamPerform(
                             performFunction, inputParameters, componentConnections, extensions, actionContext);
-                    } else if (basePerformFunction instanceof MultipleConnectionsWebSocketPerformFunction
-                        performFunction) {
+                    } else if (basePerformFunction instanceof MultipleConnectionsWebSocketPerformFunction performFunction) {
 
                         result = executeMultipleConnectionsWebSocketPerform(
                             performFunction, inputParameters, componentConnections, extensions, actionContext);
