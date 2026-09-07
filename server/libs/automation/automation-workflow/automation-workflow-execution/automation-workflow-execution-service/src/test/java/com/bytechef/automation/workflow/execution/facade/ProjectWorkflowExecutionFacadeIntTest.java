@@ -54,6 +54,9 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.execution.service.TaskExecutionServiceImpl;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.atlas.file.storage.TaskFileStorageImpl;
+import com.bytechef.automation.configuration.audit.ProjectAuditPublisher;
+import com.bytechef.automation.configuration.audit.ProjectDeploymentAuditPublisher;
+import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditPublisher;
 import com.bytechef.automation.configuration.callback.ProjectCallback;
 import com.bytechef.automation.configuration.callback.ProjectWorkflowCallback;
 import com.bytechef.automation.configuration.domain.Project;
@@ -65,6 +68,9 @@ import com.bytechef.automation.configuration.ownership.ProjectDeploymentOwner;
 import com.bytechef.automation.configuration.ownership.ProjectDeploymentOwnerContributor;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
+import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
+import com.bytechef.automation.configuration.security.ProjectVisibilityPolicy;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentServiceImpl;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -93,6 +99,7 @@ import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.service.EnvironmentServiceImpl;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TriggerFileStorage;
+import com.bytechef.platform.security.domain.ResourceVisibilityPolicyRegistry;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.execution.domain.TriggerExecution;
 import com.bytechef.platform.workflow.execution.dto.FocusPathElementDTO;
@@ -117,6 +124,7 @@ import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -200,6 +208,9 @@ class ProjectWorkflowExecutionFacadeIntTest {
     @MockitoSpyBean
     private JobService jobService;
 
+    @MockitoBean
+    private PermissionService permissionService;
+
     @Autowired
     private PrincipalJobService principalJobService;
 
@@ -253,6 +264,12 @@ class ProjectWorkflowExecutionFacadeIntTest {
         when(componentDefinitionService.hasComponentDefinition(anyString(), any())).thenReturn(true);
         when(componentDefinitionService.getComponentDefinition(anyString(), any())).thenReturn(componentDefinition);
         when(projectFacade.getWorkspaceProjectWorkflows(anyLong())).thenReturn(List.of());
+
+        // The facade narrows by environment and denies a named filter id it cannot resolve; this class is about which
+        // rows the queries yield, not about who may see them, so the caller holds every scope in every environment.
+        when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
+        when(permissionService.hasResourceScope(any(), anyString(), anyString())).thenReturn(true);
 
         workspace = workspaceRepository.save(new Workspace("execution-workspace"));
     }
@@ -1157,12 +1174,12 @@ class ProjectWorkflowExecutionFacadeIntTest {
     @Configuration
     @EnableAutoConfiguration
     @Import({
-        CacheConfiguration.class, ContextServiceImpl.class, EnvironmentServiceImpl.class, JacksonConfiguration.class,
-        LiquibaseConfiguration.class, PostgreSQLContainerConfiguration.class,
-        PrincipalJobServiceImpl.class, ProjectCallback.class, ProjectDeploymentServiceImpl.class,
-        ProjectServiceImpl.class,
-        ProjectWorkflowCallback.class,
-        ProjectWorkflowExecutionFacadeImpl.class, ProjectWorkflowServiceImpl.class,
+        CacheConfiguration.class, ContextServiceImpl.class, EnvironmentScopeFilter.class, EnvironmentServiceImpl.class,
+        JacksonConfiguration.class, LiquibaseConfiguration.class, PostgreSQLContainerConfiguration.class,
+        PrincipalJobServiceImpl.class, ProjectAuditPublisher.class, ProjectCallback.class,
+        ProjectDeploymentAuditPublisher.class, ProjectDeploymentServiceImpl.class, ProjectServiceImpl.class,
+        ProjectWorkflowAuditPublisher.class, ProjectWorkflowCallback.class, ProjectWorkflowExecutionFacadeImpl.class,
+        ProjectWorkflowServiceImpl.class,
         TaskExecutionServiceImpl.class, TriggerExecutionServiceImpl.class, WorkflowExecutionRowRepositoryImpl.class,
         WorkflowExecutionRowServiceImpl.class, WorkflowServiceImpl.class
     })
@@ -1189,6 +1206,11 @@ class ProjectWorkflowExecutionFacadeIntTest {
         @Bean
         JobService jobService(JobRepository jobRepository) {
             return new JobServiceImpl(jobRepository);
+        }
+
+        @Bean
+        ResourceVisibilityPolicyRegistry resourceVisibilityPolicyRegistry() {
+            return new ResourceVisibilityPolicyRegistry(List.of(new ProjectVisibilityPolicy()));
         }
 
         @Bean

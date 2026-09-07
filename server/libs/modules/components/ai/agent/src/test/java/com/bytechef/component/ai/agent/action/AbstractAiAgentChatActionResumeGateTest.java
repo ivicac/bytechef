@@ -43,14 +43,17 @@ import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsTo
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
 import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -134,7 +137,8 @@ class AbstractAiAgentChatActionResumeGateTest {
                 .description("Send a Slack message")
                 .inputSchema("{}")
                 .build());
-        when(aiAgentToolFacade.getFunctionToolCallback(any(), anyMap(), eq(false))).thenReturn(toolCallback);
+        when(aiAgentToolFacade.getFunctionToolCallback(any(), anyMap(), any(), any(ActionContext.class)))
+            .thenReturn(toolCallback);
     }
 
     @Test
@@ -309,6 +313,129 @@ class AbstractAiAgentChatActionResumeGateTest {
         assertThat(resumeData).contains("message sent: ts=1721");
     }
 
+    @Test
+    void testRejectedScopesTheApprovalDeniedEventToTheRunEnvironmentAndWorkspace() throws Exception {
+        when(context.getEnvironmentId()).thenReturn(2L);
+        when(context.getJobPrincipalId()).thenReturn(5L);
+        when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+        ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver = mock(ToolInvocationWorkspaceResolver.class);
+
+        when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L)).thenReturn(9L);
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(
+            toolExecutionRecorder, toolInvocationWorkspaceResolver);
+
+        auditedAction.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(false, "not now"), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolExecutionEvent> eventArgumentCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
+
+        verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
+
+        ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
+
+        assertThat(toolExecutionEvent.environment()).isEqualTo(2);
+        assertThat(toolExecutionEvent.workspaceId()).isEqualTo(9L);
+    }
+
+    @Test
+    void testRejectedRecordsTheEnvironmentWithoutAWorkspaceWhenNoResolverIsPresent() throws Exception {
+        when(context.getEnvironmentId()).thenReturn(1L);
+        when(context.getJobPrincipalId()).thenReturn(5L);
+        when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder, null);
+
+        auditedAction.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(false, "not now"), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolExecutionEvent> eventArgumentCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
+
+        verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
+
+        ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
+
+        assertThat(toolExecutionEvent.environment()).isEqualTo(1);
+        assertThat(toolExecutionEvent.workspaceId()).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testApprovedExecutionScopesTheAuditEventToTheRunEnvironmentAndWorkspace() throws Exception {
+        when(context.getEnvironmentId()).thenReturn(2L);
+        when(context.getJobPrincipalId()).thenReturn(5L);
+        when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+        ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver = mock(ToolInvocationWorkspaceResolver.class);
+
+        when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L)).thenReturn(9L);
+        when(toolExecutionRecorder.record(any(ToolExecutionEvent.Builder.class), any(Supplier.class)))
+            .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(
+            toolExecutionRecorder, toolInvocationWorkspaceResolver);
+
+        auditedAction.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, null), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolExecutionEvent.Builder> builderArgumentCaptor = ArgumentCaptor.forClass(
+            ToolExecutionEvent.Builder.class);
+
+        verify(toolExecutionRecorder).record(builderArgumentCaptor.capture(), any(Supplier.class));
+
+        ToolExecutionEvent.Builder builder = builderArgumentCaptor.getValue();
+
+        ToolExecutionEvent toolExecutionEvent = builder.build();
+
+        assertThat(toolExecutionEvent.environment()).isEqualTo(2);
+        assertThat(toolExecutionEvent.workspaceId()).isEqualTo(9L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testApprovedToolStillRunsWhenTheWorkspaceResolverThrows() throws Exception {
+        when(context.getEnvironmentId()).thenReturn(2L);
+        when(context.getJobPrincipalId()).thenReturn(5L);
+        when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+        ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver = mock(ToolInvocationWorkspaceResolver.class);
+
+        when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L))
+            .thenThrow(new IllegalStateException("workspace lookup failed"));
+        when(toolExecutionRecorder.record(any(ToolExecutionEvent.Builder.class), any(Supplier.class)))
+            .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(
+            toolExecutionRecorder, toolInvocationWorkspaceResolver);
+
+        String resumeData = auditedAction.resolveGatedToolResumeData(
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, null), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolExecutionEvent.Builder> builderArgumentCaptor = ArgumentCaptor.forClass(
+            ToolExecutionEvent.Builder.class);
+
+        verify(toolExecutionRecorder).record(builderArgumentCaptor.capture(), any(Supplier.class));
+
+        ToolExecutionEvent toolExecutionEvent = builderArgumentCaptor.getValue()
+            .build();
+
+        assertThat(resumeData).contains("message sent: ts=1721");
+        assertThat(toolExecutionEvent.environment()).isEqualTo(2);
+        assertThat(toolExecutionEvent.workspaceId()).isNull();
+    }
+
     /**
      * The composition the spec asked for and nobody had pinned: a gate over one tool, with rules switched on. The gate
      * is itself a TOOLS element, so its element passes through {@code ClusterElementToolCallbacks.build} a second time
@@ -329,7 +456,7 @@ class AbstractAiAgentChatActionResumeGateTest {
         AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
             new ClusterElementToolCallbacks(
                 aiAgentToolFacade, clusterElementDefinitionService, List.of(componentRuleEnforcer)),
-            clusterElementDefinitionService, null);
+            clusterElementDefinitionService, null, null);
 
         ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateClusterElementDefinition =
             approvalGateTool.clusterElementDefinition;
@@ -365,6 +492,25 @@ class AbstractAiAgentChatActionResumeGateTest {
         return new AbstractAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService,
             new AgentToolCallingManagers(mock(ToolCallingManager.class)), toolExecutionRecorderObjectProvider) {};
+    }
+
+    @SuppressWarnings("unchecked")
+    private AbstractAiAgentChatAction createAuditedAction(
+        ToolExecutionRecorder toolExecutionRecorder,
+        @Nullable ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver) {
+
+        ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider = mock(ObjectProvider.class);
+        ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider = mock(
+            ObjectProvider.class);
+
+        when(toolExecutionRecorderObjectProvider.getIfAvailable()).thenReturn(toolExecutionRecorder);
+        when(toolInvocationWorkspaceResolverObjectProvider.getIfAvailable()).thenReturn(
+            toolInvocationWorkspaceResolver);
+
+        return new AbstractAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService,
+            new AgentToolCallingManagers(mock(ToolCallingManager.class)), toolExecutionRecorderObjectProvider, null,
+            null, null, toolInvocationWorkspaceResolverObjectProvider, List.of()) {};
     }
 
     private static Parameters continueParameters(String gatedToolName) {

@@ -46,8 +46,8 @@ class TriggerDefinitionServiceImplVisibilityTest {
 
         assertThatThrownBy(
             () -> service.executeTrigger(
-                "slack", 1, "newMessage", 1L, "uuid", Map.of(), null, null, null, 1L, PlatformType.AUTOMATION,
-                false))
+                "slack", 1, "newMessage", 1L, "uuid", null, Map.of(), null, null, null, 1L,
+                PlatformType.AUTOMATION, false))
                     .isInstanceOf(ConfigurationException.class)
                     .hasMessageContaining("disabled");
     }
@@ -74,8 +74,8 @@ class TriggerDefinitionServiceImplVisibilityTest {
         ConfigurationException configurationException = assertThrows(
             ConfigurationException.class,
             () -> service.executeTrigger(
-                "slack", 1, "newMessage", 1L, "uuid", Map.of(), null, null, null, 1L, PlatformType.AUTOMATION,
-                false));
+                "slack", 1, "newMessage", 1L, "uuid", null, Map.of(), null, null, null, 1L,
+                PlatformType.AUTOMATION, false));
 
         assertThat(configurationException.getErrorKey())
             .isEqualTo(TriggerDefinitionErrorType.TRIGGER_DISABLED.getErrorKey());

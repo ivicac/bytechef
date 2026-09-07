@@ -393,7 +393,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         TriggerOutput output = triggerDefinitionService.executeTrigger(
             "testComponent", 1, "testTrigger", null, null, null, Collections.emptyMap(), Map.of("cursor", 0), null,
@@ -496,7 +496,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         triggerDefinitionService.executeTrigger(
             "testComponent", 1, "testTrigger", null, null, 4200L, Collections.emptyMap(), null, null, null, null,
@@ -560,7 +560,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         WebhookValidateResponse webhookValidateResponse = triggerDefinitionService.executeWebhookValidate(
             "testComponent", 1, "testTrigger", Collections.emptyMap(), createWebhookRequest(),
@@ -593,7 +593,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         WebhookValidateResponse webhookValidateResponse = triggerDefinitionService.executeWebhookValidate(
             "testComponent", 1, "testTrigger", Collections.emptyMap(), createWebhookRequest(),
@@ -623,7 +623,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         IllegalStateException illegalStateException = assertThrows(
             IllegalStateException.class,
@@ -674,7 +674,7 @@ public class TriggerDefinitionServiceTest {
             .thenReturn(mockTriggerDefinition);
 
         TriggerDefinitionServiceImpl triggerDefinitionService = new TriggerDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, eventPublisher);
+            componentDefinitionRegistry, contextFactory, eventPublisher, List.of());
 
         return triggerDefinitionService.executeTrigger(
             "testComponent", 1, "testTrigger", null, null, null, Collections.emptyMap(), null, webhookRequest, null,

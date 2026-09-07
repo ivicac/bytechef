@@ -70,6 +70,6 @@ class AbstractTriggerHandlerDryRunTest {
         assertThat(triggerOutput.batch()).isFalse();
 
         verify(triggerDefinitionFacade, never()).executeTrigger(
-            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean());
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 }

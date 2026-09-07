@@ -55,6 +55,7 @@ import com.bytechef.atlas.worker.task.handler.TaskHandler;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.ai.agent.AiAgentComponentHandler;
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspensionStorage;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
@@ -282,8 +283,8 @@ class AiAgentChatActionIntTest {
             event -> {}, approvalTokensBeanFactory.getBeanProvider(ApprovalTokens.class),
             new JobFacadeImpl(
                 eventPublisher, contextService, jobService, taskExecutionService, taskFileStorage, workflowService),
-            jobService, meterRegistryBeanFactory.getBeanProvider(MeterRegistry.class),
-            TransactionOperations.withoutTransaction(), taskExecutionService, taskStateFacade);
+            jobService, new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class), taskExecutionService,
+            TransactionOperations.withoutTransaction());
     }
 
     @Test
@@ -734,7 +735,9 @@ class AiAgentChatActionIntTest {
             AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
             ToolCallingManager toolCallingManager) {
 
-            return new AiAgentComponentHandler(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+            return new AiAgentComponentHandler(
+                aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
+                null, null, null, null, null, List.of());
         }
 
         @Bean
