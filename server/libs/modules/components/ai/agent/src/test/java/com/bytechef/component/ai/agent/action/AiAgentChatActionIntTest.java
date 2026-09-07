@@ -49,6 +49,7 @@ import com.bytechef.atlas.file.storage.TaskFileStorageImpl;
 import com.bytechef.atlas.worker.task.handler.TaskHandler;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.ai.agent.AiAgentComponentHandler;
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.definition.ActionContext;
@@ -81,6 +82,7 @@ import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.task.dispatcher.suspend.SuspendTaskDispatcherPreSendProcessor;
 import com.bytechef.task.dispatcher.suspend.completion.SuspendTaskCompletionHandler;
 import com.bytechef.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -219,7 +221,8 @@ class AiAgentChatActionIntTest {
         TaskCoordinator taskCoordinator = new TaskCoordinator(
             List.of(), List.of(), eventPublisher,
             new JobExecutor(
-                contextService, evaluator, taskDispatcherChain, taskExecutionService, taskFileStorage, workflowService),
+                contextService, evaluator, eventPublisher, jobService, taskDispatcherChain, taskExecutionService,
+                taskFileStorage, workflowService),
             jobService, new TaskCompletionHandlerChain(), taskDispatcherChain, taskExecutionService);
 
         asyncMessageBroker.receive(
@@ -239,7 +242,8 @@ class AiAgentChatActionIntTest {
             event -> {}, new StaticListableBeanFactory().getBeanProvider(ApprovalTokens.class),
             new JobFacadeImpl(
                 eventPublisher, contextService, jobService, taskExecutionService, taskFileStorage, workflowService),
-            jobService, TransactionOperations.withoutTransaction());
+            jobService, new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class), taskExecutionService,
+            TransactionOperations.withoutTransaction());
     }
 
     @Test
@@ -620,7 +624,9 @@ class AiAgentChatActionIntTest {
             AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
             ToolCallingManager toolCallingManager) {
 
-            return new AiAgentComponentHandler(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+            return new AiAgentComponentHandler(
+                aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
+                null, null, null, null, null, List.of());
         }
 
         @Bean

@@ -33,7 +33,9 @@ import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.mcp.service.McpToolServiceImpl;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,7 +59,9 @@ public class ConnectedUserIntegrationFacadeMcpToolsIntTestConfiguration {
     static final String COMPONENT_NAME = "mcpToolsTest";
 
     @Bean
-    ClusterElementDefinitionService clusterElementDefinitionService() {
+    ClusterElementDefinitionService clusterElementDefinitionService(
+        ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
+
         ActionDefinition getEmailActionDefinition = action("getEmail")
             .description("Get an email");
         ActionDefinition sendEmailActionDefinition = action("sendEmail")
@@ -78,7 +82,8 @@ public class ConnectedUserIntegrationFacadeMcpToolsIntTestConfiguration {
         ComponentDefinitionRegistry componentDefinitionRegistry = new ComponentDefinitionRegistry(
             applicationProperties, List.of(componentHandler), List::of, List.of());
 
-        return new ClusterElementDefinitionServiceImpl(componentDefinitionRegistry, null);
+        return new ClusterElementDefinitionServiceImpl(
+            componentDefinitionRegistry, null, List.of(), meterRegistryObjectProvider);
     }
 
     @Bean
