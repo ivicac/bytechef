@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
@@ -32,12 +33,16 @@ import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
-import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @version ee
@@ -60,16 +66,25 @@ class EmbeddedMcpToolFacadeTest {
     private final ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
     private final McpComponentService mcpComponentService = mock(McpComponentService.class);
 
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider =
+        (ObjectProvider<ApprovalTokens>) mock(ObjectProvider.class);
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
+        (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
+
     private final EmbeddedMcpToolFacade embeddedMcpToolFacade = new EmbeddedMcpToolFacade(
-        mock(ClusterElementDefinitionFacade.class), clusterElementDefinitionService,
+        approvalTokensObjectProvider, mock(ClusterElementDefinitionFacade.class), clusterElementDefinitionService,
         mock(ComponentDefinitionService.class), connectedUserService, mock(Evaluator.class),
         mock(IntegrationInstanceConfigurationService.class),
         mock(IntegrationInstanceConfigurationWorkflowService.class), mock(IntegrationInstanceService.class),
-        mock(IntegrationInstanceWorkflowService.class), mock(IntegrationService.class), mock(JobSyncExecutor.class),
+        mock(IntegrationInstanceWorkflowService.class), mock(IntegrationService.class),
+        mock(JobCompletionAwaiter.class), mock(JobResumeFacade.class), mock(JobService.class),
         mock(JwtTokenService.class), mcpComponentService,
         mock(McpIntegrationInstanceConfigurationWorkflowService.class), mock(McpIntegrationInstanceToolService.class),
-        mock(McpServerService.class), mock(PrincipalJobFacade.class), "http://localhost:8080",
-        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
+        mock(McpServerService.class), planLimitsProviderObjectProvider, mock(PrincipalJobFacade.class),
+        "http://localhost:8080", mock(TaskExecutionService.class), mock(TaskFileStorage.class),
+        mock(ToolExecutionRecorder.class), mock(WorkflowService.class));
 
     // The tool name is optional, so a tool configured without one still has to reach the model under a callable
     // name derived from the component and the cluster element.
@@ -113,6 +128,8 @@ class EmbeddedMcpToolFacadeTest {
     private ToolDefinition getToolDefinition(Map<String, Object> parameters) {
         McpTool mcpTool = new McpTool();
 
+        mcpTool.setEnabled(true);
+        mcpTool.setId(1L);
         mcpTool.setMcpComponentId(1L);
         mcpTool.setName("post");
         mcpTool.setParameters(parameters);
