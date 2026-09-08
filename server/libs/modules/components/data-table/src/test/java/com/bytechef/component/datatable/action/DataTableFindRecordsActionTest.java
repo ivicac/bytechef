@@ -19,11 +19,12 @@ package com.bytechef.component.datatable.action;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.RowFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
@@ -144,7 +145,9 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformEmitsFlatRows() throws Exception {
-        when(dataTableRowService.listRows(anyString(), anyInt(), anyInt(), anyLong()))
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
+        when(dataTableRowService.listRows(eq(dataTableRef), anyInt(), anyInt(), anyList(), anyList()))
             .thenReturn(
                 List.of(
                     new DataTableRow(1, Map.of("status", "BOT")), new DataTableRow(2, Map.of("status", "CLOSED"))));
@@ -154,6 +157,6 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
         assertEquals(
             List.of(Map.of("id", 1L, "status", "BOT"), Map.of("id", 2L, "status", "CLOSED")),
-            perform(actionDefinition, Map.of("table", "conversations")));
+            perform(actionDefinition, Map.of("table", BASE_NAME)));
     }
 }
