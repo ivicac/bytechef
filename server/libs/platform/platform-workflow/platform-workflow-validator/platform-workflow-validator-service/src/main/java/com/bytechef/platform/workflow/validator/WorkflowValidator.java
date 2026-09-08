@@ -38,7 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class WorkflowValidator {
 
     private static final String[] NESTED_TASK_ARRAY_PROPERTIES = new String[] {
-        "caseTrue", "caseFalse", "default", "main-branch", "on-error-branch", "tasks"
+        "caseTrue", "caseFalse", "default", "main-branch", "nodes", "on-error-branch", "tasks"
     };
 
     static final List<String> VALID_INPUT_TYPES = List.of(
@@ -678,6 +678,7 @@ public class WorkflowValidator {
     private static boolean isValidInputName(String name) {
         return INPUT_NAME_PATTERN.matcher(name)
             .matches();
+    }
 
     /**
      * Warns about tasks whose approval requests can only be delivered to the chat channel while the workflow does not
