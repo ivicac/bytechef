@@ -47,6 +47,7 @@ class FieldMappingDescriptorResolverTest {
           "label": "Sync contacts",
           "inputs": [
             {"name": "contactMapping", "label": "Contact Mapping", "type": "field_mapping", "objectName": "Contacts"},
+            {"name": "accountMapping", "label": "Account Mapping", "type": "field_mapping", "objectName": "Accounts"},
             {"name": "apiKey", "label": "API Key", "type": "string"}
           ],
           "tasks": []
@@ -102,6 +103,19 @@ class FieldMappingDescriptorResolverTest {
 
         assertTrue(exception.getMessage()
             .contains("embedded"), exception.getMessage());
+    }
+
+    @Test
+    void testRuntimeFailsWhenIntegrationInstanceIsMissing() {
+        ActionContextAware context = runtimeContext(PlatformType.EMBEDDED);
+
+        when(context.getJobPrincipalId()).thenReturn(null);
+
+        IllegalStateException exception = assertThrows(
+            IllegalStateException.class, () -> resolver.resolve("Contacts", context));
+
+        assertTrue(exception.getMessage()
+            .contains("integration instance"), exception.getMessage());
     }
 
     @Test
@@ -212,6 +226,27 @@ class FieldMappingDescriptorResolverTest {
             .getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID);
 
         assertEquals(EXPECTED, resolver.resolve("Contacts", editorContext()));
+    }
+
+    @Test
+    void testEditorFailsWhenTestValueIsKeyedUnderADifferentObjectName() {
+        String testValue = """
+            {"Contacts": {
+               "sampleMapping": {"objectType": "contacts", "mappings": []}
+            }}
+            """;
+
+        doReturn(Map.of("accountMapping", testValue))
+            .when(workflowTestConfigurationService)
+            .getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID);
+
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class, () -> resolver.resolve("Accounts", editorContext()));
+
+        assertTrue(exception.getMessage()
+            .contains("Accounts"), exception.getMessage());
+        assertTrue(exception.getMessage()
+            .contains("Contacts"), exception.getMessage());
     }
 
     @Test

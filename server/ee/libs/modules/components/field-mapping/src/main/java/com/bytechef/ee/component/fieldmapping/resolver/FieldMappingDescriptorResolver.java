@@ -120,27 +120,27 @@ public class FieldMappingDescriptorResolver {
 
         Object testValue = testInputs.get(workflowInput.getName());
 
-        Object sampleMapping = null;
-
-        if (testValue != null) {
-            Map<String, ?> root = toMap(testValue);
-
-            if (root.get(MAP_OBJECT_FIELDS) instanceof Map<?, ?> envelope) {
-                root = castMap(envelope);
-            }
-
-            Object entry = root.get(objectName);
-
-            if (entry == null && !root.isEmpty()) {
-                entry = root.values()
-                    .iterator()
-                    .next();
-            }
-
-            if (entry instanceof Map<?, ?> entryMap) {
-                sampleMapping = entryMap.get(SAMPLE_MAPPING);
-            }
+        if (testValue == null) {
+            throw new IllegalArgumentException(
+                "Add a sampleMapping to the '%s' input's test value to run this action from the editor".formatted(
+                    inputLabel(workflowInput)));
         }
+
+        Map<String, ?> root = toMap(testValue);
+
+        if (root.get(MAP_OBJECT_FIELDS) instanceof Map<?, ?> envelope) {
+            root = castMap(envelope);
+        }
+
+        if (!root.containsKey(objectName)) {
+            throw new IllegalArgumentException(
+                "The test value for the '%s' input has no entry for object name '%s'; it contains: %s".formatted(
+                    inputLabel(workflowInput), objectName, root.keySet()));
+        }
+
+        Object entry = root.get(objectName);
+
+        Object sampleMapping = entry instanceof Map<?, ?> entryMap ? entryMap.get(SAMPLE_MAPPING) : null;
 
         if (sampleMapping == null) {
             throw new IllegalArgumentException(
