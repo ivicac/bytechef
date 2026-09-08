@@ -23,7 +23,13 @@ import com.bytechef.message.route.MessageRoute;
  */
 public enum SseStreamMessageRoute implements MessageRoute {
 
-    SSE_STREAM_EVENTS(MessageRoute.Exchange.MESSAGE, "sse.sse_stream_events");
+    /**
+     * Job status and streamed task events, published by the coordinator and worker. A {@code CONTROL} (broadcast)
+     * route: the node holding the awaiting future or the live SSE emitter for a job is unknown to the publisher, so
+     * every node must see every event and ignore the jobs it does not hold. On a {@code MESSAGE} (work queue) route a
+     * second replica would consume the event and the waiting node would time out.
+     */
+    SSE_STREAM_EVENTS(MessageRoute.Exchange.CONTROL, "sse.sse_stream_events");
 
     private MessageRoute.Exchange exchange;
     private String routeName;

@@ -17,6 +17,7 @@
 package com.bytechef.message.broker.amqp.config;
 
 import com.bytechef.message.broker.amqp.AmqpMessageBroker;
+import com.bytechef.message.broker.amqp.converter.AllowedPackageJacksonJavaTypeMapper;
 import com.bytechef.message.broker.annotation.ConditionalOnMessageBrokerAmqp;
 import com.bytechef.message.route.SystemMessageRoute;
 import org.slf4j.Logger;
@@ -62,7 +63,13 @@ public class AmqpMessageBrokerConfiguration {
 
     @Bean
     MessageConverter jacksonAmqpMessageConverter(JsonMapper objectMapper) {
-        return new JacksonJsonMessageConverter(objectMapper);
+        JacksonJsonMessageConverter jacksonJsonMessageConverter = new JacksonJsonMessageConverter(objectMapper);
+
+        // Inbound messages carry their class in the type-id header; the default mapper trusts only java.util and
+        // java.lang and rejects every ByteChef event.
+        jacksonJsonMessageConverter.setJavaTypeMapper(new AllowedPackageJacksonJavaTypeMapper(objectMapper));
+
+        return jacksonJsonMessageConverter;
     }
 
     @Bean
