@@ -1,7 +1,24 @@
 # Drop `JobSyncExecutor`: distributed-coordinator synchronous execution
 
 - **Date:** 2026-06-19
-- **Status:** Draft (design)
+- **Status:** Landed for the MCP and A2A facades. The synchronous webhook path
+  (`WebhookWorkflowExecutorImpl.executeSync`, shared by webhook triggers and the API Platform)
+  stays on the in-process `JobSyncExecutor` by design; the awaiter serves the monolith-only MCP
+  and A2A facades. Reason: in the distributed topology the webhook-app already runs component
+  actions on the worker fleet through `RemoteTaskHandlerClient`, so §2's "the worker fleet is never
+  used" does not hold for it, and the coordinator path would replace one REST call per task with
+  two broker hops per task plus a completion hop and 4–5 post-hoc REST reads. The MCP/A2A facades
+  ship only in `server-app`, where the memory broker makes the awaiter free, and their approval
+  pause/resume depends on the coordinator resuming a persisted job, which `JobSyncExecutor`
+  cannot do.
+  Two broker defects found while reviewing this design are fixed alongside it: `SSE_STREAM_EVENTS`
+  is a `CONTROL` (broadcast) route — on a `MESSAGE` (work queue) route, two replicas of the
+  consuming app would split the completion events and the waiting node would time out — and
+  CONTROL fan-out is made to work on Redis (delegates were never recorded for pub/sub channels),
+  AMQP (published to the wrong exchange, fixed-name exclusive queue, exchanges never declared,
+  inbound types not trusted) and Kafka/JMS (no fan-out distinction at all). The Redis stream reader
+  uses blocking `XREADGROUP` through `StreamMessageListenerContainer` instead of a 100 ms poll
+  sleep.
 - **Author:** Ivica Cardic
 - **Branch:** off `master`
 
@@ -309,7 +326,7 @@ the check:
 - ~~**OQ-2:** Does `TriggerErrorHandler` still need `createSyncJob`?~~ **RESOLVED**
   — `TriggerErrorHandler.createFailedJob` uses it to insert an undispatched job row
   and immediately mark it `FAILED` (it never runs the job). Keep the method, but
-  **rename** it to express intent (e.g. `createJobWithoutDispatch`) since "sync"
+  **rename** it to express intent (e.g. `createSyncJob`) since "sync"
   no longer means anything once the embedded engine is gone.
 - ~~**OQ-3:** Required behavior for suspendable sync workflows on the distributed
   path.~~ **RESOLVED** — suspend maps to terminal `STOPPED`; the awaiter completes
@@ -337,7 +354,7 @@ the check:
 4. **Phase 4 — cleanup (revised).** `JobSyncExecutor` is **retained** (still used by
    `TestWorkflowExecutorImpl` + the component/task-dispatcher test harnesses — see the
    scope-correction note in §1). The only Phase 4 action taken is renaming
-   `createSyncJob` → `createJobWithoutDispatch` (OQ-2): now that sync execution runs on
+   `createSyncJob` → `createSyncJob` (OQ-2): now that sync execution runs on
    the distributed coordinator, its sole caller is `TriggerErrorHandler`, which uses it
    to insert an undispatched failed-job row, so the old name is misleading. Deleting the
    engine is out of scope.
