@@ -21,9 +21,11 @@ Two halves make up the feature, joined by a single shared **object name**:
 | Object name | The input's `objectName` is the key your runtime `mapObjectFields` config must use. |
 
 <Callout title="Scope">
-    This is a deliberately reduced subset of full field mapping. **Included:** dynamic application fields, the object-type selector, flat (non-paginated) option lists, configurable/creatable mappings, and a built-in transform - the **Field Mapping** component's `Map to Integration Object` / `Map to Application Object` actions. **Not included:** paginated / search-as-you-type dropdowns, and an automatic "apply field mapping" toggle on triggers.
+    This is a deliberately reduced subset of full field mapping. **Included:** dynamic application fields, the object-type selector, flat (non-paginated) option lists, configurable/creatable mappings, and a built-in transform — the **Field Mapping** component's `Map to Integration Object` / `Map to Application Object` actions. **Not included:** paginated / search-as-you-type dropdowns, and an automatic "apply field mapping" toggle on triggers.
 </Callout>
 
+<Callout title="Declare it in the editor or in the definition">
+    The workflow editor's **Edit Input** dialog offers a **Field Mapping** type whose test value is the static `mapObjectFields`-shaped sample shown below; the object name is derived from the sample's top-level key. You can equally author the input in a `.json`/`.yaml` definition and bring it in with **Import Workflow**.
 <Callout type="warn" title="Declared in the definition, not in the input dialog">
     The workflow editor's **Edit Input** dialog offers only the scalar types (Boolean, Date, Date Time, Integer, Number, String, Time) and does not carry a Field Mapping type. Declare a field-mapping input in the workflow definition itself - author it in a `.json`/`.yaml` file and bring it in with **Import Workflow**, or export, edit and re-import an existing workflow.
 </Callout>
@@ -73,7 +75,7 @@ Import the definition with **Import Workflow** (from the integration's ⋮ menu 
 
 ### The test value and `sampleMapping`
 
-The input's **test value** is a static sample of what the SDK will fetch live: the object types, integration fields and application fields, keyed by the object name. Add a `sampleMapping` - a value of the same shape the Connect dialog saves - so the Field Mapping actions can run from the editor's **Test** button, which has no connected user to read a real mapping from:
+The input's **test value** is a static sample of what the SDK will fetch live: the object types, integration fields and application fields, keyed by the object name. Add a `sampleMapping` — a value of the same shape the Connect dialog saves — so the Field Mapping actions can run from the editor's **Test** button, which has no connected user to read a real mapping from:
 
 ```json
 {
@@ -205,7 +207,7 @@ This is exported as `FieldMappingValueType` from `@bytechef/embedded`.
 
 ## Applying the mapping in a workflow
 
-Add the **Field Mapping** component to the workflow. Its two actions take the input's **object name** and a payload, and resolve the connected user's saved mapping themselves - you never wire the mapping value into the action:
+Add the **Field Mapping** component to the workflow. Its two actions take the input's **object name** and a payload, and resolve the connected user's saved mapping themselves — you never wire the mapping value into the action:
 
 | Action | Turns | Into | Use it when |
 |---|---|---|---|
@@ -214,6 +216,7 @@ Add the **Field Mapping** component to the workflow. Its two actions take the in
 
 Both accept a single object or an array (set **Input Type**). Keys no mapping covers are dropped unless **Include Unmapped** is on; a missing source key is omitted rather than written as `null`.
 
+From a **Script** step, call the same actions through the component proxy — this is ByteChef's equivalent of Paragon's `paragonUtils.mapIntegrationObjects()`, and it works in JavaScript, Python, Ruby and Java:
 From a **Script** step, call the same actions through the component proxy, in JavaScript, Python, Ruby or Java:
 
 ```js
@@ -228,7 +231,7 @@ function perform(input, context) {
 }
 ```
 
-The saved mapping is also readable as a plain data pill - `${input.contactMapping}` - for a step that wants to inspect it rather than apply it.
+The saved mapping is also readable as a plain data pill — `${input.contactMapping}` — for a step that wants to inspect it rather than apply it.
 
 ---
 
