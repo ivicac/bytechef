@@ -20,25 +20,45 @@ import com.bytechef.message.broker.redis.serializer.RedisMessageDeserializer;
 import com.bytechef.message.route.MessageRoute;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.connection.stream.StreamOffset;
-import org.springframework.data.redis.connection.stream.StreamReadOptions;
-import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.stream.StreamMessageListenerContainer;
+import org.springframework.data.redis.stream.StreamMessageListenerContainer.StreamMessageListenerContainerOptions;
+import org.springframework.data.redis.stream.StreamMessageListenerContainer.StreamReadRequest;
 import org.springframework.util.MethodInvoker;
 
 /**
+ * Delivers Redis broker messages to the registered listener delegates. A route lands in one of two places depending on
+ * its exchange:
+ *
+ * <ul>
+ * <li>{@code MESSAGE} routes are Redis streams read through a shared consumer group, so every message is processed by
+ * exactly one instance (competing consumers). Each stream is served by its own {@link StreamMessageListenerContainer}
+ * subscription, which issues blocking {@code XREADGROUP} calls on a dedicated connection — a message is dispatched as
+ * soon as it lands instead of on the next tick of a polling loop.</li>
+ * <li>{@code CONTROL} routes are Redis pub/sub channels, so every message reaches every instance that subscribed. The
+ * subscription itself is owned by the configuration's {@code RedisMessageListenerContainer}; this class is the channel
+ * {@link MessageListener} that fans each delivery out to the delegates registered for it.</li>
+ * </ul>
+ *
+ * Within one JVM every delegate registered for a route receives every message the JVM receives, matching the in-memory
+ * broker.
+ *
  * @author Ivica Cardic
  */
 public class RedisListenerEndpointRegistrar implements MessageListener {
@@ -46,103 +66,143 @@ public class RedisListenerEndpointRegistrar implements MessageListener {
     private static final Logger log = LoggerFactory.getLogger(RedisListenerEndpointRegistrar.class);
 
     private static final String CONSUMER_GROUP = "message_event_group";
+    private static final String MESSAGE_FIELD = "message";
 
-    private final Map<String, Consumer<String>> invokerMap = new HashMap<>();
+    /**
+     * How long a blocking stream read waits for an entry before the subscription loops and checks whether it was
+     * cancelled. Bounds shutdown latency only; delivery latency is unaffected because an entry that arrives during the
+     * block returns immediately.
+     */
+    private static final Duration POLL_TIMEOUT = Duration.ofSeconds(1);
+
+    private static final int STREAM_READ_BATCH_SIZE = 10;
+
+    private final String consumerName;
+    private final RedisConnectionFactory redisConnectionFactory;
     private final RedisMessageDeserializer redisMessageDeserializer;
-    private boolean stopped;
+    private volatile boolean stopped;
+    private StreamMessageListenerContainer<String, MapRecord<String, String, String>> streamMessageListenerContainer;
+    private final Map<String, List<Consumer<String>>> streamInvokersMap = new LinkedHashMap<>();
     private final StringRedisTemplate stringRedisTemplate;
-    private final TaskExecutor taskExecutor;
+    private final Map<String, List<Consumer<String>>> topicInvokersMap = new HashMap<>();
 
     @SuppressFBWarnings("EI2")
     public RedisListenerEndpointRegistrar(
-        RedisMessageDeserializer redisMessageDeserializer, StringRedisTemplate stringRedisTemplate,
-        TaskExecutor taskExecutor) {
+        RedisConnectionFactory redisConnectionFactory, RedisMessageDeserializer redisMessageDeserializer,
+        StringRedisTemplate stringRedisTemplate) {
 
-        this.taskExecutor = taskExecutor;
+        this.consumerName = "consumer-" + Integer.toHexString(System.identityHashCode(this));
+        this.redisConnectionFactory = redisConnectionFactory;
         this.redisMessageDeserializer = redisMessageDeserializer;
         this.stringRedisTemplate = stringRedisTemplate;
     }
 
+    /**
+     * Pub/sub delivery for a {@code CONTROL} route: fan the message out to every delegate registered for the channel.
+     */
     @Override
     public void onMessage(Message message, byte[] pattern) {
-        String queueName = new String(message.getChannel(), StandardCharsets.UTF_8);
+        String channelName = new String(message.getChannel(), StandardCharsets.UTF_8);
 
-        Consumer<String> invokerConsumer = invokerMap.get(queueName);
+        List<Consumer<String>> invokers = topicInvokersMap.get(channelName);
 
-        if (invokerConsumer == null) {
-            log.warn("No message listeners registered for queue='{}'", queueName);
+        if (invokers == null) {
+            log.warn("No message listeners registered for channel='{}'", channelName);
 
             return;
         }
 
-        invokerConsumer.accept(message.toString());
+        dispatch(invokers, new String(message.getBody(), StandardCharsets.UTF_8));
     }
 
     public void registerListenerEndpoint(MessageRoute messageRoute, Object delegate, String methodName) {
-        String queueName = messageRoute.getName();
+        String routeName = messageRoute.getName();
 
-        invokerMap.put(queueName, (String message) -> invoke(delegate, methodName, message));
+        Consumer<String> invoker = (String message) -> invoke(delegate, methodName, message);
+
+        if (messageRoute.isControlExchange()) {
+            List<Consumer<String>> invokers = topicInvokersMap.computeIfAbsent(routeName, key -> new ArrayList<>());
+
+            invokers.add(invoker);
+
+            return;
+        }
+
+        List<Consumer<String>> invokers = streamInvokersMap.computeIfAbsent(routeName, key -> new ArrayList<>());
+
+        invokers.add(invoker);
 
         try {
             stringRedisTemplate.opsForStream()
-                .createGroup(messageRoute.getName(), CONSUMER_GROUP);
+                .createGroup(routeName, CONSUMER_GROUP);
         } catch (Exception e) {
             if (log.isDebugEnabled()) {
                 log.debug("Consumer group already exists or error occurred: {}", e.getMessage());
             }
         }
-
-//        if (messageRoute.isMessageExchange()) {
-//            StreamMessageListenerContainer.create(redisConnectionFactory)
-//                .receive(
-//                    org.springframework.data.redis.connection.stream.Consumer.from(queueName, this.toString()),
-//                    StreamOffset.create(queueName, ReadOffset.lastConsumed()),
-//                    message -> {
-//                        Consumer<String> invokerConsumer = invokerMap.get(queueName);
-//
-//                        taskExecutor.execute(() -> invokerConsumer.accept(message.getValue().get("message")));
-//                    });
-//        }
     }
 
     public void start() {
-        this.stopped = false;
-        taskExecutor.execute(this::periodicallyCheckQueueForMessage);
+        stopped = false;
+
+        if (streamInvokersMap.isEmpty()) {
+            return;
+        }
+
+        StreamMessageListenerContainerOptions<String, MapRecord<String, String, String>> options =
+            StreamMessageListenerContainerOptions.builder()
+                .pollTimeout(POLL_TIMEOUT)
+                .batchSize(STREAM_READ_BATCH_SIZE)
+                .executor(new SimpleAsyncTaskExecutor("redis-stream-listener-"))
+                .errorHandler(this::handleStreamError)
+                .build();
+
+        streamMessageListenerContainer = StreamMessageListenerContainer.create(redisConnectionFactory, options);
+
+        for (Map.Entry<String, List<Consumer<String>>> entry : streamInvokersMap.entrySet()) {
+            String streamName = entry.getKey();
+            List<Consumer<String>> invokers = entry.getValue();
+
+            StreamReadRequest<String> streamReadRequest = StreamReadRequest
+                .builder(StreamOffset.create(streamName, ReadOffset.lastConsumed()))
+                .consumer(org.springframework.data.redis.connection.stream.Consumer.from(CONSUMER_GROUP, consumerName))
+                .autoAcknowledge(false)
+                .cancelOnError(throwable -> false)
+                .errorHandler(this::handleStreamError)
+                .build();
+
+            streamMessageListenerContainer.register(streamReadRequest, record -> receive(streamName, invokers, record));
+        }
+
+        streamMessageListenerContainer.start();
     }
 
     public void stop() {
-        this.stopped = true;
+        stopped = true;
+
+        if (streamMessageListenerContainer != null) {
+            streamMessageListenerContainer.stop();
+        }
     }
 
-    private void periodicallyCheckQueueForMessage() {
-        while (!stopped) {
-            try {
-                for (Map.Entry<String, Consumer<String>> entry : invokerMap.entrySet()) {
-                    StreamOperations<String, Object, Object> stringObjectObjectStreamOperations =
-                        stringRedisTemplate.opsForStream();
+    private void receive(String streamName, List<Consumer<String>> invokers, MapRecord<String, String, String> record) {
+        Map<String, String> value = record.getValue();
 
-                    List<MapRecord<String, Object, Object>> messages = stringObjectObjectStreamOperations.read(
-                        org.springframework.data.redis.connection.stream.Consumer.from(CONSUMER_GROUP, this.toString()),
-                        StreamReadOptions.empty(), StreamOffset.create(entry.getKey(), ReadOffset.lastConsumed()));
+        dispatch(invokers, value.get(MESSAGE_FIELD));
 
-                    if (messages != null && !messages.isEmpty()) {
-                        Consumer<String> invokerConsumer = invokerMap.get(entry.getKey());
+        stringRedisTemplate.opsForStream()
+            .acknowledge(streamName, CONSUMER_GROUP, record.getId());
+    }
 
-                        for (MapRecord<String, Object, Object> message : messages) {
-                            Map<Object, Object> value = message.getValue();
+    private void dispatch(List<Consumer<String>> invokers, String message) {
+        for (Consumer<String> invoker : invokers) {
+            invoker.accept(message);
+        }
+    }
 
-                            invokerConsumer.accept((String) value.get("message"));
-
-                            stringObjectObjectStreamOperations.acknowledge(
-                                entry.getKey(), CONSUMER_GROUP, message.getId());
-                        }
-                    }
-                }
-
-                sleep();
-            } catch (Exception e) {
-                log.error(e.getMessage(), e);
-            }
+    private void handleStreamError(Throwable throwable) {
+        if (!stopped) {
+            log.error(throwable.getMessage(), throwable);
         }
     }
 
@@ -162,16 +222,6 @@ public class RedisListenerEndpointRegistrar implements MessageListener {
         } catch (Exception e) {
             if (!stopped) {
                 log.error(e.getMessage(), e);
-            }
-        }
-    }
-
-    private void sleep() {
-        try {
-            TimeUnit.MILLISECONDS.sleep(100);
-        } catch (InterruptedException e) {
-            if (log.isTraceEnabled()) {
-                log.trace(e.getMessage(), e);
             }
         }
     }
