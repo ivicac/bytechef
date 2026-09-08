@@ -44,6 +44,8 @@ import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.component.definition.datastream.FieldDefinition;
+import com.bytechef.component.definition.datastream.FieldsProvider;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.ComponentDefinitionRegistry;
 import com.bytechef.platform.component.context.ContextFactory;
