@@ -231,21 +231,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         Boolean embedded, Long environmentId, Status jobStatus, Instant jobStartDate, Instant jobEndDate,
         Long projectId, Long projectDeploymentId, String workflowId, long workspaceId, int pageNumber) {
 
-        List<String> workflowIds = new ArrayList<>();
-
-        if (workflowId != null) {
-            requireResourceScope(workflowId, "Workflow", "EXECUTION_VIEW");
-
-            workflowIds.addAll(getWorkflowVersionWorkflowIds(workflowId));
-        } else if (projectId != null) {
-            requireResourceScope(projectId, "Project", "EXECUTION_VIEW");
-
-            workflowIds.addAll(projectWorkflowService.getProjectWorkflowIds(projectId));
-        } else {
-            workflowIds.addAll(
-                CollectionUtils.map(
-                    projectFacade.getWorkspaceProjectWorkflows(workspaceId), ProjectWorkflowDTO::getId));
-        }
+        List<String> workflowIds = resolveWorkflowIds(workflowId, projectId, workspaceId);
 
         if (projectDeploymentId != null) {
             requireResourceScope(projectDeploymentId, "ProjectDeployment", "EXECUTION_VIEW");
@@ -256,33 +242,8 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         if (workflowIds.isEmpty()) {
             workflowExecutionPage = Page.empty();
         } else {
-            List<Long> projectDeploymentIds = new ArrayList<>();
-
-            if (projectDeploymentId != null) {
-                projectDeploymentIds.add(projectDeploymentId);
-            } else {
-                Environment environment =
-                    environmentId == null ? null : environmentService.getEnvironment(environmentId);
-
-                List<ProjectDeployment> projectDeployments =
-                    projectDeploymentService.getProjectDeployments(embedded, environment, null, null, null);
-
-                // Narrowed here rather than after the query below on purpose: that query pages, and filtering its
-                // page would hand back short and empty pages of a result set the caller was never entitled to see
-                // whole. Deployments are what carry the environment, and they are already loaded, so restricting
-                // them restricts the page itself. The branch above needs no equivalent -- a named deployment goes
-                // through requireResourceScope, and ProjectDeployment registers a ResourceEnvironmentResolver, so
-                // that check already reads the environment off the deployment itself.
-                if (environment == null) {
-                    projectDeployments = environmentScopeFilter.filterByEnvironment(
-                        workspaceId, "EXECUTION_VIEW", projectDeployments, ProjectDeployment::getEnvironment);
-                }
-
-                projectDeploymentIds.addAll(
-                    projectDeployments.stream()
-                        .map(ProjectDeployment::getId)
-                        .toList());
-            }
+            List<Long> projectDeploymentIds = resolveProjectDeploymentIds(
+                embedded, environmentId, projectDeploymentId, workspaceId);
 
             if (projectDeploymentIds.isEmpty()) {
                 workflowExecutionPage = Page.empty();
@@ -479,6 +440,54 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
      * since the ids are bound one JDBC parameter each. Empty when the status filter rules failed triggers out, which
      * keeps them off the page.
      */
+    private List<String> resolveWorkflowIds(
+        @Nullable String workflowId, @Nullable Long projectId, long workspaceId) {
+
+        if (workflowId != null) {
+            requireResourceScope(workflowId, "Workflow", "EXECUTION_VIEW");
+
+            return getWorkflowVersionWorkflowIds(workflowId);
+        }
+
+        if (projectId != null) {
+            requireResourceScope(projectId, "Project", "EXECUTION_VIEW");
+
+            return new ArrayList<>(projectWorkflowService.getProjectWorkflowIds(projectId));
+        }
+
+        return CollectionUtils.map(
+            projectFacade.getWorkspaceProjectWorkflows(workspaceId), ProjectWorkflowDTO::getId);
+    }
+
+    private List<Long> resolveProjectDeploymentIds(
+        @Nullable Boolean embedded, @Nullable Long environmentId, @Nullable Long projectDeploymentId,
+        long workspaceId) {
+
+        if (projectDeploymentId != null) {
+            return List.of(projectDeploymentId);
+        }
+
+        Environment environment = environmentId == null ? null : environmentService.getEnvironment(environmentId);
+
+        List<ProjectDeployment> projectDeployments =
+            projectDeploymentService.getProjectDeployments(embedded, environment, null, null, null);
+
+        // Narrowed here rather than after the row query on purpose: that query pages, and filtering its page would
+        // hand back short and empty pages of a result set the caller was never entitled to see whole. Deployments
+        // are what carry the environment, and they are already loaded, so restricting them restricts the page
+        // itself. A named deployment needs no equivalent -- it goes through requireResourceScope, and
+        // ProjectDeployment registers a ResourceEnvironmentResolver, so that check already reads the environment
+        // off the deployment itself.
+        if (environment == null) {
+            projectDeployments = environmentScopeFilter.filterByEnvironment(
+                workspaceId, "EXECUTION_VIEW", projectDeployments, ProjectDeployment::getEnvironment);
+        }
+
+        return projectDeployments.stream()
+            .map(ProjectDeployment::getId)
+            .toList();
+    }
+
     private List<String> getFailedTriggerWorkflowExecutionIds(
         Status jobStatus, List<Long> projectDeploymentIds, List<String> workflowIds) {
 
