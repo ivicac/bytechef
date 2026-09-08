@@ -19,7 +19,9 @@ package com.bytechef.platform.component.service;
 import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 import static com.bytechef.platform.component.util.ClusterElementTypeUtils.isSameClusterElementType;
 
+import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
@@ -320,7 +322,8 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
                 .next();
 
         ClusterElementContext clusterElementContext = contextFactory.createClusterElementContext(
-            componentName, componentVersion, clusterElementName, firstConnection, editorEnvironment);
+            componentName, componentVersion, clusterElementName, firstConnection, editorEnvironment,
+            agentActionContext);
 
         return doExecuteTool(
             componentName, componentVersion, clusterElementName, inputParameters, extensions, componentConnections,
@@ -499,7 +502,8 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         return componentDefinitions.stream()
             .flatMap(componentDefinition -> componentDefinition.getClusterElements()
                 .stream()
-                .filter(clusterElementDefinition -> clusterElementType.equals(clusterElementDefinition.getType()))
+                .filter(clusterElementDefinition -> isSameClusterElementType(
+                    clusterElementType, clusterElementDefinition.getType()))
                 .map(clusterElementDefinition -> toClusterElementDefinition(
                     clusterElementDefinition, componentDefinition.getName(), componentDefinition.getVersion(),
                     getIcon(componentDefinition))))
