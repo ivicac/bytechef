@@ -176,7 +176,7 @@ export default function useDataSyncElementStep({dataSync, kind}: UseDataSyncElem
 
     const formValues = form.watch();
 
-    const formDisplayConditions = useFormDisplayConditions({
+    const {displayConditions: formDisplayConditions} = useFormDisplayConditions({
         componentName: element?.componentName,
         componentVersion: element?.componentVersion,
         enabled: !!element,

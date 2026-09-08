@@ -21,6 +21,7 @@ export const workflowEditorProviderTestValue = {
         filteredConnections: () => [],
     },
     cancelWorkflowQueries: () => {},
+    connectionTagsQueryKey: [],
     deleteClusterElementParameterMutation: dummyMutation as unknown as UseMutationResult<
         DeleteClusterElementParameter200Response,
         Error,

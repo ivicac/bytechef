@@ -56,7 +56,9 @@ vi.mock('@/shared/queries/automation/connections.queries', () => ({
     useGetWorkspaceConnectionsQuery: () => ({data: []}),
 }));
 
-vi.mock('@/shared/queries/platform/useFormDisplayConditions', () => ({default: () => undefined}));
+vi.mock('@/shared/queries/platform/useFormDisplayConditions', () => ({
+    default: () => ({displayConditions: undefined, isEvaluating: false}),
+}));
 
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: (state: {currentWorkspaceId: number}) => unknown) =>
