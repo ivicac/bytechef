@@ -212,14 +212,20 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             Map<String, ?> workflowParameters = mcpProjectWorkflow.getParameters();
 
             String toolName = getWorkflowToolName(workflowParameters, workflow.getLabel());
+
+            if (toolName == null) {
+                log.warn(
+                    "Skipping workflow {} on MCP server {}: it exposes no tool name -- configure one or give the " +
+                        "workflow a label",
+                    projectDeploymentWorkflow.getWorkflowId(), mcpProject.getMcpServerId());
+
+                continue;
+            }
             List<FromAiResult> fromAiResults = extractFromAiResults(workflowParameters);
 
             FunctionToolCallback.Builder<Map<String, Object>, Object> builder = FunctionToolCallback
                 .builder(
-                    Objects.requireNonNull(
-                        toolName,
-                        () -> "Workflow %s exposes no tool name: configure one or give the workflow a label"
-                            .formatted(workflow.getId())),
+                    toolName,
                     getWorkflowToolCallbackFunction(
                         toolName, projectDeploymentWorkflow, trigger.getName(), workflowParameters,
                         mcpProject.getMcpServerId()))
