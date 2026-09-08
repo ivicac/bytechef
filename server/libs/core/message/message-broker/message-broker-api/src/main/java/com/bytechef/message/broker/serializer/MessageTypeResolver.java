@@ -29,7 +29,12 @@ package com.bytechef.message.broker.serializer;
  */
 public final class MessageTypeResolver {
 
-    private static final String ALLOWED_PACKAGE_PREFIX = "com.bytechef.";
+    /**
+     * The only package (with its sub-packages) whose classes may be named as a message type on the wire.
+     */
+    public static final String ALLOWED_PACKAGE = "com.bytechef";
+
+    private static final String ALLOWED_PACKAGE_PREFIX = ALLOWED_PACKAGE + ".";
 
     private MessageTypeResolver() {
     }
