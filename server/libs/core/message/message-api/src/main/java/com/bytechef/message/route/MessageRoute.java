@@ -17,6 +17,21 @@
 package com.bytechef.message.route;
 
 /**
+ * A named destination on the message broker. The {@link Exchange} decides the delivery semantics every broker
+ * implementation must honour:
+ *
+ * <ul>
+ * <li>{@link Exchange#MESSAGE} — work queue: each message is processed by exactly one of the instances listening on the
+ * route (competing consumers), and is redelivered if that instance dies before acknowledging it. Task and trigger
+ * dispatch use this.</li>
+ * <li>{@link Exchange#CONTROL} — broadcast: each message reaches every instance listening on the route, and is not
+ * retained for instances that subscribe later. Signals whose consumer is not known to the publisher — task/trigger
+ * cancellation, job status and SSE stream events for a node holding the HTTP request — use this.</li>
+ * </ul>
+ *
+ * Within one instance, every delegate registered for a route receives every message that instance receives, whichever
+ * the exchange.
+ *
  * @author Ivica Cardic
  */
 public interface MessageRoute {
