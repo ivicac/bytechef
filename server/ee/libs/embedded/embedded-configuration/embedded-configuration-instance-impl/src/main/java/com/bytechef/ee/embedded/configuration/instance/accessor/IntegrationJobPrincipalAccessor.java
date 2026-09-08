@@ -95,7 +95,10 @@ public class IntegrationJobPrincipalAccessor implements JobPrincipalAccessor {
      * The job's initial context: configuration-level inputs overlaid with the connected user's own inputs, the per-user
      * value winning. This is the same precedence {@code IntegrationInstanceFacadeImpl} applies when it enables and
      * disables triggers; a connected user who has never opened the Connect Portal for this workflow has no per-user row
-     * and gets the configuration inputs alone.
+     * and gets the configuration inputs alone. This map also serves as the evaluation context for
+     * {@code TriggerCoordinator.dispatch}, {@code TriggerCompletionHandler}, {@code TriggerErrorHandler},
+     * {@code WebhookWorkflowExecutorImpl} and {@code WebhookWorkflowSyncExecutor}, so per-user inputs influence trigger
+     * parameters at dispatch and webhook time as well as the job's initial context.
      */
     @Override
     @SuppressWarnings("unchecked")
