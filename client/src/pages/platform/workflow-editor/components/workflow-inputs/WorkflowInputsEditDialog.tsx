@@ -433,7 +433,7 @@ const WorkflowInputsEditDialog = ({
                                                 {...field}
                                                 className="min-h-40 w-full rounded-md border p-2 font-mono text-sm"
                                                 data-testid="field-mapping-json-editor"
-                                                placeholder='{"Contacts": {"applicationFields": [], "integrationFields": [], "objectTypes": []}}'
+                                                placeholder='{"Contacts": {"applicationFields": {"fields": []}, "integrationFields": [], "objectTypes": [], "sampleMapping": {"objectType": "", "mappings": []}}}'
                                                 value={field.value ?? ''}
                                             />
                                         </FormControl>
@@ -442,6 +442,8 @@ const WorkflowInputsEditDialog = ({
 
                                         <p className="text-sm text-content-neutral-secondary">
                                             Static mapObjectFields-shaped sample; the top-level key is the object name.
+                                            Add a sampleMapping (a saved-mapping value) so Field Mapping actions can run
+                                            from the Test button.
                                         </p>
                                     </FormItem>
                                 )}
