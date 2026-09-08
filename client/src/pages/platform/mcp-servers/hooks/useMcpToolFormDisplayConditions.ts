@@ -1,4 +1,4 @@
-import {ComponentOperationType, McpTool} from '@/shared/middleware/graphql';
+import {McpTool} from '@/shared/middleware/graphql';
 import useFormDisplayConditions from '@/shared/queries/platform/useFormDisplayConditions';
 
 // A tool's properties are gated on each other (HTTP Client's body properties all hang off bodyContentType),
@@ -14,7 +14,7 @@ const useMcpToolFormDisplayConditions = (
         componentName,
         componentVersion,
         operationName: mcpTool.name,
-        operationType: ComponentOperationType.ClusterElement,
+        operationType: 'CLUSTER_ELEMENT',
         parameters: formValues,
     });
 
