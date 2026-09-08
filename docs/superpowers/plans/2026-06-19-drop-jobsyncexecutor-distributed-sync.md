@@ -2,6 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status:** the webhook tasks of this plan are not carried out — `executeSync` runs in-process for
+> every synchronous webhook, and there is no `executeSyncJob` / `useSyncJobExecution()` split. The
+> MCP/A2A tasks stand. See the status note at the top of the design spec for the reasoning.
+
 **Goal:** Replace the embedded `JobSyncExecutor` engine with distributed-coordinator execution (`createJob`) plus a shared broker-fed job-completion awaiter, so synchronous webhook and MCP-tool workflow runs use the worker fleet and the webhook controller becomes non-blocking (async-servlet), with no client-visible change.
 
 **Architecture:** A new `JobCompletionAwaiter` in `platform-workflow-execution` exposes `CompletableFuture<Job> await(jobId, timeout)`, completed by a broker listener on the existing `SSE_STREAM_EVENTS` job-status signal (the only completion signal that crosses process boundaries). Each synchronous consumer becomes: `createJob` → `await` → post-hoc read of the tagged task output from durable storage. The webhook path returns `CompletableFuture` end-to-end; MCP facades `.join()`.

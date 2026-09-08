@@ -45,9 +45,17 @@ read this before working in the areas below.
   `WorkspaceServiceImpl.create`, `maxMembers` in `UserServiceImpl.create`/`registerUser` (counts ALL
   user rows — pending invites hold a seat; checked after the non-activated-user cleanup),
   `maxStorageBytes` in `AssetFileFacadeImpl` (tenant-wide `sumSizeBytes()` alongside the existing
-  per-workspace property quota), `syncRunTimeout` caps the `JobCompletionAwaiter` wait on ALL
-  three sync surfaces — `WebhookWorkflowExecutorImpl`, `AutomationMcpToolFacade`, and
-  `AutomationA2AServerFacade` (plan can only tighten the configured default, never extend), and
+  per-workspace property quota), `syncRunTimeout` caps every synchronous run: the `JobCompletionAwaiter` wait on the
+  awaiter-based surfaces (`AutomationMcpToolFacade`, `EmbeddedMcpToolFacade`,
+  `AutomationA2AServerFacade`), and the in-process `JobSyncExecutor` wait behind synchronous
+  webhooks and the API Platform (`WebhookWorkflowExecutorImpl.executeSync` resolves it per request,
+  keyed on the `WorkflowExecutionId`'s tenant, and passes it to `JobSyncExecutor.execute(..., timeout)`;
+  the constructor timeout is only the fallback). The plan can only tighten
+  `JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT` (300 s), never extend it. The SSE streaming path
+  (`WebhookWorkflowExecutorImpl.stream`) applies the same cap to its wait for the terminal job-status
+  event, over a 30-minute default matching the `SseEmitter` and the `SseStreamBridgeRegistry` expiry;
+  it bounds a `copy()` of the registry future so a resume on the same job id does not inherit the
+  timeout, and on timeout only the stream fails — the job keeps running under `JobTimeoutMonitor`. And
   `logRetentionDays` drives `JobRetentionMonitor` (platform-coordinator, 6h per-tenant sweep,
   `getEndedJobs(endDateBefore)` finder — endDate exists only on terminal jobs — deleting through
   `JobFacade.deleteJob`'s cascade and skipping subflow children; works distributed via the remote
