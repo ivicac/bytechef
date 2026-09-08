@@ -15,7 +15,7 @@ import {ClusterElementProvider} from '@/pages/platform/workflow-editor/component
 import Properties from '@/pages/platform/workflow-editor/components/properties/Properties';
 import {WorkflowMockProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import ConnectionDialog from '@/shared/components/connection/ConnectionDialog';
-import {ComponentOperationType, useClusterElementDefinitionQuery} from '@/shared/middleware/graphql';
+import {useClusterElementDefinitionQuery} from '@/shared/middleware/graphql';
 import {useCreateConnectionMutation} from '@/shared/mutations/automation/connections.mutations';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
 import {
@@ -196,8 +196,7 @@ const ComponentConfigDialog = ({
         componentVersion: target?.componentVersion,
         enabled: target != null,
         operationName: target?.clusterElementName,
-        operationType:
-            target?.kind === 'TRIGGER' ? ComponentOperationType.Trigger : ComponentOperationType.ClusterElement,
+        operationType: target?.kind === 'TRIGGER' ? 'TRIGGER' : 'CLUSTER_ELEMENT',
         parameters: formValues.parameters ?? {},
     });
 

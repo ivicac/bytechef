@@ -1,12 +1,14 @@
-import {ComponentOperationType, useComponentPropertyDisplayConditionsQuery} from '@/shared/middleware/graphql';
+import {useComponentPropertyDisplayConditionsQuery} from '@/shared/middleware/graphql';
 import {useEffect, useRef, useState} from 'react';
+
+export type FormDisplayConditionsOperationType = 'ACTION' | 'CLUSTER_ELEMENT' | 'TRIGGER';
 
 interface UseFormDisplayConditionsPropsI {
     componentName?: string;
     componentVersion?: number;
     enabled?: boolean;
     operationName?: string;
-    operationType?: ComponentOperationType;
+    operationType?: FormDisplayConditionsOperationType;
     parameters: Record<string, unknown>;
 }
 
@@ -61,7 +63,7 @@ const useFormDisplayConditions = ({
             componentName: componentName ?? '',
             componentVersion: componentVersion ?? 1,
             operationName: operationName ?? '',
-            operationType: operationType ?? ComponentOperationType.Action,
+            operationType: operationType ?? 'ACTION',
             parameters: debouncedParameters,
         },
         {enabled: queryEnabled}
