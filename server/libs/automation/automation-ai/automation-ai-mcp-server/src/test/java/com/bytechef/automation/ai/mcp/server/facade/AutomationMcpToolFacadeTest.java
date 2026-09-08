@@ -40,19 +40,17 @@ import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
-import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
-import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
-import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -253,6 +251,7 @@ class AutomationMcpToolFacadeTest {
     private ToolDefinition getToolDefinition(Map<String, Object> parameters) {
         McpTool mcpTool = new McpTool();
 
+        mcpTool.setId(1L);
         mcpTool.setMcpComponentId(1L);
         mcpTool.setName("post");
         mcpTool.setParameters(parameters);

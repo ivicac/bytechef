@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.ee.embedded.ai.mcp.domain.McpIntegrationInstanceConfiguration;
@@ -39,10 +40,14 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
-import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * A workflow exposed as an MCP tool carries an optional name and description. Left unset, the workflow's own label and
@@ -73,15 +79,25 @@ class EmbeddedMcpWorkflowToolFacadeTest {
         mock(McpIntegrationInstanceConfigurationWorkflowService.class);
     private final WorkflowService workflowService = mock(WorkflowService.class);
 
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider =
+        (ObjectProvider<ApprovalTokens>) mock(ObjectProvider.class);
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
+        (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
+
     private final EmbeddedMcpToolFacade embeddedMcpToolFacade = new EmbeddedMcpToolFacade(
-        mock(ClusterElementDefinitionFacade.class), mock(ClusterElementDefinitionService.class),
-        mock(ComponentDefinitionService.class), mock(ConnectedUserService.class), mock(Evaluator.class),
-        integrationInstanceConfigurationService, integrationInstanceConfigurationWorkflowService,
-        integrationInstanceService, mock(IntegrationInstanceWorkflowService.class), integrationService,
-        mock(JobSyncExecutor.class), mock(JwtTokenService.class), mock(McpComponentService.class),
-        mcpIntegrationInstanceConfigurationWorkflowService, mock(McpIntegrationInstanceToolService.class),
-        mock(McpServerService.class), mock(PrincipalJobFacade.class), "http://localhost:8080",
-        mock(TaskExecutionService.class), mock(TaskFileStorage.class), workflowService);
+        approvalTokensObjectProvider, mock(ClusterElementDefinitionFacade.class),
+        mock(ClusterElementDefinitionService.class), mock(ComponentDefinitionService.class),
+        mock(ConnectedUserService.class), mock(Evaluator.class), integrationInstanceConfigurationService,
+        integrationInstanceConfigurationWorkflowService, integrationInstanceService,
+        mock(IntegrationInstanceWorkflowService.class), integrationService, mock(JobCompletionAwaiter.class),
+        mock(JobResumeFacade.class), mock(JobService.class), mock(JwtTokenService.class),
+        mock(McpComponentService.class), mcpIntegrationInstanceConfigurationWorkflowService,
+        mock(McpIntegrationInstanceToolService.class), mock(McpServerService.class),
+        planLimitsProviderObjectProvider, mock(PrincipalJobFacade.class), "http://localhost:8080",
+        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(ToolExecutionRecorder.class),
+        workflowService);
 
     @Test
     void testToolNameFallsBackToTheWorkflowLabel() {
