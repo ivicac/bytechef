@@ -85,7 +85,7 @@ vi.mock('@/shared/queries/platform/triggerDefinitions.queries', () => ({
 }));
 
 vi.mock('@/shared/queries/platform/useFormDisplayConditions', () => ({
-    default: () => undefined,
+    default: () => ({displayConditions: undefined, isEvaluating: false}),
 }));
 
 vi.mock('@/shared/stores/useEnvironmentStore', () => ({
