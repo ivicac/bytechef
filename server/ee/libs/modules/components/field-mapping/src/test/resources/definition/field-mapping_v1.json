@@ -156,6 +156,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Map to Integration Object",
     "workflowNodeDescription": null
   }, {
@@ -315,6 +316,7 @@
       "type": "BOOLEAN"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Map to Application Object",
     "workflowNodeDescription": null
   } ],
