@@ -69,7 +69,11 @@ final class FieldMappingPaths {
             Object existing = current.get(segments[index]);
 
             if (existing instanceof Map<?, ?> nested) {
-                current = castMutableMap(nested);
+                Map<String, Object> copy = new LinkedHashMap<>(castMutableMap(nested));
+
+                current.put(segments[index], copy);
+
+                current = copy;
             } else {
                 Map<String, Object> created = new LinkedHashMap<>();
 

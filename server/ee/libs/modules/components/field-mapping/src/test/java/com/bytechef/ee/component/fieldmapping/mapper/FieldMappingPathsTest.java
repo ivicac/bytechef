@@ -69,4 +69,17 @@ class FieldMappingPathsTest {
             Map.of("properties", Map.of("firstname", "Ada", "lastname", "Lovelace"), "email", "ada@example.com"),
             map);
     }
+
+    @Test
+    void testSetValueCopiesAnImmutableNestedMapInsteadOfMutatingIt() {
+        Map<String, Object> immutableProperties = Map.of("firstname", "Ada");
+        Map<String, Object> map = new LinkedHashMap<>();
+
+        map.put("properties", immutableProperties);
+
+        FieldMappingPaths.setValue(map, "properties.lastname", "Lovelace");
+
+        assertEquals(Map.of("firstname", "Ada"), immutableProperties);
+        assertEquals(Map.of("firstname", "Ada", "lastname", "Lovelace"), map.get("properties"));
+    }
 }

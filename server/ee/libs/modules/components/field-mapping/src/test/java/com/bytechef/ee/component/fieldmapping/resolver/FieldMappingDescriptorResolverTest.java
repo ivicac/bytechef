@@ -106,6 +106,19 @@ class FieldMappingDescriptorResolverTest {
     }
 
     @Test
+    void testEditorFailsWhenPlatformTypeIsNotEmbedded() {
+        ActionContextAware context = editorContext();
+
+        when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
+
+        IllegalStateException exception = assertThrows(
+            IllegalStateException.class, () -> resolver.resolve("Contacts", context));
+
+        assertTrue(exception.getMessage()
+            .contains("embedded"), exception.getMessage());
+    }
+
+    @Test
     void testRuntimeFailsWhenIntegrationInstanceIsMissing() {
         ActionContextAware context = runtimeContext(PlatformType.EMBEDDED);
 
@@ -175,6 +188,56 @@ class FieldMappingDescriptorResolverTest {
             .contains("Deals"), exception.getMessage());
         assertTrue(exception.getMessage()
             .contains("Contacts"), exception.getMessage());
+    }
+
+    @Test
+    void testFindInputIgnoresANonFieldMappingInputWithAMatchingObjectNameExtension() {
+        String definition = """
+            {
+              "label": "Sync contacts",
+              "inputs": [
+                {"name": "apiKey", "label": "API Key", "type": "string", "objectName": "Contacts"}
+              ],
+              "tasks": []
+            }
+            """;
+
+        when(workflowService.getWorkflow(WORKFLOW_ID))
+            .thenReturn(new Workflow(WORKFLOW_ID, definition, Workflow.Format.JSON));
+
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class,
+            () -> resolver.resolve("Contacts", runtimeContext(PlatformType.EMBEDDED)));
+
+        assertTrue(exception.getMessage()
+            .contains("No field mapping input declares object name 'Contacts'"), exception.getMessage());
+    }
+
+    @Test
+    void testFindInputFailsWhenTwoFieldMappingInputsShareAnObjectName() {
+        String definition =
+            """
+                {
+                  "label": "Sync contacts",
+                  "inputs": [
+                    {"name": "contactMapping", "label": "Contact Mapping", "type": "field_mapping", "objectName": "Contacts"},
+                    {"name": "contactMapping2", "label": "Contact Mapping 2", "type": "field_mapping", "objectName": "Contacts"}
+                  ],
+                  "tasks": []
+                }
+                """;
+
+        when(workflowService.getWorkflow(WORKFLOW_ID))
+            .thenReturn(new Workflow(WORKFLOW_ID, definition, Workflow.Format.JSON));
+
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class,
+            () -> resolver.resolve("Contacts", runtimeContext(PlatformType.EMBEDDED)));
+
+        assertTrue(exception.getMessage()
+            .contains("contactMapping"), exception.getMessage());
+        assertTrue(exception.getMessage()
+            .contains("contactMapping2"), exception.getMessage());
     }
 
     @Test

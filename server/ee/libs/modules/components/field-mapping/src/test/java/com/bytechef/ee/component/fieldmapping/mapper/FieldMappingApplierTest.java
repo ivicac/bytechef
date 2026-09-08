@@ -172,6 +172,23 @@ class FieldMappingApplierTest {
     }
 
     @Test
+    void testOverlappingDestinationPathsDoNotMutateAnImmutableSourceValue() {
+        FieldMappingDescriptor descriptor = new FieldMappingDescriptor(
+            "contacts",
+            List.of(
+                new FieldMappingDescriptor.Mapping("address", "x"),
+                new FieldMappingDescriptor.Mapping("city", "x.y")));
+
+        Map<String, Object> immutableAddress = Map.of("street", "Main St");
+        Map<String, Object> source = Map.of("address", immutableAddress, "city", "Springfield");
+
+        Object result = FieldMappingApplier.apply(descriptor, source, FieldMappingDirection.TO_INTEGRATION, false);
+
+        assertEquals(Map.of("street", "Main St"), immutableAddress);
+        assertEquals(Map.of("x", Map.of("street", "Main St", "y", "Springfield")), result);
+    }
+
+    @Test
     void testUnsupportedPayloadIsRejected() {
         assertThrows(
             IllegalArgumentException.class,

@@ -34,6 +34,7 @@ import java.util.Objects;
 public class FieldMappingDescriptorResolver {
 
     private static final int DEVELOPMENT_ENVIRONMENT_ID = 0;
+    private static final String FIELD_MAPPING_TYPE = "field_mapping";
     private static final String MAP_OBJECT_FIELDS = "mapObjectFields";
     private static final String SAMPLE_MAPPING = "sampleMapping";
 
@@ -60,6 +61,13 @@ public class FieldMappingDescriptorResolver {
             throw new IllegalStateException("Field mapping actions require a workflow execution context");
         }
 
+        PlatformType platformType = contextAware.getPlatformType();
+
+        if (platformType != null && platformType != PlatformType.EMBEDDED) {
+            throw new IllegalStateException(
+                "The field mapping component is available in embedded workflows only");
+        }
+
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
         WorkflowInput workflowInput = findInput(objectName, WorkflowInput.of(workflow));
@@ -72,24 +80,41 @@ public class FieldMappingDescriptorResolver {
     }
 
     private static WorkflowInput findInput(String objectName, List<WorkflowInput> workflowInputs) {
-        return workflowInputs.stream()
+        List<WorkflowInput> fieldMappingInputs = workflowInputs.stream()
+            .filter(FieldMappingDescriptorResolver::isFieldMappingInput)
+            .toList();
+
+        List<WorkflowInput> matchingInputs = fieldMappingInputs.stream()
             .filter(workflowInput -> Objects.equals(objectName, workflowInput.getObjectName()))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException(
+            .toList();
+
+        if (matchingInputs.size() > 1) {
+            throw new IllegalArgumentException(
+                "Multiple field mapping inputs declare object name '%s': %s".formatted(
+                    objectName,
+                    matchingInputs.stream()
+                        .map(WorkflowInput::getName)
+                        .toList()));
+        }
+
+        if (matchingInputs.isEmpty()) {
+            throw new IllegalArgumentException(
                 "No field mapping input declares object name '%s'; declared object names: %s".formatted(
                     objectName,
-                    workflowInputs.stream()
+                    fieldMappingInputs.stream()
                         .map(WorkflowInput::getObjectName)
                         .filter(Objects::nonNull)
-                        .toList())));
+                        .toList()));
+        }
+
+        return matchingInputs.getFirst();
+    }
+
+    private static boolean isFieldMappingInput(WorkflowInput workflowInput) {
+        return FIELD_MAPPING_TYPE.equalsIgnoreCase(workflowInput.getType());
     }
 
     private Object readSavedMapping(WorkflowInput workflowInput, String workflowId, ActionContextAware contextAware) {
-        if (contextAware.getPlatformType() != PlatformType.EMBEDDED) {
-            throw new IllegalStateException(
-                "The field mapping component is available in embedded workflows only");
-        }
-
         Long integrationInstanceId = contextAware.getJobPrincipalId();
 
         if (integrationInstanceId == null) {
