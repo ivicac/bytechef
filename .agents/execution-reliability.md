@@ -45,9 +45,12 @@ read this before working in the areas below.
   `WorkspaceServiceImpl.create`, `maxMembers` in `UserServiceImpl.create`/`registerUser` (counts ALL
   user rows — pending invites hold a seat; checked after the non-activated-user cleanup),
   `maxStorageBytes` in `AssetFileFacadeImpl` (tenant-wide `sumSizeBytes()` alongside the existing
-  per-workspace property quota), `syncRunTimeout` caps the `JobCompletionAwaiter` wait on ALL
-  three sync surfaces — `WebhookWorkflowExecutorImpl`, `AutomationMcpToolFacade`, and
-  `AutomationA2AServerFacade` (plan can only tighten the configured default, never extend), and
+  per-workspace property quota), `syncRunTimeout` caps the `JobCompletionAwaiter` wait on the two
+  awaiter-based sync surfaces — `AutomationMcpToolFacade` and `AutomationA2AServerFacade` (plan can
+  only tighten the configured default, never extend). It does NOT reach synchronous webhooks:
+  `WebhookWorkflowExecutorImpl.executeSync` runs on the in-process `JobSyncExecutor` (see the
+  drop-jobsyncexecutor spec's status note), whose 300 s timeout is fixed at construction in
+  `WebhookConfiguration` — an open gap, not a design choice. And
   `logRetentionDays` drives `JobRetentionMonitor` (platform-coordinator, 6h per-tenant sweep,
   `getEndedJobs(endDateBefore)` finder — endDate exists only on terminal jobs — deleting through
   `JobFacade.deleteJob`'s cascade and skipping subflow children; works distributed via the remote

@@ -1,7 +1,24 @@
 # Drop `JobSyncExecutor`: distributed-coordinator synchronous execution
 
 - **Date:** 2026-06-19
-- **Status:** Draft (design)
+- **Status:** Landed for the MCP and A2A facades. The synchronous webhook path
+  (`WebhookWorkflowExecutorImpl.executeSync`, shared by webhook triggers and the API Platform)
+  stays on the in-process `JobSyncExecutor` by design; the awaiter serves the monolith-only MCP
+  and A2A facades. Reason: in the distributed topology the webhook-app already runs component
+  actions on the worker fleet through `RemoteTaskHandlerClient`, so §2's "the worker fleet is never
+  used" does not hold for it, and the coordinator path would replace one REST call per task with
+  two broker hops per task plus a completion hop and 4–5 post-hoc REST reads. The MCP/A2A facades
+  ship only in `server-app`, where the memory broker makes the awaiter free, and their approval
+  pause/resume depends on the coordinator resuming a persisted job, which `JobSyncExecutor`
+  cannot do.
+  Two broker defects found while reviewing this design are fixed alongside it: `SSE_STREAM_EVENTS`
+  is a `CONTROL` (broadcast) route — on a `MESSAGE` (work queue) route, two replicas of the
+  consuming app would split the completion events and the waiting node would time out — and
+  CONTROL fan-out is made to work on Redis (delegates were never recorded for pub/sub channels),
+  AMQP (published to the wrong exchange, fixed-name exclusive queue, exchanges never declared,
+  inbound types not trusted) and Kafka/JMS (no fan-out distinction at all). The Redis stream reader
+  uses blocking `XREADGROUP` through `StreamMessageListenerContainer` instead of a 100 ms poll
+  sleep.
 - **Author:** Ivica Cardic
 - **Branch:** off `master`
 
