@@ -37,7 +37,7 @@ import tools.jackson.databind.JsonNode;
 public class WorkflowValidator {
 
     private static final String[] NESTED_TASK_ARRAY_PROPERTIES = new String[] {
-        "caseTrue", "caseFalse", "default", "main-branch", "on-error-branch", "tasks"
+        "caseTrue", "caseFalse", "default", "main-branch", "nodes", "on-error-branch", "tasks"
     };
 
     static final List<String> VALID_INPUT_TYPES = List.of(
@@ -677,6 +677,7 @@ public class WorkflowValidator {
     private static boolean isValidInputName(String name) {
         return INPUT_NAME_PATTERN.matcher(name)
             .matches();
+    }
 
     /**
      * Warns about tasks whose approval requests can only be delivered to the chat channel while the workflow does not
@@ -924,7 +925,8 @@ public class WorkflowValidator {
     /**
      * Passes each task nested directly inside the given parameters to the consumer, covering the task-dispatcher
      * nesting shapes: condition caseTrue/caseFalse, branch default/cases, parallel/on-error task arrays, loop/each/map
-     * iteratee (array or single object) and fork-join branches. Tasks nested deeper are left to the consumer.
+     * iteratee (array or single object), fork-join branches and graph nodes. Tasks nested deeper are left to the
+     * consumer.
      */
     static void forEachNestedTask(@Nullable JsonNode parametersJsonNode, Consumer<JsonNode> consumer) {
         if (parametersJsonNode == null || !parametersJsonNode.isObject()) {
