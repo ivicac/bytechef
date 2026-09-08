@@ -1177,7 +1177,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
+      "advancedOption": false,
       "controlType": "SELECT",
       "defaultValue": "SIMPLE",
       "description": "Format of providing the prompt to the model.",
