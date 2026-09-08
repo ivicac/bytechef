@@ -4,11 +4,7 @@ import {describe, expect, it, vi} from 'vitest';
 
 import DataPillPanelBodyInputsItem from './DataPillPanelBodyInputsItem';
 
-// Faithful minimal mock: renders ONLY property.name — no child-expansion logic.
-// This mirrors the real DataPill root-branch behaviour (which does NOT expand sub-properties).
-// If DataPillPanelBodyInputsItem reverted to passing `properties` to the root pill, 'title'
-// would NOT appear here because this mock never iterates property.properties — proving the
-// component (not the mock) is responsible for emitting each child pill.
+// Minimal DataPill mock: renders ONLY property.name, so a pill appears here only if the component itself renders it.
 vi.mock('./DataPill', () => ({
     default: ({property}: {property?: {name?: string}}) => <div data-testid="data-pill">{property?.name}</div>,
 }));
@@ -44,7 +40,7 @@ vi.mock('../../stores/useWorkflowDataStore', () => ({
 }));
 
 describe('DataPillPanelBodyInputsItem', () => {
-    it('renders a root pill and a child pill per applicationFields entry for a field_mapping input', () => {
+    it('renders a single root pill for a field_mapping input and no synthetic child pills', () => {
         render(
             <Accordion collapsible defaultValue="inputs" type="single">
                 <AccordionItem value="inputs">
@@ -53,16 +49,15 @@ describe('DataPillPanelBodyInputsItem', () => {
             </Accordion>
         );
 
-        // Root pill renders the input name.
         expect(screen.getByText('contactMapping')).toBeInTheDocument();
 
-        // The component renders a separate child DataPill for each applicationField entry.
-        // Because the mock renders only property.name (no properties expansion), 'title'
-        // appears only if the component passes a child DataPill with property.name === 'title'.
-        expect(screen.getByText('title')).toBeInTheDocument();
+        // The runtime value of a field_mapping input is the mapping descriptor, not a mapped object, so the
+        // per-application-field pills the panel used to synthesize from the test value would advertise paths that
+        // never exist. Mapped-object pills now come from the field-mapping action node's test-run output instead.
+        expect(screen.queryByText('title')).not.toBeInTheDocument();
 
-        // Three pills total: contactMapping root + title child + apiKey root.
-        expect(screen.getAllByTestId('data-pill')).toHaveLength(3);
+        // Two pills total: contactMapping root + apiKey root.
+        expect(screen.getAllByTestId('data-pill')).toHaveLength(2);
     });
 
     it('filters inputs by the data pill filter query', () => {
