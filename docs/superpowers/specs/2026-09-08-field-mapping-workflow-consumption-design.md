@@ -300,10 +300,10 @@ behave alike:
   CRM field is a destructive update, and must not be the default for an absent key. (The descriptor
   carries no per-mapping default value, so unlike `FieldMapperItemProcessor` there is no default
   to fall back to.)
-- **Dotted paths** on either side resolve nested structures. Reads use
-  `MapUtils.containsPath` / `MapUtils.getFromPath`; the component carries a small nested writer for
-  the destination side. (`Context.nested(...)` is declared only on `ClusterElementContext`, so it
-  is not available to an action.)
+- **Dotted paths** on either side resolve nested structures. The component carries a small split-on-dot path helper (`FieldMappingPaths`) for both sides, mirroring
+  `ClusterElementContextImpl`'s nested implementation. (`Context.nested(...)` is declared only on
+  `ClusterElementContext`, so it is not available to an action, and `MapUtils`' JsonPath-backed readers
+  would add a second path dialect.)
 - **Lists map element-wise** and return a list. This is Paragon's
   `mapIntegrationObjects(fieldMapping, records)` case.
 - **`mapToApplication` is not required to be the exact inverse of `mapToIntegration`.** The Connect
