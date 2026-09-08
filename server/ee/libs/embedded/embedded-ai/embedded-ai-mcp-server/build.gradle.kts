@@ -69,7 +69,6 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-autoconfigure")
     testImplementation("org.springframework.boot:spring-boot-starter-cache-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
-    testImplementation(project(":server:libs:test:test-support"))
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework.security:spring-security-config")
     testImplementation("org.springframework.security:spring-security-test")
@@ -94,4 +93,5 @@ dependencies {
     testImplementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-service"))
     testImplementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-service"))
     testImplementation(project(":server:ee:libs:platform:platform-user:platform-user-api"))
+    testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }
