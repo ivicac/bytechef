@@ -2,6 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status:** the webhook tasks of this plan are not carried out — `executeSync` runs in-process for
+> every synchronous webhook, and there is no `executeSyncJob` / `useSyncJobExecution()` split. The
+> MCP/A2A tasks stand. See the status note at the top of the design spec for the reasoning.
+
 **Goal:** Replace the embedded `JobSyncExecutor` engine with distributed-coordinator execution (`createJob`) plus a shared broker-fed job-completion awaiter, so synchronous webhook and MCP-tool workflow runs use the worker fleet and the webhook controller becomes non-blocking (async-servlet), with no client-visible change.
 
 **Architecture:** A new `JobCompletionAwaiter` in `platform-workflow-execution` exposes `CompletableFuture<Job> await(jobId, timeout)`, completed by a broker listener on the existing `SSE_STREAM_EVENTS` job-status signal (the only completion signal that crosses process boundaries). Each synchronous consumer becomes: `createJob` → `await` → post-hoc read of the tagged task output from durable storage. The webhook path returns `CompletableFuture` end-to-end; MCP facades `.join()`.
@@ -53,7 +57,7 @@
 
 **Phase 4 — removal & rename**
 - Delete `platform-job-sync/.../executor/JobSyncExecutor.java`, `JobServiceWrapper.java`, the `platform-job-sync` `SseStreamTaskExecutionPostOutputProcessor.java`, and now-dead support (`WebSocketEmitterRegistry`, `WebSocketStreamTaskExecutionPostOutputProcessor` if unused elsewhere — verify), and the relocated exception package.
-- Rename `PrincipalJobFacade.createSyncJob` → `createJobWithoutDispatch` (+ impl, EE remote client/controller, `TriggerErrorHandler`).
+- Rename `PrincipalJobFacade.createSyncJob` → `createSyncJob` (+ impl, EE remote client/controller, `TriggerErrorHandler`).
 - Remove `platform-job-sync` deps from the three consumer modules.
 
 ---
@@ -1000,7 +1004,7 @@ git add -A
 git commit -m "732 Remove embedded JobSyncExecutor engine"
 ```
 
-### Task 18: rename `createSyncJob` → `createJobWithoutDispatch`
+### Task 18: rename `createSyncJob` → `createSyncJob`
 
 **Files:**
 - Modify: `PrincipalJobFacade.java:44`, `PrincipalJobFacadeImpl.java:110`, EE `RemotePrincipalJobFacadeClient.java:57`, EE `RemotePrincipalJobFacadeController.java:54`, `TriggerErrorHandler.java:88`.
@@ -1021,7 +1025,7 @@ Expected: BUILD SUCCESSFUL.
 
 ```bash
 git add -A
-git commit -m "732 Rename createSyncJob to createJobWithoutDispatch"
+git commit -m "732 Rename createSyncJob to createSyncJob"
 ```
 
 ---
