@@ -93,7 +93,7 @@
     },
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
+      "advancedOption": false,
       "controlType": "SELECT",
       "defaultValue": null,
       "description": "The workflow to call when this tool is invoked.",
