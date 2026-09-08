@@ -1,4 +1,3 @@
-import {ComponentOperationType} from '@/shared/middleware/graphql';
 import {act, renderHook} from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -10,7 +9,6 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock('@/shared/middleware/graphql', () => ({
-    ComponentOperationType: {Action: 'ACTION', ClusterElement: 'CLUSTER_ELEMENT', Trigger: 'TRIGGER'},
     useComponentPropertyDisplayConditionsQuery: (variables: Record<string, unknown>, options: {enabled: boolean}) => {
         hoisted.lastCall = {options, variables};
 
@@ -22,7 +20,7 @@ const properties = {
     componentName: 'httpClient',
     componentVersion: 1,
     operationName: 'post',
-    operationType: ComponentOperationType.ClusterElement,
+    operationType: 'CLUSTER_ELEMENT' as const,
 };
 
 describe('useFormDisplayConditions', () => {
