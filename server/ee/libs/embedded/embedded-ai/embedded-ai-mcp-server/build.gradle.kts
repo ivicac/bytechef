@@ -67,7 +67,6 @@ dependencies {
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.springframework:spring-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
-    testImplementation(project(":server:libs:test:test-support"))
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework.security:spring-security-config")
     testImplementation(project(":server:libs:test:test-support"))
