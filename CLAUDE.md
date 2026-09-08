@@ -609,6 +609,17 @@ These are the parts that apply outside their own area, so they stay here:
 - **Every resource is created WORKSPACE-visible.** Visibility is a *precondition* of
   `hasResourceScope`, not a filter beside it. "Specific people" is `PRIVATE` + `resource_grant` rows.
   The one deliberate exception is the AI Hub chat, created `PRIVATE` — see `.agents/ai-hub.md`.
+- **A `MessageRoute`'s exchange is its delivery contract, on every broker.** `MESSAGE` is a work queue
+  (one instance processes each message; task and trigger dispatch). `CONTROL` is a broadcast (every
+  instance sees every message; not retained for late subscribers). A signal whose consumer the
+  publisher cannot know — cancel events, job-status and SSE stream events for whichever node holds
+  the HTTP request or the awaiting future — must be `CONTROL`, or a second replica silently eats it
+  and the waiting node times out (`SSE_STREAM_EVENTS` is the canonical case). Redis maps
+  `CONTROL` to pub/sub and `MESSAGE` to a consumer-group stream read with a blocking `XREADGROUP`
+  (no poll sleep); AMQP to an anonymous per-listener queue on the topic exchange vs a shared durable
+  queue on the direct exchange; Kafka to a per-instance consumer group; JMS to the topic domain. Every
+  delegate registered for a route in one JVM receives every message that JVM receives.
+  `RedisMessageBrokerIntTest` and `AmqpMessageBrokerIntTest` pin both semantics against real brokers.
 - **Never add notification, admission, or approval logic under `server/libs/atlas/`** — the engine
   stays agnostic; those concerns live in `platform-coordinator` and the platform modules.
 - **Enum ordinals are persisted as INT** — append new values at the end, never reorder.
