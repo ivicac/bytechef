@@ -677,6 +677,7 @@ public class WorkflowValidator {
     private static boolean isValidInputName(String name) {
         return INPUT_NAME_PATTERN.matcher(name)
             .matches();
+    }
 
     /**
      * Warns about tasks whose approval requests can only be delivered to the chat channel while the workflow does not
