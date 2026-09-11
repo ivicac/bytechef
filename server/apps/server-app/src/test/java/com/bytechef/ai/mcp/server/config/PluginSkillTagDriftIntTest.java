@@ -167,6 +167,10 @@ class PluginSkillTagDriftIntTest {
                 mcpFenceCount++;
 
                 for (String use : transportFence.uses()) {
+                    if (use.equals(TransportFence.GENERAL_MARKER)) {
+                        continue;
+                    }
+
                     if (!registeredToolNames.contains(use)) {
                         failures.add(skillDocument.name() + ": mcp tool '" + use + "' is not registered");
                     }
@@ -212,6 +216,10 @@ class PluginSkillTagDriftIntTest {
                 }
 
                 for (String use : transportFence.uses()) {
+                    if (use.equals(TransportFence.GENERAL_MARKER)) {
+                        continue;
+                    }
+
                     if (!registeredToolNames.contains(use)) {
                         failures.add(skillDocument.name() + ": mcp tool '" + use + "' tagged edition "
                             + transportFence.edition() + " is not registered");
@@ -245,5 +253,63 @@ class PluginSkillTagDriftIntTest {
 
         assertFalse(names.isEmpty());
         assertTrue(names.contains("buildWorkflow"));
+    }
+
+    @Test
+    void testEveryFenceTransportIsDeclaredInSkillFrontmatter() throws IOException {
+        List<String> failures = new ArrayList<>();
+
+        for (SkillDocument skillDocument : skillDocuments()) {
+            if (!isSkillFile(skillDocument)) {
+                continue;
+            }
+
+            Set<Transport> declaredTransports = new HashSet<>(skillDocument.requiredTransports());
+
+            declaredTransports.addAll(skillDocument.optionalTransports());
+
+            for (TransportFence transportFence : skillDocument.fences()) {
+                if (!declaredTransports.contains(transportFence.transport())) {
+                    failures.add(skillDocument.name() + ": fence transport '" + transportFence.transport()
+                        + "' is not declared in the frontmatter's required/optional transports");
+                }
+            }
+        }
+
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+    }
+
+    @Test
+    void testEveryRequiredTransportIsExercisedByAFence() throws IOException {
+        List<String> failures = new ArrayList<>();
+
+        for (SkillDocument skillDocument : skillDocuments()) {
+            if (!isSkillFile(skillDocument)) {
+                continue;
+            }
+
+            Set<Transport> exercisedTransports = new HashSet<>();
+
+            for (TransportFence transportFence : skillDocument.fences()) {
+                exercisedTransports.add(transportFence.transport());
+            }
+
+            for (Transport requiredTransport : skillDocument.requiredTransports()) {
+                if (!exercisedTransports.contains(requiredTransport)) {
+                    failures.add(skillDocument.name() + ": required transport '" + requiredTransport
+                        + "' is not exercised by any fence");
+                }
+            }
+        }
+
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+    }
+
+    private static boolean isSkillFile(SkillDocument skillDocument) {
+        Path fileNamePath = skillDocument.path()
+            .getFileName();
+
+        return fileNamePath != null && fileNamePath.toString()
+            .equals("SKILL.md");
     }
 }
