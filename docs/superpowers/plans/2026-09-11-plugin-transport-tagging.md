@@ -50,7 +50,27 @@ These are the CE tool names the management server registers, extracted from `@To
 - `ScriptTools`: updateScriptComponentCode
 - `ClusterElementTools`: updateWorkflowRootProperties, updateClusterElementTask
 
-EE contributors add the intelligent tools (`buildWorkflow`, `importWorkflow`, `buildCodeWorkflow`, `buildCustomComponent`, `authorSkill`, `debugWorkflowExecution`, `configureMcpServer`, and the MCP-server CRUD tools) through `McpServerToolCallbackContributor` beans under `server/ee/`. Any tag naming one of those MUST carry `edition: ee`.
+`McpServerToolCallbackContributor` beans add more tools on top — the intelligent tools
+(`buildWorkflow`, `importWorkflow`, `authorSkill`, `configureMcpServer` and friends) among them.
+
+**Do not infer edition from module location.** Those intelligent tools are defined in
+`server/libs/ai/ai-copilot/` — CE — even though some of the contributor `@Configuration` classes
+that wire them to the MCP server sit under `server/ee/`. None of those five contributor configs
+carries `@ConditionalOnEEVersion`; they are gated only on `bytechef.ai.mcp.server.enabled`, which
+defaults to true. `server-app` is the only app, and it carries everything. So every one of these
+tools is present in every deployment, and an `mcp:` tag naming one needs no edition marker.
+
+`edition: ee` is reserved for the embedded tools (`IntegrationTools`, `IntegrationWorkflowTools`,
+`IntegrationCodeWorkflowTools` and their `Read*` counterparts). No skill in this plan uses them; the
+attribute exists for the embedded skill that does not yet exist.
+
+**The drift check cannot verify an edition claim, and must not pretend to.** There is no mechanical
+source of truth: "contributed vs core" is checkable (construct the configuration with `List.of()`
+contributors and diff the registries) but means something different — `buildWorkflow` is contributed
+AND CE. Separately, the embedded tools share names with the automation ones (`getWorkflow`,
+`listWorkflows`, `updateWorkflow`, `deleteWorkflow` appear in both `ProjectWorkflowTools` and
+`IntegrationWorkflowTools`), so a name alone does not identify a surface — they reach different MCP
+servers. The check therefore verifies EXISTENCE only, and says so in a comment on the test class.
 
 ## File Structure
 
@@ -371,7 +391,7 @@ void testEveryMcpTagNamesARegisteredTool() throws IOException { }
 void testEveryCliTagNamesAnExistingCommand() throws IOException { }
 
 @Test
-void testEeTaggedToolsAreNotClaimedAsCe() throws IOException { }
+void testEditionMarkingIsNotVerifiedMechanically() throws IOException { }
 
 @Test
 void testTheCliInventoryIsNotEmpty() throws IOException { }
@@ -381,7 +401,13 @@ The first three iterate `SkillDocumentParser.parseAll(repositoryRoot().resolve("
 
 The fourth is the anti-vacuity guard: `assertFalse(cliCommandNames().isEmpty())` and `assertTrue(cliCommandNames().contains("component deploy"))`. Without it, a broken extractor makes every other assertion pass trivially. There is deliberately no equivalent vacuity guard on the MCP side in this task — Task 4 adds it once MCP tags exist.
 
-For `testEeTaggedToolsAreNotClaimedAsCe`: a fence with `edition: ee` whose tools ARE present in the registry is fine (the test runs on a server-app context which carries EE); the assertion is the converse — a fence with no `edition: ee` must not name a tool that only EE contributes. Determine the EE-only set as the registry's tool names minus the CE names listed in this plan's "registered MCP tool inventory" section, and hard-code that CE list in the test as a `private static final Set<String> CE_TOOL_NAMES`. Hard-coding is correct here: the test's job is to notice when reality diverges from the documented CE surface.
+Replace the third method with `testEditionMarkingIsNotVerifiedMechanically`. It asserts only that
+every `edition: ee` fence names a tool that EXISTS in the registry — the same check as any other
+fence. Do NOT hard-code a CE or EE name list and do NOT attempt to verify the edition claim: no
+mechanical source of truth exists for it (see "The registered MCP tool inventory" above for why).
+Carry that limitation in a short comment on the test class so a future reader does not mistake an
+unchecked declaration for a checked one — this is the one place a rationale comment is warranted,
+because the absence of a check is invisible in the code.
 
 - [ ] **Step 3: Run it**
 
@@ -498,13 +524,14 @@ transports:
 The body is the sequencing knowledge currently hard-coded in `ManagementMcpServerConfiguration.INSTRUCTIONS` (read that constant — it is the source text, and Task 6 will delete it in favour of what you write here), reorganised into fences. At minimum:
 
 - A `<!-- transport: mcp uses: listProjects, createProject, createProjectWorkflow -->` fence covering project and workflow creation.
-- A `<!-- transport: mcp uses: buildWorkflow edition: ee -->` fence covering the build loop — each intelligent-tool call is independent and re-reads state, so iterate by calling again with the next instruction and restate context.
-- A `<!-- transport: mcp uses: importWorkflow edition: ee -->` fence for importing from n8n/Make/Zapier/Workato.
+- A `<!-- transport: mcp uses: buildWorkflow -->` fence covering the build loop — each intelligent-tool call is independent and re-reads state, so iterate by calling again with the next instruction and restate context. NO edition marker: `buildWorkflow` is CE, defined in `server/libs/ai/ai-copilot/`.
+- A `<!-- transport: mcp uses: importWorkflow -->` fence for importing from n8n/Make/Zapier/Workato. Also CE, also unmarked.
 - A `<!-- transport: mcp uses: listComponents, searchActions, getActionDefinition, getProperties -->` fence for discovering what a step can do.
 - A `<!-- transport: mcp uses: getWorkflow, updateWorkflow -->` fence for reading and editing a definition.
 - A `<!-- transport: mcp uses: publishProject -->` fence for publishing.
 
-Every `edition: ee` fence must state in its prose that the tool is EE-only and what a CE user should do instead, because the claude.ai output ships to users whose instance edition is unknowable at generation time.
+This skill should contain NO `edition: ee` fences — every tool it names is present in every
+deployment. If you find yourself wanting one, stop and report it.
 
 Do NOT include the MCP-server-configuration sequence (`createMcpServer` → `createMcpProject` → `configureMcpServer` → `updateMcpServer`) in this skill. It is a separate job and belongs in its own skill; note it as a follow-up rather than building it.
 
@@ -686,7 +713,11 @@ git commit -m "Generate the claude.ai skill set from the plugin skills"
 
 ### Task 6: MCP instruction fragments and runtime assembly
 
-This is the task that fixes a live defect: `ManagementMcpServerConfiguration` applies a static `INSTRUCTIONS` constant naming `buildWorkflow`, `buildCodeWorkflow`, `authorSkill` and others, while every one of those tools comes from `McpServerToolCallbackContributor` beans that exist only under `server/ee/`. A CE instance advertises tools it does not have.
+**This is hardening, not a bug fix.** An earlier draft of this plan claimed the static `INSTRUCTIONS`
+constant was a live defect because it names tools "only EE provides". That was wrong — those tools
+are CE, and every deployment has them. What the change actually buys is that the instructions can no
+longer name a tool that has been renamed or removed, and that the sequencing guidance lives in one
+place (the skill) instead of two (the skill and a string constant).
 
 **Files:**
 - Create: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/McpInstructionFragmentGenerator.java`
@@ -751,25 +782,23 @@ void testConcatenatesRepeatedTools() throws IOException {
 
 - [ ] **Step 3: Write the failing assembly test FIRST, against the current constant**
 
-Create `McpInstructionAssemblyTest` in `server/libs/ai/ai-mcp/ai-mcp-server/src/test/java/com/bytechef/ai/mcp/server/config/`. This test must FAIL against today's code — that is the point; it is the regression test for the live defect.
+Create `McpInstructionAssemblyTest` in `server/libs/ai/ai-mcp/ai-mcp-server/src/test/java/com/bytechef/ai/mcp/server/config/`. It fails against today's code because `buildInstructions` does not exist yet.
 
 ```java
 @Test
-void testCeInstructionsDoNotNameEeOnlyTools() {
-    Set<String> ceToolNames = Set.of("listProjects", "createProject", "createProjectWorkflow", "getWorkflow");
+void testASectionIsOmittedWhenItsToolIsNotRegistered() {
+    Set<String> toolNames = Set.of("listProjects", "createProject", "createProjectWorkflow", "getWorkflow");
 
-    String instructions = ManagementMcpServerConfiguration.buildInstructions(ceToolNames);
+    String instructions = ManagementMcpServerConfiguration.buildInstructions(toolNames);
 
     assertFalse(instructions.contains("buildWorkflow"));
-    assertFalse(instructions.contains("authorSkill"));
-    assertFalse(instructions.contains("configureMcpServer"));
 }
 
 @Test
-void testEeInstructionsNameEeTools() {
-    Set<String> eeToolNames = Set.of("listProjects", "createProjectWorkflow", "buildWorkflow");
+void testASectionIsIncludedWhenItsToolIsRegistered() {
+    Set<String> toolNames = Set.of("listProjects", "createProjectWorkflow", "buildWorkflow");
 
-    String instructions = ManagementMcpServerConfiguration.buildInstructions(eeToolNames);
+    String instructions = ManagementMcpServerConfiguration.buildInstructions(toolNames);
 
     assertTrue(instructions.contains("buildWorkflow"));
 }
@@ -783,6 +812,10 @@ void testTheAlwaysSectionIsAlwaysPresent() {
 ```
 
 Run it and record the failure. Expected RED: `buildInstructions` does not exist.
+
+Note the first test is NOT asserting an edition boundary — it asserts that a tool absent from the
+passed set gets no section. In a normal `server-app` deployment `buildWorkflow` IS registered and
+its section IS included; the test passes a deliberately narrow set to exercise the filtering.
 
 - [ ] **Step 4: Implement the assembly**
 
