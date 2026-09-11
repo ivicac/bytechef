@@ -25,8 +25,7 @@ judgment work — "build this", "import that" — never for CRUD a plain tool al
 <!-- transport: mcp uses: listProjects, createProject, createProjectWorkflow -->
 Check whether the target project already exists with `listProjects`. If not, create it with
 `createProject`. Either way, create the workflow inside it with `createProjectWorkflow` — its
-result is the `workflowId` that `buildWorkflow`, `importWorkflow`, `getWorkflow` and
-`updateWorkflow` all key on.
+result is the `workflowId` that every later workflow operation keys on.
 <!-- /transport -->
 
 ## Building a workflow from a plain-language instruction
@@ -52,17 +51,16 @@ Ordinary CRUD tools never do this.
 <!-- transport: mcp uses: importWorkflow -->
 Call `importWorkflow` with the `workflowId` and the source workflow definition (the exported
 n8n/Make/Zapier/Workato JSON). It has no project- or workflow-creation tools of its own — create
-the project and the empty workflow first, using the sequence above, then import into it. Like
-`buildWorkflow`, each call is independent and may return a clarifying question instead of a result;
-handle it the same way.
+the project and the empty workflow first, using the sequence above, then import into it. Each call
+is independent and may return a clarifying question instead of a result; handle it the same way.
 <!-- /transport -->
 
 ## Discovering what a step can do
 
 <!-- transport: mcp uses: listComponents, searchActions, getActionDefinition, getProperties -->
-Before wiring a step by hand (rather than delegating to `buildWorkflow`), find the component with
-`listComponents`, find the action with `searchActions`, then read its full shape with
-`getActionDefinition` and `getProperties` to see what parameters a task needs.
+Before wiring a step by hand, find the component with `listComponents`, find the action with
+`searchActions`, then read its full shape with `getActionDefinition` and `getProperties` to see
+what parameters a task needs.
 <!-- /transport -->
 
 ## Discovering what a trigger can do
@@ -77,8 +75,8 @@ Same pattern for triggers: `listTriggers`/`searchTriggers` to find the one to wi
 <!-- transport: mcp uses: getWorkflow, updateWorkflow -->
 `getWorkflow` returns the current definition — MCP App-capable clients render it as an interactive
 canvas alongside the conversation. `updateWorkflow` writes a new definition back. Reach for these
-when a direct edit (renaming a task, tweaking one parameter) is clearer than another
-`buildWorkflow` instruction.
+when a direct edit (renaming a task, tweaking one parameter) is clearer than issuing another
+build instruction.
 <!-- /transport -->
 
 ## Publishing
