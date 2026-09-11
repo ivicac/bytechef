@@ -363,8 +363,6 @@ dependencies {
     implementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-graphql"))
     implementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-rest"))
     implementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-service"))
-    implementation(project(":server:ee:libs:embedded:embedded-data-table-graphql"))
-    implementation(project(":server:ee:libs:embedded:embedded-knowledge-base-graphql"))
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-graphql"))
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-instance-impl"))
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-public-rest"))
@@ -445,8 +443,6 @@ dependencies {
     runtimeOnly(project(":server:libs:platform:platform-ai:platform-ai-stt:platform-ai-stt-openai"))
 
     testImplementation(project(":claude-code-plugin:plugin-tools"))
-    testImplementation(project(":server:libs:ai:ai-api"))
-    testImplementation(project(":server:libs:ai:ai-copilot:ai-copilot-tool"))
     testImplementation(project(":server:libs:test:test-int-support"))
     testImplementation(project(":server:libs:core:tenant:tenant-api"))
     testImplementation(project(":server:libs:automation:automation-knowledge-base:automation-knowledge-base-api"))
