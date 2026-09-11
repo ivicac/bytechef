@@ -191,6 +191,25 @@ class SkillDocumentParserTest {
     }
 
     @Test
+    void testUnclosedFrontmatterIsRejected() throws IOException {
+        Path skillFile = writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [local]
+
+            Body with no closing frontmatter delimiter.
+            """);
+
+        IllegalArgumentException exception =
+            assertThrows(IllegalArgumentException.class, () -> SkillDocumentParser.parse(skillFile));
+
+        assertTrue(exception.getMessage()
+            .contains("line 1"));
+    }
+
+    @Test
     void testNestedFenceIsRejected() throws IOException {
         Path skillFile = writeSkill("""
             ---
