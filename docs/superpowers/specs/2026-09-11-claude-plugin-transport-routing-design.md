@@ -203,9 +203,11 @@ configuration actually builds.
 module cannot depend on. The check runs from `server/apps/server-app`, the one module whose test
 classpath sees CE and EE together, as `PluginSkillTagDriftIntTest`.
 
-**Consequence worth stating plainly:** as an `*IntTest` it runs under `./gradlew testIntegration`,
-**not** under `./gradlew test` or `./gradlew check`. Anyone relying on `check` alone will not see
-drift. The CI job that gates the plugin must invoke `testIntegration` explicitly.
+**Where it runs.** `com.bytechef.java-common-conventions.gradle.kts` declares
+`check { dependsOn(test); dependsOn(testIntegration) }`, so an `*IntTest` is covered by
+`./gradlew check` as well as `./gradlew testIntegration`. It is *not* covered by `./gradlew test`,
+whose `testIntegration` sibling filters on `**/*IntTest*` — so a developer running `test` alone
+sees no drift. No extra CI wiring is needed beyond the existing `check`.
 
 Assertions:
 
