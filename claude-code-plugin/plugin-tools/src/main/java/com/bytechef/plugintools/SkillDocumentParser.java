@@ -154,7 +154,7 @@ public final class SkillDocumentParser {
             }
         }
 
-        throw new IllegalArgumentException("Unclosed frontmatter in " + file);
+        throw new IllegalArgumentException("Unclosed frontmatter in " + file + " starting at line 1");
     }
 
     private static Set<Transport> parseTransportList(String bracketedList, Path file, int lineNumber) {
