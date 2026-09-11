@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the `bytechef-dev` plugin's skills declare which surface performs each operation, generate the claude.ai skills and the MCP server's instructions from those declarations, and fail the build when a declaration names a tool or command that does not exist.
+**Goal:** Make the `bytechef-dev` plugin's skills declare which surface performs each operation, generate the MCP server's instructions from those declarations, and fail the build when a declaration names a tool or command that does not exist.
 
-**Architecture:** A small Java library parses transport-fenced skill markdown. Two generators consume it — one emitting per-job claude.ai skills, one emitting MCP instruction fragments the server assembles at runtime against its actually-registered tools. An integration test in `server-app` (the one module whose classpath sees CE and EE together) checks every declaration against the live tool registry and the CLI's `@Command` literals.
+**Architecture:** A small Java library parses transport-fenced skill markdown. A generator emits MCP instruction fragments that the server assembles at runtime against its actually-registered tools. An integration test in `server-app` (the one module whose classpath sees CE and EE together) checks every declaration against the live tool registry and the CLI's `@Command` literals.
 
 **Tech Stack:** Java 25, Gradle 9.7 Kotlin DSL, JUnit 5, Spring AI MCP server, Spring Boot test with Testcontainers.
 
@@ -25,7 +25,7 @@ An inventory of the four existing skills found that **none of them performs an M
 
 `bytechef-mcp-setup` *names* MCP tool families but never instructs Claude to call one. Under the spec's own rule — a skill whose `transports.required` contains `cli` or `local` is dropped from the claude.ai output — all four are dropped and the claude.ai output generates **empty**, leaving the generator's primary purpose unexercised and the MCP instruction fragments with no source text.
 
-Task 4 therefore authors the first genuinely MCP-transport skill. This is an addition to the spec's stated scope, made because the alternative is shipping two generators that provably produce nothing.
+Task 4 therefore authors the first genuinely MCP-transport skill. This is an addition to the spec's stated scope, made because the alternative is shipping an instruction generator with no source text — every `## tool:` fragment comes from an `mcp` fence, and today there are none.
 
 ## Global Constraints
 
@@ -497,7 +497,7 @@ git commit -m "Tag the plugin skills with the transport that performs each opera
 
 ### Task 4: Author the first MCP-transport skill
 
-Without this the claude.ai generator and the instruction fragments both have no input. See "Scope note" above.
+Without this the instruction generator has no input. See "Scope note" above.
 
 **Files:**
 - Create: `claude-code-plugin/bytechef-dev/skills/bytechef-workflow-builder/SKILL.md`
@@ -575,139 +575,25 @@ git commit -m "Add a workflow builder skill driven by the management MCP server"
 
 ---
 
-### Task 5: The claude.ai skill generator
+### Task 5: REMOVED — the claude.ai skill generator
 
-**Files:**
-- Create: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/ClaudeSkillGenerator.java`
-- Create: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/PluginToolsMain.java`
-- Test: `claude-code-plugin/plugin-tools/src/test/java/com/bytechef/plugintools/ClaudeSkillGeneratorTest.java`
-- Create: `buildSrc/src/main/kotlin/com.bytechef.claude-plugin-generator.gradle.kts`
-- Modify: root `build.gradle.kts` (apply the convention plugin)
+**Removed 2026-09-11 by the repo owner's decision: "I want to have only one plugin."**
 
-**Interfaces:**
-- Consumes: `SkillDocumentParser.parseAll`, `SkillDocument`, `TransportFence`, `Transport` from Task 1.
-- Produces:
+The task generated a second, shell-free artifact for claude.ai. It was written on my incorrect claim
+that claude.ai has no plugin concept and therefore needed loose Skills. claude.ai does accept plugin
+uploads — its Customize screen offers Add -> Upload plugin — so a second generated artifact buys
+only the stripping of shell-dependent skills, and the owner chose a single plugin over that.
 
-```java
-public final class ClaudeSkillGenerator {
-    public static void generate(Path skillsDirectory, Path outputDirectory) throws IOException;
-}
+`bytechef-dev` is uploaded to both Claude Code and claude.ai unchanged. The consequence, accepted
+knowingly: a claude.ai user sees the four shell-dependent skills and can trigger one, at which point
+Claude finds it cannot run `./gradlew` or `bytechef`. The transport fences still earn their place
+through Task 2's drift check and Task 6's instruction fragments.
 
-public final class PluginToolsMain {
-    public static void main(String[] args) throws IOException;
-}
-```
+Task numbering is deliberately not compacted, so ledger entries and brief files keep pointing at the
+same tasks.
 
-`PluginToolsMain` dispatches on `args[0]`: `"claude-skills"` takes `args[1]` (skills dir) and `args[2]` (output dir); `"mcp-instructions"` (added in Task 6) takes `args[1]` and `args[2]` (output file).
-
-**Generation rules**, from the spec's "The claude.ai / Desktop skills — one per job":
-
-1. One output directory per input skill: `<outputDirectory>/<skill-directory-name>/SKILL.md`.
-2. Drop a skill entirely when its `requiredTransports` contains `CLI` or `LOCAL`.
-3. In surviving skills, delete every `CLI` and `LOCAL` fence including its body.
-4. Rewrite the `description`: prefix `ByteChef: ` and append ` (requires the ByteChef Management MCP connector)`. The `name` is unchanged.
-5. Strip the `transports:` frontmatter block from the output — it is build metadata, not something a claude.ai reader needs.
-6. Leave `edition: ee` fences in place, but strip the fence comments themselves from the output so the shipped file is clean markdown.
-
-- [ ] **Step 1: Write the failing tests**
-
-`ClaudeSkillGeneratorTest` builds a fixture skills directory under `@TempDir` with three skills — one `required: [mcp]`, one `required: [local]`, one `required: [mcp]` containing a `cli` fence — and asserts:
-
-```java
-@Test
-void testDropsSkillsRequiringAShell() throws IOException {
-    // the required: [local] skill produces no output directory
-}
-
-@Test
-void testKeepsMcpOnlySkills() throws IOException {
-    // the required: [mcp] skill produces <out>/<name>/SKILL.md
-}
-
-@Test
-void testStripsCliFencesAndTheirBodies() throws IOException {
-    String generated = Files.readString(outputDirectory.resolve("mixed/SKILL.md"));
-
-    assertFalse(generated.contains("bytechef component deploy"));
-    assertTrue(generated.contains("createProjectWorkflow"));
-}
-
-@Test
-void testRewritesTheDescription() throws IOException {
-    // description starts with "ByteChef: " and ends with the connector clause
-}
-
-@Test
-void testStripsTransportsFrontmatterAndFenceComments() throws IOException {
-    String generated = Files.readString(outputDirectory.resolve("mcponly/SKILL.md"));
-
-    assertFalse(generated.contains("transports:"));
-    assertFalse(generated.contains("<!-- transport:"));
-    assertFalse(generated.contains("<!-- /transport -->"));
-}
-
-@Test
-void testGeneratesNothingFromAnEmptyDirectory() throws IOException {
-    // an empty skills dir yields an empty output dir rather than throwing
-}
-```
-
-- [ ] **Step 2: Run to verify RED**
-
-```bash
-./gradlew :claude-code-plugin:plugin-tools:test --tests '*ClaudeSkillGeneratorTest*' > /tmp/t5.log 2>&1
-echo $?
-```
-
-Expected: non-zero, `ClaudeSkillGenerator` not found.
-
-- [ ] **Step 3: Implement the generator and the main**
-
-- [ ] **Step 4: Run to verify GREEN**
-
-```bash
-./gradlew :claude-code-plugin:plugin-tools:check > /tmp/t5.log 2>&1
-echo $?
-grep "^> Task .* FAILED" /tmp/t5.log
-```
-
-- [ ] **Step 5: Write the Gradle convention plugin**
-
-Create `buildSrc/src/main/kotlin/com.bytechef.claude-plugin-generator.gradle.kts` following the shape of `buildSrc/src/main/kotlin/com.bytechef.documentation-generator.gradle.kts` (read it first — it registers its task at the bottom of the file):
-
-```kotlin
-val generateClaudeSkillBundle by tasks.registering(JavaExec::class) {
-    group = "documentation"
-    description = "Generates the claude.ai skill set from the bytechef-dev plugin skills."
-    mainClass.set("com.bytechef.plugintools.PluginToolsMain")
-    classpath = project(":claude-code-plugin:plugin-tools").the<SourceSetContainer>()["main"].runtimeClasspath
-    args("claude-skills", "$rootDir/claude-code-plugin/bytechef-dev/skills", "$rootDir/build/claude-skills")
-}
-```
-
-Apply it in the root `build.gradle.kts` `plugins` block.
-
-- [ ] **Step 6: Run the generator for real**
-
-```bash
-./gradlew generateClaudeSkillBundle > /tmp/gen.log 2>&1
-echo $?
-find build/claude-skills -name SKILL.md
-```
-
-Expected: exit 0 and EXACTLY ONE output — `build/claude-skills/bytechef-workflow-builder/SKILL.md`. The other four skills require a shell and are correctly dropped. If the output is empty, Task 4's skill is not reaching the generator; stop and report rather than loosening the drop rule.
-
-Read the generated file and confirm it contains no `bytechef ` command invocations and no `./gradlew` lines.
-
-- [ ] **Step 7: Commit**
-
-```bash
-./gradlew spotlessApply > /tmp/s.log 2>&1; echo $?
-git add claude-code-plugin/plugin-tools buildSrc/src/main/kotlin/com.bytechef.claude-plugin-generator.gradle.kts build.gradle.kts
-git commit -m "Generate the claude.ai skill set from the plugin skills"
-```
-
-`build/` is gitignored — do not commit the generated output.
+If this is ever reversed, the generation rules are recoverable from this file's git history at
+commit f52d84c018f.
 
 ---
 
@@ -722,8 +608,8 @@ place (the skill) instead of two (the skill and a string constant).
 **Files:**
 - Create: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/McpInstructionFragmentGenerator.java`
 - Test: `claude-code-plugin/plugin-tools/src/test/java/com/bytechef/plugintools/McpInstructionFragmentGeneratorTest.java`
-- Modify: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/PluginToolsMain.java`
-- Modify: `buildSrc/src/main/kotlin/com.bytechef.claude-plugin-generator.gradle.kts`
+- Create: `claude-code-plugin/plugin-tools/src/main/java/com/bytechef/plugintools/PluginToolsMain.java` (Task 5 was removed, so this task creates it)
+- Modify: `claude-code-plugin/plugin-tools/build.gradle.kts` (register the Gradle task)
 - Create (generated, committed): `server/libs/ai/ai-mcp/ai-mcp-server/src/main/resources/bytechef/mcp-instructions.md`
 - Modify: `server/libs/ai/ai-mcp/ai-mcp-server/src/main/java/com/bytechef/ai/mcp/server/config/ManagementMcpServerConfiguration.java`
 - Test: `server/libs/ai/ai-mcp/ai-mcp-server/src/test/java/com/bytechef/ai/mcp/server/config/McpInstructionAssemblyTest.java`
@@ -736,7 +622,15 @@ place (the skill) instead of two (the skill and a string constant).
 public final class McpInstructionFragmentGenerator {
     public static void generate(Path skillsDirectory, Path outputFile) throws IOException;
 }
+
+public final class PluginToolsMain {
+    public static void main(String[] args) throws IOException;
+}
 ```
+
+`PluginToolsMain` takes `args[0] == "mcp-instructions"`, `args[1]` the skills directory and `args[2]`
+the output file. It was originally Task 5's; that task was removed, so it is created here with only
+the one branch.
 
 and, in `ManagementMcpServerConfiguration`, a package-private static method replacing the constant:
 
