@@ -25,7 +25,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Verifies that {@link ManagementMcpServerConfiguration#buildInstructions(Set)} assembles the {@code initialize}
  * result's {@code instructions} string from the generated fragment resource, always including the {@code ## always}
- * section and including a tool's section only when that tool is present in the passed set of registered tool names.
+ * section and including a {@code ## tools: ...} section when ANY of the tools it names is present in the passed set of
+ * registered tool names.
  *
  * @author Ivica Cardic
  */
@@ -47,6 +48,15 @@ class McpInstructionAssemblyTest {
         String instructions = ManagementMcpServerConfiguration.buildInstructions(toolNames);
 
         assertTrue(instructions.contains("buildWorkflow"));
+    }
+
+    @Test
+    void testASectionIsIncludedWhenAnyOfItsToolsIsRegistered() {
+        Set<String> toolNames = Set.of("listProjects");
+
+        String instructions = ManagementMcpServerConfiguration.buildInstructions(toolNames);
+
+        assertTrue(instructions.contains("createProjectWorkflow"));
     }
 
     @Test
