@@ -35,7 +35,7 @@ class McpInstructionFragmentGeneratorTest {
     Path tempDir;
 
     @Test
-    void testEmitsOneSectionPerToolNamed() throws IOException {
+    void testEmitsOneToolsSectionNamingAllOfAFencesTools() throws IOException {
         writeSkill("""
             ---
             name: Example
@@ -55,8 +55,32 @@ class McpInstructionFragmentGeneratorTest {
 
         String content = Files.readString(outputFile);
 
-        assertTrue(content.contains("## tool: createProject"));
-        assertTrue(content.contains("## tool: buildWorkflow"));
+        assertTrue(content.contains("## tools: createProject, buildWorkflow"));
+    }
+
+    @Test
+    void testAFenceWithTwoUsesEntriesProducesExactlyOneSectionWithOneBody() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: createProject, buildWorkflow -->
+            Create the project, then build the workflow.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertEquals(1, countOccurrences(content, "## tools:"));
+        assertEquals(1, countOccurrences(content, "Create the project, then build the workflow."));
     }
 
     @Test
@@ -93,7 +117,7 @@ class McpInstructionFragmentGeneratorTest {
     }
 
     @Test
-    void testConcatenatesRepeatedTools() throws IOException {
+    void testEmitsASeparateSectionPerFenceEvenWhenFencesShareATool() throws IOException {
         writeSkill("""
             ---
             name: Example
@@ -117,9 +141,9 @@ class McpInstructionFragmentGeneratorTest {
 
         String content = Files.readString(outputFile);
 
-        assertEquals(1, countOccurrences(content, "## tool: buildWorkflow"));
-        assertTrue(content.contains("First body marker."));
-        assertTrue(content.contains("Second body marker."));
+        assertEquals(2, countOccurrences(content, "## tools: buildWorkflow"));
+        assertEquals(1, countOccurrences(content, "First body marker."));
+        assertEquals(1, countOccurrences(content, "Second body marker."));
     }
 
     @Test
@@ -148,7 +172,7 @@ class McpInstructionFragmentGeneratorTest {
     }
 
     @Test
-    void testEmitsGeneralFenceBodyUnderAlwaysWithoutAToolSection() throws IOException {
+    void testEmitsGeneralFenceBodyUnderAlwaysWithoutAToolsSection() throws IOException {
         writeSkill("""
             ---
             name: Example
@@ -169,7 +193,7 @@ class McpInstructionFragmentGeneratorTest {
         String content = Files.readString(outputFile);
 
         assertTrue(content.contains("Special framing text."));
-        assertFalse(content.contains("## tool: general"));
+        assertFalse(content.contains("## tools: general"));
     }
 
     private Path writeSkill(String content) throws IOException {
