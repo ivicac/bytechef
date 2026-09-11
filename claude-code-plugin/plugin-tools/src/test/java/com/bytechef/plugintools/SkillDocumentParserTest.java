@@ -251,6 +251,32 @@ class SkillDocumentParserTest {
     }
 
     @Test
+    void testFenceWithHashCommentInsideCodeBlockIsAccepted() throws IOException {
+        Path skillFile = writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [cli]
+            ---
+
+            <!-- transport: cli uses: automation project deploy -->
+            ```bash
+            # Automation project — via the CLI (workspaceId optional; defaults server-side)
+            bytechef automation project deploy --project-file my-code-project.js --workspace-id 1049
+            ```
+            <!-- /transport -->
+            """);
+
+        SkillDocument skillDocument = SkillDocumentParser.parse(skillFile);
+        TransportFence fence = skillDocument.fences()
+            .getFirst();
+
+        assertTrue(fence.body()
+            .contains("# Automation project — via the CLI (workspaceId optional; defaults server-side)"));
+    }
+
+    @Test
     void testReferenceFileWithoutFrontmatterIsValid() throws IOException {
         Path referenceFile = tempDir.resolve("detail.md");
 

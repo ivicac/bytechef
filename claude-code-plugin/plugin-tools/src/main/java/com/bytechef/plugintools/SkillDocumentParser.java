@@ -201,6 +201,7 @@ public final class SkillDocumentParser {
         List<TransportFence> fences = new ArrayList<>();
 
         boolean insideFence = false;
+        boolean insideCodeBlock = false;
         int fenceStartLineNumber = -1;
         Transport currentTransport = null;
         Edition currentEdition = null;
@@ -221,6 +222,7 @@ public final class SkillDocumentParser {
                 }
 
                 insideFence = true;
+                insideCodeBlock = false;
                 fenceStartLineNumber = lineNumber;
                 currentTransport = parseTransportKeyword(openingMatcher.group(1), file, lineNumber);
 
@@ -248,12 +250,16 @@ public final class SkillDocumentParser {
 
                 fences.add(new TransportFence(currentTransport, currentEdition, currentUses, currentBody.toString()));
                 insideFence = false;
+                insideCodeBlock = false;
 
                 continue;
             }
 
             if (insideFence) {
                 if (line.strip()
+                    .startsWith("```")) {
+                    insideCodeBlock = !insideCodeBlock;
+                } else if (!insideCodeBlock && line.strip()
                     .startsWith("#")) {
                     throw new IllegalArgumentException(
                         "Transport fence spans a heading in " + file + " at line " + lineNumber);
