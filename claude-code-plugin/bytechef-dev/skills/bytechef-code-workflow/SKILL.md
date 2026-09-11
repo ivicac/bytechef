@@ -1,6 +1,8 @@
 ---
 name: ByteChef Code Workflow Builder
 description: This skill should be used when the user asks to "create a code workflow", "write a workflow as code", "deploy a code-native project", "build a code workflow integration", "author a ByteChef project in JavaScript/Python/Ruby/Java", or wants whole ByteChef projects (automation) or integrations (embedded) defined in code and deployed to a running instance.
+transports:
+  required: [local, cli]
 ---
 
 # ByteChef Code Workflow Builder
@@ -131,14 +133,21 @@ public class MyProjectHandler implements ProjectHandler {
 }
 ```
 
-Integrations implement `IntegrationHandler` with `IntegrationDsl.integration(...)` analogously (componentName-based). Register the ServiceLoader file for the matching interface (table above). The SDK jars are **not on a public Maven repository** — `publishToMavenLocal` from a ByteChef checkout or build in-repo. Java deploy availability can be restricted by server configuration.
+Integrations implement `IntegrationHandler` with `IntegrationDsl.integration(...)` analogously (componentName-based). Register the ServiceLoader file for the matching interface (table above).
+<!-- transport: local -->
+The SDK jars are **not on a public Maven repository** — `publishToMavenLocal` from a ByteChef checkout or build in-repo.
+<!-- /transport -->
+Java deploy availability can be restricted by server configuration.
 
 ## Deploying
 
+Automation project — via the CLI (`workspaceId` optional; defaults server-side):
+
+<!-- transport: cli uses: automation project deploy -->
 ```bash
-# Automation project — via the CLI (workspaceId optional; defaults server-side)
 bytechef automation project deploy --project-file my-code-project.js --workspace-id 1049
 ```
+<!-- /transport -->
 
 No CLI available? Same endpoint over curl:
 
@@ -149,15 +158,11 @@ curl -sf -X POST "$BYTECHEF_BASE_URL/api/automation/v1/projects/deploy" \
   -F "projectFile=@my-code-project.js"
 ```
 
-```bash
-# Embedded integration — NOTE: Authorization headers on the internal surface are
-# routed to the embedded connected-user authenticator, which carries no admin
-# authorities — a Bearer token will typically be rejected (401/403). Use an admin
-# browser session (cookie + X-XSRF-TOKEN) or deploy from the instance's admin UI.
-curl -sf -X POST "$BYTECHEF_BASE_URL/api/embedded/internal/integrations/deploy" \
-  -H "Authorization: Bearer $BYTECHEF_ADMIN_TOKEN" \
-  -F "integrationFile=@my-integration.js"
-```
+Embedded integration deploy (`POST /api/embedded/internal/integrations/deploy`) has no automatable
+route: `EmbeddedApiKeySecurityConfigurer` matches that path with the connected-user authenticator,
+which requires a `/v<n>/{externalUserId}/` path segment and grants zero authorities regardless of what
+it matches, so a profile bearer token can never satisfy the facade's `ROLE_ADMIN` guard. This operation
+is reachable only from the instance's admin console, not from any automatable surface.
 
 - File extension selects the language: `.jar`/`.js`/`.py`/`.rb`. Success: `204 No Content`.
 - The automation `/api/automation/v1/**` surface accepts admin API keys (Bearer) and is CSRF-exempt.
@@ -181,12 +186,14 @@ two bridge endpoints reach the same facade and are interchangeable in effect; pi
 caller can authenticate with — `/api/embedded/internal/**` only accepts an admin browser session
 (cookie + X-XSRF-TOKEN), a bearer token there is rejected (401/403).
 
+<!-- transport: cli uses: embedded code-workflow deploy, embedded code-workflow list -->
 Deploy through the CLI once it's configured (`bytechef configure ...`):
 
 ```bash
 bytechef embedded code-workflow deploy --file my-project.js
 bytechef embedded code-workflow list --output table
 ```
+<!-- /transport -->
 
 No CLI available? The same deploy is a plain multipart POST with a bearer token:
 

@@ -1,6 +1,8 @@
 ---
 name: ByteChef Component Builder
 description: This skill should be used when the user asks to "create a ByteChef component", "build a new component", "add a component", "new bytechef plugin", "scaffold a component", "create an action", "create a trigger", "create a connection definition", "add an action to a component", "add a trigger", "add a webhook trigger", "OpenAPI component", "component handler", or mentions building integrations for the ByteChef platform. Provides step-by-step guidance for creating ByteChef components with actions, triggers, connections, and tests.
+transports:
+  required: [local]
 ---
 
 # ByteChef Component Builder
@@ -30,10 +32,13 @@ components/{name}/
 
 ### 1. Scaffold the Directory
 
+<!-- transport: local -->
 Create the component directory under `server/libs/modules/components/{name}/` with the structure above. Use lowercase for the directory name (e.g., `slack`, `google-sheets`).
+<!-- /transport -->
 
 ### 2. Register in Build System
 
+<!-- transport: local -->
 Add to `settings.gradle.kts` at project root:
 
 ```kotlin
@@ -59,6 +64,7 @@ dependencies {
 ```
 
 Parent `components/build.gradle.kts` already provides: `component-api`, `auto-service`, `commons-lang3`, `component-test`, and `test-support`.
+<!-- /transport -->
 
 ### 3. Create Constants Class
 
@@ -221,11 +227,13 @@ Run the test once to generate the JSON snapshot, then subsequent runs validate a
 
 ### 10. Build and Verify
 
+<!-- transport: local -->
 ```bash
 ./gradlew :server:libs:modules:components:{name}:compileJava
 ./gradlew :server:libs:modules:components:{name}:test
 ./gradlew spotlessApply
 ```
+<!-- /transport -->
 
 ## Property Quick Reference
 
@@ -265,12 +273,14 @@ string(FIELD)
 
 ## OpenAPI-Based Components
 
+<!-- transport: local -->
 For API-first components, use the CLI scaffolder:
 
 ```bash
 cd cli
 ./gradlew :cli-app:bootRun --args="component init openapi --name={name} --openapi-path=/path/to/openapi.yaml"
 ```
+<!-- /transport -->
 
 Then extend the generated `Abstract{Name}ComponentHandler` by implementing `OpenApiComponentHandler` (annotated with `@AutoService(OpenApiComponentHandler.class)`) and override `modifyActions()`, `modifyComponent()`, and `getCustomActions()` as needed.
 

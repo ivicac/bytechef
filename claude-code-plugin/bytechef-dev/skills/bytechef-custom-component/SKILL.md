@@ -1,6 +1,8 @@
 ---
 name: ByteChef Custom Component Builder
 description: This skill should be used when the user asks to "create a custom component", "build a custom ByteChef component", "write a JavaScript/Python/Ruby component", "upload a custom component", "deploy a custom component", or wants a single-file uploadable component (as opposed to an in-repo platform component) for a running ByteChef instance. Covers all four languages (JavaScript, Python, Ruby, Java) and uploading the built artifact to a configured ByteChef server.
+transports:
+  required: [local, cli]
 ---
 
 # ByteChef Custom Component Builder
@@ -174,16 +176,20 @@ public class MyComponentHandler implements ComponentHandler {
 
 Requirements:
 - Register via ServiceLoader: `META-INF/services/com.bytechef.component.ComponentHandler` containing the implementation's fully-qualified class name.
+<!-- transport: local -->
 - The SDK jars are **not published to a public Maven repository**. Build them from the ByteChef repo (`./gradlew :sdks:backend:java:component-api:publishToMavenLocal` etc.) and depend on them from `mavenLocal()`, or build your component inside a ByteChef checkout.
+<!-- /transport -->
 - Java upload is gated by the server property `bytechef.component.custom-component.java-enabled` (default `true`); if the server disables it, only `.js`/`.py`/`.rb` upload.
 
 ## Uploading
 
+<!-- transport: cli uses: component deploy -->
 Deploy through the CLI once it's configured (`bytechef configure ...`):
 
 ```bash
 bytechef component deploy --file ./my-component.js
 ```
+<!-- /transport -->
 
 No CLI available? The same deploy is a plain multipart POST with a bearer token:
 
