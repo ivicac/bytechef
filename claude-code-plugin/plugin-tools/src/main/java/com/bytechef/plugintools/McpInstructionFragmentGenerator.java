@@ -19,16 +19,15 @@ package com.bytechef.plugintools;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Generates the management MCP server's instruction fragments from the {@code mcp} transport fences carried by the
- * plugin skills: one {@code ## always} section, plus one {@code ## tool: <name>} section per distinct tool named by a
- * fence's {@code uses:} list. A fence tagged {@code uses: general} contributes its body to the {@code ## always}
- * section instead of a tool section. A tool named by several fences gets its bodies concatenated, in file order, under
- * one section.
+ * plugin skills: one {@code ## always} section, plus one {@code ## tools: <name>, <name>, ...} section per fence,
+ * naming every tool in that fence's {@code uses:} list and carrying the fence's body exactly once. A fence tagged
+ * {@code uses: general} contributes its body to the {@code ## always} section instead of a tools section. Two fences
+ * are never merged, even when they name the same tool, so a fence's body is never duplicated in the output.
  *
  * @author Ivica Cardic
  */
@@ -38,7 +37,7 @@ public final class McpInstructionFragmentGenerator {
 
     private static final String ALWAYS_HEADING = "## always";
 
-    private static final String TOOL_HEADING_PREFIX = "## tool: ";
+    private static final String TOOLS_HEADING_PREFIX = "## tools: ";
 
     private static final String ALWAYS_BASE_BODY =
         "ByteChef management server. Ordinary tools are deterministic CRUD; intelligent tools run an inner "
@@ -51,7 +50,7 @@ public final class McpInstructionFragmentGenerator {
         List<SkillDocument> skillDocuments = SkillDocumentParser.parseAll(skillsDirectory);
 
         StringBuilder alwaysSection = new StringBuilder(ALWAYS_BASE_BODY);
-        Map<String, StringBuilder> toolSections = new LinkedHashMap<>();
+        List<TransportFence> toolFences = new ArrayList<>();
 
         for (SkillDocument skillDocument : skillDocuments) {
             for (TransportFence transportFence : skillDocument.fences()) {
@@ -61,19 +60,13 @@ public final class McpInstructionFragmentGenerator {
 
                 if (isGeneralFence(transportFence)) {
                     appendBody(alwaysSection, transportFence.body());
-
-                    continue;
-                }
-
-                for (String toolName : transportFence.uses()) {
-                    StringBuilder toolSection = toolSections.computeIfAbsent(toolName, key -> new StringBuilder());
-
-                    appendBody(toolSection, transportFence.body());
+                } else {
+                    toolFences.add(transportFence);
                 }
             }
         }
 
-        String content = renderContent(alwaysSection, toolSections);
+        String content = renderContent(alwaysSection, toolFences);
         Path parentDirectory = outputFile.getParent();
 
         if (parentDirectory != null) {
@@ -98,7 +91,7 @@ public final class McpInstructionFragmentGenerator {
         section.append(body.strip());
     }
 
-    private static String renderContent(StringBuilder alwaysSection, Map<String, StringBuilder> toolSections) {
+    private static String renderContent(StringBuilder alwaysSection, List<TransportFence> toolFences) {
         StringBuilder content = new StringBuilder();
 
         content.append(ALWAYS_HEADING)
@@ -106,12 +99,13 @@ public final class McpInstructionFragmentGenerator {
             .append(alwaysSection)
             .append('\n');
 
-        for (Map.Entry<String, StringBuilder> toolSectionEntry : toolSections.entrySet()) {
+        for (TransportFence toolFence : toolFences) {
             content.append('\n')
-                .append(TOOL_HEADING_PREFIX)
-                .append(toolSectionEntry.getKey())
+                .append(TOOLS_HEADING_PREFIX)
+                .append(String.join(", ", toolFence.uses()))
                 .append('\n')
-                .append(toolSectionEntry.getValue())
+                .append(toolFence.body()
+                    .strip())
                 .append('\n');
         }
 
