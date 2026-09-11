@@ -19,6 +19,7 @@ package com.bytechef.ai.mcp.server.config;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.ai.copilot.tool.CopilotAgentType;
 import com.bytechef.plugintools.Edition;
 import com.bytechef.plugintools.SkillDocument;
 import com.bytechef.plugintools.SkillDocumentParser;
@@ -32,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -60,6 +62,16 @@ import org.springframework.context.annotation.Import;
  * updateWorkflow, deleteWorkflow exist in both ProjectWorkflowTools and IntegrationWorkflowTools) while reaching a
  * different MCP server, so there is no mechanical source of truth for an edition claim. This comment exists so a future
  * reader does not mistake an unchecked declaration for a checked one.
+ * <p>
+ * {@code registeredMcpToolNames()} alone under-approximates the real registry: Copilot-contributed intelligent tools
+ * (e.g. {@code buildWorkflow}, {@code importWorkflow}) only resolve there when {@code CopilotConfiguration} is active,
+ * which needs {@code bytechef.ai.copilot.enabled=true}, which this test's context deliberately runs without (see
+ * {@code ServerApplicationIntTest.testCopilotBeansNotPresentWhenFeatureDisabled}) — and turning it on here pulls in a
+ * pgvector-backed vector store ({@code CopilotPgVectorConfiguration}) that runs {@code CREATE EXTENSION IF NOT
+ * EXISTS vector} against a real datasource at context-refresh time, which the plain Postgres Testcontainer this suite
+ * uses cannot satisfy. So {@link #mcpInventory()} widens {@link #registeredMcpToolNames()} with
+ * {@link #intelligentToolNames()}, a real, static, always-available source for exactly those names — see that method's
+ * Javadoc for what it captures and its one known false-positive.
  *
  * @author Ivica Cardic
  */
@@ -97,6 +109,43 @@ class PluginSkillTagDriftIntTest {
             .collect(Collectors.toSet());
     }
 
+    /**
+     * {@link CopilotAgentType} keys that contain no underscore. Real intelligent-tool names are camelCase by convention
+     * ({@code buildWorkflow}, {@code importWorkflow}, {@code configureClusterElement}, ...); the enum's other,
+     * panel-only agent types use snake_case keys ({@code workflow_editor_ask}, {@code project_build}, ...), so "no
+     * underscore" separates the two groups without a hand-maintained allowlist that would drift the moment a new
+     * intelligent tool is added to the enum.
+     * <p>
+     * KNOWN HOLE: this heuristic is not exact. {@link CopilotAgentType#SKILLS} has key {@code "skills"} — no
+     * underscore, so it is admitted here — but it is a panel agent-type key, not an MCP tool name; the actual
+     * registered tool for that same subagent is {@code authorSkill}. A fence that named {@code skills} as an mcp tool
+     * would incorrectly pass {@link #testEveryMcpTagNamesARegisteredTool()}. This is a deliberate, bounded weakening:
+     * the alternative (a hand-maintained name list) drifts silently, while this one drifts loudly (a new
+     * non-underscored, non-tool enum key would need to appear, and would need to be reported the same way). If a second
+     * such name ever appears, replace this heuristic with an explicit list.
+     */
+    private static Set<String> intelligentToolNames() {
+        Set<String> names = new HashSet<>();
+
+        for (CopilotAgentType agentType : CopilotAgentType.values()) {
+            String key = agentType.key();
+
+            if (!key.contains("_")) {
+                names.add(key);
+            }
+        }
+
+        return names;
+    }
+
+    private Set<String> mcpInventory() {
+        Set<String> names = new HashSet<>(registeredMcpToolNames());
+
+        names.addAll(intelligentToolNames());
+
+        return names;
+    }
+
     private static Set<String> cliCommandNames() throws IOException {
         Pattern pattern = Pattern.compile("@Command\\(\\s*name\\s*=\\s*\"([^\"]+)\"");
 
@@ -129,14 +178,17 @@ class PluginSkillTagDriftIntTest {
 
     @Test
     void testEveryMcpTagNamesARegisteredTool() throws IOException {
-        Set<String> registeredToolNames = registeredMcpToolNames();
+        Set<String> registeredToolNames = mcpInventory();
         List<String> failures = new ArrayList<>();
+        int mcpFenceCount = 0;
 
         for (SkillDocument skillDocument : skillDocuments()) {
             for (TransportFence transportFence : skillDocument.fences()) {
                 if (transportFence.transport() != Transport.MCP) {
                     continue;
                 }
+
+                mcpFenceCount++;
 
                 for (String use : transportFence.uses()) {
                     if (!registeredToolNames.contains(use)) {
@@ -147,6 +199,7 @@ class PluginSkillTagDriftIntTest {
         }
 
         assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+        assertTrue(mcpFenceCount > 0, "Expected at least one mcp transport fence across all skills");
     }
 
     @Test
@@ -173,7 +226,7 @@ class PluginSkillTagDriftIntTest {
 
     @Test
     void testEditionMarkingIsNotVerifiedMechanically() throws IOException {
-        Set<String> registeredToolNames = registeredMcpToolNames();
+        Set<String> registeredToolNames = mcpInventory();
         List<String> failures = new ArrayList<>();
 
         for (SkillDocument skillDocument : skillDocuments()) {
@@ -200,5 +253,21 @@ class PluginSkillTagDriftIntTest {
 
         assertFalse(commandNames.isEmpty());
         assertTrue(commandNames.contains("component deploy"));
+    }
+
+    @Test
+    void testTheMcpInventoryIsNotEmpty() {
+        Set<String> toolNames = registeredMcpToolNames();
+
+        assertFalse(toolNames.isEmpty());
+        assertTrue(toolNames.contains("createProjectWorkflow"));
+    }
+
+    @Test
+    void testTheIntelligentToolNameHeuristicIsNotEmpty() {
+        Set<String> names = intelligentToolNames();
+
+        assertFalse(names.isEmpty());
+        assertTrue(names.contains("buildWorkflow"));
     }
 }
