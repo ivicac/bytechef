@@ -14,11 +14,16 @@ about what to call once it is, not how to configure `.mcp.json`.
 
 ## Two kinds of tools
 
+<!-- transport: mcp uses: general -->
 Ordinary tools are deterministic CRUD — call them directly and expect an immediate result.
-Intelligent tools (`buildWorkflow`, `importWorkflow`, and others outside this skill's scope such as
-`configureClusterElement`, `writeScript`, `buildCodeWorkflow`, `buildCustomComponent`, `authorSkill`,
-`debugWorkflowExecution`) run an inner AI agent and may take minutes. Call an intelligent tool for
-judgment work — "build this", "import that" — never for CRUD a plain tool already does.
+Intelligent tools run an inner AI agent and may take minutes. Call an intelligent tool for judgment
+work — "build this", "import that" — never for CRUD a plain tool already does.
+<!-- /transport -->
+
+For this skill specifically, `buildWorkflow` and `importWorkflow` are the intelligent tools. Other
+intelligent tools exist outside this skill's scope (`configureClusterElement`, `writeScript`,
+`buildCodeWorkflow`, `buildCustomComponent`, `authorSkill`, `debugWorkflowExecution`) and may or may
+not be registered depending on edition and configuration.
 
 ## Creating a project and workflow
 
@@ -31,8 +36,8 @@ result is the `workflowId` that every later workflow operation keys on.
 ## Building a workflow from a plain-language instruction
 
 <!-- transport: mcp uses: buildWorkflow -->
-Call `buildWorkflow` with the `workflowId` from above and a plain-language instruction describing
-what the workflow should do.
+Call `buildWorkflow` with the `workflowId` returned when the workflow was created and a
+plain-language instruction describing what the workflow should do.
 
 Each intelligent-tool call is independent: it re-reads the current state of the workflow rather
 than remembering earlier calls in this conversation. To keep building, call `buildWorkflow` again
@@ -50,9 +55,9 @@ Ordinary CRUD tools never do this.
 
 <!-- transport: mcp uses: importWorkflow -->
 Call `importWorkflow` with the `workflowId` and the source workflow definition (the exported
-n8n/Make/Zapier/Workato JSON). It has no project- or workflow-creation tools of its own — create
-the project and the empty workflow first, using the sequence above, then import into it. Each call
-is independent and may return a clarifying question instead of a result; handle it the same way.
+n8n/Make/Zapier/Workato JSON). It has no project- or workflow-creation tools of its own — create the
+project and an empty workflow to import into first, then call `importWorkflow`. Each call is
+independent and may return a clarifying question instead of a result; handle it the same way.
 <!-- /transport -->
 
 ## Discovering what a step can do
@@ -88,10 +93,12 @@ A built or imported workflow is not live until its project is published. Once it
 
 ## Workspace context
 
+<!-- transport: mcp uses: general -->
 Most tools require workspace context. A tool that returns a `workspace_required` error names the
 valid ids in its `workspaces` field — retry the same call with one of those as `workspaceId`. This
-applies uniformly across the tools above; no special handling is needed when the account has
+applies uniformly across ordinary CRUD tools; no special handling is needed when the account has
 exactly one workspace.
+<!-- /transport -->
 
 ## Follow-up: not covered here
 
