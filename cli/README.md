@@ -175,7 +175,13 @@ the same carved-out surface as `deploy`.
 
 ```bash
 bytechef component init --name my-component --open-api-path ./openapi.yaml --output-path .
+
+# Deploy a custom component (single-file JS/Python/Ruby, or a Java .jar) to a running instance
+bytechef component deploy --file ./my-component.js
 ```
+
+The profile token used for `component deploy` must be an admin platform API key, `.jar` deployment requires
+`java-enabled` on the server, and the file extension selects the language server-side.
 
 ## Exit codes
 

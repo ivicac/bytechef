@@ -21,6 +21,7 @@ import com.bytechef.cli.command.automation.AutomationDataTableRowCommand;
 import com.bytechef.cli.command.automation.AutomationExecutionCommand;
 import com.bytechef.cli.command.automation.AutomationProjectCommand;
 import com.bytechef.cli.command.component.ComponentCommand;
+import com.bytechef.cli.command.component.ComponentDeployCommand;
 import com.bytechef.cli.command.config.ConfigureCommand;
 import com.bytechef.cli.command.embedded.EmbeddedCodeWorkflowCommand;
 import com.bytechef.cli.command.embedded.EmbeddedExecutionCommand;
@@ -44,10 +45,10 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
  */
 @SpringBootApplication
 @EnableCommand({
-    ComponentCommand.class, ConfigureCommand.class, AutomationExecutionCommand.class, AutomationProjectCommand.class,
-    AutomationDataTableCommand.class, AutomationDataTableRowCommand.class, EmbeddedIntegrationCommand.class,
-    EmbeddedWorkflowCommand.class, EmbeddedExecutionCommand.class, EmbeddedUserCommand.class,
-    EmbeddedCodeWorkflowCommand.class
+    ComponentCommand.class, ComponentDeployCommand.class, ConfigureCommand.class, AutomationExecutionCommand.class,
+    AutomationProjectCommand.class, AutomationDataTableCommand.class, AutomationDataTableRowCommand.class,
+    EmbeddedIntegrationCommand.class, EmbeddedWorkflowCommand.class, EmbeddedExecutionCommand.class,
+    EmbeddedUserCommand.class, EmbeddedCodeWorkflowCommand.class
 })
 public class CliApplication {
 
