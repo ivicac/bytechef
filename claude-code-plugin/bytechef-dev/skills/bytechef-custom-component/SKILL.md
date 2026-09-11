@@ -182,7 +182,7 @@ Requirements:
 
 ## Uploading
 
-<!-- transport: cli uses: component deploy -->
+<!-- transport: cli uses: component deploy, configure -->
 Deploy through the CLI once it's configured (`bytechef configure ...`):
 
 ```bash
