@@ -1,0 +1,198 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.plugintools;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * @author Ivica Cardic
+ */
+class McpInstructionFragmentGeneratorTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void testEmitsOneSectionPerToolNamed() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: createProject, buildWorkflow -->
+            Create the project, then build the workflow.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertTrue(content.contains("## tool: createProject"));
+        assertTrue(content.contains("## tool: buildWorkflow"));
+    }
+
+    @Test
+    void testIgnoresCliAndLocalFences() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp, cli, local]
+            ---
+
+            <!-- transport: mcp uses: createProject -->
+            Create the project.
+            <!-- /transport -->
+
+            <!-- transport: cli uses: component deploy -->
+            Deploy the component from the shell. CLI_ONLY_MARKER
+            <!-- /transport -->
+
+            <!-- transport: local -->
+            Do this directly in the checkout. LOCAL_ONLY_MARKER
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertFalse(content.contains("CLI_ONLY_MARKER"));
+        assertFalse(content.contains("LOCAL_ONLY_MARKER"));
+    }
+
+    @Test
+    void testConcatenatesRepeatedTools() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: buildWorkflow -->
+            First body marker.
+            <!-- /transport -->
+
+            <!-- transport: mcp uses: buildWorkflow -->
+            Second body marker.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertEquals(1, countOccurrences(content, "## tool: buildWorkflow"));
+        assertTrue(content.contains("First body marker."));
+        assertTrue(content.contains("Second body marker."));
+    }
+
+    @Test
+    void testAlwaysSectionIsPresentWithoutAGeneralFence() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: createProject -->
+            Create the project.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertTrue(content.contains("## always"));
+        assertTrue(content.contains("ByteChef management server"));
+    }
+
+    @Test
+    void testEmitsGeneralFenceBodyUnderAlwaysWithoutAToolSection() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: general -->
+            Special framing text.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        String content = Files.readString(outputFile);
+
+        assertTrue(content.contains("Special framing text."));
+        assertFalse(content.contains("## tool: general"));
+    }
+
+    private Path writeSkill(String content) throws IOException {
+        Path skillDirectory = tempDir.resolve("example-skill");
+
+        Files.createDirectories(skillDirectory);
+
+        Path skillFile = skillDirectory.resolve("SKILL.md");
+
+        Files.writeString(skillFile, content);
+
+        return skillFile;
+    }
+
+    private static int countOccurrences(String content, String needle) {
+        int count = 0;
+        int index = content.indexOf(needle);
+
+        while (index != -1) {
+            count++;
+            index = content.indexOf(needle, index + needle.length());
+        }
+
+        return count;
+    }
+}
