@@ -26,7 +26,21 @@ import java.util.List;
  */
 public record TransportFence(Transport transport, Edition edition, List<String> uses, String body) {
 
+    /**
+     * The {@code uses:} token that marks a fence as contributing to the {@code ## always} section of the generated MCP
+     * instructions rather than to a per-tool {@code ## tools: ...} section.
+     */
+    public static final String GENERAL_MARKER = "general";
+
     public TransportFence {
         uses = List.copyOf(uses);
+    }
+
+    /**
+     * A fence with no {@code uses} entries, or whose {@code uses} entries include the {@link #GENERAL_MARKER} sentinel,
+     * contributes its body to the {@code ## always} section instead of a per-tool section.
+     */
+    public boolean isGeneral() {
+        return uses.isEmpty() || uses.contains(GENERAL_MARKER);
     }
 }
