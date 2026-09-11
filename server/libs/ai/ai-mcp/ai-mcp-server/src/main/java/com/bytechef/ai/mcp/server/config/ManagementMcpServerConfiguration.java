@@ -88,7 +88,7 @@ public class ManagementMcpServerConfiguration {
 
     private static final String ALWAYS_SECTION_HEADING = "## always";
 
-    private static final String TOOL_SECTION_HEADING_PREFIX = "## tool: ";
+    private static final String TOOLS_SECTION_HEADING_PREFIX = "## tools: ";
 
     private static final Logger log = LoggerFactory.getLogger(ManagementMcpServerConfiguration.class);
 
@@ -160,9 +160,11 @@ public class ManagementMcpServerConfiguration {
      * Assembles the {@code initialize} result's {@code instructions} field (MCP SDK 2.0's
      * {@code McpServer.AsyncSpecification#instructions}) from the generated fragment resource — the only sequencing
      * guidance external MCP clients (Claude Desktop, Cursor) get, since they never see the Copilot/AI Hub system
-     * prompt. The {@code ## always} section is always included; a {@code ## tool: X} section is included only when
-     * {@code X} is present in {@code registeredToolNames}, so a fragment naming a renamed or removed tool is silently
-     * dropped rather than pointing a client at nothing.
+     * prompt. The {@code ## always} section is always included. A {@code ## tools: X, Y, Z} section — one fence's body,
+     * naming every tool that fence covers — is included when ANY of X, Y, Z is present in {@code registeredToolNames}:
+     * tool sets arrive per contributor and are effectively all-or-nothing, so dropping useful sequencing guidance
+     * because one of several names is missing would be the worse failure. A fragment naming only renamed or removed
+     * tools is silently dropped rather than pointing a client at nothing.
      */
     static String buildInstructions(Set<String> registeredToolNames) {
         List<String> lines = readMcpInstructionFragments().lines()
@@ -173,14 +175,15 @@ public class ManagementMcpServerConfiguration {
         boolean includeCurrentSection = false;
 
         for (String line : lines) {
-            if (line.equals(ALWAYS_SECTION_HEADING) || line.startsWith(TOOL_SECTION_HEADING_PREFIX)) {
+            if (line.equals(ALWAYS_SECTION_HEADING) || line.startsWith(TOOLS_SECTION_HEADING_PREFIX)) {
                 if (includeCurrentSection) {
                     appendSection(instructions, currentSection);
                 }
 
                 currentSection = new StringBuilder(line);
                 includeCurrentSection = line.equals(ALWAYS_SECTION_HEADING)
-                    || registeredToolNames.contains(line.substring(TOOL_SECTION_HEADING_PREFIX.length()));
+                    || sectionToolNames(line).stream()
+                        .anyMatch(registeredToolNames::contains);
 
                 continue;
             }
@@ -196,6 +199,14 @@ public class ManagementMcpServerConfiguration {
         }
 
         return instructions.toString();
+    }
+
+    private static List<String> sectionToolNames(String toolsSectionHeading) {
+        String namesPart = toolsSectionHeading.substring(TOOLS_SECTION_HEADING_PREFIX.length());
+
+        return Arrays.stream(namesPart.split(","))
+            .map(String::strip)
+            .toList();
     }
 
     private static void appendSection(StringBuilder instructions, StringBuilder section) {
