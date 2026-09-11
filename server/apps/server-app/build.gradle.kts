@@ -444,6 +444,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-ai:platform-ai-stt:platform-ai-stt-service"))
     runtimeOnly(project(":server:libs:platform:platform-ai:platform-ai-stt:platform-ai-stt-openai"))
 
+    testImplementation(project(":claude-code-plugin:plugin-tools"))
     testImplementation(project(":server:libs:test:test-int-support"))
     testImplementation(project(":server:libs:core:tenant:tenant-api"))
     testImplementation(project(":server:libs:automation:automation-knowledge-base:automation-knowledge-base-api"))
