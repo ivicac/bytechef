@@ -1,6 +1,3 @@
----
----
-
 # ByteChef Component Patterns
 
 Real-world patterns extracted from existing ByteChef components. Use these as templates when building new components.
