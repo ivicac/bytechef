@@ -125,7 +125,7 @@ public final class SkillDocumentParser {
 **Fence syntax** (the format the whole plan rests on):
 
 ```markdown
-<!-- transport: mcp uses: createProjectWorkflow, buildWorkflow edition: ee -->
+<!-- transport: mcp uses: createIntegrationWorkflow edition: ee -->
 prose and code here
 <!-- /transport -->
 ```
@@ -563,7 +563,7 @@ echo $?
 grep "^> Task .* FAILED" /tmp/t4.log
 ```
 
-Expected: exit 0, with the MCP assertions now non-vacuous. If an `edition: ee` tag fails, the EE tool is genuinely absent from the registry — report it rather than deleting the tag.
+Expected: exit 0, with the MCP assertions now non-vacuous. This skill declares no `edition: ee` fences; if you wrote one, re-read the scope note above before continuing.
 
 - [ ] **Step 5: Commit**
 
