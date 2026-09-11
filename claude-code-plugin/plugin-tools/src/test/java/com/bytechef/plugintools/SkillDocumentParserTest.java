@@ -251,6 +251,35 @@ class SkillDocumentParserTest {
     }
 
     @Test
+    void testReferenceFileWithoutFrontmatterIsValid() throws IOException {
+        Path referenceFile = tempDir.resolve("detail.md");
+
+        Files.writeString(referenceFile, """
+            # Reference
+
+            Some explanatory prose with no frontmatter block.
+
+            <!-- transport: local -->
+            Do this directly in the checkout.
+            <!-- /transport -->
+            """);
+
+        SkillDocument skillDocument = SkillDocumentParser.parse(referenceFile);
+
+        assertEquals("", skillDocument.name());
+        assertEquals("", skillDocument.description());
+        assertTrue(skillDocument.requiredTransports()
+            .isEmpty());
+        assertTrue(skillDocument.optionalTransports()
+            .isEmpty());
+
+        TransportFence fence = skillDocument.fences()
+            .getFirst();
+
+        assertEquals(Transport.LOCAL, fence.transport());
+    }
+
+    @Test
     void testParseAllFindsSkillAndReferenceFiles() throws IOException {
         Path skillDirectory = tempDir.resolve("one");
 
