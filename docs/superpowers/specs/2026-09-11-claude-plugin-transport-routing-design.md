@@ -133,6 +133,14 @@ An `edition: ee` attribute marks blocks that depend on EE-only tools. Default is
 Fences do not nest, and a fence may not span a heading. A block that needs two transports is
 written as two adjacent fences, because either one may be removed independently.
 
+**A fence body must stand alone — it may not reference another fence's tool.** The MCP instruction
+fragments are assembled per registered tool: a `## tool: X` section is included only when `X` is
+registered. So a sentence in the `createProjectWorkflow` section reading "the `workflowId` that
+`buildWorkflow` keys on" dangles for any client whose server does not register `buildWorkflow`.
+Write each fence as if it were the only one its reader will see. (Found while generating the
+fragments — the first draft of the workflow-builder skill cross-referenced freely, which reads well
+as a document and breaks as a set of independently-included sections.)
+
 Authoring constraint: a fence must be removable without leaving a dangling sentence. Prose that
 says "…then, using the CLI, …" across a fence boundary breaks the claude.ai output. Each fence
 stands alone.
