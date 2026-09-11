@@ -171,7 +171,7 @@ a no-`--external-user-id` path as belonging to a connected user literally named 
 silently creating that phantom row per tenant/environment as a side effect. `list` instead stays on
 the same carved-out surface as `deploy`.
 
-## Component scaffolding
+## Component scaffolding and deployment
 
 ```bash
 bytechef component init --name my-component --open-api-path ./openapi.yaml --output-path .
@@ -180,8 +180,10 @@ bytechef component init --name my-component --open-api-path ./openapi.yaml --out
 bytechef component deploy --file ./my-component.js
 ```
 
-The profile token used for `component deploy` must be an admin platform API key, `.jar` deployment requires
-`java-enabled` on the server, and the file extension selects the language server-side.
+`component init` is local-only and contacts no instance. `component deploy` sends to
+`<host>/api/platform/v1` with `Authorization: Bearer <token>`; the profile token used must be an admin
+platform API key, `.jar` deployment requires `java-enabled` on the server, and the file extension selects
+the language server-side.
 
 ## Exit codes
 
