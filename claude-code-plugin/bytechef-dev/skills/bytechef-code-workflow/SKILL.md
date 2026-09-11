@@ -141,10 +141,9 @@ Java deploy availability can be restricted by server configuration.
 
 ## Deploying
 
-Automation project — via the CLI (`workspaceId` optional; defaults server-side):
-
 <!-- transport: cli uses: automation project deploy -->
 ```bash
+# Automation project — via the CLI (workspaceId optional; defaults server-side)
 bytechef automation project deploy --project-file my-code-project.js --workspace-id 1049
 ```
 <!-- /transport -->
