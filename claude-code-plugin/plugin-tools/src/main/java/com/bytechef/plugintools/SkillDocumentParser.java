@@ -30,7 +30,10 @@ import java.util.stream.Stream;
 
 /**
  * Parses ByteChef Claude Code plugin skill documents: their {@code name}/{@code description}/{@code transports}
- * frontmatter and the {@code <!-- transport: ... --> ... <!-- /transport -->} fences inside their body.
+ * frontmatter and the {@code <!-- transport: ... --> ... <!-- /transport -->} fences inside their body. Only a file
+ * named {@code SKILL.md} requires a frontmatter block; any other file (such as reference material under a skill's
+ * {@code references/} directory) may omit it, in which case its name and description are empty strings and its
+ * transport fences still parse from the start of the file.
  *
  * @author Ivica Cardic
  */
@@ -65,10 +68,6 @@ public final class SkillDocumentParser {
         }
 
         if (!hasFrontmatter) {
-            // A reference file (anything other than SKILL.md) carries no name, description or transport
-            // declarations of its own when it has no frontmatter block — it is supplementary material, not a
-            // skill, so a frontmatter-less reference file is valid rather than an error. Its fences still parse
-            // exactly as they would inside a skill.
             List<TransportFence> fences = parseFences(lines, 0, file);
 
             return new SkillDocument(file, "", "", Set.of(), Set.of(), fences, rawContent);
