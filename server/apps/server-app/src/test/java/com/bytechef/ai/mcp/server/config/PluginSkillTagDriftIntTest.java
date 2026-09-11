@@ -1,0 +1,204 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.ai.mcp.server.config;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.bytechef.plugintools.Edition;
+import com.bytechef.plugintools.SkillDocument;
+import com.bytechef.plugintools.SkillDocumentParser;
+import com.bytechef.plugintools.Transport;
+import com.bytechef.plugintools.TransportFence;
+import com.bytechef.server.ServerApplication;
+import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+
+/**
+ * Verifies that every transport fence tagged onto a plugin skill names something that actually exists: an {@code mcp}
+ * fence must name a tool registered on the management MCP server, and a {@code cli} fence must name a command
+ * implemented under {@code cli/commands}.
+ * <p>
+ * Built before any skill carries a transport fence, so with no tags present the first three tests pass vacuously — that
+ * is expected, and {@link #testTheCliInventoryIsNotEmpty()} exists specifically so the suite cannot pass forever by
+ * finding nothing: it proves the CLI command extractor itself works.
+ * <p>
+ * {@link #testEditionMarkingIsNotVerifiedMechanically()} checks only that an {@code edition: ee} fence names a tool
+ * that exists in the registry — the same existence check as any other fence. Whether that tool is genuinely EE-only is
+ * not mechanically checked here: "contributed vs core" is derivable but means something different (buildWorkflow is
+ * contributed AND CE), and the embedded tools share names with the automation ones (getWorkflow, listWorkflows,
+ * updateWorkflow, deleteWorkflow exist in both ProjectWorkflowTools and IntegrationWorkflowTools) while reaching a
+ * different MCP server, so there is no mechanical source of truth for an edition claim. This comment exists so a future
+ * reader does not mistake an unchecked declaration for a checked one.
+ *
+ * @author Ivica Cardic
+ */
+@SpringBootTest(
+    classes = ServerApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "bytechef.ai.mcp.server.enabled=true")
+@Import(PostgreSQLContainerConfiguration.class)
+class PluginSkillTagDriftIntTest {
+
+    @Autowired
+    private ManagementMcpServerConfiguration managementMcpServerConfiguration;
+
+    private static Path repositoryRoot() {
+        Path directory = Path.of("")
+            .toAbsolutePath();
+
+        while (directory != null && !Files.exists(directory.resolve("settings.gradle.kts"))) {
+            directory = directory.getParent();
+        }
+
+        if (directory == null) {
+            throw new IllegalStateException("Could not locate the repository root from " + Path.of("")
+                .toAbsolutePath());
+        }
+
+        return directory;
+    }
+
+    private Set<String> registeredMcpToolNames() {
+        ToolCallbackProvider toolCallbackProvider = managementMcpServerConfiguration.toolCallbackProvider();
+
+        return Arrays.stream(toolCallbackProvider.getToolCallbacks())
+            .map(toolCallback -> toolCallback.getToolDefinition()
+                .name())
+            .collect(Collectors.toSet());
+    }
+
+    private static Set<String> cliCommandNames() throws IOException {
+        Pattern pattern = Pattern.compile("@Command\\(\\s*name\\s*=\\s*\"([^\"]+)\"");
+
+        try (Stream<Path> paths = Files.walk(repositoryRoot().resolve("cli/commands"))) {
+            return paths.filter(path -> path.toString()
+                .endsWith("Command.java"))
+                .filter(path -> !path.toString()
+                    .contains("/build/"))
+                .flatMap(path -> {
+                    try {
+                        Matcher matcher = pattern.matcher(Files.readString(path));
+                        List<String> names = new ArrayList<>();
+
+                        while (matcher.find()) {
+                            names.add(matcher.group(1));
+                        }
+
+                        return names.stream();
+                    } catch (IOException ioException) {
+                        throw new UncheckedIOException(ioException);
+                    }
+                })
+                .collect(Collectors.toSet());
+        }
+    }
+
+    private static List<SkillDocument> skillDocuments() throws IOException {
+        return SkillDocumentParser.parseAll(repositoryRoot().resolve("claude-code-plugin/bytechef-dev/skills"));
+    }
+
+    @Test
+    void testEveryMcpTagNamesARegisteredTool() throws IOException {
+        Set<String> registeredToolNames = registeredMcpToolNames();
+        List<String> failures = new ArrayList<>();
+
+        for (SkillDocument skillDocument : skillDocuments()) {
+            for (TransportFence transportFence : skillDocument.fences()) {
+                if (transportFence.transport() != Transport.MCP) {
+                    continue;
+                }
+
+                for (String use : transportFence.uses()) {
+                    if (!registeredToolNames.contains(use)) {
+                        failures.add(skillDocument.name() + ": mcp tool '" + use + "' is not registered");
+                    }
+                }
+            }
+        }
+
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+    }
+
+    @Test
+    void testEveryCliTagNamesAnExistingCommand() throws IOException {
+        Set<String> existingCommandNames = cliCommandNames();
+        List<String> failures = new ArrayList<>();
+
+        for (SkillDocument skillDocument : skillDocuments()) {
+            for (TransportFence transportFence : skillDocument.fences()) {
+                if (transportFence.transport() != Transport.CLI) {
+                    continue;
+                }
+
+                for (String use : transportFence.uses()) {
+                    if (!existingCommandNames.contains(use)) {
+                        failures.add(skillDocument.name() + ": cli command '" + use + "' does not exist");
+                    }
+                }
+            }
+        }
+
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+    }
+
+    @Test
+    void testEditionMarkingIsNotVerifiedMechanically() throws IOException {
+        Set<String> registeredToolNames = registeredMcpToolNames();
+        List<String> failures = new ArrayList<>();
+
+        for (SkillDocument skillDocument : skillDocuments()) {
+            for (TransportFence transportFence : skillDocument.fences()) {
+                if (transportFence.transport() != Transport.MCP || transportFence.edition() != Edition.EE) {
+                    continue;
+                }
+
+                for (String use : transportFence.uses()) {
+                    if (!registeredToolNames.contains(use)) {
+                        failures.add(skillDocument.name() + ": mcp tool '" + use + "' tagged edition "
+                            + transportFence.edition() + " is not registered");
+                    }
+                }
+            }
+        }
+
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures));
+    }
+
+    @Test
+    void testTheCliInventoryIsNotEmpty() throws IOException {
+        Set<String> commandNames = cliCommandNames();
+
+        assertFalse(commandNames.isEmpty());
+        assertTrue(commandNames.contains("component deploy"));
+    }
+}
