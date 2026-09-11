@@ -1,6 +1,6 @@
 # bytechef-dev Plugin
 
-Development tools for ByteChef — one plugin, four capabilities:
+Development tools for ByteChef — one plugin, five capabilities:
 
 | Skill | What it does |
 |---|---|
@@ -8,6 +8,7 @@ Development tools for ByteChef — one plugin, four capabilities:
 | **ByteChef Custom Component Builder** | Author single-file (JS/Python/Ruby) or JAR (Java) custom components and **upload** them to a running instance |
 | **ByteChef Code Workflow Builder** | Author whole projects (automation) and integrations (embedded) as code and **deploy** them |
 | **ByteChef Management MCP Setup** | Connect Claude to a running instance's Management MCP server so it can build workflows live |
+| **ByteChef Workflow Builder** | Create/build/import/publish workflows **live**, over the Management MCP server, against a connected instance |
 
 The upload/deploy/MCP skills use a configured instance: set `BYTECHEF_BASE_URL` and `BYTECHEF_API_KEY` (admin API key) in the environment, or the skill will ask.
 
@@ -56,6 +57,21 @@ Ask: "Write a code workflow that pings an API daily and deploy it" / "Create an 
 Configures `.mcp.json` for the instance's Management MCP server (`{PUBLIC_URL}/api/management/{SECRET_KEY}/mcp`, streamable HTTP; SSE variant available; optional `Authorization: Bearer <admin key>` + `X-ENVIRONMENT`). Gives Claude live project/workflow/component tools against the connected ByteChef.
 
 Ask: "Connect Claude to my ByteChef instance" / "Set up the ByteChef MCP server".
+
+### ByteChef Workflow Builder
+
+Operates an already-connected instance over the Management MCP server: `listProjects`/`createProject`
+then `createProjectWorkflow` to get a `workflowId`, `buildWorkflow` (plain-language instruction,
+independent per call, may ask a clarifying question) or `importWorkflow` (n8n/Make/Zapier/Workato) to
+fill it in, `listComponents`/`searchActions`/`getActionDefinition`/`getProperties` and
+`listTriggers`/`searchTriggers`/`getTriggerDefinition` to look up what a step or trigger can do,
+`getWorkflow`/`updateWorkflow` for direct edits, and `publishProject` to go live. Requires the MCP
+Setup skill above to already be connected; exposing the result as a tool for *other* MCP clients
+(`createMcpServer`/`createMcpProject`/`configureMcpServer`/`updateMcpServer`) is a separate job, not
+covered by this skill.
+
+Ask: "Build a workflow in ByteChef that..." / "Create a project and workflow for X" / "Import this
+n8n workflow into ByteChef".
 
 ## Installation
 
