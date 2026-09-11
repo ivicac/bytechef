@@ -179,6 +179,14 @@ Requirements:
 
 ## Uploading
 
+Deploy through the CLI once it's configured (`bytechef configure ...`):
+
+```bash
+bytechef component deploy --file ./my-component.js
+```
+
+No CLI available? The same deploy is a plain multipart POST with a bearer token:
+
 Endpoint (EE): `POST {BYTECHEF_BASE_URL}/api/platform/v1/custom-components/deploy`
 - Multipart form, field **`componentFile`**.
 - The **file extension selects the language**: `.jar` → Java, `.js` → JavaScript, `.py` → Python, `.rb` → Ruby. Any other extension is rejected.

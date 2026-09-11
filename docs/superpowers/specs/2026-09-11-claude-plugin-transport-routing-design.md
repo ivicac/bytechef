@@ -282,6 +282,30 @@ and will stay that way until those operations gain MCP tools. A plain-Claude use
 gets nothing, not a degraded path. If that becomes painful, the fix is MCP tools for the embedded
 surface — not REST prose in a skill.
 
+### Embedded code integration deploy: demoted to a statement of fact
+
+`bytechef-code-workflow` names `POST /api/embedded/internal/integrations/deploy` (skill line 157) as a
+deploy target with a curl fallback. That endpoint sits behind `/api/embedded/internal/**`, which
+`EmbeddedApiKeySecurityConfigurer` matches with the connected-user authenticator: it requires a
+`/v<n>/{externalUserId}/` path segment and grants zero authorities regardless of what it matches. A
+profile bearer token can therefore never satisfy the facade's `ROLE_ADMIN` guard through this path, so
+the endpoint cannot get a CLI command as the surface stands. The precedent for fixing it exists —
+`EmbeddedPlatformUserApiKeySecurityConfigurer` already carves `/automation-project-code-workflows/**`
+out of that same configurer and authenticates the profile token as a real ByteChef user with real
+authorities — but extending that carve-out to the integrations-deploy path is an authentication-surface
+widening, and the repo owner has declined to take it.
+
+**Decision:** that block is demoted from an operational instruction to a statement of fact — the skill
+will say the operation is reachable only from the admin console and has no automatable route, and will
+stop showing a curl for it. Prose that tells Claude it *cannot* perform an operation names no operation
+to perform, so it carries no `uses:` entry and there is nothing for the drift check to verify. The
+invariant this design states — every operation a skill instructs Claude to *perform* resolves to a
+checkable inventory entry — still holds, because this is no longer one of them.
+
+The edit to `bytechef-code-workflow/SKILL.md` itself belongs to the second plan (the one implementing
+the generator, the drift check, and the claude.ai output) and is not made by the plan that resolved
+this question.
+
 ## Open questions
 
 1. Where do the generated claude.ai skills get published, and on what cadence relative to ByteChef
