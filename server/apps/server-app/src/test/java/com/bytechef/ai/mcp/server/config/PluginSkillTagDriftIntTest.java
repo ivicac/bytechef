@@ -19,7 +19,7 @@ package com.bytechef.ai.mcp.server.config;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.bytechef.ai.copilot.tool.CopilotAgentType;
+import com.bytechef.ai.copilot.config.ToolCallbackContributorConfiguration;
 import com.bytechef.plugintools.Edition;
 import com.bytechef.plugintools.SkillDocument;
 import com.bytechef.plugintools.SkillDocumentParser;
@@ -70,8 +70,13 @@ import org.springframework.context.annotation.Import;
  * pgvector-backed vector store ({@code CopilotPgVectorConfiguration}) that runs {@code CREATE EXTENSION IF NOT
  * EXISTS vector} against a real datasource at context-refresh time, which the plain Postgres Testcontainer this suite
  * uses cannot satisfy. So {@link #mcpInventory()} widens {@link #registeredMcpToolNames()} with
- * {@link #intelligentToolNames()}, a real, static, always-available source for exactly those names — see that method's
- * Javadoc for what it captures and its one known false-positive.
+ * {@link ToolCallbackContributorConfiguration#INTELLIGENT_TOOL_NAMES} — the exact, hand-curated CE partition of
+ * intelligent-tool names the management MCP surface owns, already a public constant rather than something this test
+ * needs to derive. It admits only the CE names ({@code buildWorkflow}, {@code importWorkflow},
+ * {@code configureClusterElement}, {@code writeScript}, {@code authorSkill}, {@code debugWorkflowExecution},
+ * {@code configureMcpServer}) — a fence naming an EE-contributed intelligent tool ({@code buildCustomComponent},
+ * {@code buildCodeWorkflow}, {@code buildIntegrationWorkflow}) still needs the real registry (or a deliberate, separate
+ * widening) to pass.
  *
  * @author Ivica Cardic
  */
@@ -109,39 +114,10 @@ class PluginSkillTagDriftIntTest {
             .collect(Collectors.toSet());
     }
 
-    /**
-     * {@link CopilotAgentType} keys that contain no underscore. Real intelligent-tool names are camelCase by convention
-     * ({@code buildWorkflow}, {@code importWorkflow}, {@code configureClusterElement}, ...); the enum's other,
-     * panel-only agent types use snake_case keys ({@code workflow_editor_ask}, {@code project_build}, ...), so "no
-     * underscore" separates the two groups without a hand-maintained allowlist that would drift the moment a new
-     * intelligent tool is added to the enum.
-     * <p>
-     * KNOWN HOLE: this heuristic is not exact. {@link CopilotAgentType#SKILLS} has key {@code "skills"} — no
-     * underscore, so it is admitted here — but it is a panel agent-type key, not an MCP tool name; the actual
-     * registered tool for that same subagent is {@code authorSkill}. A fence that named {@code skills} as an mcp tool
-     * would incorrectly pass {@link #testEveryMcpTagNamesARegisteredTool()}. This is a deliberate, bounded weakening:
-     * the alternative (a hand-maintained name list) drifts silently, while this one drifts loudly (a new
-     * non-underscored, non-tool enum key would need to appear, and would need to be reported the same way). If a second
-     * such name ever appears, replace this heuristic with an explicit list.
-     */
-    private static Set<String> intelligentToolNames() {
-        Set<String> names = new HashSet<>();
-
-        for (CopilotAgentType agentType : CopilotAgentType.values()) {
-            String key = agentType.key();
-
-            if (!key.contains("_")) {
-                names.add(key);
-            }
-        }
-
-        return names;
-    }
-
     private Set<String> mcpInventory() {
         Set<String> names = new HashSet<>(registeredMcpToolNames());
 
-        names.addAll(intelligentToolNames());
+        names.addAll(ToolCallbackContributorConfiguration.INTELLIGENT_TOOL_NAMES);
 
         return names;
     }
@@ -264,8 +240,8 @@ class PluginSkillTagDriftIntTest {
     }
 
     @Test
-    void testTheIntelligentToolNameHeuristicIsNotEmpty() {
-        Set<String> names = intelligentToolNames();
+    void testTheIntelligentToolNamesAreNotEmpty() {
+        Set<String> names = ToolCallbackContributorConfiguration.INTELLIGENT_TOOL_NAMES;
 
         assertFalse(names.isEmpty());
         assertTrue(names.contains("buildWorkflow"));
