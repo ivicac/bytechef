@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -169,6 +170,30 @@ class McpInstructionFragmentGeneratorTest {
 
         assertTrue(content.contains("## always"));
         assertTrue(content.contains("ByteChef management server"));
+    }
+
+    @Test
+    void testEmitsGeneratedFileBannerAsTheFirstLine() throws IOException {
+        writeSkill("""
+            ---
+            name: Example
+            description: An example.
+            transports:
+              required: [mcp]
+            ---
+
+            <!-- transport: mcp uses: createProject -->
+            Create the project.
+            <!-- /transport -->
+            """);
+
+        Path outputFile = tempDir.resolve("out/mcp-instructions.md");
+
+        McpInstructionFragmentGenerator.generate(tempDir, outputFile);
+
+        List<String> lines = Files.readAllLines(outputFile);
+
+        assertEquals(McpInstructionFragmentGenerator.GENERATED_FILE_BANNER, lines.getFirst());
     }
 
     @Test
