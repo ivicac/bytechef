@@ -410,22 +410,26 @@ git commit -m "Add a CLI command for deploying custom components"
 
 ---
 
-## Blocked: embedded code integration deploy
+## Resolved: embedded code integration deploy stays without a CLI route
 
-`bytechef-code-workflow` also names `POST /api/embedded/internal/integrations/deploy`. This one **cannot** get a
-CLI command as the surface stands. `EmbeddedCodeWorkflowCommand`'s own javadoc records why:
-`/api/embedded/internal/**` is matched by `EmbeddedApiKeySecurityConfigurer`'s connected-user auth, which
-requires a `/v<n>/{externalUserId}/` path segment and grants zero authorities, so a profile bearer token can
-never satisfy the facade's `ROLE_ADMIN` guard through it.
+`bytechef-code-workflow` also names `POST /api/embedded/internal/integrations/deploy`. This one **does not**
+get a CLI command. `EmbeddedCodeWorkflowCommand`'s own javadoc records why: `/api/embedded/internal/**` is
+matched by `EmbeddedApiKeySecurityConfigurer`'s connected-user auth, which requires a `/v<n>/{externalUserId}/`
+path segment and grants zero authorities, so a profile bearer token can never satisfy the facade's
+`ROLE_ADMIN` guard through it.
 
 The precedent for fixing it exists: `EmbeddedPlatformUserApiKeySecurityConfigurer` already carves
 `/automation-project-code-workflows/**` out of that configurer and authenticates the profile token as its own
 ByteChef user with real authorities. Extending that carve-out to an integrations-deploy path would make a CLI
-command possible.
+command possible — but doing so is an authentication-surface widening, and the repo owner has declined to
+take it.
 
-**This is an authentication-surface widening and is deliberately NOT planned here.** It needs an explicit
-decision before any implementation. Until it is taken, that one skill block has no CLI route, and the transport
-routing design cannot tag it.
+**The decision has been taken: no CLI route for this endpoint.** The spec's "Resolved: no raw REST fallback"
+section now carries a subsection ("Embedded code integration deploy: demoted to a statement of fact")
+recording this — the skill block is demoted from an operational instruction (curl fallback included) to a
+statement of fact ("reachable only from the admin console, no automatable route"), which needs no `uses:`
+tag because it names no operation to perform. The second plan (generator, drift check, claude.ai output)
+makes that edit to `bytechef-code-workflow/SKILL.md`; this plan only records the decision.
 
 ---
 
