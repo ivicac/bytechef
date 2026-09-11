@@ -46,6 +46,8 @@ public final class SkillDocumentParser {
 
     private static final Pattern EDITION_PATTERN = Pattern.compile("edition:\\s*(\\w+)");
 
+    private static final String SKILL_FILE_NAME = "SKILL.md";
+
     private SkillDocumentParser() {
     }
 
@@ -54,10 +56,22 @@ public final class SkillDocumentParser {
         List<String> lines = rawContent.lines()
             .toList();
 
-        if (lines.isEmpty() || !lines.get(0)
+        boolean hasFrontmatter = !lines.isEmpty() && lines.get(0)
             .strip()
-            .equals(FRONTMATTER_DELIMITER)) {
+            .equals(FRONTMATTER_DELIMITER);
+
+        if (!hasFrontmatter && isSkillFile(file)) {
             throw new IllegalArgumentException("Missing frontmatter in " + file + " at line 1");
+        }
+
+        if (!hasFrontmatter) {
+            // A reference file (anything other than SKILL.md) carries no name, description or transport
+            // declarations of its own when it has no frontmatter block — it is supplementary material, not a
+            // skill, so a frontmatter-less reference file is valid rather than an error. Its fences still parse
+            // exactly as they would inside a skill.
+            List<TransportFence> fences = parseFences(lines, 0, file);
+
+            return new SkillDocument(file, "", "", Set.of(), Set.of(), fences, rawContent);
         }
 
         int frontmatterClosingLineIndex = findFrontmatterClosingLineIndex(lines, file);
@@ -93,6 +107,13 @@ public final class SkillDocumentParser {
             file, name, description, requiredTransports, optionalTransports, fences, rawContent);
     }
 
+    private static boolean isSkillFile(Path file) {
+        Path fileNamePath = file.getFileName();
+
+        return fileNamePath != null && fileNamePath.toString()
+            .equals(SKILL_FILE_NAME);
+    }
+
     public static List<SkillDocument> parseAll(Path skillsDirectory) throws IOException {
         if (!Files.isDirectory(skillsDirectory)) {
             return List.of();
@@ -126,7 +147,7 @@ public final class SkillDocumentParser {
 
         String fileName = fileNamePath.toString();
 
-        if (fileName.equals("SKILL.md")) {
+        if (fileName.equals(SKILL_FILE_NAME)) {
             return true;
         }
 

@@ -1,6 +1,3 @@
----
----
-
 # ByteChef Component API Reference
 
 Complete reference for the Component DSL in `sdks/backend/java/component-api/`.
