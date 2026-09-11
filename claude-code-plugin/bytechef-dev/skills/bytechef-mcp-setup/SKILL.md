@@ -1,6 +1,8 @@
 ---
 name: ByteChef Management MCP Setup
 description: This skill should be used when the user asks to "connect Claude to ByteChef", "set up the ByteChef MCP server", "configure the management MCP server", "let Claude build ByteChef workflows", "add ByteChef to .mcp.json", or wants Claude to operate a running ByteChef instance (projects, workflows, components) over MCP.
+transports:
+  required: [local]
 ---
 
 # ByteChef Management MCP Setup
@@ -35,6 +37,7 @@ Auth model:
 
 `.mcp.json` (project) or user-scope MCP config:
 
+<!-- transport: local -->
 ```json
 {
   "mcpServers": {
@@ -49,6 +52,7 @@ Auth model:
   }
 }
 ```
+<!-- /transport -->
 
 - Drop the `headers` block entirely if the server was registered with `authenticationRequired=false`.
 - For SSE-only clients, use `"type": "sse"` with the `.../sse` URL.
