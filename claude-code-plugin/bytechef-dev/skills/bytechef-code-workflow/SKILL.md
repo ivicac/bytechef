@@ -185,7 +185,7 @@ two bridge endpoints reach the same facade and are interchangeable in effect; pi
 caller can authenticate with — `/api/embedded/internal/**` only accepts an admin browser session
 (cookie + X-XSRF-TOKEN), a bearer token there is rejected (401/403).
 
-<!-- transport: cli uses: embedded code-workflow deploy, embedded code-workflow list -->
+<!-- transport: cli uses: embedded code-workflow deploy, embedded code-workflow list, configure -->
 Deploy through the CLI once it's configured (`bytechef configure ...`):
 
 ```bash
