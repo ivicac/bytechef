@@ -145,13 +145,23 @@ stands alone.
 three transports, so every fence is kept and the transport comments stay in place, harmless.
 This means the plugin works straight from a checkout with no build step.
 
-### 2. The claude.ai / Desktop skill bundle
+### 2. The claude.ai / Desktop skills — one per job
 
-Generated to `build/claude-skills/bytechef/`:
+Generated to `build/claude-skills/bytechef/<skill-name>/`, **one standalone skill per job**,
+mirroring the canonical skills one-to-one rather than merging them into a single bundle.
 
 - `cli` and `local` fences are dropped along with their contents.
 - A skill whose `transports.required` contains `cli` or `local` is dropped entirely — the
-  in-repo component builder does not appear in the bundle at all.
+  in-repo component builder does not appear at all.
+
+One-per-job has a consequence that shapes the generator: on claude.ai there is no plugin manifest
+and no sibling skills to lend context, so each skill's `description` is the entire routing layer.
+A description that reads well inside `bytechef-dev` ("Build a workflow") will not fire in a
+user's general-purpose skill list. The generator therefore **rewrites descriptions for the
+claude.ai output**, prefixing the product and the precondition — "ByteChef: build a workflow on a
+connected ByteChef instance (requires the ByteChef Management MCP connector)". The canonical
+frontmatter keeps the plugin-appropriate wording; the rewrite rule lives in the generator and is
+covered by its tests.
 - EE-marked blocks are **kept and labelled inline**, not filtered. The bundle is generated once
   and downloaded by users whose instances may be CE or EE; edition is unknowable at generation
   time, so the text says so ("EE only — if this tool is not listed by your connector, your
@@ -257,12 +267,20 @@ Documentation and code touching this design say "plugin skill" or "Claude skill"
 - **No generation step for the Claude Code plugin itself.** Identity output keeps a checkout
   usable with zero build.
 
+## Resolved: no raw REST fallback
+
+`cli` fences are dropped for plain Claude, not rewritten into documented raw REST calls. The
+alternative was cheap to build and would have handed claude.ai users the embedded per-user
+operations, but it would have created a fourth surface — hand-written REST prose — with no
+inventory to check it against, which is precisely the drift this design exists to remove.
+
+The accepted cost, stated plainly: **embedded per-user operations (integrations, integration
+instances, per-user workflows, tools, actions, connections) are reachable only from Claude Code**,
+and will stay that way until those operations gain MCP tools. A plain-Claude user asking for them
+gets nothing, not a degraded path. If that becomes painful, the fix is MCP tools for the embedded
+surface — not REST prose in a skill.
+
 ## Open questions
 
-1. Does the claude.ai skill bundle ship as a single skill or one per job? Bundling affects
-   discoverability on a host with no plugin manifest.
-2. Should `cli` fences degrade to a documented raw REST call for plain Claude, rather than being
-   dropped? Cheap to add, and it would give claude.ai users the embedded per-user operations —
-   but it introduces a fourth surface to keep from drifting.
-3. Where does the generated claude.ai bundle get published, and on what cadence relative to
-   ByteChef releases?
+1. Where do the generated claude.ai skills get published, and on what cadence relative to ByteChef
+   releases? Does not block implementation — the generator writes to `build/` either way.
