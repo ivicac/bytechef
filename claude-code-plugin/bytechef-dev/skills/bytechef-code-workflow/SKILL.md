@@ -171,7 +171,7 @@ to, a standalone automation project.
 
 | | Plain automation deploy | Embedded bridge deploy |
 |---|---|---|
-| Endpoint | `POST /api/automation/v1/projects/deploy` | `POST /api/platform/v1/automation-project-code-workflows/deploy` (admin API-key bearer token) or `POST /api/embedded/internal/automation/projects/deploy` (admin browser session only) |
+| Endpoint | `POST /api/automation/v1/projects/deploy` | `POST /api/embedded/v1/automation-project-code-workflows/deploy` (admin API-key bearer token) or `POST /api/embedded/internal/automation/projects/deploy` (admin browser session only) |
 | Artifact | `ProjectHandler`, identical contract | Same `ProjectHandler` artifact, byte-for-byte |
 | Result | A plain automation project, nothing embedded-reachable | The same kind of project, but marked so embedded connected users can reach it |
 
@@ -191,13 +191,13 @@ bytechef embedded code-workflow list --output table
 No CLI available? The same deploy is a plain multipart POST with a bearer token:
 
 ```bash
-curl -sf -X POST "$BYTECHEF_BASE_URL/api/platform/v1/automation-project-code-workflows/deploy" \
+curl -sf -X POST "$BYTECHEF_BASE_URL/api/embedded/v1/automation-project-code-workflows/deploy" \
   -H "Authorization: Bearer $BYTECHEF_API_KEY" \
   -F "projectFile=@my-project.js"
 ```
 
 `list` has no admin-console equivalent to fall back to — it also goes through
-`GET /api/platform/v1/automation-project-code-workflows` with the same bearer token.
+`GET /api/embedded/v1/automation-project-code-workflows` with the same bearer token.
 
 **Model: deploy once, reference per user.** Every connected user shares the one deployed workflow —
 there is no per-user copy and no per-user editing. A connected user's reference is provisioned
