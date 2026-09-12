@@ -92,10 +92,10 @@
         --content-neutral-secondary: 215 19% 35%;
         --content-neutral-secondary-hover: 215 19% 35%;
         --content-neutral-tertiary: 215 20% 65%;
-        /* Text on the brand surface. Separate from `--content-onsurface-primary` because the two
-           diverge in dark mode: the brand surface INVERTS there (a light blue on a near-black UI)
-           while destructive stays a mid red, so one shared "on surface" colour cannot serve both —
-           white-on-light-blue was the unreadable `New Automation` button. */
+        /* Text on the brand surface. Kept separate from `--content-onsurface-primary` so the brand
+           fill can move independently of the other "on surface" colours: when the dark brand
+           surface was a light blue, white text on it was the unreadable `New Automation` button.
+           Whichever way the dark brand fill goes, this must follow it. */
         --content-onbrand: 0 0% 100%;
         --content-onsurface-primary: 0 0% 100%;
         --content-onsurface-secondary: 215 20% 65%;
@@ -270,14 +270,18 @@
         --hub-active-border: #22c55e;
         /* A step above the card rather than an alias: dark `--accent` IS the card colour here, so
            an aliased selected segment would be indistinguishable from an unselected one. */
-        --hub-segment-selected: #334155;
+        --hub-segment-selected: #414146;
 
-        --accent: 215 27.9% 16.9%;
-        --accent-foreground: 210 20% 98%;
-        --background: 224 71.4% 4.1%;
-        --border: 215 27.9% 16.9%;
-        --card: 224 71.4% 4.1%;
-        --card-foreground: 210 20% 98%;
+        /* Neutrals follow a zinc scale (page #19191C, raised #1D1D21, selected/border #2D2D31,
+           text #EDEDF0, secondary text #97979B) — a near-neutral grey at hue 240 rather than the
+           blue-tinted slate this used to be. The brand tokens further down are deliberately NOT
+           part of that change: buttons keep their blue in dark mode. */
+        --accent: 240 4% 18%;
+        --accent-foreground: 240 9% 94%;
+        --background: 240 6% 10%;
+        --border: 240 4% 18%;
+        --card: 240 6% 10%;
+        --card-foreground: 240 9% 94%;
         --chart-1: 220 70% 50%;
         --chart-2: 160 60% 45%;
         --chart-3: 30 80% 55%;
@@ -287,18 +291,18 @@
         --content-brand-primary-hover: 217 62% 82%;
         --content-brand-primary-active: 217 61% 90%;
         --content-brand-secondary: 217 91% 40%;
-        --content-canvas_dot: 217 33% 17%;
+        --content-canvas_dot: 240 4% 18%;
         --content-destructive: 0 84% 60%;
         --content-destructive-primary: 0 84% 60%;
         --content-destructive-primary-hover: 0 84% 67%;
         --content-disabled: 0 0% 64%;
-        --content-neutral-primary: 210 40% 98%;
-        --content-neutral-secondary: 215 20% 65%;
-        --content-neutral-secondary-hover: 215 20% 65%;
-        --content-neutral-tertiary: 215 20% 65%;
-        --content-onbrand: 220.9 39.3% 11%;
-        --content-onsurface-primary: 210 40% 98%;
-        --content-onsurface-secondary: 214 32% 91%;
+        --content-neutral-primary: 240 9% 94%;
+        --content-neutral-secondary: 240 2% 60%;
+        --content-neutral-secondary-hover: 240 3% 77%;
+        --content-neutral-tertiary: 240 2% 60%;
+        --content-onbrand: 0 0% 100%;
+        --content-onsurface-primary: 240 9% 94%;
+        --content-onsurface-secondary: 240 3% 77%;
         --content-onwarning: 229 84% 5%;
         --content-success: 142 71% 45%;
         --content-success-primary: 142 71% 45%;
@@ -306,17 +310,17 @@
         --content-warning-primary: 45 93% 47%;
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 210 20% 98%;
-        --foreground: 210 20% 98%;
-        --input: 215 27.9% 16.9%;
-        --muted: 215 27.9% 16.9%;
-        --muted-foreground: 217.9 10.6% 64.9%;
-        --popover: 224 71.4% 4.1%;
-        --popover-foreground: 210 20% 98%;
-        --primary: 210 20% 98%;
-        --primary-foreground: 220.9 39.3% 11%;
-        --ring: 216 12.2% 83.9%;
-        --secondary: 215 27.9% 16.9%;
-        --secondary-foreground: 210 20% 98%;
+        --foreground: 240 9% 94%;
+        --input: 240 4% 18%;
+        --muted: 240 4% 18%;
+        --muted-foreground: 240 2% 60%;
+        --popover: 240 6% 12%;
+        --popover-foreground: 240 9% 94%;
+        --primary: 240 9% 94%;
+        --primary-foreground: 240 6% 10%;
+        --ring: 240 5% 84%;
+        --secondary: 240 4% 18%;
+        --secondary-foreground: 240 9% 94%;
         --stroke-branch-primary: 0 0% 100%;
         --stroke-branch-secondary: 0 0% 100%;
         --stroke-branch-tertiary: 0 0% 100%;
@@ -351,9 +355,9 @@
         --stroke-map-primary: 0 0% 100%;
         --stroke-map-secondary: 0 0% 100%;
         --stroke-map-tertiary: 0 0% 100%;
-        --stroke-neutral-primary: 217 33% 17%;
-        --stroke-neutral-secondary: 215 25% 27%;
-        --stroke-neutral-tertiary: 215 19% 35%;
+        --stroke-neutral-primary: 240 4% 18%;
+        --stroke-neutral-secondary: 240 4% 24%;
+        --stroke-neutral-tertiary: 240 4% 30%;
         --stroke-onsurface-primary: 0 0% 100%;
         --stroke-onsurface-primary-hover: 0 0% 100%;
         --stroke-parallel-primary: 0 0% 100%;
@@ -372,10 +376,13 @@
         --stroke-warning-secondary: 45 80% 30%;
         --success: 142, 69%, 58%;
         --success-foreground: 144, 61%, 20%;
-        --surface-brand-primary: 217 62% 82%;
-        --surface-brand-primary-hover: 217 61% 73%;
-        --surface-brand-primary-active: 217 61% 60%;
-        --surface-brand-primary-disabled: 217 62% 82%;
+        /* A saturated blue with white text, as in light mode, but lifted a step so it does not sink
+           into the near-black page — and its hover/active states go LIGHTER, the reverse of light
+           mode, because darkening on a dark ground reads as the button receding. */
+        --surface-brand-primary: 217 91% 48%;
+        --surface-brand-primary-hover: 217 91% 55%;
+        --surface-brand-primary-active: 217 91% 60%;
+        --surface-brand-primary-disabled: 217 91% 48% / 50%;
         --surface-brand-secondary: 217 91% 22%;
         --surface-brand-secondary-hover: 217 91% 28%;
         --surface-brand-tertiary: 217 91% 22%;
@@ -386,23 +393,23 @@
         --surface-destructive-secondary-hover: 0 63% 19%;
         --surface-destructive-secondary-active: 0 63% 25%;
         --surface-disabled: 0 0% 83%;
-        --surface-main: 229 84% 5%;
-        --surface-neutral-primary: 229 84% 5%;
-        --surface-neutral-primary-hover: 222 47% 11%;
-        --surface-neutral-primary-active: 217 33% 17%;
-        --surface-neutral-secondary: 217 33% 17%;
-        --surface-neutral-secondary-hover: 215 25% 27%;
-        --surface-neutral-secondary-active: 215 19% 35%;
-        --surface-neutral-tertiary: 215 25% 27%;
-        --surface-neutral-tertiary-hover: 215 19% 35%;
+        --surface-main: 240 6% 10%;
+        --surface-neutral-primary: 240 6% 10%;
+        --surface-neutral-primary-hover: 240 5% 14%;
+        --surface-neutral-primary-active: 240 4% 18%;
+        --surface-neutral-secondary: 240 4% 18%;
+        --surface-neutral-secondary-hover: 240 4% 24%;
+        --surface-neutral-secondary-active: 240 3% 30%;
+        --surface-neutral-tertiary: 240 4% 24%;
+        --surface-neutral-tertiary-hover: 240 3% 30%;
         --surface-neutral-transparent: 0 0% 100% / 0%;
-        --surface-popover-canvas: 229 84% 5%;
+        --surface-popover-canvas: 240 6% 12%;
         --surface-success-primary: 142 71% 45%;
         --surface-success-primary-hover: 143 64% 24%;
         --surface-success-primary-active: 144 61% 20%;
         --surface-success-secondary: 142 72% 16%;
         --surface-success-secondary-hover: 142 72% 22%;
-        --surface-tooltip: 210 40% 98%;
+        --surface-tooltip: 240 9% 94%;
         --surface-warning-primary: 45 93% 47%;
         --surface-warning-secondary: 45 80% 16%;
         --surface-warning-secondary-hover: 45 80% 22%;
@@ -430,9 +437,9 @@
 
     .dark [data-environment='development'],
     .dark[data-environment='development'] {
-        --sidebar: 215 27.9% 16.9%;
-        --sidebar-accent: 215 27.9% 22%;
-        --sidebar-border: 215 27.9% 25%;
+        --sidebar: 240 6% 10%;
+        --sidebar-accent: 240 4% 18%;
+        --sidebar-border: 240 4% 18%;
     }
 
     .dark [data-environment='staging'],
