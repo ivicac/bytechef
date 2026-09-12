@@ -178,7 +178,12 @@ class WorkflowValidatorReservedInputNameTest {
             }
 
             @Override
-            public WorkflowValidationResult validateWorkflow(String workflow, long environmentId) {
+            public WorkflowValidationResult validateWorkflow(String workflow, long workspaceId, long environmentId) {
+                return new WorkflowValidationResult(List.of(), List.of());
+            }
+
+            @Override
+            public WorkflowValidationResult validateWorkflow(String workflow, String workflowId, long environmentId) {
                 return new WorkflowValidationResult(List.of(), List.of());
             }
 
@@ -188,8 +193,18 @@ class WorkflowValidatorReservedInputNameTest {
             }
 
             @Override
+            public WorkflowValidationResult validateStoredWorkflow(String workflowId, long environmentId) {
+                return new WorkflowValidationResult(List.of(), List.of());
+            }
+
+            @Override
             public List<String> getDuplicateNodeNames(String workflow) {
                 return List.of();
+            }
+
+            @Override
+            public List<String> getReservedNodeNames(String workflow) {
+                return WorkflowValidator.getReservedNodeNames(workflow);
             }
 
             @Override

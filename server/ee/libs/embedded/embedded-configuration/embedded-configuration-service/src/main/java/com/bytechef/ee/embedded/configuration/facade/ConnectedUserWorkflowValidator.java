@@ -76,8 +76,8 @@ class ConnectedUserWorkflowValidator {
     }
 
     private int countErrors(Workflow workflow, Environment environment) {
-        WorkflowValidationResult workflowValidationResult = workflowValidatorFacade.validateWorkflow(
-            workflow.getDefinition(), environment.ordinal());
+        WorkflowValidationResult workflowValidationResult = workflowValidatorFacade.validateStoredWorkflow(
+            workflow.getId(), environment.ordinal());
 
         return workflowValidationResult.errors()
             .size();

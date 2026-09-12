@@ -277,8 +277,11 @@ class ConnectedUserProjectFacadeIntTest {
 
         stubEntitledSlackConnection(777L);
 
-        when(workflowValidatorFacade.validateWorkflow(
-            argThat(definition -> definition != null && definition.contains("\"Broken ")), anyLong()))
+        when(workflowValidatorFacade.validateStoredWorkflow(
+            argThat(workflowId -> workflowId != null && workflowService.getWorkflow(workflowId)
+                .getDefinition()
+                .contains("\"Broken ")),
+            anyLong()))
                 .thenReturn(
                     new WorkflowValidationResult(
                         List.of("[postMessage1] Missing required property: channel"),

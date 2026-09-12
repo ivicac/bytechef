@@ -16,7 +16,9 @@
 
 package com.bytechef.platform.workflow.validator.web.graphql;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -49,8 +51,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class WorkflowValidatorGraphQlControllerIntTest {
 
     private static final String VALIDATE_WORKFLOW_QUERY = """
-        query validateWorkflow($workflow: String!, $workflowId: String, $environmentId: Long) {
-            validateWorkflow(workflow: $workflow, workflowId: $workflowId, environmentId: $environmentId) {
+        query validateWorkflow($workflow: String!, $workflowId: String, $workspaceId: Long, $environmentId: Long) {
+            validateWorkflow(
+                workflow: $workflow, workflowId: $workflowId, workspaceId: $workspaceId,
+                environmentId: $environmentId) {
                 errors
                 warnings
                 nodeIssues {
@@ -80,36 +84,69 @@ class WorkflowValidatorGraphQlControllerIntTest {
     private WorkflowValidatorFacade workflowValidatorFacade;
 
     @Test
-    void testPassesEnvironmentThroughWhenGiven() {
-        when(workflowValidatorFacade.validateWorkflow("{}", 2L))
+    void testPassesTheWorkspaceThroughWhenNoWorkflowIdIsGiven() {
+        when(workflowValidatorFacade.validateWorkflow("{}", 7L, 2L))
             .thenReturn(new WorkflowValidationResult(List.of("environment error"), List.of()));
 
         graphQlTester.document(VALIDATE_WORKFLOW_QUERY)
             .variable("workflow", "{}")
+            .variable("workspaceId", 7)
             .variable("environmentId", 2)
             .execute()
             .path("validateWorkflow.errors")
             .entityList(String.class)
             .containsExactly("environment error");
 
-        verify(workflowValidatorFacade).validateWorkflow("{}", 2L);
+        verify(workflowValidatorFacade).validateWorkflow("{}", 7L, 2L);
         verifyNoMoreInteractions(workflowValidatorFacade);
     }
 
     @Test
-    void testUsesFacadeDefaultWhenEnvironmentIsAbsent() {
-        when(workflowValidatorFacade.validateWorkflow("{}"))
+    void testValidatesInDevelopmentWhenOnlyTheWorkspaceIsGiven() {
+        when(workflowValidatorFacade.validateWorkflow("{}", 7L, 0L))
             .thenReturn(new WorkflowValidationResult(List.of(), List.of("default warning")));
 
         graphQlTester.document(VALIDATE_WORKFLOW_QUERY)
             .variable("workflow", "{}")
+            .variable("workspaceId", 7)
             .execute()
             .path("validateWorkflow.warnings")
             .entityList(String.class)
             .containsExactly("default warning");
 
-        verify(workflowValidatorFacade).validateWorkflow("{}");
+        verify(workflowValidatorFacade).validateWorkflow("{}", 7L, 0L);
         verifyNoMoreInteractions(workflowValidatorFacade);
+    }
+
+    @Test
+    void testRoutesThroughTheWorkflowWhenBothIdsAreGiven() {
+        when(workflowValidatorFacade.validateWorkflow("{}", "wf-1", 2L))
+            .thenReturn(new WorkflowValidationResult(List.of("workflow error"), List.of()));
+
+        graphQlTester.document(VALIDATE_WORKFLOW_QUERY)
+            .variable("workflow", "{}")
+            .variable("workflowId", "wf-1")
+            .variable("workspaceId", 7)
+            .variable("environmentId", 2)
+            .execute()
+            .path("validateWorkflow.errors")
+            .entityList(String.class)
+            .containsExactly("workflow error");
+
+        verify(workflowValidatorFacade).validateWorkflow("{}", "wf-1", 2L);
+        verifyNoMoreInteractions(workflowValidatorFacade);
+    }
+
+    @Test
+    void testRefusesWhenNeitherTheWorkflowNorTheWorkspaceIsGiven() {
+        graphQlTester.document(VALIDATE_WORKFLOW_QUERY)
+            .variable("workflow", "{}")
+            .variable("environmentId", 2)
+            .execute()
+            .errors()
+            .satisfy(errors -> assertThat(errors).isNotEmpty());
+
+        verifyNoInteractions(workflowValidatorFacade);
     }
 
     @Test
