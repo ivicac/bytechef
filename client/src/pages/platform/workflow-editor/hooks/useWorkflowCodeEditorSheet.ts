@@ -1,3 +1,4 @@
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -9,7 +10,6 @@ import {Workflow} from '@/shared/middleware/platform/configuration';
 import {WorkflowTestApi, WorkflowTestExecution} from '@/shared/middleware/platform/workflow/test';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {WorkflowDefinitionType} from '@/shared/types';
 import {getTestWorkflowAttachRequest, getTestWorkflowStreamPostRequest} from '@/shared/util/testWorkflow-utils';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -92,6 +92,7 @@ const useWorkflowCodeEditorSheet = ({
     const ai = useApplicationInfoStore((state) => state.ai);
     const setContext = useCopilotStore((state) => state.setContext);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const setShowBottomPanelOpen = useWorkflowEditorStore((state) => state.setShowBottomPanelOpen);
 
     const {projectName} = useWorkflowDataStore(
@@ -100,9 +101,7 @@ const useWorkflowCodeEditorSheet = ({
         }))
     );
 
-    const ff_1570 = useFeatureFlagsStore()('ff-1570');
-
-    const copilotEnabled = ai.copilot.enabled && ff_1570;
+    const copilotEnabled = ai.copilot.enabled;
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflow.id, currentEnvironmentId);
     const {close: closeWorkflowTestStream, setStreamRequest} = useWorkflowTestStream({
@@ -230,8 +229,15 @@ const useWorkflowCodeEditorSheet = ({
         [workflow.definition]
     );
 
+    // The buffer being validated is unsaved but the workflow it belongs to is not, so workflowId is what the server
+    // gates on; the workspace covers the case where there is no id to name.
     const {data: validateWorkflowData, refetch: refetchValidateWorkflow} = useValidateWorkflowQuery(
-        {environmentId: currentEnvironmentId, workflowDefinition: definition!, workflowId: workflow.id},
+        {
+            environmentId: currentEnvironmentId,
+            workflowDefinition: definition!,
+            workflowId: workflow.id,
+            workspaceId: currentWorkspaceId,
+        },
         {enabled: !!definition}
     );
 
@@ -263,6 +269,10 @@ const useWorkflowCodeEditorSheet = ({
     }, [onSheetOpenClose]);
 
     useEffect(() => {
+        // When a BUILD-mode copilot turn completes in the code editor, push the generated definition
+        // straight into the Monaco buffer instead of leaving it in the conversation, then swap the
+        // definition for a short confirmation so the panel stays a readable chat log rather than a dump
+        // of the workflow JSON/YAML.
         return useCopilotPostTurnRegistry.getState().register(Source.WORKFLOW_CODE_EDITOR, () => {
             const {appendToLastAssistantMessage, context, messages} = useCopilotStore.getState();
 
