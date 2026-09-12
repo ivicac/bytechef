@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"
+                   logicalFilePath="config/liquibase/changelog/platform/knowledge_base/20260901000001_platform_knowledge_base_document_add_owner.xml">
+
+    <!--
+        The account that drove the upload, persisted on the document row so it survives the gap between the request
+        that created the document and the chunker that runs off a message afterwards. Without it the chunker has no
+        principal left to ask and marks every chunk shared, which is why nothing in the system produced an owned
+        chunk before this column existed.
+
+        Both columns or neither: an owner_id beside a null owner_type matches no predicate and belongs to nobody.
+        Existing rows get NULL in both and keep producing shared chunks, which is the correct default and needs no
+        backfill.
+    -->
+    <changeSet id="20260901000001-1" author="Ivica Cardic">
+        <addColumn tableName="knowledge_base_document">
+            <column name="owner_id" type="BIGINT"/>
+            <column name="owner_type" type="INT"/>
+        </addColumn>
+
+        <createIndex tableName="knowledge_base_document" indexName="idx_knowledge_base_document_owner">
+            <column name="owner_type"/>
+            <column name="owner_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

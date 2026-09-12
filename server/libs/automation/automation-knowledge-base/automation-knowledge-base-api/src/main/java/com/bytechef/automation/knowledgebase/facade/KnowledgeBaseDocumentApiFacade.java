@@ -20,6 +20,7 @@ import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
 import com.bytechef.platform.knowledgebase.dto.DocumentStatusUpdate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Workspace-scoped read/write surface for knowledge-base documents and chunks, consumed by the admin GraphQL
@@ -36,6 +37,21 @@ import java.util.List;
 public interface KnowledgeBaseDocumentApiFacade {
 
     KnowledgeBaseDocument getKnowledgeBaseDocument(long id);
+
+    /**
+     * Every distinct document tag name in one knowledge base, for a caller authorized against that knowledge base.
+     *
+     * <p>
+     * Scoped to a knowledge base rather than to the tenant. The console listing that consumes it is always inside one
+     * knowledge base, and the unscoped reader it replaced spanned every workspace, both platform pools, and every
+     * embedded account's own knowledge base.
+     */
+    List<String> getKnowledgeBaseDocumentTagNames(long knowledgeBaseId);
+
+    /**
+     * Document id to tag names, for the documents of one knowledge base the caller is authorized against.
+     */
+    Map<Long, List<String>> getTagNamesByKnowledgeBaseDocumentId(long knowledgeBaseId);
 
     DocumentStatusUpdate getKnowledgeBaseDocumentStatus(long id);
 

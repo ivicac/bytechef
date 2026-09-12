@@ -24,8 +24,10 @@ import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentChunkFaca
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentChunkService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
+import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -47,6 +49,7 @@ class KnowledgeBaseDocumentApiFacadeImpl implements KnowledgeBaseDocumentApiFaca
     private final KnowledgeBaseDocumentChunkService knowledgeBaseDocumentChunkService;
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
+    private final KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService;
     private final PermissionService permissionService;
 
     @SuppressFBWarnings("EI")
@@ -54,18 +57,34 @@ class KnowledgeBaseDocumentApiFacadeImpl implements KnowledgeBaseDocumentApiFaca
         KnowledgeBaseDocumentChunkFacade knowledgeBaseDocumentChunkFacade,
         KnowledgeBaseDocumentChunkService knowledgeBaseDocumentChunkService,
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
-        KnowledgeBaseDocumentService knowledgeBaseDocumentService, PermissionService permissionService) {
+        KnowledgeBaseDocumentService knowledgeBaseDocumentService,
+        KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService, PermissionService permissionService) {
 
         this.knowledgeBaseDocumentChunkFacade = knowledgeBaseDocumentChunkFacade;
         this.knowledgeBaseDocumentChunkService = knowledgeBaseDocumentChunkService;
         this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
         this.knowledgeBaseDocumentService = knowledgeBaseDocumentService;
+        this.knowledgeBaseDocumentTagService = knowledgeBaseDocumentTagService;
         this.permissionService = permissionService;
     }
 
     @Override
     public KnowledgeBaseDocument getKnowledgeBaseDocument(long id) {
         return checkDocumentRole(id, "VIEWER");
+    }
+
+    @Override
+    public List<String> getKnowledgeBaseDocumentTagNames(long knowledgeBaseId) {
+        checkKnowledgeBaseRole(knowledgeBaseId, "VIEWER");
+
+        return knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseId(knowledgeBaseId);
+    }
+
+    @Override
+    public Map<Long, List<String>> getTagNamesByKnowledgeBaseDocumentId(long knowledgeBaseId) {
+        checkKnowledgeBaseRole(knowledgeBaseId, "VIEWER");
+
+        return knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseDocumentId(knowledgeBaseId);
     }
 
     @Override
@@ -133,6 +152,17 @@ class KnowledgeBaseDocumentApiFacadeImpl implements KnowledgeBaseDocumentApiFaca
         }
 
         return knowledgeBaseDocument;
+    }
+
+    /**
+     * The same rule as {@link #checkDocumentRole}, entered one level up: the caller names the knowledge base itself
+     * rather than a document inside it. Refuses in the same terms whether the knowledge base is missing or merely
+     * somebody else's, so the id space is not an existence oracle.
+     */
+    private void checkKnowledgeBaseRole(long knowledgeBaseId, String role) {
+        if (!permissionService.hasResourceRole(knowledgeBaseId, KNOWLEDGE_BASE_RESOURCE_TYPE, role)) {
+            throw new AccessDeniedException("Access to knowledge base " + knowledgeBaseId + " is denied");
+        }
     }
 
     private void checkChunkRole(long chunkId, String role) {

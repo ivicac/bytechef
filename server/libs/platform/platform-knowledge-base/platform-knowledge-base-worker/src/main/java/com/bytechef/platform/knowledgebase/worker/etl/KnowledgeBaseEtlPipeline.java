@@ -16,8 +16,10 @@
 
 package com.bytechef.platform.knowledgebase.worker.etl;
 
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.DocumentReader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -79,13 +81,14 @@ public class KnowledgeBaseEtlPipeline {
      * @param chunkId         the knowledge base document chunk ID
      * @param environmentId   the environment ordinal of the knowledge base
      * @param tagNames        the tag names associated with the document
+     * @param owner           the account the document row was created for, or null for the vendor's own
      * @return the vector store ID assigned to the document
      */
     public String writeChunkToVectorStore(
         Document document, Long knowledgeBaseId, Long documentId, Long chunkId, long environmentId,
-        List<String> tagNames) {
+        List<String> tagNames, @Nullable Owner owner) {
 
-        vectorStoreWriter.writeChunk(document, knowledgeBaseId, documentId, chunkId, environmentId, tagNames);
+        vectorStoreWriter.writeChunk(document, knowledgeBaseId, documentId, chunkId, environmentId, tagNames, owner);
 
         return document.getId();
     }
@@ -99,13 +102,14 @@ public class KnowledgeBaseEtlPipeline {
      * @param chunkId         the knowledge base document chunk ID
      * @param environmentId   the environment ordinal of the knowledge base
      * @param tagNames        the tag names associated with the document
+     * @param owner           the account the document row was created for, or null for the vendor's own
      */
     public void processChunkUpdate(
         String content, Long knowledgeBaseId, Long documentId, Long chunkId, long environmentId,
-        List<String> tagNames) {
+        List<String> tagNames, @Nullable Owner owner) {
 
         Document document = new Document(content);
 
-        vectorStoreWriter.writeChunk(document, knowledgeBaseId, documentId, chunkId, environmentId, tagNames);
+        vectorStoreWriter.writeChunk(document, knowledgeBaseId, documentId, chunkId, environmentId, tagNames, owner);
     }
 }

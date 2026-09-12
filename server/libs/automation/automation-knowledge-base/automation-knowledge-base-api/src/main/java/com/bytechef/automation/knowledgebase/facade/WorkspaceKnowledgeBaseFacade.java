@@ -21,6 +21,7 @@ import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseStorageUsage;
 import com.bytechef.platform.tag.domain.Tag;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -51,6 +52,33 @@ public interface WorkspaceKnowledgeBaseFacade {
     List<Tag> getKnowledgeBaseTags(long workspaceId);
 
     /**
+     * Retrieves the tags of each knowledge base in the given workspace, keyed by knowledge base id.
+     *
+     * <p>
+     * Scoped to a workspace rather than to the tenant. The unscoped reader it replaced answered any authenticated
+     * principal -- including a connected user, whose JWT the embedded API-key configurer routes to {@code /graphql}
+     * with no authorities at all -- with every knowledge base in the tenant, across every workspace, both platform
+     * pools, and every embedded account's own knowledge base.
+     *
+     * @param workspaceId the id of the workspace whose knowledge bases are to be read
+     * @return a map from knowledge base id to the tags assigned to it
+     */
+    Map<Long, List<Tag>> getKnowledgeBaseTagsByKnowledgeBase(long workspaceId);
+
+    /**
+     * Replaces the tags of one knowledge base, authorized against the caller's role in the owning workspace.
+     *
+     * <p>
+     * The same reason the listing beside it is scoped: its GraphQL mutation reached {@code KnowledgeBaseTagFacade}
+     * directly, so any authenticated principal could rewrite the tags of any knowledge base in the tenant by naming its
+     * id.
+     *
+     * @param knowledgeBaseId the id of the knowledge base whose tags are to be replaced
+     * @param tags            the new set of tags
+     */
+    void updateKnowledgeBaseTags(Long knowledgeBaseId, List<Tag> tags);
+
+    /**
      * Retrieves a single knowledge base by id, authorized against the caller's role in the owning workspace.
      */
     KnowledgeBase getKnowledgeBase(Long knowledgeBaseId);
@@ -59,6 +87,22 @@ public interface WorkspaceKnowledgeBaseFacade {
      * Updates a knowledge base, authorized against the caller's role in the owning workspace.
      */
     KnowledgeBase updateKnowledgeBase(Long knowledgeBaseId, KnowledgeBase knowledgeBase);
+
+    /**
+     * Re-splits and re-embeds the documents already in a knowledge base under its current chunking settings, authorized
+     * against the caller's role in the owning workspace.
+     *
+     * <p>
+     * {@link #updateKnowledgeBase} changes what future uploads are split into and leaves everything already embedded as
+     * it was, so without this the corpus a wrong chunk size was applied to is exactly the corpus that keeps it. A
+     * separate action rather than part of the update because it is destructive and slow: every chunk is deleted and
+     * re-embedded at an embedding call apiece, and a document returns nothing from a search until its re-chunking
+     * finishes.
+     *
+     * @param knowledgeBaseId the knowledge base to re-chunk
+     * @return the number of documents queued for re-chunking
+     */
+    int rechunkKnowledgeBase(Long knowledgeBaseId);
 
     /**
      * Semantic search within a knowledge base, authorized against the caller's role in the owning workspace.

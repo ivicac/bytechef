@@ -18,6 +18,7 @@ package com.bytechef.platform.knowledgebase.domain;
 
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import java.time.Instant;
 import java.util.HashSet;
@@ -49,6 +50,9 @@ public class KnowledgeBase {
 
     @Column
     private int environment;
+
+    @Column("platform_type")
+    private int platformType;
 
     private int maxChunkSize = 1024;
 
@@ -119,6 +123,14 @@ public class KnowledgeBase {
         if (environment != null) {
             this.environment = environment.ordinal();
         }
+    }
+
+    public PlatformType getPlatformType() {
+        return PlatformType.values()[platformType];
+    }
+
+    public void setPlatformType(PlatformType platformType) {
+        this.platformType = platformType.ordinal();
     }
 
     public int getMaxChunkSize() {

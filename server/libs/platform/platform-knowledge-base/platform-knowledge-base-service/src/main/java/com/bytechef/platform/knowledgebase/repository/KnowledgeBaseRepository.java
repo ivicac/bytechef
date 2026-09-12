@@ -18,6 +18,7 @@ package com.bytechef.platform.knowledgebase.repository;
 
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
@@ -26,5 +27,14 @@ import org.springframework.stereotype.Repository;
 public interface KnowledgeBaseRepository
     extends PagingAndSortingRepository<KnowledgeBase, Long>, ListCrudRepository<KnowledgeBase, Long> {
 
-    List<KnowledgeBase> findAllByEnvironment(int environment);
+    List<KnowledgeBase> findAllByPlatformType(int platformType);
+
+    List<KnowledgeBase> findAllByEnvironmentAndPlatformType(int environment, int platformType);
+
+    /**
+     * A knowledge base's copy of a name within an environment and a pool. A name is meant to identify at most one row
+     * there, with no further split by owner -- what separates two accounts sharing that knowledge base is the owner on
+     * the chunks inside it, applied by {@code KnowledgeBaseVectorStoreWrapper}, not a second row for the same name.
+     */
+    Optional<KnowledgeBase> findByNameAndEnvironmentAndPlatformType(String name, int environment, int platformType);
 }

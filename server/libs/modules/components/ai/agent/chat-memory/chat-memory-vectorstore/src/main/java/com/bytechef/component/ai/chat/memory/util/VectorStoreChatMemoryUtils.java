@@ -23,6 +23,7 @@ import static com.bytechef.platform.component.definition.ai.agent.VectorStoreFun
 
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
@@ -49,9 +50,14 @@ public class VectorStoreChatMemoryUtils {
     private VectorStoreChatMemoryUtils() {
     }
 
+    /**
+     * Resolves the nested {@code VECTOR_STORE} cluster element into a store. The {@code context} is the invocation
+     * context of the caller: a store whose identity belongs to an account resolves its owner from it, so every caller
+     * passes the one it was given rather than dropping it.
+     */
     public static VectorStore getVectorStore(
         Parameters extensions, Map<String, ComponentConnection> componentConnections,
-        ClusterElementDefinitionService clusterElementDefinitionService) throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService, Context context) throws Exception {
 
         ClusterElement clusterElement = ClusterElementMap.of(extensions)
             .getClusterElement(VECTOR_STORE);
@@ -67,7 +73,7 @@ public class VectorStoreChatMemoryUtils {
         return vectorStoreFunction.apply(
             ParametersFactory.create(clusterElement.getParameters()),
             ParametersFactory.create(componentConnectionParameters),
-            ParametersFactory.create(clusterElement.getExtensions()), componentConnections);
+            ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context);
     }
 
     public static ClusterElementDefinition.OptionsFunction<String> getClusterElementFirstMessages() {
@@ -80,7 +86,7 @@ public class VectorStoreChatMemoryUtils {
                     try {
                         return ((VectorStoreFunction) vectorStoreFn).apply(
                             elementInputParams, elementConnectionParams,
-                            elementExtensions, elementComponentConnections);
+                            elementExtensions, elementComponentConnections, ctx);
                     } catch (Exception exception) {
                         context.log(
                             log -> log.error("Failed to resolve VectorStore for conversation ID options", exception));
@@ -139,7 +145,8 @@ public class VectorStoreChatMemoryUtils {
         ClusterElementDefinitionService clusterElementDefinitionService) {
 
         return (inputParameters, componentConnections, extensions, context) -> {
-            VectorStore vectorStore = getVectorStore(extensions, componentConnections, clusterElementDefinitionService);
+            VectorStore vectorStore = getVectorStore(
+                extensions, componentConnections, clusterElementDefinitionService, context);
 
             SearchRequest searchRequest = SearchRequest.builder()
                 .query(" ")

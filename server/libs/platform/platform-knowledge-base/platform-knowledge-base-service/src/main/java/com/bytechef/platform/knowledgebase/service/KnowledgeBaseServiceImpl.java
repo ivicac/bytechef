@@ -16,13 +16,16 @@
 
 package com.bytechef.platform.knowledgebase.service;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.knowledgebase.audit.KnowledgeBaseAuditEvent;
 import com.bytechef.platform.knowledgebase.audit.KnowledgeBaseAuditPublisher;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseRepository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     private final KnowledgeBaseAuditPublisher knowledgeBaseAuditPublisher;
     private final KnowledgeBaseRepository knowledgeBaseRepository;
 
+    @SuppressFBWarnings("EI2")
     public KnowledgeBaseServiceImpl(
         KnowledgeBaseAuditPublisher knowledgeBaseAuditPublisher, KnowledgeBaseRepository knowledgeBaseRepository) {
 
@@ -71,14 +75,36 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<KnowledgeBase> getKnowledgeBases() {
-        return knowledgeBaseRepository.findAll();
+    public KnowledgeBase getKnowledgeBase(Long id, List<PlatformType> platformTypes) {
+        KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("KnowledgeBase not found: " + id));
+
+        if (!platformTypes.contains(knowledgeBase.getPlatformType())) {
+            // Deliberately the same message as a genuinely missing id: a caller must not be able to tell "in another
+            // pool" from "does not exist", or the id space becomes an enumeration oracle.
+            throw new RuntimeException("KnowledgeBase not found: " + id);
+        }
+
+        return knowledgeBase;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<KnowledgeBase> getKnowledgeBases(int environment) {
-        return knowledgeBaseRepository.findAllByEnvironment(environment);
+    public List<KnowledgeBase> getKnowledgeBases(PlatformType platformType) {
+        return knowledgeBaseRepository.findAllByPlatformType(platformType.ordinal());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KnowledgeBase> getKnowledgeBases(int environment, PlatformType platformType) {
+        return knowledgeBaseRepository.findAllByEnvironmentAndPlatformType(environment, platformType.ordinal());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<KnowledgeBase> fetchKnowledgeBase(String name, int environment, PlatformType platformType) {
+        return knowledgeBaseRepository.findByNameAndEnvironmentAndPlatformType(
+            name, environment, platformType.ordinal());
     }
 
     @Override

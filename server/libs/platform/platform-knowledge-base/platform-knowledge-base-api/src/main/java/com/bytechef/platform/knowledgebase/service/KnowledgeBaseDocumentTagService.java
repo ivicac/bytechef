@@ -22,16 +22,16 @@ import java.util.Map;
 /**
  * Service for accessing tag names associated with KnowledgeBaseDocuments.
  *
+ * <p>
+ * Every read here takes a knowledge base id, and that is deliberate. There is no tenant-wide reader: this service sits
+ * below every gate the product has -- the workspace relation, the {@code platform_type} pool split, and the
+ * {@code owner_id}/{@code owner_type} pair an embedded knowledge base carries -- so an unscoped {@code findAll} over
+ * {@code knowledge_base_document} crosses all three at once. The knowledge base id is the thing callers can be
+ * authorized against, so it is the only way in.
+ *
  * @author Ivica Cardic
  */
 public interface KnowledgeBaseDocumentTagService {
-
-    /**
-     * Retrieves a list of all distinct tag names used by documents.
-     *
-     * @return a list of tag name strings representing all available document tags
-     */
-    List<String> getAllTagNames();
 
     /**
      * Retrieves all distinct tag names used by documents belonging to the given knowledge base.
@@ -42,20 +42,12 @@ public interface KnowledgeBaseDocumentTagService {
     List<String> getTagNamesByKnowledgeBaseId(Long knowledgeBaseId);
 
     /**
-     * Retrieves a mapping from document ID to list of tag names assigned to that document, for the documents belonging
-     * to the given knowledge base.
+     * Retrieves a mapping from document ID to list of tag names, for the documents of one knowledge base.
      *
      * @param knowledgeBaseId the unique identifier of the knowledge base
      * @return a map where keys are document IDs and values are lists of tag name strings
      */
     Map<Long, List<String>> getTagNamesByKnowledgeBaseDocumentId(Long knowledgeBaseId);
-
-    /**
-     * Retrieves a mapping from document name to list of tag names assigned to that document.
-     *
-     * @return a map where keys are document names and values are lists of tag name strings
-     */
-    Map<String, List<String>> getTagNamesByKnowledgeBaseDocumentName();
 
     /**
      * Updates the tag names associated with a specific document.

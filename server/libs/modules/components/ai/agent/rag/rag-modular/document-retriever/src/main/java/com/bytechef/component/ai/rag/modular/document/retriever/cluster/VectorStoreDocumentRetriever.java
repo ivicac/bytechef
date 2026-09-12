@@ -26,6 +26,7 @@ import static org.springframework.ai.vectorstore.SearchRequest.SIMILARITY_THRESH
 
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -88,7 +89,7 @@ public class VectorStoreDocumentRetriever {
 
     protected DocumentRetriever apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
-        Map<String, ComponentConnection> componentConnections) throws Exception {
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
 
         ClusterElement clusterElement = ClusterElementMap.of(extensions)
             .getClusterElement(VECTOR_STORE);
@@ -106,7 +107,7 @@ public class VectorStoreDocumentRetriever {
                 vectorStoreFunction.apply(
                     ParametersFactory.create(clusterElement.getParameters()),
                     ParametersFactory.create(componentConnection.getParameters()),
-                    ParametersFactory.create(clusterElement.getExtensions()), componentConnections))
+                    ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context))
             .filterExpression(
                 () -> filterExpression == null ? null : new FilterExpressionTextParser().parse(filterExpression))
             .similarityThreshold(

@@ -22,6 +22,7 @@ import com.bytechef.component.ai.vectorstore.VectorStore;
 import com.bytechef.component.ai.vectorstore.util.VectorStoreUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -60,14 +61,17 @@ public final class VectorStoreDefinition {
             .object(() -> vectorStoreDefinition::apply);
     }
 
+    // The context goes on to the context-carrying createVectorStore rather than stopping here: an implementation whose
+    // store belongs to an account resolves the owner the run acts for from it, and the narrower three-argument form
+    // would discard it in silence.
     public org.springframework.ai.vectorstore.VectorStore apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
-        Map<String, ComponentConnection> componentConnections) {
+        Map<String, ComponentConnection> componentConnections, Context context) {
 
         EmbeddingModel embeddingModel = VectorStoreUtils.getEmbeddingModel(
             extensions, componentConnections, clusterElementDefinitionService);
 
         return vectorStore.createVectorStore(
-            inputParameters, ParametersFactory.create(connectionParameters), embeddingModel);
+            inputParameters, ParametersFactory.create(connectionParameters), embeddingModel, context);
     }
 }

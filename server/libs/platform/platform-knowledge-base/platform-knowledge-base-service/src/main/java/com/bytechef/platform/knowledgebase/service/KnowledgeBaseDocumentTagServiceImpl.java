@@ -43,21 +43,6 @@ public class KnowledgeBaseDocumentTagServiceImpl implements KnowledgeBaseDocumen
     }
 
     @Override
-    public List<String> getAllTagNames() {
-        SequencedSet<String> tagNames = new LinkedHashSet<>();
-
-        for (KnowledgeBaseDocument document : knowledgeBaseDocumentRepository.findAll()) {
-            List<String> documentTagNames = document.getTagNames();
-
-            if (documentTagNames != null) {
-                tagNames.addAll(documentTagNames);
-            }
-        }
-
-        return new ArrayList<>(tagNames);
-    }
-
-    @Override
     public List<String> getTagNamesByKnowledgeBaseId(Long knowledgeBaseId) {
         SequencedSet<String> tagNames = new LinkedHashSet<>();
 
@@ -84,24 +69,6 @@ public class KnowledgeBaseDocumentTagServiceImpl implements KnowledgeBaseDocumen
             List<String> tagNames = document.getTagNames();
 
             map.put(document.getId(), tagNames == null ? List.of() : tagNames);
-        }
-
-        return map;
-    }
-
-    @Override
-    public Map<String, List<String>> getTagNamesByKnowledgeBaseDocumentName() {
-        Map<String, List<String>> map = new HashMap<>();
-
-        List<KnowledgeBaseDocument> documents = new ArrayList<>();
-
-        knowledgeBaseDocumentRepository.findAll()
-            .forEach(documents::add);
-
-        for (KnowledgeBaseDocument document : documents) {
-            List<String> tagNames = document.getTagNames();
-
-            map.put(document.getName(), tagNames == null ? List.of() : tagNames);
         }
 
         return map;

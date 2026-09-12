@@ -316,7 +316,10 @@ class AiAgentStreamChatActionTenantPropagationIntTest {
 
         when(clusterElementDefinitionService.<ChatMemoryFunction>getClusterElement(
             eq("testComponent"), eq(1), eq("testChatMemory"))).thenReturn(chatMemoryFunction);
-        when(chatMemoryFunction.apply(any(), any(), any(), any())).thenReturn(buildChatMemoryResult());
+        // Five matchers, not four: production calls the context-carrying overload, and Mockito does not run interface
+        // defaults on a mock -- so a four-matcher stub never fires and this chat memory is silently absent from the
+        // run.
+        when(chatMemoryFunction.apply(any(), any(), any(), any(), any())).thenReturn(buildChatMemoryResult());
 
         return clusterElementDefinitionService;
     }

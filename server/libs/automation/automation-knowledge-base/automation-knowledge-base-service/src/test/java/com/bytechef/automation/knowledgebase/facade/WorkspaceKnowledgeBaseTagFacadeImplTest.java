@@ -18,6 +18,7 @@ package com.bytechef.automation.knowledgebase.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.knowledgebase.domain.WorkspaceKnowledgeBase;
@@ -25,6 +26,7 @@ import com.bytechef.automation.knowledgebase.service.WorkspaceKnowledgeBaseServi
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseTagFacade;
 import com.bytechef.platform.tag.domain.Tag;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -57,5 +59,26 @@ class WorkspaceKnowledgeBaseTagFacadeImplTest {
         assertThat(tags).hasSize(2);
 
         verify(knowledgeBaseTagFacade).getTags(List.of(1L, 2L));
+    }
+
+    /**
+     * The scoping half of the fix, below the {@code @PreAuthorize} gate. Passing the authorization check for one
+     * workspace must not widen the read: the ids handed down are the workspace's own, so a knowledge base belonging to
+     * another workspace is never asked about and cannot come back.
+     */
+    @Test
+    void testGetKnowledgeBaseTagsByKnowledgeBaseAsksOnlyForTheWorkspacesOwnKnowledgeBases() {
+        when(workspaceKnowledgeBaseService.getWorkspaceKnowledgeBases(5L))
+            .thenReturn(List.of(new WorkspaceKnowledgeBase(1L, 5L), new WorkspaceKnowledgeBase(2L, 5L)));
+        when(knowledgeBaseTagFacade.getTagsByKnowledgeBaseIds(List.of(1L, 2L)))
+            .thenReturn(Map.of(1L, List.of(new Tag("a")), 2L, List.of()));
+
+        Map<Long, List<Tag>> tagsByKnowledgeBaseId =
+            workspaceKnowledgeBaseFacade.getKnowledgeBaseTagsByKnowledgeBase(5L);
+
+        assertThat(tagsByKnowledgeBaseId).containsOnlyKeys(1L, 2L);
+
+        verify(knowledgeBaseTagFacade).getTagsByKnowledgeBaseIds(List.of(1L, 2L));
+        verifyNoMoreInteractions(knowledgeBaseTagFacade);
     }
 }

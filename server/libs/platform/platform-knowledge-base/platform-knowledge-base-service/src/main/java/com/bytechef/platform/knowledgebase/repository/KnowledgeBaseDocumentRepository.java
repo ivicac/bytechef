@@ -34,14 +34,56 @@ public interface KnowledgeBaseDocumentRepository
 
     List<KnowledgeBaseDocument> findAllByKnowledgeBaseId(Long knowledgeBaseId);
 
-    List<KnowledgeBaseDocument> findAllBySourceIdAndDeletedAtIsNotNull(Long sourceId);
-
-    Optional<KnowledgeBaseDocument> findBySourceIdAndSourceRecordId(Long sourceId, String sourceRecordId);
+    /**
+     * The tombstoned documents of the given source that belong to NOBODY -- the vendor's own. Paired with
+     * {@link #findAllBySourceIdAndOwnerIdAndOwnerTypeAndDeletedAtIsNotNull} for the same reason the two tombstone
+     * queries are a pair, and named for both columns so neither can be asked for without the other.
+     */
+    List<KnowledgeBaseDocument> findAllBySourceIdAndOwnerIdIsNullAndOwnerTypeIsNullAndDeletedAtIsNotNull(Long sourceId);
 
     /**
-     * Soft-deletes (tombstones) every synced document tied to the given source whose {@code source_record_id} is not
-     * present in the {@code seenSourceRecordIds} collection. Manual uploads (where {@code source_id IS NULL}) are
-     * untouched. Returns the count of rows tombstoned.
+     * The tombstoned documents of the given source that belong to one account.
+     */
+    List<KnowledgeBaseDocument> findAllBySourceIdAndOwnerIdAndOwnerTypeAndDeletedAtIsNotNull(
+        Long sourceId, Long ownerId, Integer ownerType);
+
+    /**
+     * The synced document of the given source record that belongs to NOBODY -- the vendor's own. Paired with
+     * {@link #findBySourceIdAndSourceRecordIdAndOwnerIdAndOwnerType}, both columns named in both, so a half-written
+     * owner satisfies neither and is nobody's.
+     *
+     * <p>
+     * {@code (source_id, source_record_id)} no longer identifies at most one row: the partial unique indexes behind it
+     * are keyed on the owner as well, so one source record can carry one document per account plus the vendor's. That
+     * is why this lookup is a pair rather than the single unscoped finder it replaced -- see
+     * {@code KnowledgeBaseDocumentService#findSyncedDocument} for why two documents is the right answer.
+     */
+    Optional<KnowledgeBaseDocument> findBySourceIdAndSourceRecordIdAndOwnerIdIsNullAndOwnerTypeIsNull(
+        Long sourceId, String sourceRecordId);
+
+    /**
+     * The synced document of the given source record that belongs to one account.
+     */
+    Optional<KnowledgeBaseDocument> findBySourceIdAndSourceRecordIdAndOwnerIdAndOwnerType(
+        Long sourceId, String sourceRecordId, Long ownerId, Integer ownerType);
+
+    /**
+     * Soft-deletes (tombstones) every UNOWNED synced document tied to the given source whose {@code source_record_id}
+     * is not present in the {@code seenIds} collection. Manual uploads (where {@code source_id IS NULL}) are untouched.
+     * Returns the count of rows tombstoned.
+     *
+     * <p>
+     * A source no longer identifies one account's documents. Two accounts may sync the same source into one shared
+     * knowledge base, so a run that keyed its sweep on {@code source_id} alone reaped rows another account's run had
+     * created -- and the chunk sweep that follows then deleted their chunks out of the vector store. The owner is part
+     * of the predicate for that reason, and this is the vendor's half of it: a run with no owner tombstones the
+     * documents belonging to nobody and never falls through to an account's.
+     *
+     * <p>
+     * Two queries rather than one taking a nullable owner, matching the read/write split the rest of the axis uses and
+     * avoiding a null-typed bind parameter in an {@code IS NULL} comparison, which Postgres cannot infer a type for.
+     * Both columns are named in both queries: an {@code owner_id} beside a null {@code owner_type} belongs to nobody
+     * and must satisfy neither predicate.
      *
      * <p>
      * {@code @Modifying} is required for Spring Data JDBC string {@code @Query} UPDATE/DELETE — without it, JDBC tries
@@ -55,9 +97,33 @@ public interface KnowledgeBaseDocumentRepository
         WHERE source_id = :sourceId
           AND source_record_id NOT IN (:seenIds)
           AND deleted_at IS NULL
+          AND owner_id IS NULL
+          AND owner_type IS NULL
         """)
-    int tombstoneUnseen(
+    int tombstoneUnseenUnowned(
         @Param("sourceId") Long sourceId,
         @Param("seenIds") Collection<String> seenIds,
+        @Param("deletedAt") Instant deletedAt);
+
+    /**
+     * The account half of {@link #tombstoneUnseenUnowned}: a run acting for an owner reaps that owner's documents
+     * alone, leaving both the vendor's unowned ones and every other account's untouched. This is the WRITE rule -- an
+     * unowned document is every account's to read and nobody's to tombstone.
+     */
+    @Modifying
+    @Query("""
+        UPDATE knowledge_base_document
+        SET deleted_at = :deletedAt, last_modified_date = :deletedAt
+        WHERE source_id = :sourceId
+          AND source_record_id NOT IN (:seenIds)
+          AND deleted_at IS NULL
+          AND owner_id = :ownerId
+          AND owner_type = :ownerType
+        """)
+    int tombstoneUnseenOwnedBy(
+        @Param("sourceId") Long sourceId,
+        @Param("seenIds") Collection<String> seenIds,
+        @Param("ownerId") Long ownerId,
+        @Param("ownerType") Integer ownerType,
         @Param("deletedAt") Instant deletedAt);
 }

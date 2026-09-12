@@ -17,10 +17,10 @@
 package com.bytechef.automation.knowledgebase.web.graphql;
 
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseTagFacade;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -29,6 +29,19 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 /**
+ * Tags on knowledge bases themselves.
+ *
+ * <p>
+ * Every operation here names what it may see and goes through {@link WorkspaceKnowledgeBaseFacade}, which checks the
+ * caller's role. Nothing is tenant-wide, and it is worth saying why two of these were:
+ * {@code knowledgeBaseTagsByKnowledgeBase} took no argument at all, and {@code updateKnowledgeBaseTags} took a
+ * knowledge base id it never checked; both reached {@code KnowledgeBaseTagFacade} directly, over a {@code findAll()} of
+ * {@code knowledge_base}. {@code /graphql} is only {@code .authenticated()} in {@code SecurityConfiguration}, and
+ * {@code EmbeddedApiKeySecurityConfigurer} matches {@code ^/graphql$} whenever an {@code Authorization} header is
+ * present, so a connected user's JWT -- a principal holding no authorities at all -- reached them: the query answered
+ * with every knowledge base in the tenant, across every workspace, both platform pools, and every embedded account's
+ * own knowledge base, and the mutation rewrote the tags of any one of them.
+ *
  * @author Ivica Cardic
  */
 @Controller
@@ -36,14 +49,10 @@ import org.springframework.stereotype.Controller;
 @SuppressFBWarnings("EI")
 public class KnowledgeBaseTagGraphQlController {
 
-    private final KnowledgeBaseTagFacade knowledgeBaseTagFacade;
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
 
     @SuppressFBWarnings("EI")
-    public KnowledgeBaseTagGraphQlController(
-        KnowledgeBaseTagFacade knowledgeBaseTagFacade, WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade) {
-
-        this.knowledgeBaseTagFacade = knowledgeBaseTagFacade;
+    public KnowledgeBaseTagGraphQlController(WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade) {
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
     }
 
@@ -53,9 +62,11 @@ public class KnowledgeBaseTagGraphQlController {
     }
 
     @QueryMapping
-    public List<KnowledgeBaseTagsEntry> knowledgeBaseTagsByKnowledgeBase() {
-        return knowledgeBaseTagFacade.getTagsByKnowledgeBaseId()
-            .entrySet()
+    public List<KnowledgeBaseTagsEntry> knowledgeBaseTagsByKnowledgeBase(@Argument Long workspaceId) {
+        Map<Long, List<Tag>> tagsByKnowledgeBaseId =
+            workspaceKnowledgeBaseFacade.getKnowledgeBaseTagsByKnowledgeBase(workspaceId);
+
+        return tagsByKnowledgeBaseId.entrySet()
             .stream()
             .map(entry -> new KnowledgeBaseTagsEntry(entry.getKey(), entry.getValue()))
             .toList();
@@ -78,7 +89,7 @@ public class KnowledgeBaseTagGraphQlController {
             })
             .collect(Collectors.toList());
 
-        knowledgeBaseTagFacade.updateTags(input.knowledgeBaseId(), tags);
+        workspaceKnowledgeBaseFacade.updateKnowledgeBaseTags(input.knowledgeBaseId(), tags);
 
         return true;
     }

@@ -29,7 +29,9 @@ import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentChunkFaca
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentChunkService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
+import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -62,10 +64,60 @@ class KnowledgeBaseDocumentApiFacadeImplTest {
     private KnowledgeBaseDocumentService knowledgeBaseDocumentService;
 
     @Mock
+    private KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService;
+
+    @Mock
     private PermissionService permissionService;
 
     @InjectMocks
     private KnowledgeBaseDocumentApiFacadeImpl knowledgeBaseDocumentApiFacade;
+
+    @Test
+    void testGetKnowledgeBaseDocumentTagNamesAllowsViewerOfThatKnowledgeBase() {
+        when(permissionService.hasResourceRole(7L, KNOWLEDGE_BASE, "VIEWER")).thenReturn(true);
+        when(knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseId(7L)).thenReturn(List.of("alpha"));
+
+        assertThat(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentTagNames(7L)).containsExactly("alpha");
+    }
+
+    /**
+     * The refusal that matters. This listing was tenant-wide and unguarded, so it answered any authenticated principal
+     * -- including a connected user, whose JWT the embedded API-key configurer routes to {@code /graphql} -- with every
+     * tag name in every workspace, both platform pools, and every embedded account's own knowledge base.
+     */
+    @Test
+    void testGetKnowledgeBaseDocumentTagNamesDeniesNonViewer() {
+        when(permissionService.hasResourceRole(7L, KNOWLEDGE_BASE, "VIEWER")).thenReturn(false);
+
+        assertThatThrownBy(() -> knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentTagNames(7L))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verifyNoInteractions(knowledgeBaseDocumentTagService);
+    }
+
+    @Test
+    void testGetTagNamesByKnowledgeBaseDocumentIdAllowsViewerOfThatKnowledgeBase() {
+        when(permissionService.hasResourceRole(7L, KNOWLEDGE_BASE, "VIEWER")).thenReturn(true);
+        when(knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseDocumentId(7L))
+            .thenReturn(Map.of(10L, List.of("alpha")));
+
+        assertThat(knowledgeBaseDocumentApiFacade.getTagNamesByKnowledgeBaseDocumentId(7L))
+            .containsExactly(Map.entry(10L, List.of("alpha")));
+    }
+
+    /**
+     * The by-document listing leaks more than names: it hands back the document ids too, so an unguarded call
+     * enumerates the tenant's whole document id space for a caller who can reach none of it.
+     */
+    @Test
+    void testGetTagNamesByKnowledgeBaseDocumentIdDeniesNonViewer() {
+        when(permissionService.hasResourceRole(7L, KNOWLEDGE_BASE, "VIEWER")).thenReturn(false);
+
+        assertThatThrownBy(() -> knowledgeBaseDocumentApiFacade.getTagNamesByKnowledgeBaseDocumentId(7L))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verifyNoInteractions(knowledgeBaseDocumentTagService);
+    }
 
     @Test
     void testGetKnowledgeBaseDocumentAllowsViewer() {

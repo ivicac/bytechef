@@ -8,7 +8,9 @@
 package com.bytechef.ee.tenant.multi.config;
 
 import com.bytechef.ee.tenant.multi.pgvector.MultiTenantPgVectorLoader;
+import com.bytechef.ee.tenant.multi.pgvector.MultiTenantPgVectorStore;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.annotation.ConditionalOnMultiTenant;
 import com.bytechef.tenant.service.TenantService;
 import org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreProperties;
@@ -53,5 +55,25 @@ class MultiTenantKnowledgeBasePgVectorLoaderConfiguration {
 
         return new MultiTenantPgVectorLoader(
             pgVectorJdbcTemplate, properties, "kb_" + properties.getTableName(), tenantService);
+    }
+
+    /**
+     * Registered here rather than beside the multi-tenant store for the same reason the loader above is: the sweep has
+     * to run whether or not {@code bytechef.ai.knowledge-base} is enabled on this deployment, because a deployment that
+     * boots with the feature off still holds the chunks a later boot with it on would have to find.
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", havingValue = "true", matchIfMissing = true)
+    MultiTenantKnowledgeBaseVectorStoreOwnershipBackfill knowledgeBaseMultiTenantVectorStoreOwnershipBackfill(
+        @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate, PgVectorStoreProperties properties,
+        TenantService tenantService) {
+
+        String vectorTableName = "kb_" + properties.getTableName();
+
+        return new MultiTenantKnowledgeBaseVectorStoreOwnershipBackfill(
+            pgVectorJdbcTemplate,
+            () -> TenantContext.getCurrentDatabaseSchema(MultiTenantPgVectorStore.VECTORSTORE_SCHEMA_SUFFIX) + "."
+                + vectorTableName,
+            tenantService);
     }
 }

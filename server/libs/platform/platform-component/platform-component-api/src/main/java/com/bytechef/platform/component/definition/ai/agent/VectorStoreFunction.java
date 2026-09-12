@@ -17,6 +17,7 @@
 package com.bytechef.platform.component.definition.ai.agent;
 
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import java.util.Map;
@@ -34,14 +35,17 @@ public interface VectorStoreFunction {
     ClusterElementType VECTOR_STORE = new ClusterElementType("VECTOR_STORE", "vectorStore", "Vector Store", true);
 
     /**
-     * @param inputParameters
-     * @param connectionParameters
-     * @param extensions
-     * @param componentConnections
-     * @return
+     * @param inputParameters      the input parameters of the vector store cluster element
+     * @param connectionParameters the connection parameters
+     * @param extensions           the extensions containing nested cluster elements
+     * @param componentConnections the component connections map
+     * @param context              the component invocation context. An implementation whose store belongs to an account
+     *                             resolves the owner from it: a knowledge base is reachable only for the owner the run
+     *                             belongs to.
+     * @return the vector store
      * @throws Exception
      */
     VectorStore apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
-        Map<String, ComponentConnection> componentConnections) throws Exception;
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception;
 }

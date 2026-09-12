@@ -26,6 +26,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.ai.chat.memory.util.VectorStoreChatMemoryUtils;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
@@ -61,7 +62,7 @@ public class VectorStoreChatMemoryDeleteAction {
             .perform(
                 (MultipleConnectionsPerformFunction) (
                     inputParameters, componentConnections, extensions, context) -> perform(inputParameters,
-                        componentConnections, extensions, clusterElementDefinitionService));
+                        componentConnections, extensions, clusterElementDefinitionService, context));
     }
 
     private VectorStoreChatMemoryDeleteAction() {
@@ -69,11 +70,13 @@ public class VectorStoreChatMemoryDeleteAction {
 
     protected static Object perform(
         Parameters inputParameters, Map<String, ComponentConnection> componentConnections,
-        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService) throws Exception {
+        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService,
+        ActionContext context) throws Exception {
 
         String conversationId = inputParameters.getRequiredString(CONVERSATION_ID);
 
-        VectorStore vectorStore = getVectorStore(extensions, componentConnections, clusterElementDefinitionService);
+        VectorStore vectorStore = getVectorStore(
+            extensions, componentConnections, clusterElementDefinitionService, context);
 
         // Build the filter through the typed expression builder rather than concatenating conversationId into a raw
         // filter string. The builder produces a Filter.Expression whose value is escaped by the store's

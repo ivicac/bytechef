@@ -17,6 +17,7 @@
 package com.bytechef.platform.knowledgebase.service;
 
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
+import com.bytechef.platform.knowledgebase.exception.KnowledgeBaseDocumentChunkNotFoundException;
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseDocumentChunkRepository;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public class KnowledgeBaseDocumentChunkServiceImpl implements KnowledgeBaseDocum
     @Transactional(readOnly = true)
     public KnowledgeBaseDocumentChunk getKnowledgeBaseDocumentChunk(Long id) {
         return knowledgeBaseDocumentChunkRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("KnowledgeBase document chunk not found: " + id));
+            .orElseThrow(() -> new KnowledgeBaseDocumentChunkNotFoundException(id));
     }
 
     @Override

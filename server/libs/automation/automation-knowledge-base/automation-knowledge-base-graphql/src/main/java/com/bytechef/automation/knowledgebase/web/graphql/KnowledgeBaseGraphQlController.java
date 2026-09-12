@@ -95,6 +95,11 @@ class KnowledgeBaseGraphQlController {
     }
 
     @MutationMapping
+    public int rechunkKnowledgeBase(@Argument Long id) {
+        return workspaceKnowledgeBaseFacade.rechunkKnowledgeBase(id);
+    }
+
+    @MutationMapping
     public boolean deleteKnowledgeBase(@Argument Long id) {
         workspaceKnowledgeBaseFacade.deleteWorkspaceKnowledgeBase(id);
 

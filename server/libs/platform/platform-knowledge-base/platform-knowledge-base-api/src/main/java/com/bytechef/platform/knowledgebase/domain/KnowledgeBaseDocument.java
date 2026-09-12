@@ -18,10 +18,13 @@ package com.bytechef.platform.knowledgebase.domain;
 
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.owner.Owner;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedBy;
@@ -69,6 +72,12 @@ public class KnowledgeBaseDocument {
 
     @Column("deleted_at")
     private Instant deletedAt;
+
+    @Column("owner_id")
+    private @Nullable Long ownerId;
+
+    @Column("owner_type")
+    private @Nullable Integer ownerType;
 
     @MappedCollection(idColumn = "knowledge_base_document_id")
     private Set<KnowledgeBaseDocumentTag> knowledgeBaseDocumentTags = new HashSet<>();
@@ -184,6 +193,75 @@ public class KnowledgeBaseDocument {
         this.deletedAt = deletedAt;
     }
 
+    /**
+     * The account that drove the upload, persisted here because the chunker runs off a message long after the request
+     * that created this row has gone, and it is the only place left to ask who the upload was for. A document with no
+     * owner is the vendor's, and its chunks are marked shared.
+     *
+     * <p>
+     * Empty when either column is null rather than when both are. The pair is written together by
+     * {@link #setOwner(Owner)} and can only come apart through a hand-written row or a half-applied migration, and a
+     * half-owner belongs to nobody: an {@code owner_id} beside a null {@code owner_type} satisfies neither the owned
+     * predicate nor the shared one, so reading it as "no owner" is the only answer that keeps the two columns moving as
+     * one.
+     */
+    public Optional<Owner> getOwner() {
+        if (ownerId == null || ownerType == null) {
+            return Optional.empty();
+        }
+
+        OwnerType[] ownerTypes = OwnerType.values();
+
+        if (ownerType < 0 || ownerType >= ownerTypes.length) {
+            throw new IllegalStateException("Invalid owner type value: " + ownerType);
+        }
+
+        return Optional.of(new Owner(ownerTypes[ownerType], ownerId));
+    }
+
+    /**
+     * The only mutator for either column, so no caller can write one without the other.
+     */
+    public void setOwner(@Nullable Owner owner) {
+        this.ownerId = owner == null ? null : owner.id();
+        this.ownerType = owner == null ? null : owner.type()
+            .ordinal();
+    }
+
+    /**
+     * Whether a run acting for {@code owner} may READ this document: its own documents plus the ones belonging to
+     * nobody.
+     *
+     * <p>
+     * The rule lives on the row rather than beside each caller because a knowledge base no longer answers it. A
+     * knowledge base used to have exactly one owner, so admitting the knowledge base admitted every document in it and
+     * every gate could stop there; a shared knowledge base holds the documents of many accounts, and the document is
+     * now the only thing that knows which.
+     *
+     * <p>
+     * A run with no owner is the vendor, and reaches the unowned documents alone -- it never falls through to an
+     * account's, matching the resolution rule one level up and the chunk read filter one level down.
+     */
+    public boolean isReadableBy(Optional<Owner> owner) {
+        Optional<Owner> documentOwner = getOwner();
+
+        return documentOwner.isEmpty() || documentOwner.equals(owner);
+    }
+
+    /**
+     * Whether a run acting for {@code owner} may WRITE or DELETE this document: its own alone.
+     *
+     * <p>
+     * Deliberately narrower than {@link #isReadableBy(Optional)}. A document belonging to nobody is every account's to
+     * read and nobody's to change, so an account may not rewrite, re-chunk or tombstone the vendor's -- and the vendor,
+     * whose own documents are the unowned ones, may not touch an account's.
+     */
+    public boolean isWritableBy(Optional<Owner> owner) {
+        Optional<Owner> documentOwner = getOwner();
+
+        return documentOwner.equals(owner);
+    }
+
     public Instant getCreatedDate() {
         return createdDate;
     }
@@ -273,6 +351,8 @@ public class KnowledgeBaseDocument {
             ", syncedPayloadHash='" + syncedPayloadHash + '\'' +
             ", lastSeenAt=" + lastSeenAt +
             ", deletedAt=" + deletedAt +
+            ", ownerId=" + ownerId +
+            ", ownerType=" + ownerType +
             ", knowledgeBaseDocumentTags=" + knowledgeBaseDocumentTags +
             ", createdDate=" + createdDate +
             ", createdBy='" + createdBy + '\'' +
