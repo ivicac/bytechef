@@ -1,3 +1,4 @@
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useValidateWorkflowQuery} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useEffect} from 'react';
@@ -9,6 +10,7 @@ import useWorkflowIssuesStore, {WorkflowIssueI} from '../stores/useWorkflowIssue
 export default function useWorkflowIssuesValidation(): void {
     const workflow = useWorkflowDataStore((state) => state.workflow);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const {clearLiveIssues, setValidatorIssues} = useWorkflowIssuesStore(
         useShallow((state) => ({
             clearLiveIssues: state.clearLiveIssues,
@@ -16,8 +18,16 @@ export default function useWorkflowIssuesValidation(): void {
         }))
     );
 
+    // The workspace is what the server authorizes an unsaved definition against — a definition with no workflow id
+    // names no stored resource, so without it the query is refused rather than answered. Embedded workflows have no
+    // workspace and always carry an id, which is gated on instead.
     const {data} = useValidateWorkflowQuery(
-        {environmentId: currentEnvironmentId, workflowDefinition: workflow.definition!, workflowId: workflow.id},
+        {
+            environmentId: currentEnvironmentId,
+            workflowDefinition: workflow.definition!,
+            workflowId: workflow.id,
+            workspaceId: currentWorkspaceId,
+        },
         {enabled: !!workflow.definition}
     );
 
