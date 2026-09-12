@@ -10,6 +10,11 @@ const hoisted = vi.hoisted(() => ({
     workflowState: {workflow: {definition: '{"tasks":[]}', id: 'wf-1'}},
 }));
 
+vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
+    useWorkspaceStore: (selector: (state: {currentWorkspaceId: number}) => unknown) =>
+        selector({currentWorkspaceId: 5}),
+}));
+
 vi.mock('@/shared/middleware/graphql', () => ({
     useValidateWorkflowQuery: (variables: unknown) => {
         hoisted.queryVariables.push(variables);
@@ -35,13 +40,14 @@ describe('useWorkflowIssuesValidation', () => {
         useWorkflowIssuesStore.getState().reset();
     });
 
-    it('queries with the definition and the selected environment', () => {
+    it('queries with the definition, the selected environment and the current workspace', () => {
         renderHook(() => useWorkflowIssuesValidation());
 
         expect(hoisted.queryVariables[0]).toEqual({
             environmentId: 2,
             workflowDefinition: '{"tasks":[]}',
             workflowId: 'wf-1',
+            workspaceId: 5,
         });
     });
 
