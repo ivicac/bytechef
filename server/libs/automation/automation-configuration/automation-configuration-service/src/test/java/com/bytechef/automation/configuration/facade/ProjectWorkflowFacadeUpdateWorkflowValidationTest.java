@@ -37,6 +37,7 @@ import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.cache.WorkflowCacheManager;
 import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
+import com.bytechef.platform.configuration.facade.WorkflowTestConfigurationFacade;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.file.storage.SharedTemplateFileStorage;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -113,6 +115,9 @@ class ProjectWorkflowFacadeUpdateWorkflowValidationTest {
     private WorkflowService workflowService;
 
     @Mock
+    private ObjectProvider<WorkflowTestConfigurationFacade> workflowTestConfigurationFacadeProvider;
+
+    @Mock
     private WorkflowTestConfigurationService workflowTestConfigurationService;
 
     @Mock
@@ -127,7 +132,8 @@ class ProjectWorkflowFacadeUpdateWorkflowValidationTest {
             errorWorkflowConfigurationValidator, projectDeploymentService, projectDeploymentWorkflowService,
             projectService, projectVisibilityFilter, projectWorkflowService, sharedTemplateFileStorage,
             sharedTemplateService,
-            workflowCacheManager, workflowFacade, List.of(), workflowService, workflowTestConfigurationService,
+            workflowCacheManager, workflowFacade, List.of(), workflowService, workflowTestConfigurationFacadeProvider,
+            workflowTestConfigurationService,
             flatDuplicateNameAwareFacade());
     }
 
@@ -193,7 +199,12 @@ class ProjectWorkflowFacadeUpdateWorkflowValidationTest {
             }
 
             @Override
-            public WorkflowValidationResult validateWorkflow(String workflow, long environmentId) {
+            public WorkflowValidationResult validateWorkflow(String workflow, long workspaceId, long environmentId) {
+                return new WorkflowValidationResult(List.of(), List.of());
+            }
+
+            @Override
+            public WorkflowValidationResult validateWorkflow(String workflow, String workflowId, long environmentId) {
                 return new WorkflowValidationResult(List.of(), List.of());
             }
 
@@ -204,6 +215,11 @@ class ProjectWorkflowFacadeUpdateWorkflowValidationTest {
 
             @Override
             public List<String> getInvalidInputNames(String workflow) {
+                return List.of();
+            }
+
+            @Override
+            public List<String> getReservedNodeNames(String workflow) {
                 return List.of();
             }
 
