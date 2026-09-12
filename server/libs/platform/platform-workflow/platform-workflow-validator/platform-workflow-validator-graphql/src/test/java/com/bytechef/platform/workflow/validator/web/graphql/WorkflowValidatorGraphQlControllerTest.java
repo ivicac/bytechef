@@ -16,8 +16,10 @@
 
 package com.bytechef.platform.workflow.validator.web.graphql;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bytechef.platform.workflow.validator.WorkflowValidatorFacade;
 import org.junit.jupiter.api.Test;
@@ -32,31 +34,49 @@ class WorkflowValidatorGraphQlControllerTest {
         new WorkflowValidatorGraphQlController(workflowValidatorFacade);
 
     @Test
-    void passesEnvironmentThroughWhenGiven() {
-        controller.validateWorkflow("{}", null, 2L);
-
-        verify(workflowValidatorFacade).validateWorkflow("{}", 2L);
-    }
-
-    @Test
-    void usesFacadeDefaultWhenEnvironmentIsAbsent() {
-        controller.validateWorkflow("{}", null, null);
-
-        verify(workflowValidatorFacade).validateWorkflow("{}");
-    }
-
-    @Test
     void passesTheWorkflowIdThroughWhenGiven() {
-        controller.validateWorkflow("{}", "wf-1", 2L);
+        controller.validateWorkflow("{}", "wf-1", null, 2L);
 
         verify(workflowValidatorFacade).validateWorkflow("{}", "wf-1", 2L);
     }
 
     @Test
     void validatesInDevelopmentWhenOnlyTheWorkflowIdIsGiven() {
-        controller.validateWorkflow("{}", "wf-1", null);
+        controller.validateWorkflow("{}", "wf-1", null, null);
 
         verify(workflowValidatorFacade).validateWorkflow("{}", "wf-1", 0L);
+    }
+
+    @Test
+    void routesThroughTheWorkflowWhenBothIdsAreGiven() {
+        controller.validateWorkflow("{}", "wf-1", 7L, 2L);
+
+        verify(workflowValidatorFacade).validateWorkflow("{}", "wf-1", 2L);
+    }
+
+    @Test
+    void passesTheWorkspaceThroughWhenNoWorkflowIdIsGiven() {
+        controller.validateWorkflow("{}", null, 7L, 2L);
+
+        verify(workflowValidatorFacade).validateWorkflow("{}", 7L, 2L);
+    }
+
+    @Test
+    void validatesInDevelopmentWhenOnlyTheWorkspaceIsGiven() {
+        controller.validateWorkflow("{}", null, 7L, null);
+
+        verify(workflowValidatorFacade).validateWorkflow("{}", 7L, 0L);
+    }
+
+    /**
+     * The facade's unauthorized single-argument overload stays reachable for the agent tool, so the guard that keeps it
+     * off this endpoint is the controller's own: naming neither id must be refused rather than quietly answered there.
+     */
+    @Test
+    void refusesWhenNeitherTheWorkflowNorTheWorkspaceIsGiven() {
+        assertThrows(IllegalArgumentException.class, () -> controller.validateWorkflow("{}", null, null, 2L));
+
+        verifyNoInteractions(workflowValidatorFacade);
     }
 
     @Test

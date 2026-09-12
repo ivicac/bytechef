@@ -18,7 +18,6 @@ package com.bytechef.platform.workflow.validator;
 
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.constant.JobInputConstants;
-import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.validator.exception.WorkflowValidatorErrorType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -49,21 +48,33 @@ public interface WorkflowValidatorFacade {
      */
     WorkflowValidationResult validateWorkflowById(String workflowId);
 
-    WorkflowValidationResult validateWorkflow(String workflow, long environmentId);
-
     /**
-     * Validates a workflow JSON string that may differ from the stored one, consulting the test outputs recorded for
-     * the workflow's nodes when a workflow id is given.
+     * Validates a workflow JSON string that is not stored yet, so there is no workflow to authorize against: the caller
+     * names the workspace it is authoring in instead, and that workspace-in-environment pair is what gets checked.
+     *
+     * <p>
+     * The workspace argument is what makes this overload gateable at all, and it is not a formality: resolving the
+     * definition's data table and knowledge base references is an environment-scoped read, so an overload that took an
+     * environment and no id beside it let a member holding a scope in one environment learn whether a name or id exists
+     * in another.
      *
      * @param workflow      the workflow JSON string to validate
-     * @param workflowId    the id of the stored workflow the JSON belongs to, or null when it is not stored yet
+     * @param workspaceId   the workspace the definition is being authored in
      * @param environmentId the environment the workflow is validated against
      * @return a {@link WorkflowValidationResult} containing lists of errors and warnings
      */
-    default WorkflowValidationResult validateWorkflow(
-        String workflow, @Nullable String workflowId, long environmentId) {
-        return validateWorkflow(workflow, environmentId);
-    }
+    WorkflowValidationResult validateWorkflow(String workflow, long workspaceId, long environmentId);
+
+    /**
+     * Validates a workflow JSON string that may differ from the stored one it belongs to, consulting the test outputs
+     * recorded for that workflow's nodes and its connection bindings.
+     *
+     * @param workflow      the workflow JSON string to validate
+     * @param workflowId    the id of the stored workflow the JSON belongs to
+     * @param environmentId the environment the workflow is validated against
+     * @return a {@link WorkflowValidationResult} containing lists of errors and warnings
+     */
+    WorkflowValidationResult validateWorkflow(String workflow, String workflowId, long environmentId);
 
     WorkflowValidationResult validateWorkflowById(String workflowId, long environmentId);
 
@@ -204,50 +215,7 @@ public interface WorkflowValidatorFacade {
         return reservedInputNames;
     }
 
-    /**
-     * Returns the top-level trigger/task node names that are reserved -- either begin with the {@code __} prefix or
-     * exactly equal {@link JobInputConstants#VARIABLES_INPUT} -- or an empty list when none are found (or the workflow
-     * JSON cannot be parsed).
-     */
-    private List<String> getReservedNodeNames(String workflow) {
-        List<String> reservedNodeNames = new ArrayList<>();
-
-        try {
-            JsonNode workflowJsonNode = readWorkflowTree(workflow);
-
-            collectReservedNodeNames(workflowJsonNode.get("triggers"), reservedNodeNames);
-            collectReservedNodeNames(workflowJsonNode.get("tasks"), reservedNodeNames);
-        } catch (Exception e) {
-            return List.of();
-        }
-
-        return reservedNodeNames;
-    }
-
-    private static void collectReservedNodeNames(JsonNode nodesJsonNode, List<String> reservedNodeNames) {
-        if (nodesJsonNode == null || !nodesJsonNode.isArray()) {
-            return;
-        }
-
-        for (JsonNode nodeJsonNode : nodesJsonNode) {
-            if (!nodeJsonNode.isObject()) {
-                continue;
-            }
-
-            JsonNode nameJsonNode = nodeJsonNode.get("name");
-
-            if (nameJsonNode != null && nameJsonNode.isString() && isReservedName(nameJsonNode.asString())) {
-                reservedNodeNames.add(nameJsonNode.asString());
-            }
-        }
-    }
-
-    /**
-     * A reserved name either starts with the reserved {@code __} prefix, or exactly equals the reserved
-     * {@link JobInputConstants#VARIABLES_INPUT} name — a name that merely starts with {@code vars} (e.g.
-     * {@code varsCount}) is not reserved.
-     */
-    private static boolean isReservedName(String name) {
+    static boolean isReservedName(String name) {
         return name.startsWith("__") || name.equals(JobInputConstants.VARIABLES_INPUT);
     }
 
