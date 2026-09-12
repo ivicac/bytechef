@@ -1,3 +1,4 @@
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -91,6 +92,7 @@ const useWorkflowCodeEditorSheet = ({
     const ai = useApplicationInfoStore((state) => state.ai);
     const setContext = useCopilotStore((state) => state.setContext);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const setShowBottomPanelOpen = useWorkflowEditorStore((state) => state.setShowBottomPanelOpen);
 
     const {projectName} = useWorkflowDataStore(
@@ -229,8 +231,15 @@ const useWorkflowCodeEditorSheet = ({
         [workflow.definition]
     );
 
+    // The buffer being validated is unsaved but the workflow it belongs to is not, so workflowId is what the server
+    // gates on; the workspace covers the case where there is no id to name.
     const {data: validateWorkflowData, refetch: refetchValidateWorkflow} = useValidateWorkflowQuery(
-        {environmentId: currentEnvironmentId, workflowDefinition: definition!, workflowId: workflow.id},
+        {
+            environmentId: currentEnvironmentId,
+            workflowDefinition: definition!,
+            workflowId: workflow.id,
+            workspaceId: currentWorkspaceId,
+        },
         {enabled: !!definition}
     );
 
