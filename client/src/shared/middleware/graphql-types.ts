@@ -2471,6 +2471,25 @@ export type CreateDataTableInput = {
   workspaceId: Scalars['ID']['input'];
 };
 
+export type CreateEmbeddedDataTableInput = {
+  columns: Array<EmbeddedDataTableColumnInput>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+export type CreateEmbeddedKnowledgeBaseInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  /** Omit to take the platform's own default. Deliberately not defaulted in this schema: a default written here would be a second copy of the entity's, and the two would drift silently. */
+  maxChunkSize?: InputMaybe<Scalars['Int']['input']>;
+  /** Omit to take the platform's own default. */
+  minChunkSizeChars?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  /** Omit to take the platform's own default. */
+  overlap?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type CreateEmbeddedMcpServerInput = {
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   environmentId: Scalars['ID']['input'];
@@ -2854,6 +2873,39 @@ export type DynamicPropertiesProperty = Property & {
   propertiesDataSource?: Maybe<PropertiesDataSource>;
   required?: Maybe<Scalars['Boolean']['output']>;
   type: PropertyType;
+};
+
+export type EmbeddedDataTable = {
+  __typename?: 'EmbeddedDataTable';
+  baseName: Scalars['String']['output'];
+  columns: Array<EmbeddedDataTableColumn>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+};
+
+export type EmbeddedDataTableColumn = {
+  __typename?: 'EmbeddedDataTableColumn';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: ColumnType;
+};
+
+export type EmbeddedDataTableColumnInput = {
+  name: Scalars['String']['input'];
+  type: ColumnType;
+};
+
+export type EmbeddedKnowledgeBase = {
+  __typename?: 'EmbeddedKnowledgeBase';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  maxChunkSize: Scalars['Int']['output'];
+  minChunkSizeChars: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  overlap: Scalars['Int']['output'];
 };
 
 export type EndpointDefinitionInput = {
@@ -3764,6 +3816,8 @@ export type Mutation = {
   createCustomRole: CustomRole;
   createDataSync: DataSync;
   createDataTable: Scalars['Boolean']['output'];
+  createEmbeddedDataTable: Scalars['Boolean']['output'];
+  createEmbeddedKnowledgeBase: Scalars['Boolean']['output'];
   createEmbeddedMcpServer?: Maybe<McpServer>;
   createEmbeddedVariable: Variable;
   createIdentityProvider: IdentityProviderType;
@@ -3964,6 +4018,10 @@ export type Mutation = {
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
   reassignConnection: Scalars['Boolean']['output'];
+  /** Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateEmbeddedKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it. */
+  rechunkEmbeddedKnowledgeBase: Scalars['Int']['output'];
+  /** Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it. */
+  rechunkKnowledgeBase: Scalars['Int']['output'];
   reconcileAiModelCatalog?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Records a user-attached reference (file / workflow / data table / knowledge base) as a chat
@@ -4198,6 +4256,8 @@ export type Mutation = {
   updateDataSyncTrigger: Scalars['Boolean']['output'];
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
+  /** Chunking decides how a document is split before embedding, so without this a knowledge base created here would keep its create-time chunking for life -- the only escape being to delete it and re-upload and re-embed every document. */
+  updateEmbeddedKnowledgeBase: Scalars['Boolean']['output'];
   updateEmbeddedVariable: Variable;
   updateIdentityProvider: IdentityProviderType;
   updateIntegrationCodeWorkflowSource: Scalars['Boolean']['output'];
@@ -4627,6 +4687,16 @@ export type MutationCreateDataSyncArgs = {
 
 export type MutationCreateDataTableArgs = {
   input: CreateDataTableInput;
+};
+
+
+export type MutationCreateEmbeddedDataTableArgs = {
+  input: CreateEmbeddedDataTableInput;
+};
+
+
+export type MutationCreateEmbeddedKnowledgeBaseArgs = {
+  input: CreateEmbeddedKnowledgeBaseInput;
 };
 
 
@@ -5379,6 +5449,16 @@ export type MutationReassignConnectionArgs = {
   connectionId: Scalars['ID']['input'];
   newOwnerLogin: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRechunkEmbeddedKnowledgeBaseArgs = {
+  knowledgeBaseId: Scalars['ID']['input'];
+};
+
+
+export type MutationRechunkKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -6160,6 +6240,11 @@ export type MutationUpdateDataTableRowArgs = {
 
 export type MutationUpdateDataTableTagsArgs = {
   input: UpdateDataTableTagsInput;
+};
+
+
+export type MutationUpdateEmbeddedKnowledgeBaseArgs = {
+  input: UpdateEmbeddedKnowledgeBaseInput;
 };
 
 
@@ -7054,6 +7139,8 @@ export type Query = {
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
   eligibleErrorWorkflows: Array<ProjectWorkflow>;
+  embeddedDataTables: Array<EmbeddedDataTable>;
+  embeddedKnowledgeBases: Array<EmbeddedKnowledgeBase>;
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedVariables: Array<Variable>;
@@ -8109,6 +8196,16 @@ export type QueryEligibleErrorWorkflowsArgs = {
 };
 
 
+export type QueryEmbeddedDataTablesArgs = {
+  environmentId: Scalars['ID']['input'];
+};
+
+
+export type QueryEmbeddedKnowledgeBasesArgs = {
+  environmentId: Scalars['ID']['input'];
+};
+
+
 export type QueryEmbeddedVariablesArgs = {
   environmentId: Scalars['ID']['input'];
 };
@@ -8228,6 +8325,11 @@ export type QueryKnowledgeBaseSourcesArgs = {
 
 
 export type QueryKnowledgeBaseTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseTagsByKnowledgeBaseArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -9153,6 +9255,18 @@ export type UpdateDataSyncTriggerInput = {
 export type UpdateDataTableTagsInput = {
   tableId: Scalars['ID']['input'];
   tags?: InputMaybe<Array<TagInput>>;
+};
+
+export type UpdateEmbeddedKnowledgeBaseInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  knowledgeBaseId: Scalars['ID']['input'];
+  /** Omit to leave the stored value alone. */
+  maxChunkSize?: InputMaybe<Scalars['Int']['input']>;
+  /** Omit to leave the stored value alone. */
+  minChunkSizeChars?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  /** Omit to leave the stored value alone. */
+  overlap?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateKnowledgeBaseDocumentTagsInput = {

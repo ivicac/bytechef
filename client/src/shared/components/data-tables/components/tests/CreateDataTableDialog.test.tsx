@@ -1,0 +1,269 @@
+import {useCommandIntentStore} from '@/shared/command-bar/useCommandIntentStore';
+import {DataTableScopeType} from '@/shared/components/data-tables/types';
+import {render, resetAll, screen, userEvent, windowResizeObserver} from '@/shared/util/test-utils';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+
+import CreateDataTableDialog from '../CreateDataTableDialog';
+
+const hoisted = vi.hoisted(() => {
+    return {
+        handleAddColumn: vi.fn(),
+        handleBaseNameChange: vi.fn(),
+        handleClose: vi.fn(),
+        handleColumnNameChange: vi.fn(),
+        handleColumnTypeChange: vi.fn(),
+        handleCreate: vi.fn(),
+        handleDescriptionChange: vi.fn(),
+        handleOpen: vi.fn(),
+        handleRemoveColumn: vi.fn(),
+        mockUseCreateDataTableDialog: vi.fn(),
+    };
+});
+
+vi.mock('../hooks/useCreateDataTableDialog', () => ({
+    default: hoisted.mockUseCreateDataTableDialog,
+}));
+
+const defaultMockReturn = {
+    baseName: 'orders',
+    canSubmit: true,
+    columns: [{name: 'id', type: 'INTEGER'}],
+    description: 'Order table',
+    handleAddColumn: hoisted.handleAddColumn,
+    handleBaseNameChange: hoisted.handleBaseNameChange,
+    handleClose: hoisted.handleClose,
+    handleColumnNameChange: hoisted.handleColumnNameChange,
+    handleColumnTypeChange: hoisted.handleColumnTypeChange,
+    handleCreate: hoisted.handleCreate,
+    handleDescriptionChange: hoisted.handleDescriptionChange,
+    handleOpen: hoisted.handleOpen,
+    handleRemoveColumn: hoisted.handleRemoveColumn,
+    isPending: false,
+    open: true,
+};
+
+const WORKSPACE_SCOPE: DataTableScopeType = {type: 'WORKSPACE', workspaceId: 1049};
+const EMBEDDED_SCOPE: DataTableScopeType = {type: 'EMBEDDED'};
+
+beforeEach(() => {
+    windowResizeObserver();
+    hoisted.mockUseCreateDataTableDialog.mockReturnValue({...defaultMockReturn});
+});
+
+afterEach(() => {
+    resetAll();
+    vi.clearAllMocks();
+});
+
+describe('CreateDataTableDialog', () => {
+    it('should render the dialog when open is true', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByText('Create Data Table')).toBeInTheDocument();
+    });
+
+    it('should display the dialog description', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(
+            screen.getByText('Provide a base name, an optional description, and at least one column.')
+        ).toBeInTheDocument();
+    });
+
+    it('should render Base name label and input', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByText('Base name')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('orders')).toBeInTheDocument();
+    });
+
+    it('should render Description label and input', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByText('Description (optional)')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Order table')).toBeInTheDocument();
+    });
+
+    it('should render Columns label', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByText('Columns')).toBeInTheDocument();
+    });
+
+    it('should render Add column button', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByRole('button', {name: /Add column/})).toBeInTheDocument();
+    });
+
+    it('should render column input with name', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByDisplayValue('id')).toBeInTheDocument();
+    });
+
+    it('should render Create button', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByRole('button', {name: 'Create'})).toBeInTheDocument();
+    });
+
+    it('should call handleAddColumn when clicking Add column button', async () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        const addButton = screen.getByRole('button', {name: /Add column/});
+        await userEvent.click(addButton);
+
+        expect(hoisted.handleAddColumn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call handleCreate when clicking Create button', async () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        const createButton = screen.getByRole('button', {name: 'Create'});
+        await userEvent.click(createButton);
+
+        expect(hoisted.handleCreate).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('CreateDataTableDialog closed state', () => {
+    beforeEach(() => {
+        hoisted.mockUseCreateDataTableDialog.mockReturnValue({
+            ...defaultMockReturn,
+            open: false,
+        });
+    });
+
+    it('should render trigger button when closed', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByRole('button', {name: 'Create Table'})).toBeInTheDocument();
+    });
+
+    it('should not render dialog content when closed', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.queryByText('Create Data Table')).not.toBeInTheDocument();
+    });
+});
+
+describe('CreateDataTableDialog pending state', () => {
+    beforeEach(() => {
+        hoisted.mockUseCreateDataTableDialog.mockReturnValue({
+            ...defaultMockReturn,
+            isPending: true,
+        });
+    });
+
+    it('should show Creating... text when pending', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByRole('button', {name: 'Creating...'})).toBeInTheDocument();
+    });
+
+    it('should disable Create button when pending', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        const createButton = screen.getByRole('button', {name: 'Creating...'});
+
+        expect(createButton).toBeDisabled();
+    });
+});
+
+describe('CreateDataTableDialog canSubmit disabled', () => {
+    beforeEach(() => {
+        hoisted.mockUseCreateDataTableDialog.mockReturnValue({
+            ...defaultMockReturn,
+            baseName: '',
+            canSubmit: false,
+        });
+    });
+
+    it('should disable Create button when canSubmit is false', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        const createButton = screen.getByRole('button', {name: 'Create'});
+
+        expect(createButton).toBeDisabled();
+    });
+});
+
+describe('CreateDataTableDialog with multiple columns', () => {
+    beforeEach(() => {
+        hoisted.mockUseCreateDataTableDialog.mockReturnValue({
+            ...defaultMockReturn,
+            columns: [
+                {name: 'id', type: 'INTEGER'},
+                {name: 'name', type: 'STRING'},
+            ],
+        });
+    });
+
+    it('should render multiple column inputs', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.getByDisplayValue('id')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('name')).toBeInTheDocument();
+    });
+
+    it('should render remove column buttons when multiple columns exist', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        const removeButtons = screen.getAllByRole('button').filter((button) => button.querySelector('.lucide-trash-2'));
+
+        expect(removeButtons.length).toBe(2);
+    });
+});
+
+describe('CreateDataTableDialog with custom trigger', () => {
+    beforeEach(() => {
+        hoisted.mockUseCreateDataTableDialog.mockReturnValue({
+            ...defaultMockReturn,
+            open: false,
+        });
+    });
+
+    it('should render custom trigger when provided', () => {
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} trigger={<button>Custom Trigger</button>} />);
+
+        expect(screen.getByRole('button', {name: 'Custom Trigger'})).toBeInTheDocument();
+    });
+});
+
+describe('CreateDataTableDialog embedded scope', () => {
+    it('renders the dialog for the embedded scope with no owner control', () => {
+        render(<CreateDataTableDialog scope={EMBEDDED_SCOPE} />);
+
+        expect(screen.getByText('Create Data Table')).toBeInTheDocument();
+        expect(screen.queryByRole('combobox', {name: 'Owner'})).not.toBeInTheDocument();
+    });
+});
+
+describe('CreateDataTableDialog command intent claiming', () => {
+    beforeEach(() => {
+        useCommandIntentStore.getState().reset();
+    });
+
+    afterEach(() => {
+        useCommandIntentStore.getState().reset();
+    });
+
+    it('does not claim a pending dataTable.create intent when claimsCreateIntent is false (the default)', () => {
+        useCommandIntentStore.getState().publish('dataTable.create');
+
+        render(<CreateDataTableDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(hoisted.handleOpen).not.toHaveBeenCalled();
+        expect(useCommandIntentStore.getState().intent).toEqual({key: 'dataTable.create', payload: undefined});
+    });
+
+    it('claims a pending dataTable.create intent when claimsCreateIntent is true', () => {
+        useCommandIntentStore.getState().publish('dataTable.create');
+
+        render(<CreateDataTableDialog claimsCreateIntent={true} scope={WORKSPACE_SCOPE} />);
+
+        expect(hoisted.handleOpen).toHaveBeenCalledTimes(1);
+        expect(useCommandIntentStore.getState().intent).toBeUndefined();
+    });
+});

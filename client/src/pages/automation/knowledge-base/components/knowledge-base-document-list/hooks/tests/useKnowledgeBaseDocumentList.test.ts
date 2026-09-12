@@ -30,6 +30,8 @@ vi.mock('@/shared/middleware/graphql', () => ({
     })),
 }));
 
+const KNOWLEDGE_BASE_ID = 'kb-1';
+
 describe('useKnowledgeBaseDocumentList', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -39,7 +41,7 @@ describe('useKnowledgeBaseDocumentList', () => {
 
     describe('getTagsForDocument', () => {
         it('returns empty array when no tags for document', () => {
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             expect(result.current.getTagsForDocument('doc-1')).toEqual([]);
         });
@@ -54,7 +56,7 @@ describe('useKnowledgeBaseDocumentList', () => {
                 ],
             };
 
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             const tags = result.current.getTagsForDocument('doc-1');
 
@@ -73,7 +75,7 @@ describe('useKnowledgeBaseDocumentList', () => {
                 ],
             };
 
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             expect(result.current.getTagsForDocument('doc-2')).toEqual([]);
         });
@@ -85,7 +87,7 @@ describe('useKnowledgeBaseDocumentList', () => {
                 knowledgeBaseDocumentTags: ['Tag 1', 'Tag 2', 'Tag 3'],
             };
 
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             const remainingTags = result.current.getRemainingTagsForDocument('doc-1');
 
@@ -106,7 +108,7 @@ describe('useKnowledgeBaseDocumentList', () => {
                 ],
             };
 
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             const remainingTags = result.current.getRemainingTagsForDocument('doc-1');
 
@@ -130,7 +132,7 @@ describe('useKnowledgeBaseDocumentList', () => {
                 ],
             };
 
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             const remainingTags = result.current.getRemainingTagsForDocument('doc-1');
 
@@ -140,21 +142,23 @@ describe('useKnowledgeBaseDocumentList', () => {
 
     describe('return values', () => {
         it('returns all expected functions', () => {
-            const {result} = renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-1'}));
+            const {result} = renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
             expect(typeof result.current.getTagsForDocument).toBe('function');
             expect(typeof result.current.getRemainingTagsForDocument).toBe('function');
         });
     });
 
+    // Both listings are scoped server-side to the knowledge base named here. Dropping the argument does not widen the
+    // result any more -- the server refuses -- but it does silently empty the tag filter, so the id has to be sent.
     describe('scoping', () => {
-        // Both queries were unscoped, so the tag suggestions offered on one knowledge base's documents were
-        // aggregated from every document in the instance.
-        it('asks both tag queries for the knowledge base being viewed', () => {
-            renderHook(() => useKnowledgeBaseDocumentList({knowledgeBaseId: 'kb-7'}));
+        it('asks both tag queries for the knowledge base it was given', () => {
+            renderHook(() => useKnowledgeBaseDocumentList(KNOWLEDGE_BASE_ID));
 
-            expect(useKnowledgeBaseDocumentTagsQuery).toHaveBeenCalledWith({knowledgeBaseId: 'kb-7'});
-            expect(useKnowledgeBaseDocumentTagsByDocumentQuery).toHaveBeenCalledWith({knowledgeBaseId: 'kb-7'});
+            expect(useKnowledgeBaseDocumentTagsQuery).toHaveBeenCalledWith({knowledgeBaseId: KNOWLEDGE_BASE_ID});
+            expect(useKnowledgeBaseDocumentTagsByDocumentQuery).toHaveBeenCalledWith({
+                knowledgeBaseId: KNOWLEDGE_BASE_ID,
+            });
         });
     });
 });

@@ -68,7 +68,11 @@ const EditKnowledgeBaseDialog = ({
                     <div className="flex flex-col space-y-1">
                         <DialogTitle>{`${knowledgeBase?.id ? 'Edit' : 'Create'} Knowledge Base`}</DialogTitle>
 
-                        <DialogDescription>Update the general settings for this knowledge base.</DialogDescription>
+                        <DialogDescription>
+                            Update the general settings for this knowledge base. Chunking governs documents ingested
+                            from now on; documents already embedded keep the chunks they were split into until you
+                            re-chunk the knowledge base.
+                        </DialogDescription>
                     </div>
 
                     <DialogCloseButton />

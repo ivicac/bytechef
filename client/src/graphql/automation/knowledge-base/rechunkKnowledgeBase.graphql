@@ -1,0 +1,3 @@
+mutation rechunkKnowledgeBase($id: ID!) {
+    rechunkKnowledgeBase(id: $id)
+}

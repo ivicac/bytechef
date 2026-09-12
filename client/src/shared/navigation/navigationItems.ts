@@ -173,6 +173,18 @@ export const embeddedNavigation: NavigationItemI[] = [
         icon: UsersIcon,
         name: 'Connected Users',
     },
+    {
+        group: 'Resources',
+        href: '/embedded/data-tables',
+        icon: Table2Icon,
+        name: 'Data Tables',
+    },
+    {
+        group: 'Resources',
+        href: '/embedded/knowledge-bases',
+        icon: VectorSquareIcon,
+        name: 'Knowledge Base',
+    },
 ];
 
 export const platformNavigation: NavigationItemI[] = [
