@@ -8234,11 +8234,6 @@ export type QueryKnowledgeBaseTagsArgs = {
 };
 
 
-export type QueryKnowledgeBaseTagsByKnowledgeBaseArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
 export type QueryKnowledgeBasesArgs = {
   environmentId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -8499,6 +8494,7 @@ export type QueryValidateWorkflowArgs = {
   environmentId?: InputMaybe<Scalars['Long']['input']>;
   workflow: Scalars['String']['input'];
   workflowId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId?: InputMaybe<Scalars['Long']['input']>;
 };
 
 
