@@ -39,20 +39,32 @@ public class WorkflowValidatorGraphQlController {
         this.workflowValidatorFacade = workflowValidatorFacade;
     }
 
+    /**
+     * Every route out of here is authorized, and that is what the two id arguments are for: a definition that belongs
+     * to a stored workflow is gated on that workflow, one that does not is gated on the workspace it is being authored
+     * in. Naming neither is refused rather than answered, because validating a definition resolves its data table and
+     * knowledge base references in an environment - an answer this endpoint cannot authorize without one of the two
+     * ids. The facade's own unauthorized overload is left to the agent tool that needs it.
+     */
     @QueryMapping
     public WorkflowValidatorFacade.WorkflowValidationResult validateWorkflow(
-        @Argument String workflow, @Argument @Nullable String workflowId, @Argument @Nullable Long environmentId) {
+        @Argument String workflow, @Argument @Nullable String workflowId, @Argument @Nullable Long workspaceId,
+        @Argument @Nullable Long environmentId) {
+
+        long resolvedEnvironmentId = environmentId == null ? Environment.DEVELOPMENT.ordinal() : environmentId;
 
         if (workflowId != null) {
-            return workflowValidatorFacade.validateWorkflow(
-                workflow, workflowId, environmentId == null ? Environment.DEVELOPMENT.ordinal() : environmentId);
+            return workflowValidatorFacade.validateWorkflow(workflow, workflowId, resolvedEnvironmentId);
         }
 
-        if (environmentId == null) {
-            return workflowValidatorFacade.validateWorkflow(workflow);
+        if (workspaceId == null) {
+            throw new IllegalArgumentException(
+                "validateWorkflow requires either workflowId or workspaceId: validating a definition resolves its " +
+                    "data table and knowledge base references in an environment, which cannot be authorized without " +
+                    "naming the workflow or the workspace it belongs to.");
         }
 
-        return workflowValidatorFacade.validateWorkflow(workflow, environmentId);
+        return workflowValidatorFacade.validateWorkflow(workflow, workspaceId, resolvedEnvironmentId);
     }
 
     @QueryMapping
