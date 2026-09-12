@@ -244,22 +244,6 @@ class EnvironmentAwareGateCoverageTest {
                 + "production caller is the embedded ConnectedUserProjectFacadeImpl.publishProjectWorkflow, on no "
                 + "automation HTTP or GraphQL surface, for the same reason as enableProjectDeploymentWorkflow above.");
 
-        exempt.put(
-            "WorkflowValidatorFacadeImpl#validateWorkflow",
-            "Recorded for the two-argument overload validateWorkflow(String workflow, long environmentId), which "
-                + "validates a definition the caller supplies and names an environment with no id of any kind beside "
-                + "it -- no workspace, no workflow, no resource -- so none of this codebase's environment-aware "
-                + "expressions can be applied to it without changing the signature. It is not inert: through "
-                + "createResourceReferenceProvider it resolves the workflow's data table and knowledge base "
-                + "references in the environment it is given, so a member holding a scope in one environment can "
-                + "learn whether a name or id exists in another. Note this is a cross-ENVIRONMENT question, not a "
-                + "cross-surface one: both resolvers deliberately search every pool, because the editor validates a "
-                + "workflow with no connected user and DataTableUtils.poolFor admits that vendor case to both pools "
-                + "-- narrowing them to one surface would make the validator disagree with the run it is validating. "
-                + "The open question is whether the overload should carry a workspace argument so "
-                + "hasWorkspaceScopeInEnvironmentId can gate it. The three-argument overload, reached with a "
-                + "workflowId, is gated on that workflow; this key is name-only and therefore covers both.");
-
         return Map.copyOf(exempt);
     }
 

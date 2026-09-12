@@ -34,7 +34,14 @@ import tools.jackson.databind.json.JsonMapper;
 public interface WorkflowValidatorFacade {
 
     /**
-     * Validates a complete workflow JSON string.
+     * Validates a complete workflow JSON string against the development environment, naming neither a stored workflow
+     * nor a workspace.
+     *
+     * <p>
+     * Deliberately unauthorized, and therefore not reachable from any HTTP or GraphQL surface: its only caller is
+     * {@code WorkflowValidatorTools}, the agent tool that validates a definition the model just produced, which runs
+     * with no security context (see CLAUDE.md's "API facade vs shared facade"). Every caller that can name a workflow
+     * or a workspace must use one of the overloads below, which are gated on it.
      *
      * @param workflow the workflow JSON string to validate
      * @return a {@link WorkflowValidationResult} containing lists of errors and warnings
@@ -49,22 +56,33 @@ public interface WorkflowValidatorFacade {
      */
     WorkflowValidationResult validateWorkflowById(String workflowId);
 
-    WorkflowValidationResult validateWorkflow(String workflow, long environmentId);
-
     /**
-     * Validates a workflow JSON string that may differ from the stored one, consulting the test outputs recorded for
-     * the workflow's nodes when a workflow id is given.
+     * Validates a workflow JSON string that is not stored yet, so there is no workflow to authorize against: the caller
+     * names the workspace it is authoring in instead, and that workspace-in-environment pair is what gets checked.
+     *
+     * <p>
+     * The workspace argument is what makes this overload gateable at all, and it is not a formality: resolving the
+     * definition's data table and knowledge base references is an environment-scoped read, so an overload that took an
+     * environment and no id beside it let a member holding a scope in one environment learn whether a name or id exists
+     * in another.
      *
      * @param workflow      the workflow JSON string to validate
-     * @param workflowId    the id of the stored workflow the JSON belongs to, or null when it is not stored yet
+     * @param workspaceId   the workspace the definition is being authored in
      * @param environmentId the environment the workflow is validated against
      * @return a {@link WorkflowValidationResult} containing lists of errors and warnings
      */
-    default WorkflowValidationResult validateWorkflow(
-        String workflow, @Nullable String workflowId, long environmentId) {
+    WorkflowValidationResult validateWorkflow(String workflow, long workspaceId, long environmentId);
 
-        return validateWorkflow(workflow, environmentId);
-    }
+    /**
+     * Validates a workflow JSON string that may differ from the stored one it belongs to, consulting the test outputs
+     * recorded for that workflow's nodes and its connection bindings.
+     *
+     * @param workflow      the workflow JSON string to validate
+     * @param workflowId    the id of the stored workflow the JSON belongs to
+     * @param environmentId the environment the workflow is validated against
+     * @return a {@link WorkflowValidationResult} containing lists of errors and warnings
+     */
+    WorkflowValidationResult validateWorkflow(String workflow, String workflowId, long environmentId);
 
     WorkflowValidationResult validateWorkflowById(String workflowId, long environmentId);
 
