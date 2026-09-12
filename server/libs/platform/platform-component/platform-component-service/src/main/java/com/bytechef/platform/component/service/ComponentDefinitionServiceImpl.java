@@ -214,9 +214,8 @@ public class ComponentDefinitionServiceImpl implements ComponentDefinitionServic
             .orElseThrow(() -> new IllegalArgumentException("Unsupported mode type: " + platformType));
 
         List<ComponentDefinition> components = filterLatestVersions(
-            getComponentDefinitions()
+            componentDefinitionFilter.filter(getComponentDefinitions())
                 .stream()
-                .filter(componentDefinitionFilter::filter)
                 .filter(componentDefinition -> isComponentVisible(componentDefinition.getName()))
                 .filter(
                     filter(
@@ -244,9 +243,8 @@ public class ComponentDefinitionServiceImpl implements ComponentDefinitionServic
             .orElseThrow(() -> new IllegalArgumentException("Unsupported mode type: " + platformType));
 
         return filterLatestVersions(
-            getComponentDefinitions()
+            componentDefinitionFilter.filter(getComponentDefinitions())
                 .stream()
-                .filter(componentDefinitionFilter::filter)
                 .filter(componentDefinition -> isComponentVisible(componentDefinition.getName()))
                 .filter(componentDefinition -> hasMatchingComponent(componentDefinition, lowerCaseQuery) ||
                     hasMatchingAction(componentDefinition.getActions(), lowerCaseQuery) ||

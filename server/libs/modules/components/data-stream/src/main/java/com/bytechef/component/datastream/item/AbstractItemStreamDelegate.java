@@ -19,6 +19,8 @@ package com.bytechef.component.datastream.item;
 import static com.bytechef.component.datastream.constant.DataStreamConstants.CLUSTER_ELEMENT_NAME;
 import static com.bytechef.component.datastream.constant.DataStreamConstants.COMPONENT_CONNECTION;
 import static com.bytechef.component.datastream.constant.DataStreamConstants.INPUT_PARAMETERS;
+import static com.bytechef.component.datastream.constant.DataStreamConstants.MODE_TYPE;
+import static com.bytechef.component.datastream.constant.DataStreamConstants.PRINCIPAL_ID;
 import static com.bytechef.component.datastream.constant.DataStreamConstants.TENANT_ID;
 import static com.bytechef.platform.configuration.constant.WorkflowExtConstants.COMPONENT_NAME;
 import static com.bytechef.platform.configuration.constant.WorkflowExtConstants.COMPONENT_VERSION;
@@ -31,6 +33,7 @@ import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.context.ContextFactory;
 import com.bytechef.platform.component.definition.ParametersFactory;
+import com.bytechef.platform.constant.PlatformType;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
@@ -95,11 +98,60 @@ public abstract class AbstractItemStreamDelegate {
 
         editorEnvironment = (boolean) jobParameter.value();
 
+        // DataStreamStreamActionDefinition has always written these two, and until now nothing read them. They are
+        // what lets a SOURCE, PROCESSOR or DESTINATION element derive the owner its run acts for: the Spring Batch job
+        // runs on its own thread with no security context, so an element that cannot see the job principal resolves an
+        // EMPTY owner -- which means "sees every pool" rather than "sees none".
+        Long jobPrincipalId = readJobPrincipalId(jobParameters);
+        PlatformType platformType = readPlatformType(jobParameters);
+
         clusterElementContext = contextFactory.createClusterElementContext(
-            componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment);
+            componentName, componentVersion, clusterElementName, jobPrincipalId, componentConnection, platformType,
+            editorEnvironment);
 
         doBeforeStep(stepExecution);
     }
 
     protected abstract void doBeforeStep(StepExecution stepExecution);
+
+    private static @Nullable Long readJobPrincipalId(JobParameters jobParameters) {
+        JobParameter<?> jobParameter = jobParameters.getParameter(PRINCIPAL_ID);
+
+        if (jobParameter == null) {
+            return null;
+        }
+
+        Object value = jobParameter.value();
+
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        return null;
+    }
+
+    /**
+     * {@code MODE_TYPE} is written as {@code String.valueOf(platformType)}, so it comes back as a name rather than as
+     * an enum. A missing or unrecognised value yields null rather than a guessed pool: a wrong pool would be a silent
+     * mis-scoping, whereas null lands on the same path a run with no principal already takes.
+     */
+    private static @Nullable PlatformType readPlatformType(JobParameters jobParameters) {
+        JobParameter<?> jobParameter = jobParameters.getParameter(MODE_TYPE);
+
+        if (jobParameter == null) {
+            return null;
+        }
+
+        Object value = jobParameter.value();
+
+        if (value == null) {
+            return null;
+        }
+
+        try {
+            return PlatformType.valueOf(String.valueOf(value));
+        } catch (IllegalArgumentException illegalArgumentException) {
+            return null;
+        }
+    }
 }

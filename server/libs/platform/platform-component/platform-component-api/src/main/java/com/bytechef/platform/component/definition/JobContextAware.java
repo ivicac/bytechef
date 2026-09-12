@@ -18,6 +18,7 @@ package com.bytechef.platform.component.definition;
 
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.constant.PlatformType;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,6 +34,28 @@ public interface JobContextAware {
      */
     @Nullable
     Long getJobId();
+
+    /**
+     * Retrieves the unique identifier associated with the job principal: a project-deployment id under
+     * {@link PlatformType#AUTOMATION}, an integration-instance id under {@link PlatformType#EMBEDDED}.
+     *
+     * <p>
+     * Declared here rather than on {@link ActionContextAware} alone because it is half of the pair an owner is derived
+     * from, and an action context and a cluster-element context must derive it the same way. Two declarations would be
+     * two chances for the branches to drift.
+     *
+     * @return the job principal ID as a {@link Long}, or {@code null} if no job principal ID is set.
+     */
+    @Nullable
+    Long getJobPrincipalId();
+
+    /**
+     * Retrieves the platform type the current execution runs under, which is the pool half of the owner pair.
+     *
+     * @return the {@link PlatformType} if available, {@code null} otherwise.
+     */
+    @Nullable
+    PlatformType getPlatformType();
 
     /**
      * Converts the provided component information and connection details into an {@link ActionContext} instance.

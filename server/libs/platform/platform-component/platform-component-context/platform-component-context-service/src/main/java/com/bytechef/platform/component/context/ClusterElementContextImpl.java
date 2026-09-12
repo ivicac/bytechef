@@ -169,6 +169,16 @@ class ClusterElementContextImpl extends ContextImpl implements ClusterElementCon
     }
 
     @Override
+    public @Nullable Long getJobPrincipalId() {
+        return jobPrincipalId;
+    }
+
+    @Override
+    public @Nullable PlatformType getPlatformType() {
+        return type;
+    }
+
+    @Override
     public <R> R nested(ContextFunction<Nested, R> nestedFunction) {
         try {
             return nestedFunction.apply(nested);

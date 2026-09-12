@@ -115,12 +115,12 @@ public class ComponentDefinitionServiceTest {
     private static class AllComponentDefinitionFilter implements ComponentDefinitionFilter {
 
         /**
-         * Passes every component through: these tests are about version selection and search, so the filter must not be
-         * what decides which components they see.
+         * Passes the whole listing through unchanged, in the order given: these tests are about version selection and
+         * search, so the filter must not be what decides which components they see.
          */
         @Override
-        public boolean filter(ComponentDefinition componentDefinition) {
-            return true;
+        public List<ComponentDefinition> filter(List<ComponentDefinition> componentDefinitions) {
+            return componentDefinitions;
         }
 
         @Override
