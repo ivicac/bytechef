@@ -8494,6 +8494,7 @@ export type QueryValidateWorkflowArgs = {
   environmentId?: InputMaybe<Scalars['Long']['input']>;
   workflow: Scalars['String']['input'];
   workflowId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId?: InputMaybe<Scalars['Long']['input']>;
 };
 
 
