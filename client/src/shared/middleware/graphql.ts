@@ -3122,9 +3122,7 @@ export type KnowledgeBaseTagsQueryVariables = Exact<{
 
 export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
 
-export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
+export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type KnowledgeBaseTagsByKnowledgeBaseQuery = { knowledgeBaseTagsByKnowledgeBase: Array<{ knowledgeBaseId: string, tags: Array<{ id: string, name: string }> }> | null };
@@ -4286,6 +4284,7 @@ export type UpdateMcpToolEnabledMutation = { updateMcpToolEnabled: { id: string,
 export type ValidateWorkflowQueryVariables = Exact<{
   workflowDefinition: string;
   workflowId?: string | null | undefined;
+  workspaceId?: any;
   environmentId?: any;
 }>;
 
@@ -15819,8 +15818,8 @@ export const useKnowledgeBaseTagsQuery = <
     )};
 
 export const KnowledgeBaseTagsByKnowledgeBaseDocument = new TypedDocumentString(`
-    query knowledgeBaseTagsByKnowledgeBase($workspaceId: ID!) {
-  knowledgeBaseTagsByKnowledgeBase(workspaceId: $workspaceId) {
+    query knowledgeBaseTagsByKnowledgeBase {
+  knowledgeBaseTagsByKnowledgeBase {
     knowledgeBaseId
     tags {
       id
@@ -15834,13 +15833,13 @@ export const useKnowledgeBaseTagsByKnowledgeBaseQuery = <
       TData = KnowledgeBaseTagsByKnowledgeBaseQuery,
       TError = unknown
     >(
-      variables: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
+      variables?: KnowledgeBaseTagsByKnowledgeBaseQueryVariables,
       options?: Omit<UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<KnowledgeBaseTagsByKnowledgeBaseQuery, TError, TData>(
       {
-    queryKey: ['knowledgeBaseTagsByKnowledgeBase', variables],
+    queryKey: variables === undefined ? ['knowledgeBaseTagsByKnowledgeBase'] : ['knowledgeBaseTagsByKnowledgeBase', variables],
     queryFn: fetcher<KnowledgeBaseTagsByKnowledgeBaseQuery, KnowledgeBaseTagsByKnowledgeBaseQueryVariables>(KnowledgeBaseTagsByKnowledgeBaseDocument, variables),
     ...options
   }
@@ -20159,10 +20158,11 @@ export const useUpdateMcpToolEnabledMutation = <
     )};
 
 export const ValidateWorkflowDocument = new TypedDocumentString(`
-    query ValidateWorkflow($workflowDefinition: String!, $workflowId: String, $environmentId: Long) {
+    query ValidateWorkflow($workflowDefinition: String!, $workflowId: String, $workspaceId: Long, $environmentId: Long) {
   validateWorkflow(
     workflow: $workflowDefinition
     workflowId: $workflowId
+    workspaceId: $workspaceId
     environmentId: $environmentId
   ) {
     errors
