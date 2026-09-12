@@ -66,6 +66,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ObjectMapperSetupExtension.class)
 class WorkflowValidatorFacadeTaskDispatcherOutputTest {
 
+    /**
+     * Any workspace: these cases exercise the unsaved-definition path, whose workspace argument exists to carry the
+     *
+     * @PreAuthorize gate and is never read by the body. No security proxy stands in front of the facade here.
+     */
+    private static final long WORKSPACE_ID = 1;
+
     private static final String WORKFLOW = """
         {
             "label": "workflow1",
@@ -280,7 +287,7 @@ class WorkflowValidatorFacadeTaskDispatcherOutputTest {
                 !inputParameters.containsKey(MapDataSource.WORKFLOW_ID))))
                     .thenReturn(SUBFLOW_OUTPUT);
 
-        WorkflowValidationResult result = workflowValidatorFacade.validateWorkflow(WORKFLOW, 3L);
+        WorkflowValidationResult result = workflowValidatorFacade.validateWorkflow(WORKFLOW, WORKSPACE_ID, 3L);
 
         assertEquals(List.of(), result.errors());
         assertEquals(List.of(), result.warnings());
@@ -309,7 +316,7 @@ class WorkflowValidatorFacadeTaskDispatcherOutputTest {
         when(taskDispatcherDefinitionService.executeOutput(eq("subflow"), eq(1), anyMap()))
             .thenReturn(new OutputResponse(new ObjectProperty(object("subflow_1")), Map.of()));
 
-        WorkflowValidationResult result = workflowValidatorFacade.validateWorkflow(WORKFLOW, 3L);
+        WorkflowValidationResult result = workflowValidatorFacade.validateWorkflow(WORKFLOW, WORKSPACE_ID, 3L);
 
         assertEquals(List.of(), result.errors());
         assertEquals(
@@ -398,7 +405,8 @@ class WorkflowValidatorFacadeTaskDispatcherOutputTest {
     void connectionsAreNotCheckedWithoutAWorkflowId() {
         stubComponent("affinity", "Affinity", true);
 
-        WorkflowValidationResult result = workflowValidatorFacade.validateWorkflow(CONNECTION_WORKFLOW, 3L);
+        WorkflowValidationResult result =
+            workflowValidatorFacade.validateWorkflow(CONNECTION_WORKFLOW, WORKSPACE_ID, 3L);
 
         assertEquals(List.of(), result.errors());
     }

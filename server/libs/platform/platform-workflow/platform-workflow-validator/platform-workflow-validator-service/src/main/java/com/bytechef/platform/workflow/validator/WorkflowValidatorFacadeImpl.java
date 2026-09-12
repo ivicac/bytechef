@@ -129,21 +129,35 @@ public class WorkflowValidatorFacadeImpl implements WorkflowValidatorFacade {
     }
 
     @Override
+    // Deliberately ungated: the only caller is the agent tool, which runs with no security context. Calls the private
+    // body rather than a sibling overload so that stays true by construction - an in-bean self-invocation would not
+    // cross the security proxy anyway, so delegating to a gated overload would read as protection that cannot fire.
     public WorkflowValidationResult validateWorkflow(String workflow) {
-        return validateWorkflow(workflow, Environment.DEVELOPMENT.ordinal());
+        return doValidateWorkflow(workflow, null, Environment.DEVELOPMENT.ordinal());
     }
 
     @Override
-    public WorkflowValidationResult validateWorkflow(String workflow, long environmentId) {
-        return validateWorkflow(workflow, null, environmentId);
+    // The unsaved-definition case: there is no stored workflow to gate on, so this is gated on the workspace the caller
+    // is authoring in, in the environment it named. Not a formality - through createResourceReferenceProvider the body
+    // resolves the definition's data table and knowledge base references in that environment, so the overload this
+    // replaced (workflow plus a bare environmentId) let a member holding a scope in one environment learn whether a
+    // name or id exists in another.
+    @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'WORKFLOW_VIEW', #environmentId)")
+    public WorkflowValidationResult validateWorkflow(String workflow, long workspaceId, long environmentId) {
+        return doValidateWorkflow(workflow, null, environmentId);
     }
 
     @Override
-    // Gated on the named workflow, not on the definition passed in: with a workflowId this reads that workflow's
-    // recorded node test outputs and its connection bindings, so it answers questions about a stored resource.
-    // Null-tolerant because the same body serves the unsaved-definition case, which reads neither.
-    @PreAuthorize("#workflowId == null or hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
-    public WorkflowValidationResult validateWorkflow(
+    // Gated on the named workflow, not on the definition passed in: this reads that workflow's recorded node test
+    // outputs and its connection bindings, so it answers questions about a stored resource. Unconditional now that the
+    // unsaved-definition case has an overload of its own - the gate used to carry a `#workflowId == null or` escape
+    // because this same method served both, which meant naming no workflow turned it off.
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
+    public WorkflowValidationResult validateWorkflow(String workflow, String workflowId, long environmentId) {
+        return doValidateWorkflow(workflow, workflowId, environmentId);
+    }
+
+    private WorkflowValidationResult doValidateWorkflow(
         String workflow, @Nullable String workflowId, long environmentId) {
 
         StringBuilder errors = new StringBuilder();
@@ -190,7 +204,7 @@ public class WorkflowValidatorFacadeImpl implements WorkflowValidatorFacade {
     public WorkflowValidationResult validateWorkflowById(String workflowId, long environmentId) {
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
-        return validateWorkflow(workflow.getDefinition(), workflowId, environmentId);
+        return doValidateWorkflow(workflow.getDefinition(), workflowId, environmentId);
     }
 
     static WorkflowValidator.ResourceReferenceProvider createResourceReferenceProvider(
