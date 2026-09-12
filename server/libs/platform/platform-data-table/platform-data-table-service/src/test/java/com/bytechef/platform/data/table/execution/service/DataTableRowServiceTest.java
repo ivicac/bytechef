@@ -28,12 +28,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -72,7 +74,10 @@ class DataTableRowServiceTest {
     private JdbcTemplate jdbcTemplate;
 
     private static final DataTableRef DATA_TABLE_REF =
-        new DataTableRef("conversations", 1);
+        new DataTableRef("conversations", 1, PlatformType.AUTOMATION, null);
+
+    private static final DataTableRef OWNED_DATA_TABLE_REF =
+        new DataTableRef("conversations", 1, PlatformType.AUTOMATION, Owner.connectedUser(42));
 
     private DataTableRowServiceImpl dataTableRowService;
 
@@ -144,6 +149,46 @@ class DataTableRowServiceTest {
      * having been scoped: it has to carry the owner predicate itself, or one account's row id would delete another
      * account's row.
      */
+    @Test
+    void testDeleteRowScopesTheSeparateDeleteToTheOwnerWhenReturningIsUnsupported() throws SQLException {
+        stubH2();
+
+        when(jdbcTemplate.update(anyString(), any(PreparedStatementSetter.class))).thenReturn(1);
+
+        stubQueries(new DataTableRow(7, Map.of("status", "CLOSED")));
+
+        assertTrue(dataTableRowService.deleteRow(OWNED_DATA_TABLE_REF, 7));
+
+        List<String> executedUpdateSqls = executedUpdateSqls();
+
+        assertTrue(
+            executedUpdateSqls.stream()
+                .anyMatch(sql -> sql.startsWith("DELETE FROM") && sql.contains("\"owner_id\" = ?")),
+            "the delete must scope itself to the owner, got " + executedUpdateSqls);
+    }
+
+    /**
+     * The same for the update: its own statement carries the predicate, and the read-back that follows is a second
+     * statement that cannot make an unscoped update safe after the fact.
+     */
+    @Test
+    void testUpdateRowScopesTheSeparateUpdateToTheOwnerWhenReturningIsUnsupported() throws SQLException {
+        stubH2();
+
+        when(jdbcTemplate.update(anyString(), any(PreparedStatementSetter.class))).thenReturn(1);
+
+        stubQueries(new DataTableRow(7, Map.of("status", "CLOSED")));
+
+        dataTableRowService.updateRow(OWNED_DATA_TABLE_REF, 7, Map.of("status", "CLOSED"));
+
+        List<String> executedUpdateSqls = executedUpdateSqls();
+
+        assertTrue(
+            executedUpdateSqls.stream()
+                .anyMatch(sql -> sql.startsWith("UPDATE") && sql.contains("\"owner_id\" = ?")),
+            "the update must scope itself to the owner, got " + executedUpdateSqls);
+    }
+
     @Test
     void testInsertRowInsertsAndReadsInASingleStatement() {
         stubQueries(new DataTableRow(7, Map.of("status", "CLOSED")));
@@ -253,6 +298,14 @@ class DataTableRowServiceTest {
 
         verify(jdbcTemplate, atLeastOnce())
             .query(sqlCaptor.capture(), any(PreparedStatementSetter.class), any(ResultSetExtractor.class));
+
+        return sqlCaptor.getAllValues();
+    }
+
+    private List<String> executedUpdateSqls() {
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+
+        verify(jdbcTemplate, atLeastOnce()).update(sqlCaptor.capture(), any(PreparedStatementSetter.class));
 
         return sqlCaptor.getAllValues();
     }

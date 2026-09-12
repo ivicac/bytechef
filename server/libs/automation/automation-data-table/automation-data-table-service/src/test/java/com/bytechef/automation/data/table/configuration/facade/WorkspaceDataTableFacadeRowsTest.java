@@ -17,6 +17,7 @@
 package com.bytechef.automation.data.table.configuration.facade;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.data.table.configuration.service.WorkspaceDataTableService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
@@ -105,7 +107,7 @@ class WorkspaceDataTableFacadeRowsTest {
     @Test
     void testGetTableTranslatesMissingIntoATypedNotFound() {
         when(dataTableService.getBaseNameById(7L)).thenReturn("orders");
-        when(dataTableService.fetchDataTableInfo("orders", ENVIRONMENT_ID))
+        when(dataTableService.fetchDataTableInfo("orders", ENVIRONMENT_ID, PlatformType.AUTOMATION))
             .thenReturn(Optional.empty());
 
         DataTableException dataTableException = assertThrows(
@@ -134,5 +136,9 @@ class WorkspaceDataTableFacadeRowsTest {
 
         verify(dataTableRowService).clearRows(captor.capture());
 
+        assertNull(captor.getValue()
+            .runOwner());
+        assertEquals(PlatformType.AUTOMATION, captor.getValue()
+            .platformType());
     }
 }

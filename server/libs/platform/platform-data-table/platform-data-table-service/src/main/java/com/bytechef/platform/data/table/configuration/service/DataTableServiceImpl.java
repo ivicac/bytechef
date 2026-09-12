@@ -17,6 +17,7 @@
 package com.bytechef.platform.data.table.configuration.service;
 
 import com.bytechef.exception.ExecutionException;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.audit.DataTableAuditEvent;
 import com.bytechef.platform.data.table.configuration.audit.DataTableAuditPublisher;
 import com.bytechef.platform.data.table.configuration.domain.DataTable;
@@ -29,7 +30,9 @@ import com.bytechef.platform.data.table.domain.ColumnType;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.DataTableResolution;
 import com.bytechef.platform.data.table.domain.ReservedColumns;
+import com.bytechef.platform.data.table.internal.DataTableDialect;
 import com.bytechef.platform.data.table.internal.PhysicalTableNaming;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,8 +58,10 @@ public class DataTableServiceImpl implements DataTableService {
 
     private static final Logger log = LoggerFactory.getLogger(DataTableServiceImpl.class);
 
+    private final DataTableDialect dataTableDialect = new DataTableDialect();
+
     /**
-     * A whole physical name, pulled apart: environment id and base name.
+     * A whole physical name, pulled apart: pool token, environment id, base name.
      *
      * <p>
      * Needed because the {@code LIKE} pattern the candidates are read with cannot tell an environment segment from part
@@ -65,7 +70,7 @@ public class DataTableServiceImpl implements DataTableService {
      * segment is digits and a base name cannot begin with one, so there is exactly one way to split any name and
      * nothing for backtracking to find.
      */
-    private static final Pattern PHYSICAL_NAME = Pattern.compile("^dt_(\\d++)_([a-z_][a-z0-9_]*+)$");
+    private static final Pattern PHYSICAL_NAME = Pattern.compile("^(dt|edt)_(\\d++)_([a-z_][a-z0-9_]*+)$");
 
     private final DataTableAuditPublisher dataTableAuditPublisher;
     private final DataTableRepository dataTableRepository;
@@ -91,14 +96,14 @@ public class DataTableServiceImpl implements DataTableService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public void addColumn(String baseName, ColumnSpec columnSpec, long environmentId) {
+    public void addColumn(String baseName, ColumnSpec columnSpec, long environmentId, PlatformType platformType) {
         validateBaseName(baseName);
         Assert.notNull(columnSpec, "column must not be null");
         validateColumnName(columnSpec.name());
 
-        DataTable dataTable = getDataTable(baseName);
+        DataTable dataTable = getDataTable(baseName, platformType);
 
-        DataTableRef dataTableRef = new DataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
 
         if (hasColumn(dataTableRef.physicalName(), columnSpec.name())) {
             throw new DataTableException(
@@ -127,7 +132,8 @@ public class DataTableServiceImpl implements DataTableService {
     @Transactional
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void createTable(
-        String baseName, String description, List<ColumnSpec> columnSpecs, long environmentId) {
+        String baseName, String description, List<ColumnSpec> columnSpecs, long environmentId,
+        PlatformType platformType) {
 
         validateBaseName(baseName);
 
@@ -137,7 +143,7 @@ public class DataTableServiceImpl implements DataTableService {
             validateColumnName(columnSpec.name());
         }
 
-        DataTableRef dataTableRef = new DataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
 
         if (physicalTableExists(dataTableRef.physicalName())) {
             throw new DataTableException(
@@ -147,7 +153,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         createPhysicalTable(dataTableRef.physicalName(), columnSpecs);
 
-        long dataTableId = register(baseName, description);
+        long dataTableId = register(baseName, description, platformType);
 
         dataTableAuditPublisher.publish(
             DataTableAuditEvent.DATA_TABLE_CREATED, dataTableId, Map.of("name", dataTableRef.baseName()));
@@ -163,10 +169,10 @@ public class DataTableServiceImpl implements DataTableService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public void dropTable(String baseName, long environmentId) {
+    public void dropTable(String baseName, long environmentId, PlatformType platformType) {
         validateBaseName(baseName);
 
-        Optional<DataTable> dataTableOptional = fetchDataTable(baseName);
+        Optional<DataTable> dataTableOptional = fetchDataTable(baseName, platformType);
 
         if (dataTableOptional.isEmpty()) {
             return;
@@ -174,7 +180,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         DataTable dataTable = dataTableOptional.get();
 
-        DataTableRef dataTableRef = new DataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
 
         String sql = "DROP TABLE IF EXISTS " + escapeIdentifier(dataTableRef.physicalName());
 
@@ -182,7 +188,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         // The registry row is the LOGICAL table and outlives any one environment's instance of it, so it goes only
         // once the last environment's physical table has been dropped.
-        if (!hasPhysicalTablesForBaseName(baseName)) {
+        if (!hasPhysicalTablesForBaseName(baseName, platformType)) {
             dataTableRepository.deleteById(dataTable.getId());
 
             dataTableAuditPublisher.publish(DataTableAuditEvent.DATA_TABLE_DELETED, dataTable.getId(), Map.of());
@@ -201,15 +207,15 @@ public class DataTableServiceImpl implements DataTableService {
     @Transactional
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void duplicateTable(
-        String fromBaseName, String toBaseName, long environmentId) {
+        String fromBaseName, String toBaseName, long environmentId, PlatformType platformType) {
 
         validateBaseName(fromBaseName);
         validateBaseName(toBaseName);
 
-        DataTable fromDataTable = getDataTable(fromBaseName);
+        DataTable fromDataTable = getDataTable(fromBaseName, platformType);
 
-        DataTableRef fromDataTableRef = new DataTableRef(fromBaseName, environmentId);
-        DataTableRef toDataTableRef = new DataTableRef(toBaseName, environmentId);
+        DataTableRef fromDataTableRef = DataTableRef.unowned(fromBaseName, environmentId, platformType);
+        DataTableRef toDataTableRef = DataTableRef.unowned(toBaseName, environmentId, platformType);
 
         String fromPhysicalName = fromDataTableRef.physicalName();
         String toPhysicalName = toDataTableRef.physicalName();
@@ -221,13 +227,15 @@ public class DataTableServiceImpl implements DataTableService {
 
         createPhysicalTable(toPhysicalName, columnSpecs);
 
-        // The user columns are copied as they stand, so a duplicate is the source table's rows
+        // The owner columns are copied along with the user ones, so a duplicate is the source table's rows AND whose
         // each of them is. Dropping them would leave every copied row unowned: readable by every account, since the
         // read predicate admits unowned rows, and writable by none, since the write predicate matches on the owner.
         // external_id is copied too: a duplicate that dropped it would turn every keyed row into an unkeyed one and
         // make the next upsert insert a twin.
         List<String> copiedColumnNames = new ArrayList<>();
 
+        copiedColumnNames.add(ReservedColumns.OWNER_ID);
+        copiedColumnNames.add(ReservedColumns.OWNER_TYPE);
         copiedColumnNames.add(ReservedColumns.EXTERNAL_ID);
         copiedColumnNames.addAll(columnSpecs.stream()
             .map(ColumnSpec::name)
@@ -242,7 +250,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         jdbcTemplate.execute(insertSql);
 
-        register(toBaseName, fromDataTable.getDescription());
+        register(toBaseName, fromDataTable.getDescription(), platformType);
     }
 
     @Override
@@ -254,8 +262,8 @@ public class DataTableServiceImpl implements DataTableService {
     }
 
     @Override
-    public long getIdByBaseName(String baseName) {
-        DataTable dataTable = fetchDataTable(baseName)
+    public long getIdByBaseName(String baseName, PlatformType platformType) {
+        DataTable dataTable = fetchDataTable(baseName, platformType)
             .orElseThrow(() -> new ExecutionException(
                 "Unable to find table " + baseName, DataTableErrorType.DATA_TABLE_NOT_FOUND));
 
@@ -264,30 +272,35 @@ public class DataTableServiceImpl implements DataTableService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<DataTable> fetchDataTable(String baseName) {
+    public Optional<DataTable> fetchDataTable(String baseName, PlatformType platformType) {
         String normalizedBaseName = normalizeBaseName(baseName);
 
-        return dataTableRepository.findByName(normalizedBaseName);
+        return dataTableRepository.findByNameAndPlatformType(normalizedBaseName, platformType.ordinal());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<DataTable> fetchDataTable(DataTableRef dataTableRef) {
         String baseName = dataTableRef.baseName();
+        PlatformType platformType = dataTableRef.platformType();
 
-        return dataTableRepository.findByName(baseName);
+        return dataTableRepository.findByNameAndPlatformType(baseName, platformType.ordinal());
     }
 
+    /**
+     * The owner is carried into the ref untouched and never consulted here: it is the run owner the row layer narrows
+     * on, and the table it names is the one physical table the base name has in this environment and pool.
+     */
     @Override
     @Transactional(readOnly = true)
     public Optional<DataTableResolution> fetchDataTableResolution(
-        String baseName, long environmentId) {
+        String baseName, long environmentId, PlatformType platformType, Optional<Owner> owner) {
 
-        return fetchDataTable(baseName)
+        return fetchDataTable(baseName, platformType)
             .map(
                 dataTable -> new DataTableResolution(
                     dataTable.getId(),
-                    new DataTableRef(baseName, environmentId)));
+                    new DataTableRef(baseName, environmentId, platformType, owner.orElse(null))));
     }
 
     /**
@@ -297,11 +310,11 @@ public class DataTableServiceImpl implements DataTableService {
     @Override
     @Transactional(readOnly = true)
     public Optional<DataTableInfo> fetchDataTableInfo(
-        String baseName, long environmentId) {
+        String baseName, long environmentId, PlatformType platformType) {
 
         validateBaseName(baseName);
 
-        Optional<DataTable> dataTableOptional = fetchDataTable(baseName);
+        Optional<DataTable> dataTableOptional = fetchDataTable(baseName, platformType);
 
         if (dataTableOptional.isEmpty()) {
             return Optional.empty();
@@ -309,7 +322,7 @@ public class DataTableServiceImpl implements DataTableService {
 
         DataTable dataTable = dataTableOptional.get();
 
-        DataTableRef dataTableRef = new DataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = DataTableRef.unowned(baseName, environmentId, platformType);
         String physicalName = dataTableRef.physicalName();
 
         if (!physicalTableExists(physicalName)) {
@@ -332,16 +345,16 @@ public class DataTableServiceImpl implements DataTableService {
      */
     @Override
     @Transactional
-    public void updateDescription(String baseName, @Nullable String description) {
-        DataTable dataTable = getDataTable(baseName);
+    public void updateDescription(String baseName, @Nullable String description, PlatformType platformType) {
+        DataTable dataTable = getDataTable(baseName, platformType);
 
         dataTable.setDescription(description);
 
         dataTableRepository.save(dataTable);
     }
 
-    private DataTable getDataTable(String baseName) {
-        return fetchDataTable(baseName)
+    private DataTable getDataTable(String baseName, PlatformType platformType) {
+        return fetchDataTable(baseName, platformType)
             .orElseThrow(() -> new ExecutionException(
                 "Unable to find table " + baseName, DataTableErrorType.DATA_TABLE_NOT_FOUND));
     }
@@ -351,19 +364,19 @@ public class DataTableServiceImpl implements DataTableService {
      * not redundant: a ref can be built for any well-formed name, and an ALTER against an unregistered one would fail
      * as a raw SQL error rather than as a missing table.
      */
-    private DataTableRef getDataTableRef(String baseName, long environmentId) {
-        getDataTable(baseName);
+    private DataTableRef getDataTableRef(String baseName, long environmentId, PlatformType platformType) {
+        getDataTable(baseName, platformType);
 
-        return new DataTableRef(baseName, environmentId);
+        return DataTableRef.unowned(baseName, environmentId, platformType);
     }
 
     /**
-     * Every registered table in one environment. Nothing is filtered out by account: an account is separated from
-     * another inside a table, by the row predicate, and never by which tables it can see.
+     * Every registered table in one environment and pool. Nothing is filtered out by account: an account is separated
+     * from another inside a table, by the row predicate, and never by which tables it can see.
      */
     @Override
-    public List<DataTableInfo> listTables(long environmentId) {
-        String prefix = PhysicalTableNaming.prefix(environmentId);
+    public List<DataTableInfo> listTables(long environmentId, PlatformType platformType) {
+        String prefix = PhysicalTableNaming.prefix(platformType, environmentId);
 
         // LIKE treats _ as a wildcard, so the startsWith below is the real guard; the pattern only narrows the scan.
         String sqlTables = "SELECT table_name FROM information_schema.tables "
@@ -382,7 +395,7 @@ public class DataTableServiceImpl implements DataTableService {
             String baseName = tableName.substring(prefix.length());
 
             DataTable dataTable = dataTableRepository
-                .findByName(baseName)
+                .findByNameAndPlatformType(baseName, platformType.ordinal())
                 .orElse(null);
 
             if (dataTable == null) {
@@ -416,12 +429,12 @@ public class DataTableServiceImpl implements DataTableService {
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void removeColumn(
-        String baseName, String columnName, long environmentId) {
+        String baseName, String columnName, long environmentId, PlatformType platformType) {
 
         validateBaseName(baseName);
         validateColumnName(columnName);
 
-        DataTableRef dataTableRef = getDataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = getDataTableRef(baseName, environmentId, platformType);
 
         if (!hasColumn(dataTableRef.physicalName(), columnName)) {
             throw new DataTableException(
@@ -446,13 +459,14 @@ public class DataTableServiceImpl implements DataTableService {
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void renameColumn(
-        String baseName, String fromColumnName, String toColumnName, long environmentId) {
+        String baseName, String fromColumnName, String toColumnName, long environmentId,
+        PlatformType platformType) {
 
         validateBaseName(baseName);
         validateColumnName(fromColumnName);
         validateColumnName(toColumnName);
 
-        DataTableRef dataTableRef = getDataTableRef(baseName, environmentId);
+        DataTableRef dataTableRef = getDataTableRef(baseName, environmentId, platformType);
 
         if (!hasColumn(dataTableRef.physicalName(), fromColumnName)) {
             throw new DataTableException(
@@ -483,15 +497,15 @@ public class DataTableServiceImpl implements DataTableService {
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public void renameTable(
-        String fromBaseName, String toBaseName, long environmentId) {
+        String fromBaseName, String toBaseName, long environmentId, PlatformType platformType) {
 
         validateBaseName(fromBaseName);
         validateBaseName(toBaseName);
 
-        DataTable dataTable = getDataTable(fromBaseName);
+        DataTable dataTable = getDataTable(fromBaseName, platformType);
 
-        DataTableRef fromDataTableRef = new DataTableRef(fromBaseName, environmentId);
-        DataTableRef toDataTableRef = new DataTableRef(toBaseName, environmentId);
+        DataTableRef fromDataTableRef = DataTableRef.unowned(fromBaseName, environmentId, platformType);
+        DataTableRef toDataTableRef = DataTableRef.unowned(toBaseName, environmentId, platformType);
 
         String sql = "ALTER TABLE " + escapeIdentifier(fromDataTableRef.physicalName()) + " RENAME TO " +
             escapeIdentifier(toDataTableRef.physicalName());
@@ -504,23 +518,25 @@ public class DataTableServiceImpl implements DataTableService {
     }
 
     /**
-     * Whether any physical instance of {@code baseName} remains, in any environment.
+     * Whether any physical instance of {@code baseName} remains for this pool, in any environment. Scans only this
+     * pool's prefix -- without that, dropping the EMBEDDED "orders" would find the AUTOMATION "dt_0_orders", conclude
+     * an instance remains, and leave the EMBEDDED registry row behind as an orphan.
      */
-    private boolean hasPhysicalTablesForBaseName(String baseName) {
-        List<String> physicalNames = physicalNames(baseName);
+    private boolean hasPhysicalTablesForBaseName(String baseName, PlatformType platformType) {
+        List<String> physicalNames = physicalNames(baseName, platformType);
 
         return !physicalNames.isEmpty();
     }
 
     /**
-     * Every physical instance of a base name, across every environment.
+     * Every physical instance of a base name, across every environment in this pool.
      */
-    private List<String> physicalNames(String baseName) {
+    private List<String> physicalNames(String baseName, PlatformType platformType) {
         String normalizedBaseName = baseName.toLowerCase(Locale.ROOT);
         String escapedBaseName = normalizedBaseName.replace("\\", "\\\\")
             .replace("%", "\\%")
             .replace("_", "\\_");
-        String pattern = "dt\\_%\\_" + escapedBaseName;
+        String pattern = PhysicalTableNaming.poolToken(platformType) + "\\_%\\_" + escapedBaseName;
 
         String sql = "SELECT table_name FROM information_schema.tables " +
             "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' AND table_name LIKE ? ESCAPE '\\'";
@@ -531,21 +547,27 @@ public class DataTableServiceImpl implements DataTableService {
         // The LIKE pattern's '%' swallows more than an environment segment, so the candidates are matched here
         // against a parsed name rather than left to the pattern.
         return tableNames.stream()
-            .filter(tableName -> matchesBaseName(tableName, normalizedBaseName))
+            .filter(tableName -> matchesPoolAndBaseName(tableName, platformType, normalizedBaseName))
             .toList();
     }
 
     /**
-     * Whether a physical table name carries this base name, in any environment.
+     * Whether a physical table name belongs to this pool and this base name, in any environment.
      */
-    private static boolean matchesBaseName(String tableName, String baseName) {
+    private static boolean matchesPoolAndBaseName(String tableName, PlatformType platformType, String baseName) {
         Matcher matcher = PHYSICAL_NAME.matcher(tableName);
 
         if (!matcher.matches()) {
             return false;
         }
 
-        return baseName.equals(matcher.group(2));
+        String poolToken = matcher.group(1);
+
+        if (!poolToken.equals(PhysicalTableNaming.poolToken(platformType))) {
+            return false;
+        }
+
+        return baseName.equals(matcher.group(3));
     }
 
     /**
@@ -556,13 +578,13 @@ public class DataTableServiceImpl implements DataTableService {
      * Called after the DDL and inside the same transaction, so a failed CREATE leaves no registry row and a failed
      * insert leaves no physical table.
      */
-    private long register(String baseName, @Nullable String description) {
+    private long register(String baseName, @Nullable String description, PlatformType platformType) {
         Assert.hasText(baseName, "baseName required");
 
         String normalizedBaseName = normalizeBaseName(baseName);
 
         Optional<DataTable> existingDataTable =
-            dataTableRepository.findByName(normalizedBaseName);
+            dataTableRepository.findByNameAndPlatformType(normalizedBaseName, platformType.ordinal());
 
         return existingDataTable
             .map(DataTable::getId)
@@ -571,6 +593,7 @@ public class DataTableServiceImpl implements DataTableService {
 
                 dataTable.setName(normalizedBaseName);
                 dataTable.setDescription(description);
+                dataTable.setPlatformType(platformType);
 
                 DataTable savedDataTable = dataTableRepository.save(dataTable);
 
@@ -579,7 +602,7 @@ public class DataTableServiceImpl implements DataTableService {
     }
 
     /**
-     * Creates one physical table: the table itself and the index its external id is keyed through.
+     * Creates one physical table: the table itself and the index its owner column is read through.
      *
      * <p>
      * Extracted because {@code createTable} and {@code duplicateTable} used to hold near-copies of the statement, and a
@@ -589,11 +612,17 @@ public class DataTableServiceImpl implements DataTableService {
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     private void createPhysicalTable(String physicalName, List<ColumnSpec> columnSpecs) {
         jdbcTemplate.execute(buildCreateTableSql(physicalName, columnSpecs));
-        jdbcTemplate.execute(buildExternalIdIndexSql(physicalName));
+        jdbcTemplate.execute(buildOwnerIndexSql(physicalName));
+        jdbcTemplate.execute(buildExternalIdIndexSql(physicalName, !dataTableDialect.isH2(jdbcTemplate)));
     }
 
     /**
      * The one CREATE TABLE statement a data table is ever built from.
+     *
+     * <p>
+     * Every physical table carries {@code owner_id} / {@code owner_type}, in both pools. Uniformly, and that uniformity
+     * is the point: these two columns are the only thing separating one account's rows from another's, so every table
+     * has to carry them and no row operation has to ask whether this one does.
      */
     static String buildCreateTableSql(String physicalName, List<ColumnSpec> columnSpecs) {
         String userColumnsSql = columnSpecs.stream()
@@ -601,24 +630,56 @@ public class DataTableServiceImpl implements DataTableService {
             .collect(Collectors.joining(", "));
 
         return "CREATE TABLE " + escapeIdentifier(physicalName) + " (\"id\" BIGSERIAL PRIMARY KEY, " +
+            escapeIdentifier(ReservedColumns.OWNER_ID) + " BIGINT, " +
+            escapeIdentifier(ReservedColumns.OWNER_TYPE) + " INT, " +
             escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " VARCHAR(255)" +
             (userColumnsSql.isEmpty() ? "" : ", " + userColumnsSql) + ")";
     }
 
     /**
-     * The upsert key. Standard NULL semantics are what is wanted here: two rows with no external id compare as distinct
-     * and so do not collide, while two rows carrying the same one do. That needs neither {@code NULLS NOT DISTINCT} nor
-     * a partial predicate, so the statement is the same on Postgres and on H2.
+     * The index every row read and every row write narrows on.
      *
      * <p>
-     * Deliberately unnamed, so the database derives the name itself. A name of our own would be the physical name plus
-     * a suffix, and a physical name may already be 63 bytes -- the longest identifier Postgres keeps. It truncates
-     * rather than refusing, so two long tables would silently ask for the same index name and the second CREATE would
-     * fail.
+     * Deliberately unnamed, so Postgres derives the name itself. A name of our own would be the physical name plus a
+     * suffix, and a physical name may already be 63 bytes -- the longest identifier Postgres keeps. It truncates rather
+     * than refusing, so two long tables would silently ask for the same index name and the second CREATE would fail.
+     */
+    static String buildOwnerIndexSql(String physicalName) {
+        return "CREATE INDEX ON " + escapeIdentifier(physicalName) + " (" +
+            escapeIdentifier(ReservedColumns.OWNER_ID) + ")";
+    }
+
+    /**
+     * The upsert key. {@code NULLS NOT DISTINCT} is for {@code owner_id}: without it every automation-pool row, whose
+     * owner is NULL, would be a distinct key and the pool would get no uniqueness at all. The predicate is for
+     * {@code external_id}: with {@code NULLS NOT DISTINCT} and no predicate every row without a key would collapse into
+     * one. Unnamed for the same 63-byte reason as the owner index.
      */
     static String buildExternalIdIndexSql(String physicalName) {
-        return "CREATE UNIQUE INDEX ON " + escapeIdentifier(physicalName) + " (" +
-            escapeIdentifier(ReservedColumns.EXTERNAL_ID) + ")";
+        return buildExternalIdIndexSql(physicalName, true);
+    }
+
+    /**
+     * H2 has neither {@code NULLS NOT DISTINCT} nor a partial index, so on it this degrades to a plain unique index --
+     * {@code CREATE TABLE} failing outright would be worse, since H2 is a development and test database here.
+     *
+     * <p>
+     * What that costs, precisely: standard NULL semantics already give the predicate's effect for free, because two
+     * rows with no external id compare as distinct and so do not collide. The loss is on {@code owner_id} -- two
+     * automation-pool rows, both with a NULL owner, are distinct keys under standard semantics, so the vendor pool gets
+     * no external-id uniqueness on H2. Owned rows, whose {@code owner_id} is a real value, are still unique. Postgres
+     * enforces the whole constraint; do not treat an H2 run as evidence that a duplicate vendor external id is
+     * rejected.
+     */
+    static String buildExternalIdIndexSql(String physicalName, boolean nullsNotDistinctSupported) {
+        String sql = "CREATE UNIQUE INDEX ON " + escapeIdentifier(physicalName) + " (" +
+            escapeIdentifier(ReservedColumns.OWNER_ID) + ", " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) + ")";
+
+        if (!nullsNotDistinctSupported) {
+            return sql;
+        }
+
+        return sql + " NULLS NOT DISTINCT WHERE " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " IS NOT NULL";
     }
 
     private static String escapeIdentifier(String identifier) {

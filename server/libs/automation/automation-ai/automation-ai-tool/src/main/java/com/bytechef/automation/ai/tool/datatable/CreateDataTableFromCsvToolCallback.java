@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.tool.datatable;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -163,7 +164,7 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                 }
 
                 dataTableRowService.insertRow(
-                    new DataTableRef(input.baseName(), environmentId), values);
+                    DataTableRef.unowned(input.baseName(), environmentId, PlatformType.AUTOMATION), values);
                 inserted++;
             }
 

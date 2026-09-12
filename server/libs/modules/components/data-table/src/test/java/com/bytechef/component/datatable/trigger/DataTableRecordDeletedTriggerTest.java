@@ -31,7 +31,7 @@ class DataTableRecordDeletedTriggerTest extends AbstractDataTableTriggerTest {
         assertEquals(
             Map.of("id", 7, "status", "CLOSED"),
             webhookRequest(
-                DataTableRecordDeletedTrigger.of(null, null, null),
+                DataTableRecordDeletedTrigger.of(null, null, null, null),
                 rowContent("RECORD_DELETED", Map.of("status", "CLOSED"))));
     }
 
@@ -39,6 +39,6 @@ class DataTableRecordDeletedTriggerTest extends AbstractDataTableTriggerTest {
     void testWebhookRequestWithoutPayloadReturnsContent() throws Exception {
         Map<String, Object> content = Map.of("type", "RECORD_DELETED", "table", "conversations");
 
-        assertEquals(content, webhookRequest(DataTableRecordDeletedTrigger.of(null, null, null), content));
+        assertEquals(content, webhookRequest(DataTableRecordDeletedTrigger.of(null, null, null, null), content));
     }
 }

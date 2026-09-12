@@ -17,11 +17,15 @@
 package com.bytechef.platform.data.table.configuration.service;
 
 import com.bytechef.definition.BaseProperty.ResourceType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import com.bytechef.platform.workflow.validator.ResourceReferenceResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +34,15 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DataTableReferenceResolver implements ResourceReferenceResolver {
+
+    /**
+     * The pools a reference may resolve in. Validation runs in the editor, where there is no connected user -- the
+     * vendor case, which {@code DataTableUtils.poolFor} admits to BOTH pools -- so this mirrors what
+     * {@code DataTableUtils.resolveDataTable} will do with the same name at run time. A data table reference is a base
+     * NAME, not an id, and the pool is part of the physical table's name, so the same name is a different table in each
+     * pool.
+     */
+    private static final List<PlatformType> EDITOR_POOLS = List.of(PlatformType.AUTOMATION, PlatformType.EMBEDDED);
 
     private final DataTableRowService dataTableRowService;
     private final DataTableService dataTableService;
@@ -48,23 +61,50 @@ public class DataTableReferenceResolver implements ResourceReferenceResolver {
     @Override
     @Nullable
     public String findProblem(String reference, long environmentId) {
-        DataTableInfo dataTableInfo = findTable(reference, environmentId);
+        Map<PlatformType, DataTableInfo> dataTableInfosByPool = findTables(reference, environmentId);
 
-        if (dataTableInfo == null) {
+        if (dataTableInfosByPool.isEmpty()) {
             return "Data table '" + reference + "' does not exist in this environment";
         }
 
-        return findRowProblem(dataTableInfo, environmentId);
+        if (dataTableInfosByPool.size() > 1) {
+            // Exactly what resolveDataTable refuses at run time: the same base name is legal in both pools after the
+            // split and nothing tells them apart, so it rejects rather than picking one. Saying so here is the
+            // difference between learning it in the editor and learning it mid-run.
+            return "Data table '" + reference + "' exists in more than one data table pool in this environment, so a " +
+                "run cannot tell which one is meant";
+        }
+
+        Map.Entry<PlatformType, DataTableInfo> dataTableInfoEntry = dataTableInfosByPool.entrySet()
+            .iterator()
+            .next();
+
+        return findRowProblem(dataTableInfoEntry.getValue(), environmentId, dataTableInfoEntry.getKey());
     }
 
-    private @Nullable String findRowProblem(DataTableInfo dataTableInfo, long environmentId) {
+    private Map<PlatformType, DataTableInfo> findTables(String reference, long environmentId) {
+        Map<PlatformType, DataTableInfo> dataTableInfosByPool = new LinkedHashMap<>();
+
+        for (PlatformType platformType : EDITOR_POOLS) {
+            DataTableInfo dataTableInfo = findTable(reference, environmentId, platformType);
+
+            if (dataTableInfo != null) {
+                dataTableInfosByPool.put(platformType, dataTableInfo);
+            }
+        }
+
+        return dataTableInfosByPool;
+    }
+
+    private @Nullable String findRowProblem(
+        DataTableInfo dataTableInfo, long environmentId, PlatformType platformType) {
 
         try {
             // The base name comes from the table that was found rather than from the reference, so the ref is well
             // formed by construction -- a DataTableRef validates its base name, and a reference typed into a workflow
             // need not be a legal identifier at all.
             dataTableRowService.listRows(
-                new DataTableRef(dataTableInfo.baseName(), environmentId), 1, 0);
+                DataTableRef.unowned(dataTableInfo.baseName(), environmentId, platformType), 1, 0);
         } catch (IllegalStateException illegalStateException) {
             return illegalStateException.getMessage();
         }
@@ -72,8 +112,8 @@ public class DataTableReferenceResolver implements ResourceReferenceResolver {
         return null;
     }
 
-    private @Nullable DataTableInfo findTable(String reference, long environmentId) {
-        return dataTableService.listTables(environmentId)
+    private @Nullable DataTableInfo findTable(String reference, long environmentId, PlatformType platformType) {
+        return dataTableService.listTables(environmentId, platformType)
             .stream()
             .filter(dataTableInfo -> reference.equalsIgnoreCase(dataTableInfo.baseName()))
             .findFirst()

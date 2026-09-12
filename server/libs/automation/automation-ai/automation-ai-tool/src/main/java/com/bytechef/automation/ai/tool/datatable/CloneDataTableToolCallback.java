@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.tool.datatable;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
@@ -161,7 +162,7 @@ public class CloneDataTableToolCallback implements ToolCallback {
                 return toolError(exception.getMessage());
             }
 
-            long newId = dataTableService.getIdByBaseName(input.newBaseName());
+            long newId = dataTableService.getIdByBaseName(input.newBaseName(), PlatformType.AUTOMATION);
 
             return jsonMapper.writeValueAsString(new CloneDataTableOutput(newId, input.newBaseName()));
         } catch (JacksonException exception) {

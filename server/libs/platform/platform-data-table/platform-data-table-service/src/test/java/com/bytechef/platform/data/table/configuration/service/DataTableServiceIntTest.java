@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
@@ -63,8 +64,8 @@ class DataTableServiceIntTest {
     @BeforeEach
     void beforeEach() {
         for (String baseName : BASE_NAMES) {
-            dataTableService.dropTable(baseName, DEV_ENVIRONMENT_ID);
-            dataTableService.dropTable(baseName, STAGE_ENVIRONMENT_ID);
+            dataTableService.dropTable(baseName, DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
+            dataTableService.dropTable(baseName, STAGE_ENVIRONMENT_ID, PlatformType.AUTOMATION);
         }
     }
 
@@ -74,7 +75,7 @@ class DataTableServiceIntTest {
 
         assertEquals(
             "registered",
-            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("registered")));
+            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("registered", PlatformType.AUTOMATION)));
 
         assertTrue(
             listedIn(DEV_ENVIRONMENT_ID, "registered"),
@@ -116,8 +117,8 @@ class DataTableServiceIntTest {
             "listTables derives the base name from the lowercased physical table, so the registry must agree");
 
         assertEquals(
-            dataTableService.getIdByBaseName("Registered"),
-            dataTableService.getIdByBaseName("registered"));
+            dataTableService.getIdByBaseName("Registered", PlatformType.AUTOMATION),
+            dataTableService.getIdByBaseName("registered", PlatformType.AUTOMATION));
     }
 
     @Test
@@ -125,11 +126,11 @@ class DataTableServiceIntTest {
         createTable("original", null, DEV_ENVIRONMENT_ID);
 
         dataTableService.duplicateTable(
-            "original", "copy", DEV_ENVIRONMENT_ID);
+            "original", "copy", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         assertEquals(
             "copy",
-            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("copy")));
+            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("copy", PlatformType.AUTOMATION)));
     }
 
     @Test
@@ -137,17 +138,17 @@ class DataTableServiceIntTest {
         createTable("source", null, DEV_ENVIRONMENT_ID);
 
         dataTableService.duplicateTable(
-            "source", "duplicate", DEV_ENVIRONMENT_ID);
+            "source", "duplicate", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         // The duplicate is created through the same buildCreateTableSql as the original, so a column declared in one
         // path and forgotten in the other would surface here as a write into a table missing it.
         dataTableRowService.insertRow(
-            dataTableRef("duplicate", DEV_ENVIRONMENT_ID), Map.of("title", "a"));
+            dataTableRef("duplicate", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION), Map.of("title", "a"));
 
         assertEquals(
             1,
             dataTableRowService
-                .listRows(dataTableRef("duplicate", DEV_ENVIRONMENT_ID), 100, 0)
+                .listRows(dataTableRef("duplicate", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0)
                 .size());
     }
 
@@ -166,9 +167,9 @@ class DataTableServiceIntTest {
         createTable("registered", "a description", DEV_ENVIRONMENT_ID);
 
         Optional<DataTableInfo> dev = dataTableService.fetchDataTableInfo(
-            "registered", DEV_ENVIRONMENT_ID);
+            "registered", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
         Optional<DataTableInfo> stage = dataTableService.fetchDataTableInfo(
-            "registered", STAGE_ENVIRONMENT_ID);
+            "registered", STAGE_ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         assertTrue(dev.isPresent());
         assertEquals("a description", dev.get()
@@ -184,11 +185,11 @@ class DataTableServiceIntTest {
     void testUpdateDescriptionWritesTheRegistry() {
         createTable("registered", "before", DEV_ENVIRONMENT_ID);
 
-        dataTableService.updateDescription("registered", "after");
+        dataTableService.updateDescription("registered", "after", PlatformType.AUTOMATION);
 
         assertEquals(
             "after",
-            dataTableService.fetchDataTableInfo("registered", DEV_ENVIRONMENT_ID)
+            dataTableService.fetchDataTableInfo("registered", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION)
                 .orElseThrow()
                 .description());
     }
@@ -200,29 +201,31 @@ class DataTableServiceIntTest {
         assertEquals(
             DataTableErrorType.COLUMN_ALREADY_EXISTS.getErrorKey(),
             assertThrows(DataTableException.class, () -> dataTableService.addColumn(
-                "registered", new ColumnSpec("title", ColumnType.STRING), DEV_ENVIRONMENT_ID))
+                "registered", new ColumnSpec("title", ColumnType.STRING), DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION))
                     .getErrorKey());
         assertEquals(
             DataTableErrorType.COLUMN_NAME_INVALID.getErrorKey(),
             assertThrows(DataTableException.class, () -> dataTableService.addColumn(
-                "registered", new ColumnSpec("external_id", ColumnType.STRING), DEV_ENVIRONMENT_ID))
+                "registered", new ColumnSpec("external_id", ColumnType.STRING), DEV_ENVIRONMENT_ID,
+                PlatformType.AUTOMATION))
                     .getErrorKey());
         assertEquals(
             DataTableErrorType.COLUMN_NOT_FOUND.getErrorKey(),
             assertThrows(DataTableException.class, () -> dataTableService.removeColumn(
-                "registered", "nosuch", DEV_ENVIRONMENT_ID))
+                "registered", "nosuch", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION))
                     .getErrorKey());
     }
 
     private void createTable(String baseName, @Nullable String description, long environmentId) {
 
         dataTableService.createTable(
-            baseName, description, List.of(new ColumnSpec("title", ColumnType.STRING)), environmentId);
+            baseName, description, List.of(new ColumnSpec("title", ColumnType.STRING)), environmentId,
+            PlatformType.AUTOMATION);
     }
 
     private long countNamed(long environmentId, String baseName) {
         List<DataTableInfo> dataTableInfos = dataTableService.listTables(
-            environmentId);
+            environmentId, PlatformType.AUTOMATION);
 
         return dataTableInfos.stream()
             .filter(dataTableInfo -> baseName.equals(dataTableInfo.baseName()))
@@ -237,7 +240,7 @@ class DataTableServiceIntTest {
      * These tables are all created shared, so naming the shared physical form here states a fact about the fixture
      * rather than skipping resolution.
      */
-    private static DataTableRef dataTableRef(String baseName, long environmentId) {
-        return new DataTableRef(baseName, environmentId);
+    private static DataTableRef dataTableRef(String baseName, long environmentId, PlatformType platformType) {
+        return DataTableRef.unowned(baseName, environmentId, platformType);
     }
 }

@@ -29,6 +29,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.audit.DataTableAuditPublisher;
 import com.bytechef.platform.data.table.configuration.domain.DataTable;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
@@ -83,7 +84,7 @@ class DataTableServiceTest {
         List<ColumnSpec> columnSpecs = List.of(new ColumnSpec("title", ColumnType.STRING));
 
         dataTableService.createTable(
-            "conversations", null, columnSpecs, 0);
+            "conversations", null, columnSpecs, 0, PlatformType.AUTOMATION);
 
         ArgumentCaptor<String> sqlArgumentCaptor = ArgumentCaptor.forClass(String.class);
 
@@ -95,6 +96,9 @@ class DataTableServiceTest {
             executedSqls.contains(DataTableServiceImpl.buildCreateTableSql("dt_0_conversations", columnSpecs)),
             "createTable must build its DDL through buildCreateTableSql: " + executedSqls);
 
+        assertTrue(
+            executedSqls.contains(DataTableServiceImpl.buildOwnerIndexSql("dt_0_conversations")),
+            "a new table must get the index its row owner predicate is served from: " + executedSqls);
     }
 
     @Test
@@ -102,7 +106,8 @@ class DataTableServiceTest {
         DataTableException dataTableException = assertThrows(
             DataTableException.class,
             () -> dataTableService.createTable(
-                "conversations", null, List.of(new ColumnSpec("external_id", ColumnType.STRING)), 0));
+                "conversations", null, List.of(new ColumnSpec("owner_id", ColumnType.STRING)), 0,
+                PlatformType.AUTOMATION));
 
         assertEquals(DataTableErrorType.COLUMN_NAME_INVALID.getErrorKey(), dataTableException.getErrorKey());
     }
@@ -114,7 +119,7 @@ class DataTableServiceTest {
         when(jdbcTemplate.query(anyString(), any(PreparedStatementSetter.class), any(RowMapper.class)))
             .thenReturn(List.of());
 
-        dataTableService.dropTable("mytable", 1L);
+        dataTableService.dropTable("mytable", 1L, PlatformType.AUTOMATION);
 
         verify(jdbcTemplate).execute(contains("DROP TABLE IF EXISTS"));
         verify(dataTableRepository).deleteById(DATA_TABLE_ID);
@@ -127,7 +132,7 @@ class DataTableServiceTest {
         when(jdbcTemplate.query(anyString(), any(PreparedStatementSetter.class), any(RowMapper.class)))
             .thenReturn(List.of("dt_2_mytable"));
 
-        dataTableService.dropTable("mytable", 1L);
+        dataTableService.dropTable("mytable", 1L, PlatformType.AUTOMATION);
 
         verify(jdbcTemplate).execute(contains("DROP TABLE IF EXISTS"));
         verify(dataTableRepository, never()).deleteById(anyLong());
@@ -140,7 +145,7 @@ class DataTableServiceTest {
     private void givenRegistryRow() {
         DataTable dataTable = new DataTable(DATA_TABLE_ID, "mytable");
 
-        when(dataTableRepository.findByName("mytable"))
+        when(dataTableRepository.findByNameAndPlatformType("mytable", PlatformType.AUTOMATION.ordinal()))
             .thenReturn(Optional.of(dataTable));
     }
 }

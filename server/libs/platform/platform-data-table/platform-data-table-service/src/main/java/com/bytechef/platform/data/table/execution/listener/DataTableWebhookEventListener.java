@@ -46,9 +46,15 @@ import org.springframework.web.client.RestTemplate;
  * metadata.
  *
  * <p>
- * Selection is by the event's ref and its event type: the ref names the table the row was written into, and
- * {@link DataTableWebhookService#listWebhooks(DataTableRef)} answers for it. Selecting by base name instead would not
- * identify one registry row.
+ * Selection is by the event's ref and its event type, and the ref is the whole of the scoping: it names the table the
+ * row was written into AND the account the writing run acted for, and
+ * {@link DataTableWebhookService#listWebhooks(DataTableRef)} answers for both. Table identity alone was once thought
+ * sufficient -- a registration hangs off one table, a table has one owner -- but a table belongs to nobody and holds
+ * many accounts' rows, so the event's ref is the only thing that says whose row this is.
+ *
+ * <p>
+ * This class therefore has no owner logic of its own and must never grow any. An owner read here rather than off the
+ * ref would be a second source of the answer, free to disagree with the one registration was stamped from.
  *
  * @author Ivica Cardic
  */

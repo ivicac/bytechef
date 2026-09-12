@@ -41,7 +41,7 @@ class DataTableUpdateRecordActionTest extends AbstractDataTableActionTest {
             .thenReturn(new DataTableRow(7, Map.of("status", "BOT")));
 
         ModifiableActionDefinition actionDefinition = DataTableUpdateRecordAction.of(
-            dataTableService, dataTableRowService);
+            dataTableService, dataTableRowService, ownerResolverProvider);
 
         assertEquals(
             Map.of("id", 7L, "status", "BOT"),

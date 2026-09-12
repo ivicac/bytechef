@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A base name can never begin with a digit, which is what keeps a physical name unambiguous: {@code listTables}
- * recovers a base name by stripping {@code dt_<envId>_} from the front, and a name that could itself start with an
+ * recovers a base name by stripping {@code <pool>_<envId>_} from the front, and a name that could itself start with an
  * environment-shaped run of digits would give some physical names two readings.
  *
  * <p>

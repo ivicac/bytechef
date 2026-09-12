@@ -47,14 +47,21 @@ class ReservedColumnsTest {
     }
 
     @Test
-    void testAllReturnsEveryReservedName() {
-        assertEquals(Set.of("id", "external_id"), ReservedColumns.all());
+    void testIsReservedMatchesOwnerColumns() {
+        assertTrue(ReservedColumns.isReserved("owner_id"));
+        assertTrue(ReservedColumns.isReserved("OWNER_TYPE"));
     }
 
     @Test
-    void testExternalIdIsReserved() {
+    void testAllReturnsEveryReservedName() {
+        assertEquals(Set.of("id", "owner_id", "owner_type", "external_id"), ReservedColumns.all());
+    }
+
+    @Test
+    void testExternalIdIsReservedButNotHidden() {
         assertTrue(ReservedColumns.isReserved("external_id"));
         assertTrue(ReservedColumns.isReserved("EXTERNAL_ID"));
+        assertFalse(ReservedColumns.isHidden("external_id"));
         assertTrue(ReservedColumns.all()
             .contains(ReservedColumns.EXTERNAL_ID));
     }

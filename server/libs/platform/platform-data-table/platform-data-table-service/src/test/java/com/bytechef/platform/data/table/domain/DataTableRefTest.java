@@ -19,11 +19,13 @@ package com.bytechef.platform.data.table.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.owner.Owner;
 import org.junit.jupiter.api.Test;
 
 /**
- * The ref is the only thing that names a physical table, so the base name it accepts is what every generated
- * statement's identifier allowlist rests on.
+ * The ref carries one owner, and it picks rows rather than tables: two runs acting for two accounts address one
+ * physical table and are told apart inside it.
  *
  * @author Ivica Cardic
  */
@@ -31,19 +33,56 @@ class DataTableRefTest {
 
     private static final long ENVIRONMENT_ID = 0L;
 
-    @Test
-    void testThePhysicalNameIsThePrefixAndTheBaseName() {
-        DataTableRef dataTableRef = new DataTableRef("orders", ENVIRONMENT_ID);
+    private static final Owner ACCOUNT = Owner.connectedUser(42L);
+    private static final Owner OTHER_ACCOUNT = Owner.connectedUser(99L);
 
-        assertThat(dataTableRef.physicalName()).isEqualTo("dt_0_orders");
+    @Test
+    void testARefForARunWithNoAccountCarriesNoOwner() {
+        DataTableRef dataTableRef = DataTableRef.unowned("orders", ENVIRONMENT_ID, PlatformType.EMBEDDED);
+
+        assertThat(dataTableRef.physicalName()).isEqualTo("edt_0_orders");
+        assertThat(dataTableRef.runOwner()).isNull();
+        assertThat(dataTableRef.runOwnerId()).isNull();
     }
 
     @Test
-    void testAMixedCaseBaseNameIsLowercased() {
-        DataTableRef dataTableRef = new DataTableRef("Orders", ENVIRONMENT_ID);
+    void testARefForAnAccountCarriesThatAccountAsItsRunOwner() {
+        DataTableRef dataTableRef = new DataTableRef("orders", ENVIRONMENT_ID, PlatformType.EMBEDDED, ACCOUNT);
 
-        assertThat(dataTableRef.baseName()).isEqualTo("orders");
-        assertThat(dataTableRef.physicalName()).isEqualTo("dt_0_orders");
+        assertThat(dataTableRef.physicalName()).isEqualTo("edt_0_orders");
+        assertThat(dataTableRef.runOwnerId()).isEqualTo(42L);
+    }
+
+    /**
+     * The physical name is what a run addresses. If an owner could reach it, two accounts would have two tables again
+     * and the row predicate would stop being the thing that separates them.
+     */
+    @Test
+    void testNoPhysicalNameCarriesAnOwnerSegment() {
+        DataTableRef ownedRun = new DataTableRef("orders", 1, PlatformType.EMBEDDED, Owner.connectedUser(42));
+        DataTableRef vendorRun = DataTableRef.unowned("orders", 1, PlatformType.EMBEDDED);
+
+        assertThat(ownedRun.physicalName())
+            .as("the run owner scopes rows, never the table")
+            .isEqualTo(vendorRun.physicalName())
+            .isEqualTo("edt_1_orders");
+    }
+
+    /**
+     * The same claim across two different accounts, which is where a reintroduced owner segment would show up first: if
+     * either account reached a name of its own, the two would stop sharing a table.
+     */
+    @Test
+    void testTwoAccountsAddressTheSameTable() {
+        DataTableRef accountDataTableRef =
+            new DataTableRef("orders", ENVIRONMENT_ID, PlatformType.EMBEDDED, ACCOUNT);
+        DataTableRef otherAccountDataTableRef =
+            new DataTableRef("orders", ENVIRONMENT_ID, PlatformType.EMBEDDED, OTHER_ACCOUNT);
+
+        assertThat(accountDataTableRef.physicalName())
+            .isEqualTo(otherAccountDataTableRef.physicalName())
+            .isEqualTo(DataTableRef.unowned("orders", ENVIRONMENT_ID, PlatformType.EMBEDDED)
+                .physicalName());
     }
 
     /**
@@ -52,27 +91,20 @@ class DataTableRefTest {
      */
     @Test
     void testANameThatWouldTruncateIsRefused() {
-        assertThat(new DataTableRef("a".repeat(50), ENVIRONMENT_ID)
+        assertThat(DataTableRef.unowned("a".repeat(50), ENVIRONMENT_ID, PlatformType.EMBEDDED)
             .physicalName())
                 .hasSizeLessThanOrEqualTo(63);
 
         assertThatThrownBy(
-            () -> new DataTableRef("a".repeat(70), ENVIRONMENT_ID))
+            () -> DataTableRef.unowned("a".repeat(70), ENVIRONMENT_ID, PlatformType.EMBEDDED))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("exceeds 63 bytes");
     }
 
     @Test
     void testABaseNameSpelledAsAPhysicalNameIsRefused() {
-        assertThatThrownBy(() -> new DataTableRef("dt_0_orders", ENVIRONMENT_ID))
+        assertThatThrownBy(() -> DataTableRef.unowned("dt_0_orders", ENVIRONMENT_ID, PlatformType.AUTOMATION))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("must not start with 'dt_'");
-    }
-
-    @Test
-    void testABaseNameOutsideTheIdentifierAllowlistIsRefused() {
-        assertThatThrownBy(() -> new DataTableRef("orders; DROP TABLE x", ENVIRONMENT_ID))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Invalid base name");
     }
 }

@@ -11,6 +11,7 @@ import com.bytechef.ee.automation.data.table.public_.web.rest.model.EnvironmentM
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
@@ -55,7 +56,7 @@ public class DataTableApiSupport {
     public long resolveTableId(String name) {
         validateTableName(name);
 
-        return dataTableService.getIdByBaseName(name);
+        return dataTableService.getIdByBaseName(name, PlatformType.AUTOMATION);
     }
 
     public static void validateTableName(String name) {

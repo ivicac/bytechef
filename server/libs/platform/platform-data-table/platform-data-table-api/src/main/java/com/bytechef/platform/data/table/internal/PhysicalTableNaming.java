@@ -16,10 +16,15 @@
 
 package com.bytechef.platform.data.table.internal;
 
+import com.bytechef.platform.constant.PlatformType;
 import java.util.Locale;
 
 /**
  * Builds the physical table name for a data table.
+ *
+ * <p>
+ * The pool lives in the physical name as well as in the {@code data_table.platform_type} column, so a name may repeat
+ * across pools and the separation survives a query that forgets to filter. The two must never disagree.
  *
  * <p>
  * Reached through {@link com.bytechef.platform.data.table.domain.DataTableRef} rather than called directly:
@@ -33,11 +38,15 @@ public final class PhysicalTableNaming {
     private PhysicalTableNaming() {
     }
 
-    public static String buildPhysicalName(long environmentId, String baseName) {
-        return prefix(environmentId) + baseName.toLowerCase(Locale.ROOT);
+    public static String buildPhysicalName(PlatformType platformType, long environmentId, String baseName) {
+        return prefix(platformType, environmentId) + baseName.toLowerCase(Locale.ROOT);
     }
 
-    public static String prefix(long environmentId) {
-        return "dt_" + environmentId + "_";
+    public static String prefix(PlatformType platformType, long environmentId) {
+        return poolToken(platformType) + "_" + environmentId + "_";
+    }
+
+    public static String poolToken(PlatformType platformType) {
+        return platformType == PlatformType.EMBEDDED ? "edt" : "dt";
     }
 }

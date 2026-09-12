@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
@@ -49,7 +50,7 @@ import org.springframework.context.annotation.Import;
 class DataTableRowExternalIdIntTest {
 
     private static final long ENVIRONMENT_ID = 0;
-    private static final DataTableRef REF = new DataTableRef("keyedrows", ENVIRONMENT_ID);
+    private static final DataTableRef REF = DataTableRef.unowned("keyedrows", ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
     @Autowired
     private DataTableService dataTableService;
@@ -59,10 +60,11 @@ class DataTableRowExternalIdIntTest {
 
     @BeforeEach
     void beforeEach() {
-        dataTableService.dropTable("keyedrows", ENVIRONMENT_ID);
+        dataTableService.dropTable("keyedrows", ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         dataTableService.createTable(
-            "keyedrows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID);
+            "keyedrows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
+            PlatformType.AUTOMATION);
     }
 
     @Test

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.DataTableNotFoundException;
 import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.WhereParseException;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
@@ -33,7 +34,7 @@ import org.junit.jupiter.api.Test;
 
 class DataTableQuerySupportTest {
 
-    private static final DataTableRef CONTACTS_REF = new DataTableRef("contacts", 0L);
+    private static final DataTableRef CONTACTS_REF = DataTableRef.unowned("contacts", 0L, PlatformType.AUTOMATION);
 
     @Test
     void testResolveLimitCapsAndDefaults() {

@@ -17,9 +17,12 @@
 package com.bytechef.platform.data.table.execution.service;
 
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.ReservedColumns;
 import com.bytechef.platform.data.table.domain.RowFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -37,8 +40,20 @@ import org.springframework.util.Assert;
  * {@link DataTableRowServiceImpl#listRows} already emits, before {@code ORDER BY}.
  *
  * <p>
+ * The owner predicates live here too, and they are a different kind of thing from a caller's filters: a filter is what
+ * the workflow asked for, and the owner predicate is what the run is allowed to ask for. Both come out of this class so
+ * that the fragment a statement appends and the parameters it binds are written next to each other and cannot fall out
+ * of step, but only the owner predicate reads its owner from the {@link DataTableRef} -- which is the single source
+ * either owner ever comes from.
+ *
+ * <p>
+ * Reads and writes get genuinely different SQL, and deliberately so. A vendor-seeded reference row is every account's
+ * to read and nobody's to change, so the read admits unowned rows and the write does not.
+ *
+ * <p>
  * A field must name a real column of the table, or {@code id}. That check is what makes interpolating the column name
- * safe.
+ * safe, and it is also what keeps {@code owner_id} and {@code owner_type} unaddressable from a workflow: naming one is
+ * how a step would read another account's rows out of a shared table, or hand its own rows away.
  *
  * @author Ivica Cardic
  */
@@ -47,6 +62,54 @@ final class RowQuerySqlBuilder {
     private static final String LIKE_ESCAPE = " ESCAPE '\\'";
 
     private RowQuerySqlBuilder() {
+    }
+
+    /**
+     * What a run may read: its own rows and the ones belonging to nobody. A run with no owner sees the unowned rows
+     * alone and never falls through to an account's.
+     *
+     * <p>
+     * There is one kind of table and nothing branches on anything else. Every account in the pool reads the same
+     * physical table, so this predicate is the only thing separating one account's rows from another's -- not a
+     * narrowing applied on top of a table that was already the caller's, which is what it once was.
+     */
+    static String readableOwnerPredicate(DataTableRef dataTableRef) {
+        if (dataTableRef.runOwnerId() == null) {
+            return " AND " + quote(ReservedColumns.OWNER_ID) + " IS NULL";
+        }
+
+        return " AND (" + quote(ReservedColumns.OWNER_ID) + " = ? OR " + quote(ReservedColumns.OWNER_ID) +
+            " IS NULL)";
+    }
+
+    /**
+     * What a run may change: its own rows, and only those. Narrower than the read predicate on purpose -- the unowned
+     * row an account can see is the same row every other account is reading.
+     */
+    static String writableOwnerPredicate(DataTableRef dataTableRef) {
+        if (dataTableRef.runOwnerId() == null) {
+            return " AND " + quote(ReservedColumns.OWNER_ID) + " IS NULL";
+        }
+
+        return " AND " + quote(ReservedColumns.OWNER_ID) + " = ?";
+    }
+
+    /**
+     * Binds whatever the owner predicate placed, and returns the next free index. Both predicates place one parameter
+     * when the run has an owner and none when it does not, so this is the counterpart to either.
+     */
+    static int bindOwner(PreparedStatement preparedStatement, int index, DataTableRef dataTableRef)
+        throws SQLException {
+
+        Long runOwnerId = dataTableRef.runOwnerId();
+
+        if (runOwnerId == null) {
+            return index;
+        }
+
+        preparedStatement.setLong(index, runOwnerId);
+
+        return index + 1;
     }
 
     record Binding(ColumnType type, @Nullable Object value) {
@@ -198,7 +261,7 @@ final class RowQuerySqlBuilder {
         StringBuilder sql = new StringBuilder(" ORDER BY ");
 
         for (RowSort rowSort : rowSorts) {
-            sql.append(quote(column(rowSort.field(), columnTypes)))
+            sql.append(quote(column(rowSort.field(), "sorted on", columnTypes)))
                 .append(' ')
                 .append(rowSort.direction() == RowSort.Direction.DESC ? "DESC" : "ASC")
                 .append(", ");
@@ -209,7 +272,7 @@ final class RowQuerySqlBuilder {
     }
 
     private static String column(RowFilter rowFilter, Map<String, ColumnType> columnTypes) {
-        return column(rowFilter.field(), columnTypes);
+        return column(rowFilter.field(), "filtered on", columnTypes);
     }
 
     private static ColumnType columnType(String column, Map<String, ColumnType> columnTypes) {
@@ -222,11 +285,12 @@ final class RowQuerySqlBuilder {
      * Resolves the one column a term may name. {@code id} is accepted although it is reserved -- it is on every row
      * already, and sorting by it descending is how a caller asks for the newest records.
      */
-    private static String column(String field, Map<String, ColumnType> columnTypes) {
+    private static String column(String field, String verb, Map<String, ColumnType> columnTypes) {
         Assert.hasText(field, "A query term must name a column");
 
         String column = field.toLowerCase(Locale.ROOT);
 
+        Assert.isTrue(!ReservedColumns.isHidden(column), "Column '" + field + "' cannot be " + verb);
         Assert.isTrue(
             columnTypes.containsKey(column) || ReservedColumns.ID.equals(column), "Unknown column: " + field);
 

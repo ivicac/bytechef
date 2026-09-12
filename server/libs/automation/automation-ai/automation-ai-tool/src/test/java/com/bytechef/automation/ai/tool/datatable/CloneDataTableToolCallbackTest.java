@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import java.time.Instant;
@@ -58,12 +59,13 @@ class CloneDataTableToolCallbackTest {
     void testCloningAssignsTheCopyToTheWorkspace() {
         givenTheSourceTableIsInTheWorkspace();
 
-        when(dataTableService.getIdByBaseName("orders_test")).thenReturn(99L);
+        when(dataTableService.getIdByBaseName("orders_test", PlatformType.AUTOMATION)).thenReturn(99L);
 
         String result = toolCallback.call(cloneInput("orders_test"), toolContext());
 
         verify(workspaceDataTableFacade).duplicateTable(SOURCE_DATA_TABLE_ID, "orders_test", ENVIRONMENT_ID);
-        verify(dataTableService, never()).duplicateTable(anyString(), anyString(), anyLong());
+        verify(dataTableService, never()).duplicateTable(
+            anyString(), anyString(), anyLong(), org.mockito.ArgumentMatchers.any(PlatformType.class));
 
         assertThat(result).contains("\"dataTableId\":99");
         assertThat(result).contains("orders_test");

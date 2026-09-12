@@ -49,15 +49,15 @@ class DataTableExternalIdColumnMigratorIntTest {
     }
 
     /**
-     * Proves both halves of the index: a duplicate key is rejected, and rows with no key at all -- every row on the day
-     * this migration runs -- coexist without colliding.
+     * Proves both halves of the partial index: a duplicate key on the same owner is rejected, and rows with no key at
+     * all -- every row on the day this migration runs -- coexist without colliding.
      */
     @Test
     void testMigrateAddsTheColumnAndTheIndexToAPreexistingTable() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_legacykey\"");
         jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_legacykey\" (\"id\" BIGSERIAL PRIMARY KEY, "
-                + "\"title\" TEXT)");
+            "CREATE TABLE \"dt_0_legacykey\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT, \"title\" TEXT)");
         jdbcTemplate.update("INSERT INTO \"dt_0_legacykey\" (\"title\") VALUES ('a'), ('b')");
 
         assertTrue(dataTableExternalIdColumnMigrator.migrate() >= 1);
@@ -71,6 +71,18 @@ class DataTableExternalIdColumnMigratorIntTest {
             () -> jdbcTemplate.update("INSERT INTO \"dt_0_legacykey\" (\"external_id\") VALUES ('k')"));
     }
 
+    @Test
+    void testMigrateSweepsTheEmbeddedPoolToo() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS \"edt_0_legacykey\"");
+        jdbcTemplate.execute(
+            "CREATE TABLE \"edt_0_legacykey\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT)");
+
+        dataTableExternalIdColumnMigrator.migrate();
+
+        assertTrue(hasColumn("edt_0_legacykey", "external_id"));
+    }
+
     /**
      * Before this branch {@code addColumn} validated no column names at all, so a customer column literally named
      * {@code external_id} was legal -- and plausible, since it means the same thing. A guard that skipped on the column
@@ -81,8 +93,8 @@ class DataTableExternalIdColumnMigratorIntTest {
     void testMigrateAddsTheMissingIndexToATableThatAlreadyHasTheColumn() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_legacyusercolumn\"");
         jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_legacyusercolumn\" (\"id\" BIGSERIAL PRIMARY KEY, "
-                + "\"external_id\" VARCHAR(255))");
+            "CREATE TABLE \"dt_0_legacyusercolumn\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT, \"external_id\" VARCHAR(255))");
 
         assertFalse(hasExternalIdIndex("dt_0_legacyusercolumn"));
 
@@ -99,8 +111,8 @@ class DataTableExternalIdColumnMigratorIntTest {
     void testTheBackfilledIndexRejectsADuplicateExternalId() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_legacyusercolumn_two\"");
         jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_legacyusercolumn_two\" (\"id\" BIGSERIAL PRIMARY KEY, "
-                + "\"external_id\" VARCHAR(255))");
+            "CREATE TABLE \"dt_0_legacyusercolumn_two\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT, \"external_id\" VARCHAR(255))");
 
         dataTableExternalIdColumnMigrator.migrate();
 
@@ -115,7 +127,8 @@ class DataTableExternalIdColumnMigratorIntTest {
     void testMigrateIsIdempotent() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_legacykey_two\"");
         jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_legacykey_two\" (\"id\" BIGSERIAL PRIMARY KEY)");
+            "CREATE TABLE \"dt_0_legacykey_two\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT)");
 
         dataTableExternalIdColumnMigrator.migrate();
 
@@ -147,7 +160,7 @@ class DataTableExternalIdColumnMigratorIntTest {
     private boolean hasExternalIdIndex(String tableName) {
         Integer count = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ? "
-                + "AND indexdef LIKE '%UNIQUE%' AND indexdef LIKE '%(external_id)%'",
+                + "AND indexdef LIKE '%UNIQUE%' AND indexdef LIKE '%(owner_id, external_id)%'",
             Integer.class, tableName);
 
         return count != null && count > 0;

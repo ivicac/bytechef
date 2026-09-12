@@ -18,6 +18,7 @@ package com.bytechef.platform.data.table.execution.service;
 
 import com.bytechef.commons.util.BooleanUtils;
 import com.bytechef.commons.util.DateUtils;
+import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
@@ -34,6 +35,7 @@ import com.bytechef.platform.data.table.execution.domain.NewRow;
 import com.bytechef.platform.data.table.execution.domain.UpsertResult;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
 import com.bytechef.platform.data.table.internal.DataTableDialect;
+import com.bytechef.platform.owner.Owner;
 import de.siegmar.fastcsv.reader.CsvReader;
 import de.siegmar.fastcsv.reader.CsvRow;
 import de.siegmar.fastcsv.writer.CsvWriter;
@@ -77,10 +79,16 @@ import org.springframework.util.Assert;
  * another's.
  *
  * <p>
- * Every statement here addresses its table through the ref it is given. It chooses the rows, through the predicates
- * {@link RowQuerySqlBuilder} builds, and it is not a parameter of any operation -- which is the whole design: an owner
- * that cannot be passed cannot be passed wrongly, and there is exactly one place, resolution, where it is decided.
+ * One owner reaches every statement here, and it rides on the ref: {@code runOwner}, the account the run acts for. It
+ * chooses the rows, through the predicates {@link RowQuerySqlBuilder} builds, and it is not a parameter of any
+ * operation -- which is the whole design: an owner that cannot be passed cannot be passed wrongly, and there is exactly
+ * one place, resolution, where it is decided.
  *
+ * <p>
+ * A table belongs to nobody. Every account in the pool addresses the same physical table for a given base name, so that
+ * predicate is the SOLE separation between two accounts' data -- there is no second mechanism behind it and no
+ * per-account table to fall back on. A statement here that omitted the predicate, or narrowed on anything other than
+ * the ref's run owner, would read or write another account's rows and there is nothing further downstream to stop it.
  *
  * @author Ivica Cardic
  */
@@ -182,11 +190,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         boolean hasExternalIdColumn = hasExternalIdColumn(columnSpecs);
 
         String sql = "SELECT " + selectColumns(columnNames, hasExternalIdColumn) + " FROM " +
-            escapeIdentifier(physicalName) + " WHERE \"id\" = ?";
+            escapeIdentifier(physicalName) + " WHERE \"id\" = ?" +
+            RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef);
 
         List<DataTableRow> rows = jdbcTemplate.query(sql, ps -> {
             ps.setLong(1, id);
 
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         }, (resultSet, rowNum) -> toRow(resultSet, columnNames, hasExternalIdColumn));
 
         return rows.isEmpty() ? null : rows.getFirst();
@@ -209,11 +219,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         List<String> columnNames = userColumnNames(columnSpecs);
 
         String sql = "SELECT " + selectColumns(columnNames, true) + " FROM " + escapeIdentifier(physicalName) +
-            " WHERE " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " = ?";
+            " WHERE " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) + " = ?" +
+            RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef);
 
         List<DataTableRow> rows = jdbcTemplate.query(sql, ps -> {
             ps.setString(1, externalId);
 
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         }, (resultSet, rowNum) -> toRow(resultSet, columnNames, true));
 
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.getFirst());
@@ -435,10 +447,21 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         List<String> insertableColumnNames = resolveWritableColumnNames(values, allColumnNames);
 
+        // The stamp is appended to the caller's columns rather than merged into them: ReservedColumns has already
+        // filtered the owner columns out of anything a caller supplied, so this is the only way either reaches an
+        // INSERT. Both columns go in together -- an owner_id beside a null owner_type would match no predicate and
+        // belong to nobody.
+        Owner runOwner = dataTableRef.runOwner();
+
         List<String> insertColumnNames = new ArrayList<>(insertableColumnNames);
 
         if (externalId != null) {
             insertColumnNames.add(ReservedColumns.EXTERNAL_ID);
+        }
+
+        if (runOwner != null) {
+            insertColumnNames.add(ReservedColumns.OWNER_ID);
+            insertColumnNames.add(ReservedColumns.OWNER_TYPE);
         }
 
         String columnsClause = insertColumnNames.stream()
@@ -489,6 +512,14 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
             if (externalId != null) {
                 ps.setString(i++, externalId);
+            }
+
+            if (runOwner != null) {
+                ps.setLong(i++, runOwner.id());
+
+                OwnerType ownerType = runOwner.type();
+
+                ps.setInt(i, ownerType.ordinal());
             }
         };
 
@@ -555,11 +586,11 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         String sql =
             "SELECT " + selectColumns(columnNames, hasExternalIdColumn) + " FROM " + escapeIdentifier(physicalName) +
-                " WHERE TRUE" + fragment.sql() +
+                " WHERE TRUE" + RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef) + fragment.sql() +
                 RowQuerySqlBuilder.orderBy(rowSorts, columnTypes) + " LIMIT ? OFFSET ?";
 
         return jdbcTemplate.query(sql, ps -> {
-            int index = 1;
+            int index = RowQuerySqlBuilder.bindOwner(ps, 1, dataTableRef);
 
             for (RowQuerySqlBuilder.Binding binding : fragment.bindings()) {
                 setParam(ps, index++, binding.type(), binding.value());
@@ -629,8 +660,8 @@ public class DataTableRowServiceImpl implements DataTableRowService {
             .collect(Collectors.joining(", "));
 
         String sql =
-            "UPDATE " + escapeIdentifier(physicalName) + " SET " + setClause + " WHERE \"id\" = ?" + " RETURNING "
-                + returningClause;
+            "UPDATE " + escapeIdentifier(physicalName) + " SET " + setClause + " WHERE \"id\" = ?" +
+                RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef) + " RETURNING " + returningClause;
 
         Map<String, ColumnType> columnTypeMap = columnTypeMap(columnSpecs);
 
@@ -656,6 +687,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
             ps.setLong(i++, id);
 
+            RowQuerySqlBuilder.bindOwner(ps, i, dataTableRef);
         };
 
         try {
@@ -704,9 +736,14 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      * statement rather than a read followed by a write.
      *
      * <p>
-     * <b>Security Note:</b> the SQL_INJECTION_SPRING_JDBC suppression is safe because all identifiers are validated
-     * through {@link #escapeIdentifier(String)}, which enforces a strict allowlist pattern {@code [a-z_][a-z0-9_]*},
-     * and user-provided row values use parameterized queries.
+     * <b>Security Note:</b> {@code ON CONFLICT (owner_id, external_id)} makes the row owner part of the conflict key,
+     * so a row belonging to a different owner is not a conflict at all -- it is a different key, and the insert
+     * proceeds. An account can never upsert onto another account's row, and there is no window between a check and a
+     * write for a race to land in. The {@code WHERE external_id IS NOT NULL} predicate is repeated here because a
+     * partial index can only be named as a conflict target by repeating its predicate. The SQL_INJECTION_SPRING_JDBC
+     * suppression is safe because all identifiers are validated through {@link #escapeIdentifier(String)}, which
+     * enforces a strict allowlist pattern {@code [a-z_][a-z0-9_]*}, and user-provided row values use parameterized
+     * queries.
      */
     @Override
     public UpsertResult upsertRow(DataTableRef dataTableRef, String externalId, Map<String, Object> values) {
@@ -740,6 +777,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         insertColumnNames.add(ReservedColumns.EXTERNAL_ID);
         insertColumnNames.addAll(writtenColumnNames);
 
+        Owner runOwner = dataTableRef.runOwner();
+
+        if (runOwner != null) {
+            insertColumnNames.add(ReservedColumns.OWNER_ID);
+            insertColumnNames.add(ReservedColumns.OWNER_TYPE);
+        }
+
         String columnsClause = insertColumnNames.stream()
             .map(this::escapeIdentifier)
             .collect(Collectors.joining(", "));
@@ -757,7 +801,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
                 .collect(Collectors.joining(", "));
 
         String sql = "INSERT INTO " + escapeIdentifier(physicalName) + " (" + columnsClause + ") VALUES (" +
-            placeholders + ") ON CONFLICT (" +
+            placeholders + ") ON CONFLICT (" + escapeIdentifier(ReservedColumns.OWNER_ID) + ", " +
             escapeIdentifier(ReservedColumns.EXTERNAL_ID) + ") WHERE " + escapeIdentifier(ReservedColumns.EXTERNAL_ID) +
             " IS NOT NULL DO UPDATE SET " + updateClause + " RETURNING " + selectColumns(userColumnNames, true) +
             ", (xmax = 0) AS \"created\"";
@@ -773,6 +817,14 @@ public class DataTableRowServiceImpl implements DataTableRowService {
                 ColumnType columnType = typeMap.getOrDefault(columnName.toLowerCase(Locale.ROOT), ColumnType.STRING);
 
                 setParam(ps, i++, columnType, coerceValue(columnType, getValueCaseInsensitive(values, columnName)));
+            }
+
+            if (runOwner != null) {
+                ps.setLong(i++, runOwner.id());
+
+                OwnerType ownerType = runOwner.type();
+
+                ps.setInt(i, ownerType.ordinal());
             }
         }, resultSet -> {
             if (!resultSet.next()) {
@@ -800,8 +852,8 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
     /**
      * Counts the rows a run may read that also satisfy {@code rowFilters}. Applies the same filter fragment, over the
-     * same filter fragment as the filtered {@link #listRows} -- so a page's {@code totalElements} always agrees with
-     * its content.
+     * same {@code readableOwnerPredicate}, as the filtered {@link #listRows} -- so a page's {@code totalElements}
+     * always agrees with its content.
      *
      * <p>
      * <b>Security Note:</b> The SQL_INJECTION_SPRING_JDBC suppression is safe because all identifiers are validated
@@ -817,10 +869,11 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         RowQuerySqlBuilder.Fragment fragment = RowQuerySqlBuilder.filters(rowFilters, columnTypes);
 
-        String sql = "SELECT COUNT(*) FROM " + escapeIdentifier(physicalName) + " WHERE TRUE" + fragment.sql();
+        String sql = "SELECT COUNT(*) FROM " + escapeIdentifier(physicalName) + " WHERE TRUE" +
+            RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef) + fragment.sql();
 
         Long count = jdbcTemplate.query(sql, ps -> {
-            int index = 1;
+            int index = RowQuerySqlBuilder.bindOwner(ps, 1, dataTableRef);
 
             for (RowQuerySqlBuilder.Binding binding : fragment.bindings()) {
                 setParam(ps, index++, binding.type(), binding.value());
@@ -856,12 +909,14 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         requireColumns(physicalName);
 
-        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ANY(?)" + " RETURNING \"id\"";
+        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ANY(?)" +
+            RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef) + " RETURNING \"id\"";
 
         List<Long> deletedIds = jdbcTemplate.query(sql, ps -> {
             ps.setArray(1, ps.getConnection()
                 .createArrayOf("bigint", ids.toArray()));
 
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         }, (resultSet, rowNum) -> resultSet.getLong("id"));
 
         for (Long deletedId : deletedIds) {
@@ -885,10 +940,11 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         requireColumns(physicalName);
 
-        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE TRUE" + " RETURNING \"id\"";
+        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE TRUE" +
+            RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef) + " RETURNING \"id\"";
 
         List<Long> deletedIds = jdbcTemplate.query(
-            sql,
+            sql, ps -> RowQuerySqlBuilder.bindOwner(ps, 1, dataTableRef),
             (resultSet, rowNum) -> resultSet.getLong("id"));
 
         for (Long deletedId : deletedIds) {
@@ -1247,12 +1303,14 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         List<String> columnNames = userColumnNames(columnSpecs);
         boolean hasExternalIdColumn = hasExternalIdColumn(columnSpecs);
 
-        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ?" + " RETURNING " +
+        String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ?" +
+            RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef) + " RETURNING " +
             selectColumns(columnNames, hasExternalIdColumn);
 
         List<DataTableRow> deletedDataTableRows = jdbcTemplate.query(sql, ps -> {
             ps.setLong(1, id);
 
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         }, (resultSet, rowNum) -> toRow(resultSet, columnNames, hasExternalIdColumn));
 
         return deletedDataTableRows.isEmpty() ? null : deletedDataTableRows.getFirst();
@@ -1268,11 +1326,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         // The owner predicate is repeated here rather than relied on through the read above: on an engine
         // without RETURNING the read and the delete are two statements, so the delete has to scope itself.
-        String sql = "DELETE FROM " + escapeIdentifier(dataTableRef.physicalName()) + " WHERE \"id\" = ?";
+        String sql = "DELETE FROM " + escapeIdentifier(dataTableRef.physicalName()) + " WHERE \"id\" = ?" +
+            RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef);
 
         int deletedRowCount = jdbcTemplate.update(sql, (PreparedStatementSetter) ps -> {
             ps.setLong(1, id);
 
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         });
 
         return deletedRowCount == 0 ? null : dataTableRow;
@@ -1309,7 +1369,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         DataTableRef dataTableRef, String setClause, long id, PreparedStatementSetter preparedStatementSetter) {
 
         String sql = "UPDATE " + escapeIdentifier(dataTableRef.physicalName()) + " SET " + setClause +
-            " WHERE \"id\" = ?";
+            " WHERE \"id\" = ?" + RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef);
 
         int updatedRowCount = jdbcTemplate.update(sql, preparedStatementSetter);
 

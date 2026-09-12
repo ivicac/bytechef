@@ -33,17 +33,20 @@ import org.springframework.util.Assert;
  * {@code customChange}, so it is still recorded in {@code databasechangelog} and still runs once per tenant schema.
  *
  * <p>
- * The index is a plain {@code UNIQUE (external_id)}, the identical shape {@code createTable} uses for a table built
- * today: standard NULL semantics leave the rows that have no external id -- every row, on the day this migration runs
- * -- distinct from one another, so no predicate is needed to keep them from collapsing into one key.
+ * Both pool prefixes are swept, {@code dt_} for AUTOMATION and {@code edt_} for EMBEDDED. The index is
+ * {@code (owner_id, external_id) NULLS NOT DISTINCT WHERE external_id IS NOT NULL}, the identical shape
+ * {@code createTable} uses for a table built today. {@code NULLS NOT DISTINCT} is for {@code owner_id}, whose NULL
+ * means the automation pool and must still be unique; the {@code WHERE} predicate is for {@code external_id}, because
+ * on the day this migration runs every existing row has a NULL there, and without the predicate they would all collapse
+ * into one index key.
  *
  * <p>
  * A table is skipped only when the column AND the index are both present. Before this branch existed a user column
  * literally named {@code external_id} was perfectly legal -- {@code addColumn} validated no names at all -- and such a
  * table would have satisfied a column-only guard while never receiving an index, leaving {@code upsertRow} to fail at
  * runtime with "there is no unique or exclusion constraint matching the ON CONFLICT specification". Where such a column
- * already holds duplicate {@code external_id} values the index creation fails and the migration stops: loud, at upgrade
- * time, is the correct outcome for a data-integrity migration.
+ * already holds duplicate {@code (owner_id, external_id)} pairs the index creation fails and the migration stops: loud,
+ * at upgrade time, is the correct outcome for a data-integrity migration.
  *
  * <p>
  * Idempotent, and scoped to one schema per call. Deliberately not a Spring bean: Liquibase instantiates the change
@@ -113,7 +116,9 @@ public class DataTableExternalIdColumnMigrator {
             // carry IF NOT EXISTS either -- Postgres requires a name for that -- so idempotency comes from the
             // hasExternalIdIndex guard above, not from this statement.
             jdbcTemplate.execute(
-                "CREATE UNIQUE INDEX ON " + qualifiedName + " (" + quote(ReservedColumns.EXTERNAL_ID) + ")");
+                "CREATE UNIQUE INDEX ON " + qualifiedName + " (" + quote(ReservedColumns.OWNER_ID) + ", "
+                    + quote(ReservedColumns.EXTERNAL_ID) + ") NULLS NOT DISTINCT WHERE "
+                    + quote(ReservedColumns.EXTERNAL_ID) + " IS NOT NULL");
 
             altered++;
         }
@@ -128,8 +133,8 @@ public class DataTableExternalIdColumnMigrator {
     /**
      * Whether the table already carries the upsert index, asked of {@code pg_index} rather than by name: the index is
      * created unnamed, so Postgres derived whatever name it liked and no name of ours would find it. A unique index
-     * whose single key column is {@code external_id} is what {@code ON CONFLICT} needs as its arbiter, so that is
-     * exactly what is asked for.
+     * whose two key columns are {@code owner_id} and {@code external_id}, in that order, is what {@code ON CONFLICT}
+     * needs as its arbiter, so that is exactly what is asked for.
      */
     private boolean hasExternalIdIndex(String schema, String tableName) {
         Integer count = jdbcTemplate.queryForObject(
@@ -137,10 +142,12 @@ public class DataTableExternalIdColumnMigrator {
                 + "JOIN pg_class tableClass ON tableClass.oid = pgIndex.indrelid "
                 + "JOIN pg_namespace tableNamespace ON tableNamespace.oid = tableClass.relnamespace "
                 + "WHERE tableNamespace.nspname = ? AND tableClass.relname = ? "
-                + "AND pgIndex.indisunique AND pgIndex.indnkeyatts = 1 "
+                + "AND pgIndex.indisunique AND pgIndex.indnkeyatts = 2 "
                 + "AND (SELECT attribute.attname FROM pg_attribute attribute "
-                + "WHERE attribute.attrelid = tableClass.oid AND attribute.attnum = pgIndex.indkey[0]) = ?",
-            Integer.class, schema, tableName, ReservedColumns.EXTERNAL_ID);
+                + "WHERE attribute.attrelid = tableClass.oid AND attribute.attnum = pgIndex.indkey[0]) = ? "
+                + "AND (SELECT attribute.attname FROM pg_attribute attribute "
+                + "WHERE attribute.attrelid = tableClass.oid AND attribute.attnum = pgIndex.indkey[1]) = ?",
+            Integer.class, schema, tableName, ReservedColumns.OWNER_ID, ReservedColumns.EXTERNAL_ID);
 
         return count != null && count > 0;
     }

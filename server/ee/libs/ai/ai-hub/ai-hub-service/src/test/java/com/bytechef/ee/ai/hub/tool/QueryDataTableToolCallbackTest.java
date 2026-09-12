@@ -22,6 +22,7 @@ import com.bytechef.ee.ai.hub.artifact.GenerationRequest;
 import com.bytechef.ee.ai.hub.artifact.GenerationResult;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
@@ -70,7 +71,7 @@ class QueryDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("contacts");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("contacts", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("contacts", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("name", "Alice", "status", "qualified")),
                     new DataTableRow(2L, Map.of("name", "Bob", "status", "prospect")),
@@ -106,7 +107,7 @@ class QueryDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("contacts");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("contacts", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("contacts", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("name", "Alice")),
                     new DataTableRow(2L, Map.of("name", "Bob"))));

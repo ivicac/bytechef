@@ -26,15 +26,18 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
 import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.DataTableResolution;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.OwnerResolver;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -48,24 +51,26 @@ abstract class AbstractDataTableActionTest {
     protected final DataTableRowService dataTableRowService = mock(DataTableRowService.class);
     protected final DataTableService dataTableService = mock(DataTableService.class);
 
+    @SuppressWarnings("unchecked")
+    protected final ObjectProvider<OwnerResolver> ownerResolverProvider =
+        (ObjectProvider<OwnerResolver>) mock(ObjectProvider.class);
+
     /**
      * Stubs the two lookups {@code DataTableUtils.resolveDataTable} makes -- the registry resolution that settles which
      * physical table a base name addresses, and the {@code listTables} scan that carries its column metadata -- and
      * returns the ref every row statement is then addressed with.
-     *
-     * <p>
-     * One {@code listTables} stub, not one per call: a second {@code when} on the same arguments would silently replace
-     * the first rather than add to it, which reads as a stub and behaves as an empty listing.
      */
     protected DataTableRef stubResolvedDataTable() {
-        DataTableRef dataTableRef = new DataTableRef(BASE_NAME, ENVIRONMENT_ID);
+        DataTableRef dataTableRef = new DataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION, null);
 
         when(
-            dataTableService.fetchDataTableResolution(BASE_NAME, ENVIRONMENT_ID))
-                .thenReturn(Optional.of(new DataTableResolution(DATA_TABLE_ID, dataTableRef)));
-        when(dataTableService.listTables(ENVIRONMENT_ID))
+            dataTableService.fetchDataTableResolution(
+                BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION, Optional.empty()))
+                    .thenReturn(Optional.of(new DataTableResolution(DATA_TABLE_ID, dataTableRef)));
+        when(dataTableService.listTables(ENVIRONMENT_ID, PlatformType.AUTOMATION))
             .thenReturn(
                 List.of(new DataTableInfo(DATA_TABLE_ID, BASE_NAME, null, List.of(), Instant.EPOCH)));
+        when(dataTableService.listTables(ENVIRONMENT_ID, PlatformType.EMBEDDED)).thenReturn(List.of());
 
         return dataTableRef;
     }

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
@@ -78,7 +79,7 @@ class AggregateDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("orders");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("orders", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("orders", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("amount", 100.0, "status", "paid")),
                     new DataTableRow(2L, Map.of("amount", 200.0, "status", "paid")),
@@ -114,7 +115,7 @@ class AggregateDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("sales");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("sales", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("sales", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("region", "north", "revenue", 500.0)),
                     new DataTableRow(2L, Map.of("region", "south", "revenue", 300.0)),
@@ -180,7 +181,7 @@ class AggregateDataTableToolCallbackTest {
         }
 
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("bigdata", 0L)),
+            eq(DataTableRef.unowned("bigdata", 0L, PlatformType.AUTOMATION)),
             eq(AggregateDataTableToolCallback.MAX_ROW_LIMIT), eq(0))).thenReturn(simulatedFullPage);
 
         AggregateDataTableToolCallback callback = new AggregateDataTableToolCallback(
@@ -217,7 +218,7 @@ class AggregateDataTableToolCallbackTest {
         }
 
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("huge", 0L)),
+            eq(DataTableRef.unowned("huge", 0L, PlatformType.AUTOMATION)),
             eq(AggregateDataTableToolCallback.MAX_ROW_LIMIT), eq(0))).thenReturn(maxRows);
 
         AggregateDataTableToolCallback callback = new AggregateDataTableToolCallback(
@@ -251,7 +252,7 @@ class AggregateDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("small");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("small", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("small", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("amount", 10.0)),
                     new DataTableRow(2L, Map.of("amount", 20.0))));
@@ -289,7 +290,7 @@ class AggregateDataTableToolCallbackTest {
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("orders");
         when(dataTableRowService.listRows(
-            eq(new DataTableRef("orders", 0L)), anyInt(), eq(0)))
+            eq(DataTableRef.unowned("orders", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
                 .thenReturn(List.of(
                     new DataTableRow(1L, Map.of("amount", 100.0)),
                     new DataTableRow(2L, Map.of("amount", "not-a-number")),

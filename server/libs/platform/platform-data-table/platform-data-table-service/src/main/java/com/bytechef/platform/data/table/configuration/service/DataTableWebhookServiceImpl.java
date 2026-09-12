@@ -22,6 +22,7 @@ import com.bytechef.platform.data.table.configuration.domain.DataTableWebhook;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.repository.DataTableWebhookRepository;
 import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +36,9 @@ import org.springframework.stereotype.Service;
  *
  * <p>
  * Registration and delivery go through the same table resolution, which is what makes them meet: whatever table a ref
- * addresses at registration time is the table an event on that same ref is delivered to.
+ * addresses at registration time is the table an event on that same ref is delivered to. They also read the same field
+ * of the ref for the owner -- {@code runOwner}, stamped at registration and compared at delivery -- so the two sides
+ * cannot drift apart into disagreeing about who a registration belongs to.
  *
  * @author Ivica Cardic
  */
@@ -64,6 +67,10 @@ public class DataTableWebhookServiceImpl implements DataTableWebhookService {
         dataTableWebhook.setUrl(url);
         dataTableWebhook.setEnvironment(Environment.values()[(int) dataTableRef.environmentId()]);
 
+        // The ref's run owner is the whole of it: every account addresses the same table, so the registry row cannot
+        // tell two accounts' registrations apart and this column is what does. setOwner moves both columns together.
+        dataTableWebhook.setOwner(dataTableRef.runOwner());
+
         DataTableWebhook savedDataTableHook = webhookRepository.save(dataTableWebhook);
 
         return savedDataTableHook.getId();
@@ -79,7 +86,15 @@ public class DataTableWebhookServiceImpl implements DataTableWebhookService {
 
         DataTable dataTable = dataTableOptional.get();
 
-        return findWebhooks(dataTable.getId(), dataTableRef.environmentId());
+        Owner runOwner = dataTableRef.runOwner();
+
+        // Not a filter laid over the management listing but the whole of what this method returns: a caller holding a
+        // ref is asking on behalf of one run, and the registrations of other accounts on the same shared table are not
+        // its answer. The management listing stays whole and is reached by its own method.
+        return findWebhooks(dataTable.getId(), dataTableRef.environmentId())
+            .stream()
+            .filter(webhook -> webhook.receivesRowsWrittenBy(runOwner))
+            .toList();
     }
 
     @Override
@@ -104,7 +119,8 @@ public class DataTableWebhookServiceImpl implements DataTableWebhookService {
             webhooks.add(new Webhook(
                 dataTableWebhook.getId(), dataTableWebhook.getDataTableId(), dataTableWebhook.getUrl(),
                 dataTableWebhook.getType(), dataTableWebhook.getEnvironment()
-                    .ordinal()));
+                    .ordinal(),
+                dataTableWebhook.getOwner()));
         }
 
         return webhooks;

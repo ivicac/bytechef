@@ -121,7 +121,7 @@ final class RowQueryParser {
             column = ReservedColumns.EXTERNAL_ID;
         }
 
-        if (column.isEmpty() || !columns.contains(column)) {
+        if (column.isEmpty() || ReservedColumns.isHidden(column) || !columns.contains(column)) {
             throw new DataTableException("Unknown column '" + field + "'", errorType);
         }
 

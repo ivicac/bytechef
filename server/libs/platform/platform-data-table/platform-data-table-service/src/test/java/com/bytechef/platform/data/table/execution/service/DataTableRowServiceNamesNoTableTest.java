@@ -49,7 +49,7 @@ class DataTableRowServiceNamesNoTableTest {
         assertThat(Files.readString(ROW_SERVICE_SOURCE))
             .as("the row service must take its physical name from the resolved ref, never build one")
             .doesNotContain("PhysicalTableNaming")
-            .doesNotContain("new DataTableRef(")
+            .doesNotContain("DataTableRef.unowned(")
             .doesNotContain("new DataTableRef(");
     }
 }

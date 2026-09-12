@@ -19,6 +19,7 @@ package com.bytechef.platform.data.table.execution.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.RowFilter;
@@ -43,7 +44,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p>
  * The fixture table is built with raw DDL rather than through {@code DataTableService.createTable}, which additionally
- * requires a {@code data_table} registry row.
+ * requires a {@code data_table} registry row. It deliberately still declares the orphaned {@code owner_id} /
+ * {@code owner_type} columns, because that is what a table created by an older build looks like: reads must keep
+ * working over them, and a workflow must keep being refused when it names one.
  *
  * @author Ivica Cardic
  */
@@ -64,8 +67,8 @@ class DataTableRowQueryIntTest {
     void setUp() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_messages\"");
         jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_messages\" (\"id\" BIGSERIAL PRIMARY KEY, \"title\" TEXT, " +
-                "\"score\" BIGINT)");
+            "CREATE TABLE \"dt_0_messages\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, " +
+                "\"owner_type\" INT, \"title\" TEXT, \"score\" BIGINT)");
     }
 
     @Test
@@ -74,7 +77,7 @@ class DataTableRowQueryIntTest {
         insert("beta", 2);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(new RowFilter("title", RowFilter.Operator.EQ, "alpha")), List.of());
 
         assertEquals(1, dataTableRows.size());
@@ -93,7 +96,7 @@ class DataTableRowQueryIntTest {
         insert("beta", 9);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(
                     new RowFilter("title", RowFilter.Operator.EQ, "alpha"),
                     new RowFilter("score", RowFilter.Operator.GT, "5")),
@@ -107,7 +110,7 @@ class DataTableRowQueryIntTest {
         insert("alpha", 42);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(new RowFilter("score", RowFilter.Operator.EQ, "42")), List.of());
 
         assertEquals(1, dataTableRows.size());
@@ -119,7 +122,7 @@ class DataTableRowQueryIntTest {
         insert("goodbye", 2);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "lo wo")), List.of());
 
         assertEquals(1, dataTableRows.size());
@@ -131,7 +134,7 @@ class DataTableRowQueryIntTest {
         insert("100 sure", 2);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "100%")), List.of());
 
         assertEquals(1, dataTableRows.size());
@@ -144,7 +147,7 @@ class DataTableRowQueryIntTest {
         insert("gamma", 3);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
             List.of(new RowFilter("title", RowFilter.Operator.IN, List.of("alpha", "gamma"))), List.of());
 
         assertEquals(2, dataTableRows.size());
@@ -157,7 +160,7 @@ class DataTableRowQueryIntTest {
         insert("c", 3);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
             List.of(new RowFilter("score", RowFilter.Operator.BETWEEN, List.of("1", "2"))), List.of());
 
         assertEquals(2, dataTableRows.size());
@@ -170,7 +173,7 @@ class DataTableRowQueryIntTest {
         }
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 2, 1,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2, 1,
                 List.of(new RowFilter("score", RowFilter.Operator.GTE, "1")), List.of());
 
         assertEquals(2, dataTableRows.size());
@@ -189,7 +192,7 @@ class DataTableRowQueryIntTest {
         insert("c", 3);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 2, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2, 0,
                 List.of(), List.of(new RowSort("score", RowSort.Direction.DESC)));
 
         assertEquals(2, dataTableRows.size());
@@ -208,7 +211,7 @@ class DataTableRowQueryIntTest {
         insert("third", 1);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 1, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 1, 0,
                 List.of(), List.of(new RowSort("id", RowSort.Direction.DESC)));
 
         DataTableRow dataTableRow = dataTableRows.getFirst();
@@ -230,7 +233,7 @@ class DataTableRowQueryIntTest {
 
         for (int offset = 0; offset < 6; offset += 2) {
             List<DataTableRow> page =
-                dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 2,
+                dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2,
                     offset, List.of(), rowSorts);
 
             for (DataTableRow dataTableRow : page) {
@@ -252,7 +255,7 @@ class DataTableRowQueryIntTest {
         insert("drop", 9);
 
         List<DataTableRow> dataTableRows =
-            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 10, 0,
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 10, 0,
                 List.of(new RowFilter("title", RowFilter.Operator.EQ, "keep")),
                 List.of(new RowSort("score", RowSort.Direction.DESC)));
 
@@ -266,15 +269,31 @@ class DataTableRowQueryIntTest {
     }
 
     @Test
+    void testSortingOnAnOwnerColumnIsRejected() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(), List.of(new RowSort("owner_id", RowSort.Direction.ASC))));
+    }
+
+    @Test
+    void testFilteringOnAnOwnerColumnIsRejected() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("owner_id", RowFilter.Operator.EQ, "2")), List.of()));
+    }
+
+    @Test
     void testFilteringOnAnUnknownColumnIsRejected() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID), 100, 0,
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
                 List.of(new RowFilter("nope", RowFilter.Operator.EQ, "x")), List.of()));
     }
 
     private void insert(String title, int score) {
-        dataTableRowService.insertRow(dataTableRef(BASE_NAME, ENVIRONMENT_ID),
+        dataTableRowService.insertRow(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION),
             Map.of("title", title, "score", score));
     }
 
@@ -282,7 +301,7 @@ class DataTableRowQueryIntTest {
      * These tables are all created shared, so naming the shared physical form here states a fact about the fixture
      * rather than skipping resolution.
      */
-    private static DataTableRef dataTableRef(String baseName, long environmentId) {
-        return new DataTableRef(baseName, environmentId);
+    private static DataTableRef dataTableRef(String baseName, long environmentId, PlatformType platformType) {
+        return DataTableRef.unowned(baseName, environmentId, platformType);
     }
 }

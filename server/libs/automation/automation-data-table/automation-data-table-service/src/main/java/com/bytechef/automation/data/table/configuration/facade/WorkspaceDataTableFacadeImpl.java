@@ -18,6 +18,7 @@ package com.bytechef.automation.data.table.configuration.facade;
 
 import com.bytechef.automation.data.table.configuration.domain.WorkspaceDataTable;
 import com.bytechef.automation.data.table.configuration.service.WorkspaceDataTableService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
@@ -85,7 +86,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void addColumn(long dataTableId, ColumnSpec columnSpec, long environmentId) {
         dataTableService.addColumn(
-            dataTableService.getBaseNameById(dataTableId), columnSpec, environmentId);
+            dataTableService.getBaseNameById(dataTableId), columnSpec, environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
@@ -93,9 +94,9 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     public void createTable(
         String baseName, String description, List<ColumnSpec> columnSpecs, long workspaceId, long environmentId) {
 
-        dataTableService.createTable(baseName, description, columnSpecs, environmentId);
+        dataTableService.createTable(baseName, description, columnSpecs, environmentId, PlatformType.AUTOMATION);
 
-        long dataTableId = dataTableService.getIdByBaseName(baseName);
+        long dataTableId = dataTableService.getIdByBaseName(baseName, PlatformType.AUTOMATION);
 
         workspaceDataTableService.assignDataTableToWorkspace(dataTableId, workspaceId);
     }
@@ -104,20 +105,20 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void dropTable(long dataTableId, long environmentId) {
         dataTableService.dropTable(
-            dataTableService.getBaseNameById(dataTableId), environmentId);
+            dataTableService.getBaseNameById(dataTableId), environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void duplicateTable(long dataTableId, String newBaseName, long environmentId) {
         dataTableService.duplicateTable(
-            dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId);
+            dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId, PlatformType.AUTOMATION);
 
         Optional<Long> workspaceId = workspaceDataTableService.fetchWorkspaceId(dataTableId);
 
         if (workspaceId.isPresent()) {
             workspaceDataTableService.assignDataTableToWorkspace(
-                dataTableService.getIdByBaseName(newBaseName), workspaceId.get());
+                dataTableService.getIdByBaseName(newBaseName, PlatformType.AUTOMATION), workspaceId.get());
         }
     }
 
@@ -138,7 +139,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     @Transactional(readOnly = true)
     @PreAuthorize("hasWorkspaceScopeInEnvironmentId(#workspaceId, 'DATA_TABLE_VIEW', #environmentId)")
     public List<DataTableInfo> listTables(long workspaceId, long environmentId) {
-        List<DataTableInfo> dataTableInfos = dataTableService.listTables(environmentId);
+        List<DataTableInfo> dataTableInfos = dataTableService.listTables(environmentId, PlatformType.AUTOMATION);
 
         Set<Long> dataTableIds = workspaceDataTableService.getWorkspaceDataTables(workspaceId)
             .stream()
@@ -155,21 +156,22 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void removeColumn(long dataTableId, String columnName, long environmentId) {
         dataTableService.removeColumn(
-            dataTableService.getBaseNameById(dataTableId), columnName, environmentId);
+            dataTableService.getBaseNameById(dataTableId), columnName, environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void renameColumn(long dataTableId, String fromColumnName, String newName, long environmentId) {
         dataTableService.renameColumn(
-            dataTableService.getBaseNameById(dataTableId), fromColumnName, newName, environmentId);
+            dataTableService.getBaseNameById(dataTableId), fromColumnName, newName, environmentId,
+            PlatformType.AUTOMATION);
     }
 
     @Override
     @PreAuthorize("hasResourceScopeInEnvironmentId(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT', #environmentId)")
     public void renameTable(long dataTableId, String newBaseName, long environmentId) {
         dataTableService.renameTable(
-            dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId);
+            dataTableService.getBaseNameById(dataTableId), newBaseName, environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
@@ -210,9 +212,14 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
         return dataTableRowService.importCsv(dataTableRef(dataTableId, environmentId), csv);
     }
 
+    /**
+     * Workspace tables live in the AUTOMATION pool, where a run acts for no connected user -- those exist only in the
+     * embedded pool -- so the ref carries no run owner and the row statements it feeds see the unowned rows that are
+     * the only rows this pool holds.
+     */
     private DataTableRef dataTableRef(long dataTableId, long environmentId) {
-        return new DataTableRef(
-            dataTableService.getBaseNameById(dataTableId), environmentId);
+        return DataTableRef.unowned(
+            dataTableService.getBaseNameById(dataTableId), environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
@@ -240,7 +247,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     public DataTableInfo getTable(long dataTableId, long environmentId) {
         String baseName = dataTableService.getBaseNameById(dataTableId);
 
-        return dataTableService.fetchDataTableInfo(baseName, environmentId)
+        return dataTableService.fetchDataTableInfo(baseName, environmentId, PlatformType.AUTOMATION)
             .orElseThrow(() -> new DataTableException(
                 "Data table '" + baseName + "' does not exist in this environment",
                 DataTableErrorType.DATA_TABLE_NOT_FOUND));
@@ -250,7 +257,7 @@ public class WorkspaceDataTableFacadeImpl implements WorkspaceDataTableFacade {
     @PreAuthorize("hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')")
     public void updateDescription(long dataTableId, @Nullable String description) {
         dataTableService.updateDescription(
-            dataTableService.getBaseNameById(dataTableId), description);
+            dataTableService.getBaseNameById(dataTableId), description, PlatformType.AUTOMATION);
     }
 
     @Override

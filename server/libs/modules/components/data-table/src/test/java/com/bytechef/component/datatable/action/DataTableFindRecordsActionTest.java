@@ -153,7 +153,7 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
                     new DataTableRow(1, Map.of("status", "BOT")), new DataTableRow(2, Map.of("status", "CLOSED"))));
 
         ModifiableActionDefinition actionDefinition = DataTableFindRecordsAction.of(
-            dataTableService, dataTableRowService);
+            dataTableService, dataTableRowService, ownerResolverProvider);
 
         assertEquals(
             List.of(Map.of("id", 1L, "status", "BOT"), Map.of("id", 2L, "status", "CLOSED")),

@@ -27,8 +27,10 @@ import org.springframework.context.ApplicationEvent;
  * Application event published when a data table change should trigger webhooks.
  *
  * <p>
- * Carries the table the row was written into rather than the base name it is known by, so the listener resolves the
- * same registry row that registration hung off.
+ * Carries the table the row was written into, not the base name it is known by: a name is legal in both pools at once,
+ * so a name-keyed event cannot say which table changed. The ref also carries the run owner, which is what says whose
+ * row it was -- one table holds every account's rows, and without it account 42's row values reach account 43's
+ * registered URL.
  *
  * @author Ivica Cardic
  */
@@ -55,8 +57,9 @@ public class DataTableWebhookEvent extends ApplicationEvent {
     }
 
     /**
-     * The table the changed row lives in, as resolution settled it: environment, base name and the owner whose copy it
-     * is. The listener looks registrations up by it, so an event reaches only the registrations of that very table.
+     * The table the changed row lives in, as resolution settled it: pool, environment, base name and the owner whose
+     * copy it is. The listener looks registrations up by it, so an event reaches only the registrations of that very
+     * table.
      */
     public DataTableRef getDataTableRef() {
         return dataTableRef;

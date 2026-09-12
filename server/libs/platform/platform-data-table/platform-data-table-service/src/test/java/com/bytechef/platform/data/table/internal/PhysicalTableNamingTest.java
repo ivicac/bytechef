@@ -18,6 +18,7 @@ package com.bytechef.platform.data.table.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.platform.constant.PlatformType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,24 +27,33 @@ import org.junit.jupiter.api.Test;
 class PhysicalTableNamingTest {
 
     @Test
-    void testThePhysicalNameIsThePrefixAndTheBaseName() {
-        assertThat(PhysicalTableNaming.buildPhysicalName(0, "orders")).isEqualTo("dt_0_orders");
-        assertThat(PhysicalTableNaming.buildPhysicalName(2, "orders")).isEqualTo("dt_2_orders");
+    void testEmbeddedCarriesItsOwnPoolToken() {
+        assertThat(PhysicalTableNaming.buildPhysicalName(PlatformType.EMBEDDED, 0L, "orders"))
+            .isEqualTo("edt_0_orders");
+    }
+
+    @Test
+    void testAutomationKeepsItsOwnPoolToken() {
+        assertThat(PhysicalTableNaming.buildPhysicalName(PlatformType.AUTOMATION, 1L, "orders"))
+            .isEqualTo("dt_1_orders");
     }
 
     /**
-     * The {@code LIKE} scan that finds every physical instance of a base name is built from this prefix, so it has to
-     * be everything up to the base name and nothing more.
+     * The prefix is what {@code listTables} strips to recover a base name, so it has to be exactly the part of the name
+     * that precedes one -- a prefix short by a character would leave a stray delimiter on every base name it recovers.
      */
     @Test
     void testThePrefixIsEverythingBeforeTheBaseName() {
-        assertThat(PhysicalTableNaming.prefix(1)).isEqualTo("dt_1_");
-        assertThat(PhysicalTableNaming.buildPhysicalName(1, "orders"))
-            .startsWith(PhysicalTableNaming.prefix(1));
+        String prefix = PhysicalTableNaming.prefix(PlatformType.EMBEDDED, 2L);
+
+        assertThat(prefix).isEqualTo("edt_2_");
+        assertThat(PhysicalTableNaming.buildPhysicalName(PlatformType.EMBEDDED, 2L, "orders"))
+            .isEqualTo(prefix + "orders");
     }
 
     @Test
     void testAMixedCaseBaseNameIsLowercased() {
-        assertThat(PhysicalTableNaming.buildPhysicalName(0, "Orders")).isEqualTo("dt_0_orders");
+        assertThat(PhysicalTableNaming.buildPhysicalName(PlatformType.EMBEDDED, 0L, "MyOrders"))
+            .isEqualTo("edt_0_myorders");
     }
 }

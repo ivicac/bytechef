@@ -26,6 +26,17 @@ import org.jspecify.annotations.Nullable;
  * generated row schema, or a CSV round trip.
  *
  * <p>
+ * {@link #OWNER_ID} and {@link #OWNER_TYPE} are on every physical table, owned and shared alike, and they carry the
+ * second ownership axis: which account a row belongs to inside whichever table was resolved. The platform writes them
+ * and the platform reads them. A workflow must not be able to select, filter or sort on either -- naming them is how a
+ * step would read another account's rows out of a shared table, or hand its own rows away -- which is what
+ * {@link #isHidden} enforces.
+ *
+ * <p>
+ * The two always move together. An {@code owner_id} written beside a null {@code owner_type} belongs to nobody: it
+ * matches no predicate, so it reads as written and behaves as though it were not.
+ *
+ * <p>
  * {@code external_id} is reserved but not hidden -- it is the caller's own key, returned on every row and usable in
  * filters and sorts.
  *
@@ -34,9 +45,12 @@ import org.jspecify.annotations.Nullable;
 public final class ReservedColumns {
 
     public static final String ID = "id";
+    public static final String OWNER_ID = "owner_id";
+    public static final String OWNER_TYPE = "owner_type";
     public static final String EXTERNAL_ID = "external_id";
 
-    private static final Set<String> ALL = Set.of(ID, EXTERNAL_ID);
+    private static final Set<String> ALL = Set.of(ID, OWNER_ID, OWNER_TYPE, EXTERNAL_ID);
+    private static final Set<String> HIDDEN = Set.of(OWNER_ID, OWNER_TYPE);
 
     private ReservedColumns() {
     }
@@ -51,5 +65,18 @@ public final class ReservedColumns {
         }
 
         return ALL.contains(columnName.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * The narrower predicate: a hidden column is one a caller may not even name. {@code id} is reserved but not hidden
+     * -- it is returned on every row and taken by {@code getRow}/{@code updateRow}/{@code deleteRow}, so a query may
+     * filter and sort on it. The owner columns are the platform's alone.
+     */
+    public static boolean isHidden(@Nullable String columnName) {
+        if (columnName == null) {
+            return false;
+        }
+
+        return HIDDEN.contains(columnName.toLowerCase(Locale.ROOT));
     }
 }

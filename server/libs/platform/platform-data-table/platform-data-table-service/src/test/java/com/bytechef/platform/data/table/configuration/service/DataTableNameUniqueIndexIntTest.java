@@ -16,8 +16,10 @@
 
 package com.bytechef.platform.data.table.configuration.service;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import org.junit.jupiter.api.Test;
@@ -31,9 +33,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * The shape of the registry key, asserted against the database rather than against the changelog text.
  *
  * <p>
- * A name identifies one row, and the service takes that at its word: {@code fetchDataTable} asks the repository for a
- * single row by name, so a second row of the same name would not resolve ambiguously -- it would make every read of
- * that name throw. The key is what makes the singular lookup legitimate.
+ * A name identifies one row per pool, and the service now takes that at its word: {@code fetchDataTable} asks the
+ * repository for a single row by name and pool, so a second row of the same name would not resolve ambiguously -- it
+ * would make every read of that name throw. The key is what makes the singular lookup legitimate.
  *
  * <p>
  * Rows are written with raw SQL on purpose, because the point is what the database refuses rather than what the domain
@@ -50,17 +52,27 @@ class DataTableNameUniqueIndexIntTest {
 
     @Test
     void testOnePoolCannotHoldTheSameNameTwice() {
-        insert("uqinvoices");
+        insert("uqinvoices", PlatformType.EMBEDDED);
 
-        assertThatThrownBy(() -> insert("uqinvoices"))
+        assertThatThrownBy(() -> insert("uqinvoices", PlatformType.EMBEDDED))
             .isInstanceOf(DataIntegrityViolationException.class);
     }
 
-    private void insert(String name) {
+    /**
+     * The pool is part of the key, so the same name in the other pool is a different table rather than a duplicate.
+     */
+    @Test
+    void testTheSameNameMayExistInBothPools() {
+        insert("uqpools", PlatformType.AUTOMATION);
+
+        assertThatCode(() -> insert("uqpools", PlatformType.EMBEDDED)).doesNotThrowAnyException();
+    }
+
+    private void insert(String name, PlatformType platformType) {
         jdbcTemplate.update(
-            "INSERT INTO data_table (name, created_date, created_by, " +
+            "INSERT INTO data_table (name, platform_type, created_date, created_by, " +
                 "last_modified_date, last_modified_by, version) " +
-                "VALUES (?, now(), 'test', now(), 'test', 0)",
-            name);
+                "VALUES (?, ?, now(), 'test', now(), 'test', 0)",
+            name, platformType.ordinal());
     }
 }

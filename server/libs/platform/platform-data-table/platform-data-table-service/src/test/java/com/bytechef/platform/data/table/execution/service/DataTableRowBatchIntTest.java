@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
@@ -45,7 +46,7 @@ import org.springframework.context.annotation.Import;
 class DataTableRowBatchIntTest {
 
     private static final long ENVIRONMENT_ID = 0;
-    private static final DataTableRef REF = new DataTableRef("batched", ENVIRONMENT_ID);
+    private static final DataTableRef REF = DataTableRef.unowned("batched", ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
     @Autowired
     private DataTableService dataTableService;
@@ -55,12 +56,12 @@ class DataTableRowBatchIntTest {
 
     @BeforeEach
     void beforeEach() {
-        dataTableService.dropTable("batched", ENVIRONMENT_ID);
+        dataTableService.dropTable("batched", ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         dataTableService.createTable(
             "batched", null,
             List.of(new ColumnSpec("title", ColumnType.STRING), new ColumnSpec("score", ColumnType.INTEGER)),
-            ENVIRONMENT_ID);
+            ENVIRONMENT_ID, PlatformType.AUTOMATION);
     }
 
     @Test
@@ -193,13 +194,13 @@ class DataTableRowBatchIntTest {
     }
 
     /**
-     * The reserved column 'id' must still be silently skipped under the strict header check, exactly as they were
-     * before this task made an unrecognised header an error -- neither header may throw, and neither may reach the
-     * row's values, while the real column beside them still does.
+     * The reserved columns 'id' and 'owner_id' must still be silently skipped under the strict header check, exactly as
+     * they were before this task made an unrecognised header an error -- neither header may throw, and neither may
+     * reach the row's values, while the real column beside them still does.
      */
     @Test
     void testImportCsvStillSkipsReservedHeaders() {
-        int imported = dataTableRowService.importCsv(REF, "id,title\n999,a\n");
+        int imported = dataTableRowService.importCsv(REF, "id,title,owner_id\n999,a,123\n");
 
         assertEquals(1, imported);
 

@@ -16,6 +16,7 @@
 
 package com.bytechef.component.datatable.action;
 
+import static com.bytechef.component.datatable.constant.DataTableConstants.ACCOUNT_ID;
 import static com.bytechef.component.datatable.constant.DataTableConstants.RECORDS;
 import static com.bytechef.component.datatable.constant.DataTableConstants.TABLE;
 import static com.bytechef.component.datatable.constant.DataTableConstants.VALUES;
@@ -34,15 +35,20 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.Property;
 import com.bytechef.definition.BaseProperty.ResourceType;
 import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
+import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Create Record(s): Insert one or more new records to a table
@@ -53,19 +59,23 @@ public class DataTableCreateRecordsAction {
 
     private final DataTableService dataTableService;
     private final DataTableRowService dataTableRowService;
+    private final ObjectProvider<OwnerResolver> ownerResolverProvider;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+        DataTableService dataTableService, DataTableRowService dataTableRowService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
-        return new DataTableCreateRecordsAction(dataTableService, dataTableRowService).build();
+        return new DataTableCreateRecordsAction(dataTableService, dataTableRowService, ownerResolverProvider).build();
     }
 
     private DataTableCreateRecordsAction(
-        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+        DataTableService dataTableService, DataTableRowService dataTableRowService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
         this.dataTableService = dataTableService;
         this.dataTableRowService = dataTableRowService;
+        this.ownerResolverProvider = ownerResolverProvider;
     }
 
     private ModifiableActionDefinition build() {
@@ -77,12 +87,13 @@ public class DataTableCreateRecordsAction {
                     .label("Table")
                     .resourceReference(ResourceType.DATA_TABLE)
                     .required(true)
-                    .options(DataTableUtils.getActionTableOptions(dataTableService)),
+                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider)),
                 dynamicProperties(RECORDS)
                     .propertiesLookupDependsOn(TABLE)
                     .properties(
-                        DataTableUtils.createDynamicProperties(dataTableService, false))
-                    .required(true))
+                        DataTableUtils.createDynamicProperties(dataTableService, ownerResolverProvider, false))
+                    .required(true),
+                DataTableUtils.accountProperty())
             .output(this::output)
             .perform(this::perform);
     }
@@ -91,10 +102,15 @@ public class DataTableCreateRecordsAction {
     private OutputResponse output(
         Parameters inputParameters, Parameters connectionParameters, ActionContext actionContext) {
 
+        ActionContextAware actionContextAware = (ActionContextAware) actionContext;
+
         String baseName = inputParameters.getRequiredString(TABLE);
 
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
+
         ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
-            dataTableService, baseName, DEVELOPMENT.ordinal());
+            dataTableService, baseName, DEVELOPMENT.ordinal(), owner);
 
         DataTableInfo dataTableInfo = resolvedDataTable.dataTableInfo();
 
@@ -129,10 +145,13 @@ public class DataTableCreateRecordsAction {
 
         List<DataTableRow> created = new ArrayList<>();
 
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
+
         long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId());
 
         ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
-            dataTableService, baseName, environmentId);
+            dataTableService, baseName, environmentId, owner);
 
         if (valuesObj instanceof List<?> valuesList) {
             for (Object record : valuesList) {

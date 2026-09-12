@@ -19,6 +19,7 @@ package com.bytechef.platform.data.table.configuration.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -49,14 +50,15 @@ class DataTableExternalIdIndexIntTest {
 
     @BeforeEach
     void beforeEach() {
-        dataTableService.dropTable("keyed", ENVIRONMENT_ID);
+        dataTableService.dropTable("keyed", ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         dataTableService.createTable(
-            "keyed", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID);
+            "keyed", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
+            PlatformType.AUTOMATION);
     }
 
     @Test
-    void testTheSameExternalIdTwiceIsRejected() {
+    void testTheSameExternalIdTwiceWithANullOwnerIsRejected() {
         jdbcTemplate.update("INSERT INTO \"dt_0_keyed\" (\"external_id\", \"title\") VALUES ('k1', 'a')");
 
         assertThrows(
@@ -68,6 +70,18 @@ class DataTableExternalIdIndexIntTest {
     void testRowsWithoutAnExternalIdCoexist() {
         jdbcTemplate.update("INSERT INTO \"dt_0_keyed\" (\"title\") VALUES ('a')");
         jdbcTemplate.update("INSERT INTO \"dt_0_keyed\" (\"title\") VALUES ('b')");
+
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM \"dt_0_keyed\"", Integer.class);
+
+        assertEquals(2, count);
+    }
+
+    @Test
+    void testTwoOwnersMayShareAnExternalId() {
+        jdbcTemplate.update(
+            "INSERT INTO \"dt_0_keyed\" (\"owner_id\", \"owner_type\", \"external_id\") VALUES (1, 0, 'k1')");
+        jdbcTemplate.update(
+            "INSERT INTO \"dt_0_keyed\" (\"owner_id\", \"owner_type\", \"external_id\") VALUES (2, 0, 'k1')");
 
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM \"dt_0_keyed\"", Integer.class);
 

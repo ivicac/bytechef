@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
@@ -47,7 +48,7 @@ class DataTableRowServiceIntTest {
     private static final long DEV_ENVIRONMENT_ID = 0;
 
     private static final DataTableRef DATA_TABLE_REF =
-        new DataTableRef("rows", DEV_ENVIRONMENT_ID);
+        DataTableRef.unowned("rows", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
     @Autowired
     private DataTableService dataTableService;
@@ -57,10 +58,11 @@ class DataTableRowServiceIntTest {
 
     @BeforeEach
     void beforeEach() {
-        dataTableService.dropTable("rows", DEV_ENVIRONMENT_ID);
+        dataTableService.dropTable("rows", DEV_ENVIRONMENT_ID, PlatformType.AUTOMATION);
 
         dataTableService.createTable(
-            "rows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID);
+            "rows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID,
+            PlatformType.AUTOMATION);
     }
 
     @Test

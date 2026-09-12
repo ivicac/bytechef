@@ -37,6 +37,7 @@ import com.bytechef.ee.automation.data.table.public_.web.rest.model.UpdateRowReq
 import com.bytechef.ee.automation.data.table.public_.web.rest.model.UpsertRowRequestModel;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
@@ -90,7 +91,7 @@ class DataTableRowApiControllerTest {
     }
 
     private void stubTable() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal())).thenReturn(
             new DataTableInfo(7L, "orders", null, List.of(new ColumnSpec("total", ColumnType.NUMBER)), Instant.EPOCH));
     }
@@ -198,7 +199,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testGetRowReturns200() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getRow(7L, 3L, PRODUCTION_ENVIRONMENT_ID))
             .thenReturn(new DataTableRow(3L, null, Map.of("total", BigDecimal.ONE)));
 
@@ -254,7 +255,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testDeleteRowReturns204() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.deleteRow(7L, 3L, PRODUCTION_ENVIRONMENT_ID)).thenReturn(true);
 
         assertEquals(
@@ -264,7 +265,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testDeleteRowFalseIsRowNotFound() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.deleteRow(7L, 3L, PRODUCTION_ENVIRONMENT_ID)).thenReturn(false);
 
         DataTableException dataTableException = assertThrows(
@@ -275,7 +276,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testGetRowByExternalIdReturns200() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.fetchRowByExternalId(7L, "k", PRODUCTION_ENVIRONMENT_ID))
             .thenReturn(Optional.of(new DataTableRow(1L, "k", Map.of())));
 
@@ -289,7 +290,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testGetRowByExternalIdEmptyIsRowNotFound() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.fetchRowByExternalId(7L, "missing", PRODUCTION_ENVIRONMENT_ID)).thenReturn(Optional.empty());
 
         DataTableException dataTableException = assertThrows(
@@ -328,7 +329,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testDeleteRowByExternalIdReturns204() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.deleteRowByExternalId(7L, "k", PRODUCTION_ENVIRONMENT_ID)).thenReturn(true);
 
         assertEquals(
@@ -338,7 +339,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testDeleteRowByExternalIdFalseIsRowNotFound() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.deleteRowByExternalId(7L, "missing", PRODUCTION_ENVIRONMENT_ID)).thenReturn(false);
 
         DataTableException dataTableException = assertThrows(
@@ -437,7 +438,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testDeleteRowsReturns200WithTheDeletedIds() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.deleteRows(7L, List.of(1L, 2L), PRODUCTION_ENVIRONMENT_ID)).thenReturn(List.of(1L, 2L));
 
         ResponseEntity<DeleteRowsResponseModel> response = controller.deleteRows("orders", List.of(1L, 2L), null);
@@ -450,7 +451,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testClearRowsReturnsTheDeletedCount() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.clearRows(7L, PRODUCTION_ENVIRONMENT_ID)).thenReturn(42L);
 
         ResponseEntity<ClearRowsResponseModel> response = controller.clearRows("orders", null);
@@ -463,7 +464,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testImportRowsReturnsTheImportedCount() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.importCsv(7L, "total\n1\n", PRODUCTION_ENVIRONMENT_ID)).thenReturn(1);
 
         ResponseEntity<ImportRowsResponseModel> response = controller.importRows("orders", "total\n1\n", null);
@@ -476,7 +477,7 @@ class DataTableRowApiControllerTest {
 
     @Test
     void testExportSetsCsvHeaders() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.exportCsv(7L, PRODUCTION_ENVIRONMENT_ID)).thenReturn("external_id,total\n,1\n");
 
         ResponseEntity<String> response = controller.exportRows("orders", null);

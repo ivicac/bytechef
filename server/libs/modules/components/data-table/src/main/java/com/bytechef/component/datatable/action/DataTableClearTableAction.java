@@ -16,6 +16,7 @@
 
 package com.bytechef.component.datatable.action;
 
+import static com.bytechef.component.datatable.constant.DataTableConstants.ACCOUNT_ID;
 import static com.bytechef.component.datatable.constant.DataTableConstants.TABLE;
 import static com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import static com.bytechef.component.definition.ComponentDsl.action;
@@ -30,14 +31,19 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.definition.BaseProperty.ResourceType;
 import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
+import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Clear Table: Delete all records from a table
@@ -48,19 +54,23 @@ public class DataTableClearTableAction {
 
     private final DataTableService dataTableService;
     private final DataTableRowService dataTableRowService;
+    private final ObjectProvider<OwnerResolver> ownerResolverProvider;
 
     @SuppressFBWarnings("EI")
     public static ModifiableActionDefinition of(
-        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+        DataTableService dataTableService, DataTableRowService dataTableRowService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
-        return new DataTableClearTableAction(dataTableService, dataTableRowService).build();
+        return new DataTableClearTableAction(dataTableService, dataTableRowService, ownerResolverProvider).build();
     }
 
     private DataTableClearTableAction(
-        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+        DataTableService dataTableService, DataTableRowService dataTableRowService,
+        ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
         this.dataTableService = dataTableService;
         this.dataTableRowService = dataTableRowService;
+        this.ownerResolverProvider = ownerResolverProvider;
     }
 
     private ModifiableActionDefinition build() {
@@ -72,7 +82,8 @@ public class DataTableClearTableAction {
                     .label("Table")
                     .resourceReference(ResourceType.DATA_TABLE)
                     .required(true)
-                    .options(DataTableUtils.getActionTableOptions(dataTableService)))
+                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider)),
+                DataTableUtils.accountProperty())
             .output(
                 outputSchema(
                     object()
@@ -88,10 +99,13 @@ public class DataTableClearTableAction {
 
         String baseName = inputParameters.getRequiredString(TABLE);
 
-        long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId());
+        Long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId(), "environmentId is required");
+
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
 
         ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
-            dataTableService, baseName, environmentId);
+            dataTableService, baseName, environmentId, owner);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
             resolvedDataTable.dataTableRef(), Integer.MAX_VALUE, 0);

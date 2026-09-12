@@ -31,6 +31,7 @@ import com.bytechef.ee.automation.data.table.public_.web.rest.model.RenameColumn
 import com.bytechef.ee.automation.data.table.public_.web.rest.model.UpdateDataTableRequestModel;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.exception.DataTableException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
@@ -112,7 +113,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testCreateValidatesNamesThenCreatesThenReturnsTheTable() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", "d", List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(1L)).thenReturn(Map.of());
@@ -142,7 +143,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testCreateWithoutTagsNeverCallsUpdateTags() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", null, List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(1L)).thenReturn(Map.of());
@@ -168,7 +169,7 @@ class DataTableApiControllerTest {
                     .name("orders")
                     .columns(
                         List.of(
-                            new DataTableColumnModel().name("external_id")
+                            new DataTableColumnModel().name("owner_id")
                                 .type(ColumnTypeModel.STRING))),
                 null));
 
@@ -193,7 +194,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testGetDataTable() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", "d", List.of(new ColumnSpec("total", ColumnType.NUMBER)),
                 Instant.EPOCH));
@@ -216,7 +217,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testUpdateLeavesOmittedFieldsAlone() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", "d", List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(anyLong())).thenReturn(Map.of());
@@ -232,7 +233,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testUpdateWithOnlyTagsLeavesDescriptionAlone() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", "d", List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(anyLong())).thenReturn(Map.of());
@@ -255,7 +256,7 @@ class DataTableApiControllerTest {
      */
     @Test
     void testUpdateTreatsTagsAsThreeState() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", "d", List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(anyLong())).thenReturn(Map.of());
@@ -283,7 +284,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testDeleteIs204() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
 
         assertEquals(
             HttpStatus.NO_CONTENT, controller.deleteDataTable("orders", null)
@@ -294,7 +295,7 @@ class DataTableApiControllerTest {
 
     @Test
     void testColumnOperationsResolveTheTableOnce() {
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenReturn(new DataTableInfo(7L, "orders", null, List.of(), Instant.EPOCH));
         when(facade.getTagsByTableId(anyLong())).thenReturn(Map.of());
@@ -321,7 +322,7 @@ class DataTableApiControllerTest {
         assertThrows(
             DataTableException.class,
             () -> controller.createColumn(
-                "orders", new CreateColumnRequestModel().name("external_id")
+                "orders", new CreateColumnRequestModel().name("owner_type")
                     .type(ColumnTypeModel.STRING),
                 null));
 

@@ -31,7 +31,7 @@ class DataTableRecordCreatedTriggerTest extends AbstractDataTableTriggerTest {
         assertEquals(
             Map.of("id", 7, "status", "BOT"),
             webhookRequest(
-                DataTableRecordCreatedTrigger.of(null, null, null),
+                DataTableRecordCreatedTrigger.of(null, null, null, null),
                 rowContent("RECORD_CREATED", Map.of("status", "BOT"))));
     }
 
@@ -39,6 +39,6 @@ class DataTableRecordCreatedTriggerTest extends AbstractDataTableTriggerTest {
     void testWebhookRequestWithoutPayloadReturnsContent() throws Exception {
         Map<String, Object> content = Map.of("type", "RECORD_CREATED", "table", "conversations");
 
-        assertEquals(content, webhookRequest(DataTableRecordCreatedTrigger.of(null, null, null), content));
+        assertEquals(content, webhookRequest(DataTableRecordCreatedTrigger.of(null, null, null, null), content));
     }
 }

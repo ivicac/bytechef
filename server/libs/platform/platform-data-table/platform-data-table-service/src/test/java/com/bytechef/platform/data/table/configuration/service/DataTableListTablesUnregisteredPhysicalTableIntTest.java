@@ -18,6 +18,7 @@ package com.bytechef.platform.data.table.configuration.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
@@ -34,9 +35,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * name its remainder happens to spell.
  *
  * <p>
- * Not hypothetical. Leftover physical tables exist in databases built by earlier schemas, and their remainder past the
- * environment prefix reads as a base name ({@code 5_connecteduser_orders}). Reporting them would put an identifier no
- * workflow can name in the console's table list.
+ * Not hypothetical. Physical tables that carried an owner in their name exist in databases built before a table stopped
+ * belonging to one account, and their remainder past the environment prefix reads as a base name
+ * ({@code 5_connecteduser_orders}). Reporting them would put an identifier no workflow can name in the console's table
+ * list -- and one whose rows are somebody's.
  *
  * @author Ivica Cardic
  */
@@ -55,10 +57,10 @@ class DataTableListTablesUnregisteredPhysicalTableIntTest {
     @Test
     void testAPhysicalTableNoRegistryRowClaimsIsSkipped() {
         jdbcTemplate.execute(
-            "CREATE TABLE dt_0_5_connecteduser_leftovers (\"id\" BIGSERIAL PRIMARY KEY, "
-                + "\"title\" VARCHAR(255))");
+            "CREATE TABLE edt_0_5_connecteduser_leftovers (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, "
+                + "\"owner_type\" INT, \"title\" VARCHAR(255))");
 
-        List<DataTableInfo> dataTableInfos = dataTableService.listTables(ENVIRONMENT_ID);
+        List<DataTableInfo> dataTableInfos = dataTableService.listTables(ENVIRONMENT_ID, PlatformType.EMBEDDED);
 
         assertThat(dataTableInfos)
             .extracting(DataTableInfo::baseName)

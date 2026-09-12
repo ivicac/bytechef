@@ -38,10 +38,13 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * Every method names its table with a {@link DataTableRef} rather than with a base name, so the table a statement
- * reaches cannot differ from the one resolution picked: there is no base name here for the service to address a table
- * with on its own. Get a ref from {@code DataTableService.fetchDataTableResolution}; see {@link DataTableRef} for the
- * one other, deliberately narrow, way to build one.
+ * Every method names its table with a {@link DataTableRef} rather than with a base name, and that is the module's one
+ * defence against a run touching another account's data. A ref already carries the pool, the environment and BOTH
+ * owners resolution settled on -- the one that chose the physical table and the one the run acts for -- so this service
+ * never chooses any of them. There is no base name here for it to pair with an owner of its own, and no owner parameter
+ * on any operation for a caller to supply one, so neither the table a statement reaches nor the rows it matches can
+ * differ from what resolution picked. Get a ref from {@code DataTableService.fetchDataTableResolution}; see
+ * {@link DataTableRef} for the one other, deliberately narrow, way to build one.
  * </p>
  *
  * <p>
@@ -129,9 +132,9 @@ public interface DataTableRowService {
 
     /**
      * Imports CSV text into the table. The CSV must contain a header row with column names matching existing columns
-     * (case-insensitive). The reserved column 'id' is ignored if present; a header naming 'external_id' sets each row's
-     * external id rather than a column value. Any other header that names no column of the table is rejected, throwing
-     * {@code DataTableException} with error type
+     * (case-insensitive). The reserved columns 'id', 'owner_id' and 'owner_type' are ignored if present; a header
+     * naming 'external_id' sets each row's external id rather than a column value. Any other header that names no
+     * column of the table is rejected, throwing {@code DataTableException} with error type
      * {@link com.bytechef.platform.data.table.configuration.exception.DataTableErrorType#CSV_INVALID}.
      *
      * @param dataTableRef the resolved physical table

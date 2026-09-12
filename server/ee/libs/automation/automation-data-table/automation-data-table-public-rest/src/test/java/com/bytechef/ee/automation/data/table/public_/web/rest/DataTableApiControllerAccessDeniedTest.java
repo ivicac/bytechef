@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.exception.DataTableErrorType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class DataTableApiControllerAccessDeniedTest {
     @BeforeEach
     void beforeEach() {
         when(environmentService.getEnvironment((String) null)).thenReturn(Environment.PRODUCTION);
-        when(dataTableService.getIdByBaseName("orders")).thenReturn(7L);
+        when(dataTableService.getIdByBaseName("orders", PlatformType.AUTOMATION)).thenReturn(7L);
         when(facade.getTable(7L, Environment.PRODUCTION.ordinal()))
             .thenThrow(new AccessDeniedException("denied"));
 

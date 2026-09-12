@@ -21,6 +21,7 @@ package com.bytechef.component.datatable.constant;
  */
 public class DataTableConstants {
 
+    public static final String ACCOUNT_ID = "accountId";
     public static final String DATA_TABLE = "dataTable";
     public static final String TABLE = "table";
     public static final String ID = "id";

@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
 import com.bytechef.platform.data.table.domain.DataTableRef;
@@ -150,7 +151,7 @@ class CreateDataTableFromCsvToolCallbackTest {
         callback.call(buildInput("contacts", csv), toolContextWithWorkspace());
 
         verify(dataTableRowService, times(2)).insertRow(
-            eq(new DataTableRef("contacts", 0L)), any());
+            eq(DataTableRef.unowned("contacts", 0L, PlatformType.AUTOMATION)), any());
     }
 
     @Test
@@ -216,7 +217,7 @@ class CreateDataTableFromCsvToolCallbackTest {
         ArgumentCaptor<Map<String, Object>> rowCaptor = ArgumentCaptor.forClass(Map.class);
 
         verify(dataTableRowService, atLeastOnce()).insertRow(
-            eq(new DataTableRef("typed", 0L)), rowCaptor.capture());
+            eq(DataTableRef.unowned("typed", 0L, PlatformType.AUTOMATION)), rowCaptor.capture());
 
         Map<String, Object> values = rowCaptor.getValue();
 

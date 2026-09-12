@@ -56,9 +56,10 @@ class DataTableServiceH2IntTest {
     @Test
     void testCreateTableAndListTables() {
         dataTableService.createTable(
-            "created", "a description", List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID);
+            "created", "a description", List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID,
+            PLATFORM_TYPE);
 
-        List<DataTableInfo> dataTableInfos = dataTableService.listTables(DEV_ENVIRONMENT_ID);
+        List<DataTableInfo> dataTableInfos = dataTableService.listTables(DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         assertTrue(
             dataTableInfos.stream()
@@ -68,11 +69,11 @@ class DataTableServiceH2IntTest {
     @Test
     void testAddRenameAndRemoveColumn() {
         dataTableService.createTable(
-            "columns", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID);
+            "columns", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         dataTableService.addColumn(
-            "columns", new ColumnSpec("amount", ColumnType.NUMBER), DEV_ENVIRONMENT_ID);
-        dataTableService.renameColumn("columns", "amount", "total", DEV_ENVIRONMENT_ID);
+            "columns", new ColumnSpec("amount", ColumnType.NUMBER), DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
+        dataTableService.renameColumn("columns", "amount", "total", DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         DataTableRow dataTableRow = dataTableRowService.insertRow(
             ref("columns"), Map.of("title", "renamed", "total", 12));
@@ -80,13 +81,13 @@ class DataTableServiceH2IntTest {
         assertTrue(dataTableRow.values()
             .containsKey("total"));
 
-        dataTableService.removeColumn("columns", "total", DEV_ENVIRONMENT_ID);
+        dataTableService.removeColumn("columns", "total", DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
     }
 
     @Test
     void testInsertUpdateAndReadRows() {
         dataTableService.createTable(
-            "rows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID);
+            "rows", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         DataTableRef dataTableRef = ref("rows");
 
@@ -116,20 +117,20 @@ class DataTableServiceH2IntTest {
     @Test
     void testDuplicateAndRenameTable() {
         dataTableService.createTable(
-            "source", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID);
+            "source", null, List.of(new ColumnSpec("title", ColumnType.STRING)), DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         dataTableRowService.insertRow(ref("source"), Map.of("title", "copied"));
 
-        dataTableService.duplicateTable("source", "duplicate", DEV_ENVIRONMENT_ID);
+        dataTableService.duplicateTable("source", "duplicate", DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         assertEquals(1, dataTableRowService.listRows(ref("duplicate"), 10, 0)
             .size());
 
-        dataTableService.renameTable("duplicate", "renamed", DEV_ENVIRONMENT_ID);
+        dataTableService.renameTable("duplicate", "renamed", DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
 
         assertEquals(
             "renamed",
-            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("renamed")));
+            dataTableService.getBaseNameById(dataTableService.getIdByBaseName("renamed", PLATFORM_TYPE)));
     }
 
     /**
@@ -137,6 +138,6 @@ class DataTableServiceH2IntTest {
      * belongs to nobody.
      */
     private static DataTableRef ref(String baseName) {
-        return new DataTableRef(baseName, DEV_ENVIRONMENT_ID);
+        return DataTableRef.unowned(baseName, DEV_ENVIRONMENT_ID, PLATFORM_TYPE);
     }
 }

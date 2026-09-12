@@ -17,6 +17,7 @@
 package com.bytechef.platform.data.table.configuration.domain;
 
 import com.bytechef.commons.util.CollectionUtils;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import java.time.Instant;
 import java.util.HashSet;
@@ -45,6 +46,9 @@ public class DataTable {
     private String name;
 
     private String description;
+
+    @Column("platform_type")
+    private int platformType;
 
     @MappedCollection(idColumn = "data_table_id")
     private Set<DataTableTag> dataTableTags = new HashSet<>();
@@ -112,6 +116,14 @@ public class DataTable {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public PlatformType getPlatformType() {
+        return PlatformType.values()[platformType];
+    }
+
+    public void setPlatformType(PlatformType platformType) {
+        this.platformType = platformType.ordinal();
     }
 
     public Instant getCreatedDate() {

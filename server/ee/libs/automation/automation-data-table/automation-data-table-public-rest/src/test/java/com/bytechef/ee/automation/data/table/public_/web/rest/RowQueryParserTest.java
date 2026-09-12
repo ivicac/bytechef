@@ -74,7 +74,7 @@ class RowQueryParserTest {
 
     @Test
     void testUnknownOperatorColumnOrShapeIsInvalid() {
-        for (String bad : List.of("score:LIKE:1", "nosuch:EQ:1", "score", "score:EQ")) {
+        for (String bad : List.of("score:LIKE:1", "nosuch:EQ:1", "owner_id:EQ:1", "score", "score:EQ")) {
             assertThrows(DataTableException.class, () -> RowQueryParser.parseFilters(List.of(bad), COLUMNS), bad);
         }
     }
@@ -87,9 +87,10 @@ class RowQueryParserTest {
     }
 
     /**
-     * {@code id} and {@code external_id} are reserved but still readable, so both must remain filterable and sortable
-     * by their literal names. A regression that rejected a reserved name outright, or that mis-special-cased
-     * {@code external_id} the way {@code externalId} is special-cased, would slip past every other test in this class.
+     * {@code id} and {@code external_id} are reserved but not hidden -- {@code ReservedColumns.isHidden} covers only
+     * the owner columns -- so both must remain filterable and sortable by their literal names. A regression that
+     * widened the hidden set, or that mis-special-cased {@code external_id} the way {@code externalId} is
+     * special-cased, would slip past every other test in this class.
      */
     @Test
     void testIdAndExternalIdAreFilterableAndSortableByTheirLiteralNames() {
@@ -116,5 +117,6 @@ class RowQueryParserTest {
             .direction());
         assertThrows(DataTableException.class, () -> RowQueryParser.parseSorts(List.of("score:UP"), COLUMNS));
         assertThrows(DataTableException.class, () -> RowQueryParser.parseSorts(List.of("nosuch:ASC"), COLUMNS));
+        assertThrows(DataTableException.class, () -> RowQueryParser.parseSorts(List.of("owner_id:ASC"), COLUMNS));
     }
 }

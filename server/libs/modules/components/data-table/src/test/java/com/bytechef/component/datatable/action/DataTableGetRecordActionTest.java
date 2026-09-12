@@ -41,7 +41,7 @@ class DataTableGetRecordActionTest extends AbstractDataTableActionTest {
             .thenReturn(new DataTableRow(7, Map.of("staff_reply", "on my way")));
 
         ModifiableActionDefinition actionDefinition = DataTableGetRecordAction.of(
-            dataTableService, dataTableRowService);
+            dataTableService, dataTableRowService, ownerResolverProvider);
 
         assertEquals(
             Map.of("id", 7L, "staff_reply", "on my way"),
@@ -55,7 +55,7 @@ class DataTableGetRecordActionTest extends AbstractDataTableActionTest {
         when(dataTableRowService.getRow(eq(dataTableRef), anyLong())).thenReturn(null);
 
         ModifiableActionDefinition actionDefinition = DataTableGetRecordAction.of(
-            dataTableService, dataTableRowService);
+            dataTableService, dataTableRowService, ownerResolverProvider);
 
         assertNull(perform(actionDefinition, Map.of("table", BASE_NAME, "id", 7)));
     }
