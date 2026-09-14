@@ -1,16 +1,5 @@
-import Button from '@/components/Button/Button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import AlertDialog from '@/components/AlertDialog';
 import {OrganizationConnection} from '@/shared/middleware/graphql';
-import {XIcon} from 'lucide-react';
 
 interface OrganizationConnectionDeleteDialogProps {
     connection: OrganizationConnection;
@@ -23,35 +12,13 @@ const OrganizationConnectionDeleteDialog = ({
     onClose,
     onConfirm,
 }: OrganizationConnectionDeleteDialogProps) => (
-    <AlertDialog open>
-        <AlertDialogContent onEscapeKeyDown={onClose}>
-            <AlertDialogHeader>
-                <AlertDialogTitle>{`Delete "${connection.name}" connection?`}</AlertDialogTitle>
-
-                <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-
-                <Button
-                    aria-label="Close"
-                    className="absolute top-0 right-2"
-                    icon={<XIcon />}
-                    onClick={onClose}
-                    size="icon"
-                    variant="ghost"
-                />
-            </AlertDialogHeader>
-
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
-
-                <AlertDialogAction
-                    className="bg-surface-destructive-primary hover:bg-surface-destructive-primary-hover"
-                    onClick={() => onConfirm(connection.id)}
-                >
-                    Delete
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+    <AlertDialog
+        description="This action cannot be undone."
+        onCancel={onClose}
+        onConfirm={() => onConfirm(connection.id)}
+        open
+        title={`Delete "${connection.name}" connection?`}
+    />
 );
 
 export default OrganizationConnectionDeleteDialog;

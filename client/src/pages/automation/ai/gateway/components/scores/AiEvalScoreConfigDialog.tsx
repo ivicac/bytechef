@@ -1,16 +1,15 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
@@ -98,154 +97,139 @@ const AiEvalScoreConfigDialog = ({editingConfig, onClose}: AiEvalScoreConfigDial
                 }}
                 open
             >
-                <DialogContent aria-describedby={undefined} className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{editingConfig ? 'Edit Score Config' : 'New Score Config'}</DialogTitle>
-                    </DialogHeader>
+                <DialogContent aria-describedby={undefined}>
+                    <DialogMain>
+                        <DialogHeader title={editingConfig ? 'Edit Score Config' : 'New Score Config'} />
 
-                    <fieldset className="space-y-4 border-0">
-                        <div>
-                            <Label className="mb-1 block" htmlFor="scoreConfigName">
-                                Name
-                            </Label>
-
-                            <Input
-                                id="scoreConfigName"
-                                onChange={(event) => setName(event.target.value)}
-                                placeholder="e.g., relevance, helpfulness, safety"
-                                value={name}
-                            />
-                        </div>
-
-                        <div>
-                            <Label className="mb-1 block" htmlFor="scoreConfigDataType">
-                                Data Type
-                            </Label>
-
-                            <Select onValueChange={setDataType} value={dataType}>
-                                <SelectTrigger id="scoreConfigDataType">
-                                    <SelectValue />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                    <SelectItem value="NUMERIC">Numeric</SelectItem>
-
-                                    <SelectItem value="BOOLEAN">Boolean</SelectItem>
-
-                                    <SelectItem value="CATEGORICAL">Categorical</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {dataType === 'NUMERIC' && (
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <Label className="mb-1 block" htmlFor="scoreConfigMinValue">
-                                        Min Value
+                        <DialogBody>
+                            <fieldset className="space-y-4 border-0">
+                                <div>
+                                    <Label className="mb-1 block" htmlFor="scoreConfigName">
+                                        Name
                                     </Label>
 
                                     <Input
-                                        id="scoreConfigMinValue"
-                                        onChange={(event) => setMinValue(event.target.value)}
-                                        type="number"
-                                        value={minValue}
+                                        id="scoreConfigName"
+                                        onChange={(event) => setName(event.target.value)}
+                                        placeholder="e.g., relevance, helpfulness, safety"
+                                        value={name}
                                     />
                                 </div>
 
-                                <div className="flex-1">
-                                    <Label className="mb-1 block" htmlFor="scoreConfigMaxValue">
-                                        Max Value
+                                <div>
+                                    <Label className="mb-1 block" htmlFor="scoreConfigDataType">
+                                        Data Type
                                     </Label>
 
-                                    <Input
-                                        id="scoreConfigMaxValue"
-                                        onChange={(event) => setMaxValue(event.target.value)}
-                                        type="number"
-                                        value={maxValue}
+                                    <Select onValueChange={setDataType} value={dataType}>
+                                        <SelectTrigger id="scoreConfigDataType">
+                                            <SelectValue />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+                                            <SelectItem value="NUMERIC">Numeric</SelectItem>
+
+                                            <SelectItem value="BOOLEAN">Boolean</SelectItem>
+
+                                            <SelectItem value="CATEGORICAL">Categorical</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {dataType === 'NUMERIC' && (
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <Label className="mb-1 block" htmlFor="scoreConfigMinValue">
+                                                Min Value
+                                            </Label>
+
+                                            <Input
+                                                id="scoreConfigMinValue"
+                                                onChange={(event) => setMinValue(event.target.value)}
+                                                type="number"
+                                                value={minValue}
+                                            />
+                                        </div>
+
+                                        <div className="flex-1">
+                                            <Label className="mb-1 block" htmlFor="scoreConfigMaxValue">
+                                                Max Value
+                                            </Label>
+
+                                            <Input
+                                                id="scoreConfigMaxValue"
+                                                onChange={(event) => setMaxValue(event.target.value)}
+                                                type="number"
+                                                value={maxValue}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {dataType === 'CATEGORICAL' && (
+                                    <div>
+                                        <Label className="mb-1 block" htmlFor="scoreConfigCategories">
+                                            Categories (JSON array)
+                                        </Label>
+
+                                        <Input
+                                            id="scoreConfigCategories"
+                                            onChange={(event) => setCategories(event.target.value)}
+                                            placeholder='["good", "bad", "neutral"]'
+                                            value={categories}
+                                        />
+                                    </div>
+                                )}
+
+                                <div>
+                                    <Label className="mb-1 block" htmlFor="scoreConfigDescription">
+                                        Description
+                                    </Label>
+
+                                    <Textarea
+                                        id="scoreConfigDescription"
+                                        onChange={(event) => setDescription(event.target.value)}
+                                        placeholder="What does this score measure?"
+                                        rows={2}
+                                        value={description}
                                     />
                                 </div>
-                            </div>
-                        )}
+                            </fieldset>
+                        </DialogBody>
 
-                        {dataType === 'CATEGORICAL' && (
-                            <div>
-                                <Label className="mb-1 block" htmlFor="scoreConfigCategories">
-                                    Categories (JSON array)
-                                </Label>
-
-                                <Input
-                                    id="scoreConfigCategories"
-                                    onChange={(event) => setCategories(event.target.value)}
-                                    placeholder='["good", "bad", "neutral"]'
-                                    value={categories}
-                                />
-                            </div>
-                        )}
-
-                        <div>
-                            <Label className="mb-1 block" htmlFor="scoreConfigDescription">
-                                Description
-                            </Label>
-
-                            <Textarea
-                                id="scoreConfigDescription"
-                                onChange={(event) => setDescription(event.target.value)}
-                                placeholder="What does this score measure?"
-                                rows={2}
-                                value={description}
-                            />
-                        </div>
-                    </fieldset>
-
-                    <DialogFooter className="sm:justify-between">
-                        <div>
-                            {editingConfig && (
-                                <Button
-                                    disabled={deleteMutation.isPending}
-                                    label="Delete"
-                                    onClick={() => setDeleteConfirmationOpen(true)}
-                                    variant="destructiveGhost"
-                                />
-                            )}
-                        </div>
-
-                        <div className="flex gap-2">
-                            <Button label="Cancel" onClick={onClose} variant="outline" />
+                        <DialogFooter
+                            startContent={
+                                editingConfig && (
+                                    <Button
+                                        disabled={deleteMutation.isPending}
+                                        label="Delete"
+                                        onClick={() => setDeleteConfirmationOpen(true)}
+                                        variant="destructiveGhost"
+                                    />
+                                )
+                            }
+                        >
+                            <DialogCancelButton />
 
                             <Button
                                 disabled={!name || createMutation.isPending || updateMutation.isPending}
                                 label={editingConfig ? 'Update' : 'Create'}
                                 onClick={handleSubmit}
                             />
-                        </div>
-                    </DialogFooter>
+                        </DialogFooter>
+                    </DialogMain>
                 </DialogContent>
             </Dialog>
 
             {editingConfig && (
-                <AlertDialog open={deleteConfirmationOpen}>
-                    <AlertDialogContent onEscapeKeyDown={() => setDeleteConfirmationOpen(false)}>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>{`Delete ${editingConfig.name} score config?`}</AlertDialogTitle>
-
-                            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                        </AlertDialogHeader>
-
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setDeleteConfirmationOpen(false)}>
-                                Cancel
-                            </AlertDialogCancel>
-
-                            <AlertDialogAction
-                                className="bg-surface-destructive-primary hover:bg-surface-destructive-primary-hover"
-                                disabled={deleteMutation.isPending}
-                                onClick={() => deleteMutation.mutate({id: editingConfig.id})}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <AlertDialog
+                    description="This action cannot be undone."
+                    isPending={deleteMutation.isPending}
+                    onCancel={() => setDeleteConfirmationOpen(false)}
+                    onConfirm={() => deleteMutation.mutate({id: editingConfig.id})}
+                    open={deleteConfirmationOpen}
+                    title={`Delete ${editingConfig.name} score config?`}
+                />
             )}
         </>
     );

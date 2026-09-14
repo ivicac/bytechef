@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useAiGatewayProjectsQuery, useDeleteAiGatewayProjectMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
@@ -147,29 +138,12 @@ const AiGatewayProjects = () => {
                 </>
             )}
 
-            <AlertDialog open={!!deletingProjectId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the project and all its
-                            associated configuration.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingProjectId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction
-                            className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
-                            onClick={handleConfirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AlertDialog
+                description="This action cannot be undone. This will permanently delete the project and all its associated configuration."
+                onCancel={() => setDeletingProjectId(undefined)}
+                onConfirm={handleConfirmDelete}
+                open={!!deletingProjectId}
+            />
 
             {showDialog && currentWorkspaceId != null && (
                 <AiGatewayProjectDialog

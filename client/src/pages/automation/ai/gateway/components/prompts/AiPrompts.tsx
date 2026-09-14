@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useAiPromptsQuery, useDeleteAiPromptMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
@@ -178,28 +169,12 @@ const AiPrompts = () => {
                 </>
             )}
 
-            <AlertDialog open={!!deletingPromptId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the prompt and all its versions.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingPromptId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction
-                            className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
-                            onClick={handleConfirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AlertDialog
+                description="This action cannot be undone. This will permanently delete the prompt and all its versions."
+                onCancel={() => setDeletingPromptId(undefined)}
+                onConfirm={handleConfirmDelete}
+                open={!!deletingPromptId}
+            />
 
             {showDialog && currentWorkspaceId != null && (
                 <AiPromptDialog
