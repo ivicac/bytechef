@@ -70,6 +70,7 @@ const Toggle = ({id, pressed, onPressedChange}: ToggleProps) => (
 interface DialogProps {
     apiFetch?: ApiFetch;
     closeDialog: () => void;
+    /** Light unless the embedding page asks otherwise; the dialog renders into THAT page, not an iframe. */
     mode?: 'dark' | 'light';
     executeAction?: ExecuteActionFunction;
     workflowsView?: boolean;
@@ -197,11 +198,12 @@ const ConnectDialog = ({
                     </main>
                 )}
 
-                {integration && !loading && (
-                    <DialogFooter workflowsView={workflowsView} handleClick={handleClick} isOAuth2={isOAuth2} />
-                )}
-
-                <DialogPoweredBy />
+                <DialogFooter
+                    handleClick={handleClick}
+                    isOAuth2={isOAuth2}
+                    showActions={!!integration && !loading}
+                    workflowsView={workflowsView}
+                />
             </div>
         </div>
     );
@@ -552,17 +554,20 @@ interface DialogFooterProps {
     workflowsView?: boolean;
     handleClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
     isOAuth2?: boolean;
+    showActions: boolean;
 }
 
-const DialogFooter = ({workflowsView = false, handleClick, isOAuth2 = false}: DialogFooterProps) => (
+const DialogFooter = ({workflowsView = false, handleClick, isOAuth2 = false, showActions}: DialogFooterProps) => (
     <footer className={styles.dialogFooter}>
-        {workflowsView && (
+        <DialogPoweredBy />
+
+        {showActions && workflowsView && (
             <button name="disconnectButton" onClick={handleClick} className={styles.buttonDestructive} type="button">
                 Disconnect
             </button>
         )}
 
-        {!workflowsView && (
+        {showActions && !workflowsView && (
             <button autoFocus onClick={handleClick} className={styles.buttonPrimary} type="button">
                 {isOAuth2 ? (
                     <span>
