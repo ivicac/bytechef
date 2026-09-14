@@ -513,25 +513,19 @@
         stroke: hsl(var(--content-neutral-primary));
     }
 
-    /* Some icons paint through an inline `style` instead (`open-ai.svg`: `fill:rgb(0%,0%,0%)`). An inline
-       style outranks any stylesheet rule, so these alone need `!important`. */
+    /* Some icons paint through an inline `style` instead (`open-ai.svg`: `fill:rgb(0%,0%,0%)`). The selector
+       cannot match the text as shipped: react-inlinesvg rebuilds the SVG as React elements, turning `style`
+       into an object that the browser writes back in its own form, `fill: rgb(0, 0, 0)` for both the hex
+       and the percentage spellings. So these match that serialised form. An inline style outranks any
+       stylesheet rule, so these alone need `!important`. */
     .dark
         .react-flow__node
         svg
-        :is(
-            [style*='fill:#000000' i],
-            [style*='fill: #000000' i],
-            [style*='fill:#181818' i],
-            [style*='fill: #181818' i],
-            [style*='fill:#282a36' i],
-            [style*='fill: #282a36' i],
-            [style*='fill:rgb(0%,0%,0%)'],
-            [style*='fill: rgb(0%,0%,0%)']
-        ) {
+        :is([style*='fill: rgb(0, 0, 0)'], [style*='fill: rgb(24, 24, 24)'], [style*='fill: rgb(40, 42, 54)']) {
         fill: hsl(var(--content-neutral-primary)) !important;
     }
 
-    .dark .react-flow__node svg :is([style*='stroke:#000' i], [style*='stroke: #000' i]) {
+    .dark .react-flow__node svg [style*='stroke: rgb(0, 0, 0)'] {
         stroke: hsl(var(--content-neutral-primary)) !important;
     }
 
