@@ -638,6 +638,28 @@
         stroke: hsl(var(--content-neutral-subtle)) !important;
     }
 
+    /* Some icons paint through an inline `style` instead (`open-ai.svg`: `fill:rgb(0%,0%,0%)`). An inline
+       style outranks any stylesheet rule, so these alone need `!important`. */
+    .dark
+        .react-flow__node
+        svg
+        :is(
+            [style*='fill:#000000' i],
+            [style*='fill: #000000' i],
+            [style*='fill:#181818' i],
+            [style*='fill: #181818' i],
+            [style*='fill:#282a36' i],
+            [style*='fill: #282a36' i],
+            [style*='fill:rgb(0%,0%,0%)'],
+            [style*='fill: rgb(0%,0%,0%)']
+        ) {
+        fill: hsl(var(--content-neutral-subtle)) !important;
+    }
+
+    .dark .react-flow__node svg :is([style*='stroke:#000' i], [style*='stroke: #000' i]) {
+        stroke: hsl(var(--content-neutral-subtle)) !important;
+    }
+
     * {
         @apply border-border;
     }
