@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
@@ -165,31 +156,13 @@ const RegisteredClients = () => {
                 )}
 
                 {clientToDelete && (
-                    <AlertDialog onOpenChange={() => setClientToDelete(undefined)} open={true}>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the OAuth2 client and
-                                    revoke its authorizations.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-
-                                <AlertDialogAction
-                                    className="bg-destructive"
-                                    onClick={() =>
-                                        deleteRegisteredClientMutation.mutate({id: clientToDelete.id as string})
-                                    }
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <AlertDialog
+                        description="This action cannot be undone. This will permanently delete the OAuth2 client and revoke its authorizations."
+                        isPending={deleteRegisteredClientMutation.isPending}
+                        onCancel={() => setClientToDelete(undefined)}
+                        onConfirm={() => deleteRegisteredClientMutation.mutate({id: clientToDelete.id as string})}
+                        open={true}
+                    />
                 )}
             </LayoutContainer>
         </PageLoader>
