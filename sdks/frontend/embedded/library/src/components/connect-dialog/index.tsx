@@ -64,6 +64,10 @@ interface UseConnectDialogBaseProps {
     integrationInstanceId?: string;
     jwtToken: string;
     mapObjectFields?: MapObjectFieldsType;
+    /**
+     * Light unless asked otherwise. Unlike the iframe surfaces, this dialog renders into the
+     * embedding page, so it cannot pick the mode up from a ByteChef document -- the host says.
+     */
     mode?: 'dark' | 'light';
     onClose?: () => void;
 }
@@ -512,6 +516,10 @@ export default function useConnectDialog({
         [integration]
     );
 
+    // Derived rather than latched into state. It used to be state set to true by an effect and
+    // never set back, while `openDialog` clears `integration` and every override but not this --
+    // so opening an OAuth2 integration and then a non-OAuth2 one left the Connect button still
+    // launching an OAuth flow for an integration that has none.
     const isOAuth2 = !!isOAuth2AuthorizationType;
 
     const handleOnCodeSuccess = useCallback(
@@ -1110,6 +1118,10 @@ export default function useConnectDialog({
         currentIntegrationInstanceId,
     ]);
 
+    // The debounced saves below fire long after the render that scheduled them, so they read the
+    // latest values through refs rather than closing over the render's own. Written here rather
+    // than during render: a ref write in the render body is not safe under concurrent rendering,
+    // where a render can be discarded after the write has already happened.
     useEffect(() => {
         currentIntegrationInstanceIdRef.current = currentIntegrationInstanceId;
         inputOverridesRef.current = inputOverrides;

@@ -70,6 +70,7 @@ const Toggle = ({id, pressed, onPressedChange}: ToggleProps) => (
 interface DialogProps {
     apiFetch?: ApiFetch;
     closeDialog: () => void;
+    /** Light unless the embedding page asks otherwise; the dialog renders into THAT page, not an iframe. */
     mode?: 'dark' | 'light';
     executeAction?: ExecuteActionFunction;
     title?: string;
@@ -199,12 +200,6 @@ const ConnectDialog = ({
                             Close
                         </button>
                     </main>
-                )}
-
-                {integration && !loading && saveError && (
-                    <p className={styles.saveError} role="alert">
-                        {saveError}
-                    </p>
                 )}
 
                 <DialogFooter
