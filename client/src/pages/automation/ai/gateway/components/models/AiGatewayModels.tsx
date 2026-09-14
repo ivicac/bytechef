@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {
     useDeleteWorkspaceAiModelMutation,
@@ -288,50 +279,23 @@ const AiGatewayModels = () => {
                 </>
             )}
 
-            <AlertDialog open={!!deletingModelId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialog
+                description="This action cannot be undone. This will permanently delete the model."
+                onCancel={() => setDeletingModelId(undefined)}
+                onConfirm={handleConfirmDelete}
+                open={!!deletingModelId}
+            />
 
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the model.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingModelId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction
-                            className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
-                            onClick={handleConfirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog open={!!unpinningModelId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Reset this model to catalog pricing?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            This clears your override. On the next catalog reconcile, the context window, cost rates,
-                            and capabilities you set here will be replaced by the catalog's values. This cannot be
-                            undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setUnpinningModelId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction disabled={unpinModelMutation.isPending} onClick={handleConfirmUnpin}>
-                            Reset to Catalog
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AlertDialog
+                confirmButtonVariant="default"
+                confirmLabel="Reset to Catalog"
+                description="This clears your override. On the next catalog reconcile, the context window, cost rates, and capabilities you set here will be replaced by the catalog's values. This cannot be undone."
+                isPending={unpinModelMutation.isPending}
+                onCancel={() => setUnpinningModelId(undefined)}
+                onConfirm={handleConfirmUnpin}
+                open={!!unpinningModelId}
+                title="Reset this model to catalog pricing?"
+            />
 
             {showDialog && currentWorkspaceId != null && (
                 <AiGatewayModelDialog

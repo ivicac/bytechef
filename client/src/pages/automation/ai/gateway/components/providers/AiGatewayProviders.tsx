@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {
     useDeleteWorkspaceAiGatewayProviderMutation,
@@ -174,29 +165,12 @@ const AiGatewayProviders = () => {
                 </>
             )}
 
-            <AlertDialog open={!!deletingProviderId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the provider and all its
-                            associated models.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingProviderId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction
-                            className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
-                            onClick={handleConfirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AlertDialog
+                description="This action cannot be undone. This will permanently delete the provider and all its associated models."
+                onCancel={() => setDeletingProviderId(undefined)}
+                onConfirm={handleConfirmDelete}
+                open={!!deletingProviderId}
+            />
 
             {showDialog && currentWorkspaceId != null && (
                 <AiGatewayProviderDialog
