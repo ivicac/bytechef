@@ -44,7 +44,7 @@ const OrganizationConnectionDeleteDialog = ({
                 <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
 
                 <AlertDialogAction
-                    className="bg-surface-destructive-primary hover:bg-surface-destructive-primary-hover"
+                    className="bg-surface-destructive-primary text-content-onsurface-primary hover:bg-surface-destructive-primary-hover"
                     onClick={() => onConfirm(connection.id)}
                 >
                     Delete

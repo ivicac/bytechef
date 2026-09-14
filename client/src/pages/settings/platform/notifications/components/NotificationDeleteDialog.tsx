@@ -46,7 +46,7 @@ const NotificationDeleteDialog = ({
                 <AlertDialogCancel onClick={closeDeleteDialog}>Cancel</AlertDialogCancel>
 
                 <AlertDialogAction
-                    className="bg-surface-destructive-primary hover:bg-surface-destructive-primary-hover"
+                    className="bg-surface-destructive-primary text-content-onsurface-primary hover:bg-surface-destructive-primary-hover"
                     onClick={() => selectedNotification && handleDeleteNotification(selectedNotification.id!)}
                 >
                     Delete

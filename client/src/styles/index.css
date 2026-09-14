@@ -291,7 +291,7 @@
         --content-brand-primary-hover: 217 62% 82%;
         --content-brand-primary-active: 217 61% 90%;
         --content-brand-secondary: 217 91% 40%;
-        --content-canvas_dot: 240 4% 18%;
+        --content-canvas_dot: 240 4% 30%;
         --content-destructive: 0 84% 60%;
         --content-destructive-primary: 0 84% 60%;
         --content-destructive-primary-hover: 0 84% 67%;
@@ -308,7 +308,7 @@
         --content-success-primary: 142 71% 45%;
         --content-warning: 45 93% 47%;
         --content-warning-primary: 45 93% 47%;
-        --destructive: 0 62.8% 30.6%;
+        --destructive: 0 72% 51%;
         --destructive-foreground: 210 20% 98%;
         --foreground: 240 9% 94%;
         --input: 240 4% 18%;
@@ -454,6 +454,32 @@
         --sidebar: 217 40% 16%;
         --sidebar-accent: 217 42% 23%;
         --sidebar-border: 217 38% 28%;
+    }
+
+    /* Component icons are SVGs shipped by the server and inlined as-is, and the monochrome ones hard-code
+       black (`manual.svg` strokes `black`, `data-stream.svg` fills `#212121`) — invisible on the dark
+       canvas. Repaint only near-black paint to the foreground colour; multicolour brand logos carry
+       other values and are left alone. Scoped to canvas nodes so icons elsewhere are not affected. */
+    .dark .react-flow__node svg[fill='black' i],
+    .dark .react-flow__node svg [fill='black' i],
+    .dark .react-flow__node svg[fill='#000' i],
+    .dark .react-flow__node svg [fill='#000' i],
+    .dark .react-flow__node svg[fill='#000000' i],
+    .dark .react-flow__node svg [fill='#000000' i],
+    .dark .react-flow__node svg[fill='#212121' i],
+    .dark .react-flow__node svg [fill='#212121' i] {
+        fill: hsl(var(--content-neutral-primary));
+    }
+
+    .dark .react-flow__node svg[stroke='black' i],
+    .dark .react-flow__node svg [stroke='black' i],
+    .dark .react-flow__node svg[stroke='#000' i],
+    .dark .react-flow__node svg [stroke='#000' i],
+    .dark .react-flow__node svg[stroke='#000000' i],
+    .dark .react-flow__node svg [stroke='#000000' i],
+    .dark .react-flow__node svg[stroke='#212121' i],
+    .dark .react-flow__node svg [stroke='#212121' i] {
+        stroke: hsl(var(--content-neutral-primary));
     }
 
     * {

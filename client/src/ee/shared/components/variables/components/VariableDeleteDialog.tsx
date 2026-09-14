@@ -43,7 +43,10 @@ const VariableDeleteDialog = () => {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
 
                     {currentVariable && (
-                        <AlertDialogAction className="bg-destructive" onClick={() => handleDelete(currentVariable.id)}>
+                        <AlertDialogAction
+                            className="bg-destructive text-content-onsurface-primary"
+                            onClick={() => handleDelete(currentVariable.id)}
+                        >
                             Delete
                         </AlertDialogAction>
                     )}
