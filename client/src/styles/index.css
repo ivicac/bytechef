@@ -291,7 +291,7 @@
         --content-brand-primary-hover: 217 62% 82%;
         --content-brand-primary-active: 217 61% 90%;
         --content-brand-secondary: 217 91% 40%;
-        --content-canvas_dot: 240 4% 30%;
+        --content-canvas_dot: 240 4% 26%;
         --content-destructive: 0 84% 60%;
         --content-destructive-primary: 0 84% 60%;
         --content-destructive-primary-hover: 0 84% 67%;
@@ -456,18 +456,24 @@
         --sidebar-border: 217 38% 28%;
     }
 
-    /* Component icons are SVGs shipped by the server and inlined as-is, and the monochrome ones hard-code
-       black (`manual.svg` strokes `black`, `data-stream.svg` fills `#212121`) — invisible on the dark
-       canvas. Repaint only near-black paint to the foreground colour; multicolour brand logos carry
-       other values and are left alone. Scoped to canvas nodes so icons elsewhere are not affected. */
-    .dark .react-flow__node svg[fill='black' i],
+    /* Component icons are SVGs shipped by the server and inlined as-is, and the monochrome ones are dark —
+       invisible on the dark canvas. Two shapes: an explicit near-black paint (`manual.svg` strokes `black`,
+       `logger.svg` fills `#000000`, `var.svg` strokes `#374151`), and no fill at all (`condition.svg`,
+       `http-client.svg`), which SVG paints black by default. The first is repainted per attribute; the
+       second by giving an unfilled root a fill its children inherit — an explicit `fill` on a child still
+       wins over an inherited value, so multicolour brand logos keep their colours. Scoped to canvas
+       nodes so icons elsewhere are not affected. */
+    .dark .react-flow__node svg:not([fill]),
     .dark .react-flow__node svg [fill='black' i],
-    .dark .react-flow__node svg[fill='#000' i],
     .dark .react-flow__node svg [fill='#000' i],
-    .dark .react-flow__node svg[fill='#000000' i],
     .dark .react-flow__node svg [fill='#000000' i],
-    .dark .react-flow__node svg[fill='#212121' i],
-    .dark .react-flow__node svg [fill='#212121' i] {
+    .dark .react-flow__node svg [fill='#212121' i],
+    .dark .react-flow__node svg [fill='#333' i],
+    .dark .react-flow__node svg [fill='#333333' i],
+    .dark .react-flow__node svg [fill='#374151' i],
+    .dark .react-flow__node svg[fill='black' i],
+    .dark .react-flow__node svg[fill='#000' i],
+    .dark .react-flow__node svg[fill='#000000' i] {
         fill: hsl(var(--content-neutral-primary));
     }
 
@@ -478,7 +484,9 @@
     .dark .react-flow__node svg[stroke='#000000' i],
     .dark .react-flow__node svg [stroke='#000000' i],
     .dark .react-flow__node svg[stroke='#212121' i],
-    .dark .react-flow__node svg [stroke='#212121' i] {
+    .dark .react-flow__node svg [stroke='#212121' i],
+    .dark .react-flow__node svg[stroke='#374151' i],
+    .dark .react-flow__node svg [stroke='#374151' i] {
         stroke: hsl(var(--content-neutral-primary));
     }
 
