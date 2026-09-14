@@ -5,17 +5,40 @@ import {useState} from 'react';
 export type Environment = 'DEVELOPMENT' | 'STAGING' | 'PRODUCTION';
 
 interface TokenFormProps {
+    /**
+     * The initial value of the Base URL field.
+     * @default 'http://127.0.0.1:5173'
+     */
     defaultBaseUrl?: string;
 
+    /**
+     * The initial value of the Environment field.
+     * @default 'DEVELOPMENT'
+     */
     defaultEnvironment?: Environment;
 
+    /**
+     * Called whenever the Base URL field changes, regardless of whether a token has been minted yet.
+     */
     onBaseUrlChange?: (baseUrl: string) => void;
 
+    /**
+     * Called whenever the Environment field changes, regardless of whether a token has been minted yet.
+     */
     onEnvironmentChange?: (environment: Environment) => void;
 
+    /**
+     * Called once a JWT token has been successfully minted, with the token and the Base URL /
+     * Environment field values current at the time of minting.
+     */
     onTokenGenerated: (token: string, baseUrl: string, environment: Environment) => void;
 }
 
+/**
+ * The Key ID / Private Key / External User ID / Name / Base URL / Environment form that mints a
+ * JWT token via the server-side `/api/generate-jwt` route. Shared by every test-app page that
+ * needs a token before it can render an embedded SDK component.
+ */
 export default function TokenForm({
     defaultBaseUrl = 'http://127.0.0.1:5173',
     defaultEnvironment = 'DEVELOPMENT',
