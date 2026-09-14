@@ -146,7 +146,7 @@ const WorkflowOutputsSheetTable = ({workflow}: {workflow: Workflow}) => {
                         <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>Cancel</AlertDialogCancel>
 
                         <AlertDialogAction
-                            className="bg-destructive"
+                            className="bg-destructive text-content-onsurface-primary"
                             onClick={() => handleDelete(workflow.outputs![currentInputIndex]!)}
                         >
                             Delete

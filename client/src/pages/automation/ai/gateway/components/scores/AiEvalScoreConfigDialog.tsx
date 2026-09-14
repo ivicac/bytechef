@@ -237,7 +237,7 @@ const AiEvalScoreConfigDialog = ({editingConfig, onClose}: AiEvalScoreConfigDial
                             </AlertDialogCancel>
 
                             <AlertDialogAction
-                                className="bg-surface-destructive-primary hover:bg-surface-destructive-primary-hover"
+                                className="bg-surface-destructive-primary text-content-onsurface-primary hover:bg-surface-destructive-primary-hover"
                                 disabled={deleteMutation.isPending}
                                 onClick={() => deleteMutation.mutate({id: editingConfig.id})}
                             >

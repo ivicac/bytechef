@@ -58,7 +58,7 @@ const ApiClientDeleteDialog = ({apiClientId, onClose}: {apiClientId: number; onC
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
 
-                    <AlertDialogAction className="bg-destructive" onClick={handleClick}>
+                    <AlertDialogAction className="bg-destructive text-content-onsurface-primary" onClick={handleClick}>
                         Delete
                     </AlertDialogAction>
                 </AlertDialogFooter>

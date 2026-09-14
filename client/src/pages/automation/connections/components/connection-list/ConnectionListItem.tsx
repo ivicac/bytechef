@@ -426,7 +426,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                             <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>Cancel</AlertDialogCancel>
 
                             <AlertDialogAction
-                                className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
+                                className="bg-surface-destructive-primary text-content-onsurface-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
                                 onClick={handleAlertDeleteDialogClick}
                             >
                                 Delete
@@ -449,7 +449,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                             <AlertDialogCancel onClick={() => setShowDisconnectDialog(false)}>Cancel</AlertDialogCancel>
 
                             <AlertDialogAction
-                                className="bg-surface-destructive-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
+                                className="bg-surface-destructive-primary text-content-onsurface-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
                                 onClick={handleDisconnectFromAllClick}
                             >
                                 <Link2OffIcon className="size-4" />

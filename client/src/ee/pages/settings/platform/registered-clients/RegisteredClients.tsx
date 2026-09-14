@@ -180,7 +180,7 @@ const RegisteredClients = () => {
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
 
                                 <AlertDialogAction
-                                    className="bg-destructive"
+                                    className="bg-destructive text-content-onsurface-primary"
                                     onClick={() =>
                                         deleteRegisteredClientMutation.mutate({id: clientToDelete.id as string})
                                     }

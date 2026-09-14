@@ -43,7 +43,10 @@ const ApiKeyDeleteDialog = () => {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
 
                     {currentApiKey && (
-                        <AlertDialogAction className="bg-destructive" onClick={() => handleDelete(+currentApiKey.id!)}>
+                        <AlertDialogAction
+                            className="bg-destructive text-content-onsurface-primary"
+                            onClick={() => handleDelete(+currentApiKey.id!)}
+                        >
                             Delete
                         </AlertDialogAction>
                     )}

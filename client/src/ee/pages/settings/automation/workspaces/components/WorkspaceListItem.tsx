@@ -142,7 +142,10 @@ const WorkspaceListItem = ({workspace}: WorkspaceListItemProps) => {
                         <AlertDialogFooter>
                             <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>Cancel</AlertDialogCancel>
 
-                            <AlertDialogAction className="bg-destructive" onClick={handleAlertDeleteDialogClick}>
+                            <AlertDialogAction
+                                className="bg-destructive text-content-onsurface-primary"
+                                onClick={handleAlertDeleteDialogClick}
+                            >
                                 Delete
                             </AlertDialogAction>
                         </AlertDialogFooter>

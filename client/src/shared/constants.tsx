@@ -268,6 +268,7 @@ export const WORKFLOW_NODES_SIDEBAR_WIDTH = 384;
 export const ISSUES_SIDEBAR_EXIT_DURATION = 300;
 export const PROJECT_LEFT_SIDEBAR_WIDTH = 355;
 
-export const CANVAS_BACKGROUND_COLOR = '#E2E8F0';
+// React Flow's <Background> feeds this through a CSS custom property, so a token works and the dots follow the theme.
+export const CANVAS_BACKGROUND_COLOR = 'hsl(var(--content-canvas_dot))';
 
 export const TEMPLATE_SHARING_DOCUMENTATION_URL = 'https://docs.bytechef.io';
