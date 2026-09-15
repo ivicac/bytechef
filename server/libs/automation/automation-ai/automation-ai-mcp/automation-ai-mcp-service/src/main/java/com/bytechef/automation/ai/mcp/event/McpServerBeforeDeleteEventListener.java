@@ -67,8 +67,17 @@ public class McpServerBeforeDeleteEventListener extends AbstractRelationalEventL
         deleteMcpProjects((Long) identifier.getValue());
     }
 
+    /**
+     * Asks every deployment's authorization questions before disabling any. The listener runs inside the delete's
+     * transaction, so a denial on a later deployment rolls back the earlier ones' rows -- but not the webhook and
+     * listener subscriptions their triggers already removed from external providers.
+     */
     private void deleteMcpProjects(long mcpServerId) {
         List<McpProject> mcpProjects = mcpProjectService.getMcpServerMcpProjects(mcpServerId);
+
+        for (McpProject mcpProject : mcpProjects) {
+            projectDeploymentFacade.checkEnableProjectDeployment(mcpProject.getProjectDeploymentId(), false);
+        }
 
         for (McpProject mcpProject : mcpProjects) {
             projectDeploymentFacade.enableProjectDeployment(mcpProject.getProjectDeploymentId(), false);
