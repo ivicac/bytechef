@@ -2154,6 +2154,9 @@ components:
                 - "HIGH"
                 - "CRITICAL"
               description: "How much damage one call of this tool can do."
+            testable:
+              description: "Can the cluster element be run on its own to test it."
+              type: "boolean"
     ClusterElementDefinitionBasic:
       description: "A cluster element basic definition."
       type: "object"
@@ -3560,6 +3563,14 @@ components:
         - "name"
         - "type"
       properties:
+        clusterRoot:
+          type: boolean
+          default: false
+          readOnly: true
+        clusterElements:
+          type: object
+          additionalProperties: true
+          readOnly: true
         connections:
           type: "array"
           items:
@@ -3570,8 +3581,7 @@ components:
           type: "string"
         extensions:
           description: "Key-value map of trigger extensions — structural configuration\
-            \ that is not a component-declared trigger property, such as the websocketTasks\
-            \ realtime pipeline."
+            \ that is not a component-declared trigger property."
           type: "object"
           additionalProperties: true
           readOnly: true

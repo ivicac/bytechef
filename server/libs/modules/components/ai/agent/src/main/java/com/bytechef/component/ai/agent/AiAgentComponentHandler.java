@@ -21,7 +21,6 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.ai.agent.action.AiAgentChatAction;
-import com.bytechef.component.ai.agent.action.AiAgentRealtimeChatAction;
 import com.bytechef.component.ai.agent.action.AiAgentStreamChatAction;
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AiAgentChatTool;
@@ -37,6 +36,7 @@ import com.bytechef.platform.component.definition.AiAgentComponentDefinition;
 import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -56,6 +56,7 @@ public class AiAgentComponentHandler implements ComponentHandler {
         ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
         ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider,
         List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         final ActionDefinition aiAgentChatActionDefinition =
@@ -63,7 +64,7 @@ public class AiAgentComponentHandler implements ComponentHandler {
                 aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
                 toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
                 workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
-                componentRuleEnforcers);
+                toolInvocationWorkspaceResolverObjectProvider, componentRuleEnforcers);
 
         this.componentDefinition = new AiAgentComponentDefinitionImpl(
             component(AI_AGENT)
@@ -77,11 +78,7 @@ public class AiAgentComponentHandler implements ComponentHandler {
                         aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
                         toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
                         workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
-                        componentRuleEnforcers),
-                    AiAgentRealtimeChatAction.of(
-                        aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
-                        toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-                        workspaceSystemPromptAdvisorProviderObjectProvider, componentRuleEnforcers))
+                        toolInvocationWorkspaceResolverObjectProvider, componentRuleEnforcers))
                 .clusterElements(AiAgentChatTool.of(aiAgentChatActionDefinition)));
     }
 

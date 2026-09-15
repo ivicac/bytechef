@@ -31,10 +31,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * {@code WorkflowReservedWordContributor} (recursively, for every nested task map — see
  * {@code AbstractWorkflowMapper#validateReservedWords}). {@code AiAgentWorkflowGenerator} writes
  * {@code aiHubWorkspaceId}/{@code aiHubAgentId}/{@code aiHubCreatorUserId} directly onto the generated
- * {@code aiAgent_1} TASK node (ticket 732, {@code 2026-08-17-agent-run-hub-visibility}) — unlike {@code websocketTasks}
- * ({@link WebsocketTasksReservedWordTest}), which sits on a TRIGGER. Without this registration, agent creation/save
- * would fail at {@code WorkflowService.create}/{@code .update} with "unknown workflow definition property" the moment
- * the generator started emitting the stamp — caught once already; this test pins it against a regression.
+ * {@code aiAgent_1} TASK node (ticket 732, {@code 2026-08-17-agent-run-hub-visibility}) — unlike a reserved word that
+ * sits on a TRIGGER. Without this registration, agent creation/save would fail at
+ * {@code WorkflowService.create}/{@code .update} with "unknown workflow definition property" the moment the generator
+ * started emitting the stamp — caught once already; this test pins it against a regression.
  *
  * @author Ivica Cardic
  */

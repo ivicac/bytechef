@@ -19,6 +19,7 @@ package com.bytechef.platform.webhook.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.file.storage.TempFileStorage;
@@ -31,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -58,10 +60,10 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
 
     @SuppressFBWarnings("EI")
     public WebhookTriggerController(
-        ApplicationProperties applicationProperties, TempFileStorage tempFileStorage,
-        WebhookWorkflowExecutor webhookWorkflowExecutor) {
+        ApplicationProperties applicationProperties, FileEntryTokens fileEntryTokens,
+        TempFileStorage tempFileStorage, WebhookWorkflowExecutor webhookWorkflowExecutor) {
 
-        super(applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
+        super(fileEntryTokens, applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
         this.webhookWorkflowExecutor = webhookWorkflowExecutor;
     }
@@ -86,18 +88,18 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             RequestMethod.HEAD, RequestMethod.GET, RequestMethod.POST
         },
         value = "/webhooks/{id}")
-    public ResponseEntity<?> executeWorkflow(
+    public CompletableFuture<ResponseEntity<?>> executeWorkflow(
         @PathVariable String id, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
 
         return TenantContext.callWithTenantId(workflowExecutionId.getTenantId(), () -> {
-            ResponseEntity<?> responseEntity;
-
             boolean head = Objects.equals(httpServletRequest.getMethod(), RequestMethod.HEAD.name());
             boolean disabled = webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId);
 
             if (head || disabled) {
+                ResponseEntity<?> responseEntity;
+
                 WebhookTriggerFlags webhookTriggerFlags =
                     webhookWorkflowExecutor.getWebhookTriggerFlags(workflowExecutionId);
 
@@ -113,11 +115,12 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
                     responseEntity = ResponseEntity.ok()
                         .build();
                 }
-            } else {
-                responseEntity = doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse);
+
+                return CompletableFuture.<ResponseEntity<?>>completedFuture(responseEntity);
             }
 
-            return responseEntity;
+            return doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+                .thenApply(responseEntity -> (ResponseEntity<?>) responseEntity);
         });
     }
 
