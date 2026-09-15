@@ -18,11 +18,13 @@ package com.bytechef.platform.component.definition;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext.Suspend;
+import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler;
 import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler.SseEmitter;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +37,20 @@ import org.mockito.ArgumentCaptor;
  * @author Ivica Cardic
  */
 class SuspendAwareSseEmitterHandlerTest {
+
+    @Test
+    void testDelegatesHandleAndExposesContext() {
+        SseEmitterHandler delegate = emitter -> emitter.send("data");
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+        SseEmitter sseEmitter = mock(SseEmitter.class);
+
+        SuspendAwareSseEmitterHandler handler = new SuspendAwareSseEmitterHandler(delegate, actionContext);
+
+        handler.handle(sseEmitter);
+
+        assertSame(actionContext, handler.getActionContext());
+        verify(sseEmitter).send("data");
+    }
 
     @Test
     void testGetSuspendOrThrowReturnsTheRecordedSuspendAfterACompletedStream() {

@@ -22,12 +22,11 @@ import static com.bytechef.component.definition.ComponentDsl.tool;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
-import com.bytechef.component.elevenlabs.action.ElevenLabsCreateRealtimeSpeechAction;
-import com.bytechef.component.elevenlabs.action.ElevenLabsCreateRealtimeTranscriptAction;
 import com.bytechef.component.elevenlabs.action.ElevenLabsCreateSoundEffectAction;
 import com.bytechef.component.elevenlabs.action.ElevenLabsCreateSpeechAction;
 import com.bytechef.component.elevenlabs.action.ElevenLabsCreateSpeechWithTimingAction;
 import com.bytechef.component.elevenlabs.action.ElevenLabsCreateTranscriptAction;
+import com.bytechef.component.elevenlabs.cluster.ElevenLabsVoiceAgent;
 import com.bytechef.component.elevenlabs.connection.ElevenLabsConnection;
 import com.google.auto.service.AutoService;
 
@@ -49,8 +48,6 @@ public class ElevenLabsComponentHandler implements ComponentHandler {
         .customActionHelp("", "https://elevenlabs.io/docs/api-reference/introduction")
         .connection(ElevenLabsConnection.CONNECTION_DEFINITION)
         .actions(
-            ElevenLabsCreateRealtimeSpeechAction.ACTION_DEFINITION,
-            ElevenLabsCreateRealtimeTranscriptAction.ACTION_DEFINITION,
             ElevenLabsCreateSoundEffectAction.ACTION_DEFINITION,
             ElevenLabsCreateSpeechAction.ACTION_DEFINITION,
             ElevenLabsCreateSpeechWithTimingAction.ACTION_DEFINITION,
@@ -59,7 +56,8 @@ public class ElevenLabsComponentHandler implements ComponentHandler {
             tool(ElevenLabsCreateSoundEffectAction.ACTION_DEFINITION),
             tool(ElevenLabsCreateSpeechAction.ACTION_DEFINITION),
             tool(ElevenLabsCreateSpeechWithTimingAction.ACTION_DEFINITION),
-            tool(ElevenLabsCreateTranscriptAction.ACTION_DEFINITION));
+            tool(ElevenLabsCreateTranscriptAction.ACTION_DEFINITION),
+            ElevenLabsVoiceAgent.CLUSTER_ELEMENT_DEFINITION);
 
     @Override
     public ComponentDefinition getDefinition() {

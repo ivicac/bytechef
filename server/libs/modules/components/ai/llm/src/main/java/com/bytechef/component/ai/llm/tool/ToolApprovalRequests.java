@@ -21,10 +21,11 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 
 import com.bytechef.component.definition.ActionContext;
-import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
-import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
+import com.bytechef.platform.ai.tool.AiAgentToolContext;
+import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
+import com.bytechef.platform.ai.tool.ToolSuspension;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -35,8 +36,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +48,7 @@ import org.springframework.ai.chat.model.ToolContext;
  * <p>
  * The suspend carries the gate's continue parameters ({@code GATED_TOOL_NAME}, {@code GATED_TOOL_INPUT},
  * {@code formUrl}, {@code FORM_TITLE}, {@code FORM_DESCRIPTION}) whatever raised it, because
- * {@code AbstractAiAgentChatAction.buildPatchedRequestSpec} routes on {@code GATED_TOOL_NAME} — one resume branch
+ * {@code AbstractAiAgentChatAction.buildResumedRequestSpec} routes on {@code GATED_TOOL_NAME} — one resume branch
  * serves both. A caller adds its own keys through {@code additionalContinueParameters}.
  * </p>
  *
@@ -87,7 +86,7 @@ public final class ToolApprovalRequests {
     /**
      * Delivers the request and suspends.
      *
-     * @return the sentinel a suspending tool returns as its result
+     * @return the suspended tool result a suspending tool returns as its result
      */
     public static String raise(Request request) {
         ActionContextAware actionContext = request.actionContext();
@@ -95,7 +94,7 @@ public final class ToolApprovalRequests {
         String resumeUrl = actionContext.getResumeUrl();
 
         if (resumeUrl == null) {
-            throw new IllegalStateException(
+            throw new ApprovalUnavailableException(
                 "Cannot raise an approval request for tool '" + request.toolName() + "'. Ensure the server's public " +
                     "URL is configured and the workflow is running in a proper execution context.");
         }
@@ -118,10 +117,9 @@ public final class ToolApprovalRequests {
 
         actionContext.suspend(new ActionContext.Suspend(continueParameters, request.expiresAt()));
 
-        return ToolSuspendConstants.SUSPENDED_SENTINEL;
+        return ToolSuspension.suspendedToolResult(actionContext);
     }
 
-    @SuppressWarnings("unchecked")
     private static void sendEditorApprovalRequestEvent(Request request, String formUrl) {
         ToolContext toolContext = request.toolContext();
 
@@ -129,7 +127,7 @@ public final class ToolApprovalRequests {
             return;
         }
 
-        Map<String, Object> eventData = new LinkedHashMap<>();
+        Map<String, @Nullable Object> eventData = new LinkedHashMap<>();
 
         eventData.put(AiAgentSseEventType.EVENT_TYPE, AiAgentSseEventType.APPROVAL_REQUEST);
         eventData.put("resumeId", formUrl.substring(formUrl.lastIndexOf('/') + 1));
@@ -140,37 +138,27 @@ public final class ToolApprovalRequests {
             .toString());
         eventData.put("inputs", List.of());
 
-        Map<String, Object> toolContextMap = toolContext.getContext();
+        AiAgentToolContext aiAgentToolContext = AiAgentToolContext.fetch(toolContext);
 
-        Object emitterReferenceObject = toolContextMap.get(AiAgentToolContextKey.SSE_EMITTER_REFERENCE);
+        SseTransport sseTransport = aiAgentToolContext == null ? null : aiAgentToolContext.sseTransport();
 
-        if (emitterReferenceObject instanceof AtomicReference<?> emitterReference
-            && emitterReference.get() instanceof ActionDefinition.SseEmitterHandler.SseEmitter sseEmitter) {
-
+        if (sseTransport != null) {
             try {
-                sseEmitter.send(eventData);
-
-                return;
+                sseTransport.send(eventData);
             } catch (Exception exception) {
-                log.warn("SSE send of approval_request failed, falling back to buffering: {}", exception.getMessage());
+                log.warn("SSE send of approval_request failed: {}", exception.getMessage());
             }
-        }
-
-        Object bufferedEventsObject = toolContextMap.get(AiAgentToolContextKey.SSE_BUFFERED_EVENTS);
-
-        if (bufferedEventsObject instanceof Queue<?> queue) {
-            ((Queue<Map<String, Object>>) queue).add(eventData);
 
             return;
         }
 
-        // Neither an SSE emitter nor a buffered-events queue is present — only the streaming Chat action wires these
-        // into the ToolContext, so an editor test run of the non-streaming Chat action reaches here and the approval
-        // card is silently dropped (the run still suspends and is resolvable via the hosted form). Warn so a hung
-        // test run is diagnosable instead of failing silently.
+        // No SSE transport is present — only the streaming Chat action wires one into the ToolContext, so an editor
+        // test run of the non-streaming Chat action reaches here and the approval card is silently dropped (the run
+        // still suspends and is resolvable via the hosted form). Warn so a hung test run is diagnosable instead of
+        // failing silently.
         log.warn(
-            "No SSE emitter or buffered-events queue in the tool context; the editor approval card for tool '{}' was " +
-                "not delivered. The run is still suspended and resolvable via the hosted approval form.",
+            "No SSE transport in the tool context; the editor approval card for tool '{}' was not delivered. The " +
+                "run is still suspended and resolvable via the hosted approval form.",
             request.toolName());
     }
 

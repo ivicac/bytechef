@@ -28,17 +28,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.ApprovalId;
@@ -55,11 +51,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -103,8 +95,14 @@ class ApprovalControllerIntTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean
-    private TaskExecutionService taskExecutionService;
+    @BeforeEach
+    void beforeEach() {
+        when(jobService.getJob(JOB_ID)).thenReturn(new Job(JOB_ID));
+    }
+
+    @Test
+    void testApproveResumesJobForSignedToken() throws Exception {
+        ApprovalId approvalId = ApprovalId.of(JOB_ID, true);
 
     @BeforeEach
     void setUp() {

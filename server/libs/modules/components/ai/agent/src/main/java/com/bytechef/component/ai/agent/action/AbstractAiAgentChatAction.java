@@ -98,6 +98,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
@@ -179,6 +180,13 @@ public abstract class AbstractAiAgentChatAction {
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager) {
+
+        this(aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager));
+    }
+
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         AgentToolCallingManagers agentToolCallingManagers) {
 
         this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers, null);
@@ -230,6 +238,23 @@ public abstract class AbstractAiAgentChatAction {
             List.of());
     }
 
+    @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        AgentToolCallingManagers agentToolCallingManagers,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
+
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider, null,
+            componentRuleEnforcers);
+    }
+
     /**
      * {@code CT_CONSTRUCTOR_THROW} is suppressed on this constructor and on the one that delegates to it. The only call
      * here that can throw is Spring's {@code ObjectProvider.getIfAvailable()}, and a container failure resolving the
@@ -245,12 +270,15 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider,
+        @Nullable ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider,
         List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.clusterElementToolCallbacks = new ClusterElementToolCallbacks(
             aiAgentToolFacade, clusterElementDefinitionService, componentRuleEnforcers,
-            toolExecutionRecorderObjectProvider == null ? null : toolExecutionRecorderObjectProvider.getIfAvailable());
+            toolExecutionRecorderObjectProvider == null ? null : toolExecutionRecorderObjectProvider.getIfAvailable(),
+            toolInvocationWorkspaceResolverObjectProvider == null
+                ? null : toolInvocationWorkspaceResolverObjectProvider.getIfAvailable());
         this.agentToolCallingManagers = agentToolCallingManagers;
         this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
         this.aiGuardrailsAdvisorProviderObjectProvider = aiGuardrailsAdvisorProviderObjectProvider;

@@ -60,12 +60,6 @@ public class WorkflowExtConstants {
     public static final String TRIGGERS = "triggers";
 
     /**
-     * The embedded realtime pipeline (voice session sub-workflow) carried on a trigger. A structural key, not a
-     * component-declared trigger property — see WebsocketTasks in platform-websocket-webhook-rest.
-     */
-    public static final String WEBSOCKET_TASKS = "websocketTasks";
-
-    /**
      * Every structural workflow-definition key that is not a built-in {@code WorkflowConstants} word, contributed to
      * {@code AbstractWorkflowMapper#validateReservedWords} by each {@code WorkflowReservedWordContributor}. A key
      * missing from this list makes the definition carrying it fail to parse with "unknown workflow definition
@@ -81,5 +75,5 @@ public class WorkflowExtConstants {
     public static final List<String> RESERVED_WORDS = List.of(
         AI_HUB_AGENT_ID, AI_HUB_CREATOR_USER_ID, AI_HUB_WORKSPACE_ID, AUTHORIZATION_REQUIRED, "category",
         CLUSTER_ELEMENTS, COMPONENT_NAME, COMPONENT_VERSION, CONNECTIONS, GROUP_NAME, INTERNAL_ONLY, OBJECT_NAME,
-        "tags", TRIGGERS, WEBSOCKET_TASKS);
+        "tags", TRIGGERS);
 }
