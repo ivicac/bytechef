@@ -186,6 +186,8 @@ function getRenderedMainAxisSize(node: Node, direction: LayoutDirectionType): nu
         return direction === 'LR' ? graphFrame.width : graphFrame.height;
     }
 
+    const clusterFrame = (node.data as NodeDataType)?.clusterFrame;
+
     if (direction !== 'LR') {
         return clusterFrame ? clusterFrame.height - NODE_HEIGHT : 0;
     }
@@ -336,7 +338,7 @@ export const buildTriggerNodes = (
             },
             id: trigger.name,
             position: {x: 0, y: 0},
-            type: 'workflow',
+            type: trigger.clusterRoot ? 'clusterRoot' : 'workflow',
         } as Node;
     });
 

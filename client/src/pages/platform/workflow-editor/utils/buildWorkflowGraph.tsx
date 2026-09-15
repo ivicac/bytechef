@@ -1,6 +1,7 @@
 import {
     EDGE_STYLES,
     FINAL_PLACEHOLDER_NODE_ID,
+    GRAPH_FRAME_NODE_TYPE,
     ON_ERROR_WIRE_KEY_ERROR_BRANCH,
     ON_ERROR_WIRE_KEY_MAIN_BRANCH,
     TASK_DISPATCHER_NAMES,
@@ -23,6 +24,8 @@ import createEachEdges from './createEachEdges';
 import createEachNode from './createEachNode';
 import createForkJoinEdges from './createForkJoinEdges';
 import createForkJoinNode from './createForkJoinNode';
+import createGraphEdges from './createGraphEdges';
+import createGraphNode from './createGraphNode';
 import createLoopEdges from './createLoopEdges';
 import createLoopNode from './createLoopNode';
 import createMapEdges from './createMapEdges';
@@ -68,6 +71,7 @@ export default function buildWorkflowGraph({
         const conditionChildTasks = {};
         const eachChildTasks = {};
         const forkJoinChildTasks = {};
+        const graphChildTasks = {};
         const loopChildTasks = {};
         const mapChildTasks = {};
         const onErrorChildTasks = {};
@@ -81,6 +85,7 @@ export default function buildWorkflowGraph({
                 conditionChildTasks,
                 eachChildTasks,
                 forkJoinChildTasks,
+                graphChildTasks,
                 loopChildTasks,
                 mapChildTasks,
                 onErrorChildTasks,
@@ -126,6 +131,7 @@ export default function buildWorkflowGraph({
                 conditionChildTasks,
                 eachChildTasks,
                 forkJoinChildTasks,
+                graphChildTasks,
                 loopChildTasks,
                 mapChildTasks,
                 onErrorChildTasks,
@@ -244,6 +250,12 @@ export default function buildWorkflowGraph({
                         createLeftGhost: laneCount <= 1,
                     },
                 });
+            } else if (componentName === 'graph') {
+                allNodes = createGraphNode({
+                    allNodes: [...allNodes, taskNode],
+                    graphId: taskNode.id,
+                    isNested,
+                });
             } else {
                 allNodes.push(taskNode);
             }
@@ -272,6 +284,7 @@ export default function buildWorkflowGraph({
         const isMapNode = nodeData.componentName === 'map';
         const isParallellNode = nodeData.componentName === 'parallel';
         const isForkJoinNode = nodeData.componentName === 'fork-join';
+        const isGraphNode = nodeData.componentName === 'graph';
         const isOnErrorNode = nodeData.componentName === 'on-error';
 
         const isConditionPlaceholderNode = nodeData.conditionId && node.type === 'placeholder';
@@ -355,12 +368,25 @@ export default function buildWorkflowGraph({
             return;
         }
 
+        // Create initial edges for the Graph node
+        if (isGraphNode) {
+            const graphEdges = createGraphEdges(node);
+
+            taskEdges.push(...graphEdges);
+
+            return;
+        }
+
         if (nextNode && tasks) {
             const isNextNodeTaskDispatcherBottomNode = nextNode.type === 'taskDispatcherBottomGhostNode';
 
             const nextNodeData: NodeDataType = nextNode.data as NodeDataType;
 
-            const isTaskDispatcherBottomGhostNode = node.type === 'taskDispatcherBottomGhostNode';
+            // A graph has no bottom bar: its frame is what the chain leaves the container from, so
+            // it takes the same branch. Everything that branch reads — `taskDispatcherId` and
+            // `isNestedBottomGhost` — `createGraphNode` puts on the frame for exactly this.
+            const isTaskDispatcherBottomGhostNode =
+                node.type === 'taskDispatcherBottomGhostNode' || node.type === GRAPH_FRAME_NODE_TYPE;
 
             if (isTaskDispatcherBottomGhostNode) {
                 const edgeFromTaskDispatcherBottomGhost = createEdgeFromTaskDispatcherBottomGhostNode({
@@ -431,6 +457,16 @@ export default function buildWorkflowGraph({
                         return;
                     }
                 }
+            }
+
+            // A graph's members are free-form inside its frame: they are reached only through
+            // `parameters.transitions`, never by array adjacency, and the container is entered and
+            // left through its ghost bars alone. Without this the array-order pass below would wire
+            // one member to the next declared one and the LAST member straight out to whatever task
+            // follows the graph — an edge that escapes the frame entirely. Members with an outgoing
+            // transition escape that only incidentally, via the dedupe at the bottom of this block.
+            if (nodeData.graphData?.graphId) {
+                return;
             }
 
             if (isConditionPlaceholderNode || isBranchPlaceholderNode || isOnErrorPlaceholderNode) {

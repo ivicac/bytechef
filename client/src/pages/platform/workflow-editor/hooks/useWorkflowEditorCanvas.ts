@@ -12,7 +12,7 @@ import {
     TaskDispatcherDefinitionBasic,
     Workflow,
 } from '@/shared/middleware/platform/configuration';
-import {NodeDataType} from '@/shared/types';
+import {NodeDataType, UpdateWorkflowMutationType} from '@/shared/types';
 import {Node, NodeChange, XYPosition, useNodesInitialized, useReactFlow} from '@xyflow/react';
 import {DragEventHandler, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
@@ -25,13 +25,14 @@ import LabeledBranchCaseEdge from '../edges/LabeledBranchCaseEdge';
 import PlaceholderEdge from '../edges/PlaceholderEdge';
 import RoundedSmoothStepEdge from '../edges/RoundedSmoothStepEdge';
 import WorkflowEdge from '../edges/WorkflowEdge';
+import useCanvasHeightViewport from '../hooks/useCanvasHeightViewport';
 import useGraphConnections from '../hooks/useGraphConnections';
 import useHandleDrop from '../hooks/useHandleDrop';
 import useInitialViewport from '../hooks/useInitialViewport';
 import useLayout from '../hooks/useLayout';
 import useOverlayPanelsViewport from '../hooks/useOverlayPanelsViewport';
 import useStickyNotes from '../hooks/useStickyNotes';
-import AiAgentNode from '../nodes/AiAgentNode';
+import ClusterRootNode from '../nodes/ClusterRootNode';
 import GraphFrameNode from '../nodes/GraphFrameNode';
 import GraphStartNode from '../nodes/GraphStartNode';
 import PlaceholderNode from '../nodes/PlaceholderNode';
@@ -55,6 +56,7 @@ import {
     buildDraggingPlaceholderState,
     computePlaceholderDragPosition,
 } from '../utils/dragTrailingPlaceholder';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import {registerAutoPlacedGraphPositions, takeAutoPlacedGraphPositions} from '../utils/graph/autoPlacedGraphPositions';
 import {toGraphContentPosition} from '../utils/graph/graphConnections';
 import {GRAPH_FRAME_ID_ATTRIBUTE, getGraphFrameId, getGraphIdFromFrameNodeId} from '../utils/graph/graphFrameGeometry';
@@ -87,6 +89,61 @@ const getGraphFrameElementId = (target: EventTarget | null) =>
     target instanceof HTMLElement
         ? (target.closest(`[${GRAPH_FRAME_ID_ATTRIBUTE}]`)?.getAttribute(GRAPH_FRAME_ID_ATTRIBUTE) ?? undefined)
         : undefined;
+
+interface SaveDraggedClusterElementPositionProps {
+    draggedNode: Node;
+    parentClusterRootId: string;
+    updateWorkflowMutation: UpdateWorkflowMutationType;
+}
+
+function saveDraggedClusterElementPosition({
+    draggedNode,
+    parentClusterRootId,
+    updateWorkflowMutation,
+}: SaveDraggedClusterElementPositionProps) {
+    const {nodes: currentNodes, workflow: currentWorkflow} = useWorkflowDataStore.getState();
+
+    const workflowDefinition = currentWorkflow.definition ? JSON.parse(currentWorkflow.definition) : {};
+
+    const topLevelClusterRootId = resolveClusterRootId(draggedNode.data as NodeDataType) ?? parentClusterRootId;
+
+    const clusterRootTask = getClusterRootTask({
+        tasks: workflowDefinition.tasks,
+        triggers: workflowDefinition.triggers,
+        workflowNodeName: topLevelClusterRootId,
+    });
+
+    if (!clusterRootTask?.clusterElements) {
+        return;
+    }
+
+    const clusterFrameRootNode = currentNodes.find((node) => node.id === topLevelClusterRootId);
+
+    const clusterFrame = (clusterFrameRootNode?.data as NodeDataType | undefined)?.clusterFrame;
+
+    const draggedNodePosition =
+        draggedNode.parentId === topLevelClusterRootId
+            ? fromClusterFrameChildPosition(draggedNode.position, clusterFrame?.contentOrigin)
+            : draggedNode.position;
+
+    const updatedClusterElements = updateClusterElementsPositions({
+        clusterElements: clusterRootTask.clusterElements,
+        movedClusterElementId: draggedNode.id,
+        nodePositions: {
+            [draggedNode.id]: draggedNodePosition,
+        },
+    });
+
+    void saveWorkflowDefinition({
+        nodeData: {
+            ...clusterRootTask,
+            clusterElements: updatedClusterElements,
+            componentName: clusterRootTask.type.split('/')[0],
+            workflowNodeName: topLevelClusterRootId,
+        },
+        updateWorkflowMutation,
+    });
+}
 
 const useWorkflowEditorCanvas = ({
     componentDefinitions,
@@ -139,6 +196,7 @@ const useWorkflowEditorCanvas = ({
         handleDropOnTriggerNode,
         handleDropOnTriggerPlaceholder,
         handleDropOnGraphFrame,
+        handleDropOnClusterElementPlaceholder,
     ] = useHandleDrop({
         taskDispatcherDefinitions,
     });
@@ -221,7 +279,7 @@ const useWorkflowEditorCanvas = ({
 
     const nodeTypes = useMemo(
         () => ({
-            clusterRoot: AiAgentNode,
+            clusterRoot: ClusterRootNode,
             graphFrame: GraphFrameNode,
             graphStart: GraphStartNode,
             placeholder: PlaceholderNode,
@@ -266,6 +324,8 @@ const useWorkflowEditorCanvas = ({
             edges,
             event,
             handlers: {
+                onDropOnClusterElementPlaceholder: (targetNode, droppedNode) =>
+                    void handleDropOnClusterElementPlaceholder(targetNode, droppedNode),
                 onDropOnGraphFrame: (droppedNode) => {
                     // A frame's own element is the only drop target inside the box: React Flow renders
                     // members as siblings in the viewport rather than nested in their parent, so a drop
@@ -542,6 +602,18 @@ const useWorkflowEditorCanvas = ({
                         }),
                         updateWorkflowMutation,
                     });
+                }
+
+                resetDragTracking();
+
+                return;
+            }
+
+            const parentClusterRootId = (draggedNode.data as NodeDataType).parentClusterRootId;
+
+            if (parentClusterRootId) {
+                if (updateWorkflowMutation) {
+                    saveDraggedClusterElementPosition({draggedNode, parentClusterRootId, updateWorkflowMutation});
                 }
 
                 resetDragTracking();

@@ -10,10 +10,17 @@ import {useWorkflowTestVoiceSession} from '@/shared/hooks/useWorkflowTestVoiceSe
 import {checkVoiceSupport} from '@/shared/lib/browser-voice/BrowserVoiceSession';
 import {createWebhookVoiceAdapter} from '@/shared/lib/voice/ByteChefRealtimeVoiceAdapter';
 import {VoiceModeLayout} from '@/shared/lib/voice/VoiceModeLayout';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {AudioLinesIcon, MessageSquareXIcon, SquareIcon, XIcon} from 'lucide-react';
 import {useCallback, useEffect, useMemo} from 'react';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
+
+/** The `browser/v1/voiceSession` trigger's own default for `sessionLimitSeconds`. */
+const DEFAULT_SESSION_LIMIT_SECONDS = 150;
+
+/** What the server uses when a trigger sets `sessionLimitSeconds` to 0. */
+const SERVER_MAX_SESSION_LIMIT_SECONDS = 30 * 60;
 
 interface WorkflowTestVoiceModeButtonPropsI {
     active: boolean;
@@ -61,45 +68,57 @@ const WorkflowTestChatPanel = () => {
         }))
     );
 
-    const copilotLayoutShifted = useCopilotLayoutShifted();
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     const workflow = useWorkflowDataStore((state) => state.workflow);
+
+    const copilotLayoutShifted = useCopilotLayoutShifted();
 
     const voiceUnsupportedReason = useMemo(() => checkVoiceSupport(), []);
     const browserSupportsVoice = voiceUnsupportedReason === null;
 
-    // Voice is only available when the workflow has at least one trigger carrying a websocketTasks pipeline
-    // (the embedded sub-workflow that runs during the voice session). Otherwise the voice button would fail
-    // at WS-upgrade time with the server's "no websocketTasks" close, which is recoverable but a poor UX.
-    // The canonical placement is a trigger extension; `parameters` is the legacy placement the server still
-    // accepts (see WebsocketTasks.resolve), so both are checked here.
-    const workflowSupportsVoice = (workflow?.triggers ?? []).some((trigger) => {
-        const extensions = (trigger?.extensions ?? {}) as Record<string, unknown>;
-        const parameters = (trigger?.parameters ?? {}) as Record<string, unknown>;
-
-        return [extensions.websocketTasks, parameters.websocketTasks].some(
-            (websocketTasks) => typeof websocketTasks === 'string' && websocketTasks.length > 0
-        );
-    });
-
     // A workflow is "voice-only" when its trigger is `browser/v1/voiceSession`. In that case the test panel
-    // renders <VoiceModeLayout> through the assistant-ui RealtimeVoiceAdapter instead of the chat <Thread>.
-    const isVoiceOnlyWorkflow = useMemo(
-        () => (workflow?.triggers ?? []).some((trigger) => trigger?.type === 'browser/v1/voiceSession'),
+    // renders <VoiceModeLayout> through the assistant-ui RealtimeVoiceAdapter instead of the chat <Thread> —
+    // but only once that trigger's Voice Agent cluster-element slot is actually filled in; an empty slot has
+    // nothing to connect to.
+    const voiceTrigger = useMemo(
+        () => (workflow?.triggers ?? []).find((trigger) => trigger?.type === 'browser/v1/voiceSession'),
         [workflow?.triggers]
     );
+    const hasVoiceAgent = !!(voiceTrigger?.clusterElements as {voiceAgent?: unknown} | undefined)?.voiceAgent;
+    const isVoiceOnlyWorkflow = !!voiceTrigger;
 
     // The test panel's voice token endpoint lives at
     // `/api/platform/internal/workflow-tests/{workflowId}/voice-session-token`. `createWebhookVoiceAdapter`
-    // appends `/voice-session-token` to the base URL, so we pass the workflow-test base. Only wired for the
-    // voice-only path because non-voice-only workflows use `useWorkflowTestVoiceSession` for the inline
-    // composer button instead of the assistant-ui adapter.
+    // appends `/voice-session-token` to the base URL, so we pass the workflow-test base. Only wired once a
+    // Voice Agent is configured because non-voice-only workflows use `useWorkflowTestVoiceSession` for the
+    // inline composer button instead of the assistant-ui adapter.
     const voiceAdapter = useMemo(() => {
-        if (!isVoiceOnlyWorkflow || !workflow?.id) {
+        if (!hasVoiceAgent || !workflow?.id) {
             return undefined;
         }
 
-        return createWebhookVoiceAdapter(`/api/platform/internal/workflow-tests/${workflow.id}`);
-    }, [isVoiceOnlyWorkflow, workflow?.id]);
+        const sampleRate = Number((voiceTrigger?.parameters as {sampleRate?: unknown} | undefined)?.sampleRate);
+
+        // The editor test socket resolves the trigger's connections in the environment the editor is showing; without
+        // it the server falls back to the first environment.
+        return createWebhookVoiceAdapter(
+            `/api/platform/internal/workflow-tests/${workflow.id}`,
+            sampleRate === 16000 || sampleRate === 24000 ? sampleRate : undefined,
+            {environmentId: String(currentEnvironmentId)}
+        );
+    }, [currentEnvironmentId, hasVoiceAgent, voiceTrigger?.parameters, workflow?.id]);
+
+    // Mirrors the server: a missing value is the trigger's default, 0 is the server's maximum session duration.
+    const voiceSessionLimitSeconds = useMemo(() => {
+        const sessionLimitSeconds = (voiceTrigger?.parameters as {sessionLimitSeconds?: unknown} | undefined)
+            ?.sessionLimitSeconds;
+
+        if (typeof sessionLimitSeconds !== 'number' || Number.isNaN(sessionLimitSeconds)) {
+            return DEFAULT_SESSION_LIMIT_SECONDS;
+        }
+
+        return sessionLimitSeconds > 0 ? sessionLimitSeconds : SERVER_MAX_SESSION_LIMIT_SECONDS;
+    }, [voiceTrigger?.parameters]);
 
     const {error, start, status, stop} = useWorkflowTestVoiceSession({
         onEvent: (event) => {
@@ -137,7 +156,7 @@ const WorkflowTestChatPanel = () => {
     }, [setMessage, start, workflow?.id]);
 
     const composerActions = useMemo(() => {
-        if (!workflow?.id || !workflowSupportsVoice || isVoiceOnlyWorkflow) {
+        if (!workflow?.id || isVoiceOnlyWorkflow) {
             return undefined;
         }
 
@@ -158,7 +177,6 @@ const WorkflowTestChatPanel = () => {
         voiceActive,
         voiceUnsupportedReason,
         workflow?.id,
-        workflowSupportsVoice,
     ]);
 
     useEffect(() => {
@@ -222,7 +240,13 @@ const WorkflowTestChatPanel = () => {
                 <div className="absolute inset-x-0 top-16 bottom-0">
                     <WorkflowTestChatRuntimeProvider voiceAdapter={voiceAdapter}>
                         {isVoiceOnlyWorkflow ? (
-                            <VoiceModeLayout sessionLimitSeconds={150} />
+                            hasVoiceAgent ? (
+                                <VoiceModeLayout sessionLimitSeconds={voiceSessionLimitSeconds} />
+                            ) : (
+                                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                                    Add a Voice Agent to the trigger to test with voice
+                                </div>
+                            )
                         ) : (
                             <Thread composerActions={composerActions} dataComponents={aiChatDataComponents} />
                         )}

@@ -35,7 +35,7 @@ import {
     DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN,
 } from '../utils/clusterFrame/clusterFrameGeometry';
 import {mapHandlePosition} from '../utils/directionUtils';
-import {getTask} from '../utils/getTask';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import styles from './NodeTypes.module.css';
 
@@ -93,9 +93,13 @@ const ClusterFrameShell = ({children, data, nodeId, nodeMenu}: ClusterFrameShell
             return;
         }
 
-        const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks ?? [];
+        const workflowDefinition = JSON.parse(workflow.definition);
 
-        const clusterRootTask = getTask({tasks: workflowDefinitionTasks, workflowNodeName: nodeId});
+        const clusterRootTask = getClusterRootTask({
+            tasks: workflowDefinition.tasks,
+            triggers: workflowDefinition.triggers,
+            workflowNodeName: nodeId,
+        });
 
         if (!clusterRootTask?.clusterElements) {
             return;
@@ -284,8 +288,10 @@ const ClusterFrameShell = ({children, data, nodeId, nodeMenu}: ClusterFrameShell
                 )}
             </div>
 
+            {/* A trigger box takes no incoming connection: nothing flows into a trigger. */}
+
             <Handle
-                className={styles.handle}
+                className={twMerge(styles.handle, data.trigger && 'hidden')}
                 id={`${nodeId}-top`}
                 position={mapHandlePosition(Position.Top, layoutDirection)}
                 type="target"
