@@ -1,7 +1,7 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ReactFlowProvider} from '@xyflow/react';
 import {ReactNode} from 'react';
@@ -9,6 +9,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
 import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
+import useWorkflowIssuesStore from '../stores/useWorkflowIssuesStore';
 import AiAgentNode from './AiAgentNode';
 
 // Mutable slice of the workflow data store so each test can supply its own definition.
@@ -238,6 +239,45 @@ describe('AiAgentNode expand control', () => {
         await userEvent.click(screen.getByRole('button', {name: 'Expand cluster elements'}));
 
         expect(useClusterFrameCollapsedStore.getState().collapsedByWorkflowId).toEqual({});
+    });
+});
+
+describe('AiAgentNode issue badge', () => {
+    beforeEach(() => {
+        workflowDataStoreState.definition = '{"tasks": []}';
+        workflowDataStoreState.triggers = [];
+        workflowEditorStoreState.clusterRootComponentDefinitions = {};
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
+        useWorkflowIssuesStore.setState({
+            liveIssues: {},
+            sweepIssues: [
+                {
+                    kind: 'MISSING_REQUIRED',
+                    message: 'Missing required property: userPrompt',
+                    nodeName: 'aiAgent_1',
+                    severity: 'ERROR',
+                    source: 'SWEEP',
+                },
+            ],
+            validatorIssues: [],
+        });
+    });
+
+    it('anchors the badge to the card rather than to the whole node element', () => {
+        renderNode();
+
+        const badge = screen.getByRole('img', {name: '1 issue'});
+
+        let anchor = badge.parentElement;
+
+        while (anchor && !anchor.className.split(/\s+/).includes('relative')) {
+            anchor = anchor.parentElement;
+        }
+
+        expect(anchor, 'the badge has no positioned ancestor to be offset from').not.toBeNull();
+        expect(within(anchor!).queryByText('aiAgent_1')).toBeNull();
+        expect(within(anchor!).getAllByRole('button').length).toBeGreaterThan(0);
     });
 });
 
