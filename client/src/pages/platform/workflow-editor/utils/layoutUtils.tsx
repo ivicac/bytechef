@@ -329,7 +329,7 @@ export const buildTriggerNodes = (
             },
             id: trigger.name,
             position: {x: 0, y: 0},
-            type: 'workflow',
+            type: trigger.clusterRoot ? 'clusterRoot' : 'workflow',
         } as Node;
     });
 
@@ -728,27 +728,26 @@ export const getClusterElementsLayoutElements = ({
 
     const getAbsoluteX = (node: Node): number => getAbsolutePoint(node).x;
 
-    // Rows are keyed by ABSOLUTE y. Every node's relative y is the same childBaseY regardless of depth, so keying by
+    // Rows are formed from ABSOLUTE y. Every node's relative y is the same childBaseY regardless of depth, so using
     // the relative value would collapse every depth into a single row and compare nodes that never share a line.
-    const nodesByRow = new Map<number, Node[]>();
+    const rows: Node[][] = [];
 
-    for (const node of positionedNodes) {
-        if (!node.parentId) {
-            continue;
+    const parentedNodes = positionedNodes
+        .filter((node) => !!node.parentId)
+        .sort((nodeA, nodeB) => getAbsolutePoint(nodeA).y - getAbsolutePoint(nodeB).y);
+
+    for (const node of parentedNodes) {
+        const nodeY = getAbsolutePoint(node).y;
+        const openRow = rows.find((row) => Math.abs(getAbsolutePoint(row[0]).y - nodeY) < NODE_HEIGHT + labelOverhang);
+
+        if (openRow) {
+            openRow.push(node);
+        } else {
+            rows.push([node]);
         }
-
-        const row = Math.round(getAbsolutePoint(node).y);
-
-        if (!nodesByRow.has(row)) {
-            nodesByRow.set(row, []);
-        }
-
-        nodesByRow.get(row)!.push(node);
     }
 
-    for (const row of [...nodesByRow.keys()].sort((rowA, rowB) => rowA - rowB)) {
-        const rowNodes = nodesByRow.get(row)!;
-
+    for (const rowNodes of rows) {
         if (rowNodes.length < 2) {
             continue;
         }
@@ -760,10 +759,6 @@ export const getClusterElementsLayoutElements = ({
         for (let index = 1; index < placements.length; index++) {
             const previous = placements[index - 1];
             const current = placements[index];
-
-            if (containsNodePosition(current.node.data.metadata)) {
-                continue;
-            }
 
             const previousLabelPadding = previous.node.data.clusterElementTypesCount
                 ? 0
@@ -777,7 +772,11 @@ export const getClusterElementsLayoutElements = ({
             const minAbsoluteX =
                 previous.absoluteX + previous.width + previousLabelPadding + currentLabelPadding + minGap;
 
-            if (current.absoluteX < minAbsoluteX) {
+            const encroachmentX = containsNodePosition(current.node.data.metadata)
+                ? previous.absoluteX + previous.width
+                : minAbsoluteX;
+
+            if (current.absoluteX < encroachmentX) {
                 const shift = minAbsoluteX - current.absoluteX;
 
                 current.node.position = {...current.node.position, x: current.node.position.x + shift};

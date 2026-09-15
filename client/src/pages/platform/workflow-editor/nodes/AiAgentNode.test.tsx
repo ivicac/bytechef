@@ -12,8 +12,23 @@ import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedSto
 import AiAgentNode from './AiAgentNode';
 
 // Mutable slice of the workflow data store so each test can supply its own definition.
-const {workflowDataStoreState, workflowEditorStoreState} = vi.hoisted(() => ({
-    workflowDataStoreState: {definition: '{"tasks": []}'},
+const {
+    handleDeleteTaskMock,
+    handleDeleteTriggerMock,
+    recordedMenuProps,
+    workflowDataStoreState,
+    workflowEditorStoreState,
+} = vi.hoisted(() => ({
+    handleDeleteTaskMock: vi.fn(),
+    handleDeleteTriggerMock: vi.fn(),
+    recordedMenuProps: {
+        contextMenu: undefined as Record<string, unknown> | undefined,
+        dropdownMenu: undefined as Record<string, unknown> | undefined,
+    },
+    workflowDataStoreState: {
+        definition: '{"tasks": []}',
+        triggers: [] as Array<{name: string; type: string}>,
+    },
     workflowEditorStoreState: {
         clusterRootComponentDefinitions: {} as Record<string, unknown>,
     },
@@ -21,11 +36,19 @@ const {workflowDataStoreState, workflowEditorStoreState} = vi.hoisted(() => ({
 
 // Render the context menu as a passthrough so the node content is asserted directly.
 vi.mock('@/pages/platform/workflow-editor/components/WorkflowNodeContextMenu', () => ({
-    default: ({children}: {children: ReactNode}) => <div>{children}</div>,
+    default: ({children, ...contextMenuProps}: {children: ReactNode}) => {
+        recordedMenuProps.contextMenu = contextMenuProps;
+
+        return <div>{children}</div>;
+    },
 }));
 
 vi.mock('@/pages/platform/workflow-editor/components/WorkflowNodeDropdownMenu', () => ({
-    default: () => null,
+    default: (dropdownMenuProps: Record<string, unknown>) => {
+        recordedMenuProps.dropdownMenu = dropdownMenuProps;
+
+        return null;
+    },
 }));
 
 vi.mock('@/pages/platform/workflow-editor/providers/workflowEditorProvider', () => ({
@@ -53,6 +76,10 @@ vi.mock('../hooks/useNodeClick', () => ({
     default: () => vi.fn(),
 }));
 
+vi.mock('../utils/handleDeleteTask', () => ({default: handleDeleteTaskMock}));
+
+vi.mock('../utils/handleDeleteTrigger', () => ({default: handleDeleteTriggerMock}));
+
 // Only the icon extractor is stubbed: the handle geometry helpers are the thing under test in the
 // box-mode block below, so they have to be the real ones.
 vi.mock('../../cluster-element-editor/utils/clusterElementsUtils', async (importOriginal) => ({
@@ -77,7 +104,7 @@ vi.mock('../stores/useWorkflowDataStore', () => ({
                 definition: workflowDataStoreState.definition,
                 id: 'workflow-1',
                 tasks: [],
-                triggers: [],
+                triggers: workflowDataStoreState.triggers,
             },
         }),
 }));
@@ -142,6 +169,7 @@ function nodeClassName(container: HTMLElement) {
 describe('AiAgentNode', () => {
     beforeEach(() => {
         workflowDataStoreState.definition = '{"tasks": []}';
+        workflowDataStoreState.triggers = [];
         workflowEditorStoreState.clusterRootComponentDefinitions = {};
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
         useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
@@ -181,6 +209,7 @@ describe('AiAgentNode', () => {
 describe('AiAgentNode expand control', () => {
     beforeEach(() => {
         workflowDataStoreState.definition = '{"tasks": []}';
+        workflowDataStoreState.triggers = [];
         workflowEditorStoreState.clusterRootComponentDefinitions = {};
         useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
         useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
@@ -212,7 +241,80 @@ describe('AiAgentNode expand control', () => {
     });
 });
 
-// Every cluster edge anchors to `<elementType>-handle` on the root, and React Flow drops an edge
-// whose named handle does not exist. On the main canvas a cluster root is an AiAgentNode, not a
-// WorkflowNode, so without these the box painted its elements and placeholders with nothing joining
-// them to the root.
+// A trigger that is a cluster root (the browser voice session) draws with this compact card outside
+// box mode, but it is not a task: copy, cut and disable are task actions, only a workflow with another
+// trigger may delete it, and deleting it has to go through the trigger path rather than remove a task.
+describe('AiAgentNode trigger cluster root', () => {
+    const VOICE_SESSION_TRIGGER_DATA = {
+        clusterRoot: true,
+        componentName: 'browser',
+        label: 'Browser Voice Session',
+        name: 'trigger_1',
+        operationName: 'voiceSession',
+        trigger: true,
+        version: 1,
+        workflowNodeName: 'trigger_1',
+    } as unknown as NodeDataType;
+
+    beforeEach(() => {
+        handleDeleteTaskMock.mockReset();
+        handleDeleteTriggerMock.mockReset();
+        recordedMenuProps.contextMenu = undefined;
+        recordedMenuProps.dropdownMenu = undefined;
+        workflowDataStoreState.definition = '{"tasks": []}';
+        workflowDataStoreState.triggers = [{name: 'trigger_1', type: 'browser/v1/voiceSession'}];
+        workflowEditorStoreState.clusterRootComponentDefinitions = {};
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
+    });
+
+    it('offers no task-only actions on the only trigger of the workflow', () => {
+        renderNode(VOICE_SESSION_TRIGGER_DATA);
+
+        const expectedActions = {
+            showCopyAction: false,
+            showCutAction: false,
+            showDeleteAction: false,
+            showDisableAction: false,
+            showInfoAction: true,
+            showRenameAction: true,
+        };
+
+        expect(recordedMenuProps.contextMenu).toMatchObject(expectedActions);
+        expect(recordedMenuProps.dropdownMenu).toMatchObject(expectedActions);
+    });
+
+    it('deletes the trigger through the trigger path when the workflow has another trigger', () => {
+        workflowDataStoreState.triggers = [
+            {name: 'trigger_1', type: 'browser/v1/voiceSession'},
+            {name: 'trigger_2', type: 'webhook/v1/onReceive'},
+        ];
+
+        renderNode(VOICE_SESSION_TRIGGER_DATA);
+
+        expect(recordedMenuProps.contextMenu?.showDeleteAction).toBe(true);
+
+        (recordedMenuProps.contextMenu?.onDelete as () => void)();
+
+        expect(handleDeleteTriggerMock).toHaveBeenCalledWith(expect.objectContaining({triggerName: 'trigger_1'}));
+        expect(handleDeleteTaskMock).not.toHaveBeenCalled();
+    });
+
+    it('hides the incoming handle of a trigger card', () => {
+        const {container} = renderNode(VOICE_SESSION_TRIGGER_DATA);
+
+        expect(container.querySelector('.react-flow__handle.target')).toHaveClass('hidden');
+    });
+
+    it('keeps every task action and the incoming handle on an agent task', () => {
+        const {container} = renderNode();
+
+        expect(recordedMenuProps.contextMenu).toMatchObject({
+            showCopyAction: true,
+            showCutAction: true,
+            showDeleteAction: true,
+            showDisableAction: true,
+        });
+        expect(container.querySelector('.react-flow__handle.target')).not.toHaveClass('hidden');
+    });
+});

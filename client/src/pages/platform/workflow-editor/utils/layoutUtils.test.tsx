@@ -1117,3 +1117,87 @@ describe('getClusterElementsLayoutElements sibling spacing after a cross-subtree
         expect(overlaps).toEqual([]);
     });
 });
+
+describe('getClusterElementsLayoutElements saved positions overtaken by a grown neighbour', () => {
+    const childBaseY = 160 + PLACEHOLDER_NODE_HEIGHT + NODE_HEIGHT / 4;
+
+    function makeRootNode(): Node {
+        return {
+            data: {clusterElementTypesCount: 2, clusterElements: {documentJoiner: [], documentRetriever: []}},
+            id: 'modularRag_1',
+            position: {x: 0, y: 0},
+            type: 'clusterRoot',
+        };
+    }
+
+    function makePlainElement(savedX: number): Node {
+        return {
+            data: {
+                clusterElementType: 'documentJoiner',
+                clusterElementTypeIndex: 0,
+                isNestedClusterRoot: false,
+                metadata: {ui: {nodePosition: {x: savedX, y: childBaseY}}},
+                parentClusterRootElementsTypeCount: 2,
+            },
+            id: 'documentJoiner_1',
+            parentId: 'modularRag_1',
+            position: {x: 0, y: 0},
+            type: 'workflow',
+        };
+    }
+
+    function makeNestedRoot(savedX: number): Node {
+        return {
+            data: {
+                clusterElementType: 'documentRetriever',
+                clusterElementTypeIndex: 1,
+                clusterElementTypesCount: 1,
+                isNestedClusterRoot: true,
+                metadata: {ui: {nodePosition: {x: savedX, y: childBaseY}}},
+                parentClusterRootElementsTypeCount: 2,
+            },
+            id: 'vectorStoreDocumentRetriever_1',
+            parentId: 'modularRag_1',
+            position: {x: 0, y: 0},
+            type: 'clusterRoot',
+        };
+    }
+
+    function layOut(nodes: Node[]) {
+        return getClusterElementsLayoutElements({canvasHeight: 800, canvasWidth: 1200, edges: [], nodes});
+    }
+
+    it('moves a saved position that has ended up underneath its neighbour', () => {
+        const result = layOut([makeRootNode(), makePlainElement(0), makeNestedRoot(30)]);
+
+        const retriever = result.nodes.find((node) => node.id === 'vectorStoreDocumentRetriever_1');
+
+        expect(retriever?.position.x).toBe(
+            CLUSTER_ELEMENT_NODE_WIDTH + CLUSTER_ELEMENT_LABEL_PADDING + CLUSTER_ELEMENT_OVERLAP_PADDING
+        );
+    });
+
+    it('still catches a node dragged a pixel off the line it shares', () => {
+        const nudgedRetriever = makeNestedRoot(30);
+
+        nudgedRetriever.data.metadata = {ui: {nodePosition: {x: 30, y: childBaseY - 1}}};
+
+        const result = layOut([makeRootNode(), makePlainElement(0), nudgedRetriever]);
+
+        const retriever = result.nodes.find((node) => node.id === 'vectorStoreDocumentRetriever_1');
+
+        expect(retriever?.position.x).toBe(
+            CLUSTER_ELEMENT_NODE_WIDTH + CLUSTER_ELEMENT_LABEL_PADDING + CLUSTER_ELEMENT_OVERLAP_PADDING
+        );
+    });
+
+    it('leaves a saved position that is merely tight, since that spacing was chosen', () => {
+        const tightButClear = CLUSTER_ELEMENT_NODE_WIDTH + 1;
+
+        const result = layOut([makeRootNode(), makePlainElement(0), makeNestedRoot(tightButClear)]);
+
+        const retriever = result.nodes.find((node) => node.id === 'vectorStoreDocumentRetriever_1');
+
+        expect(retriever?.position.x).toBe(tightButClear);
+    });
+});
