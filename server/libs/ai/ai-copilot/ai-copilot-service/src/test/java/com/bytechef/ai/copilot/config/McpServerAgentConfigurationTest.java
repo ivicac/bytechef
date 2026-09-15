@@ -31,13 +31,10 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolContributor;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.SimpleIntelligentToolDefinition;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.ai.mcp.facade.McpProjectFacade;
+import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
-import com.bytechef.automation.ai.mcp.service.McpProjectService;
-import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataRedactor;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -61,9 +58,7 @@ final class McpServerAgentConfigurationTest {
     private final SecurityContextRehydrator securityContextRehydrator = mock(SecurityContextRehydrator.class);
 
     private final McpServerToolCallbacksFactory mcpServerToolCallbacksFactory = new McpServerToolCallbacksFactory(
-        mock(McpProjectFacade.class), mock(McpProjectService.class), mock(McpProjectWorkflowService.class),
-        mock(ProjectDeploymentWorkflowService.class), mock(WorkflowService.class),
-        mock(WorkspaceMcpServerFacade.class));
+        mock(McpProjectFacade.class), mock(McpProjectWorkflowFacade.class), mock(WorkspaceMcpServerFacade.class));
 
     @Test
     void testAskAgentUsesReadToolsAndBuildAgentUsesWriteTools() throws AGUIException {
@@ -84,7 +79,7 @@ final class McpServerAgentConfigurationTest {
 
         assertThat(buildToolNames).containsExactlyInAnyOrder(
             "listMcpServers", "listMcpProjectWorkflows", "createMcpServer", "updateMcpServer", "createMcpProject",
-            "cloneMcpProject", "updateMcpProjectWorkflowParameters");
+            "cloneMcpProject");
     }
 
     @Test
@@ -93,7 +88,8 @@ final class McpServerAgentConfigurationTest {
             configuration.buildToolCallbacks(
                 securityContextRehydrator, mcpServerToolCallbacksFactory, catalogWithConfigureMcpServer()));
 
-        assertThat(buildToolNames).contains("configureMcpServer");
+        assertThat(buildToolNames).contains("configureMcpServer")
+            .doesNotContain("updateMcpProjectWorkflowParameters");
     }
 
     @Test

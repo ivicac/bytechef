@@ -28,13 +28,10 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.ai.mcp.facade.McpProjectFacade;
+import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
-import com.bytechef.automation.ai.mcp.service.McpProjectService;
-import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -52,40 +49,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the MCP Server Copilot panel source agents ({@code mcp_server_ask}/{@code mcp_server_build}). Lives in CE
- * alongside {@code CopilotConfiguration} because {@link McpServerToolCallbacksFactory} is CE.
- *
- * <p>
- * This configuration is purely additive: it does not touch {@code McpServerSubAgentConfiguration}'s
- * {@code mcpServerBuildSubAgentChatClient} / {@code mcpServerBuildSubAgentChatClientFactory} beans, which back the
- * {@code configureMcpServer} intelligent tool (the promoted {@code mcp_agent} delegate) consumed by AI Hub, the
- * management MCP server, and — via {@link com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog#getForPanel} —
- * this module's own {@code mcp_server_build} agent below. Those beans build their own, narrower two-tool ChatClient
- * independently of {@link McpServerToolCallbacksFactory}.
- * </p>
- *
- * <p>
- * The MCP facades ({@link McpProjectFacade}, {@link WorkspaceMcpServerFacade}) are optional — mirroring
- * {@code McpServerSubAgentConfiguration}'s own {@code @ConditionalOnBean} gate, every bean here carries
- * {@code @ConditionalOnBean({McpProjectFacade.class, WorkspaceMcpServerFacade.class})} so the whole slice skips
- * silently when the MCP feature module is absent, instead of failing application startup with an unsatisfied
- * dependency. The condition is repeated on the factory bean and both agent beans (rather than only the factory) because
- * a Spring {@code @Bean} method with a required, unconditioned parameter fails context refresh if that parameter's bean
- * was never registered — the ASK/BUILD agent beans both take {@link McpServerToolCallbacksFactory} as a hard
- * constructor argument, so they must carry the same condition as the factory they depend on.
- * </p>
- *
- * <p>
- * Gated on {@code bytechef.ai.copilot.enabled} rather than an OR with {@code bytechef.ai.hub.enabled}, matching
- * {@code ProjectDeploymentAgentConfiguration}: an OR-gate would let this configuration register with
- * {@code hub.enabled=true, copilot.enabled=false}, when nothing in the AI Hub surface consumes these panel-agent beans.
- * </p>
+ * Registers the MCP Server Copilot panel source agents ({@code mcp_server_ask}/{@code mcp_server_build}). The
+ * {@link McpServerToolCallbacksFactory} bean comes from {@code ToolCallbacksFactoryConfiguration}; every bean here
+ * carries the same {@code @ConditionalOnBean} gate on the MCP facades so the slice skips silently when the MCP feature
+ * module is absent.
  *
  * @author Ivica Cardic
  */
 @Configuration
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class McpServerAgentConfiguration {
+
+    private static final String MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME = "updateMcpProjectWorkflowParameters";
 
     @Value("classpath:prompt_mcp_server_ask.txt")
     private Resource promptMcpServerAskResource;
@@ -97,22 +72,7 @@ public class McpServerAgentConfiguration {
 
     @Bean
     @ConditionalOnBean({
-        McpProjectFacade.class, WorkspaceMcpServerFacade.class
-    })
-    McpServerToolCallbacksFactory mcpServerToolCallbacksFactory(
-        McpProjectFacade mcpProjectFacade, McpProjectService mcpProjectService,
-        McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService,
-        WorkspaceMcpServerFacade workspaceMcpServerFacade) {
-
-        return new McpServerToolCallbacksFactory(
-            mcpProjectFacade, mcpProjectService, mcpProjectWorkflowService, projectDeploymentWorkflowService,
-            workflowService, workspaceMcpServerFacade);
-    }
-
-    @Bean
-    @ConditionalOnBean({
-        McpProjectFacade.class, WorkspaceMcpServerFacade.class
+        McpProjectFacade.class, McpProjectWorkflowFacade.class, WorkspaceMcpServerFacade.class
     })
     SliceSpringAIAgent mcpServerAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, McpServerToolCallbacksFactory mcpServerToolCallbacksFactory,
@@ -137,7 +97,7 @@ public class McpServerAgentConfiguration {
 
     @Bean
     @ConditionalOnBean({
-        McpProjectFacade.class, WorkspaceMcpServerFacade.class
+        McpProjectFacade.class, McpProjectWorkflowFacade.class, WorkspaceMcpServerFacade.class
     })
     SliceSpringAIAgent mcpServerBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, McpServerToolCallbacksFactory mcpServerToolCallbacksFactory,
@@ -178,18 +138,25 @@ public class McpServerAgentConfiguration {
      *
      * <p>
      * Also fetches {@code configureMcpServer} from the shared {@link IntelligentToolCatalog}, scoped to
-     * {@link IntelligentToolScope#MCP_SERVER} — the panel can delegate synthesizing a server's tool mapping to that
-     * specialist instead of doing it inline with the flat CRUD tools above. Registered bare (no
-     * {@link RehydrateContextToolCallback} wrapping), matching how {@code ProjectAgentConfiguration} registers its own
-     * panel-scoped intelligent delegates.
+     * {@link IntelligentToolScope#MCP_SERVER} — the panel's only path to a server's tool mapping, so
+     * {@value #MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME} is filtered out of the write tools, as it is on the AI Hub
+     * and management MCP surfaces. Registered bare (no {@link RehydrateContextToolCallback} wrapping), matching how
+     * {@code ProjectAgentConfiguration} registers its own panel-scoped intelligent delegates.
      * </p>
      */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator,
         McpServerToolCallbacksFactory mcpServerToolCallbacksFactory, IntelligentToolCatalog intelligentToolCatalog) {
 
+        List<ToolCallback> writeToolCallbacks = mcpServerToolCallbacksFactory.writeToolCallbacks()
+            .stream()
+            .filter(toolCallback -> !MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME.equals(
+                toolCallback.getToolDefinition()
+                    .name()))
+            .toList();
+
         List<ToolCallback> toolCallbacks = new ArrayList<>(
-            wrapToolCallbacks(securityContextRehydrator, mcpServerToolCallbacksFactory.writeToolCallbacks()));
+            wrapToolCallbacks(securityContextRehydrator, writeToolCallbacks));
 
         toolCallbacks.addAll(
             intelligentToolCatalog.getForPanel(
