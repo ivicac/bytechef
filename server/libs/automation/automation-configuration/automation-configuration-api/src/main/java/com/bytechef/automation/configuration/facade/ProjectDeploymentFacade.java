@@ -43,6 +43,14 @@ public interface ProjectDeploymentFacade {
 
     void deleteProjectDeployment(long id);
 
+    /**
+     * Asks every authorization question {@link #enableProjectDeployment(long, boolean)} would ask for the same
+     * arguments, and throws what it would throw, without arming or disarming anything. A caller that toggles several
+     * deployments together checks them all first, so a denial on a later one leaves no earlier one's triggers
+     * registered with an external provider.
+     */
+    void checkEnableProjectDeployment(long id, boolean enable);
+
     void enableProjectDeployment(long id, boolean enable);
 
     void enableProjectDeploymentWorkflow(long projectDeploymentId, String workflowId, boolean enable);
