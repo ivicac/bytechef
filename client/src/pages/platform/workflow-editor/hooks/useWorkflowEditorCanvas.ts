@@ -12,7 +12,7 @@ import {
     TaskDispatcherDefinitionBasic,
     Workflow,
 } from '@/shared/middleware/platform/configuration';
-import {NodeDataType} from '@/shared/types';
+import {NodeDataType, UpdateWorkflowMutationType} from '@/shared/types';
 import {Node, NodeChange, XYPosition, useNodesInitialized, useReactFlow} from '@xyflow/react';
 import {DragEventHandler, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
@@ -53,7 +53,7 @@ import {
     buildDraggingPlaceholderState,
     computePlaceholderDragPosition,
 } from '../utils/dragTrailingPlaceholder';
-import {getTask} from '../utils/getTask';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import {registerAutoPlacedGraphPositions, takeAutoPlacedGraphPositions} from '../utils/graph/autoPlacedGraphPositions';
 import {toGraphContentPosition} from '../utils/graph/graphConnections';
 import {GRAPH_FRAME_ID_ATTRIBUTE, getGraphFrameId, getGraphIdFromFrameNodeId} from '../utils/graph/graphFrameGeometry';
@@ -86,6 +86,67 @@ const getGraphFrameElementId = (target: EventTarget | null) =>
     target instanceof HTMLElement
         ? (target.closest(`[${GRAPH_FRAME_ID_ATTRIBUTE}]`)?.getAttribute(GRAPH_FRAME_ID_ATTRIBUTE) ?? undefined)
         : undefined;
+
+interface SaveDraggedClusterElementPositionProps {
+    draggedNode: Node;
+    parentClusterRootId: string;
+    updateWorkflowMutation: UpdateWorkflowMutationType;
+}
+
+function saveDraggedClusterElementPosition({
+    draggedNode,
+    parentClusterRootId,
+    updateWorkflowMutation,
+}: SaveDraggedClusterElementPositionProps) {
+    const {nodes: currentNodes, workflow: currentWorkflow} = useWorkflowDataStore.getState();
+
+    const workflowDefinition = currentWorkflow.definition ? JSON.parse(currentWorkflow.definition) : {};
+
+    // `getTask`/`workflowTasks` only address the OUTERMOST cluster root — a nested one
+    // lives inside its parent's `clusterElements`, not as its own entry. For a
+    // first-level element `parentClusterRootId` already IS that outermost root, but
+    // for an element nested two or more levels deep it names only the immediate
+    // parent, which `getTask` cannot find. `resolveClusterRootId` prefers
+    // `topLevelClusterRootId` for exactly this reason.
+    const topLevelClusterRootId = resolveClusterRootId(draggedNode.data as NodeDataType) ?? parentClusterRootId;
+
+    const clusterRootTask = getClusterRootTask({
+        tasks: workflowDefinition.tasks,
+        triggers: workflowDefinition.triggers,
+        workflowNodeName: topLevelClusterRootId,
+    });
+
+    if (!clusterRootTask?.clusterElements) {
+        return;
+    }
+
+    const clusterFrameRootNode = currentNodes.find((node) => node.id === topLevelClusterRootId);
+
+    const clusterFrame = (clusterFrameRootNode?.data as NodeDataType | undefined)?.clusterFrame;
+
+    const draggedNodePosition =
+        draggedNode.parentId === topLevelClusterRootId
+            ? fromClusterFrameChildPosition(draggedNode.position, clusterFrame?.contentOrigin)
+            : draggedNode.position;
+
+    const updatedClusterElements = updateClusterElementsPositions({
+        clusterElements: clusterRootTask.clusterElements,
+        movedClusterElementId: draggedNode.id,
+        nodePositions: {
+            [draggedNode.id]: draggedNodePosition,
+        },
+    });
+
+    void saveWorkflowDefinition({
+        nodeData: {
+            ...clusterRootTask,
+            clusterElements: updatedClusterElements,
+            componentName: clusterRootTask.type.split('/')[0],
+            workflowNodeName: topLevelClusterRootId,
+        },
+        updateWorkflowMutation,
+    });
+}
 
 const useWorkflowEditorCanvas = ({
     componentDefinitions,
@@ -140,6 +201,7 @@ const useWorkflowEditorCanvas = ({
         handleDropOnTriggerNode,
         handleDropOnTriggerPlaceholder,
         handleDropOnGraphFrame,
+        handleDropOnClusterElementPlaceholder,
     ] = useHandleDrop({
         taskDispatcherDefinitions,
     });
@@ -267,6 +329,8 @@ const useWorkflowEditorCanvas = ({
             edges,
             event,
             handlers: {
+                onDropOnClusterElementPlaceholder: (targetNode, droppedNode) =>
+                    void handleDropOnClusterElementPlaceholder(targetNode, droppedNode),
                 onDropOnGraphFrame: (droppedNode) => {
                     // A frame's own element is the only drop target inside the box: React Flow renders
                     // members as siblings in the viewport rather than nested in their parent, so a drop
@@ -572,56 +636,7 @@ const useWorkflowEditorCanvas = ({
             // card start rendering a second time, inside its own box.
             if (parentClusterRootId) {
                 if (updateWorkflowMutation) {
-                    const {workflow: currentWorkflow} = useWorkflowDataStore.getState();
-
-                    const workflowDefinitionTasks = currentWorkflow.definition
-                        ? (JSON.parse(currentWorkflow.definition).tasks ?? [])
-                        : [];
-
-                    // `getTask`/`workflowTasks` only address the OUTERMOST cluster root — a nested one
-                    // lives inside its parent's `clusterElements`, not as its own entry. For a
-                    // first-level element `parentClusterRootId` already IS that outermost root, but
-                    // for an element nested two or more levels deep it names only the immediate
-                    // parent, which `getTask` cannot find. `resolveClusterRootId` prefers
-                    // `topLevelClusterRootId` for exactly this reason.
-                    const topLevelClusterRootId =
-                        resolveClusterRootId(draggedNode.data as NodeDataType) ?? parentClusterRootId;
-
-                    const clusterRootTask = getTask({
-                        tasks: workflowDefinitionTasks,
-                        workflowNodeName: topLevelClusterRootId,
-                    });
-
-                    const clusterFrameRootNode = useWorkflowDataStore
-                        .getState()
-                        .nodes.find((node) => node.id === topLevelClusterRootId);
-
-                    const clusterFrame = (clusterFrameRootNode?.data as NodeDataType | undefined)?.clusterFrame;
-
-                    const draggedNodePosition =
-                        draggedNode.parentId === topLevelClusterRootId
-                            ? fromClusterFrameChildPosition(draggedNode.position, clusterFrame?.contentOrigin)
-                            : draggedNode.position;
-
-                    if (clusterRootTask?.clusterElements) {
-                        const updatedClusterElements = updateClusterElementsPositions({
-                            clusterElements: clusterRootTask.clusterElements,
-                            movedClusterElementId: draggedNode.id,
-                            nodePositions: {
-                                [draggedNode.id]: draggedNodePosition,
-                            },
-                        });
-
-                        saveWorkflowDefinition({
-                            nodeData: {
-                                ...clusterRootTask,
-                                clusterElements: updatedClusterElements,
-                                componentName: clusterRootTask.type.split('/')[0],
-                                workflowNodeName: topLevelClusterRootId,
-                            },
-                            updateWorkflowMutation,
-                        });
-                    }
+                    saveDraggedClusterElementPosition({draggedNode, parentClusterRootId, updateWorkflowMutation});
                 }
 
                 resetDragTracking();

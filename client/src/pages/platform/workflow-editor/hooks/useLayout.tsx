@@ -57,6 +57,7 @@ import createParallelEdges from '../utils/createParallelEdges';
 import createParallelNode from '../utils/createParallelNode';
 import {getElkLayoutElements} from '../utils/elkLayoutUtils';
 import extractDefinitionPositions from '../utils/extractDefinitionPositions';
+import getBoxModeClusterRootIds from '../utils/getBoxModeClusterRootIds';
 import {getEffectivelyDisabledTaskNames} from '../utils/getEffectivelyDisabledTaskNames';
 import {LayoutGraphFramesResultI, layoutGraphFrames} from '../utils/graph/layoutGraphFrames';
 import {isElkLayoutActive} from '../utils/isElkLayoutSupported';
@@ -98,11 +99,8 @@ function getClusterElementsFingerprint(clusterElements: unknown): string {
                 const nestedClusterElements = getNestedClusterElements(element);
                 const nestedFingerprint = getClusterElementsFingerprint(nestedClusterElements);
                 const nestedFingerprintPart = nestedFingerprint ? '{' + nestedFingerprint + '}' : '';
-                const nodePosition = (element as {metadata?: {ui?: {nodePosition?: {x: number; y: number}}}}).metadata
-                    ?.ui?.nodePosition;
-                const positionPart = nodePosition ? `@${nodePosition.x},${nodePosition.y}` : '';
 
-                return `${elementName}:${element.type}${positionPart}${nestedFingerprintPart}`;
+                return `${elementName}:${element.type}${nestedFingerprintPart}`;
             });
 
             return `${elementKey}[${elementFingerprints.join(';')}]`;
@@ -340,11 +338,6 @@ export default function useLayout({
     const storeDirection = useLayoutDirectionStore((state) => state.layoutDirection);
     const layoutDirection = directionProp || storeDirection;
     const layoutEngine = useLayoutEngineStore((state) => state.layoutEngine);
-    // Read reactively, not via getState() at the point of use below: the layout effect only re-runs
-    // when something in its dependency array changes, and a toggle of this map is the ONLY thing that
-    // needs to re-stamp every member's `draggable` flag. A getState() read there would see the map's
-    // latest value on whatever unrelated render happens to trigger next, leaving every element
-    // undraggable until something else coincidentally re-runs the layout.
     const clusterFrameLockedByRootId = useWorkflowEditorStore((state) => state.clusterFrameLockedByRootId);
 
     // Selective subscriptions with structural equality — prevents re-renders on parameter-only
@@ -383,7 +376,9 @@ export default function useLayout({
 
             return previousTriggers.every(
                 (trigger, index) =>
-                    trigger.name === nextTriggers[index].name && trigger.type === nextTriggers[index].type
+                    trigger.name === nextTriggers[index].name &&
+                    trigger.type === nextTriggers[index].type &&
+                    trigger.clusterRoot === nextTriggers[index].clusterRoot
             );
         }
     );
@@ -411,21 +406,21 @@ export default function useLayout({
 
     const clusterElementsViewMode = useClusterElementsViewMode();
 
+    const workflowId = useWorkflowDataStore((state) => state.workflow.id);
+    const collapsedClusterRootIds = useClusterFrameCollapsedStore((state) =>
+        workflowId ? state.collapsedByWorkflowId[workflowId] : undefined
+    );
+
     // `layoutNodes` (the canvas node array) exists only inside the layout effect below, built fresh
     // from `tasks` on every run -- so this reads `tasks` directly instead, rather than duplicating
     // that construction here just to get ids the effect could derive on its own. A task counts as a
     // box candidate once it carries a clusterElements object; layoutClusterFrames is what actually
     // decides whether a candidate has any elements to box up.
-    // Keyed on the server-computed `clusterRoot` flag -- the same one that types the node below --
-    // and NOT on `clusterElements` being present: a task dispatcher's DTO carries that field too
-    // (an empty object is truthy), so a Condition added after a box was treated as a root and had
-    // its component definition fetched, which no task dispatcher has.
+    // Triggers count too: the browser voice session trigger is a cluster root. See
+    // getBoxModeClusterRootIds for why the server-computed `clusterRoot` flag is the key.
     const boxModeClusterRootIds = useMemo(
-        () =>
-            clusterElementsViewMode === 'box'
-                ? (tasks ?? []).filter((task) => task.clusterRoot).map((task) => task.name)
-                : [],
-        [clusterElementsViewMode, tasks]
+        () => getBoxModeClusterRootIds({clusterElementsViewMode, collapsedClusterRootIds, tasks, triggers}),
+        [clusterElementsViewMode, collapsedClusterRootIds, tasks, triggers]
     );
 
     const {definitionsReady, edgesByRootId, nodesByRootId} = useClusterElementNodes(boxModeClusterRootIds);
@@ -434,24 +429,6 @@ export default function useLayout({
     // progress) or a failed layout computation — without it either path left
     // the canvas stale until an unrelated dependency changed.
     const [layoutRetryNonce, setLayoutRetryNonce] = useState(0);
-    const clusterElementsViewMode = useClusterElementsViewMode();
-
-    const workflowId = useWorkflowDataStore((state) => state.workflow.id);
-    const collapsedClusterRootIds = useClusterFrameCollapsedStore((state) =>
-        workflowId ? state.collapsedByWorkflowId[workflowId] : undefined
-    );
-
-    const boxModeClusterRootIds = useMemo(
-        () =>
-            clusterElementsViewMode === 'box'
-                ? (tasks ?? [])
-                      .filter((task) => task.clusterRoot && !collapsedClusterRootIds?.[task.name])
-                      .map((task) => task.name)
-                : [],
-        [clusterElementsViewMode, collapsedClusterRootIds, tasks]
-    );
-
-    const {definitionsReady, edgesByRootId, nodesByRootId} = useClusterElementNodes(boxModeClusterRootIds);
 
     const cancelAnimationRef = useRef<(() => void) | null>(null);
     const layoutRetryStateRef = useRef(createLayoutRetryState());
@@ -1039,9 +1016,6 @@ export default function useLayout({
             return;
         }
 
-        // Without this, a box would first lay out at whatever size its (not-yet-fetched) elements
-        // default to and then jump once the real ones resolve. There is nothing to wait for when box
-        // mode is off (the array is empty) or definitions are already in hand.
         if (boxModeClusterRootIds.length > 0 && !definitionsReady) {
             return;
         }
@@ -1272,17 +1246,7 @@ export default function useLayout({
                     return;
                 }
 
-                useLayoutEngineStore.getState().setLastAppliedLayoutEngine(layoutElements.engine);
-
-                const clusterMemberNodes = readOnlyWorkflow
-                    ? framedClusters.memberNodes.map((node) => ({...node, draggable: false}))
-                    : framedClusters.memberNodes;
-
-                const elements = {
-                    ...layoutElements,
-                    edges: [...layoutElements.edges, ...framedClusters.memberEdges],
-                    nodes: [...layoutElements.nodes, ...clusterMemberNodes],
-                };
+                useLayoutEngineStore.getState().setLastAppliedLayoutEngine(elements.engine);
 
                 const targetNodes: Node[] = [
                     ...elements.nodes,
@@ -1370,6 +1334,7 @@ export default function useLayout({
         edgesByRootId,
         nodesByRootId,
         clusterFrameLockedByRootId,
+        clusterElementsViewMode,
     ]);
 
     useEffect(() => {

@@ -90,7 +90,6 @@ function findNode(id: string): Node {
     return useWorkflowDataStore.getState().nodes.find((node) => node.id === id)!;
 }
 
-/** Reads the element's persisted content-origin position back out of the definition the last save sent. */
 function getSavedElementPosition(): {x: number; y: number} | undefined {
     const [[mutationVariables]] = updateWorkflowMutationMock.mutate.mock.calls.slice(-1);
 
@@ -106,9 +105,6 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
         editorContext.updateWorkflowMutation = updateWorkflowMutationMock;
         updateWorkflowMutationMock.mutate.mockClear();
 
-        // `saveWorkflowDefinition` drops a save that arrives while a previous one is still in
-        // flight, and the mock mutation never settles — without this reset every save after the
-        // first in a test would be silently dropped instead of fired.
         clearAllWorkflowMutations();
 
         useWorkflowDataStore.setState({
@@ -119,11 +115,6 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
                 definition: buildDefinition({x: 0, y: 0}),
                 id: 'workflow-1',
                 nodeNames: [],
-                // The flattened DTO copy of the definition's tasks, kept in sync alongside it in the
-                // live app. `saveWorkflowDefinition` matches an existing task through THIS array (not
-                // the parsed definition) to decide whether to update the root in place or insert a
-                // new one — an empty array here would make every save look like a brand new task and
-                // duplicate the root instead of updating it.
                 tasks: [{clusterRoot: true, name: ROOT_ID, type: 'aiAgent/v1'}],
                 version: 3,
             },
@@ -133,9 +124,6 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
     it('converts a dropped element back through the header offset before persisting it', () => {
         const {result} = renderCanvas();
 
-        // The live drag position is parent-relative (it includes the header band); dropped at what
-        // reads on screen as content-origin (220, 140), React Flow's own position is offset by the
-        // header height.
         act(() => {
             result.current.handleNodeDragStop({} as MouseEvent, {
                 ...findNode('model_1'),
@@ -146,9 +134,6 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
         expect(getSavedElementPosition()).toEqual({x: 220, y: 140});
     });
 
-    // Pins the conversion direction itself: persisting the raw, un-converted parent-relative
-    // position (skipping fromClusterFrameChildPosition) is exactly the header-height drift the
-    // brief warns about, and this assertion fails the moment that conversion is dropped.
     it('does not persist the raw parent-relative position unconverted', () => {
         const {result} = renderCanvas();
 
@@ -203,11 +188,6 @@ describe('useWorkflowEditorCanvas cluster element dragging', () => {
     });
 });
 
-// A cluster root can itself contain a nested cluster root (e.g. an agentic tool with its own model),
-// and an element inside THAT nested box carries `parentClusterRootId` naming the nested root — not
-// the outermost one `getTask`/`workflowTasks` can actually address. `topLevelClusterRootId` is what
-// resolves back to a real task entry, threaded unchanged through the nesting by
-// `createClusterElementNodes`.
 describe('useWorkflowEditorCanvas cluster element dragging, nested a level deeper', () => {
     const NESTED_ROOT_ID = 'agenticTool_1';
     const NESTED_ELEMENT_ID = 'nestedModel_1';
@@ -297,15 +277,97 @@ describe('useWorkflowEditorCanvas cluster element dragging, nested a level deepe
             });
         });
 
-        // A save keyed on the immediate parent (`agenticTool_1`) would have found no such task at the
-        // top level of the definition and saved nothing at all.
         expect(updateWorkflowMutationMock.mutate).toHaveBeenCalledTimes(1);
 
-        // Persisted RAW. A nested element's React Flow parent is the nested root, not the box, so its
-        // live position is already measured from the same origin `metadata.ui.nodePosition` stores it
-        // in. Subtracting the box's content origin here — as this drag branch used to do for every
-        // element regardless of depth — writes back a position shifted by the header band, which the
-        // dialog then reads as the user's own layout.
         expect(getSavedNestedElementPosition()).toEqual({x: 220, y: 180});
+    });
+});
+
+describe('useWorkflowEditorCanvas cluster element dragging inside a trigger box', () => {
+    const TRIGGER_ID = 'trigger_1';
+
+    beforeEach(() => {
+        editorContext.updateWorkflowMutation = updateWorkflowMutationMock;
+        updateWorkflowMutationMock.mutate.mockClear();
+
+        clearAllWorkflowMutations();
+
+        useWorkflowDataStore.setState({
+            edges: [],
+            nodes: [
+                {
+                    data: {
+                        clusterFrame: {clusterRootId: TRIGGER_ID, height: 320, width: 640},
+                        clusterRoot: true,
+                        trigger: true,
+                        workflowNodeName: TRIGGER_ID,
+                    },
+                    id: TRIGGER_ID,
+                    position: {x: 0, y: 0},
+                    type: 'workflow',
+                },
+                {
+                    data: {
+                        clusterElementType: 'voiceAgent',
+                        parentClusterRootId: TRIGGER_ID,
+                        workflowNodeName: 'voiceAgent_1',
+                    },
+                    draggable: true,
+                    id: 'voiceAgent_1',
+                    measured: {height: 60, width: 200},
+                    parentId: TRIGGER_ID,
+                    position: toClusterFrameChildPosition({x: 0, y: 0}),
+                    type: 'workflow',
+                },
+            ],
+            savedPositionCrossAxisShift: 0,
+            workflow: {
+                definition: JSON.stringify({
+                    tasks: [],
+                    triggers: [
+                        {
+                            clusterElements: {
+                                tools: [],
+                                voiceAgent: {
+                                    metadata: {ui: {nodePosition: {x: 0, y: 0}}},
+                                    name: 'voiceAgent_1',
+                                    type: 'deepgram/v1/voiceAgent',
+                                },
+                            },
+                            name: TRIGGER_ID,
+                            type: 'browser/v1/voiceSession',
+                        },
+                    ],
+                }),
+                id: 'workflow-1',
+                nodeNames: [],
+                tasks: [],
+                triggers: [{clusterRoot: true, name: TRIGGER_ID, type: 'browser/v1/voiceSession'}],
+                version: 3,
+            },
+        });
+    });
+
+    it('persists a dropped voice agent position into the trigger it hangs off', () => {
+        const {result} = renderCanvas();
+
+        act(() => {
+            result.current.handleNodeDragStop({} as MouseEvent, {
+                ...findNode('voiceAgent_1'),
+                position: toClusterFrameChildPosition({x: 220, y: 140}),
+            });
+        });
+
+        expect(updateWorkflowMutationMock.mutate).toHaveBeenCalled();
+
+        const [[mutationVariables]] = updateWorkflowMutationMock.mutate.mock.calls.slice(-1);
+
+        const savedDefinition = JSON.parse((mutationVariables as {workflow: {definition: string}}).workflow.definition);
+
+        expect(savedDefinition.tasks).toEqual([]);
+        expect(savedDefinition.triggers[0].clusterElements.voiceAgent.metadata.ui.nodePosition).toEqual({
+            x: 220,
+            y: 140,
+        });
     });
 });

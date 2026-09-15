@@ -59,4 +59,103 @@ describe('saveClusterElementFieldChange', () => {
         expect(nodeData.componentName).toBe('aiAgent');
         expect(nodeData.clusterElements.tools[0].label).toBe('Deals');
     });
+
+    it('leaves the stored root of another agent untouched after the save', () => {
+        const otherAgentRootData = {
+            clusterElements: {tools: []},
+            clusterRoot: true,
+            componentName: 'aiAgent',
+            name: 'aiAgent_2',
+            workflowNodeName: 'aiAgent_2',
+        } as unknown as NodeDataType;
+
+        useWorkflowEditorStore.setState({rootClusterElementNodeData: otherAgentRootData});
+
+        saveClusterElementFieldChange({
+            currentComponentDefinition: {name: 'agileCrm', version: 1} as ComponentDefinition,
+            fieldUpdate: {field: 'label', value: 'Deals'},
+            updateWorkflowMutation: {mutate: vi.fn()} as never,
+        });
+
+        saveWorkflowDefinitionMock.mock.calls[0][0].onSuccess();
+
+        expect(useWorkflowEditorStore.getState().rootClusterElementNodeData).toBe(otherAgentRootData);
+    });
+
+    it('refreshes the stored root when it is the agent that was saved', () => {
+        useWorkflowEditorStore.setState({
+            rootClusterElementNodeData: {
+                clusterElements: {tools: []},
+                clusterRoot: true,
+                componentName: 'aiAgent',
+                name: 'aiAgent_1',
+                workflowNodeName: 'aiAgent_1',
+            } as unknown as NodeDataType,
+        });
+
+        saveClusterElementFieldChange({
+            currentComponentDefinition: {name: 'agileCrm', version: 1} as ComponentDefinition,
+            fieldUpdate: {field: 'label', value: 'Deals'},
+            updateWorkflowMutation: {mutate: vi.fn()} as never,
+        });
+
+        saveWorkflowDefinitionMock.mock.calls[0][0].onSuccess();
+
+        const storedRootClusterElements = useWorkflowEditorStore.getState().rootClusterElementNodeData
+            ?.clusterElements as unknown as {tools: Array<{label: string}>};
+
+        expect(storedRootClusterElements.tools[0].label).toBe('Deals');
+    });
+});
+
+describe('saveClusterElementFieldChange with a trigger cluster root', () => {
+    beforeEach(() => {
+        saveWorkflowDefinitionMock.mockReset();
+        useWorkflowDataStore.setState({
+            workflow: {
+                definition: JSON.stringify({
+                    tasks: [],
+                    triggers: [
+                        {
+                            clusterElements: {
+                                tools: [],
+                                voiceAgent: {name: 'voiceAgent_1', parameters: {}, type: 'deepgram/v1/voiceAgent'},
+                            },
+                            name: 'trigger_1',
+                            parameters: {},
+                            type: 'browser/v1/voiceSession',
+                        },
+                    ],
+                }),
+                id: 'workflow-1',
+            },
+        } as Parameters<typeof useWorkflowDataStore.setState>[0]);
+        useWorkflowEditorStore.setState({rootClusterElementNodeData: undefined});
+        useWorkflowNodeDetailsPanelStore.setState({
+            currentNode: {
+                clusterElementType: 'voiceAgent',
+                componentName: 'deepgram',
+                name: 'voiceAgent_1',
+                parentClusterRootId: 'trigger_1',
+                topLevelClusterRootId: 'trigger_1',
+                workflowNodeName: 'voiceAgent_1',
+            } as NodeDataType,
+        });
+    });
+
+    it('saves a voice agent label change against the trigger it hangs off', () => {
+        saveClusterElementFieldChange({
+            currentComponentDefinition: {name: 'deepgram', version: 1} as ComponentDefinition,
+            fieldUpdate: {field: 'label', value: 'Receptionist'},
+            updateWorkflowMutation: {mutate: vi.fn()} as never,
+        });
+
+        expect(saveWorkflowDefinitionMock).toHaveBeenCalledTimes(1);
+
+        const {nodeData} = saveWorkflowDefinitionMock.mock.calls[0][0];
+
+        expect(nodeData.workflowNodeName).toBe('trigger_1');
+        expect(nodeData.componentName).toBe('browser');
+        expect(nodeData.clusterElements.voiceAgent.label).toBe('Receptionist');
+    });
 });

@@ -35,11 +35,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * Defines an action, which is a single operation a component exposes for execution as a task within a workflow. An
- * action declares its metadata (name, title, description, help), its input properties, its output schema, and the
- * functions that carry out its execution, including support for suspension, resumption, streaming, and webhook
- * responses.
- *
  * @author Ivica Cardic
  */
 public interface ActionDefinition {
@@ -142,9 +137,8 @@ public interface ActionDefinition {
     }
 
     /**
-     * Returns the unique name that identifies this action within its component.
      *
-     * @return the action name
+     * @return
      */
     String getName();
 
@@ -195,15 +189,7 @@ public interface ActionDefinition {
         return Optional.empty();
     }
 
-    /**
-     * Returns the optional function invoked to resume the action after it has been suspended.
-     *
-     * @return an {@code Optional} containing the resume-perform function if defined, or an empty {@code Optional}
-     *         otherwise
-     */
-    default Optional<? extends BaseResumePerformFunction> getResumePerform() {
-        return Optional.empty();
-    }
+    Optional<? extends BaseResumePerformFunction> getResumePerform();
 
     /**
      * Returns the human-readable title of the action displayed in the user interface.
@@ -452,33 +438,6 @@ public interface ActionDefinition {
             void addTimeoutListener(Runnable timeoutListener);
 
             /**
-             * Registers a listener for turn-cancel events. Fires when {@link #cancelTurn(String)} is called or when the
-             * platform's WS handler propagates a cancellation from an adjacent chain node. Components are expected to
-             * abort in-flight work for the given turnId — close provider WS connections, drop queued audio/text, stop
-             * ongoing LLM streams.
-             *
-             * <p>
-             * Default implementation is a no-op so existing components keep compiling. Components that should
-             * participate in barge-in coordination (streaming agents, TTS) override and wire cancellation here.
-             *
-             * @param turnCancelListener consumer invoked with the cancelled turnId
-             */
-            default void addTurnCancelListener(Consumer<String> turnCancelListener) {
-            }
-
-            /**
-             * Signals that a turn was cancelled (typically due to user barge-in). The runtime propagates this across
-             * all emitters in the chain plus the WS session itself (which flushes any queued outbound audio bytes).
-             *
-             * <p>
-             * Default implementation is a no-op so emitter consumers that don't need cancellation keep compiling.
-             *
-             * @param turnId the turn to cancel
-             */
-            default void cancelTurn(String turnId) {
-            }
-
-            /**
              * Marks the WebSocket communication as completed.
              */
             void complete();
@@ -507,25 +466,20 @@ public interface ActionDefinition {
     }
 
     /**
-     * Functional interface that dynamically supplies the list of selectable options for a property, optionally filtered
-     * by a search term and dependent on the values of other properties.
      *
-     * @param <T> the type of the value held by each produced {@link Option}
      */
     @FunctionalInterface
     interface OptionsFunction<T> extends OptionsDataSource.BaseOptionsFunction {
 
         /**
-         * Produces the list of options available for a property given the current input and connection parameters.
          *
-         * @param inputParameters      the current input parameters of the action
-         * @param connectionParameters the parameters of the connection used by the action
-         * @param lookupDependsOnPaths the property paths whose values this lookup depends on, mapped to their resolved
-         *                             values
-         * @param searchText           the text used to filter the returned options, or an empty string for no filtering
-         * @param context              the action context providing access to runtime utilities and services
-         * @return the list of available options
-         * @throws Exception if an error occurs while producing the options
+         * @param inputParameters
+         * @param connectionParameters
+         * @param lookupDependsOnPaths
+         * @param searchText
+         * @param context
+         * @return
+         * @throws Exception
          */
         List<? extends Option<T>> apply(
             Parameters inputParameters, Parameters connectionParameters, Map<String, String> lookupDependsOnPaths,
@@ -580,21 +534,17 @@ public interface ActionDefinition {
     }
 
     /**
-     * Functional interface that maps a failed HTTP response produced during an action's execution to a
-     * {@link ProviderException}, enabling components to provide custom error handling specific to their API.
+     *
      */
     @FunctionalInterface
     interface ProcessErrorResponseFunction {
 
         /**
-         * Maps a failed HTTP response to a {@link ProviderException}.
          *
-         * @param statusCode    the HTTP status code of the error response
-         * @param body          the response body associated with the error
-         * @param headers       the HTTP response headers, keyed by header name
-         * @param actionContext the action context for the current execution
-         * @return a {@link ProviderException} representing the mapped remote error
-         * @throws Exception if the error response cannot be mapped to a {@link ProviderException}
+         * @param statusCode
+         * @param body
+         * @param actionContext
+         * @return
          */
         ProviderException
             apply(int statusCode, Object body, Map<String, List<String>> headers, ActionContext actionContext)
@@ -603,23 +553,19 @@ public interface ActionDefinition {
     }
 
     /**
-     * Functional interface that dynamically supplies the list of input properties for an action, allowing the property
-     * set to depend on the current input and connection parameters.
+     *
      */
     @FunctionalInterface
     interface PropertiesFunction extends PropertiesDataSource.BasePropertiesFunction {
 
         /**
-         * Produces the list of value properties available for the action given the current input and connection
-         * parameters.
          *
-         * @param inputParameters      the current input parameters of the action
-         * @param connectionParameters the parameters of the connection used by the action
-         * @param lookupDependsOnPaths the property paths whose values this lookup depends on, mapped to their resolved
-         *                             values
-         * @param context              the action context providing access to runtime utilities and services
-         * @return the list of dynamically resolved value properties
-         * @throws Exception if an error occurs while producing the properties
+         * @param inputParameters
+         * @param connectionParameters
+         * @param lookupDependsOnPaths
+         * @param context
+         * @return
+         * @throws Exception
          */
         List<? extends Property.ValueProperty<?>> apply(
             Parameters inputParameters, Parameters connectionParameters, Map<String, String> lookupDependsOnPaths,
@@ -715,30 +661,6 @@ public interface ActionDefinition {
     }
 
     /**
-     * Functional interface for executing actions that require bidirectional WebSocket communication. Returns a
-     * {@link WebSocketHandler} that bridges the action's WebSocket data to/from connected clients.
-     *
-     * @see WebSocketHandler
-     * @see ActionContext
-     * @see Parameters
-     */
-    @FunctionalInterface
-    interface WebSocketPerformFunction extends BasePerformFunction {
-
-        /**
-         * Executes the action and returns a {@link WebSocketHandler} for bidirectional WebSocket communication.
-         *
-         * @param inputParameters      the input parameters for the action
-         * @param connectionParameters the connection parameters for authentication
-         * @param context              the action execution context
-         * @return the {@link WebSocketHandler} that will handle WebSocket messages
-         * @throws Exception if an error occurs during action execution
-         */
-        WebSocketHandler apply(Parameters inputParameters, Parameters connectionParameters, ActionContext context)
-            throws Exception;
-    }
-
-    /**
      * A functional interface that extends PerformFunction. Represents a specific type of function designed to handle
      * callable workflow responses. This interface defines a single abstract method that takes input parameters,
      * connection parameters, and an action context to produce a CallableResponse to be returned to the calling
@@ -782,19 +704,15 @@ public interface ActionDefinition {
     }
 
     /**
-     * Functional interface that dynamically produces the description text shown for an action's node in the workflow
-     * editor based on the current input parameters.
+     *
      */
     @FunctionalInterface
     interface WorkflowNodeDescriptionFunction {
 
         /**
-         * Produces the description shown for the action's workflow node.
-         *
-         * @param inputParameters the current input parameters of the action
-         * @param context         the action context providing access to runtime utilities and services
-         * @return the description text for the workflow node
-         * @throws Exception if an error occurs while producing the description
+         * @param inputParameters
+         * @param context
+         * @return
          */
         String apply(Parameters inputParameters, ActionContext context) throws Exception;
     }

@@ -28,8 +28,6 @@ const {editorStoreState, saveWorkflowDefinitionMock, workflowDataStoreState} = v
     },
 }));
 
-// Both stores are read through the hook AND through `getState()` on the save path, so the mocks
-// serve the same state either way.
 vi.mock('../stores/useWorkflowDataStore', () => {
     const getState = () => ({
         edges: [],
@@ -74,11 +72,6 @@ vi.mock('../stores/useWorkflowNodeDetailsPanelStore', () => ({
         }),
 }));
 
-// A component that both offers cluster elements (componentDefinition.clusterElement) AND has
-// ordinary actions -- e.g. OpenAI -- is the case that regressed: componentDefinition.clusterElement
-// is a per-COMPONENT capability flag ("this component provides cluster elements somewhere"), not a
-// per-instance signal that THIS popover is showing a cluster-element picker. That signal is the
-// clusterElementType prop instead.
 const componentDefinitionWithBothActionsAndClusterElements = {
     actions: [
         {description: 'Sends a chat completion request', name: 'createChatCompletion', title: 'Create Chat Completion'},
@@ -117,9 +110,6 @@ describe('WorkflowNodesPopoverMenuOperationList', () => {
         saveWorkflowDefinitionMock.mockReset();
     });
 
-    // `rootClusterElementNodeData` is seeded only while the dialog canvas is open, so on the main
-    // canvas it is empty unless a box header destination has been opened first -- and the save used
-    // to bail silently on it. The root has to come from the node the placeholder hangs off instead.
     it('adds a cluster element with no canvas store seeded, resolving the root from the node', async () => {
         editorStoreState.clusterRootComponentDefinitions = {
             aiAgent_1: {
@@ -144,8 +134,6 @@ describe('WorkflowNodesPopoverMenuOperationList', () => {
 
         const queryClient = new QueryClient();
 
-        // The click fetches the picked element's definition first; served from cache here so no
-        // API is reached.
         queryClient.setQueryData(
             ClusterElementDefinitionKeys.clusterElementDefinition({
                 clusterElementName: 'gpt4',
@@ -182,5 +170,90 @@ describe('WorkflowNodesPopoverMenuOperationList', () => {
 
         expect(screen.getByText('GPT-4')).toBeInTheDocument();
         expect(screen.queryByText('Create Chat Completion')).not.toBeInTheDocument();
+    });
+});
+
+describe('WorkflowNodesPopoverMenuOperationList with a trigger cluster root', () => {
+    const deepgramDefinition = {
+        actions: [],
+        clusterElement: true,
+        clusterElements: [
+            {
+                description: 'A realtime voice agent',
+                name: 'voiceAgent',
+                title: 'Deepgram Voice Agent',
+                type: 'VOICE_AGENT',
+            },
+        ],
+        clusterRoot: false,
+        icon: '<svg/>',
+        name: 'deepgram',
+        title: 'Deepgram',
+        triggers: [],
+        version: 1,
+    } as unknown as ComponentDefinition;
+
+    beforeEach(() => {
+        editorStoreState.clusterRootComponentDefinitions = {
+            trigger_1: {
+                clusterElementTypes: [
+                    {label: 'Voice Agent', multipleElements: false, name: 'VOICE_AGENT'},
+                    {label: 'Tools', multipleElements: true, name: 'TOOLS'},
+                ],
+                name: 'browser',
+                version: 1,
+            },
+        };
+        editorStoreState.rootClusterElementNodeData = undefined;
+        workflowDataStoreState.definition = JSON.stringify({
+            tasks: [],
+            triggers: [{clusterElements: {}, name: 'trigger_1', parameters: {}, type: 'browser/v1/voiceSession'}],
+        });
+        workflowDataStoreState.nodes = [
+            {
+                data: {clusterRoot: true, componentName: 'browser', trigger: true, workflowNodeName: 'trigger_1'},
+                id: 'trigger_1',
+            },
+        ];
+        saveWorkflowDefinitionMock.mockReset();
+    });
+
+    it('adds a voice agent to the Voice Agent slot of the trigger it hangs off', async () => {
+        const queryClient = new QueryClient();
+
+        queryClient.setQueryData(
+            ClusterElementDefinitionKeys.clusterElementDefinition({
+                clusterElementName: 'voiceAgent',
+                clusterElementType: 'VOICE_AGENT',
+                componentName: 'deepgram',
+                componentVersion: 1,
+            }),
+            {properties: []}
+        );
+
+        const user = userEvent.setup();
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <WorkflowNodesPopoverMenuOperationList
+                    clusterElementType="voiceAgent"
+                    componentDefinition={deepgramDefinition}
+                    setPopoverOpen={vi.fn()}
+                    sourceNodeId="trigger_1"
+                />
+            </QueryClientProvider>
+        );
+
+        await user.click(screen.getByText('Deepgram Voice Agent'));
+
+        await waitFor(() => {
+            expect(saveWorkflowDefinitionMock).toHaveBeenCalledTimes(1);
+        });
+
+        const {nodeData} = saveWorkflowDefinitionMock.mock.calls[0][0];
+
+        expect(nodeData.workflowNodeName).toBe('trigger_1');
+        expect(nodeData.clusterElements.voiceAgent.type).toBe('deepgram/v1/voiceAgent');
+        expect(nodeData.clusterElements.tools).toEqual([]);
     });
 });

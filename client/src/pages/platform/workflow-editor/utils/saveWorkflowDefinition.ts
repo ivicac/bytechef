@@ -91,12 +91,21 @@ export default async function saveWorkflowDefinition(props: SaveWorkflowDefiniti
 
     let {type} = nodeData ?? {};
 
-    if (trigger) {
+    const existingTriggers: Array<WorkflowTrigger> = workflowDefinition.triggers ?? [];
+
+    // A trigger can be a cluster root (the browser voice session). Every cluster-element save rebuilds
+    // the root's node data by spreading its definition entry, which carries no `trigger` flag, so the
+    // name is what says the root lives in `triggers`. This relies on node names being unique across
+    // tasks and triggers (cluster elements included), which getFormattedName guarantees.
+    const isTrigger = !!trigger || existingTriggers.some((existingTrigger) => existingTrigger.name === name);
+
+    if (isTrigger) {
         if (!type) {
             type = `${componentName}/v${version}/${operationName}`;
         }
 
         const newTrigger: WorkflowTrigger = {
+            ...(clusterElements ? {clusterElements} : {}),
             description,
             label,
             metadata,
@@ -104,8 +113,6 @@ export default async function saveWorkflowDefinition(props: SaveWorkflowDefiniti
             parameters,
             type,
         };
-
-        const existingTriggers: Array<WorkflowTrigger> = workflowDefinition.triggers ?? [];
 
         executeWorkflowMutation({
             definitionUpdate: {triggers: upsertTrigger(existingTriggers, newTrigger)},
@@ -317,19 +324,6 @@ function executeWorkflowMutation({
     workflow,
     workflowDefinition,
 }: ExecuteWorkflowMutationProps) {
-    // A second edit arriving while the first is still in flight is DROPPED — silently, with no UI
-    // signal: the panel row the user just deleted simply stays. Rapid repeated edits used to be
-    // rare, but the graph surfaces (deleting transition rows, drawing transitions back to back)
-    // make them an ordinary gesture, so this is now reachable in normal use.
-    //
-    // The queue this wants is `saveWorkflowNodesPosition`'s: `setPendingDefinition` on the skip,
-    // `drainPendingDefinitionMutation` in `onSettled` (see `workflowMutationGuard`). It is NOT
-    // wired here because that queue carries a definition STRING and nothing else, while this path
-    // also carries `newTask` (optimistic task hydration, server-computed `clusterRoot`) and an
-    // `onSuccess` callback across 23 production call sites — a queued write would silently lose
-    // both. Making it safe means teaching the queue to carry them, for every caller at once;
-    // queueing only some callers would be worse than the drop, since the two halves would disagree
-    // about whether a skipped write is lost.
     if (isWorkflowMutating(workflow.id!)) {
         console.warn('Dropped a workflow save that raced another save for the guard');
 

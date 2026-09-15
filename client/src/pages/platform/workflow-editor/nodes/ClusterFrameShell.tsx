@@ -1,30 +1,29 @@
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {useAiAgentEvalsStore} from '@/pages/platform/cluster-element-editor/ai-agent-evals/stores/useAiAgentEvalsStore';
-import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
-import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
-import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {NodeDataType} from '@/shared/types';
 import {Handle, Position} from '@xyflow/react';
 import {
     BrushCleaningIcon,
+    ChevronsDownUpIcon,
     ExternalLinkIcon,
     FlaskConicalIcon,
     LockIcon,
     LockOpenIcon,
     PlayIcon,
-    SparklesIcon,
-    TextInitialIcon,
     ZapIcon,
 } from 'lucide-react';
-import {ReactNode, memo, useCallback, useMemo} from 'react';
+import {ReactNode, memo, useCallback} from 'react';
 import {twMerge} from 'tailwind-merge';
 
+import {useAiAgentTestingChatStore, useTestingModeStore} from '../../cluster-element-editor/ai-agent-editor/stores';
 import {useClusterElementsCanvasDialogStore} from '../components/stores/useClusterElementsCanvasDialogStore';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
+import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
+import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {clearClusterElementPositions} from '../utils/clearAllClusterElementPositions';
 import {
     CLUSTER_FRAME_BORDER_WIDTH,
@@ -32,9 +31,9 @@ import {
     DEFAULT_CLUSTER_FRAME_CONTENT_ORIGIN,
 } from '../utils/clusterFrame/clusterFrameGeometry';
 import {mapHandlePosition} from '../utils/directionUtils';
-import {getTask} from '../utils/getTask';
-import {isDataStreamSimpleModeAvailable as computeIsDataStreamSimpleModeAvailable} from '../utils/isDataStreamSimpleModeAvailable';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
+import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
 
 const HEADER_BUTTON_CLASSNAME =
@@ -44,6 +43,7 @@ interface ClusterFrameShellProps {
     children: ReactNode;
     data: NodeDataType;
     nodeId: string;
+    nodeMenu?: ReactNode;
 }
 
 /**
@@ -56,7 +56,7 @@ interface ClusterFrameShellProps {
  *
  * The chain handles live here rather than on the card, so the surrounding flow connects to the box.
  *
- * Lock/reset persist through `getTask` + `saveWorkflowDefinition` directly rather than through the
+ * Lock/reset persist through `getClusterRootTask` + `saveWorkflowDefinition` directly rather than through the
  * dialog's `clearAllClusterElementPositions` — that helper reads and rewrites the singular
  * `rootClusterElementNodeData` store slot, which `useClusterElementNodes` also uses to decide whether
  * to draw a root's OWN card as one of its elements (only the dialog's single open root gets one; every
@@ -64,15 +64,13 @@ interface ClusterFrameShellProps {
  * `useClusterElementNodes` start drawing a duplicate card inside its own box on the very next render.
  *
  * The header also carries the destinations and side panels the dialog used to be the only entry point
- * to: the AI Agent editor, the DataStream editor, Skills, Evals and the agent playground/Copilot. Each
- * destination handler seeds `rootClusterElementNodeData` with THIS box's own root before opening its
- * surface — that single field is all `AiAgentEditor`, `DataStreamEditor`, `useAiAgentTools` and Evals
- * read to know which root they were opened on, so seeding it here is what lets those surfaces stay
- * unchanged. The playground and Copilot are side panels beside the main canvas, not destinations over
- * it, so their handlers never set `clusterElementsCanvasOpen` — see WorkflowEditorLayout for where they
- * actually mount.
+ * to: Skills, Evals and the agent playground. Each destination handler seeds `rootClusterElementNodeData`
+ * with THIS box's own root before opening its surface — that single field is all `useAiAgentTools` and
+ * Evals read to know which root they were opened on, so seeding it here is what lets those surfaces stay
+ * unchanged. The playground is a side panel beside the main canvas, not a destination over it, so its
+ * handler never sets `clusterElementsCanvasOpen` — see WorkflowEditorLayout for where it actually mounts.
  */
-const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => {
+const ClusterFrameShell = ({children, data, nodeId, nodeMenu}: ClusterFrameShellProps) => {
     const layoutDirection = useLayoutDirectionStore((state) => state.layoutDirection);
     // Selects the derived boolean rather than the whole map: this shell only ever needs its OWN
     // root's entry, so subscribing to the map itself would re-render every box's shell whenever any
@@ -83,37 +81,26 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
     const setClusterFrameLocked = useWorkflowEditorStore((state) => state.setClusterFrameLocked);
     const setClusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.setClusterElementsCanvasOpen);
     const setRootClusterElementNodeData = useWorkflowEditorStore((state) => state.setRootClusterElementNodeData);
-    const workflowDefinition = useWorkflowDataStore((state) => state.workflow.definition);
-    const setShowAiAgentEditor = useClusterElementsCanvasDialogStore((state) => state.setShowAiAgentEditor);
-    const setShowDataStreamEditor = useClusterElementsCanvasDialogStore((state) => state.setShowDataStreamEditor);
+    const workflowId = useWorkflowDataStore((state) => state.workflow.id);
+    const setClusterFrameCollapsed = useClusterFrameCollapsedStore((state) => state.setClusterFrameCollapsed);
     const setTestingPanelOpen = useClusterElementsCanvasDialogStore((state) => state.setTestingPanelOpen);
     const setEvalsPanelOpen = useAiAgentEvalsStore((state) => state.setEvalsPanelOpen);
-    const openCopilot = useOpenCopilot();
-    const ai = useApplicationInfoStore((state) => state.ai);
-    const ff_1570 = useFeatureFlagsStore()('ff-1570');
-    const ff_4070 = useFeatureFlagsStore()('ff-4070');
     const ff_4553 = useFeatureFlagsStore()('ff-4553');
 
     const {updateWorkflowMutation} = useWorkflowEditor();
 
     const clusterFrame = data.clusterFrame;
     const isAiAgentClusterRoot = data.componentName === 'aiAgent';
-    const isDataStreamClusterRoot = data.componentName === 'dataStream';
-    const copilotEnabled = ff_4070 && ai.copilot.enabled && ff_1570;
-
-    // Shared with useClusterElementsCanvasDialog's own toggle-editor button -- see
-    // isDataStreamSimpleModeAvailable's own doc comment for why this must not be a second copy.
-    const isDataStreamSimpleModeAvailable = useMemo(() => {
-        if (!isDataStreamClusterRoot) {
-            return true;
-        }
-
-        return computeIsDataStreamSimpleModeAvailable(workflowDefinition, nodeId);
-    }, [isDataStreamClusterRoot, nodeId, workflowDefinition]);
 
     const handleToggleLock = useCallback(() => {
         setClusterFrameLocked(nodeId, !locked);
     }, [locked, nodeId, setClusterFrameLocked]);
+
+    const handleCollapse = useCallback(() => {
+        if (workflowId) {
+            setClusterFrameCollapsed(workflowId, nodeId, true);
+        }
+    }, [nodeId, setClusterFrameCollapsed, workflowId]);
 
     const handleResetLayout = useCallback(() => {
         if (!updateWorkflowMutation) {
@@ -126,9 +113,13 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
             return;
         }
 
-        const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks ?? [];
+        const workflowDefinition = JSON.parse(workflow.definition);
 
-        const clusterRootTask = getTask({tasks: workflowDefinitionTasks, workflowNodeName: nodeId});
+        const clusterRootTask = getClusterRootTask({
+            tasks: workflowDefinition.tasks,
+            triggers: workflowDefinition.triggers,
+            workflowNodeName: nodeId,
+        });
 
         if (!clusterRootTask?.clusterElements) {
             return;
@@ -136,7 +127,7 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
 
         const clearedClusterElements = clearClusterElementPositions(clusterRootTask.clusterElements);
 
-        saveWorkflowDefinition({
+        void saveWorkflowDefinition({
             nodeData: {
                 ...clusterRootTask,
                 clusterElements: clearedClusterElements,
@@ -147,18 +138,6 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
         });
     }, [nodeId, updateWorkflowMutation]);
 
-    const handleOpenAiAgentEditor = useCallback(() => {
-        setRootClusterElementNodeData(data);
-        setShowAiAgentEditor(true);
-        setClusterElementsCanvasOpen(true);
-    }, [data, setClusterElementsCanvasOpen, setRootClusterElementNodeData, setShowAiAgentEditor]);
-
-    const handleOpenDataStreamEditor = useCallback(() => {
-        setRootClusterElementNodeData(data);
-        setShowDataStreamEditor(true);
-        setClusterElementsCanvasOpen(true);
-    }, [data, setClusterElementsCanvasOpen, setRootClusterElementNodeData, setShowDataStreamEditor]);
-
     const handleOpenEvals = useCallback(() => {
         setRootClusterElementNodeData(data);
         setEvalsPanelOpen(true);
@@ -168,21 +147,22 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
     // Note what this does NOT do: it never sets `clusterElementsCanvasOpen`. The playground is a
     // panel beside the main canvas (mounted by WorkflowEditorLayout), not a destination over it.
     const handleOpenPlayground = useCallback(() => {
+        const previousRootName = useWorkflowEditorStore.getState().rootClusterElementNodeData?.workflowNodeName;
+
+        if (previousRootName !== data.workflowNodeName) {
+            const {generateConversationId, resetMessages} = useAiAgentTestingChatStore.getState();
+
+            resetMessages();
+            generateConversationId();
+
+            useTestingModeStore.getState().resetTestingMode();
+        }
+
+        useWorkflowNodeDetailsPanelStore.getState().setWorkflowNodeDetailsPanelOpen(false);
+
         setRootClusterElementNodeData(data);
         setTestingPanelOpen(true);
     }, [data, setRootClusterElementNodeData, setTestingPanelOpen]);
-
-    // Goes through useOpenCopilot -- the same fresh-context contract every other Copilot trigger
-    // uses (the canvas's own CopilotButton, and the dialog's handleCopilotClick) -- rather than calling
-    // useCopilotPanelStore's setCopilotPanelOpen directly. Skipping that contract would leave the
-    // PREVIOUS surface's conversation and context installed, so the agent this button was clicked on
-    // would answer using the wrong agent id and the wrong /ai/chat/{source} URL. Seeding
-    // rootClusterElementNodeData still matters here too: it is what a reopened AI Agent editor or Evals
-    // panel for this same root reads, independent of Copilot's own context.
-    const handleOpenCopilot = useCallback(() => {
-        setRootClusterElementNodeData(data);
-        openCopilot({parameters: {taskName: data.name}, source: Source.CLUSTER_ELEMENT});
-    }, [data, openCopilot, setRootClusterElementNodeData]);
 
     if (!clusterFrame) {
         return <>{children}</>;
@@ -192,50 +172,22 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
 
     return (
         <div
-            className="rounded-lg border-2 border-dashed border-stroke-neutral-secondary bg-surface-neutral-secondary/40"
+            className="group relative rounded-lg border-2 border-dashed border-stroke-neutral-secondary bg-surface-neutral-secondary/40"
             data-nodetype="clusterFrame"
             data-testid="cluster-frame-shell"
             style={{height: clusterFrame.height, width: clusterFrame.width}}
         >
+            {nodeMenu && (
+                <div className="nodrag invisible absolute top-2 -left-8 z-10 group-hover:visible focus-within:visible">
+                    {nodeMenu}
+                </div>
+            )}
+
             <div className="flex items-center justify-between px-3" style={{height: CLUSTER_FRAME_HEADER_HEIGHT}}>
                 <span className="text-sm font-semibold text-content-neutral-secondary">{data.label}</span>
 
                 {updateWorkflowMutation && (
                     <div className="flex items-center gap-1">
-                        {isAiAgentClusterRoot && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        aria-label="Switch to AI Agent editor"
-                                        className={HEADER_BUTTON_CLASSNAME}
-                                        onClick={handleOpenAiAgentEditor}
-                                        type="button"
-                                    >
-                                        <TextInitialIcon className="size-3.5" />
-                                    </button>
-                                </TooltipTrigger>
-
-                                <TooltipContent>Switch to AI Agent editor</TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {isDataStreamClusterRoot && isDataStreamSimpleModeAvailable && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        aria-label="Switch to DataStream editor"
-                                        className={HEADER_BUTTON_CLASSNAME}
-                                        onClick={handleOpenDataStreamEditor}
-                                        type="button"
-                                    >
-                                        <TextInitialIcon className="size-3.5" />
-                                    </button>
-                                </TooltipTrigger>
-
-                                <TooltipContent>Switch to DataStream editor</TooltipContent>
-                            </Tooltip>
-                        )}
-
                         {isAiAgentClusterRoot && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -293,23 +245,6 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
                             </Tooltip>
                         )}
 
-                        {copilotEnabled && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        aria-label="Open Copilot panel"
-                                        className={HEADER_BUTTON_CLASSNAME}
-                                        onClick={handleOpenCopilot}
-                                        type="button"
-                                    >
-                                        <SparklesIcon className="size-3.5" />
-                                    </button>
-                                </TooltipTrigger>
-
-                                <TooltipContent>Open Copilot panel</TooltipContent>
-                            </Tooltip>
-                        )}
-
                         <button
                             aria-label={locked ? 'Unlock node movement' : 'Lock node movement'}
                             className={HEADER_BUTTON_CLASSNAME}
@@ -327,6 +262,15 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
                         >
                             <BrushCleaningIcon className="size-3.5" />
                         </button>
+
+                        <button
+                            aria-label="Collapse cluster elements"
+                            className={HEADER_BUTTON_CLASSNAME}
+                            onClick={handleCollapse}
+                            type="button"
+                        >
+                            <ChevronsDownUpIcon className="size-3.5" />
+                        </button>
                     </div>
                 )}
             </div>
@@ -336,8 +280,10 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
             element type, so with these last the chain's own edge left the box from `model-handle`
             instead of from the box's bottom edge. */}
 
+            {/* A trigger box takes no incoming connection: nothing flows into a trigger. */}
+
             <Handle
-                className={styles.handle}
+                className={twMerge(styles.handle, data.trigger && 'hidden')}
                 id={`${nodeId}-top`}
                 position={mapHandlePosition(Position.Top, layoutDirection)}
                 type="target"
@@ -349,6 +295,8 @@ const ClusterFrameShell = ({children, data, nodeId}: ClusterFrameShellProps) => 
                 position={mapHandlePosition(Position.Bottom, layoutDirection)}
                 type="source"
             />
+
+            {data.graphData && <GraphTransitionHandles connectable direction={layoutDirection} nodeId={nodeId} />}
 
             {/* The card sits at the content origin, which is the origin every member position is
             measured from. It is pushed in from the box's top-left corner only when a member reaches
