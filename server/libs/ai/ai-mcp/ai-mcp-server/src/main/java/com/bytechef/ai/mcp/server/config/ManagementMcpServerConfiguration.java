@@ -73,10 +73,11 @@ public class ManagementMcpServerConfiguration {
     // Workflow tools whose results (or, for create, whose input argument) carry the nested workflow definition. They
     // are marked with the MCP App workflow editor UI so hosts render the canvas alongside the conversation, and their
     // results gain structuredContent.definition — the payload the editor widget consumes.
-    private static final Set<String> WORKFLOW_EDITOR_TOOL_NAMES =
-        Set.of("getWorkflow", "createProjectWorkflow", "updateWorkflow");
+    private static final Set<String> WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow", "createProjectWorkflow");
 
     private static final Set<String> READ_ONLY_WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow");
+
+    private static final String UPDATE_WORKFLOW_TOOL_NAME = "updateWorkflow";
 
     private static final String DEFINITION = "definition";
 
@@ -436,7 +437,7 @@ public class ManagementMcpServerConfiguration {
     private static Map<String, ?> extractDefinition(
         McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult callToolResult) {
 
-        // getWorkflow/updateWorkflow return WorkflowInfo whose 'definition' field holds the nested definition JSON.
+        // getWorkflow returns WorkflowInfo whose 'definition' field holds the nested definition JSON.
         McpSchema.TextContent firstTextContent = callToolResult.content()
             .stream()
             .filter(McpSchema.TextContent.class::isInstance)
@@ -488,7 +489,11 @@ public class ManagementMcpServerConfiguration {
             projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
             clusterElementTools);
 
-        List<ToolCallback> toolCallbacks = new ArrayList<>(List.of(ToolCallbacks.from(tools.toArray())));
+        List<ToolCallback> toolCallbacks = Arrays.stream(ToolCallbacks.from(tools.toArray()))
+            .filter(toolCallback -> !UPDATE_WORKFLOW_TOOL_NAME.equals(
+                toolCallback.getToolDefinition()
+                    .name()))
+            .collect(Collectors.toCollection(ArrayList::new));
 
         for (McpServerToolCallbackContributor contributor : mcpServerToolCallbackContributors) {
             toolCallbacks.addAll(contributor.getToolCallbacks());

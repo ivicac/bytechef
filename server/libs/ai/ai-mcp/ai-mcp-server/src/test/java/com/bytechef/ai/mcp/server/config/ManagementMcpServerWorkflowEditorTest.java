@@ -54,7 +54,7 @@ class ManagementMcpServerWorkflowEditorTest {
         for (McpServerFeatures.AsyncToolSpecification toolSpecification : toolSpecifications) {
             McpSchema.Tool tool = toolSpecification.tool();
 
-            if ("deleteWorkflow".equals(tool.name())) {
+            if ("updateWorkflow".equals(tool.name()) || "deleteWorkflow".equals(tool.name())) {
                 assertThat(tool.meta()).isNull();
             } else {
                 assertThat(tool.meta()).containsEntry("ui", expectedUi);
@@ -65,7 +65,8 @@ class ManagementMcpServerWorkflowEditorTest {
     @Test
     void testAttachWorkflowEditorUiMarksGetWorkflowReadOnly() {
         List<McpServerFeatures.AsyncToolSpecification> toolSpecifications = ManagementMcpServerConfiguration
-            .attachWorkflowEditorUi(List.of(toolSpecification("getWorkflow"), toolSpecification("updateWorkflow")));
+            .attachWorkflowEditorUi(
+                List.of(toolSpecification("getWorkflow"), toolSpecification("createProjectWorkflow")));
 
         McpSchema.Tool getWorkflowTool = toolSpecifications.getFirst()
             .tool();
@@ -74,10 +75,10 @@ class ManagementMcpServerWorkflowEditorTest {
         assertThat(getWorkflowTool.annotations()
             .readOnlyHint()).isTrue();
 
-        McpSchema.Tool updateWorkflowTool = toolSpecifications.getLast()
+        McpSchema.Tool createProjectWorkflowTool = toolSpecifications.getLast()
             .tool();
 
-        assertThat(updateWorkflowTool.annotations()).isNull();
+        assertThat(createProjectWorkflowTool.annotations()).isNull();
     }
 
     @Test

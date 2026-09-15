@@ -72,6 +72,23 @@ class ManagementMcpServerToolCallbackProviderTest {
     }
 
     @Test
+    void omitsUpdateWorkflowSoBuildWorkflowOwnsWorkflowContent() {
+        ManagementMcpServerConfiguration configuration = new ManagementMcpServerConfiguration(
+            mock(ComponentTools.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(TaskTools.class), mock(TaskDispatcherTools.class), mock(ScriptTools.class),
+            mock(ClusterElementTools.class), List.of());
+
+        List<String> names = Arrays.stream(configuration.toolCallbackProvider()
+            .getToolCallbacks())
+            .map(toolCallback -> toolCallback.getToolDefinition()
+                .name())
+            .toList();
+
+        assertThat(names).contains("getWorkflow", "createProjectWorkflow")
+            .doesNotContain("updateWorkflow");
+    }
+
+    @Test
     void worksWithNoContributors() {
         ManagementMcpServerConfiguration configuration = new ManagementMcpServerConfiguration(
             mock(ComponentTools.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
