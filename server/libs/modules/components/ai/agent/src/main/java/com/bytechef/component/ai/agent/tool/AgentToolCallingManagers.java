@@ -117,8 +117,8 @@ public final class AgentToolCallingManagers {
      *
      * <p>
      * Either way, the manager returned is wrapped with {@link PiiTokenBoundaryToolCallingManager} before it reaches the
-     * caller -- every AI Agent action (including realtime, whose WebSocket layer is transport around this same
-     * streaming call) goes through this one factory, so wrapping here is the single point that covers all three.
+     * caller -- every AI Agent action goes through this one factory, so wrapping here is the single point that covers
+     * both.
      * </p>
      *
      * @param maxToolCalls the per-agent total tool-call cap, or {@code null} for none

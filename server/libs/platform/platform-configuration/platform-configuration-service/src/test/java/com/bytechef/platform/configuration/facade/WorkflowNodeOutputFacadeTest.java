@@ -851,4 +851,36 @@ class WorkflowNodeOutputFacadeTest {
         verify(taskDispatcherDefinitionService, never()).executeOutput(eq("fork-join"), eq(1), any());
         verify(taskDispatcherDefinitionService, times(1)).executeVariableProperties(eq("fork-join"), eq(1), any());
     }
+
+    @Test
+    void testGetClusterElementOutputResolvesVoiceAgentUnderTrigger() {
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
+                .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
+
+        com.bytechef.platform.component.domain.ClusterElementDefinition clusterElementDefinition =
+            mock(com.bytechef.platform.component.domain.ClusterElementDefinition.class);
+
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
+            .thenReturn(clusterElementDefinition);
+
+        Map<String, String> sampleOutput = Map.of("transcript", "hello");
+        WorkflowNodeTestOutput workflowNodeTestOutput = mock(WorkflowNodeTestOutput.class);
+
+        when(workflowNodeTestOutput.getOutput(any())).thenReturn(new OutputResponse(null, sampleOutput));
+        when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID)).thenReturn(Optional.of(workflowNodeTestOutput));
+
+        ClusterElementOutputDTO result = workflowNodeOutputFacade.getClusterElementOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID);
+
+        assertNotNull(result);
+        assertEquals(TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME, result.clusterElementName());
+        assertEquals(sampleOutput, result.sampleOutput());
+    }
 }

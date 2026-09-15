@@ -314,11 +314,10 @@ public abstract class AbstractAiAgentChatAction {
                 aiGuardrailsAdvisorProviderObjectProvider.getIfAvailable();
 
             if (aiGuardrailsAdvisorProvider != null) {
-                // A streaming agent's tokens go to whoever is listening right now -- the realtime action emits them
-                // straight back through a WebSocketEmitter to the person speaking -- so that is a conversation and
+                // A streaming agent's tokens go to whoever is listening right now, so that is a conversation and
                 // restores unconditionally. Only the non-streaming action's return value becomes the task output a
-                // downstream node reads, and only that is a policy question. Tool-call arguments are gated on all
-                // three regardless; they travel on the tool context, not through this advisor.
+                // downstream node reads, and only that is a policy question. Tool-call arguments are gated on both
+                // regardless; they travel on the tool context, not through this advisor.
                 aiGuardrailsAdvisorProvider
                     .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
                         GuardrailSurface.AI_AGENT,

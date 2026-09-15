@@ -21,7 +21,6 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.ai.agent.action.AiAgentChatAction;
-import com.bytechef.component.ai.agent.action.AiAgentRealtimeChatAction;
 import com.bytechef.component.ai.agent.action.AiAgentStreamChatAction;
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AiAgentChatTool;
@@ -77,11 +76,7 @@ public class AiAgentComponentHandler implements ComponentHandler {
                         aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
                         toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
                         workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
-                        componentRuleEnforcers),
-                    AiAgentRealtimeChatAction.of(
-                        aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
-                        toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-                        workspaceSystemPromptAdvisorProviderObjectProvider, componentRuleEnforcers))
+                        componentRuleEnforcers))
                 .clusterElements(AiAgentChatTool.of(aiAgentChatActionDefinition)));
     }
 
