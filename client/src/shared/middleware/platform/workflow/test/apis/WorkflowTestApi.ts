@@ -20,10 +20,20 @@ import {
 } from '../models/WorkflowTestVoiceSessionToken';
 
 export interface IssueWorkflowTestVoiceSessionTokenRequest {
+    /**
+     * Id of the workflow to test.
+     */
     workflowId: string;
+    /**
+     * Id of the environment the test session runs in. The caller must be allowed to edit the workflow in this environment; the token is bound to it.
+     */
+    environmentId: number;
 }
 
 export interface StopWorkflowTestRequest {
+    /**
+     * The job identifier obtained from the start endpoint.
+     */
     jobId: string;
 }
 
@@ -43,7 +53,18 @@ export class WorkflowTestApi extends runtime.BaseAPI {
             );
         }
 
+        if (requestParameters['environmentId'] == null) {
+            throw new runtime.RequiredError(
+                'environmentId',
+                'Required parameter "environmentId" was null or undefined when calling issueWorkflowTestVoiceSessionToken().'
+            );
+        }
+
         const queryParameters: any = {};
+
+        if (requestParameters['environmentId'] != null) {
+            queryParameters['environmentId'] = requestParameters['environmentId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
