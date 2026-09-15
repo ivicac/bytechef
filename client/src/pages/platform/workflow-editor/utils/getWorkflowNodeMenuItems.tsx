@@ -47,7 +47,7 @@ interface GetWorkflowNodeMenuItemsProps {
     showReplaceAction: boolean;
 }
 
-function getPasteMenuLabel(copiedNode: NodeDataType): ReactNode {
+function getPasteMenuLabel(copiedNode: NodeDataType, pasteActionLabel: string): ReactNode {
     const copiedNodeLabel = copiedNode.label ?? copiedNode.componentName ?? 'Node';
 
     return (
@@ -55,7 +55,7 @@ function getPasteMenuLabel(copiedNode: NodeDataType): ReactNode {
             <div className="flex w-full items-center gap-2 self-stretch text-content-neutral-primary">
                 <ClipboardPlusIcon className="size-4 shrink-0" />
 
-                <span>Paste After</span>
+                <span>{pasteActionLabel}</span>
             </div>
 
             <div className="flex w-full items-center gap-2 text-content-neutral-secondary">
@@ -100,49 +100,7 @@ export function getWorkflowNodeMenuItems({
 }: GetWorkflowNodeMenuItemsProps): WorkflowNodeMenuItemType[] {
     const menuItems: WorkflowNodeMenuItemType[] = [];
 
-    if (data.trigger) {
-        menuItems.push({
-            icon: <ArrowLeftRightIcon className="size-4 shrink-0" />,
-            key: 'replace',
-            label: 'Replace',
-            onSelect: onSwitch,
-            type: 'item',
-        });
-
-        menuItems.push({
-            icon: <TextCursorInputIcon className="size-4 shrink-0" />,
-            key: 'rename',
-            label: 'Rename',
-            onSelect: onRename,
-            type: 'item',
-        });
-
-        if (showInfoAction && onInfo) {
-            menuItems.push({
-                icon: <InfoIcon className="size-4 shrink-0" />,
-                key: 'info',
-                label: 'Info',
-                onSelect: onInfo,
-                type: 'item',
-            });
-        }
-
-        if (showDeleteAction) {
-            menuItems.push(
-                {key: 'separator-delete', type: 'separator'},
-                {
-                    icon: <Trash2Icon className="size-4 shrink-0" />,
-                    key: 'delete',
-                    label: 'Delete',
-                    onSelect: onDelete,
-                    type: 'item',
-                    variant: 'destructive',
-                }
-            );
-        }
-
-        return menuItems;
-    }
+    const canReplace = showReplaceAction || !!data.trigger;
 
     if (showCutAction && onCut) {
         menuItems.push({
@@ -154,7 +112,7 @@ export function getWorkflowNodeMenuItems({
         });
     }
 
-    if (showReplaceAction) {
+    if (canReplace) {
         menuItems.push({
             icon: <ArrowLeftRightIcon className="size-4 shrink-0" />,
             key: 'replace',
@@ -178,7 +136,7 @@ export function getWorkflowNodeMenuItems({
         menuItems.push({
             icon: null,
             key: 'paste',
-            label: getPasteMenuLabel(copiedNode),
+            label: getPasteMenuLabel(copiedNode, data.trigger ? 'Paste' : 'Paste After'),
             onSelect: onPaste,
             type: 'item',
         });
@@ -187,7 +145,7 @@ export function getWorkflowNodeMenuItems({
     const canRename = showRenameAction && !data.isNestedClusterRoot;
     const canToggleDisabled = showDisableAction && !!onToggleDisabled;
 
-    const hasFirstGroup = showCutAction || showReplaceAction || showCopyAction || canPaste;
+    const hasFirstGroup = showCutAction || canReplace || showCopyAction || canPaste;
     const hasSecondGroup = canRename || canToggleDisabled || hasSavedPosition || showInfoAction;
 
     if (hasFirstGroup && hasSecondGroup) {
