@@ -10,14 +10,20 @@ import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
+import jakarta.annotation.Generated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -26,14 +32,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import jakarta.annotation.Generated;
-
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.596319+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.726902+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "workflow-test", description = "The Platform Workflow Test Internal API")
 public interface WorkflowTestApi {
@@ -48,6 +47,7 @@ public interface WorkflowTestApi {
      * Mint a single-use, short-lived token authorizing a browser to open a workflow-test voice WebSocket at /internal/workflow-tests/{workflowId}/wss. The token is keyed to the user&#39;s session cookie at mint time; the WS upgrade validates the token and discards it. TTL is 60 seconds.
      *
      * @param workflowId Id of the workflow to test. (required)
+     * @param environmentId Id of the environment the test session runs in. The caller must be allowed to edit the workflow in this environment; the token is bound to it. (required)
      * @return Token issued. (status code 200)
      */
     @Operation(
@@ -67,12 +67,13 @@ public interface WorkflowTestApi {
         produces = { "application/json" }
     )
     default ResponseEntity<WorkflowTestVoiceSessionTokenModel> issueWorkflowTestVoiceSessionToken(
-        @Parameter(name = "workflowId", description = "Id of the workflow to test.", required = true, in = ParameterIn.PATH) @PathVariable("workflowId") String workflowId
+        @Parameter(name = "workflowId", description = "Id of the workflow to test.", required = true, in = ParameterIn.PATH) @PathVariable("workflowId") String workflowId,
+        @NotNull @Parameter(name = "environmentId", description = "Id of the environment the test session runs in. The caller must be allowed to edit the workflow in this environment; the token is bound to it.", required = true, in = ParameterIn.QUERY) @Valid @RequestParam(value = "environmentId", required = true) Long environmentId
     ) {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"expiresInSeconds\" : 0, \"token\" : \"token\" }";
+                    String exampleString = "{ \"token\" : \"token\", \"expiresInSeconds\" : 0 }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -81,7 +82,6 @@ public interface WorkflowTestApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_STOP_WORKFLOW_TEST = "/workflow-tests/{jobId}/stop";
     /**

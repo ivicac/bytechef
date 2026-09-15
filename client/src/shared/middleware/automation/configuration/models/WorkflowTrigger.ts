@@ -30,15 +30,21 @@ export interface WorkflowTrigger {
     /**
      * 
      */
+    readonly clusterRoot?: boolean;
+    /**
+     * 
+     */
+    readonly clusterElements?: { [key: string]: any; };
+    /**
+     * 
+     */
     readonly connections?: Array<ComponentConnection>;
     /**
      * The description of the task.
      */
     description?: string;
     /**
-     * Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property, such as the websocketTasks realtime pipeline.
-     * @type {{ [key: string]: any; }}
-     * @memberof WorkflowTrigger
+     * Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property.
      */
     readonly extensions?: { [key: string]: any; };
     /**
@@ -86,6 +92,8 @@ export function WorkflowTriggerFromJSONTyped(json: any, ignoreDiscriminator: boo
     }
     return {
         
+        'clusterRoot': json['clusterRoot'] == null ? undefined : json['clusterRoot'],
+        'clusterElements': json['clusterElements'] == null ? undefined : json['clusterElements'],
         'connections': json['connections'] == null ? undefined : ((json['connections'] as Array<any>).map(ComponentConnectionFromJSON)),
         'description': json['description'] == null ? undefined : json['description'],
         'extensions': json['extensions'] == null ? undefined : json['extensions'],
@@ -102,7 +110,7 @@ export function WorkflowTriggerToJSON(json: any): WorkflowTrigger {
     return WorkflowTriggerToJSONTyped(json, false);
 }
 
-export function WorkflowTriggerToJSONTyped(value?: Omit<WorkflowTrigger, 'connections'|'extensions'> | null, ignoreDiscriminator: boolean = false): any {
+export function WorkflowTriggerToJSONTyped(value?: Omit<WorkflowTrigger, 'clusterRoot'|'clusterElements'|'connections'|'extensions'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
