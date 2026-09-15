@@ -29,9 +29,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import reactor.core.publisher.Mono;
 
 /**
- * Unit test for the MCP App workflow editor decoration in {@link ManagementMcpServerConfiguration}: the workflow
- * get/create/update tools gain {@code _meta.ui.resourceUri} (and {@code readOnlyHint} on the read tool), and their
- * results carry the nested workflow definition as {@code structuredContent.definition}.
+ * Unit test for the MCP App workflow editor decoration in {@link ManagementMcpServerConfiguration}: the
+ * {@code getWorkflow} tool gains {@code _meta.ui.resourceUri} and {@code readOnlyHint}, and its result carries the
+ * nested workflow definition as {@code structuredContent.definition}.
  *
  * @author Ivica Cardic
  */
@@ -54,10 +54,10 @@ class ManagementMcpServerWorkflowEditorTest {
         for (McpServerFeatures.AsyncToolSpecification toolSpecification : toolSpecifications) {
             McpSchema.Tool tool = toolSpecification.tool();
 
-            if ("updateWorkflow".equals(tool.name()) || "deleteWorkflow".equals(tool.name())) {
-                assertThat(tool.meta()).isNull();
-            } else {
+            if ("getWorkflow".equals(tool.name())) {
                 assertThat(tool.meta()).containsEntry("ui", expectedUi);
+            } else {
+                assertThat(tool.meta()).isNull();
             }
         }
     }
@@ -65,8 +65,7 @@ class ManagementMcpServerWorkflowEditorTest {
     @Test
     void testAttachWorkflowEditorUiMarksGetWorkflowReadOnly() {
         List<McpServerFeatures.AsyncToolSpecification> toolSpecifications = ManagementMcpServerConfiguration
-            .attachWorkflowEditorUi(
-                List.of(toolSpecification("getWorkflow"), toolSpecification("createProjectWorkflow")));
+            .attachWorkflowEditorUi(List.of(toolSpecification("getWorkflow")));
 
         McpSchema.Tool getWorkflowTool = toolSpecifications.getFirst()
             .tool();
@@ -74,28 +73,12 @@ class ManagementMcpServerWorkflowEditorTest {
         assertThat(getWorkflowTool.annotations()).isNotNull();
         assertThat(getWorkflowTool.annotations()
             .readOnlyHint()).isTrue();
-
-        McpSchema.Tool createProjectWorkflowTool = toolSpecifications.getLast()
-            .tool();
-
-        assertThat(createProjectWorkflowTool.annotations()).isNull();
     }
 
     @Test
     void testWithDefinitionStructuredContentReadsDefinitionFromResult() {
         McpSchema.CallToolResult callToolResult = ManagementMcpServerConfiguration.withDefinitionStructuredContent(
-            new McpSchema.CallToolRequest("getWorkflow", Map.of("workflowId", "abc")),
             textResult("{\"id\":\"abc\",\"name\":\"Test\",\"definition\":" + escape(DEFINITION_JSON) + "}"));
-
-        assertDefinitionStructuredContent(callToolResult);
-    }
-
-    @Test
-    void testWithDefinitionStructuredContentFallsBackToRequestArgument() {
-        McpSchema.CallToolResult callToolResult = ManagementMcpServerConfiguration.withDefinitionStructuredContent(
-            new McpSchema.CallToolRequest("createProjectWorkflow", Map.of("projectId", 1, "definition",
-                DEFINITION_JSON)),
-            textResult("{\"id\":42,\"project_id\":1,\"workflow_id\":\"abc\"}"));
 
         assertDefinitionStructuredContent(callToolResult);
     }
@@ -108,13 +91,12 @@ class ManagementMcpServerWorkflowEditorTest {
             .isError(true)
             .build();
 
-        assertThat(ManagementMcpServerConfiguration.withDefinitionStructuredContent(
-            new McpSchema.CallToolRequest("updateWorkflow", Map.of()), errorResult)).isSameAs(errorResult);
+        assertThat(ManagementMcpServerConfiguration.withDefinitionStructuredContent(errorResult)).isSameAs(errorResult);
 
         McpSchema.CallToolResult plainTextResult = textResult("not json at all");
 
-        assertThat(ManagementMcpServerConfiguration.withDefinitionStructuredContent(
-            new McpSchema.CallToolRequest("updateWorkflow", Map.of()), plainTextResult)).isSameAs(plainTextResult);
+        assertThat(ManagementMcpServerConfiguration.withDefinitionStructuredContent(plainTextResult))
+            .isSameAs(plainTextResult);
     }
 
     @Test
