@@ -34,6 +34,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.automation.ai.tool.ProjectTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
@@ -73,7 +74,7 @@ final class ProjectAgentConfigurationTest {
             emptyProvider(), guardrailsAdvisorFactory());
 
         ProjectSpringAIAgent buildAgent = configuration.projectBuildSpringAIAgent(
-            mock(ChatMemory.class), mock(ChatModel.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(ChatMemory.class), mock(ChatModel.class), mock(ProjectTools.class), lifecycleTools(),
             securityContextRehydrator, catalog, emptyProvider(), guardrailsAdvisorFactory());
 
         assertThat(askAgent.getAgentId()).isEqualTo("project_ask");
@@ -87,12 +88,22 @@ final class ProjectAgentConfigurationTest {
         assertThat(askToolNames).contains("listProjects")
             .doesNotContain("createProject", "buildWorkflow", "importWorkflow");
 
-        List<String> buildToolNames = toolNames(
-            configuration.buildToolCallbacks(
-                securityContextRehydrator, mock(ProjectTools.class), mock(ProjectWorkflowTools.class), catalog));
+        List<ToolCallback> buildToolCallbacks = configuration.buildToolCallbacks(
+            securityContextRehydrator, mock(ProjectTools.class), lifecycleTools(), catalog);
 
-        assertThat(buildToolNames).contains("createProject", "createProjectWorkflow", "buildWorkflow", "importWorkflow")
+        assertThat(toolNames(buildToolCallbacks))
+            .contains("createProject", "createProjectWorkflow", "buildWorkflow", "importWorkflow")
             .doesNotContain("updateWorkflow");
+
+        String createInputSchema = buildToolCallbacks.stream()
+            .filter(toolCallback -> "createProjectWorkflow".equals(toolCallback.getToolDefinition()
+                .name()))
+            .findFirst()
+            .orElseThrow()
+            .getToolDefinition()
+            .inputSchema();
+
+        assertThat(createInputSchema).doesNotContain("\"definition\"");
     }
 
     /**
@@ -105,7 +116,7 @@ final class ProjectAgentConfigurationTest {
     void testBuildToolCallbacksOmitsDefinitionsNotScopedToProjectPanel() {
         List<String> buildToolNames = toolNames(
             configuration.buildToolCallbacks(
-                securityContextRehydrator, mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+                securityContextRehydrator, mock(ProjectTools.class), lifecycleTools(),
                 catalogOf(clusterElementDefinition())));
 
         assertThat(buildToolNames).contains("createProject")
@@ -132,6 +143,10 @@ final class ProjectAgentConfigurationTest {
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
         }
+    }
+
+    private static ProjectWorkflowLifecycleTools lifecycleTools() {
+        return new ProjectWorkflowLifecycleTools(mock(ProjectWorkflowTools.class));
     }
 
     private static List<String> toolNames(List<ToolCallback> toolCallbacks) {
