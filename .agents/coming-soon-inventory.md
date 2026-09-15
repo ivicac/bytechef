@@ -23,7 +23,7 @@ Two ways something here is hidden, and the tables below mark both:
 
 Both are reversible and neither deletes anything.
 
-**50 whole-page** (22 hidden) · **30 partial** pages (7 with a commented-out section)
+**50 whole-page** (22 hidden) · **30 partial** pages (6 with a commented-out section)
 
 ---
 
@@ -123,7 +123,7 @@ arriving soon was not helping a reader.
 | [`/developer-guide/architecture`](/developer-guide/architecture) | **AI & Agents** | **all commented out** |
 | [`/platform/automation/ai/skills`](/platform/automation/ai/skills) | Create With AI; The Skills Copilot; Skills as Tools for Other Agents; Test with Evals | rendered |
 | [`/platform/automation/build/connections`](/platform/automation/build/connections) | Get Started; Managing Connections | rendered |
-| [`/platform/automation/build/workflows/ai/agent`](/platform/automation/build/workflows/ai/agent) | Chat Memory Slot; Chat memory vs Auto Memory; Guardrails Slot; The Agent Utils toolset; Test with Evals; **Realtime Chat** | **1 of 6 commented out** |
+| [`/platform/automation/build/workflows/ai/agent`](/platform/automation/build/workflows/ai/agent) | Chat Memory Slot; Chat memory vs Auto Memory; Guardrails Slot; The Agent Utils toolset; Test with Evals | rendered |
 | [`/platform/automation/build/workflows/ai/agent/agent-utils`](/platform/automation/build/workflows/ai/agent/agent-utils) | Ask User Question; Agent Client; Auto Memory | rendered |
 | [`/platform/automation/build/workflows/flow-controls`](/platform/automation/build/workflows/flow-controls) | (page intro); Outputs; Graph | rendered |
 | [`/platform/automation/build/workflows/human-in-the-loop`](/platform/automation/build/workflows/human-in-the-loop) | Coming soon: expanded approvals | rendered |
@@ -152,13 +152,21 @@ arriving soon was not helping a reader.
 
 Bold section names are the commented-out ones.
 
-### Voice (2026-08-21)
+### Voice (2026-09-14)
 
-Every voice surface is `0_732`-only and absent from master, so all of it is commented out rather
-than badged: `BrowserVoiceSessionTrigger` (`browser/v1/voiceSession`), the client's
-`BrowserVoiceSession` / `voiceMode` / `checkVoiceSupport`, and the AI Agent's `realtimeChat`
-action. Four sections in three pages, listed above. Restore by uncommenting each block once those
-ship — the source is intact and each block names this file.
+Voice was redesigned around a Voice Agent cluster element on the `browser/v1/voiceSession` trigger
+(design: `docs/superpowers/specs/2026-09-08-voice-cluster-element-redesign-design.md`; deep-dive:
+`.agents/voice.md`). Every voice surface is still `0_732`-only and absent from master, so it's all
+commented out or whole-page `comingSoon` rather than badged: the `browser/v1/voiceSession` trigger
+and its Voice Agent slot (`deepgram/v1/voiceAgent`, `openAi/v1/voiceAgent`,
+`elevenLabs/v1/voiceAgent`), and the client's `BrowserVoiceSession` / `voiceMode`. The AI Agent's
+`realtimeChat` action is **gone outright, not deferred** — the redesign deleted it, so it no longer
+appears anywhere in these docs, coming-soon or otherwise (the `ai/agent` page's commented Realtime
+Chat section, and its two stray references to the action in reference tables, were removed as part
+of this rewrite; see `docs/content/docs/platform/automation/build/workflows/ai/agent/index.mdx`).
+Two sections remain in two pages, listed above: the Voice section of the chat widget doc and the
+voice half of the workflow-testing "Test with Chat" section. Restore by uncommenting each block once
+these ship — the source is intact and each block names this file.
 
 ### Feature-flagged UI counts as Coming Soon (2026-08-21)
 

@@ -1,0 +1,79 @@
+{
+    "_comment": [
+        "Example browser-voice workflow using OpenAI's Realtime API as the Voice Agent cluster",
+        "element.",
+        "",
+        "Same shape as docs/examples/voice/deepgram-voiceagent.json: the browser/v1/voiceSession",
+        "trigger is a cluster root with 'voiceAgent' (required, exactly one) and 'tools' (optional,",
+        "omitted here) as sibling slots under 'clusterElements'. No workflow job runs while the call",
+        "is live -- 'openAi/v1/voiceAgent' bridges audio to wss://api.openai.com/v1/realtime and does",
+        "speech-to-text, LLM reasoning and text-to-speech itself. Once the caller hangs up, this",
+        "workflow's 'tasks' run once as a continuation job with the session summary as the trigger's",
+        "output.",
+        "",
+        "To use:",
+        "  1. Create an OpenAI API key with Realtime API access (https://platform.openai.com).",
+        "  2. Create an OpenAI connection in ByteChef with the key.",
+        "  3. Import this JSON as a new workflow.",
+        "  4. Replace 'YOUR_OPENAI_CONNECTION_ID' below with your actual connection id.",
+        "  5. Publish the workflow to get its webhook URL, or open it in the editor and use the",
+        "     test panel's voice layout directly (draft definitions are testable without publishing).",
+        "",
+        "Customize:",
+        "  * model: gpt-realtime (default), gpt-realtime-mini, gpt-4o-realtime-preview, or",
+        "    gpt-4o-mini-realtime-preview.",
+        "  * voice: the OpenAI Realtime voice to speak with (default alloy).",
+        "  * instructions: defines the agent's behavior and persona.",
+        "  * greeting: the assistant's opening line when the call starts, delivered as a first",
+        "    response.create instructing the model to say it verbatim.",
+        "  * inputAudioTranscription: leave true to get a user transcript (conversation.item.",
+        "    input_audio_transcription.completed); OpenAI never transcribes caller audio without it.",
+        "  * Add a 'tools' array beside 'voiceAgent' in clusterElements to let the agent call",
+        "    ByteChef actions mid-call -- see docs/voice/quickstart.md, Step 3. A tool that requires",
+        "    approval will refuse to run during a voice call; there is no job to suspend for it.",
+        "",
+        "Audio format notes:",
+        "  * inputSampleRate (16000 here) MUST match the trigger's sampleRate -- inbound browser",
+        "    audio at that rate is resampled internally to the 24 kHz OpenAI's Realtime API requires.",
+        "    Setting the trigger to 24000 avoids the resample step entirely.",
+        "  * outputSampleRate is informational only: OpenAI's Realtime API always emits 24 kHz PCM16",
+        "    regardless of this value; it exists so the browser's playback buffer can be told the",
+        "    real rate up front."
+    ],
+    "label": "Voice Assistant (OpenAI Realtime)",
+    "description": "Browser voice session with an OpenAI Realtime Voice Agent -- handles STT, LLM, and TTS over the Realtime API WebSocket.",
+    "inputs": [],
+    "outputs": [],
+    "triggers": [
+        {
+            "name": "trigger_1",
+            "type": "browser/v1/voiceSession",
+            "label": "Browser voice session",
+            "parameters": {
+                "sampleRate": 16000,
+                "echoCancellation": true,
+                "noiseSuppression": true,
+                "sessionLimitSeconds": 150,
+                "silenceTimeoutSeconds": 120
+            },
+            "clusterElements": {
+                "voiceAgent": {
+                    "name": "voiceAgent_1",
+                    "type": "openAi/v1/voiceAgent",
+                    "label": "OpenAI Voice Agent",
+                    "connectionId": "YOUR_OPENAI_CONNECTION_ID",
+                    "parameters": {
+                        "model": "gpt-realtime",
+                        "instructions": "You are a helpful voice assistant for ByteChef. Keep responses concise and natural for spoken delivery -- avoid markdown, bullet lists, or long paragraphs. When the user asks you to do something you can't do, say so directly rather than improvising.",
+                        "voice": "alloy",
+                        "greeting": "Hi there! How can I help?",
+                        "inputAudioTranscription": true,
+                        "inputSampleRate": 16000,
+                        "outputSampleRate": 24000
+                    }
+                }
+            }
+        }
+    ],
+    "tasks": []
+}
