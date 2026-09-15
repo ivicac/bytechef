@@ -1,6 +1,6 @@
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import {ON_ERROR_MAIN_BRANCH, ON_ERROR_WIRE_KEY_ERROR_BRANCH, ON_ERROR_WIRE_KEY_MAIN_BRANCH} from '@/shared/constants';
-import {Workflow, WorkflowTask} from '@/shared/middleware/platform/configuration';
+import {Workflow, WorkflowTask, WorkflowTrigger} from '@/shared/middleware/platform/configuration';
 import {invalidatePreviousWorkflowNodeOutputsForWorkflow} from '@/shared/queries/platform/workflowNodeOutputs.queries';
 import {
     BranchCaseType,
@@ -15,8 +15,8 @@ import {QueryClient} from '@tanstack/react-query';
 import useWorkflowDataStore, {WorkflowDataType, setWorkflowWithoutHistory} from '../stores/useWorkflowDataStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import findAndRemoveClusterElement from './findAndRemoveClusterElement';
+import {getClusterRootTask} from './getClusterRootTask';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
-import {getTask} from './getTask';
 import {removeTransitionsForNode} from './graph/graphTransitionMutations';
 import {resolveClusterRootId} from './resolveClusterRootId';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
@@ -72,6 +72,7 @@ export default function handleDeleteTask({
     const clusterRootId = data.clusterElementType ? resolveClusterRootId(data) : undefined;
 
     let updatedTasks: Array<WorkflowTaskType>;
+    let updatedTriggers: Array<WorkflowTrigger> | undefined;
 
     if (data.conditionData) {
         const parentConditionTask = TASK_DISPATCHER_CONFIG.condition.getTask({
@@ -285,8 +286,9 @@ export default function handleDeleteTask({
             return parentOnErrorTask;
         }) as Array<WorkflowTaskType>;
     } else if (clusterRootId) {
-        const mainRootClusterElementTask = getTask({
+        const mainRootClusterElementTask = getClusterRootTask({
             tasks: workflowTasks,
+            triggers: workflowDefinition.triggers,
             workflowNodeName: clusterRootId,
         });
 
@@ -341,8 +343,21 @@ export default function handleDeleteTask({
 
         // Check if the task is at top level
         const topLevelTaskIndex = workflowTasks.findIndex((task) => task.name === mainRootClusterElementTask.name);
+        const rootTriggerIndex = (workflowDefinition.triggers ?? []).findIndex(
+            (trigger) => trigger.name === mainRootClusterElementTask.name
+        );
 
-        if (topLevelTaskIndex !== -1) {
+        if (topLevelTaskIndex === -1 && rootTriggerIndex !== -1) {
+            // The root is a trigger (e.g. the browser voice session): the element comes out of that
+            // trigger's own clusterElements, and the tasks are written back unchanged.
+            updatedTasks = workflowTasks as Array<WorkflowTaskType>;
+
+            updatedTriggers = (workflowDefinition.triggers ?? []).map((trigger) =>
+                trigger.name === mainRootClusterElementTask.name
+                    ? (updatedRootClusterElementTask as WorkflowTrigger)
+                    : trigger
+            );
+        } else if (topLevelTaskIndex !== -1) {
             updatedTasks = workflowTasks.map((task) => {
                 if (task.name !== mainRootClusterElementTask?.name) {
                     return task;
@@ -373,6 +388,7 @@ export default function handleDeleteTask({
     const updatedDefinition = stringifyWorkflowDefinition({
         ...workflowDefinition,
         tasks: updatedTasks,
+        ...(updatedTriggers ? {triggers: updatedTriggers} : {}),
     });
 
     const previousWorkflow = workflow;

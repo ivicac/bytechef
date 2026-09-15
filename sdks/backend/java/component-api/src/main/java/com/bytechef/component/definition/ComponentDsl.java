@@ -723,12 +723,6 @@ public final class ComponentDsl {
             return this;
         }
 
-        public ModifiableActionDefinition perform(WebSocketPerformFunction perform) {
-            this.performFunction = perform;
-
-            return this;
-        }
-
         public ModifiableActionDefinition processErrorResponse(ProcessErrorResponseFunction processErrorResponse) {
             this.processErrorResponseFunction = processErrorResponse;
 

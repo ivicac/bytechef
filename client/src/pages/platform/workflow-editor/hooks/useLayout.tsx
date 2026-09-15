@@ -56,6 +56,7 @@ import createParallelEdges from '../utils/createParallelEdges';
 import createParallelNode from '../utils/createParallelNode';
 import {getElkLayoutElements} from '../utils/elkLayoutUtils';
 import extractDefinitionPositions from '../utils/extractDefinitionPositions';
+import getBoxModeClusterRootIds from '../utils/getBoxModeClusterRootIds';
 import {getEffectivelyDisabledTaskNames} from '../utils/getEffectivelyDisabledTaskNames';
 import {LayoutGraphFramesResultI, layoutGraphFrames} from '../utils/graph/layoutGraphFrames';
 import {isElkLayoutActive} from '../utils/isElkLayoutSupported';
@@ -345,7 +346,9 @@ export default function useLayout({
 
             return previousTriggers.every(
                 (trigger, index) =>
-                    trigger.name === nextTriggers[index].name && trigger.type === nextTriggers[index].type
+                    trigger.name === nextTriggers[index].name &&
+                    trigger.type === nextTriggers[index].type &&
+                    trigger.clusterRoot === nextTriggers[index].clusterRoot
             );
         }
     );
@@ -383,18 +386,11 @@ export default function useLayout({
     // that construction here just to get ids the effect could derive on its own. A task counts as a
     // box candidate once it carries a clusterElements object; layoutClusterFrames is what actually
     // decides whether a candidate has any elements to box up.
-    // Keyed on the server-computed `clusterRoot` flag -- the same one that types the node below --
-    // and NOT on `clusterElements` being present: a task dispatcher's DTO carries that field too
-    // (an empty object is truthy), so a Condition added after a box was treated as a root and had
-    // its component definition fetched, which no task dispatcher has.
+    // Triggers count too: the browser voice session trigger is a cluster root. See
+    // getBoxModeClusterRootIds for why the server-computed `clusterRoot` flag is the key.
     const boxModeClusterRootIds = useMemo(
-        () =>
-            clusterElementsViewMode === 'box'
-                ? (tasks ?? [])
-                      .filter((task) => task.clusterRoot && !collapsedClusterRootIds?.[task.name])
-                      .map((task) => task.name)
-                : [],
-        [clusterElementsViewMode, collapsedClusterRootIds, tasks]
+        () => getBoxModeClusterRootIds({clusterElementsViewMode, collapsedClusterRootIds, tasks, triggers}),
+        [clusterElementsViewMode, collapsedClusterRootIds, tasks, triggers]
     );
 
     const {definitionsReady, edgesByRootId, nodesByRootId} = useClusterElementNodes(boxModeClusterRootIds);

@@ -29,9 +29,10 @@ import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {mapHandlePosition} from '../utils/directionUtils';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import {getNodeLabel} from '../utils/getNodeLabel';
-import {getTask} from '../utils/getTask';
 import handleDeleteTask from '../utils/handleDeleteTask';
+import handleDeleteTrigger from '../utils/handleDeleteTrigger';
 import pasteNode from '../utils/pasteNode';
 import removeWorkflowNodePosition from '../utils/removeWorkflowNodePosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
@@ -136,6 +137,8 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     const {tasks: workflowTasks, triggers: workflowTriggers} = workflow;
 
+    const triggerCount = workflowTriggers?.length ?? 0;
+
     const nodeLabel = useMemo(
         () =>
             getNodeLabel({
@@ -147,8 +150,21 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
         [data.label, data.title, data.workflowNodeName, workflowTasks, workflowTriggers]
     );
 
+    // A trigger cluster root (the browser voice session) is removed from `triggers`, never as a task.
     const handleDeleteNodeClick = useCallback(
         (nodeData: NodeDataType) => {
+            if (nodeData?.trigger) {
+                handleDeleteTrigger({
+                    cancelWorkflowQueries: cancelWorkflowQueries!,
+                    invalidateWorkflowQueries: invalidateWorkflowQueries!,
+                    triggerName: nodeData.name,
+                    updateWorkflowMutation: updateWorkflowMutation!,
+                    workflow,
+                });
+
+                return;
+            }
+
             if (nodeData) {
                 handleDeleteTask({
                     cancelWorkflowQueries: cancelWorkflowQueries!,
@@ -232,9 +248,10 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                 return;
             }
 
-            const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
-            const mainClusterRootTask = getTask({
-                tasks: workflowDefinitionTasks,
+            const workflowDefinition = JSON.parse(workflow.definition);
+            const mainClusterRootTask = getClusterRootTask({
+                tasks: workflowDefinition.tasks,
+                triggers: workflowDefinition.triggers,
                 workflowNodeName: data.workflowNodeName,
             });
 
@@ -340,10 +357,10 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
             onResetPosition={handleResetPosition}
             onSwitch={handleSwitch}
             onToggleDisabled={handleToggleDisabledClick}
-            showCopyAction
-            showCutAction
-            showDeleteAction
-            showDisableAction
+            showCopyAction={!data.trigger}
+            showCutAction={!data.trigger}
+            showDeleteAction={!data.trigger || triggerCount > 1}
+            showDisableAction={!data.trigger}
             showInfoAction
             showRenameAction
             trigger={
@@ -374,10 +391,10 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                 onResetPosition={handleResetPosition}
                 onSwitch={handleSwitch}
                 onToggleDisabled={handleToggleDisabledClick}
-                showCopyAction
-                showCutAction
-                showDeleteAction
-                showDisableAction
+                showCopyAction={!data.trigger}
+                showCutAction={!data.trigger}
+                showDeleteAction={!data.trigger || triggerCount > 1}
+                showDisableAction={!data.trigger}
                 showInfoAction
                 showRenameAction
             >
@@ -609,7 +626,8 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                                 styles.handleVisible,
                                 layoutDirection === 'LR'
                                     ? '-left-px rounded-l-xs rounded-r-none'
-                                    : '-top-px rounded-t-xs rounded-b-none'
+                                    : '-top-px rounded-t-xs rounded-b-none',
+                                data.trigger && 'hidden'
                             )}
                             isConnectable={false}
                             position={mapHandlePosition(Position.Top, layoutDirection)}

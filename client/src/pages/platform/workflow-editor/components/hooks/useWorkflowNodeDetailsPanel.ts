@@ -1,3 +1,4 @@
+import {getClusterRootTask} from '@/pages/platform/workflow-editor/utils/getClusterRootTask';
 import {getTask} from '@/pages/platform/workflow-editor/utils/getTask';
 import {
     CLUSTER_ELEMENT_TYPE_TOOLS,
@@ -570,8 +571,9 @@ export default function useWorkflowNodeDetailsPanel({
             return undefined;
         }
 
-        const mainClusterRootTask = getTask({
-            tasks: workflow.tasks || [],
+        const mainClusterRootTask = getClusterRootTask({
+            tasks: workflow.tasks,
+            triggers: workflow.triggers,
             workflowNodeName: mainClusterRootName,
         });
 
@@ -668,6 +670,7 @@ export default function useWorkflowNodeDetailsPanel({
         currentNode?.isNestedClusterRoot,
         currentNode?.workflowNodeName,
         workflow.tasks,
+        workflow.triggers,
         currentComponentDefinition?.connection,
         currentComponentDefinition?.connectionRequired,
     ]);
@@ -1510,10 +1513,11 @@ export default function useWorkflowNodeDetailsPanel({
             return;
         }
 
-        const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
+        const workflowDefinition = JSON.parse(workflow.definition);
 
-        const mainClusterRootTask = getTask({
-            tasks: workflowDefinitionTasks,
+        const mainClusterRootTask = getClusterRootTask({
+            tasks: workflowDefinition.tasks,
+            triggers: workflowDefinition.triggers,
             workflowNodeName: clusterRootId,
         });
 

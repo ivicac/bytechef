@@ -46,7 +46,7 @@ import {
     buildDraggingPlaceholderState,
     computePlaceholderDragPosition,
 } from '../utils/dragTrailingPlaceholder';
-import {getTask} from '../utils/getTask';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import {registerAutoPlacedGraphPositions, takeAutoPlacedGraphPositions} from '../utils/graph/autoPlacedGraphPositions';
 import {toGraphContentPosition} from '../utils/graph/graphConnections';
 import {GRAPH_FRAME_ID_ATTRIBUTE, getGraphFrameId, getGraphIdFromFrameNodeId} from '../utils/graph/graphFrameGeometry';
@@ -719,9 +719,7 @@ const useWorkflowEditorCanvas = ({
                 if (updateWorkflowMutation) {
                     const {workflow: currentWorkflow} = useWorkflowDataStore.getState();
 
-                    const workflowDefinitionTasks = currentWorkflow.definition
-                        ? (JSON.parse(currentWorkflow.definition).tasks ?? [])
-                        : [];
+                    const workflowDefinition = currentWorkflow.definition ? JSON.parse(currentWorkflow.definition) : {};
 
                     // `getTask`/`workflowTasks` only address the OUTERMOST cluster root — a nested one
                     // lives inside its parent's `clusterElements`, not as its own entry. For a
@@ -732,8 +730,9 @@ const useWorkflowEditorCanvas = ({
                     const topLevelClusterRootId =
                         resolveClusterRootId(draggedNode.data as NodeDataType) ?? parentClusterRootId;
 
-                    const clusterRootTask = getTask({
-                        tasks: workflowDefinitionTasks,
+                    const clusterRootTask = getClusterRootTask({
+                        tasks: workflowDefinition.tasks,
+                        triggers: workflowDefinition.triggers,
                         workflowNodeName: topLevelClusterRootId,
                     });
 
