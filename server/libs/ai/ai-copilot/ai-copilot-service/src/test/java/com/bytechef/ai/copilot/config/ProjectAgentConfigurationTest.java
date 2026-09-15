@@ -26,6 +26,7 @@ import com.bytechef.ai.copilot.agent.ProjectSpringAIAgent;
 import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ProjectWorkflowAgentToolCallback;
+import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
@@ -34,6 +35,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.automation.ai.tool.ProjectTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
@@ -42,6 +44,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -73,7 +76,7 @@ final class ProjectAgentConfigurationTest {
             emptyProvider(), guardrailsAdvisorFactory());
 
         ProjectSpringAIAgent buildAgent = configuration.projectBuildSpringAIAgent(
-            mock(ChatMemory.class), mock(ChatModel.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(ChatMemory.class), mock(ChatModel.class), mock(ProjectTools.class), lifecycleTools(),
             securityContextRehydrator, catalog, emptyProvider(), guardrailsAdvisorFactory());
 
         assertThat(askAgent.getAgentId()).isEqualTo("project_ask");
@@ -87,12 +90,22 @@ final class ProjectAgentConfigurationTest {
         assertThat(askToolNames).contains("listProjects")
             .doesNotContain("createProject", "buildWorkflow", "importWorkflow");
 
-        List<String> buildToolNames = toolNames(
-            configuration.buildToolCallbacks(
-                securityContextRehydrator, mock(ProjectTools.class), mock(ProjectWorkflowTools.class), catalog));
+        List<ToolCallback> buildToolCallbacks = configuration.buildToolCallbacks(
+            securityContextRehydrator, mock(ProjectTools.class), lifecycleTools(), catalog);
 
-        assertThat(buildToolNames).contains("createProject", "createProjectWorkflow", "buildWorkflow", "importWorkflow")
+        assertThat(toolNames(buildToolCallbacks))
+            .contains("createProject", "createProjectWorkflow", "buildWorkflow", "importWorkflow")
             .doesNotContain("updateWorkflow");
+
+        String createInputSchema = buildToolCallbacks.stream()
+            .filter(toolCallback -> "createProjectWorkflow".equals(toolCallback.getToolDefinition()
+                .name()))
+            .findFirst()
+            .orElseThrow()
+            .getToolDefinition()
+            .inputSchema();
+
+        assertThat(createInputSchema).doesNotContain("\"definition\"");
     }
 
     /**
@@ -105,11 +118,36 @@ final class ProjectAgentConfigurationTest {
     void testBuildToolCallbacksOmitsDefinitionsNotScopedToProjectPanel() {
         List<String> buildToolNames = toolNames(
             configuration.buildToolCallbacks(
-                securityContextRehydrator, mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+                securityContextRehydrator, mock(ProjectTools.class), lifecycleTools(),
                 catalogOf(clusterElementDefinition())));
 
         assertThat(buildToolNames).contains("createProject")
             .doesNotContain("configureClusterElement");
+    }
+
+    /**
+     * The flat CRUD tools of both panels must reach the agent wrapped in {@link RehydrateContextToolCallback} — the
+     * name assertions above stay green if the wrapping is dropped, and an unwrapped callback calls its
+     * {@code @PreAuthorize} facade from a worker thread with an empty {@code SecurityContext}. The intelligent
+     * delegates the catalog contributes are wrapped too, so their sub-agent tools run as the caller.
+     */
+    @Test
+    void testPanelToolCallbacksRehydrateTheSecurityContext() {
+        assertThat(
+            configuration.askToolCallbacks(
+                securityContextRehydrator, new ReadProjectTools(mock(ProjectTools.class)),
+                new ReadProjectWorkflowTools(mock(ProjectWorkflowTools.class))))
+                    .isNotEmpty()
+                    .allMatch(RehydrateContextToolCallback.class::isInstance);
+
+        assertThat(
+            configuration.buildToolCallbacks(
+                securityContextRehydrator, mock(ProjectTools.class), lifecycleTools(),
+                catalogOf(projectWorkflowDefinition())))
+                    .isNotEmpty()
+                    .anyMatch(toolCallback -> Objects.equals(toolCallback.getToolDefinition()
+                        .name(), "buildWorkflow"))
+                    .allMatch(RehydrateContextToolCallback.class::isInstance);
     }
 
     private static ProjectAgentConfiguration newConfiguration() {
@@ -134,6 +172,10 @@ final class ProjectAgentConfigurationTest {
         }
     }
 
+    private static ProjectWorkflowLifecycleTools lifecycleTools() {
+        return new ProjectWorkflowLifecycleTools(mock(ProjectWorkflowTools.class));
+    }
+
     private static List<String> toolNames(List<ToolCallback> toolCallbacks) {
         return toolCallbacks.stream()
             .map(toolCallback -> toolCallback.getToolDefinition()
@@ -144,10 +186,6 @@ final class ProjectAgentConfigurationTest {
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyProvider() {
         return mock(ObjectProvider.class);
-    }
-
-    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
-        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 
     private static IntelligentToolDefinition projectWorkflowDefinition() {
@@ -238,5 +276,9 @@ final class ProjectAgentConfigurationTest {
         public ToolCallback create(IntelligentToolChatClientFactory chatClientFactory) {
             return toolCallbackFactory.apply(chatClientFactory);
         }
+    }
+
+    private static CopilotGuardrailsAdvisorFactory guardrailsAdvisorFactory() {
+        return new CopilotGuardrailsAdvisorFactory(emptyProvider(), new SensitiveDataRedactor(List.of()));
     }
 }
