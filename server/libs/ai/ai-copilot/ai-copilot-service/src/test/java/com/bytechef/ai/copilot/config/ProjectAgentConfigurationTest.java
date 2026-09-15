@@ -91,7 +91,8 @@ final class ProjectAgentConfigurationTest {
             configuration.buildToolCallbacks(
                 securityContextRehydrator, mock(ProjectTools.class), mock(ProjectWorkflowTools.class), catalog));
 
-        assertThat(buildToolNames).contains("createProject", "buildWorkflow", "importWorkflow");
+        assertThat(buildToolNames).contains("createProject", "createProjectWorkflow", "buildWorkflow", "importWorkflow")
+            .doesNotContain("updateWorkflow");
     }
 
     /**
