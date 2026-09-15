@@ -1,0 +1,125 @@
+# Testing voice workflows in the editor
+
+The workflow editor's test panel switches to a voice layout when the open workflow's trigger is a
+`browser/v1/voiceSession` with a configured Voice Agent. Use it to iterate on prompts, models, and
+tools without publishing the workflow.
+
+## When the mic appears
+
+The test panel checks two things on the workflow's trigger:
+
+- Its type is `browser/v1/voiceSession`.
+- Its **Voice Agent** slot (the cluster element beside Tools on the trigger) has an element
+  configured.
+
+Both true → the panel renders the voice layout and you can start a session. The trigger exists but
+the Voice Agent slot is empty → the panel renders the hint "Add a Voice Agent to the trigger to test
+with voice" instead of a session start control. No voice trigger at all → the panel renders the
+ordinary text chat thread.
+
+Saving the trigger's configuration is enough — deploying or publishing the workflow is not required.
+The test path reads the workflow's **draft** definition directly.
+
+## How testing differs from production voice
+
+The editor's test path is a separate endpoint from the deployed trigger:
+
+```
+production:   wss://host/api/automation/webhooks/{webhookId}/wss?sessionToken=…
+editor test:  wss://host/api/platform/internal/workflow-tests/{workflowId}/wss?sessionToken=…&environmentId=…
+```
+
+Both terminate in the same handler, but the editor path works in an environment the production path
+doesn't need — connections for the trigger's Voice Agent (and any Tools) are resolved from the
+workflow's **test configuration** for that environment, not from a deployment's connection
+bindings. The session token is minted from
+`POST /api/platform/internal/workflow-tests/{workflowId}/voice-session-token?environmentId=…`,
+which requires permission to edit the workflow in that environment, and the token is bound to it:
+the session runs in the environment the token was minted for. An embedded user confined to one
+environment always gets a token for their own environment, whatever the request names, and an
+`environmentId` on the socket upgrade itself is ignored.
+
+One functional difference matters for iteration: **the editor test path never resumes a dropped
+session.** Production sessions reconnect automatically within a 30-second window after an
+unexpected close; every editor test session ends for good the moment its socket closes, and
+starting the mic again always begins a brand-new session under a fresh id. This is deliberate —
+you don't want a stale test connection quietly resurrected while you're mid-edit. Test sessions do honour the same session limit as
+deployed ones: the trigger's `sessionLimitSeconds`, or the server's 30-minute maximum when it is `0`.
+
+## Click flow
+
+1. Open the test panel. If the trigger's Voice Agent slot is configured, you'll see the voice
+   layout with a start control.
+2. Start the session and grant microphone permission when the browser prompts. If you've denied it
+   before, re-grant it through the browser's site settings.
+3. The status line tracks the session: connecting, then listening or speaking once the provider
+   responds.
+4. While a tool call is in flight, the status line shows `Looking that up… (<tool name>)`.
+5. If the connection drops mid-test, the status line would show `Reconnecting…` on a normal
+   deployed session — but since the editor test path never resumes, a dropped socket here simply
+   ends the run.
+6. When the session ends, the status line shows `Ended: <reason>` with underscores replaced by
+   spaces (for example `Ended: client closed`, `Ended: session limit`, or `Ended: silence timeout`) —
+   not the raw `endReason` value.
+
+## Iteration loop
+
+1. Edit the Voice Agent element's prompt, greeting, or model.
+2. Save the workflow.
+3. Start the session, speak, listen to the response.
+4. Repeat.
+
+Each session is independent — there's no cross-session memory beyond what the provider itself keeps
+in-call, and there's no continuation job during iteration (that only fires when a session hosted by
+the *deployed* trigger ends). To see the continuation job's behavior — the transcript and tool calls
+reaching your workflow's later tasks — publish the workflow and test through the deployed webhook
+instead (see the [quickstart](./quickstart.md)).
+
+## Browser requirements
+
+Same as production voice: Chrome 66+, Firefox 76+, or Safari 14.1+, all of which support the
+`AudioWorklet` API the capture path needs.
+
+## Troubleshooting
+
+### No voice layout, just the text chat panel
+
+The open workflow's trigger isn't `browser/v1/voiceSession`. Check the trigger's type.
+
+### "Add a Voice Agent to the trigger to test with voice"
+
+The trigger is a voice session trigger, but its Voice Agent slot is empty. Click the slot on the
+trigger's cluster box, pick a provider (Deepgram, OpenAI, or ElevenLabs), and configure it — see the
+[quickstart](./quickstart.md#step-2--add-the-trigger-and-pick-a-voice-agent).
+
+### Session starts but ends immediately with a provider error
+
+Check the connection selected on the Voice Agent element — an invalid or expired API key surfaces as
+a single `error` event, then the session closes with `endReason: provider_error`. On a deployed
+workflow that start failure still runs the post-call workflow, with an empty transcript; a disabled
+workflow or a trigger with no Voice Agent is refused instead, and nothing runs.
+
+### No audio in either direction
+
+Check the browser's developer console and network tab for the WS connection. If the socket opens but
+no `connected` event follows, the trigger's Voice Agent element failed to start — check the server
+log for "The voice session trigger has no Voice Agent" (an empty slot) or a provider-specific
+connection error.
+
+### Testing an ElevenLabs agent and tools never fire
+
+Client tool names on the ElevenLabs agent must exactly match your ByteChef Tools element names.
+ByteChef logs a warning at session start for every ByteChef tool the ElevenLabs agent has no
+matching client tool for.
+
+### Session ends sooner than expected
+
+Check the trigger's **Silence timeout (seconds)** property — only inbound caller audio resets it, so
+a long stretch of the assistant talking without the caller responding can still trigger it; `0`
+disables the silence timeout entirely. Check **Session limit (seconds)** too — its `0` behaves
+differently: it doesn't disable the limit, it falls back to the server's configured maximum session
+duration instead.
+
+## What's next
+
+- [Voice quickstart](./quickstart.md) — full workflow setup, providers, and the post-call workflow
