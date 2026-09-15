@@ -21,6 +21,10 @@ result is the `workflowId` that every later workflow operation keys on.
 Call `buildWorkflow` with the `workflowId` returned when the workflow was created and a
 plain-language instruction describing what the workflow should do.
 
+It is also the only way to change an existing workflow's content. There is no direct write tool, so
+even a small edit — renaming a task, tweaking one parameter — is a `buildWorkflow` call with the
+`workflowId` and the change described in plain language.
+
 Each intelligent-tool call is independent: it re-reads the current state of the workflow rather
 than remembering earlier calls in this conversation. To keep building, call `buildWorkflow` again
 with the next instruction and restate any context it still needs — do not assume it recalls what
@@ -47,11 +51,9 @@ what parameters a task needs.
 Same pattern for triggers: `listTriggers`/`searchTriggers` to find the one to wire up, then
 `getTriggerDefinition` for its parameter shape before setting it on the workflow.
 
-## tools: getWorkflow, updateWorkflow
+## tools: getWorkflow
 `getWorkflow` returns the current definition — MCP App-capable clients render it as an interactive
-canvas alongside the conversation. `updateWorkflow` writes a new definition back. Reach for these
-when a direct edit (renaming a task, tweaking one parameter) is clearer than issuing another
-build instruction.
+canvas alongside the conversation. It is read-only: it shows a definition but never changes one.
 
 ## tools: publishProject
 A built or imported workflow is not live until its project is published. Once it looks right, call

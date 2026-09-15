@@ -65,7 +65,7 @@ then `createProjectWorkflow` to get a `workflowId`, `buildWorkflow` (plain-langu
 independent per call, may ask a clarifying question) or `importWorkflow` (n8n/Make/Zapier/Workato) to
 fill it in, `listComponents`/`searchActions`/`getActionDefinition`/`getProperties` and
 `listTriggers`/`searchTriggers`/`getTriggerDefinition` to look up what a step or trigger can do,
-`getWorkflow`/`updateWorkflow` for direct edits, and `publishProject` to go live. Requires the MCP
+`getWorkflow` to inspect a definition, and `publishProject` to go live. Requires the MCP
 Setup skill above to already be connected; exposing the result as a tool for *other* MCP clients
 (`createMcpServer`/`createMcpProject`/`configureMcpServer`/`updateMcpServer`) is a separate job, not
 covered by this skill.
