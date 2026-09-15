@@ -307,6 +307,13 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
 
     @Override
     @PreAuthorize("hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    public void checkEnableProjectDeployment(long projectDeploymentId, boolean enable) {
+        // The DEPLOYMENT_EDIT gate on this method is the whole check: enableProjectDeployment asks nothing more.
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
     public void enableProjectDeployment(long projectDeploymentId, boolean enable) {
         List<ProjectDeploymentWorkflow> projectDeploymentWorkflows = projectDeploymentWorkflowService
             .getProjectDeploymentWorkflows(projectDeploymentId);
