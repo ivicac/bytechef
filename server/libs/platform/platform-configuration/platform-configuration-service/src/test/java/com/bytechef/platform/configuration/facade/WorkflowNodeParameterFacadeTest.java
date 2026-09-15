@@ -31,6 +31,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,6 +58,7 @@ import com.bytechef.platform.configuration.dto.DisplayConditionResultDTO;
 import com.bytechef.platform.configuration.dto.ParameterResultDTO;
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +67,7 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -73,7 +76,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @author Igor Beslic
  * @author Ivica Cardic
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({
+    MockitoExtension.class, ObjectMapperSetupExtension.class
+})
 public class WorkflowNodeParameterFacadeTest {
 
     private static final WorkflowNodeParameterFacadeImpl WORKFLOW_NODE_PARAMETER_FACADE =
@@ -4541,5 +4546,140 @@ public class WorkflowNodeParameterFacadeTest {
         when(actionDefinition.getProperties()).thenReturn((List) properties);
 
         return actionDefinition;
+    }
+
+    @Test
+    void testUpdateClusterElementParameterResolvesVoiceAgentUnderTrigger() {
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinition.getProperties()).thenReturn(new ArrayList<>());
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
+            .thenReturn(clusterElementDefinition);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, 0))
+            .thenReturn(Map.of());
+
+        stubTriggerDefinitionLeniently();
+
+        ParameterResultDTO result = workflowNodeParameterFacade.updateClusterElementParameter(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            "model", "nova-3", null, false, false, 0);
+
+        Map<String, ?> parameters = result.parameters();
+
+        assertEquals("nova-3", parameters.get("model"));
+        assertFalse(parameters.containsKey("greeting"));
+
+        verify(workflowNodeOutputFacade, never()).getPreviousWorkflowNodeSampleOutputs(
+            anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void testUpdateClusterElementParameterPersistsTheVoiceAgentValueUnderTheTrigger() {
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinition.getProperties()).thenReturn(new ArrayList<>());
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
+            .thenReturn(clusterElementDefinition);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, 0))
+            .thenReturn(Map.of());
+
+        stubTriggerDefinitionLeniently();
+
+        workflowNodeParameterFacade.updateClusterElementParameter(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            "model", "nova-3", null, false, false, 0);
+
+        assertEquals(
+            "nova-3",
+            persistedClusterElementParameters(TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME)
+                .get("model"));
+    }
+
+    @Test
+    void testUpdateClusterElementParameterPersistsTheToolValueInTheTriggersToolList() {
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinition.getProperties()).thenReturn(new ArrayList<>());
+        when(clusterElementDefinitionService.getClusterElementDefinition("shopify", 1, "getOrder"))
+            .thenReturn(clusterElementDefinition);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, 0))
+            .thenReturn(Map.of());
+
+        stubTriggerDefinitionLeniently();
+
+        workflowNodeParameterFacade.updateClusterElementParameter(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME, TriggerClusterRootWorkflowFixture.TOOL_NAME, "orderId",
+            "4411", null, false, false, 0);
+
+        assertEquals(
+            "4411",
+            persistedClusterElementParameters(TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME)
+                .get("orderId"));
+    }
+
+    /**
+     * The parameters of the trigger's cluster element (or first element, for a list slot) in the definition the facade
+     * handed to {@code workflowService.update}, rather than in the returned result.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, ?> persistedClusterElementParameters(String clusterElementTypeName) {
+        ArgumentCaptor<String> definition = ArgumentCaptor.forClass(String.class);
+
+        verify(workflowService).update(eq(TriggerClusterRootWorkflowFixture.WORKFLOW_ID), definition.capture(),
+            anyInt());
+
+        Map<String, ?> definitionMap = JsonUtils.readMap(definition.getValue());
+        List<Map<String, ?>> triggers = (List<Map<String, ?>>) definitionMap.get("triggers");
+        Map<String, ?> trigger = triggers.stream()
+            .filter(triggerMap -> TriggerClusterRootWorkflowFixture.TRIGGER_NAME.equals(triggerMap.get("name")))
+            .findFirst()
+            .orElseThrow();
+        Map<String, ?> clusterElements = (Map<String, ?>) trigger.get("clusterElements");
+        Object slot = clusterElements.get(clusterElementTypeName);
+        Map<String, ?> element = slot instanceof List<?> list ? (Map<String, ?>) list.getFirst()
+            : (Map<String, ?>) slot;
+
+        return (Map<String, ?>) element.get("parameters");
+    }
+
+    @Test
+    void testGetClusterElementDisplayConditionsResolvesToolUnderTrigger() {
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinition.getProperties()).thenReturn(new ArrayList<>());
+        when(clusterElementDefinitionService.getClusterElementDefinition("shopify", 1, "getOrder"))
+            .thenReturn(clusterElementDefinition);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, 0))
+            .thenReturn(Map.of());
+
+        stubTriggerDefinitionLeniently();
+
+        DisplayConditionResultDTO result = workflowNodeParameterFacade.getClusterElementDisplayConditions(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME, TriggerClusterRootWorkflowFixture.TOOL_NAME, 0);
+
+        assertNotNull(result);
+
+        verify(clusterElementDefinitionService).getClusterElementDefinition("shopify", 1, "getOrder");
+    }
+
+    private void stubTriggerDefinitionLeniently() {
+        TriggerDefinition triggerDefinition = mock(TriggerDefinition.class);
+
+        lenient().when(triggerDefinition.getProperties())
+            .thenReturn(new ArrayList<>());
+        lenient().when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
+            .thenReturn(triggerDefinition);
     }
 }

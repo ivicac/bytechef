@@ -386,4 +386,20 @@ class WorkflowNodeScriptFacadeTest {
             super(environmentId, user);
         }
     }
+
+    @Test
+    void testGetClusterElementScriptInputResolvesTriggerRootWithoutSource() {
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+
+        Map<String, Object> result = workflowNodeScriptFacade.getClusterElementScriptInput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME, TriggerClusterRootWorkflowFixture.TOOL_NAME,
+            DEVELOPMENT_ORDINAL);
+
+        assertEquals(Map.of(), result);
+
+        verify(workflowNodeOutputFacade, never()).getPreviousWorkflowNodeSampleOutputs(
+            anyString(), anyString(), anyLong());
+    }
 }

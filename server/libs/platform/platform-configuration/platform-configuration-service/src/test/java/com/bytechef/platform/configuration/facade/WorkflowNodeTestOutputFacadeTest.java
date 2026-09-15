@@ -16,24 +16,34 @@
 
 package com.bytechef.platform.configuration.facade;
 
+import static com.bytechef.platform.configuration.facade.TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME;
+import static com.bytechef.platform.configuration.facade.TriggerClusterRootWorkflowFixture.TOOL_NAME;
+import static com.bytechef.platform.configuration.facade.TriggerClusterRootWorkflowFixture.TRIGGER_NAME;
+import static com.bytechef.platform.configuration.facade.TriggerClusterRootWorkflowFixture.WORKFLOW_ID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.Workflow.Format;
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.facade.ActionDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.trigger.TriggerOutput;
 import com.bytechef.platform.component.trigger.WebhookRequest;
+import com.bytechef.platform.configuration.domain.WorkflowNodeTestOutput;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.service.ConnectionService;
@@ -48,6 +58,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -60,7 +71,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class WorkflowNodeTestOutputFacadeTest {
 
     private static final long ENVIRONMENT_ID = 0L;
-    private static final String WORKFLOW_ID = "workflow1";
 
     @Mock
     private ActionDefinitionFacade actionDefinitionFacade;
@@ -147,5 +157,47 @@ class WorkflowNodeTestOutputFacadeTest {
             eq(WORKFLOW_ID), eq("trigger_2"), any(WorkflowNodeType.class), any(), eq(ENVIRONMENT_ID));
         verify(webhookTriggerTestFacade).disableTrigger(
             WORKFLOW_ID, "trigger_2", ENVIRONMENT_ID, PlatformType.AUTOMATION);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testSaveClusterElementTestOutputExecutesToolUnderTrigger() {
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType("browser", 1, "TOOLS"))
+            .thenReturn(new ClusterElementType("TOOLS", TOOLS_TYPE_NAME, "Tools", true, false));
+        when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
+            WORKFLOW_ID, TRIGGER_NAME, ENVIRONMENT_ID)).thenReturn(List.of());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+            .thenAnswer(invocation -> Map.of());
+        when(evaluator.evaluate(anyMap(), anyMap(), anyBoolean()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(evaluator.evaluate(anyMap(), anyMap()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(clusterElementDefinitionService.executeTool(
+            eq("shopify"), eq(1), eq("getOrder"), anyMap(), isNull(), eq(true)))
+                .thenReturn(Map.of("id", "42"));
+
+        WorkflowNodeTestOutput workflowNodeTestOutput = mock(WorkflowNodeTestOutput.class);
+
+        when(workflowNodeTestOutputService.save(
+            eq(WORKFLOW_ID), eq(TOOL_NAME), any(WorkflowNodeType.class), any(), anyLong()))
+                .thenReturn(workflowNodeTestOutput);
+
+        WorkflowNodeTestOutput result = workflowNodeTestOutputFacade.saveClusterElementTestOutput(
+            WORKFLOW_ID, TRIGGER_NAME, "TOOLS", TOOL_NAME, Map.of(), ENVIRONMENT_ID);
+
+        assertThat(result).isSameAs(workflowNodeTestOutput);
+
+        ArgumentCaptor<Map<String, ?>> inputParametersCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(clusterElementDefinitionService).executeTool(
+            eq("shopify"), eq(1), eq("getOrder"), inputParametersCaptor.capture(), isNull(), eq(true));
+
+        Map<String, ?> inputParameters = inputParametersCaptor.getValue();
+
+        assertThat(inputParameters.get("orderId")).isEqualTo("42");
+
+        verify(workflowNodeOutputFacade, never()).getPreviousWorkflowNodeSampleOutputs(
+            anyString(), anyString(), anyLong());
     }
 }

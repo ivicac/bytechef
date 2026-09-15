@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -32,14 +33,20 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.component.definition.voice.VoiceAgentFunction;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
+import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.dto.WorkflowTaskDTO;
+import com.bytechef.platform.configuration.dto.WorkflowTriggerDTO;
 import com.bytechef.platform.workflow.validator.WorkflowValidatorFacade;
 import com.bytechef.platform.workflow.validator.exception.WorkflowValidatorErrorType;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +57,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * @author Ivica Cardic
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({
+    MockitoExtension.class, ObjectMapperSetupExtension.class
+})
 public class WorkflowFacadeTest {
 
     @Mock
@@ -143,6 +152,40 @@ public class WorkflowFacadeTest {
         assertThat(taskDTO).isNotNull();
         assertThat(taskDTO.getName()).isEqualTo("testTask");
         assertThat(taskDTO.isClusterRoot()).isTrue();
+    }
+
+    @Test
+    public void testGetWorkflowWithClusterRootTrigger() {
+        stubTestWorkflow();
+
+        when(testWorkflow.getTasks(true)).thenReturn(Collections.emptyList());
+        when(testWorkflow.getExtensions(eq(WorkflowExtConstants.TRIGGERS), eq(WorkflowTrigger.class), anyList()))
+            .thenReturn(
+                List.of(
+                    new WorkflowTrigger(
+                        Map.of(
+                            "name", "trigger_1", "type", "browser/v1/voiceSession",
+                            "clusterElements", Map.of(
+                                "voiceAgent", Map.of(
+                                    "name", "voiceAgent_1", "type", "deepgram/v1/voiceAgent",
+                                    "parameters", Map.of("prompt", "hi")))))));
+        when(componentConnectionFacade.getComponentConnections(any(WorkflowTrigger.class)))
+            .thenReturn(Collections.emptyList());
+
+        ComponentDefinition browser = mock(ComponentDefinition.class);
+
+        when(browser.isClusterRoot()).thenReturn(true);
+        when(componentDefinitionService.fetchComponentDefinition("browser", 1)).thenReturn(Optional.of(browser));
+
+        WorkflowDTO workflowDTO = workflowFacade.getWorkflow(testWorkflow.getId());
+
+        WorkflowTriggerDTO trigger = workflowDTO.getTriggers()
+            .getFirst();
+
+        assertThat(trigger.clusterRoot()).isTrue();
+        assertThat(trigger.clusterElements()
+            .getClusterElement(VoiceAgentFunction.VOICE_AGENT)
+            .getType()).isEqualTo("deepgram/v1/voiceAgent");
     }
 
     @Test

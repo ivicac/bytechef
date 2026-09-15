@@ -20,7 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
@@ -48,6 +50,7 @@ import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +64,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * @author Ivica Cardic
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({
+    MockitoExtension.class, ObjectMapperSetupExtension.class
+})
 class WorkflowNodeDynamicPropertiesFacadeTest {
 
     @Mock
@@ -546,5 +551,39 @@ class WorkflowNodeDynamicPropertiesFacadeTest {
             verify(taskDispatcherDefinitionService).executeDynamicProperties(
                 eq("subflow"), eq(1), eq(propertyName), anyMap());
         }
+    }
+
+    @Test
+    void testGetClusterElementDynamicPropertiesResolvesToolUnderTrigger() {
+        long environmentId = 1L;
+
+        when(workflowTestConfigurationService.fetchWorkflowTestConfiguration(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, environmentId)).thenReturn(Optional.empty());
+        doReturn(Map.of()).when(workflowEvaluationInputsFacade)
+            .getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, environmentId);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME))
+                .thenReturn(new ClusterElementType("TOOLS", "tools", "Tools", true, false));
+        when(evaluator.evaluate(anyMap(), anyMap(), anyBoolean()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Property> expectedProperties = List.of(mock(Property.class));
+
+        when(clusterElementDefinitionFacade.executeDynamicProperties(
+            eq("shopify"), eq(1), eq("getOrder"), eq("fields"), anyMap(), anyMap(), anyList(), isNull(), anyMap(),
+            anyMap()))
+                .thenReturn(expectedProperties);
+
+        List<Property> result = workflowNodeDynamicPropertiesFacade.getClusterElementDynamicProperties(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.TOOLS_TYPE_NAME, TriggerClusterRootWorkflowFixture.TOOL_NAME, "fields",
+            List.of(), environmentId);
+
+        assertEquals(expectedProperties, result);
+
+        verify(workflowNodeOutputFacade, never()).getPreviousWorkflowNodeSampleOutputs(
+            anyString(), anyString(), anyLong());
     }
 }
