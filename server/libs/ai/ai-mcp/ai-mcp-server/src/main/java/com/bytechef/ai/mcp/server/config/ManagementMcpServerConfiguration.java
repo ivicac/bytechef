@@ -21,7 +21,7 @@ import com.bytechef.ai.mcp.server.spi.McpAppUiDescriptor;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
 import com.bytechef.automation.ai.tool.ClusterElementTools;
 import com.bytechef.automation.ai.tool.ProjectTools;
-import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ScriptTools;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.config.ApplicationProperties;
@@ -70,14 +70,12 @@ import org.springframework.web.servlet.function.ServerResponse;
 @ConditionalOnProperty(name = "bytechef.ai.mcp.server.enabled", havingValue = "true", matchIfMissing = true)
 public class ManagementMcpServerConfiguration {
 
-    // Workflow tools whose results (or, for create, whose input argument) carry the nested workflow definition. They
-    // are marked with the MCP App workflow editor UI so hosts render the canvas alongside the conversation, and their
-    // results gain structuredContent.definition — the payload the editor widget consumes.
-    private static final Set<String> WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow", "createProjectWorkflow");
+    // Workflow tools whose results carry the nested workflow definition. They are marked with the MCP App workflow
+    // editor UI so hosts render the canvas alongside the conversation, and their results gain
+    // structuredContent.definition — the payload the editor widget consumes.
+    private static final Set<String> WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow");
 
     private static final Set<String> READ_ONLY_WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow");
-
-    private static final String UPDATE_WORKFLOW_TOOL_NAME = "updateWorkflow";
 
     private static final String DEFINITION = "definition";
 
@@ -95,7 +93,7 @@ public class ManagementMcpServerConfiguration {
 
     private final ComponentTools componentTools;
     private final ProjectTools projectTools;
-    private final ProjectWorkflowTools projectWorkflowTools;
+    private final ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools;
     private final TaskTools taskTools;
     private final TaskDispatcherTools taskDispatcherTools;
     private final ScriptTools scriptTools;
@@ -104,14 +102,14 @@ public class ManagementMcpServerConfiguration {
 
     @SuppressFBWarnings("EI")
     public ManagementMcpServerConfiguration(
-        ComponentTools componentTools, ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools,
-        TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
-        ClusterElementTools clusterElementTools,
+        ComponentTools componentTools, ProjectTools projectTools,
+        ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools, TaskTools taskTools,
+        TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools, ClusterElementTools clusterElementTools,
         List<McpServerToolCallbackContributor> mcpServerToolCallbackContributors) {
 
         this.componentTools = componentTools;
         this.projectTools = projectTools;
-        this.projectWorkflowTools = projectWorkflowTools;
+        this.projectWorkflowLifecycleTools = projectWorkflowLifecycleTools;
         this.taskTools = taskTools;
         this.taskDispatcherTools = taskDispatcherTools;
         this.scriptTools = scriptTools;
@@ -412,17 +410,15 @@ public class ManagementMcpServerConfiguration {
         return new McpServerFeatures.AsyncToolSpecification(
             toolBuilder.build(),
             (exchange, callToolRequest) -> delegateCallHandler.apply(exchange, callToolRequest)
-                .map(callToolResult -> withDefinitionStructuredContent(callToolRequest, callToolResult)));
+                .map(ManagementMcpServerConfiguration::withDefinitionStructuredContent));
     }
 
-    static McpSchema.CallToolResult withDefinitionStructuredContent(
-        McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult callToolResult) {
-
+    static McpSchema.CallToolResult withDefinitionStructuredContent(McpSchema.CallToolResult callToolResult) {
         if (Boolean.TRUE.equals(callToolResult.isError()) || callToolResult.structuredContent() != null) {
             return callToolResult;
         }
 
-        Map<String, ?> definition = extractDefinition(callToolRequest, callToolResult);
+        Map<String, ?> definition = extractDefinition(callToolResult);
 
         if (definition == null) {
             return callToolResult;
@@ -434,9 +430,7 @@ public class ManagementMcpServerConfiguration {
             .build();
     }
 
-    private static Map<String, ?> extractDefinition(
-        McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult callToolResult) {
-
+    private static Map<String, ?> extractDefinition(McpSchema.CallToolResult callToolResult) {
         // getWorkflow returns WorkflowInfo whose 'definition' field holds the nested definition JSON.
         McpSchema.TextContent firstTextContent = callToolResult.content()
             .stream()
@@ -461,10 +455,7 @@ public class ManagementMcpServerConfiguration {
             }
         }
 
-        // createProjectWorkflow's result omits the definition; it is the tool call's input argument.
-        Map<String, Object> arguments = callToolRequest.arguments();
-
-        return arguments == null ? null : toDefinitionMap(arguments.get(DEFINITION));
+        return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -486,14 +477,10 @@ public class ManagementMcpServerConfiguration {
 
     ToolCallbackProvider toolCallbackProvider() {
         List<Object> tools = List.of(
-            projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
+            projectTools, projectWorkflowLifecycleTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
             clusterElementTools);
 
-        List<ToolCallback> toolCallbacks = Arrays.stream(ToolCallbacks.from(tools.toArray()))
-            .filter(toolCallback -> !UPDATE_WORKFLOW_TOOL_NAME.equals(
-                toolCallback.getToolDefinition()
-                    .name()))
-            .collect(Collectors.toCollection(ArrayList::new));
+        List<ToolCallback> toolCallbacks = new ArrayList<>(List.of(ToolCallbacks.from(tools.toArray())));
 
         for (McpServerToolCallbackContributor contributor : mcpServerToolCallbackContributors) {
             toolCallbacks.addAll(contributor.getToolCallbacks());
