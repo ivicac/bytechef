@@ -55,7 +55,7 @@ const PlaceholderNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const effectiveDirection = isClusterElement ? 'TB' : layoutDirection;
 
     const canPaste = useMemo(
-        () => !isClusterElement && !!copiedNode && copiedWorkflowId === workflow.id,
+        () => !isClusterElement && !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id,
         [isClusterElement, copiedNode, copiedWorkflowId, workflow.id]
     );
 

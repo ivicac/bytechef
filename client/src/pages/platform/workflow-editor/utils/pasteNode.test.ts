@@ -200,3 +200,129 @@ describe('pasteNode — graph', () => {
         ]);
     });
 });
+
+describe('pasteNode — trigger', () => {
+    function makeTriggerNodeData(): NodeDataType {
+        return {
+            componentName: 'webhook',
+            label: 'Webhook',
+            name: 'webhook_1',
+            operationName: 'autoRespondWithHTTPOK',
+            parameters: {path: 'orders'},
+            trigger: true,
+            type: 'webhook/v1/autoRespondWithHTTPOK',
+            version: 1,
+            workflowNodeName: 'webhook_1',
+        } as unknown as NodeDataType;
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('pastes a copied trigger as a new trigger whose name does not collide with an existing trigger', () => {
+        mockEditorState = {
+            copiedNode: makeTriggerNodeData(),
+            copiedWorkflowId: 'workflow-1',
+            setResetWorkflowLayout: vi.fn(),
+        };
+        mockDataState = {
+            nodes: [],
+            workflow: {
+                definition: JSON.stringify(
+                    {tasks: [], triggers: [{name: 'webhook_1', type: 'webhook/v1/autoRespondWithHTTPOK'}]},
+                    null,
+                    SPACE
+                ),
+                id: 'workflow-1',
+            },
+        };
+
+        pasteNode({updateWorkflowMutation: {mutate: vi.fn()} as never});
+
+        expect(saveWorkflowDefinitionMock).toHaveBeenCalledOnce();
+
+        const pastedNodeData = saveWorkflowDefinitionMock.mock.calls[0][0].nodeData as NodeDataType;
+
+        expect(pastedNodeData.trigger).toBe(true);
+        expect(pastedNodeData.name).toBe('webhook_2');
+        expect(pastedNodeData.parameters).toEqual({path: 'orders'});
+    });
+
+    it('ignores the task position and task dispatcher context of the paste target', () => {
+        mockEditorState = {
+            copiedNode: makeTriggerNodeData(),
+            copiedWorkflowId: 'workflow-1',
+            setResetWorkflowLayout: vi.fn(),
+        };
+        mockDataState = {
+            nodes: [],
+            workflow: {
+                definition: JSON.stringify(
+                    {
+                        tasks: [{name: 'httpClient_1'}],
+                        triggers: [{name: 'webhook_1', type: 'webhook/v1/autoRespondWithHTTPOK'}],
+                    },
+                    null,
+                    SPACE
+                ),
+                id: 'workflow-1',
+            },
+        };
+
+        pasteNode({
+            sourceNodeName: 'httpClient_1',
+            taskDispatcherContext: {taskDispatcherId: 'loop_1'},
+            updateWorkflowMutation: {mutate: vi.fn()} as never,
+        });
+
+        const saveWorkflowDefinitionProps = saveWorkflowDefinitionMock.mock.calls[0][0];
+
+        expect(saveWorkflowDefinitionProps.nodeIndex).toBeUndefined();
+        expect(saveWorkflowDefinitionProps.taskDispatcherContext).toBeUndefined();
+    });
+
+    it('carries the cluster elements of a copied trigger from its definition entry', () => {
+        const voiceAgentElement = {name: 'deepgram_1', type: 'deepgram/v1/voiceAgent'};
+
+        mockEditorState = {
+            copiedNode: {
+                ...makeTriggerNodeData(),
+                componentName: 'browser',
+                name: 'browser_1',
+                operationName: 'voiceSession',
+                type: 'browser/v1/voiceSession',
+                workflowNodeName: 'browser_1',
+            } as unknown as NodeDataType,
+            copiedWorkflowId: 'workflow-1',
+            setResetWorkflowLayout: vi.fn(),
+        };
+        mockDataState = {
+            nodes: [],
+            workflow: {
+                definition: JSON.stringify(
+                    {
+                        tasks: [],
+                        triggers: [
+                            {
+                                clusterElements: {voiceAgent: voiceAgentElement},
+                                name: 'browser_1',
+                                type: 'browser/v1/voiceSession',
+                            },
+                        ],
+                    },
+                    null,
+                    SPACE
+                ),
+                id: 'workflow-1',
+            },
+        };
+
+        pasteNode({updateWorkflowMutation: {mutate: vi.fn()} as never});
+
+        const pastedNodeData = saveWorkflowDefinitionMock.mock.calls[0][0].nodeData as NodeDataType;
+
+        expect(pastedNodeData.name).toBe('browser_2');
+        expect(pastedNodeData.clusterElements).toMatchObject({voiceAgent: {type: 'deepgram/v1/voiceAgent'}});
+    });
+});

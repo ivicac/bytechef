@@ -32,6 +32,7 @@ import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {mapHandlePosition} from '../utils/directionUtils';
 import getClusterElementIconStatuses from '../utils/getClusterElementIconStatuses';
+import getClusterRootOutcome from '../utils/getClusterRootOutcome';
 import {getClusterRootTask} from '../utils/getClusterRootTask';
 import {getNodeLabel} from '../utils/getNodeLabel';
 import getTestNodeStateBorderClassName from '../utils/getTestNodeStateBorderClassName';
@@ -354,7 +355,7 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const suppressHover = isRenaming;
 
     const canPaste = useMemo(
-        () => !!copiedNode && copiedWorkflowId === workflow.id,
+        () => !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id,
         [copiedNode, copiedWorkflowId, workflow.id]
     );
 

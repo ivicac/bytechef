@@ -1,14 +1,16 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
 import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
+import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
+import useWorkflowIssuesStore from '../stores/useWorkflowIssuesStore';
 import AiAgentNode from './AiAgentNode';
 
 const {handleDeleteTaskMock, handleDeleteTriggerMock, recordedMenuProps, testNodeStatesState} = vi.hoisted(() => ({
@@ -225,6 +227,106 @@ describe('AiAgentNode', () => {
         expect(nodeClassName(container)).toContain('opacity-50');
         expect(nodeClassName(container)).toContain('grayscale');
         expect(screen.queryByTitle(DISABLED_BADGE_TITLE)).not.toBeInTheDocument();
+    });
+});
+
+describe('AiAgentNode issue badge', () => {
+    beforeEach(() => {
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
+        useWorkflowDataStore.setState({
+            workflow: {definition: '{}', id: 'workflow-1', nodeNames: [], tasks: [], triggers: [], version: 1},
+        });
+        useWorkflowIssuesStore.setState({
+            liveIssues: {},
+            sweepIssues: [
+                {
+                    kind: 'MISSING_REQUIRED',
+                    message: 'Missing required property: userPrompt',
+                    nodeName: 'aiAgent_1',
+                    severity: 'ERROR',
+                    source: 'SWEEP',
+                },
+            ],
+            validatorIssues: [],
+        });
+
+        testNodeStatesState.value = {};
+    });
+
+    afterEach(() => {
+        useWorkflowIssuesStore.setState({liveIssues: {}, sweepIssues: [], validatorIssues: []});
+    });
+
+    it('anchors the badge to the card rather than to the whole node element', () => {
+        renderNode(AI_AGENT_DATA);
+
+        const badge = screen.getByRole('img', {name: '1 issue'});
+
+        let anchor = badge.parentElement;
+
+        while (anchor && !anchor.className.split(/\s+/).includes('relative')) {
+            anchor = anchor.parentElement;
+        }
+
+        expect(anchor, 'the badge has no positioned ancestor to be offset from').not.toBeNull();
+        expect(within(anchor!).queryByText('aiAgent_1')).toBeNull();
+        expect(within(anchor!).getAllByRole('button').length).toBeGreaterThan(0);
+    });
+});
+
+// Paste is typed: a copied trigger has no insertion point after an agent task, so only a copied task
+// of the same workflow may be pasted after it.
+describe('AiAgentNode paste', () => {
+    beforeEach(() => {
+        recordedMenuProps.contextMenu = undefined;
+        recordedMenuProps.dropdownMenu = undefined;
+        testNodeStatesState.value = {};
+
+        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
+        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
+        useWorkflowDataStore.setState({
+            workflow: {definition: '{}', id: 'workflow-1', nodeNames: [], tasks: [], triggers: [], version: 1},
+        });
+    });
+
+    afterEach(() => {
+        useWorkflowEditorStore.setState({copiedNode: undefined, copiedWorkflowId: undefined});
+    });
+
+    it('offers paste for a task copied from the same workflow', () => {
+        useWorkflowEditorStore.setState({
+            copiedNode: {componentName: 'httpClient', name: 'httpClient_1'} as NodeDataType,
+            copiedWorkflowId: 'workflow-1',
+        });
+
+        renderNode(AI_AGENT_DATA);
+
+        expect(recordedMenuProps.contextMenu?.canPaste).toBe(true);
+        expect(recordedMenuProps.dropdownMenu?.canPaste).toBe(true);
+    });
+
+    it('offers no paste for a copied trigger', () => {
+        useWorkflowEditorStore.setState({
+            copiedNode: {componentName: 'webhook', name: 'trigger_2', trigger: true} as NodeDataType,
+            copiedWorkflowId: 'workflow-1',
+        });
+
+        renderNode(AI_AGENT_DATA);
+
+        expect(recordedMenuProps.contextMenu?.canPaste).toBe(false);
+        expect(recordedMenuProps.dropdownMenu?.canPaste).toBe(false);
+    });
+
+    it('offers no paste for a task copied from another workflow', () => {
+        useWorkflowEditorStore.setState({
+            copiedNode: {componentName: 'httpClient', name: 'httpClient_1'} as NodeDataType,
+            copiedWorkflowId: 'workflow-2',
+        });
+
+        renderNode(AI_AGENT_DATA);
+
+        expect(recordedMenuProps.contextMenu?.canPaste).toBe(false);
     });
 });
 

@@ -179,7 +179,7 @@ export default function WorkflowEdge({
     const edgeClusterElementType = (data as Record<string, unknown>)?.clusterElementType;
 
     const canPaste = useMemo(
-        () => !edgeClusterElementType && !!copiedNode && copiedWorkflowId === workflow.id,
+        () => !edgeClusterElementType && !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id,
         [edgeClusterElementType, copiedNode, copiedWorkflowId, workflow.id]
     );
 

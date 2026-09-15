@@ -104,14 +104,17 @@ describe('WorkflowNodeDropdownMenu', () => {
         expect(screen.getAllByRole('separator')).toHaveLength(2);
     });
 
-    it('should offer only the trigger actions for a trigger node', async () => {
+    it('should offer the trigger actions, including cut and copy, for a trigger node', async () => {
         renderWorkflowNodeDropdownMenu({}, triggerNode);
 
         await openMenu();
 
         expect(screen.getAllByRole('menuitem').map((menuItem) => menuItem.textContent)).toEqual([
+            'Cut',
             'Replace',
+            'Copy',
             'Rename',
+            'Reset position',
             'Info',
             'Delete',
         ]);
