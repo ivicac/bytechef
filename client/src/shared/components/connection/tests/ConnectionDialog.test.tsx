@@ -1,4 +1,5 @@
 import ConnectionDialog from '@/shared/components/connection/ConnectionDialog';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
@@ -34,6 +35,15 @@ vi.mock('@/shared/components/connection/Scopes', () => ({
     default: () => null,
 }));
 
+vi.mock('@/shared/middleware/graphql', async () => {
+    const actual = await vi.importActual<typeof import('@/shared/middleware/graphql')>('@/shared/middleware/graphql');
+
+    return {
+        ...actual,
+        useConnectionCredentialStoresQuery: vi.fn(() => ({data: undefined})),
+    };
+});
+
 vi.mock('@tanstack/react-query', async () => {
     const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
 
@@ -52,13 +62,17 @@ const COMPONENT_DEFINITIONS = [
 
 const renderDialog = () =>
     render(
-        <ConnectionDialog
-            componentDefinitions={COMPONENT_DEFINITIONS as never}
-            connectionTagsQueryKey={['connectionTags']}
-            connectionsQueryKey={['connections']}
-            useCreateConnectionMutation={(() => ({isPending: false, mutateAsync: vi.fn(), reset: vi.fn()})) as never}
-            useGetConnectionTagsQuery={(() => ({data: [], error: null, isLoading: false})) as never}
-        />
+        <QueryClientProvider client={new QueryClient()}>
+            <ConnectionDialog
+                componentDefinitions={COMPONENT_DEFINITIONS as never}
+                connectionTagsQueryKey={['connectionTags']}
+                connectionsQueryKey={['connections']}
+                useCreateConnectionMutation={
+                    (() => ({isPending: false, mutateAsync: vi.fn(), reset: vi.fn()})) as never
+                }
+                useGetConnectionTagsQuery={(() => ({data: [], error: null, isLoading: false})) as never}
+            />
+        </QueryClientProvider>
     );
 
 describe('ConnectionDialog', () => {
