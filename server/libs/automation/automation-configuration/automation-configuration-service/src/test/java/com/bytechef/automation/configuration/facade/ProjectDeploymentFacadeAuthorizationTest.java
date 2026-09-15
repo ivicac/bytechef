@@ -68,6 +68,13 @@ class ProjectDeploymentFacadeAuthorizationTest {
     }
 
     @Test
+    void testCheckEnableProjectDeploymentRequiresEditor() {
+        assertExpression(
+            "hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')",
+            "checkEnableProjectDeployment", long.class, boolean.class);
+    }
+
+    @Test
     void testEnableProjectDeploymentRequiresEditor() {
         assertExpression(
             "hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')",
