@@ -87,8 +87,18 @@ public class McpServerAfterSaveEventListener extends AbstractRelationalEventList
         checkProjectDeploymentTriggers(mcpServer.getId(), mcpServer.isEnabled());
     }
 
+    /**
+     * Asks every deployment's authorization questions before toggling any. The listener runs inside the server save's
+     * transaction, so a denial on a later deployment rolls back the earlier ones' rows, and the deployment facade then
+     * undoes the trigger registrations they made with external providers; asking first avoids registering and
+     * unregistering them for nothing.
+     */
     private void checkProjectDeploymentTriggers(long mcpServerId, boolean enabled) {
         List<McpProject> mcpProjects = mcpProjectService.getMcpServerMcpProjects(mcpServerId);
+
+        for (McpProject mcpProject : mcpProjects) {
+            projectDeploymentFacade.checkEnableProjectDeployment(mcpProject.getProjectDeploymentId(), enabled);
+        }
 
         for (McpProject mcpProject : mcpProjects) {
             projectDeploymentFacade.enableProjectDeployment(mcpProject.getProjectDeploymentId(), enabled);
