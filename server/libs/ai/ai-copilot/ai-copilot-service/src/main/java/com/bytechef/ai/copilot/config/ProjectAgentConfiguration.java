@@ -29,7 +29,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
 import com.bytechef.automation.ai.tool.ProjectTools;
-import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
 import java.io.IOException;
@@ -37,7 +37,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.support.ToolCallbacks;
@@ -51,7 +50,7 @@ import org.springframework.core.io.Resource;
 
 /**
  * Registers the Project Copilot panel source agents ({@code project_ask}/{@code project_build}). Lives in CE alongside
- * {@code CopilotConfiguration} because {@link ProjectTools}, {@link ProjectWorkflowTools}, {@link ReadProjectTools},
+ * {@code CopilotConfiguration} because {@link ProjectTools}, {@code ProjectWorkflowTools}, {@link ReadProjectTools},
  * and {@link ReadProjectWorkflowTools} are CE.
  *
  * <p>
@@ -79,8 +78,6 @@ import org.springframework.core.io.Resource;
 @Configuration
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class ProjectAgentConfiguration {
-
-    private static final String UPDATE_WORKFLOW_TOOL_NAME = "updateWorkflow";
 
     @Value("classpath:prompt_project_ask.txt")
     private Resource promptProjectAskResource;
@@ -115,8 +112,8 @@ public class ProjectAgentConfiguration {
     @Bean
     ProjectSpringAIAgent projectBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, SecurityContextRehydrator securityContextRehydrator,
-        IntelligentToolCatalog intelligentToolCatalog,
+        ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools,
+        SecurityContextRehydrator securityContextRehydrator, IntelligentToolCatalog intelligentToolCatalog,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
         CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
         throws AGUIException {
@@ -131,7 +128,7 @@ public class ProjectAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 buildToolCallbacks(
-                    securityContextRehydrator, projectTools, projectWorkflowTools, intelligentToolCatalog))
+                    securityContextRehydrator, projectTools, projectWorkflowLifecycleTools, intelligentToolCatalog))
             .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
@@ -153,25 +150,20 @@ public class ProjectAgentConfiguration {
      * {@link ProjectSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
      *
      * <p>
-     * {@value #UPDATE_WORKFLOW_TOOL_NAME} replaces a workflow's whole definition, which is {@code buildWorkflow}'s job,
-     * so it is filtered out and {@code buildWorkflow} stays the panel's only path to workflow content.
+     * Registers {@link ProjectWorkflowLifecycleTools} rather than {@code ProjectWorkflowTools}: it has no tool that
+     * writes a workflow definition, so {@code buildWorkflow} stays the panel's only path to workflow content.
      * </p>
      */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, IntelligentToolCatalog intelligentToolCatalog) {
+        ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools, IntelligentToolCatalog intelligentToolCatalog) {
 
-        List<ToolCallback> toolCallbacks =
-            wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowTools))
-                .stream()
-                .filter(toolCallback -> !UPDATE_WORKFLOW_TOOL_NAME.equals(
-                    toolCallback.getToolDefinition()
-                        .name()))
-                .collect(Collectors.toCollection(ArrayList::new));
+        List<ToolCallback> toolCallbacks = new ArrayList<>(
+            wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowLifecycleTools)));
 
         // Both delegates are registered bare here, matching their pre-catalog registration: the panel's flat CRUD
-        // tools (projectTools/projectWorkflowTools above) get RehydrateContextToolCallback via wrapTools, but these
-        // two intelligent delegates never did and still don't.
+        // tools (projectTools/projectWorkflowLifecycleTools above) get RehydrateContextToolCallback via wrapTools, but
+        // these two intelligent delegates never did and still don't.
         toolCallbacks.addAll(
             intelligentToolCatalog.getForPanel(
                 IntelligentToolScope.PROJECT, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
