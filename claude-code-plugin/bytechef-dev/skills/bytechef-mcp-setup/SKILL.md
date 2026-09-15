@@ -11,7 +11,7 @@ ByteChef ships a **Management MCP server** that gives an MCP client (Claude Code
 
 ## What the server exposes
 
-Registered tool families (from `ManagementMcpServerConfiguration`): **ProjectTools, ProjectWorkflowTools, ComponentTools, TaskTools, TaskDispatcherTools, ScriptTools, ClusterElementTools** — plus, on EE deployments, contributed Copilot subagent tools. Workflow-editor tools (`getWorkflow`, `createProjectWorkflow`, `updateWorkflow`) carry MCP App UI metadata and return the workflow definition as structured content, so MCP clients with app support render an interactive workflow view. Server capabilities: tools, resources, prompts, logging.
+Registered tool families (from `ManagementMcpServerConfiguration`): **ProjectTools, ProjectWorkflowTools, ComponentTools, TaskTools, TaskDispatcherTools, ScriptTools, ClusterElementTools** — plus, on EE deployments, contributed Copilot subagent tools. Workflow-editor tools (`getWorkflow`, `createProjectWorkflow`) carry MCP App UI metadata and return the workflow definition as structured content, so MCP clients with app support render an interactive workflow view. Server capabilities: tools, resources, prompts, logging.
 
 ## Server-side prerequisites
 
