@@ -1,5 +1,5 @@
 import {DEFAULT_NODE_POSITION} from '@/shared/constants';
-import {ComponentDefinitionApi} from '@/shared/middleware/platform/configuration';
+import {ComponentDefinitionApi, WorkflowTask, WorkflowTrigger} from '@/shared/middleware/platform/configuration';
 import {ComponentDefinitionKeys} from '@/shared/queries/platform/componentDefinitions.queries';
 import {ClusterElementItemType, ClusterElementsType, NestedClusterRootComponentDefinitionType} from '@/shared/types';
 import {useQueryClient} from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import useClusterElementsViewMode from '../../workflow-editor/hooks/useClusterEl
 import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../workflow-editor/stores/useWorkflowEditorStore';
 import collectClusterElementsSignature from '../../workflow-editor/utils/collectClusterElementsSignature';
-import {getTask} from '../../workflow-editor/utils/getTask';
+import {getClusterRootTask} from '../../workflow-editor/utils/getClusterRootTask';
 import {getFilteredClusterElementTypes, isPlainObject} from '../utils/clusterElementsUtils';
 import createClusterElementsEdges from '../utils/createClusterElementsEdges';
 import createClusterElementsNodes from '../utils/createClusterElementsNodes';
@@ -104,18 +104,21 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
     // re-fetches -- on every render.
     const clusterRootIdsKey = clusterRootIds.join(',');
 
-    const workflowDefinitionTasks = useMemo(() => {
+    // Tasks AND triggers: a cluster root can be a trigger (the browser voice session) as well as a task.
+    const workflowDefinitionNodes = useMemo((): {tasks: Array<WorkflowTask>; triggers: Array<WorkflowTrigger>} => {
         if (!workflow.definition) {
-            return [];
+            return {tasks: [], triggers: []};
         }
 
-        // A definition with no tasks key at all (e.g. a brand-new workflow) parses to undefined here,
-        // not []; getTask assumes an array and throws on undefined.
-        return JSON.parse(workflow.definition).tasks || [];
+        const workflowDefinition = JSON.parse(workflow.definition);
+
+        // A definition with no tasks or triggers key at all (e.g. a brand-new workflow) parses to
+        // undefined there, not [].
+        return {tasks: workflowDefinition.tasks || [], triggers: workflowDefinition.triggers || []};
     }, [workflow.definition]);
 
     // The one dependency every derived memo below keys off, instead of `workflow.definition` or
-    // `workflowDefinitionTasks`: those change identity on EVERY debounced property save, and
+    // `workflowDefinitionNodes`: those change identity on EVERY debounced property save, and
     // `nodesByRootId`/`edgesByRootId`/`definitionsReady` are dependencies of useLayout's own layout
     // effect -- so keying off them re-ran the whole canvas layout, plus `animateNodePositions`, every
     // time the user typed a character in any property form. That is exactly the churn
@@ -130,7 +133,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
 
         return clusterRootIds
             .map((clusterRootId) => {
-                const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
+                const task = getClusterRootTask({...workflowDefinitionNodes, workflowNodeName: clusterRootId});
 
                 return task
                     ? `${clusterRootId}:${task.type}:${collectClusterElementsSignature(task.clusterElements)}`
@@ -138,7 +141,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
             })
             .join('|');
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clusterRootIdsKey, workflow.definition, workflowDefinitionTasks]);
+    }, [clusterRootIdsKey, workflow.definition, workflowDefinitionNodes]);
 
     // `undefined` marks a requested root with no task in the definition, which the node builder below
     // has to tell apart from a root whose `clusterElements` is simply empty.
@@ -146,7 +149,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
         const clusterElementsMap: Record<string, ClusterElementsType | undefined> = {};
 
         for (const clusterRootId of clusterRootIds) {
-            const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
+            const task = getClusterRootTask({...workflowDefinitionNodes, workflowNodeName: clusterRootId});
 
             clusterElementsMap[clusterRootId] = task ? task.clusterElements || {} : undefined;
         }
@@ -208,7 +211,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
                 continue;
             }
 
-            const task = getTask({tasks: workflowDefinitionTasks, workflowNodeName: clusterRootId});
+            const task = getClusterRootTask({...workflowDefinitionNodes, workflowNodeName: clusterRootId});
 
             if (!task) {
                 continue;
@@ -223,7 +226,7 @@ export default function useClusterElementNodes(clusterRootIds: string[]): UseClu
 
         return parameters;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clusterRootComponentDefinitions, clusterRootIdsKey, failedDefinitionKeys, workflowDefinitionTasks]);
+    }, [clusterRootComponentDefinitions, clusterRootIdsKey, failedDefinitionKeys, workflowDefinitionNodes]);
 
     const getClusterRootDefinitionQuery = useCallback(
         (roots: Array<{componentName: string; componentVersion: number}>) =>

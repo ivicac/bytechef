@@ -91,12 +91,21 @@ export default async function saveWorkflowDefinition(props: SaveWorkflowDefiniti
 
     let {type} = nodeData ?? {};
 
-    if (trigger) {
+    const existingTriggers: Array<WorkflowTrigger> = workflowDefinition.triggers ?? [];
+
+    // A trigger can be a cluster root (the browser voice session). Every cluster-element save rebuilds
+    // the root's node data by spreading its definition entry, which carries no `trigger` flag, so the
+    // name is what says the root lives in `triggers`. This relies on node names being unique across
+    // tasks and triggers (cluster elements included), which getFormattedName guarantees.
+    const isTrigger = !!trigger || existingTriggers.some((existingTrigger) => existingTrigger.name === name);
+
+    if (isTrigger) {
         if (!type) {
             type = `${componentName}/v${version}/${operationName}`;
         }
 
         const newTrigger: WorkflowTrigger = {
+            ...(clusterElements ? {clusterElements} : {}),
             description,
             label,
             metadata,
@@ -104,8 +113,6 @@ export default async function saveWorkflowDefinition(props: SaveWorkflowDefiniti
             parameters,
             type,
         };
-
-        const existingTriggers: Array<WorkflowTrigger> = workflowDefinition.triggers ?? [];
 
         executeWorkflowMutation({
             definitionUpdate: {triggers: upsertTrigger(existingTriggers, newTrigger)},
