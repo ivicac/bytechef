@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.support.ToolCallbacks;
@@ -78,6 +79,8 @@ import org.springframework.core.io.Resource;
 @Configuration
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class ProjectAgentConfiguration {
+
+    private static final String UPDATE_WORKFLOW_TOOL_NAME = "updateWorkflow";
 
     @Value("classpath:prompt_project_ask.txt")
     private Resource promptProjectAskResource;
@@ -148,13 +151,23 @@ public class ProjectAgentConfiguration {
     /**
      * Package-private so {@code ProjectAgentConfigurationTest} can assert on the resolved tool names directly —
      * {@link ProjectSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
+     *
+     * <p>
+     * {@value #UPDATE_WORKFLOW_TOOL_NAME} replaces a workflow's whole definition, which is {@code buildWorkflow}'s job,
+     * so it is filtered out and {@code buildWorkflow} stays the panel's only path to workflow content.
+     * </p>
      */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator, ProjectTools projectTools,
         ProjectWorkflowTools projectWorkflowTools, IntelligentToolCatalog intelligentToolCatalog) {
 
         List<ToolCallback> toolCallbacks =
-            new ArrayList<>(wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowTools)));
+            wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowTools))
+                .stream()
+                .filter(toolCallback -> !UPDATE_WORKFLOW_TOOL_NAME.equals(
+                    toolCallback.getToolDefinition()
+                        .name()))
+                .collect(Collectors.toCollection(ArrayList::new));
 
         // Both delegates are registered bare here, matching their pre-catalog registration: the panel's flat CRUD
         // tools (projectTools/projectWorkflowTools above) get RehydrateContextToolCallback via wrapTools, but these
