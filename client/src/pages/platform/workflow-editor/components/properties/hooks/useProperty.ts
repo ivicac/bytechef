@@ -52,7 +52,7 @@ import {Control, FieldValues, FormState} from 'react-hook-form';
 import {useDebouncedCallback} from 'use-debounce';
 import {useShallow} from 'zustand/react/shallow';
 
-import {getTask} from '../../../utils/getTask';
+import {getClusterRootTask} from '../../../utils/getClusterRootTask';
 import {computeFromAiToggle} from './fromAiToggle';
 
 type UsePropertyReturnType = {
@@ -470,10 +470,11 @@ export const useProperty = ({
             return undefined;
         }
 
-        const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
+        const workflowDefinition = JSON.parse(workflow.definition);
 
-        const mainClusterRootTask = getTask({
-            tasks: workflowDefinitionTasks,
+        const mainClusterRootTask = getClusterRootTask({
+            tasks: workflowDefinition.tasks,
+            triggers: workflowDefinition.triggers,
             workflowNodeName: mainClusterRootName,
         });
 

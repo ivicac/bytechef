@@ -19,7 +19,15 @@ export default function getFormattedName(componentName: string, reservedNames?: 
 
     const allTasks = getAllTasksRecursively(workflowDefinition.tasks);
 
-    const clusterElementNames = allTasks.map((task: WorkflowTask) => {
+    // Triggers can be cluster roots too (the browser voice session's Voice Agent and Tools slots). Their
+    // element names count, or two tools of one component under a trigger would share a name -- and
+    // element deletion, which matches by name, would then remove both.
+    const allClusterRoots: Array<WorkflowTask> = [
+        ...allTasks,
+        ...((workflowDefinition.triggers ?? []) as Array<WorkflowTask>),
+    ];
+
+    const clusterElementNames = allClusterRoots.map((task: WorkflowTask) => {
         const elementNames: string[] = [];
 
         const {clusterElements} = task;

@@ -110,7 +110,7 @@ describe('useAiAgentStreamResponse', () => {
     });
 
     it('hides the toggle for an action that is neither chat nor streamChat', () => {
-        mockStores('realtimeChat');
+        mockStores('summarize');
 
         const {result} = renderHook(() => useAiAgentStreamResponse());
 

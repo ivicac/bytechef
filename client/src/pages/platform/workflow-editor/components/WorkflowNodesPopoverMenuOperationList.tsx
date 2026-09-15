@@ -28,9 +28,9 @@ import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import calculateNodeInsertIndex from '../utils/calculateNodeInsertIndex';
+import {getClusterRootTask} from '../utils/getClusterRootTask';
 import getFormattedName from '../utils/getFormattedName';
 import getParametersWithDefaultValues from '../utils/getParametersWithDefaultValues';
-import {getTask} from '../utils/getTask';
 import getTaskDispatcherContext from '../utils/getTaskDispatcherContext';
 import handleComponentAddedSuccess, {
     handleComponentAddedError,
@@ -247,10 +247,11 @@ const WorkflowNodesPopoverMenuOperationList = ({
                 return;
             }
 
-            const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
+            const workflowDefinition = JSON.parse(workflow.definition);
 
-            const mainClusterRootTask = getTask({
-                tasks: workflowDefinitionTasks,
+            const mainClusterRootTask = getClusterRootTask({
+                tasks: workflowDefinition.tasks,
+                triggers: workflowDefinition.triggers,
                 workflowNodeName: mainClusterRootNodeData.workflowNodeName,
             });
 
