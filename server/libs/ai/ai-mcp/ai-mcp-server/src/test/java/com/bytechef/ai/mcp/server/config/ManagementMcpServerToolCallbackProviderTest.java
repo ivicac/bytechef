@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
 import com.bytechef.automation.ai.tool.ClusterElementTools;
 import com.bytechef.automation.ai.tool.ProjectTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ScriptTools;
 import com.bytechef.config.ApplicationProperties;
@@ -57,7 +58,7 @@ class ManagementMcpServerToolCallbackProviderTest {
         McpServerToolCallbackContributor contributor = () -> List.of(contributed);
 
         ManagementMcpServerConfiguration configuration = new ManagementMcpServerConfiguration(
-            mock(ComponentTools.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(ComponentTools.class), mock(ProjectTools.class), lifecycleTools(),
             mock(TaskTools.class), mock(TaskDispatcherTools.class), mock(ScriptTools.class),
             mock(ClusterElementTools.class), List.of(contributor));
 
@@ -72,26 +73,42 @@ class ManagementMcpServerToolCallbackProviderTest {
     }
 
     @Test
-    void omitsUpdateWorkflowSoBuildWorkflowOwnsWorkflowContent() {
+    void exposesNoToolThatWritesAWorkflowDefinitionSoBuildWorkflowOwnsWorkflowContent() {
         ManagementMcpServerConfiguration configuration = new ManagementMcpServerConfiguration(
-            mock(ComponentTools.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(ComponentTools.class), mock(ProjectTools.class), lifecycleTools(),
             mock(TaskTools.class), mock(TaskDispatcherTools.class), mock(ScriptTools.class),
             mock(ClusterElementTools.class), List.of());
 
-        List<String> names = Arrays.stream(configuration.toolCallbackProvider()
-            .getToolCallbacks())
+        ToolCallback[] toolCallbacks = configuration.toolCallbackProvider()
+            .getToolCallbacks();
+
+        List<String> names = Arrays.stream(toolCallbacks)
             .map(toolCallback -> toolCallback.getToolDefinition()
                 .name())
             .toList();
 
         assertThat(names).contains("getWorkflow", "createProjectWorkflow")
             .doesNotContain("updateWorkflow");
+
+        String createInputSchema = Arrays.stream(toolCallbacks)
+            .filter(toolCallback -> "createProjectWorkflow".equals(toolCallback.getToolDefinition()
+                .name()))
+            .findFirst()
+            .orElseThrow()
+            .getToolDefinition()
+            .inputSchema();
+
+        assertThat(createInputSchema).doesNotContain("\"definition\"");
+    }
+
+    private static ProjectWorkflowLifecycleTools lifecycleTools() {
+        return new ProjectWorkflowLifecycleTools(mock(ProjectWorkflowTools.class));
     }
 
     @Test
     void worksWithNoContributors() {
         ManagementMcpServerConfiguration configuration = new ManagementMcpServerConfiguration(
-            mock(ComponentTools.class), mock(ProjectTools.class), mock(ProjectWorkflowTools.class),
+            mock(ComponentTools.class), mock(ProjectTools.class), lifecycleTools(),
             mock(TaskTools.class), mock(TaskDispatcherTools.class), mock(ScriptTools.class),
             mock(ClusterElementTools.class), List.of());
 
