@@ -95,7 +95,7 @@ public final class ToolApprovalRequests {
         String resumeUrl = actionContext.getResumeUrl();
 
         if (resumeUrl == null) {
-            throw new IllegalStateException(
+            throw new ApprovalUnavailableException(
                 "Cannot raise an approval request for tool '" + request.toolName() + "'. Ensure the server's public " +
                     "URL is configured and the workflow is running in a proper execution context.");
         }

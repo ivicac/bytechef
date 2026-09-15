@@ -31,8 +31,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Creates a continuation job to resume the main workflow after a call or WebSocket session ends. Passes the after-call
- * data (e.g., Twilio callback params or WebSocket close info) as the trigger output so the workflow receives it as
+ * Creates a continuation job to resume the main workflow after a voice session ends. Passes the session-end payload
+ * (session id, duration, end reason, transcript and tool calls) as the trigger output so the workflow receives it as
  * input.
  *
  * @author Ivica Cardic
@@ -55,40 +55,51 @@ public class WorkflowContinuationHelper {
 
     /**
      * Creates a continuation job for the main workflow identified by the given workflow execution ID string. The
-     * afterCallData map is set as the trigger output so the workflow can access it.
+     * session output map is set as the trigger output so the workflow can access it.
      *
-     * @param workflowExecutionIdString the encoded workflow execution ID from the CallSession
-     * @param afterCallData             the data to pass as the trigger output (e.g., Twilio callback params)
+     * @param workflowExecutionIdString the encoded workflow execution ID the voice session was started for
+     * @param afterCallData             the data to pass as the trigger output (the session-end payload)
      */
     public void createContinuationJob(String workflowExecutionIdString, Map<String, Object> afterCallData) {
+        WorkflowExecutionId workflowExecutionId;
+
         try {
-            WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(workflowExecutionIdString);
-
-            JobPrincipalAccessor jobPrincipalAccessor = jobPrincipalAccessorRegistry.getJobPrincipalAccessor(
-                workflowExecutionId.getType());
-
-            String workflowId = jobPrincipalAccessor.getWorkflowId(
-                workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid());
-
-            Map<String, Object> inputs = new HashMap<>(
-                jobPrincipalAccessor.getInputMap(
-                    workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid()));
-
-            inputs.put(workflowExecutionId.getTriggerName(), afterCallData);
-            inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, workflowExecutionId.getTriggerName());
-
-            long jobId = TenantContext.callWithTenantId(
-                workflowExecutionId.getTenantId(),
-                () -> principalJobFacade.createJob(
-                    new JobParametersDTO(workflowId, inputs),
-                    workflowExecutionId.getJobPrincipalId(),
-                    workflowExecutionId.getType()));
-
-            log.info(
-                "Created continuation job: jobId={}, workflowExecutionId={}", jobId, workflowExecutionIdString);
-        } catch (Exception exception) {
+            workflowExecutionId = WorkflowExecutionId.parse(workflowExecutionIdString);
+        } catch (RuntimeException runtimeException) {
             log.error(
-                "Failed to create continuation job: workflowExecutionId={}", workflowExecutionIdString, exception);
+                "Failed to create continuation job: workflowExecutionId={}", workflowExecutionIdString,
+                runtimeException);
+
+            return;
         }
+
+        // Every read below — the deployment's workflow id and inputs, not only the job — lives in the webhook's tenant.
+        // Failures are handled inside the block: TenantContext rewraps anything that escapes it.
+        TenantContext.runWithTenantId(workflowExecutionId.getTenantId(), () -> {
+            try {
+                JobPrincipalAccessor jobPrincipalAccessor = jobPrincipalAccessorRegistry.getJobPrincipalAccessor(
+                    workflowExecutionId.getType());
+
+                String workflowId = jobPrincipalAccessor.getWorkflowId(
+                    workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid());
+
+                Map<String, Object> inputs = new HashMap<>(
+                    jobPrincipalAccessor.getInputMap(
+                        workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid()));
+
+                inputs.put(workflowExecutionId.getTriggerName(), afterCallData);
+                inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, workflowExecutionId.getTriggerName());
+
+                long jobId = principalJobFacade.createJob(
+                    new JobParametersDTO(workflowId, inputs), workflowExecutionId.getJobPrincipalId(),
+                    workflowExecutionId.getType());
+
+                log.info(
+                    "Created continuation job: jobId={}, workflowExecutionId={}", jobId, workflowExecutionIdString);
+            } catch (Exception exception) {
+                log.error(
+                    "Failed to create continuation job: workflowExecutionId={}", workflowExecutionIdString, exception);
+            }
+        });
     }
 }

@@ -19,9 +19,7 @@ package com.bytechef.component.deepgram;
 import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
-import com.bytechef.component.deepgram.action.DeepgramRealtimeListenAction;
-import com.bytechef.component.deepgram.action.DeepgramRealtimeSpeakAction;
-import com.bytechef.component.deepgram.action.DeepgramVoiceAgentAction;
+import com.bytechef.component.deepgram.cluster.DeepgramVoiceAgent;
 import com.bytechef.component.deepgram.connection.DeepgramConnection;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
@@ -41,10 +39,7 @@ public class DeepgramComponentHandler implements ComponentHandler {
         .icon("path:assets/deepgram.svg")
         .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
         .connection(DeepgramConnection.CONNECTION_DEFINITION)
-        .actions(
-            DeepgramRealtimeListenAction.ACTION_DEFINITION,
-            DeepgramRealtimeSpeakAction.ACTION_DEFINITION,
-            DeepgramVoiceAgentAction.ACTION_DEFINITION);
+        .clusterElements(DeepgramVoiceAgent.CLUSTER_ELEMENT_DEFINITION);
 
     @Override
     public ComponentDefinition getDefinition() {
