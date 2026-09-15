@@ -29,7 +29,7 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
 import com.bytechef.automation.ai.tool.ProjectTools;
-import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
+import com.bytechef.automation.ai.tool.ProjectWorkflowLifecycleTools;
 import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
 import java.io.IOException;
@@ -37,7 +37,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.support.ToolCallbacks;
@@ -50,37 +49,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the Project Copilot panel source agents ({@code project_ask}/{@code project_build}). Lives in CE alongside
- * {@code CopilotConfiguration} because {@link ProjectTools}, {@link ProjectWorkflowTools}, {@link ReadProjectTools},
- * and {@link ReadProjectWorkflowTools} are CE.
- *
- * <p>
- * The BUILD agent delegates workflow-content work to the {@code buildWorkflow} and {@code importWorkflow} subagents,
- * fetched from the {@link com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog} via
- * {@link com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog#getForPanel} scoped to
- * {@link com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope#PROJECT}; the catalog silently omits either
- * definition whose underlying {@code ChatClient} bean is absent. It does NOT wire a code-workflow delegate:
- * {@code CodeWorkflowAgentToolCallback} lives in the EE module {@code automation-ai-copilot}
- * ({@code server/ee/libs/automation/automation-ai/automation-ai-copilot}), and this module is CE. Wiring it here would
- * invert the CE/EE dependency direction. The EE module should contribute that delegate itself (e.g. by decorating or
- * replacing this configuration's {@code project_build} agent) as a follow-up.
- *
- * <p>
- * Gated on {@code bytechef.ai.copilot.enabled} rather than an OR with {@code bytechef.ai.hub.enabled}: the
- * {@code buildWorkflow}/{@code importWorkflow} delegate {@code ChatClient} beans that
- * {@link com.bytechef.ai.copilot.config.CopilotIntelligentToolContributorConfiguration} resolves are declared in
- * {@code CopilotConfiguration}, which is gated on {@code bytechef.ai.copilot.enabled} alone. An OR-gate here would let
- * this configuration register with {@code hub.enabled=true, copilot.enabled=false}, producing a {@code project_build}
- * agent whose prompt instructs it to delegate workflow-content work to those subagents while both are silently absent.
- * Matching the gate keeps the slice and its delegates present or absent together.
- *
  * @author Ivica Cardic
  */
 @Configuration
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class ProjectAgentConfiguration {
-
-    private static final String UPDATE_WORKFLOW_TOOL_NAME = "updateWorkflow";
 
     @Value("classpath:prompt_project_ask.txt")
     private Resource promptProjectAskResource;
@@ -115,7 +88,8 @@ public class ProjectAgentConfiguration {
     @Bean
     ProjectSpringAIAgent projectBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, SecurityContextRehydrator securityContextRehydrator,
+        ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools,
+        SecurityContextRehydrator securityContextRehydrator,
         IntelligentToolCatalog intelligentToolCatalog,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider,
         CopilotGuardrailsAdvisorFactory copilotGuardrailsAdvisorFactory)
@@ -131,16 +105,12 @@ public class ProjectAgentConfiguration {
             .state(state)
             .toolCallbacks(
                 buildToolCallbacks(
-                    securityContextRehydrator, projectTools, projectWorkflowTools, intelligentToolCatalog))
+                    securityContextRehydrator, projectTools, projectWorkflowLifecycleTools, intelligentToolCatalog))
             .advisors(copilotGuardrailsAdvisorFactory.guardrailsAdvisors())
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
-    /**
-     * Package-private so {@code ProjectAgentConfigurationTest} can assert on the resolved tool names directly —
-     * {@link ProjectSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
-     */
     List<ToolCallback> askToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator, ReadProjectTools readProjectTools,
         ReadProjectWorkflowTools readProjectWorkflowTools) {
@@ -153,29 +123,23 @@ public class ProjectAgentConfiguration {
      * {@link ProjectSpringAIAgent} does not expose its wrapped {@link ToolCallback} list.
      *
      * <p>
-     * {@value #UPDATE_WORKFLOW_TOOL_NAME} replaces a workflow's whole definition, which is {@code buildWorkflow}'s job,
-     * so it is filtered out and {@code buildWorkflow} stays the panel's only path to workflow content.
+     * Registers {@link ProjectWorkflowLifecycleTools} rather than {@code ProjectWorkflowTools}: it has no tool that
+     * writes a workflow definition, so {@code buildWorkflow} stays the panel's only path to workflow content.
      * </p>
      */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, IntelligentToolCatalog intelligentToolCatalog) {
+        ProjectWorkflowLifecycleTools projectWorkflowLifecycleTools, IntelligentToolCatalog intelligentToolCatalog) {
 
         List<ToolCallback> toolCallbacks =
-            wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowTools))
-                .stream()
-                .filter(toolCallback -> !UPDATE_WORKFLOW_TOOL_NAME.equals(
-                    toolCallback.getToolDefinition()
-                        .name()))
-                .collect(Collectors.toCollection(ArrayList::new));
+            new ArrayList<>(
+                wrapTools(securityContextRehydrator, List.of(projectTools, projectWorkflowLifecycleTools)));
 
-        // Both delegates are registered bare here, matching their pre-catalog registration: the panel's flat CRUD
-        // tools (projectTools/projectWorkflowTools above) get RehydrateContextToolCallback via wrapTools, but these
-        // two intelligent delegates never did and still don't.
         toolCallbacks.addAll(
             intelligentToolCatalog.getForPanel(
                 IntelligentToolScope.PROJECT, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
-                (toolCallback, definition) -> toolCallback));
+                (toolCallback, definition) -> RehydrateContextToolCallback.wrap(
+                    toolCallback, securityContextRehydrator)));
 
         return toolCallbacks;
     }
