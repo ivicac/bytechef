@@ -181,7 +181,7 @@ const WorkflowNodesTabs = ({
         [actionComponentDefinitions, ff_3158]
     );
 
-    const canPaste = showPaste && !!copiedNode && copiedWorkflowId === workflow.id;
+    const canPaste = showPaste && !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id;
 
     const handlePasteClick = useCallback(() => {
         if (!canPaste || !updateWorkflowMutation) {

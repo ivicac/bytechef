@@ -267,18 +267,22 @@ export default function pasteNode({
     }
 
     let definitionTasks: Array<{name: string}>;
+    let definitionTriggers: Array<{name: string}>;
 
     try {
         const workflowDefinition = JSON.parse(workflow.definition);
 
         definitionTasks = workflowDefinition.tasks ?? [];
+        definitionTriggers = workflowDefinition.triggers ?? [];
     } catch {
         return;
     }
 
-    let resolvedNodeIndex: number | undefined = directNodeIndex;
+    const isTriggerPaste = !!copiedNode.trigger;
 
-    if (resolvedNodeIndex === undefined && sourceNodeName) {
+    let resolvedNodeIndex: number | undefined = isTriggerPaste ? undefined : directNodeIndex;
+
+    if (!isTriggerPaste && resolvedNodeIndex === undefined && sourceNodeName) {
         if (!taskDispatcherContext?.taskDispatcherId) {
             let sourceIndex = definitionTasks.findIndex((task) => task.name === sourceNodeName);
 
@@ -300,14 +304,16 @@ export default function pasteNode({
         }
     }
 
-    const reservedNames = new Set<string>(definitionTasks.map((task: {name: string}) => task.name));
+    const definitionNodes = [...definitionTasks, ...definitionTriggers];
+
+    const reservedNames = new Set<string>(definitionNodes.map((definitionNode) => definitionNode.name));
 
     const newName = getFormattedName(copiedNode.componentName, reservedNames);
 
     reservedNames.add(newName);
 
     const clonedParameters = structuredClone(copiedNode.parameters ?? {});
-    const workflowDefinitionTask = definitionTasks.find(
+    const workflowDefinitionTask = definitionNodes.find(
         (task: {name: string}) => task.name === (copiedNode.workflowNodeName ?? copiedNode.name)
     ) as {clusterElements?: ClusterElementsType} | undefined;
 
@@ -379,7 +385,7 @@ export default function pasteNode({
     saveWorkflowDefinition({
         nodeData: newNodeData,
         nodeIndex: resolvedNodeIndex,
-        taskDispatcherContext,
+        taskDispatcherContext: isTriggerPaste ? undefined : taskDispatcherContext,
         updateWorkflowMutation,
     });
 }

@@ -955,7 +955,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     }, [handleDeleteNodeClick, saveNodeToClipboard, data]);
 
     const handlePasteNode = useCallback(() => {
-        const taskDispatcherContext = data.taskDispatcher ? undefined : getContextFromTaskNodeData(data, 1);
+        const taskDispatcherContext =
+            data.taskDispatcher || data.trigger ? undefined : getContextFromTaskNodeData(data, 1);
 
         pasteNode({
             cancelWorkflowQueries: cancelWorkflowQueries!,
@@ -976,7 +977,9 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     const isRenaming = renamingNodeName === data.name;
 
-    const canPaste = !!copiedNode && copiedWorkflowId === workflow.id;
+    const canPaste = !!copiedNode && copiedWorkflowId === workflow.id && !!copiedNode.trigger === !!data.trigger;
+
+    const canCut = !data.trigger || triggerCount > 1;
 
     const nodeDescription =
         workflowNodeDescription?.description && !data.clusterElementType
@@ -1014,7 +1017,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             onSwitch={handleSwitch}
             onToggleDisabled={handleToggleDisabledClick}
             showCopyAction
-            showCutAction
+            showCutAction={canCut}
             showDeleteAction={!data.trigger || triggerCount > 1}
             showDisableAction={!data.trigger}
             showInfoAction
@@ -1091,8 +1094,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                     onResetPosition={handleResetPosition}
                     onSwitch={handleSwitch}
                     onToggleDisabled={handleToggleDisabledClick}
-                    showCopyAction={!data.trigger}
-                    showCutAction={!data.trigger}
+                    showCopyAction
+                    showCutAction={canCut}
                     showDeleteAction={!data.trigger || triggerCount > 1}
                     showDisableAction={!data.trigger}
                     showInfoAction
@@ -1146,7 +1149,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                     onSwitch={handleSwitch}
                     onToggleDisabled={handleToggleDisabledClick}
                     showCopyAction
-                    showCutAction
+                    showCutAction={canCut}
                     showDeleteAction={!data.trigger || triggerCount > 1}
                     showDisableAction={!data.trigger}
                     showInfoAction

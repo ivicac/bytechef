@@ -51,7 +51,7 @@ const PlaceholderNode = ({data, id}: {data: NodeDataType; id: string}) => {
     // the same canvas as cluster ones, and a canvas-wide test would disable paste across the whole
     // workflow whenever it contains an agent.
     const canPaste = useMemo(
-        () => !isClusterElement && !!copiedNode && copiedWorkflowId === workflow.id,
+        () => !isClusterElement && !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id,
         [isClusterElement, copiedNode, copiedWorkflowId, workflow.id]
     );
 

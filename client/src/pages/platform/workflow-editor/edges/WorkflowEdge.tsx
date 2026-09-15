@@ -169,7 +169,7 @@ export default function WorkflowEdge({
     // the same canvas as cluster ones, and a canvas-wide test would disable paste across the whole
     // workflow whenever it contains an agent.
     const canPaste = useMemo(
-        () => !edgeClusterElementType && !!copiedNode && copiedWorkflowId === workflow.id,
+        () => !edgeClusterElementType && !!copiedNode && !copiedNode.trigger && copiedWorkflowId === workflow.id,
         [edgeClusterElementType, copiedNode, copiedWorkflowId, workflow.id]
     );
 

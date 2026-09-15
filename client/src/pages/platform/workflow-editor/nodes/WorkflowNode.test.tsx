@@ -11,9 +11,13 @@ import WorkflowNode from './WorkflowNode';
 
 // Mutable slice of the editor store so each test can toggle which node is being renamed.
 const {dataStoreState, directionStoreState, editorStoreState, recordedContextMenuProps} = vi.hoisted(() => ({
-    dataStoreState: {definition: '{}'},
+    dataStoreState: {definition: '{}', triggers: [] as Array<{name: string}>},
     directionStoreState: {layoutDirection: 'TB'},
-    editorStoreState: {renamingNodeName: undefined as string | undefined},
+    editorStoreState: {
+        copiedNode: undefined as Record<string, unknown> | undefined,
+        copiedWorkflowId: undefined as string | undefined,
+        renamingNodeName: undefined as string | undefined,
+    },
     recordedContextMenuProps: {value: undefined as Record<string, unknown> | undefined},
 }));
 
@@ -83,7 +87,12 @@ vi.mock('../stores/useWorkflowDataStore', () => ({
     default: (selector: (state: Record<string, unknown>) => unknown) =>
         selector({
             incrementLayoutResetCounter: vi.fn(),
-            workflow: {definition: dataStoreState.definition, id: 'workflow-1', tasks: [], triggers: []},
+            workflow: {
+                definition: dataStoreState.definition,
+                id: 'workflow-1',
+                tasks: [],
+                triggers: dataStoreState.triggers,
+            },
         }),
 }));
 
@@ -92,8 +101,8 @@ vi.mock('../stores/useWorkflowEditorStore', () => ({
         selector({
             clusterElementsCanvasOpen: true,
             clusterRootComponentDefinitions: {},
-            copiedNode: undefined,
-            copiedWorkflowId: undefined,
+            copiedNode: editorStoreState.copiedNode,
+            copiedWorkflowId: editorStoreState.copiedWorkflowId,
             nestedClusterRootsComponentDefinitions: {},
             renamingNodeName: editorStoreState.renamingNodeName,
             rootClusterElementNodeData: undefined,
@@ -471,7 +480,8 @@ describe('WorkflowNode reset position action', () => {
 });
 
 // A trigger that is a cluster root (the browser voice session) is drawn as a box too, but it is not a
-// task: disable is a task action, and the workflow's only trigger cannot be deleted. Copy and cut stay offered.
+// task: disable is a task action, and the workflow's only trigger cannot be deleted -- nor cut, since a
+// cut is a copy followed by a delete. A trigger pastes only a copied trigger.
 describe('WorkflowNode trigger cluster root', () => {
     const VOICE_SESSION_TRIGGER_DATA = {
         clusterFrame: {clusterRootId: 'trigger_1', contentOrigin: {x: 32, y: 40}, height: 320, width: 640},
@@ -487,20 +497,53 @@ describe('WorkflowNode trigger cluster root', () => {
 
     beforeEach(() => {
         dataStoreState.definition = '{}';
+        dataStoreState.triggers = [{name: 'trigger_1'}];
         directionStoreState.layoutDirection = 'TB';
+        editorStoreState.copiedNode = undefined;
+        editorStoreState.copiedWorkflowId = undefined;
         editorStoreState.renamingNodeName = undefined;
         recordedContextMenuProps.value = undefined;
     });
 
-    it('offers copy and cut but not delete or disable on a trigger drawn as a box', () => {
+    it('offers copy but not cut, delete or disable on the only trigger drawn as a box', () => {
+        renderNode(VOICE_SESSION_TRIGGER_DATA, 'trigger_1');
+
+        expect(recordedContextMenuProps.value).toMatchObject({
+            showCopyAction: true,
+            showCutAction: false,
+            showDeleteAction: false,
+            showDisableAction: false,
+        });
+    });
+
+    it('offers cut and delete on a trigger drawn as a box when the workflow has another trigger', () => {
+        dataStoreState.triggers = [{name: 'trigger_1'}, {name: 'webhook_1'}];
+
         renderNode(VOICE_SESSION_TRIGGER_DATA, 'trigger_1');
 
         expect(recordedContextMenuProps.value).toMatchObject({
             showCopyAction: true,
             showCutAction: true,
-            showDeleteAction: false,
-            showDisableAction: false,
+            showDeleteAction: true,
         });
+    });
+
+    it('lets a copied trigger be pasted on a trigger drawn as a box', () => {
+        editorStoreState.copiedNode = {name: 'webhook_1', trigger: true};
+        editorStoreState.copiedWorkflowId = 'workflow-1';
+
+        renderNode(VOICE_SESSION_TRIGGER_DATA, 'trigger_1');
+
+        expect(recordedContextMenuProps.value).toMatchObject({canPaste: true});
+    });
+
+    it('does not let a copied task be pasted on a trigger drawn as a box', () => {
+        editorStoreState.copiedNode = {name: 'httpClient_1'};
+        editorStoreState.copiedWorkflowId = 'workflow-1';
+
+        renderNode(VOICE_SESSION_TRIGGER_DATA, 'trigger_1');
+
+        expect(recordedContextMenuProps.value).toMatchObject({canPaste: false});
     });
 
     it('keeps the trigger own rename and info actions on a trigger drawn as a box', () => {
