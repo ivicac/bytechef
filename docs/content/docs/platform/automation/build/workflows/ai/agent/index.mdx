@@ -33,11 +33,11 @@ Expose any ByteChef workflow, custom function, or built-in action as a tool the 
 
 ## Reference: AI Agent Component
 
-The AI Agent itself is published as a workflow component with three actions and a tool entry point:
+The AI Agent itself is published as a workflow component with two actions and a tool entry point:
 
 | Component | Reference |
 |---|---|
-| **AI Agent** | [aiAgent/v1](/reference/components/ai-agent_v1) - `chat`, `streamChat`, `realtimeChat` |
+| **AI Agent** | [aiAgent/v1](/reference/components/ai-agent_v1) - `chat`, `streamChat` |
 
 The agent also exposes itself as a child tool that other agents (or the workflow chat surface) can call, enabling agent-of-agents compositions.
 
@@ -302,7 +302,7 @@ Tools turn workflow components into actions the agent can call mid-conversation.
 | Tool source | Reference | Notes |
 |---|---|---|
 | Agent Utils | [aiAgentUtils/v1](/reference/components/ai_agent-utils_v1) | Built-in utility toolset - see the table below. |
-| Any workflow component | Any `*_v1.mdx` in [the components reference](/reference/components) | Most ByteChef actions can be exposed as tools - see the component's `chat` / `realtimeChat` action property tables for tool wiring. |
+| Any workflow component | Any `*_v1.mdx` in [the components reference](/reference/components) | Most ByteChef actions can be exposed as tools - see the component's `chat` action property tables for tool wiring. |
 | MCP Client | [mcpClient/v1](/reference/components/mcp-client_v1) | Connect the agent to an external MCP server and expose that server's tools to the model. |
 | Vector store / Knowledge Base search | The Search tool cluster element on any [supported vector store](#compatible-vector-stores) or [knowledgeBase/v1](/reference/components/knowledgeBase_v1) | Let the agent search a vector store or Knowledge Base *on demand* - retrieval as a tool the model chooses to call, complementing the always-on [RAG slot](#rag-slot). |
 | Script | [script/v1](/reference/components/script_v1) | Run custom Python, JavaScript, or Ruby as a tool when no built-in action fits. |
@@ -385,16 +385,6 @@ Reference: [aiAgent/v1 → chat](/reference/components/ai-agent_v1#chat)
 Server-sent-event streaming. Emits assistant tokens as they're generated, so a UI can render progressively. Output-stage LLM classifiers are skipped per chunk, since running an LLM classifier per token would exhaust rate limits.
 
 Reference: [aiAgent/v1 → streamChat](/reference/components/ai-agent_v1#chat-stream)
-
-{/* @coming-soon Realtime Chat is coming soon - the aiAgent/v1 realtimeChat action is not in the latest released
-version, so this section is commented out. Tracked in .agents/coming-soon-inventory.md.
-
-### Realtime Chat
-
-Bidirectional audio/text channel for low-latency voice agents. The realtime model handles
-speech-to-text and text-to-speech internally; guardrails and tools still run on the text path.
-
-Reference: aiAgent/v1 realtimeChat */}
 
 ---
 

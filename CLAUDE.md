@@ -595,6 +595,7 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/execution-reliability.md` | Plan limits, crash recovery, notifications, error workflow, URL signing |
 | `.agents/component-wrappers.md` | Component wrapper patterns |
 | `.agents/component-rules.md` | Component Rules: agent tool governance, approval, observe mode, strict, risk levels |
+| `.agents/voice.md` | Browser voice: engine outside Atlas, Voice Agent cluster element, stage contract, tool policy path, no HITL in a call, `sessionId` protocol, node-affinity gap |
 
 Design rationale for most of the above lives in `docs/superpowers/specs/`.
 

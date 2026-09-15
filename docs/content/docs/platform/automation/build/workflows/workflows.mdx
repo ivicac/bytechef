@@ -552,14 +552,16 @@ message, send it, and the reply streams into the same thread as the run executes
 commented out until the browser/v1/voiceSession trigger ships. Tracked in
 .agents/coming-soon-inventory.md.
 
-On top of typed messages, the panel offers a voice test session. A round mic button appears next to
-the composer only when your browser supports the required APIs (AudioContext, AudioWorklet,
-microphone access, and WebSocket, over a secure connection) and the trigger you're testing is one
-that supports a live, streaming connection. Starting a session asks for microphone permission,
-streams your audio to the workflow over a WebSocket, and speaks the assistant's replies back while
-transcribing both sides into the same chat thread as typed messages. Click the button again - now
-shown as a red stop icon - to end the session; a red banner surfaces any connection or permission
-error inline in the panel. */}
+On top of typed messages, the panel offers a voice test session. For a workflow whose trigger is
+`browser/v1/voiceSession`, the panel switches to a full voice layout once the trigger's Voice Agent
+cluster element is configured - an unconfigured Voice Agent slot shows a hint to add one instead.
+For any other workflow, a round mic button appears next to the composer; it is enabled only when
+your browser supports the required APIs (AudioContext, AudioWorklet, microphone access, and
+WebSocket, over a secure connection). Starting a session asks for microphone
+permission, streams your audio to the workflow over a WebSocket, and speaks the assistant's replies
+back while transcribing both sides into the same chat thread as typed messages. Click the button
+again - now shown as a red stop icon - to end the session; a red banner surfaces any connection or
+permission error inline in the panel. */}
 
 ## Delete Workflow
 

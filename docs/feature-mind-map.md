@@ -1147,7 +1147,7 @@ mindmap
       Chat memory backends built-in, in-memory, Redis, session,…
       Guardrails cluster elements GuardrailsConstants
       RAG cluster elements
-      Chat and Realtime Chat actions AbstractAiAgentChatAction,…
+      Chat and Chat (stream) actions AbstractAiAgentChatAction
     AI Section Navigation
       Skills + Memories section links
       Gateway sections providers, models, projects, routing, pr…
@@ -1321,11 +1321,13 @@ mindmap
     - Read/write tool-list split via *ToolCallbacksFactory so ASK agents get read-only lists and BUILD agents get mutations
     - ToolMutationArtifactRecorder for surfacing mutation artifacts to the chat UI
     - EE CodeWorkflowTools / CustomComponentTools with read-only variants
-- **AI Agent Cluster Elements (Chat Memory, Guardrails, RAG)** — The AI Agent component family (server/libs/modules/components/ai/agent, referenced from the copilot/tool modules) provides pluggable cluster elements for agent workflow nodes, including realtime chat actions.
+- **AI Agent Cluster Elements (Chat Memory, Guardrails, RAG)** — The AI Agent component family (server/libs/modules/components/ai/agent, referenced from the copilot/tool modules) provides pluggable cluster elements for agent workflow nodes.
     - Chat memory backends: built-in, in-memory, Redis, session, Neo4j
     - Guardrails cluster elements (GuardrailsConstants)
     - RAG cluster elements
-    - Chat and Realtime Chat actions (AbstractAiAgentChatAction, AiAgentRealtimeChatAction)
+    - Chat and Chat (stream) actions (AbstractAiAgentChatAction). The Realtime Chat action
+      (AiAgentRealtimeChatAction) was deleted in the 2026-09-08 voice cluster element redesign — the
+      AI Agent no longer has a voice path; see .agents/voice.md
 - **AI Section Navigation** — The /automation/ai area has its own left sidebar (AiSidebarNav) splitting Skills/Memories (always visible) from the 17-section LLM Gateway nav, which renders only on EE edition with the gateway feature flag enabled.
     - Skills + Memories section links
     - Gateway sections: providers, models, projects, routing, prompts, settings, budget, rate limits, monitoring, playground, datasets, experiments, traces, sessions, scores, alerts, exports
@@ -1691,7 +1693,7 @@ mindmap
       Job resume endpoint JobResumeController with signed JobRe…
       Approval endpoints ApprovalController resolving approve/r…
       Public file entry content endpoint FileEntryController
-      Twilio voice callbacks TwimlController, TwilioCallbackCon…
+      Browser voice session tokens and WS upgrade VoiceSessionEngine, VoiceSessionRegistry
       Callable/Webhook/Suspend TaskExecutionPostOutputProcessors
       Redirect validation for callback URLs
     Signed File Entry URLs
@@ -1866,10 +1868,13 @@ mindmap
     - Job resume endpoint (JobResumeController with signed JobResumeId)
     - Approval endpoints (ApprovalController resolving approve/reject links)
     - Public file entry content endpoint (FileEntryController)
-    - Twilio voice callbacks (TwimlController, TwilioCallbackController, CallSessionRegistry, voice session tokens)
+    - Browser voice session tokens and WS upgrade (VoiceSessionEngine, VoiceSessionRegistry) — see
+      .agents/voice.md. Twilio phone-call callbacks (TwimlController, TwilioCallbackController,
+      CallSessionRegistry) were deleted in the 2026-09-08 voice cluster element redesign; browser
+      voice is browser-only now
     - Callable/Webhook/Suspend TaskExecutionPostOutputProcessors
     - Redirect validation for callback URLs
-    - *Voice-call support includes browser voice session tokens and voice metrics recording*
+    - *Browser voice-session support includes single-use session tokens and voice metrics recording*
     - *WebhookAuthorizeHttpRequestContributor keeps webhook endpoints anonymous in Spring Security*
 - **Signed File Entry URLs** — file-storage-token-service mints HMAC-SHA256 signed tokens (v1.<exp>.<payload>.<sig>) for public /file-entries/{id}/content URLs, replacing unsigned FileEntry IDs for anything leaving the server.
     - FileEntryTokens.toSignedToken with TTL
@@ -2073,7 +2078,7 @@ mindmap
       router/nano-gpt
       router/open-router
     AI Umbrella - Agent and Agentic AI
-      ai-agent Chat, Realtime Chat
+      ai-agent Chat, Chat (stream)
       agentic-ai run agent with workflow tools
       agent/utils shared agent utilities
     AI Umbrella - Chat Memory Providers
@@ -2394,8 +2399,8 @@ mindmap
     - router/open-router
     - *llm/router subgroup contains LLM-routing gateways: LiteLLM, NanoGPT, OpenRouter*
     - *Shared src provides advisors, converters, and model registry infrastructure*
-- **AI Umbrella - Agent & Agentic AI** — ai/agent is the AI Agent component (Chat and Realtime Chat actions) assembled from cluster elements; ai/agentic-ai runs ByteChef workflows-as-tools agentically (AgenticAiToolFacade, AgenticAiRunAction).
-    - ai-agent (Chat, Realtime Chat)
+- **AI Umbrella - Agent & Agentic AI** — ai/agent is the AI Agent component (Chat and Chat (stream) actions) assembled from cluster elements; ai/agentic-ai runs ByteChef workflows-as-tools agentically (AgenticAiToolFacade, AgenticAiRunAction).
+    - ai-agent (Chat, Chat (stream))
     - agentic-ai (run agent with workflow tools)
     - agent/utils (shared agent utilities)
     - *Agent cluster elements (chat memory, guardrails, RAG, tools) plug into the AI Agent*
