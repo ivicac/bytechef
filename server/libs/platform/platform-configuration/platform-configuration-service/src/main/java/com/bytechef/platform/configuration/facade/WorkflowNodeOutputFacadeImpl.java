@@ -36,6 +36,7 @@ import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.cache.WorkflowCacheManager;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import com.bytechef.platform.configuration.domain.ClusterRootWorkflowNode;
 import com.bytechef.platform.configuration.domain.WorkflowTestConfigurationConnection;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.dto.ClusterElementOutputDTO;
@@ -132,13 +133,21 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         ClusterElementOutputDTO clusterElementOutputDTO = null;
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
+        Optional<WorkflowTrigger> workflowTriggerOptional = WorkflowTrigger.fetch(workflow, workflowNodeName);
+
+        if (workflowTriggerOptional.isPresent()) {
+            return getClusterElementOutputDTO(
+                workflowId, ClusterRootWorkflowNode.of(workflowTriggerOptional.get()), clusterElementType,
+                clusterElementWorkflowNodeName, effectiveEnvironmentId);
+        }
+
         List<WorkflowTask> workflowTasks = workflow.getTasks(true);
 
         for (WorkflowTask workflowTask : workflowTasks) {
             if (Objects.equals(workflowTask.getName(), workflowNodeName)) {
                 clusterElementOutputDTO = getClusterElementOutputDTO(
-                    workflowId, workflowTask, clusterElementType, clusterElementWorkflowNodeName,
-                    effectiveEnvironmentId);
+                    workflowId, ClusterRootWorkflowNode.of(workflowTask), clusterElementType,
+                    clusterElementWorkflowNodeName, effectiveEnvironmentId);
 
                 break;
             }
@@ -448,12 +457,12 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
     }
 
     private ClusterElementOutputDTO getClusterElementOutputDTO(
-        String workflowId, WorkflowTask workflowTask, String clusterElementTypeName,
+        String workflowId, ClusterRootWorkflowNode clusterRootWorkflowNode, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, long environmentId) {
 
-        WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(workflowTask.getType());
+        WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(clusterRootWorkflowNode.getType());
 
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(workflowTask.getExtensions());
+        ClusterElementMap clusterElementMap = clusterRootWorkflowNode.getClusterElementMap();
 
         com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType clusterElementType =
             clusterElementDefinitionService.getClusterElementType(

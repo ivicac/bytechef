@@ -19,12 +19,15 @@ package com.bytechef.platform.configuration.facade;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -382,5 +385,39 @@ class WorkflowNodeOptionFacadeTest {
         assertEquals(true, capturedInputParameters.containsKey("hubspot_1"));
         assertEquals("secret", capturedInputParameters.get("hubspot_1")
             .get("apiKey"));
+    }
+
+    @Test
+    void testGetClusterElementNodeOptionsResolvesVoiceAgentUnderTrigger() {
+        long environmentId = 1L;
+
+        when(workflowTestConfigurationService.fetchWorkflowTestConfiguration(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, environmentId)).thenReturn(Optional.empty());
+        doReturn(Map.of()).when(workflowEvaluationInputsFacade)
+            .getEvaluationInputs(TriggerClusterRootWorkflowFixture.WORKFLOW_ID, environmentId);
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
+                .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
+        when(evaluator.evaluate(anyMap(), anyMap()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Option> expectedOptions = List.of(mock(Option.class));
+
+        when(clusterElementDefinitionFacade.executeOptions(
+            eq("deepgram"), eq(1), eq("voiceAgent"), eq("model"), anyMap(), anyMap(), anyList(), isNull(), isNull(),
+            anyMap(), anyMap()))
+                .thenReturn(expectedOptions);
+
+        List<Option> result = workflowNodeOptionFacade.getClusterElementNodeOptions(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            "model", List.of(), null, environmentId);
+
+        assertEquals(expectedOptions, result);
+
+        verify(workflowNodeOutputFacade, never()).getPreviousWorkflowNodeSampleOutputs(
+            anyString(), anyString(), anyLong());
     }
 }

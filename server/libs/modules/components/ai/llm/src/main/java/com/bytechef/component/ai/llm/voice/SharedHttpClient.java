@@ -1,0 +1,41 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.component.ai.llm.voice;
+
+import java.net.http.HttpClient;
+
+/**
+ * The one {@link HttpClient} every provider voice socket opens through. An {@code HttpClient} owns a selector thread
+ * and a connection pool, so building one per session would keep both alive until each is garbage collected. Created on
+ * first use through the holder idiom, so nodes that never open a voice session never build it.
+ *
+ * @author Ivica Cardic
+ */
+final class SharedHttpClient {
+
+    private SharedHttpClient() {
+    }
+
+    static HttpClient get() {
+        return Holder.HTTP_CLIENT;
+    }
+
+    private static final class Holder {
+
+        private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+    }
+}

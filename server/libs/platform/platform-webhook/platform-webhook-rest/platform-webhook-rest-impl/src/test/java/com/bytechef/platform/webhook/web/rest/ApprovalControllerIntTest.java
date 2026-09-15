@@ -21,10 +21,13 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.facade.JobFacade;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -32,6 +35,7 @@ import com.bytechef.platform.workflow.execution.token.ApprovalTokensImpl;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -60,8 +64,16 @@ class ApprovalControllerIntTest {
     @MockitoBean
     private JobFacade jobFacade;
 
+    @MockitoBean
+    private JobService jobService;
+
     @Autowired
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void beforeEach() {
+        when(jobService.getJob(JOB_ID)).thenReturn(new Job(JOB_ID));
+    }
 
     @Test
     void testApproveResumesJobForSignedToken() throws Exception {

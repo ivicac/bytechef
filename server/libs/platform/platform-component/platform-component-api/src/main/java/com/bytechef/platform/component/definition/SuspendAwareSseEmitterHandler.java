@@ -40,6 +40,10 @@ public final class SuspendAwareSseEmitterHandler implements SseEmitterHandler {
         this.delegate = delegate;
     }
 
+    public ActionContextAware getActionContext() {
+        return actionContext;
+    }
+
     public SuspendAwareSseEmitterHandler withBeforeSuspend(Consumer<ActionContext.Suspend> beforeSuspendConsumer) {
         synchronized (lock) {
             if (this.beforeSuspendConsumer != null) {

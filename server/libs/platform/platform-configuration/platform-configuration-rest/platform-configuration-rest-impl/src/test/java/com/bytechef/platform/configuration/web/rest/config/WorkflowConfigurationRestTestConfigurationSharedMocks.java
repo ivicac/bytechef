@@ -17,6 +17,7 @@
 package com.bytechef.platform.configuration.web.rest.config;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.ai.provider.facade.AiProviderFacade;
 import com.bytechef.platform.component.facade.ActionDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
@@ -57,8 +58,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @MockitoBean(types = {
     ActionDefinitionFacade.class, ActionDefinitionService.class, AiProviderFacade.class,
     ClusterElementDefinitionService.class, ComponentDefinitionService.class, ConnectionDefinitionService.class,
-    DateTimeMapper.class, EditorTempFileStorage.class,
-    EnvironmentService.class, OAuth2ParametersFacade.class, OAuth2Service.class, TaskDispatcherDefinitionService.class,
+    DateTimeMapper.class, EditorTempFileStorage.class, EnvironmentService.class, FileEntryTokens.class,
+    OAuth2ParametersFacade.class, OAuth2Service.class, TaskDispatcherDefinitionService.class,
     TriggerDefinitionFacade.class, TriggerDefinitionService.class, UnifiedApiDefinitionService.class,
     WorkflowNodeDescriptionFacade.class, WorkflowNodeDynamicPropertiesFacade.class, WorkflowNodeOptionFacade.class,
     WorkflowNodeOutputFacade.class, WorkflowNodeParameterFacade.class, WebhookTriggerTestFacade.class,

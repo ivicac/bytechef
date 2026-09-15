@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.constant.PlatformType;
@@ -32,6 +33,7 @@ import com.bytechef.platform.file.storage.TempFileStorage;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -62,7 +64,8 @@ class WebhookTriggerControllerTest {
         webhookWorkflowExecutor = mock(WebhookWorkflowExecutor.class);
 
         webhookTriggerController = new WebhookTriggerController(
-            mock(ApplicationProperties.class), mock(TempFileStorage.class), webhookWorkflowExecutor);
+            mock(ApplicationProperties.class), mock(FileEntryTokens.class), mock(TempFileStorage.class),
+            webhookWorkflowExecutor);
     }
 
     @Test
@@ -87,7 +90,7 @@ class WebhookTriggerControllerTest {
         when(webhookWorkflowExecutor.validate(any(), any()))
             .thenReturn(WebhookValidateResponse.ok());
         when(webhookWorkflowExecutor.executeSync(any(), any()))
-            .thenReturn(Map.of("result", "done"));
+            .thenReturn(CompletableFuture.completedFuture(Map.of("result", "done")));
 
         ResponseEntity<?> responseEntity = executeWorkflow("POST");
 
@@ -151,6 +154,7 @@ class WebhookTriggerControllerTest {
     void testSyncTriggerExecutesWorkflowWithValidatedRequest() {
         when(webhookWorkflowExecutor.getWebhookTriggerFlags(any())).thenReturn(SYNC_EXECUTION_WITH_VALIDATION_FLAGS);
         when(webhookWorkflowExecutor.validate(any(), any())).thenReturn(WebhookValidateResponse.ok());
+        when(webhookWorkflowExecutor.executeSync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         executeWorkflow("POST");
 
@@ -172,6 +176,7 @@ class WebhookTriggerControllerTest {
             method, "/webhooks/" + workflowExecutionId);
 
         return webhookTriggerController.executeWorkflow(
-            workflowExecutionId.toString(), mockHttpServletRequest, new MockHttpServletResponse());
+            workflowExecutionId.toString(), mockHttpServletRequest, new MockHttpServletResponse())
+            .join();
     }
 }
