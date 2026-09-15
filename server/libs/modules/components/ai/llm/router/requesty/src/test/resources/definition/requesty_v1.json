@@ -1033,6 +1033,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Ask",
     "workflowNodeDescription": null
   }, {
@@ -1262,6 +1263,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Image",
     "workflowNodeDescription": null
   }, {
@@ -1633,6 +1635,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Speech",
     "workflowNodeDescription": null
   }, {
@@ -2116,6 +2119,7 @@
       "type": "NUMBER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Transcription",
     "workflowNodeDescription": null
   } ],
@@ -2645,6 +2649,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Requesty Model",
     "type": {
       "name": "MODEL",
@@ -2711,6 +2716,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Requesty Embedding",
     "type": {
       "name": "EMBEDDING",
