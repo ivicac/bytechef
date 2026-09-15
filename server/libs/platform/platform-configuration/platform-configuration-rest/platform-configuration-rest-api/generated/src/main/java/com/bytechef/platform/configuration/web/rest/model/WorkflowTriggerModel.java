@@ -3,7 +3,6 @@ package com.bytechef.platform.configuration.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.platform.configuration.web.rest.model.ComponentConnectionModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -29,8 +28,12 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "WorkflowTrigger", description = "Represents a definition of a workflow trigger.")
 @JsonTypeName("WorkflowTrigger")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-18T08:42:35.953453+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-14T13:28:42.437314+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class WorkflowTriggerModel {
+
+  private Boolean clusterRoot = false;
+
+  private Map<String, Object> clusterElements = new HashMap<>();
 
   private List<@Valid ComponentConnectionModel> connections = new ArrayList<>();
 
@@ -60,6 +63,56 @@ public class WorkflowTriggerModel {
   public WorkflowTriggerModel(String name, String type) {
     this.name = name;
     this.type = type;
+  }
+
+  public WorkflowTriggerModel clusterRoot(Boolean clusterRoot) {
+    this.clusterRoot = clusterRoot;
+    return this;
+  }
+
+  /**
+   * Get clusterRoot
+   * @return clusterRoot
+   */
+  
+  @Schema(name = "clusterRoot", accessMode = Schema.AccessMode.READ_ONLY, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("clusterRoot")
+  public Boolean getClusterRoot() {
+    return clusterRoot;
+  }
+
+  @JsonProperty("clusterRoot")
+  public void setClusterRoot(Boolean clusterRoot) {
+    this.clusterRoot = clusterRoot;
+  }
+
+  public WorkflowTriggerModel clusterElements(Map<String, Object> clusterElements) {
+    this.clusterElements = clusterElements;
+    return this;
+  }
+
+  public WorkflowTriggerModel putClusterElementsItem(String key, Object clusterElementsItem) {
+    if (this.clusterElements == null) {
+      this.clusterElements = new HashMap<>();
+    }
+    this.clusterElements.put(key, clusterElementsItem);
+    return this;
+  }
+
+  /**
+   * Get clusterElements
+   * @return clusterElements
+   */
+  
+  @Schema(name = "clusterElements", accessMode = Schema.AccessMode.READ_ONLY, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("clusterElements")
+  public Map<String, Object> getClusterElements() {
+    return clusterElements;
+  }
+
+  @JsonProperty("clusterElements")
+  public void setClusterElements(Map<String, Object> clusterElements) {
+    this.clusterElements = clusterElements;
   }
 
   public WorkflowTriggerModel connections(List<@Valid ComponentConnectionModel> connections) {
@@ -126,11 +179,11 @@ public class WorkflowTriggerModel {
   }
 
   /**
-   * Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property, such as the websocketTasks realtime pipeline.
+   * Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property.
    * @return extensions
    */
   
-  @Schema(name = "extensions", accessMode = Schema.AccessMode.READ_ONLY, description = "Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property, such as the websocketTasks realtime pipeline.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "extensions", accessMode = Schema.AccessMode.READ_ONLY, description = "Key-value map of trigger extensions — structural configuration that is not a component-declared trigger property.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("extensions")
   public Map<String, Object> getExtensions() {
     return extensions;
@@ -292,7 +345,9 @@ public class WorkflowTriggerModel {
       return false;
     }
     WorkflowTriggerModel workflowTrigger = (WorkflowTriggerModel) o;
-    return Objects.equals(this.connections, workflowTrigger.connections) &&
+    return Objects.equals(this.clusterRoot, workflowTrigger.clusterRoot) &&
+        Objects.equals(this.clusterElements, workflowTrigger.clusterElements) &&
+        Objects.equals(this.connections, workflowTrigger.connections) &&
         Objects.equals(this.description, workflowTrigger.description) &&
         Objects.equals(this.extensions, workflowTrigger.extensions) &&
         Objects.equals(this.label, workflowTrigger.label) &&
@@ -305,13 +360,15 @@ public class WorkflowTriggerModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(connections, description, extensions, label, metadata, name, parameters, timeout, type);
+    return Objects.hash(clusterRoot, clusterElements, connections, description, extensions, label, metadata, name, parameters, timeout, type);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class WorkflowTriggerModel {\n");
+    sb.append("    clusterRoot: ").append(toIndentedString(clusterRoot)).append("\n");
+    sb.append("    clusterElements: ").append(toIndentedString(clusterElements)).append("\n");
     sb.append("    connections: ").append(toIndentedString(connections)).append("\n");
     sb.append("    description: ").append(toIndentedString(description)).append("\n");
     sb.append("    extensions: ").append(toIndentedString(extensions)).append("\n");

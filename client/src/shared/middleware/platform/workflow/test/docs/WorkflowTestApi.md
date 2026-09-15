@@ -11,7 +11,7 @@ All URIs are relative to */api/platform/internal*
 
 ## issueWorkflowTestVoiceSessionToken
 
-> WorkflowTestVoiceSessionToken issueWorkflowTestVoiceSessionToken(workflowId)
+> WorkflowTestVoiceSessionToken issueWorkflowTestVoiceSessionToken(workflowId, environmentId)
 
 Issue workflow-test voice session token
 
@@ -33,6 +33,8 @@ async function example() {
   const body = {
     // string | Id of the workflow to test.
     workflowId: workflowId_example,
+    // number | Id of the environment the test session runs in. The caller must be allowed to edit the workflow in this environment; the token is bound to it.
+    environmentId: 789,
   } satisfies IssueWorkflowTestVoiceSessionTokenRequest;
 
   try {
@@ -53,6 +55,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **workflowId** | `string` | Id of the workflow to test. | [Defaults to `undefined`] |
+| **environmentId** | `number` | Id of the environment the test session runs in. The caller must be allowed to edit the workflow in this environment; the token is bound to it. | [Defaults to `undefined`] |
 
 ### Return type
 

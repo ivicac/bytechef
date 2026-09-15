@@ -7,8 +7,11 @@ Represents a definition of a workflow trigger.
 
 Name | Type
 ------------ | -------------
+`clusterRoot` | boolean
+`clusterElements` | { [key: string]: any; }
 `connections` | [Array&lt;ComponentConnection&gt;](ComponentConnection.md)
 `description` | string
+`extensions` | { [key: string]: any; }
 `label` | string
 `metadata` | { [key: string]: any; }
 `name` | string
@@ -23,8 +26,11 @@ import type { WorkflowTrigger } from ''
 
 // TODO: Update the object below with actual values
 const example = {
+  "clusterRoot": null,
+  "clusterElements": null,
   "connections": null,
   "description": null,
+  "extensions": null,
   "label": null,
   "metadata": null,
   "name": null,
