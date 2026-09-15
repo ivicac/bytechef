@@ -84,7 +84,7 @@ final class McpServerAgentConfigurationTest {
 
         assertThat(buildToolNames).containsExactlyInAnyOrder(
             "listMcpServers", "listMcpProjectWorkflows", "createMcpServer", "updateMcpServer", "createMcpProject",
-            "cloneMcpProject", "updateMcpProjectWorkflowParameters");
+            "cloneMcpProject");
     }
 
     @Test
@@ -93,7 +93,8 @@ final class McpServerAgentConfigurationTest {
             configuration.buildToolCallbacks(
                 securityContextRehydrator, mcpServerToolCallbacksFactory, catalogWithConfigureMcpServer()));
 
-        assertThat(buildToolNames).contains("configureMcpServer");
+        assertThat(buildToolNames).contains("configureMcpServer")
+            .doesNotContain("updateMcpProjectWorkflowParameters");
     }
 
     @Test

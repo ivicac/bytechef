@@ -87,6 +87,8 @@ import org.springframework.core.io.Resource;
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class McpServerAgentConfiguration {
 
+    private static final String MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME = "updateMcpProjectWorkflowParameters";
+
     @Value("classpath:prompt_mcp_server_ask.txt")
     private Resource promptMcpServerAskResource;
 
@@ -178,18 +180,25 @@ public class McpServerAgentConfiguration {
      *
      * <p>
      * Also fetches {@code configureMcpServer} from the shared {@link IntelligentToolCatalog}, scoped to
-     * {@link IntelligentToolScope#MCP_SERVER} — the panel can delegate synthesizing a server's tool mapping to that
-     * specialist instead of doing it inline with the flat CRUD tools above. Registered bare (no
-     * {@link RehydrateContextToolCallback} wrapping), matching how {@code ProjectAgentConfiguration} registers its own
-     * panel-scoped intelligent delegates.
+     * {@link IntelligentToolScope#MCP_SERVER} — the panel's only path to a server's tool mapping, so
+     * {@value #MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME} is filtered out of the write tools, as it is on the AI Hub
+     * and management MCP surfaces. Registered bare (no {@link RehydrateContextToolCallback} wrapping), matching how
+     * {@code ProjectAgentConfiguration} registers its own panel-scoped intelligent delegates.
      * </p>
      */
     List<ToolCallback> buildToolCallbacks(
         SecurityContextRehydrator securityContextRehydrator,
         McpServerToolCallbacksFactory mcpServerToolCallbacksFactory, IntelligentToolCatalog intelligentToolCatalog) {
 
+        List<ToolCallback> writeToolCallbacks = mcpServerToolCallbacksFactory.writeToolCallbacks()
+            .stream()
+            .filter(toolCallback -> !MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME.equals(
+                toolCallback.getToolDefinition()
+                    .name()))
+            .toList();
+
         List<ToolCallback> toolCallbacks = new ArrayList<>(
-            wrapToolCallbacks(securityContextRehydrator, mcpServerToolCallbacksFactory.writeToolCallbacks()));
+            wrapToolCallbacks(securityContextRehydrator, writeToolCallbacks));
 
         toolCallbacks.addAll(
             intelligentToolCatalog.getForPanel(
