@@ -375,6 +375,8 @@ const ComponentConfigDialog = ({
                                                                 formValues.connectionId != null
                                                                     ? Number(formValues.connectionId)
                                                                     : undefined,
+                                                            connectionRequired:
+                                                                targetComponentDefinition?.connectionRequired,
                                                             inputParameters:
                                                                 (formValues.parameters as Record<string, unknown>) ??
                                                                 {},
