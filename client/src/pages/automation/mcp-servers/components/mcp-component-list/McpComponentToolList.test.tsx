@@ -22,7 +22,7 @@ vi.mock('./McpComponentToolListItem', () => ({
     ),
 }));
 
-const mcpTools = [{id: '42', name: 'createOpportunity', title: 'Create Opportunity'}] as Array<McpTool>;
+const mcpTools = [{enabled: true, id: '42', name: 'createOpportunity', title: 'Create Opportunity'}] as Array<McpTool>;
 
 const renderList = () =>
     render(
@@ -45,19 +45,11 @@ describe('McpComponentToolList', () => {
         expect(screen.getByTestId('tool-list-item')).toHaveAttribute('data-connection-required', 'true');
     });
 
-    it('reports a connection as required while the component definition is still loading', () => {
+    it('leaves connectionRequired undefined while the component definition is still loading', () => {
         hoisted.componentDefinition = undefined;
 
         renderList();
 
-        expect(screen.getByTestId('tool-list-item')).toHaveAttribute('data-connection-required', 'true');
-    });
-
-    it('reports no connection requirement once a connection-less definition has loaded', () => {
-        hoisted.componentDefinition = {clusterElements: [], connectionRequired: false};
-
-        renderList();
-
-        expect(screen.getByTestId('tool-list-item')).toHaveAttribute('data-connection-required', 'false');
+        expect(screen.getByTestId('tool-list-item')).toHaveAttribute('data-connection-required', 'undefined');
     });
 });

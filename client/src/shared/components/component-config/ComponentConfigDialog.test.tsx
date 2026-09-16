@@ -3,7 +3,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
-import {beforeAll, describe, expect, it, vi} from 'vitest';
+import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ComponentConfigDialog, {ComponentConfigDialogTargetI} from './ComponentConfigDialog';
 
@@ -17,22 +17,28 @@ beforeAll(() => {
 // Every query mock hands back a FROZEN, hoisted result rather than a fresh object literal per call. The
 // dialog's form hook memoises its property list off the query result and resets the form whenever that memo
 // changes, so a new object per render is an infinite render loop, not just a wasted render.
-const {CLUSTER_ELEMENT_DEFINITION_RESULT, CONNECTIONS_RESULT, EMPTY_LIST_RESULT, EMPTY_RESULT} = vi.hoisted(() => ({
-    CLUSTER_ELEMENT_DEFINITION_RESULT: {
-        data: {
-            clusterElementDefinition: {
-                properties: [
-                    {defaultValue: 'gpt-3.5-turbo-0125', name: 'model', type: 'STRING'},
-                    {name: 'temperature', numberDefaultValue: 0.7, type: 'NUMBER'},
-                ],
+const {CLUSTER_ELEMENT_DEFINITION_RESULT, CONNECTIONS_RESULT, EMPTY_LIST_RESULT, EMPTY_RESULT, mutable} = vi.hoisted(
+    () => ({
+        CLUSTER_ELEMENT_DEFINITION_RESULT: {
+            data: {
+                clusterElementDefinition: {
+                    properties: [
+                        {defaultValue: 'gpt-3.5-turbo-0125', name: 'model', type: 'STRING'},
+                        {name: 'temperature', numberDefaultValue: 0.7, type: 'NUMBER'},
+                    ],
+                },
             },
+            isLoading: false,
         },
-        isLoading: false,
-    },
-    CONNECTIONS_RESULT: {data: [], isLoading: false},
-    EMPTY_LIST_RESULT: {data: []},
-    EMPTY_RESULT: {data: undefined, isLoading: false},
-}));
+        CONNECTIONS_RESULT: {data: [], isLoading: false},
+        EMPTY_LIST_RESULT: {data: []},
+        EMPTY_RESULT: {data: undefined, isLoading: false},
+        mutable: {
+            clusterElementContextValue: {} as Record<string, unknown>,
+            componentDefinitionResult: {data: undefined, isLoading: false} as Record<string, unknown>,
+        },
+    })
+);
 
 // Stands in for the workflow editor's property renderer, printing the names it was handed so the dialog's own
 // decision about WHICH properties to render stays observable without the editor in the test.
@@ -47,7 +53,11 @@ vi.mock('@/pages/platform/workflow-editor/components/properties/Properties', () 
 }));
 
 vi.mock('@/pages/platform/workflow-editor/components/properties/ClusterElementContext', () => ({
-    ClusterElementProvider: ({children}: {children: ReactNode}) => <>{children}</>,
+    ClusterElementProvider: ({children, value}: {children: ReactNode; value: Record<string, unknown>}) => {
+        mutable.clusterElementContextValue = value;
+
+        return <>{children}</>;
+    },
 }));
 
 vi.mock('@/pages/platform/workflow-editor/providers/workflowEditorProvider', () => ({
@@ -77,7 +87,7 @@ vi.mock('@/shared/queries/automation/connections.queries', () => ({
 }));
 
 vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
-    useGetComponentDefinitionQuery: () => EMPTY_RESULT,
+    useGetComponentDefinitionQuery: () => mutable.componentDefinitionResult,
 }));
 
 vi.mock('@/shared/queries/platform/triggerDefinitions.queries', () => ({
@@ -109,6 +119,24 @@ const wrap = (ui: ReactNode) => {
 };
 
 describe('ComponentConfigDialog', () => {
+    beforeEach(() => {
+        mutable.clusterElementContextValue = {};
+        mutable.componentDefinitionResult = {data: undefined, isLoading: false};
+    });
+
+    it('carries the target definition connectionRequired into the cluster element context', async () => {
+        mutable.componentDefinitionResult = {data: {connectionRequired: true}, isLoading: false};
+
+        const user = userEvent.setup({pointerEventsCheck: 0});
+
+        wrap(<ComponentConfigDialog onClose={vi.fn()} onSubmit={vi.fn()} open target={TARGET} workspaceId={7} />);
+
+        await user.click(screen.getByRole('tab', {name: 'Properties'}));
+
+        expect(mutable.clusterElementContextValue.connectionRequired).toBe(true);
+        expect(mutable.clusterElementContextValue.connectionId).toBeUndefined();
+    });
+
     it('renders every property of the target by default', async () => {
         const user = userEvent.setup({pointerEventsCheck: 0});
 

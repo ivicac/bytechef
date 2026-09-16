@@ -38,7 +38,15 @@ describe('McpServerDialog', () => {
 
         await waitFor(() =>
             expect(hoisted.updateMutate).toHaveBeenCalledWith(
-                {id: '5', input: {enabled: true, name: 'Renamed'}},
+                {
+                    id: '5',
+                    input: {
+                        authenticationRequired: true,
+                        enabled: true,
+                        enforceToolAuthorization: false,
+                        name: 'Renamed',
+                    },
+                },
                 expect.objectContaining({onSuccess: expect.any(Function)})
             )
         );
