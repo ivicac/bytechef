@@ -1,13 +1,6 @@
 import Button from '@/components/Button/Button';
+import {Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogMain} from '@/components/Dialog';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
@@ -219,196 +212,216 @@ const ComponentConfigDialog = ({
         // used within a WorkflowEditorProvider/WorkflowReadOnlyProviderContext".
         <WorkflowMockProvider>
             <Dialog onOpenChange={(nextOpen) => !nextOpen && onClose()} open={open}>
-                <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{resolvedTitle}</DialogTitle>
+                <DialogContent className="max-h-[85vh]" size="md">
+                    <DialogMain>
+                        <Form {...form}>
+                            <form
+                                className="flex min-h-0 flex-1 flex-col"
+                                onSubmit={form.handleSubmit(handleFormSubmit)}
+                            >
+                                <DialogHeader description={resolvedDescription} title={resolvedTitle} />
 
-                        <DialogDescription>{resolvedDescription}</DialogDescription>
-                    </DialogHeader>
+                                <DialogBody className="flex flex-col space-y-0">
+                                    {picker && <fieldset className="mb-4 space-y-4 border-0 p-0">{picker}</fieldset>}
 
-                    <Form {...form}>
-                        <form className="flex min-h-0 flex-1 flex-col" onSubmit={form.handleSubmit(handleFormSubmit)}>
-                            {picker && <fieldset className="mb-4 space-y-4 border-0 p-0">{picker}</fieldset>}
+                                    {picker && target == null ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            Make a selection above to set its connection and properties.
+                                        </p>
+                                    ) : (
+                                        <Tabs
+                                            className="flex min-h-0 flex-1 flex-col"
+                                            onValueChange={(value) =>
+                                                setActiveTab(value as 'connection' | 'properties')
+                                            }
+                                            value={activeTab}
+                                        >
+                                            <TabsList className="mb-3 grid w-full grid-cols-2">
+                                                <TabsTrigger value="connection">Connection</TabsTrigger>
 
-                            {picker && target == null ? (
-                                <p className="text-sm text-muted-foreground">
-                                    Make a selection above to set its connection and properties.
-                                </p>
-                            ) : (
-                                <Tabs
-                                    className="flex min-h-0 flex-1 flex-col"
-                                    onValueChange={(value) => setActiveTab(value as 'connection' | 'properties')}
-                                    value={activeTab}
-                                >
-                                    <TabsList className="mb-3 grid w-full grid-cols-2">
-                                        <TabsTrigger value="connection">Connection</TabsTrigger>
+                                                <TabsTrigger value="properties">Properties</TabsTrigger>
+                                            </TabsList>
 
-                                        <TabsTrigger value="properties">Properties</TabsTrigger>
-                                    </TabsList>
+                                            <TabsContent
+                                                className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+                                                value="connection"
+                                            >
+                                                <FormField
+                                                    control={form.control}
+                                                    name="connectionId"
+                                                    render={({field}) => (
+                                                        <FormItem>
+                                                            <FormLabel>Connection</FormLabel>
 
-                                    <TabsContent
-                                        className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-                                        value="connection"
-                                    >
-                                        <FormField
-                                            control={form.control}
-                                            name="connectionId"
-                                            render={({field}) => (
-                                                <FormItem>
-                                                    <FormLabel>Connection</FormLabel>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <FormControl>
-                                                            <Select
-                                                                disabled={
-                                                                    connectionsLoading || connections.length === 0
-                                                                }
-                                                                onValueChange={field.onChange}
-                                                                value={field.value ?? ''}
-                                                            >
-                                                                <SelectTrigger className="flex-1">
-                                                                    <SelectValue
-                                                                        placeholder={
+                                                            <div className="flex items-center gap-2">
+                                                                <FormControl>
+                                                                    <Select
+                                                                        disabled={
+                                                                            connectionsLoading ||
                                                                             connections.length === 0
-                                                                                ? 'No connections available'
-                                                                                : 'Select a connection'
                                                                         }
-                                                                    />
-                                                                </SelectTrigger>
+                                                                        onValueChange={field.onChange}
+                                                                        value={field.value ?? ''}
+                                                                    >
+                                                                        <SelectTrigger className="flex-1">
+                                                                            <SelectValue
+                                                                                placeholder={
+                                                                                    connections.length === 0
+                                                                                        ? 'No connections available'
+                                                                                        : 'Select a connection'
+                                                                                }
+                                                                            />
+                                                                        </SelectTrigger>
 
-                                                                <SelectContent>
-                                                                    {connections.map((connection) => (
-                                                                        <SelectItem
-                                                                            key={connection.id}
-                                                                            value={String(connection.id)}
-                                                                        >
-                                                                            {connection.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            {connections.map((connection) => (
+                                                                                <SelectItem
+                                                                                    key={connection.id}
+                                                                                    value={String(connection.id)}
+                                                                                >
+                                                                                    {connection.name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </FormControl>
 
-                                                        {/* Icon-only and beside the select rather than a labelled
-                                                            button below it: creating a connection is an escape
-                                                            hatch from picking one, so it belongs on the control it
-                                                            escapes, not competing with the dialog's own actions. */}
+                                                                {/* Icon-only and beside the select rather than a labelled
+                                                                    button below it: creating a connection is an escape
+                                                                    hatch from picking one, so it belongs on the control it
+                                                                    escapes, not competing with the dialog's own actions. */}
 
-                                                        {targetComponentDefinition && componentDefinitions && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        aria-label="Create new connection"
-                                                                        icon={<PlusIcon />}
-                                                                        onClick={() => setShowCreateConnection(true)}
-                                                                        size="icon"
-                                                                        type="button"
-                                                                        variant="outline"
-                                                                    />
-                                                                </TooltipTrigger>
+                                                                {targetComponentDefinition && componentDefinitions && (
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button
+                                                                                aria-label="Create new connection"
+                                                                                icon={<PlusIcon />}
+                                                                                onClick={() =>
+                                                                                    setShowCreateConnection(true)
+                                                                                }
+                                                                                size="icon"
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                            />
+                                                                        </TooltipTrigger>
 
-                                                                <TooltipContent>Create new connection</TooltipContent>
-                                                            </Tooltip>
-                                                        )}
-                                                    </div>
+                                                                        <TooltipContent>
+                                                                            Create new connection
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </div>
 
-                                                    <FormMessage />
+                                                            <FormMessage />
 
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {connections.length === 0
-                                                            ? `No connections for ${target?.componentName ?? 'this component'}. Create one to pre-bind this tool to a specific account.`
-                                                            : connections.length === 1
-                                                              ? 'Pre-selected — only one connection available for this component.'
-                                                              : 'Pick the connection the agent will use when invoking this tool.'}
-                                                    </p>
-                                                </FormItem>
-                                            )}
-                                        />
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {connections.length === 0
+                                                                    ? `No connections for ${target?.componentName ?? 'this component'}. Create one to pre-bind this tool to a specific account.`
+                                                                    : connections.length === 1
+                                                                      ? 'Pre-selected — only one connection available for this component.'
+                                                                      : 'Pick the connection the agent will use when invoking this tool.'}
+                                                            </p>
+                                                        </FormItem>
+                                                    )}
+                                                />
 
-                                        {/*
-                                         * The + beside the select opens the same ConnectionDialog the workflow editor
-                                         * and the chat connect-flow use. After a successful create, react-query
-                                         * invalidation (driven by ConnectionDialog's connectionsQueryKey) refetches
-                                         * the workspace connections list, the new connection appears in the dropdown,
-                                         * and this dialog stays open so the user can pick it without losing their
-                                         * parameter form state.
-                                         */}
+                                                {/*
+                                                 * The + beside the select opens the same ConnectionDialog the workflow editor
+                                                 * and the chat connect-flow use. After a successful create, react-query
+                                                 * invalidation (driven by ConnectionDialog's connectionsQueryKey) refetches
+                                                 * the workspace connections list, the new connection appears in the dropdown,
+                                                 * and this dialog stays open so the user can pick it without losing their
+                                                 * parameter form state.
+                                                 */}
 
-                                        {showCreateConnection && componentDefinitions && targetComponentDefinition && (
-                                            <ConnectionDialog
-                                                componentDefinition={targetComponentDefinition}
-                                                componentDefinitions={componentDefinitions}
-                                                connectionTagsQueryKey={ConnectionKeys.connectionTags(workspaceId)}
-                                                connectionsQueryKey={ConnectionKeys.connections}
-                                                onClose={() => setShowCreateConnection(false)}
-                                                onConnectionCreate={(newId) => {
-                                                    // Auto-select the newly created connection so the user doesn't
-                                                    // have to scroll back to the dropdown to find it. The connections
-                                                    // list refetch is async, so the selection lands on a row that
-                                                    // doesn't exist yet — react-hook-form holds the value, and the
-                                                    // Select renders it once the list arrives.
-                                                    form.setValue('connectionId', String(newId));
+                                                {showCreateConnection &&
+                                                    componentDefinitions &&
+                                                    targetComponentDefinition && (
+                                                        <ConnectionDialog
+                                                            componentDefinition={targetComponentDefinition}
+                                                            componentDefinitions={componentDefinitions}
+                                                            connectionTagsQueryKey={ConnectionKeys.connectionTags(
+                                                                workspaceId
+                                                            )}
+                                                            connectionsQueryKey={ConnectionKeys.connections}
+                                                            onClose={() => setShowCreateConnection(false)}
+                                                            onConnectionCreate={(newId) => {
+                                                                // Auto-select the newly created connection so the user doesn't
+                                                                // have to scroll back to the dropdown to find it. The connections
+                                                                // list refetch is async, so the selection lands on a row that
+                                                                // doesn't exist yet — react-hook-form holds the value, and the
+                                                                // Select renders it once the list arrives.
+                                                                form.setValue('connectionId', String(newId));
 
-                                                    setShowCreateConnection(false);
-                                                }}
-                                                useCreateConnectionMutation={useCreateConnectionMutation}
-                                                useGetConnectionTagsQuery={() => connectionTagsQueryResult}
-                                            />
-                                        )}
-                                    </TabsContent>
-
-                                    <TabsContent
-                                        className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-                                        value="properties"
-                                    >
-                                        {propertiesLoading ? (
-                                            <p className="text-sm text-muted-foreground">Loading properties…</p>
-                                        ) : properties.length > 0 ? (
-                                            <fieldset className="space-y-4 border-0 p-0">
-                                                {target && (
-                                                    <ClusterElementProvider
-                                                        value={{
-                                                            clusterElementName: target.clusterElementName,
-                                                            componentName: target.componentName,
-                                                            componentVersion: target.componentVersion,
-                                                            connectionId:
-                                                                formValues.connectionId != null
-                                                                    ? Number(formValues.connectionId)
-                                                                    : undefined,
-                                                            inputParameters:
-                                                                (formValues.parameters as Record<string, unknown>) ??
-                                                                {},
-                                                        }}
-                                                    >
-                                                        <Properties
-                                                            control={form.control}
-                                                            controlPath="parameters"
-                                                            formDisplayConditions={formDisplayConditions}
-                                                            formState={form.formState}
-                                                            properties={properties}
-                                                            toolsMode
+                                                                setShowCreateConnection(false);
+                                                            }}
+                                                            useCreateConnectionMutation={useCreateConnectionMutation}
+                                                            useGetConnectionTagsQuery={() => connectionTagsQueryResult}
                                                         />
-                                                    </ClusterElementProvider>
+                                                    )}
+                                            </TabsContent>
+
+                                            <TabsContent
+                                                className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+                                                value="properties"
+                                            >
+                                                {propertiesLoading ? (
+                                                    <p className="text-sm text-muted-foreground">Loading properties…</p>
+                                                ) : properties.length > 0 ? (
+                                                    <fieldset className="space-y-4 border-0 p-0">
+                                                        {target && (
+                                                            <ClusterElementProvider
+                                                                value={{
+                                                                    clusterElementName: target.clusterElementName,
+                                                                    componentName: target.componentName,
+                                                                    componentVersion: target.componentVersion,
+                                                                    connectionId:
+                                                                        formValues.connectionId != null
+                                                                            ? Number(formValues.connectionId)
+                                                                            : undefined,
+                                                                    connectionRequired:
+                                                                        targetComponentDefinition?.connectionRequired,
+                                                                    inputParameters:
+                                                                        (formValues.parameters as Record<
+                                                                            string,
+                                                                            unknown
+                                                                        >) ?? {},
+                                                                }}
+                                                            >
+                                                                <Properties
+                                                                    control={form.control}
+                                                                    controlPath="parameters"
+                                                                    formDisplayConditions={formDisplayConditions}
+                                                                    formState={form.formState}
+                                                                    properties={properties}
+                                                                    toolsMode
+                                                                />
+                                                            </ClusterElementProvider>
+                                                        )}
+                                                    </fieldset>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        No configurable parameters.
+                                                    </p>
                                                 )}
-                                            </fieldset>
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground">No configurable parameters.</p>
-                                        )}
-                                    </TabsContent>
-                                </Tabs>
-                            )}
+                                            </TabsContent>
+                                        </Tabs>
+                                    )}
+                                </DialogBody>
 
-                            <DialogFooter className="mt-4">
-                                <Button label="Cancel" onClick={onClose} type="button" variant="outline" />
+                                <DialogFooter>
+                                    <Button label="Cancel" onClick={onClose} type="button" variant="outline" />
 
-                                <Button
-                                    disabled={submitDisabled}
-                                    label={pending ? submitInProgressLabel : resolvedSubmitLabel}
-                                    type="submit"
-                                />
-                            </DialogFooter>
-                        </form>
-                    </Form>
+                                    <Button
+                                        disabled={submitDisabled}
+                                        label={pending ? submitInProgressLabel : resolvedSubmitLabel}
+                                        type="submit"
+                                    />
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogMain>
                 </DialogContent>
             </Dialog>
         </WorkflowMockProvider>
