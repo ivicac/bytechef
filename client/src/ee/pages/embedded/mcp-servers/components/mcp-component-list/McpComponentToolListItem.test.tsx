@@ -64,15 +64,17 @@ const Harness = () => {
 describe('McpComponentToolListItem', () => {
     it('passes connectionRequired through to the tool properties popover', () => {
         render(
-            <McpActivePopoverProvider>
-                <McpComponentToolListItem
-                    componentName="affinity"
-                    componentVersion={1}
-                    connectionId={null}
-                    connectionRequired
-                    mcpTool={mcpTool}
-                />
-            </McpActivePopoverProvider>
+            <QueryClientProvider client={new QueryClient()}>
+                <McpActivePopoverProvider>
+                    <McpComponentToolListItem
+                        componentName="affinity"
+                        componentVersion={1}
+                        connectionId={null}
+                        connectionRequired
+                        mcpTool={mcpTool}
+                    />
+                </McpActivePopoverProvider>
+            </QueryClientProvider>
         );
 
         fireEvent.click(screen.getByTitle('Configure'));

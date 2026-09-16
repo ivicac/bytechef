@@ -16,8 +16,10 @@ vi.mock('./hooks/useMcpProjectComponentToolDropdownMenu', () => ({
     }),
 }));
 
-vi.mock('./McpComponentToolPropertiesPopover', () => ({
-    default: () => <div>tool-properties-popover</div>,
+vi.mock('@/pages/platform/mcp-servers/components/McpComponentToolPropertiesPopover', () => ({
+    default: ({connectionRequired}: {connectionRequired?: boolean}) => (
+        <div data-connection-required={String(connectionRequired)}>tool-properties-popover</div>
+    ),
 }));
 
 vi.mock('@/shared/middleware/graphql', async (importOriginal) => ({
@@ -42,6 +44,25 @@ const renderItem = () =>
     );
 
 describe('McpComponentToolListItem', () => {
+    it('passes connectionRequired through to the tool properties popover', () => {
+        render(
+            <QueryClientProvider client={new QueryClient()}>
+                <McpActivePopoverProvider>
+                    <McpComponentToolListItem
+                        componentName="affinity"
+                        componentVersion={1}
+                        connectionId={null}
+                        connectionRequired
+                        mcpTool={mcpTool}
+                    />
+                </McpActivePopoverProvider>
+            </QueryClientProvider>
+        );
+
+        fireEvent.click(screen.getByTitle('Configure'));
+
+        expect(screen.getByText('tool-properties-popover')).toHaveAttribute('data-connection-required', 'true');
+    });
     it('disables the tool via the enabled switch', () => {
         renderItem();
 
