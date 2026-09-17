@@ -7,9 +7,7 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
-import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.exception.WorkflowErrorType;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
@@ -26,6 +24,8 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflo
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
+import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -55,12 +55,12 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     private final ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
+    private final ConnectedUserService connectedUserService;
     private final ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver;
     private final ProjectDeploymentFacade projectDeploymentFacade;
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final ProjectWorkflowService projectWorkflowService;
-    private final WorkflowService workflowService;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserCodeWorkflowReferenceFacadeImpl(
@@ -68,26 +68,27 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
+        ConnectedUserService connectedUserService,
         ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver,
         ProjectDeploymentFacade projectDeploymentFacade, ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
+        ProjectWorkflowService projectWorkflowService) {
 
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.connectedUserProjectWorkflowConnectionRepository = connectedUserProjectWorkflowConnectionRepository;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
+        this.connectedUserService = connectedUserService;
         this.connectedUserWorkflowConnectionResolver = connectedUserWorkflowConnectionResolver;
         this.projectDeploymentFacade = projectDeploymentFacade;
         this.projectDeploymentService = projectDeploymentService;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
         this.projectWorkflowService = projectWorkflowService;
-        this.workflowService = workflowService;
     }
 
     /**
      * Creates the reference on first use, provisioning a dedicated {@link ProjectDeployment} for this (catalog project,
-     * connected user) pair and auto-wiring per-node connections through
+     * connected user) pair and auto-wiring per-slot connections through
      * {@link ConnectedUserWorkflowConnectionResolver}.
      *
      * <p>
@@ -127,43 +128,29 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
 
         long catalogProjectId = catalogProjectWorkflow.getProjectId();
 
-        Workflow catalogWorkflow = workflowService.getWorkflow(catalogWorkflowId);
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
-        Map<String, Long> resolvedConnections;
-        MissingConnectionException missingConnectionException = null;
-
-        try {
-            resolvedConnections = connectedUserWorkflowConnectionResolver.resolve(catalogWorkflow.getDefinition());
-        } catch (MissingConnectionException e) {
-            resolvedConnections = Map.of();
-            missingConnectionException = e;
-        }
+        ResolvedWorkflowConnections resolvedWorkflowConnections = connectedUserWorkflowConnectionResolver.resolve(
+            catalogWorkflowId, connectedUser.getId(), Map.of(), List.of());
 
         long projectDeploymentId = getOrCreateProjectDeployment(
-            catalogProjectId, externalUserId, environment, catalogWorkflowId, resolvedConnections);
+            catalogProjectId, externalUserId, environment, catalogWorkflowId,
+            resolvedWorkflowConnections.connections());
 
         ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
 
         connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProject.getId());
         connectedUserProjectWorkflow.setCatalogWorkflowUuid(catalogWorkflowUuid);
         connectedUserProjectWorkflow.setProjectDeploymentId(projectDeploymentId);
-        connectedUserProjectWorkflow.setEnabled(missingConnectionException == null);
+        connectedUserProjectWorkflow.setEnabled(resolvedWorkflowConnections.isComplete());
 
         ConnectedUserProjectWorkflow saved = connectedUserProjectWorkflowRepository.save(
             connectedUserProjectWorkflow);
 
-        for (Map.Entry<String, Long> entry : resolvedConnections.entrySet()) {
-            ConnectedUserProjectWorkflowConnection connection = new ConnectedUserProjectWorkflowConnection();
+        saveConnectedUserProjectWorkflowConnections(saved.getId(), resolvedWorkflowConnections.connections());
 
-            connection.setConnectedUserProjectWorkflowId(saved.getId());
-            connection.setWorkflowNodeName(entry.getKey());
-            connection.setConnectionId(entry.getValue());
-
-            connectedUserProjectWorkflowConnectionRepository.save(connection);
-        }
-
-        if (missingConnectionException != null) {
-            throw missingConnectionException;
+        if (!resolvedWorkflowConnections.isComplete()) {
+            throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
         }
 
         return saved;
@@ -198,18 +185,13 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
 
     private long getOrCreateProjectDeployment(
         long catalogProjectId, String externalUserId, Environment environment, String catalogWorkflowId,
-        Map<String, Long> resolvedConnections) {
+        List<ProjectDeploymentWorkflowConnection> connections) {
 
         // The environment must be part of the name: the same external user can be connected in more than one
         // Environment (e.g. PRODUCTION and STAGING), and the ProjectDeployment lookup below is scoped to
         // (catalogProjectId, name) only -- without the environment suffix, the two environments would collide onto
         // the single deployment created by whichever environment provisioned first.
         String name = MARKER + externalUserId + "__" + environment.name();
-
-        List<ProjectDeploymentWorkflowConnection> connections = resolvedConnections.entrySet()
-            .stream()
-            .map(entry -> new ProjectDeploymentWorkflowConnection(entry.getValue(), entry.getKey(), entry.getKey()))
-            .toList();
 
         return projectDeploymentService.fetchProjectDeploymentByName(catalogProjectId, name)
             .map(ProjectDeployment::getId)
@@ -244,7 +226,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(catalogWorkflowUuid);
 
         if (enable) {
-            rewireConnections(reference, catalogWorkflowId);
+            rewireConnections(reference, catalogWorkflowId, externalUserId, environment);
         }
 
         reference.setEnabled(enable);
@@ -258,14 +240,26 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     /**
      * Replaces the reference's {@link ConnectedUserProjectWorkflowConnection} bookkeeping rows and the underlying
      * {@link ProjectDeploymentWorkflow}'s real execution-time connections with a freshly resolved set, mirroring the
-     * wiring performed in {@link #getOrCreateReference}. Left to propagate, {@link MissingConnectionException} aborts
-     * {@link #enableReference} before the reference is flipped to enabled.
+     * wiring performed in {@link #getOrCreateReference}. {@link MissingConnectionException} is thrown before any
+     * bookkeeping is touched, so a still-missing connection leaves both the bookkeeping rows and the real
+     * {@link ProjectDeploymentWorkflow} connections untouched and aborts {@link #enableReference} before the reference
+     * is flipped to enabled.
      */
-    private void rewireConnections(ConnectedUserProjectWorkflow reference, String catalogWorkflowId) {
-        Workflow catalogWorkflow = workflowService.getWorkflow(catalogWorkflowId);
+    private void rewireConnections(
+        ConnectedUserProjectWorkflow reference, String catalogWorkflowId, String externalUserId,
+        Environment environment) {
 
-        Map<String, Long> resolvedConnections = connectedUserWorkflowConnectionResolver.resolve(
-            catalogWorkflow.getDefinition());
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
+            .getProjectDeploymentWorkflow(reference.getProjectDeploymentId(), catalogWorkflowId);
+
+        ResolvedWorkflowConnections resolvedWorkflowConnections = connectedUserWorkflowConnectionResolver.resolve(
+            catalogWorkflowId, connectedUser.getId(), Map.of(), projectDeploymentWorkflow.getConnections());
+
+        if (!resolvedWorkflowConnections.isComplete()) {
+            throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
+        }
 
         for (ConnectedUserProjectWorkflowConnection connection : connectedUserProjectWorkflowConnectionRepository
             .findAllByConnectedUserProjectWorkflowId(reference.getId())) {
@@ -273,27 +267,26 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
             connectedUserProjectWorkflowConnectionRepository.deleteById(connection.getId());
         }
 
-        for (Map.Entry<String, Long> entry : resolvedConnections.entrySet()) {
-            ConnectedUserProjectWorkflowConnection connection = new ConnectedUserProjectWorkflowConnection();
+        saveConnectedUserProjectWorkflowConnections(reference.getId(), resolvedWorkflowConnections.connections());
 
-            connection.setConnectedUserProjectWorkflowId(reference.getId());
-            connection.setWorkflowNodeName(entry.getKey());
-            connection.setConnectionId(entry.getValue());
-
-            connectedUserProjectWorkflowConnectionRepository.save(connection);
-        }
-
-        ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
-            .getProjectDeploymentWorkflow(reference.getProjectDeploymentId(), catalogWorkflowId);
-
-        projectDeploymentWorkflow.setConnections(
-            resolvedConnections.entrySet()
-                .stream()
-                .map(entry -> new ProjectDeploymentWorkflowConnection(
-                    entry.getValue(), entry.getKey(), entry.getKey()))
-                .toList());
+        projectDeploymentWorkflow.setConnections(resolvedWorkflowConnections.connections());
 
         projectDeploymentWorkflowService.update(projectDeploymentWorkflow);
+    }
+
+    private void saveConnectedUserProjectWorkflowConnections(
+        Long connectedUserProjectWorkflowId, List<ProjectDeploymentWorkflowConnection> connections) {
+
+        for (ProjectDeploymentWorkflowConnection connection : connections) {
+            ConnectedUserProjectWorkflowConnection connectedUserProjectWorkflowConnection =
+                new ConnectedUserProjectWorkflowConnection();
+
+            connectedUserProjectWorkflowConnection.setConnectedUserProjectWorkflowId(connectedUserProjectWorkflowId);
+            connectedUserProjectWorkflowConnection.setWorkflowNodeName(connection.getWorkflowNodeName());
+            connectedUserProjectWorkflowConnection.setConnectionId(connection.getConnectionId());
+
+            connectedUserProjectWorkflowConnectionRepository.save(connectedUserProjectWorkflowConnection);
+        }
     }
 
     @Override
