@@ -25,6 +25,7 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
+import com.bytechef.ee.embedded.configuration.event.CatalogProjectPublishedEvent;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -46,6 +47,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -75,6 +77,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     private static final String MANUAL_COMPONENT_NAME = "manual";
 
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final CategoryService categoryService;
     private final ConnectedUserService connectedUserService;
     private final EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
@@ -91,8 +94,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectFacadeImpl(
-        CategoryService categoryService, ConnectedUserService connectedUserService,
-        EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
+        ApplicationEventPublisher applicationEventPublisher, CategoryService categoryService,
+        ConnectedUserService connectedUserService, EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
         TagService tagService, WorkflowComponentResolver workflowComponentResolver,
@@ -100,6 +103,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         WorkflowTestConfigurationService workflowTestConfigurationService,
         List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
 
+        this.applicationEventPublisher = applicationEventPublisher;
         this.categoryService = categoryService;
         this.connectedUserService = connectedUserService;
         this.embeddedPermissionEvaluator = embeddedPermissionEvaluator;
@@ -183,9 +187,27 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         projectService.delete(projectId);
     }
 
+    /**
+     * Callers pass the template's uuid, while {@link ProjectWorkflowFacade#deleteWorkflow} takes a workflow id, so the
+     * uuid resolves to the workflow id of the catalog project's DRAFT version. Only the draft loses the template: each
+     * published version keeps its own row, which the deployments still on that version point at until the next publish
+     * rolls them forward.
+     *
+     * <p>
+     * Idempotent: when the draft no longer holds the uuid nothing is deleted. Resolving to the uuid's last row instead
+     * would, on a repeated call, pick the last published version and delete the workflow its deployments still run.
+     */
     @Override
     public void deleteProjectWorkflow(String workflowUuid) {
-        projectWorkflowFacade.deleteWorkflow(workflowUuid);
+        String lastWorkflowId = projectWorkflowService.getLastWorkflowId(workflowUuid);
+
+        ProjectWorkflow lastProjectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(lastWorkflowId);
+
+        Project project = getMarkedProject(lastProjectWorkflow.getProjectId());
+
+        projectWorkflowService.fetchProjectWorkflow(project.getId(), project.getLastProjectVersion(), workflowUuid)
+            .ifPresent(draftProjectWorkflow -> projectWorkflowFacade.deleteWorkflow(
+                draftProjectWorkflow.getWorkflowId()));
     }
 
     /**
@@ -329,6 +351,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
             workflowTestConfigurationService.updateWorkflowId(oldWorkflowId, duplicatedWorkflow.getId());
             workflowNodeTestOutputService.updateWorkflowId(oldWorkflowId, duplicatedWorkflow.getId());
         }
+
+        applicationEventPublisher.publishEvent(new CatalogProjectPublishedEvent(projectId));
     }
 
     @Override

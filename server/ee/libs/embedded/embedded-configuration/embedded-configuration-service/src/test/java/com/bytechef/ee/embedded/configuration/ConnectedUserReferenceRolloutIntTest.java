@@ -23,11 +23,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
+import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
@@ -50,6 +53,8 @@ import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowRe
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceRolloutService;
+import com.bytechef.ee.embedded.configuration.listener.CatalogProjectPublishedEventListener;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -151,6 +156,11 @@ class ConnectedUserReferenceRolloutIntTest {
     private static final String EXTERNAL_USER_ID = "rollout-user-1";
     private static final long RUNNING_FIRST_TEMPLATE_JOB_ID = 4242L;
 
+    private static final String SLACK_AND_JIRA_WORKFLOW_DEFINITION = """
+        {"label":"Post","triggers":[],"tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}},
+         {"name":"createIssue1","type":"jira/v1/createIssue","parameters":{}}]}
+        """;
+
     private static final String SLACK_WORKFLOW_DEFINITION = """
         {"label":"Post","triggers":[],"tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}}]}
         """;
@@ -162,6 +172,10 @@ class ConnectedUserReferenceRolloutIntTest {
 
     @Autowired
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+
+    // Publishing would otherwise run the rollout from the after-commit listener, racing the direct calls under test.
+    @MockitoBean
+    private CatalogProjectPublishedEventListener catalogProjectPublishedEventListener;
 
     @Autowired
     private ComponentConnectionFacade componentConnectionFacade;
@@ -183,6 +197,9 @@ class ConnectedUserReferenceRolloutIntTest {
 
     @Autowired
     private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+
+    @Autowired
+    private ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
 
     @Autowired
     private ConnectedUserService connectedUserService;
@@ -213,6 +230,9 @@ class ConnectedUserReferenceRolloutIntTest {
 
     @Autowired
     private ProjectWorkflowService projectWorkflowService;
+
+    @Autowired
+    private WorkflowService workflowService;
 
     @BeforeEach
     void setUp() {
@@ -278,8 +298,6 @@ class ConnectedUserReferenceRolloutIntTest {
 
         stubEntitledSlackConnection(777L);
 
-        String versionOneWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(workflowUuid);
-
         ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
 
@@ -287,6 +305,9 @@ class ConnectedUserReferenceRolloutIntTest {
             EXTERNAL_USER_ID, workflowUuid, false, Environment.PRODUCTION);
 
         automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        // Enabling catches the deployment up to the last published version first, so the row ends on that version.
+        String versionTwoWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(workflowUuid);
 
         assertThatCode(() -> connectedUserCodeWorkflowReferenceFacade.enableReference(
             EXTERNAL_USER_ID, workflowUuid, true, Environment.PRODUCTION))
@@ -300,7 +321,7 @@ class ConnectedUserReferenceRolloutIntTest {
         assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(reference.getProjectDeploymentId()))
             .singleElement()
             .satisfies(row -> {
-                assertThat(row.getWorkflowId()).isEqualTo(versionOneWorkflowId);
+                assertThat(row.getWorkflowId()).isEqualTo(versionTwoWorkflowId);
                 assertThat(row.isEnabled()).isTrue();
             });
     }
@@ -569,6 +590,261 @@ class ConnectedUserReferenceRolloutIntTest {
             .isEqualTo(true);
     }
 
+    @Test
+    void testRepublishMovesReferencesToTheNewVersionAndKeepsInputs() {
+        long catalogProjectId = createCatalogProject("Rollout");
+
+        String firstUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_WITH_CHANNEL_INPUT_DEFINITION);
+        String secondUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow first = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, firstUuid, Environment.PRODUCTION);
+
+        connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, secondUuid, Environment.PRODUCTION);
+
+        connectedUserReferenceDeploymentManager.updateInputs(
+            first.getProjectDeploymentId(), firstUuid, Map.of("channel", "#alerts"));
+
+        // The required input was missing at provisioning, which left the reference disabled; rollout never enables a
+        // disabled reference, so it is enabled here now that the input is set.
+        connectedUserCodeWorkflowReferenceFacade.enableReference(
+            EXTERNAL_USER_ID, firstUuid, true, Environment.PRODUCTION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        connectedUserReferenceRolloutService.rollOut(catalogProjectId);
+
+        long projectDeploymentId = first.getProjectDeploymentId();
+
+        assertThat(projectDeploymentService.getProjectDeployment(projectDeploymentId)
+            .getProjectVersion()).isEqualTo(2);
+        assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(projectDeploymentId)).hasSize(2);
+        assertThat(connectedUserReferenceDeploymentManager.getInputs(projectDeploymentId, firstUuid))
+            .isEqualTo(Map.of("channel", "#alerts"));
+        assertThat(connectedUserProjectWorkflowRepository.findById(first.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isEnabled)
+            .isEqualTo(true);
+    }
+
+    @Test
+    void testRepublishAddingAConnectionTheUserLacksDisablesOnlyThatReference() {
+        long catalogProjectId = createCatalogProject("Rollout Missing");
+
+        String slackUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+        String otherUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow slackReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, slackUuid, Environment.PRODUCTION);
+        ConnectedUserProjectWorkflow otherReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, otherUuid, Environment.PRODUCTION);
+
+        String draftWorkflowId = projectWorkflowService.getLastWorkflowId(slackUuid);
+        Workflow draftWorkflow = workflowService.getWorkflow(draftWorkflowId);
+
+        workflowService.update(draftWorkflowId, SLACK_AND_JIRA_WORKFLOW_DEFINITION, draftWorkflow.getVersion());
+
+        when(componentConnectionFacade.getComponentConnections(any(WorkflowTask.class)))
+            .thenAnswer(invocation -> switch (invocation.<WorkflowTask>getArgument(0)
+                .getName()) {
+                case "postMessage1" -> List.of(new ComponentConnection("slack", 1, "postMessage1", "slack", true));
+                case "createIssue1" -> List.of(new ComponentConnection("jira", 1, "createIssue1", "jira", true));
+                default -> List.of();
+            });
+        when(connectedUserConnectionFacade.getConnections(anyLong(), eq("jira"), eq(List.of()))).thenReturn(List.of());
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        connectedUserReferenceRolloutService.rollOut(catalogProjectId);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(slackReference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isEnabled)
+            .isEqualTo(false);
+        assertThat(connectedUserProjectWorkflowRepository.findById(otherReference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isEnabled)
+            .isEqualTo(true);
+    }
+
+    @Test
+    void testRepublishWithoutATemplateMarksItsReferenceDangling() {
+        long catalogProjectId = createCatalogProject("Rollout Removed");
+
+        String keptUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+        String removedUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow keptReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, keptUuid, Environment.PRODUCTION);
+        ConnectedUserProjectWorkflow removedReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, removedUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectFacade.deleteProjectWorkflow(removedUuid);
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        connectedUserReferenceRolloutService.rollOut(catalogProjectId);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(removedReference.getId()))
+            .get()
+            .satisfies(reference -> {
+                assertThat(reference.isDangling()).isTrue();
+                assertThat(reference.isEnabled()).isFalse();
+            });
+        assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(
+            keptReference.getProjectDeploymentId())).hasSize(1);
+    }
+
+    @Test
+    void testRepublishWithoutAnyReferencedTemplateDeletesTheDeployment() {
+        long catalogProjectId = createCatalogProject("Rollout All Removed");
+
+        // Never referenced: it only keeps the catalog project publishable once the referenced template is gone.
+        addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        String onlyReferencedUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, onlyReferencedUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectFacade.deleteProjectWorkflow(onlyReferencedUuid);
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        connectedUserReferenceRolloutService.rollOut(catalogProjectId);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isDangling)
+            .isEqualTo(true);
+        assertThat(projectDeploymentService.fetchProjectDeploymentByName(
+            catalogProjectId, "__EMBEDDED__" + EXTERNAL_USER_ID + "__PRODUCTION")).isEmpty();
+    }
+
+    @Test
+    void testEnableCatchesUpADeploymentLeftBehind() {
+        long catalogProjectId = createCatalogProject("Rollout Lazy");
+
+        String workflowUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        connectedUserCodeWorkflowReferenceFacade.enableReference(
+            EXTERNAL_USER_ID, workflowUuid, true, Environment.PRODUCTION);
+
+        assertThat(projectDeploymentService.getProjectDeployment(reference.getProjectDeploymentId())
+            .getProjectVersion()).isEqualTo(2);
+    }
+
+    /**
+     * The editor deletes a template by its uuid. Only the draft loses it: a published version keeps its row, because
+     * the deployments still on that version point at its workflow until the next publish rolls them forward.
+     */
+    @Test
+    void testDeleteProjectWorkflowRemovesTheTemplateFromTheDraftByItsUuid() {
+        long catalogProjectId = createCatalogProject("Delete By Uuid");
+
+        addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        String removedUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        automationWorkflowProjectFacade.deleteProjectWorkflow(removedUuid);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        assertThat(projectWorkflowService.fetchProjectWorkflow(catalogProjectId, 1, removedUuid)).isPresent();
+        assertThat(projectWorkflowService.fetchProjectWorkflow(catalogProjectId, 2, removedUuid)).isEmpty();
+    }
+
+    /**
+     * Deleting a template the draft no longer holds -- a double submit or a retried mutation -- does nothing. It must
+     * never fall through to the last PUBLISHED version, whose workflow the connected users' deployment rows still run.
+     */
+    @Test
+    void testDeletingATemplateTwiceNeverTouchesThePublishedVersion() {
+        long catalogProjectId = createCatalogProject("Delete Twice");
+
+        String workflowUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
+
+        String publishedWorkflowId = getWorkflowId(catalogProjectId, 1, workflowUuid);
+
+        automationWorkflowProjectFacade.deleteProjectWorkflow(workflowUuid);
+        automationWorkflowProjectFacade.deleteProjectWorkflow(workflowUuid);
+
+        assertThat(projectWorkflowService.fetchProjectWorkflow(catalogProjectId, 1, workflowUuid)).isPresent();
+        assertThat(connectedUserReferenceDeploymentManager.fetchWorkflowRow(
+            reference.getProjectDeploymentId(), publishedWorkflowId))
+                .get()
+                .extracting(ProjectDeploymentWorkflow::isEnabled)
+                .isEqualTo(true);
+    }
+
+    /**
+     * A template first published in a newer version than the connected user's deployment can only be written once the
+     * deployment has caught up: at the deployment's old version the template has no workflow to point a row at.
+     */
+    @Test
+    void testProvisioningATemplateNewerThanTheDeploymentCatchesTheDeploymentUp() {
+        long catalogProjectId = createCatalogProject("Rollout Newer Template");
+
+        String firstUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow first = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, firstUuid, Environment.PRODUCTION);
+
+        String secondUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        ConnectedUserProjectWorkflow second = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, secondUuid, Environment.PRODUCTION);
+
+        long projectDeploymentId = first.getProjectDeploymentId();
+
+        assertThat(second.getProjectDeploymentId()).isEqualTo(projectDeploymentId);
+        assertThat(projectDeploymentService.getProjectDeployment(projectDeploymentId)
+            .getProjectVersion()).isEqualTo(2);
+        assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(projectDeploymentId))
+            .extracting(ProjectDeploymentWorkflow::getWorkflowId)
+            .containsExactlyInAnyOrder(
+                getWorkflowId(catalogProjectId, 2, firstUuid), getWorkflowId(catalogProjectId, 2, secondUuid));
+    }
+
     private long createCatalogProject(String name) {
         return automationWorkflowProjectFacade.createProject(name + " " + UUID.randomUUID(), "", null, List.of(), null);
     }
@@ -579,6 +855,12 @@ class ConnectedUserReferenceRolloutIntTest {
         ProjectWorkflow projectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(workflowId);
 
         return projectWorkflow.getUuidAsString();
+    }
+
+    private String getWorkflowId(long catalogProjectId, int projectVersion, String workflowUuid) {
+        return projectWorkflowService.fetchProjectWorkflow(catalogProjectId, projectVersion, workflowUuid)
+            .map(ProjectWorkflow::getWorkflowId)
+            .orElseThrow();
     }
 
     private void stubEntitledSlackConnection(long connectionId) {

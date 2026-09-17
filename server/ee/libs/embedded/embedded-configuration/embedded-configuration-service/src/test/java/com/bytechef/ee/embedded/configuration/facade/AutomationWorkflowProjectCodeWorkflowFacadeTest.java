@@ -16,6 +16,7 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
+import com.bytechef.ee.embedded.configuration.event.CatalogProjectPublishedEvent;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
@@ -36,6 +37,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Verifies {@link AutomationWorkflowProjectCodeWorkflowFacadeImpl#save}: the first deploy of a code workflow project
@@ -49,6 +51,9 @@ import org.springframework.cache.CacheManager;
  */
 @ExtendWith(MockitoExtension.class)
 class AutomationWorkflowProjectCodeWorkflowFacadeTest {
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
@@ -78,7 +83,7 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         ApplicationProperties applicationProperties = new ApplicationProperties();
 
         facade = new AutomationWorkflowProjectCodeWorkflowFacadeImpl(
-            applicationProperties, mock(CacheManager.class), automationWorkflowProjectFacade,
+            applicationEventPublisher, applicationProperties, mock(CacheManager.class), automationWorkflowProjectFacade,
             codeWorkflowContainerFacade, codeWorkflowContainerService, connectedUserCodeWorkflowReferenceFacade,
             projectCodeWorkflowService, projectService, projectWorkflowService);
     }
@@ -161,6 +166,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         // must be empty.
         Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
             .markDanglingReferences(100L, Set.of(), Set.of(chargeUuid.toString()));
+        Mockito.verify(applicationEventPublisher)
+            .publishEvent(new CatalogProjectPublishedEvent(100L));
     }
 
     /**

@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Focused unit tests for permission-expression persistence and connected-user project/workflow filtering in
@@ -65,9 +66,10 @@ class AutomationWorkflowProjectFacadePermissionFilterTest {
         mock(WorkflowTestConfigurationService.class);
 
     private final AutomationWorkflowProjectFacadeImpl facade = new AutomationWorkflowProjectFacadeImpl(
-        categoryService, connectedUserService, embeddedPermissionEvaluator, projectCodeWorkflowService,
-        projectService, projectWorkflowFacade, projectWorkflowService, tagService, workflowComponentResolver,
-        workflowNodeTestOutputService, workflowService, workflowTestConfigurationService, List.of());
+        mock(ApplicationEventPublisher.class), categoryService, connectedUserService, embeddedPermissionEvaluator,
+        projectCodeWorkflowService, projectService, projectWorkflowFacade, projectWorkflowService, tagService,
+        workflowComponentResolver, workflowNodeTestOutputService, workflowService, workflowTestConfigurationService,
+        List.of());
 
     @Test
     void testGetPublishedProjectsHidesProjectWhenExpressionIsFalse() {
