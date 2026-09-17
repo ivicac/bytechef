@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.facade;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,6 +28,14 @@ public interface ConnectedUserCodeWorkflowReferenceFacade {
 
     void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment);
 
+    /**
+     * @throws com.bytechef.ee.embedded.configuration.exception.MissingConnectionException if enabling and a required
+     *                                                                                     connection is missing; the
+     *                                                                                     reference is left disabled
+     * @throws com.bytechef.ee.embedded.configuration.exception.MissingInputException      if enabling and a required
+     *                                                                                     input has no value; the
+     *                                                                                     reference is left disabled
+     */
     void enableReference(String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment);
 
     /**
@@ -37,16 +46,28 @@ public interface ConnectedUserCodeWorkflowReferenceFacade {
     List<ConnectedUserProjectWorkflow> getConnectedUserWorkflows(long connectedUserId);
 
     /**
-     * @throws com.bytechef.ee.embedded.configuration.exception.MissingConnectionException if the reference cannot be
-     *                                                                                     auto-wired because a
-     *                                                                                     component it uses has no
-     *                                                                                     matching connection for the
-     *                                                                                     connected user. The reference
-     *                                                                                     is still created, left
-     *                                                                                     disabled.
+     * {@link #getOrCreateReference(String, String, Environment, Map)} without requested connections. Deliberately not a
+     * {@code default} method: a default the implementation does not override carries no transaction attribute, and its
+     * call to the four-argument overload bypasses the transactional proxy, so provisioning would not be atomic.
      */
     ConnectedUserProjectWorkflow getOrCreateReference(
         String externalUserId, String catalogWorkflowUuid, Environment environment);
+
+    /**
+     * Creates the reference on first use, writing the template's row into the connected user's deployment of the
+     * catalog project; on an existing reference, a non-empty {@code requestedConnectionIds} re-resolves its
+     * connections. A required input without a value leaves the reference disabled without failing.
+     *
+     * @param requestedConnectionIds connection ids by component name, chosen by the caller over the automatic choice
+     * @throws com.bytechef.ee.embedded.configuration.exception.MissingConnectionException if a component the workflow
+     *                                                                                     uses has no connection for
+     *                                                                                     the connected user. The
+     *                                                                                     reference is still created,
+     *                                                                                     left disabled.
+     */
+    ConnectedUserProjectWorkflow getOrCreateReference(
+        String externalUserId, String catalogWorkflowUuid, Environment environment,
+        Map<String, Long> requestedConnectionIds);
 
     /**
      * A reference dangles iff its {@code catalog_workflow_uuid} was served by this catalog project in the previous
@@ -56,4 +77,15 @@ public interface ConnectedUserCodeWorkflowReferenceFacade {
      */
     void markDanglingReferences(
         long catalogProjectId, Set<String> previousCatalogWorkflowUuids, Set<String> currentCatalogWorkflowUuids);
+
+    /**
+     * Replaces the inputs of the reference's deployment row, serialized with the connected user's other reference
+     * writes.
+     *
+     * @throws com.bytechef.ee.embedded.configuration.exception.MissingInputException if the reference is enabled and a
+     *                                                                                required input has no value;
+     *                                                                                nothing is written
+     */
+    void updateReferenceInputs(
+        String externalUserId, String catalogWorkflowUuid, Map<String, ?> inputs, Environment environment);
 }

@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -22,6 +23,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.stream.Stream;
@@ -107,6 +109,26 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
         assertThat(unknownThrowable).hasMessage(rejectionMessage(UNKNOWN_WORKFLOW_UUID));
     }
 
+    /**
+     * A code workflow template can only be referenced: copying one is refused before anything is copied.
+     */
+    @Test
+    void testCopyWorkflowTemplateRejectsCodeWorkflowTemplate() {
+        stubVisibleCatalogTemplate(VISIBLE_WORKFLOW_UUID, true);
+
+        assertThatThrownBy(
+            () -> facade.copyWorkflowTemplate(EXTERNAL_USER_ID, VISIBLE_WORKFLOW_UUID, Environment.PRODUCTION))
+                .isInstanceOf(CodeWorkflowNotCopyableException.class);
+
+        verify(connectedUserProjectWorkflowManager, never())
+            .createProjectWorkflow(any(), any(), any(), any());
+    }
+
+    private void stubVisibleCatalogTemplate(String workflowUuid, boolean codeWorkflowProject) {
+        when(automationWorkflowProjectFacade.getPublishedProjects(anyString(), any()))
+            .thenReturn(List.of(catalogProject(codeWorkflowProject, workflowUuid)));
+    }
+
     private void givenTenantCatalogContains(String... workflowUuids) {
         when(automationWorkflowProjectFacade.getPublishedProjects()).thenReturn(List.of(catalogProject(workflowUuids)));
     }
@@ -117,13 +139,17 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
     }
 
     private static AutomationWorkflowProjectDTO catalogProject(String... workflowUuids) {
+        return catalogProject(false, workflowUuids);
+    }
+
+    private static AutomationWorkflowProjectDTO catalogProject(boolean codeWorkflowProject, String... workflowUuids) {
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates = Stream.of(workflowUuids)
             .map(workflowUuid -> new ConnectedUserWorkflowTemplateDTO(
                 workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null))
             .toList();
 
         return new AutomationWorkflowProjectDTO(
-            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, false);
+            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, codeWorkflowProject);
     }
 
     private static String rejectionMessage(String workflowUuid) {
