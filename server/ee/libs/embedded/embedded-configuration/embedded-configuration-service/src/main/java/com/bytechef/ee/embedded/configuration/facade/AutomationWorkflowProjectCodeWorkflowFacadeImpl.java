@@ -16,6 +16,7 @@ import com.bytechef.automation.project.definition.ProjectDefinition;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
+import com.bytechef.ee.embedded.configuration.event.CatalogProjectPublishedEvent;
 import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowErrorType;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +82,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
 
     private static final Logger log = LoggerFactory.getLogger(AutomationWorkflowProjectCodeWorkflowFacadeImpl.class);
 
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final CacheManager cacheManager;
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final CodeWorkflowContainerFacade codeWorkflowContainerFacade;
@@ -92,7 +95,8 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectCodeWorkflowFacadeImpl(
-        ApplicationProperties applicationProperties, CacheManager cacheManager,
+        ApplicationEventPublisher applicationEventPublisher, ApplicationProperties applicationProperties,
+        CacheManager cacheManager,
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
         CodeWorkflowContainerFacade codeWorkflowContainerFacade,
         CodeWorkflowContainerService codeWorkflowContainerService,
@@ -100,6 +104,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
+        this.applicationEventPublisher = applicationEventPublisher;
         this.cacheManager = cacheManager;
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.codeWorkflowContainerFacade = codeWorkflowContainerFacade;
@@ -178,6 +183,8 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
             .collect(Collectors.toSet());
 
         connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), previousUuids, currentUuids);
+
+        applicationEventPublisher.publishEvent(new CatalogProjectPublishedEvent(project.getId()));
 
         List<String> warnings = new ArrayList<>();
 
