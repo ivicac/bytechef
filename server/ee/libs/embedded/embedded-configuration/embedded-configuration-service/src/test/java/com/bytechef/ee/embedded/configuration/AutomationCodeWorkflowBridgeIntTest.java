@@ -9,22 +9,29 @@ package com.bytechef.ee.embedded.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -38,6 +45,7 @@ import com.bytechef.ee.embedded.configuration.exception.MissingConnectionExcepti
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCodeWorkflowFacade;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
@@ -52,6 +60,7 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.component.service.ConnectionDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.cache.WorkflowCacheManager;
+import com.bytechef.platform.configuration.domain.ComponentConnection;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.facade.ComponentConnectionFacade;
 import com.bytechef.platform.configuration.facade.OAuth2ParametersFacade;
@@ -61,6 +70,7 @@ import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
@@ -100,14 +110,19 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * isolation, connection auto-wiring, and per-environment deployment isolation.
  *
  * <p>
- * Mock boundary: {@link ComponentConnectionFacade}, {@link ConnectionService}, {@link EnvironmentService}, and the
- * job/trigger/MCP/API-key/OAuth2 collaborators of the real {@code ProjectDeploymentFacadeImpl} are mocked -- they are
- * execution-time concerns (trigger enable/disable, job dispatch) that the deploy/redeploy/dangling/reference seam under
- * test never touches (our fixture workflows declare no triggers). {@link ComponentDefinitionService} is mocked and
- * driven directly per test to control whether the fixture's single task type ("codeWorkflow") is treated as
- * connection-required, which is what lets the connection round-trip test (priority 3) exercise
- * {@link MissingConnectionException} without a real component registry. Everything else --
- * {@code ProjectService}/{@code ProjectWorkflowService}/{@code ProjectDeploymentService}/
+ * Mock boundary: {@link ComponentConnectionFacade}, {@link ConnectionService}, {@link ConnectedUserConnectionFacade},
+ * {@link EnvironmentService}, and the job/trigger/MCP/API-key/OAuth2 collaborators of the real
+ * {@code ProjectDeploymentFacadeImpl} are mocked -- they are execution-time concerns (trigger enable/disable, job
+ * dispatch) that the deploy/redeploy/dangling/reference seam under test never touches (our fixture workflows declare no
+ * triggers). {@link ComponentConnectionFacade} drives which slots {@code ConnectedUserWorkflowConnectionResolver} (via
+ * {@code WorkflowConnectionSlots}) sees for the fixture's single task, and {@link ConnectedUserConnectionFacade} drives
+ * which connections the connected user is entitled to for that slot's component -- together they are what let the
+ * connection round-trip test (priority 3) and the D6 cross-user test exercise {@link MissingConnectionException}
+ * without a real component registry. {@link ComponentDefinitionService} is mocked mainly because other beans in this
+ * Spring context need one to exist -- the current resolver never consults it -- but the connection round-trip and D6
+ * tests still override it to {@code null} so the SAME fixture also exercises the pre-fix resolver's "unknown component,
+ * might require a connection" branch when its production files are temporarily reverted to prove a regression.
+ * Everything else -- {@code ProjectService}/{@code ProjectWorkflowService}/{@code ProjectDeploymentService}/
  * {@code ProjectDeploymentWorkflowService}, {@code ProjectCodeWorkflowService}, {@code CodeWorkflowContainerService}/
  * {@code CodeWorkflowContainerFacade}, {@code ConnectedUserService}, and the whole embedded-configuration facade layer
  * -- is real, backed by the Testcontainers Postgres instance. See
@@ -153,7 +168,13 @@ class AutomationCodeWorkflowBridgeIntTest {
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
     @Autowired
+    private ComponentConnectionFacade componentConnectionFacade;
+
+    @Autowired
     private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
+
+    @MockitoBean
+    private ConnectedUserConnectionFacade connectedUserConnectionFacade;
 
     @Autowired
     private ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
@@ -177,6 +198,9 @@ class AutomationCodeWorkflowBridgeIntTest {
     private EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
 
     @Autowired
+    private ProjectDeploymentService projectDeploymentService;
+
+    @Autowired
     private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
 
     @Autowired
@@ -190,11 +214,12 @@ class AutomationCodeWorkflowBridgeIntTest {
 
     @BeforeEach
     void setUp() {
-        // The fixture's single task type always renders as "codeWorkflow/v1/perform" (CodeWorkflowContainerFacadeImpl
-        // hardcodes it), so by default this component declares no connection requirement -- tests that are not about
-        // connection wiring (priorities 1, 2, 4) never have to deal with MissingConnectionException. The connection
-        // round-trip test (priority 3) overrides this to null to force the "unknown component, might need a
-        // connection" branch in ConnectedUserWorkflowConnectionResolver.
+        // ComponentDefinitionService is not consulted by the current resolver; this default keeps it harmless for
+        // any other bean that might call it, and priorities 1, 2 and 4 never touch connection wiring at all (the
+        // mocked ComponentConnectionFacade returns an empty slot list by default). The connection round-trip test
+        // (priority 3) and the D6 cross-user test both override this to null purely so a temporary revert of the
+        // resolver/facade production files back to the pre-fix behavior can be exercised against the SAME fixture --
+        // see their Javadoc.
         when(componentDefinitionService.getComponentDefinition(anyString(), anyInt()))
             .thenReturn(new ComponentDefinition(CODE_WORKFLOW_COMPONENT_NAME));
         when(connectionService.getConnections(PlatformType.EMBEDDED))
@@ -323,11 +348,19 @@ class AutomationCodeWorkflowBridgeIntTest {
      * Priority 3: provisioning a reference to a workflow whose component has no matching connection leaves the
      * reference disabled and rethrows {@link MissingConnectionException} naming the component. Once the connected user
      * creates the matching connection, enabling the reference re-resolves it, wires it into both the bookkeeping table
-     * and the real {@link ProjectDeploymentWorkflow} connections, and succeeds.
+     * and the real {@link ProjectDeploymentWorkflow} connections, and succeeds -- keyed by the platform connection key
+     * (the fixture's single slot's {@code componentConnectionFacade}-declared key, {@code "codeWorkflow"}), not by the
+     * workflow node name ({@code "task1"}). The fixture forces the pre-fix resolver's "unknown component, might require
+     * a connection" branch too (via the {@code componentDefinitionService} override below) and stubs a real
+     * {@code Connection} through {@code connectionService} in addition to the {@code connectedUserConnectionFacade}
+     * stub, so this same test body can be run unmodified against a temporarily reverted resolver/facade to prove the D7
+     * key-shape regression: the pre-fix code resolves successfully (using {@code connectionService}) but stamps the
+     * node name into the key, so the final {@code containsExactly} assertion fails there.
      */
     @Test
     void testProvisionThenEnableRoundTripWithAConnection() {
-        // Force the "unknown component, might require a connection" branch instead of the @BeforeEach default.
+        // Forces the pre-fix resolver's "unknown component, might require a connection" branch -- see the class
+        // Javadoc and this method's Javadoc for why this fixture must also be wireable by the reverted code.
         when(componentDefinitionService.getComponentDefinition(anyString(), anyInt()))
             .thenReturn(null);
 
@@ -341,7 +374,10 @@ class AutomationCodeWorkflowBridgeIntTest {
         String workflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion(projectId), "connectedWorkflow")
             .getUuidAsString();
 
-        when(connectionService.getConnections(PlatformType.EMBEDDED))
+        when(componentConnectionFacade.getComponentConnections(any(WorkflowTask.class)))
+            .thenReturn(List.of(
+                new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
+        when(connectedUserConnectionFacade.getConnections(anyLong(), eq(CODE_WORKFLOW_COMPONENT_NAME), eq(List.of())))
             .thenReturn(List.of());
 
         assertThatThrownBy(
@@ -358,7 +394,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         assertThat(disabledReference.isEnabled()).isFalse();
 
-        // The connected user creates the missing connection.
+        // The connected user creates the missing connection. Both connectionService (consulted by the pre-fix
+        // resolver) and connectedUserConnectionFacade (consulted by the current one) are stubbed with the SAME
+        // connection id, so this fixture resolves successfully under either implementation.
         Connection connection = new Connection();
 
         connection.setId(777L);
@@ -366,6 +404,11 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         when(connectionService.getConnections(PlatformType.EMBEDDED))
             .thenReturn(List.of(connection));
+
+        ConnectionDTO connectionDTO = connectionDTO(777L, CODE_WORKFLOW_COMPONENT_NAME);
+
+        when(connectedUserConnectionFacade.getConnections(anyLong(), eq(CODE_WORKFLOW_COMPONENT_NAME), eq(List.of())))
+            .thenReturn(List.of(connectionDTO));
 
         connectedUserCodeWorkflowReferenceFacade.enableReference(
             "userConnection", workflowUuid, true, Environment.PRODUCTION);
@@ -390,9 +433,82 @@ class AutomationCodeWorkflowBridgeIntTest {
             .getProjectDeploymentWorkflow(enabledReference.getProjectDeploymentId(), catalogWorkflowId);
 
         assertThat(projectDeploymentWorkflow.getConnections())
-            .as("enabling must wire the real ProjectDeploymentWorkflow connections, not just the bookkeeping table")
-            .extracting(connectionEntry -> connectionEntry.getConnectionId())
-            .containsExactly(777L);
+            .as("enabling must wire the real ProjectDeploymentWorkflow connections keyed by the platform connection "
+                + "key (\"" + CODE_WORKFLOW_COMPONENT_NAME + "\"), not the workflow node name (\"task1\")")
+            .containsExactly(new ProjectDeploymentWorkflowConnection(777L, CODE_WORKFLOW_COMPONENT_NAME, "task1"));
+    }
+
+    /**
+     * D6 regression test: a connected user's reference must be wired ONLY to that connected user's own entitled
+     * connections, never to any embedded connection in the tenant. The fixture uses the SAME component name
+     * ({@code "codeWorkflow"}) for both the workflow's only slot and the other connected user's connection (id 555),
+     * and forces the pre-fix resolver's "unknown component, might require a connection" branch (via the
+     * {@code componentDefinitionService} override below) so that reverting only the resolver/facade production files to
+     * their pre-fix content actually exercises the bug: the pre-fix resolver matches by component name against the
+     * tenant-wide {@code connectionService} list, finds connection 555, and wires it -- silently succeeding where
+     * {@link MissingConnectionException} must be thrown instead. The fixed
+     * {@link ConnectedUserCodeWorkflowReferenceFacadeImpl#getOrCreateReference} resolves connections exclusively
+     * through {@code ConnectedUserConnectionFacade}, which this connected user has none registered with, so
+     * {@code connectionService}'s connection 555 is never even consulted.
+     */
+    @Test
+    void testReferenceIsNeverWiredToAnotherConnectedUsersConnection() {
+        // Forces the pre-fix resolver's "unknown component, might require a connection" branch -- see this method's
+        // Javadoc for why this fixture must also be wireable (albeit wrongly) by the reverted code.
+        when(componentDefinitionService.getComponentDefinition(anyString(), anyInt()))
+            .thenReturn(null);
+
+        connectedUserService.createConnectedUser("user-b", Environment.PRODUCTION);
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("cross-user-project", "crossUserWorkflow"), Language.JAVASCRIPT);
+
+        long catalogProjectId = automationWorkflowProjectFacade.fetchProjectIdByName("cross-user-project")
+            .orElseThrow();
+        String catalogWorkflowUuid = findProjectWorkflowByLabel(
+            catalogProjectId, publishedVersion(catalogProjectId), "crossUserWorkflow")
+                .getUuidAsString();
+
+        when(componentConnectionFacade.getComponentConnections(any(WorkflowTask.class)))
+            .thenReturn(List.of(
+                new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
+        Connection anotherUsersConnection = connectionOwnedByAnotherUser(555L, CODE_WORKFLOW_COMPONENT_NAME);
+
+        when(connectionService.getConnections(PlatformType.EMBEDDED))
+            .thenReturn(List.of(anotherUsersConnection));
+
+        // Stubbed so that, if the pre-fix resolver wires connection 555 anyway, ProjectDeploymentFacadeImpl's
+        // environment validation (which looks the connection up by id, not from the list above) does not itself blow
+        // up with an unrelated NullPointerException and mask the real assertion this test cares about.
+        when(connectionService.getConnection(555L))
+            .thenReturn(anotherUsersConnection);
+        when(connectedUserConnectionFacade.getConnections(anyLong(), eq(CODE_WORKFLOW_COMPONENT_NAME), eq(List.of())))
+            .thenReturn(List.of());
+
+        // catchThrowable (not assertThatThrownBy) so that, on the pre-fix resolver -- which does not throw here at
+        // all, because it wires connection 555 instead -- the wiring assertions below still run and show exactly
+        // what got wired, rather than the run stopping at "expected a throwable but none was thrown".
+        Throwable thrown = catchThrowable(() -> connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "user-b", catalogWorkflowUuid, Environment.PRODUCTION));
+
+        ConnectedUserProjectWorkflow reference = connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(
+                connectedUserProjectId("user-b", Environment.PRODUCTION), catalogWorkflowUuid)
+            .orElseThrow();
+
+        assertThat(
+            connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(
+                reference.getId()))
+                    .as("the bookkeeping table must never hold connection 555, which belongs to another connected user")
+                    .extracting(ConnectedUserProjectWorkflowConnection::getConnectionId)
+                    .doesNotContain(555L);
+
+        assertThat(
+            projectDeploymentWorkflowService.getProjectDeploymentWorkflows(deploymentIdFor(catalogProjectId, "user-b")))
+                .as("the real ProjectDeploymentWorkflow connections must never hold connection 555 either")
+                .allSatisfy(row -> assertThat(row.getConnections()).isEmpty());
+
+        assertThat(thrown).isInstanceOf(MissingConnectionException.class);
     }
 
     /**
@@ -424,6 +540,33 @@ class AutomationCodeWorkflowBridgeIntTest {
     private long connectedUserProjectId(String externalUserId, Environment environment) {
         return connectedUserProjectService.getConnectUserProject(externalUserId, environment)
             .getId();
+    }
+
+    private long deploymentIdFor(long catalogProjectId, String externalUserId) {
+        return projectDeploymentService
+            .fetchProjectDeploymentByName(catalogProjectId, "__EMBEDDED__" + externalUserId + "__PRODUCTION")
+            .orElseThrow()
+            .getId();
+    }
+
+    private static Connection connectionOwnedByAnotherUser(long id, String componentName) {
+        Connection connection = new Connection();
+
+        connection.setId(id);
+        connection.setComponentName(componentName);
+        connection.setType(PlatformType.EMBEDDED);
+        connection.setEnvironmentId(Environment.PRODUCTION.ordinal());
+
+        return connection;
+    }
+
+    private static ConnectionDTO connectionDTO(long id, String componentName) {
+        ConnectionDTO connectionDTO = mock(ConnectionDTO.class);
+
+        when(connectionDTO.id()).thenReturn(id);
+        when(connectionDTO.componentName()).thenReturn(componentName);
+
+        return connectionDTO;
     }
 
     private int publishedVersion(long projectId) {

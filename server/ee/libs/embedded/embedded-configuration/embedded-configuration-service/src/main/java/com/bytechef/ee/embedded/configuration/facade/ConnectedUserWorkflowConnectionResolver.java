@@ -7,32 +7,35 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
-import com.bytechef.commons.util.JsonUtils;
-import com.bytechef.commons.util.MapUtils;
-import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.component.domain.ComponentDefinition;
-import com.bytechef.platform.component.service.ComponentDefinitionService;
-import com.bytechef.platform.connection.domain.Connection;
-import com.bytechef.platform.connection.service.ConnectionService;
-import com.bytechef.platform.constant.PlatformType;
-import com.bytechef.platform.definition.WorkflowNodeType;
+import com.bytechef.platform.configuration.domain.ComponentConnection;
+import com.bytechef.platform.connection.dto.ConnectionDTO;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
 
 /**
- * Resolves the per-node connection wiring for a connected user's reference to a shared catalog workflow. A small,
- * deliberately separate class rather than a refactor of {@link ConnectedUserProjectWorkflowManager}'s private
- * {@code checkWorkflowNodeConnection(s)} methods -- those write into {@code WorkflowTestConfiguration}, which is wrong
- * for a shared catalog workflow (two connected users referencing the same workflow must never see each other's
- * connections). Duplicating the small node-scanning loop here is safer than risking the existing, proven copy-mode
- * path.
+ * Resolves the per-slot connection wiring for a connected user's reference to a shared catalog workflow. Candidates
+ * come ONLY from the connected user's own entitled connections ({@link ConnectedUserConnectionFacade}) -- never from
+ * the tenant-wide {@code ConnectionService} -- so two connected users referencing the same workflow can never end up
+ * wired to each other's connections. Slots are enumerated by {@link WorkflowConnectionSlots}, the same enumeration
+ * {@code ProjectDeploymentFacadeImpl} uses to check that required connections are set.
+ *
+ * <p>
+ * For each slot, a connection is chosen in this order: the caller-requested connection for that component (rejected
+ * with {@link ConnectionNotEntitledException} if the connected user is not entitled to it), then the connection
+ * currently wired to that component (if the connected user is still entitled to it), then the connected user's first
+ * entitled connection for that component. A required slot with no entitled connection is reported in
+ * {@link ResolvedWorkflowConnections#missingComponentNames()} rather than failing outright, so a partially resolvable
+ * workflow can still surface which component is missing.
  *
  * @version ee
  *
@@ -42,58 +45,75 @@ import tools.jackson.core.type.TypeReference;
 @ConditionalOnEEVersion
 public class ConnectedUserWorkflowConnectionResolver {
 
-    private final ComponentDefinitionService componentDefinitionService;
-    private final ConnectionService connectionService;
+    private final ConnectedUserConnectionFacade connectedUserConnectionFacade;
+    private final WorkflowConnectionSlots workflowConnectionSlots;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserWorkflowConnectionResolver(
-        ComponentDefinitionService componentDefinitionService, ConnectionService connectionService) {
+        ConnectedUserConnectionFacade connectedUserConnectionFacade, WorkflowConnectionSlots workflowConnectionSlots) {
 
-        this.componentDefinitionService = componentDefinitionService;
-        this.connectionService = connectionService;
+        this.connectedUserConnectionFacade = connectedUserConnectionFacade;
+        this.workflowConnectionSlots = workflowConnectionSlots;
     }
 
-    /**
-     * @throws MissingConnectionException if a node's component declares a connection definition and the connected user
-     *                                    has no matching connection to auto-wire.
-     */
-    public Map<String, Long> resolve(String definition) {
-        Map<String, ?> workflowMap = JsonUtils.readMap(definition);
-        List<Connection> connections = connectionService.getConnections(PlatformType.EMBEDDED);
+    public ResolvedWorkflowConnections resolve(
+        String workflowId, long connectedUserId, Map<String, Long> requestedConnectionIds,
+        List<ProjectDeploymentWorkflowConnection> currentConnections) {
 
-        Map<String, Long> resolved = new LinkedHashMap<>();
+        Map<String, List<Long>> entitledConnectionIdsByComponentName = new HashMap<>();
+        List<ProjectDeploymentWorkflowConnection> connections = new ArrayList<>();
+        Set<String> missingComponentNames = new LinkedHashSet<>();
 
-        for (Map<String, ?> nodeMap : allNodes(workflowMap)) {
-            String nodeName = MapUtils.getString(nodeMap, "name");
-            WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(MapUtils.getString(nodeMap, "type"));
+        for (ComponentConnection slot : workflowConnectionSlots.getSlots(workflowId)) {
+            String componentName = slot.componentName();
 
-            ComponentDefinition componentDefinition = componentDefinitionService.getComponentDefinition(
-                workflowNodeType.name(), workflowNodeType.version());
+            List<Long> entitledConnectionIds = entitledConnectionIdsByComponentName.computeIfAbsent(
+                componentName, name -> getEntitledConnectionIds(connectedUserId, name));
 
-            // A component definition that could not be resolved is treated conservatively -- as possibly requiring
-            // a connection -- rather than silently skipped, so a node whose metadata is unavailable never ends up
-            // wired to nothing.
-            if (componentDefinition != null && componentDefinition.getConnection() == null) {
+            Long connectionId = selectConnectionId(
+                componentName, entitledConnectionIds, requestedConnectionIds.get(componentName),
+                currentConnections);
+
+            if (connectionId == null) {
+                if (slot.required()) {
+                    missingComponentNames.add(componentName);
+                }
+
                 continue;
             }
 
-            Connection connection = connections.stream()
-                .filter(candidate -> Objects.equals(candidate.getComponentName(), workflowNodeType.name()))
-                .findFirst()
-                .orElseThrow(() -> new MissingConnectionException(workflowNodeType.name()));
-
-            resolved.put(nodeName, connection.getId());
+            connections.add(new ProjectDeploymentWorkflowConnection(connectionId, slot.key(), slot.workflowNodeName()));
         }
 
-        return resolved;
+        return new ResolvedWorkflowConnections(connections, List.copyOf(missingComponentNames));
     }
 
-    private static List<Map<String, ?>> allNodes(Map<String, ?> workflowMap) {
-        List<Map<String, ?>> nodes = new ArrayList<>();
+    private List<Long> getEntitledConnectionIds(long connectedUserId, String componentName) {
+        return connectedUserConnectionFacade.getConnections(connectedUserId, componentName, List.of())
+            .stream()
+            .map(ConnectionDTO::id)
+            .toList();
+    }
 
-        nodes.addAll(MapUtils.getList(workflowMap, "triggers", new TypeReference<>() {}, List.of()));
-        nodes.addAll(MapUtils.getList(workflowMap, "tasks", new TypeReference<>() {}, List.of()));
+    @Nullable
+    private static Long selectConnectionId(
+        String componentName, List<Long> entitledConnectionIds, @Nullable Long requestedConnectionId,
+        List<ProjectDeploymentWorkflowConnection> currentConnections) {
 
-        return nodes;
+        if (requestedConnectionId != null) {
+            if (!entitledConnectionIds.contains(requestedConnectionId)) {
+                throw new ConnectionNotEntitledException(componentName, requestedConnectionId);
+            }
+
+            return requestedConnectionId;
+        }
+
+        for (ProjectDeploymentWorkflowConnection currentConnection : currentConnections) {
+            if (entitledConnectionIds.contains(currentConnection.getConnectionId())) {
+                return currentConnection.getConnectionId();
+            }
+        }
+
+        return entitledConnectionIds.isEmpty() ? null : entitledConnectionIds.getFirst();
     }
 }
