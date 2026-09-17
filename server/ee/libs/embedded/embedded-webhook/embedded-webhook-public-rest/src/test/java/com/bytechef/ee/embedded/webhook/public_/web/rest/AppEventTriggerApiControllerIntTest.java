@@ -12,13 +12,16 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
@@ -43,6 +46,7 @@ import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.component.trigger.WebhookRequest.WebhookBodyImpl;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
@@ -52,9 +56,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -81,11 +88,17 @@ import org.springframework.test.web.servlet.client.MockMvcWebTestClient;
 @EmbeddedWebhookPublicRestSharedMocks
 class AppEventTriggerApiControllerIntTest {
 
+    private static final long CONNECTED_USER_ID = 500L;
+    private static final String EXTERNAL_USER_ID = "externalUser1";
+
     private static final String APP_EVENTS_PATH = "/v1/app-events";
     private static final String EXTERNAL_USER_APP_EVENTS_PATH = "/v1/{externalUserId}/app-events";
 
     @Autowired
     private ConnectedUserService connectedUserService;
+
+    @Autowired
+    private EnvironmentService environmentService;
 
     @Autowired
     private ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
@@ -104,6 +117,61 @@ class AppEventTriggerApiControllerIntTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "development", "Development", " development "
+    })
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    void testExecuteWorkflowsAcceptsAnyCaseOfTheEnvironmentHeader(String requestEnvironment) throws Exception {
+        stubConnectedUserInEnvironment("DEVELOPMENT", Environment.DEVELOPMENT);
+
+        mockMvc
+            .perform(
+                post("/v1/{externalUserId}/app-events", EXTERNAL_USER_ID)
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isNoContent());
+
+        verify(connectedUserService).getConnectedUser(EXTERNAL_USER_ID, Environment.DEVELOPMENT);
+    }
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "", "   "
+    })
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    void testExecuteWorkflowsTreatsABlankEnvironmentHeaderAsAbsent(String requestEnvironment) throws Exception {
+        stubConnectedUserInEnvironment(null, Environment.PRODUCTION);
+
+        mockMvc
+            .perform(
+                post("/v1/{externalUserId}/app-events", EXTERNAL_USER_ID)
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isNoContent());
+
+        verify(connectedUserService).getConnectedUser(EXTERNAL_USER_ID, Environment.PRODUCTION);
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    void testExecuteWorkflowsRejectsAnUnknownEnvironmentHeader() throws Exception {
+        mockMvc
+            .perform(
+                post("/v1/{externalUserId}/app-events", EXTERNAL_USER_ID)
+                    .header("X-Environment", "staging-x"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(connectedUserService, environmentService);
+    }
+
+    private void stubConnectedUserInEnvironment(@Nullable String environmentName, Environment environment) {
+        ConnectedUser connectedUser = mock(ConnectedUser.class);
+
+        when(connectedUser.getId()).thenReturn(CONNECTED_USER_ID);
+        doReturn(environment).when(environmentService)
+            .getEnvironment(environmentName);
+        when(connectedUserService.getConnectedUser(EXTERNAL_USER_ID, environment)).thenReturn(connectedUser);
+    }
 
     @Autowired
     private ProjectDeploymentService projectDeploymentService;
