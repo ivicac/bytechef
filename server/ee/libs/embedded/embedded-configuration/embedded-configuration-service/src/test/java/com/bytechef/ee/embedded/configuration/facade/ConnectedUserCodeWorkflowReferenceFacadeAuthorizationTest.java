@@ -14,14 +14,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.atlas.configuration.domain.Workflow;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
@@ -34,6 +33,8 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
+import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +67,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
         mock(ConnectedUserProjectWorkflowRepository.class);
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager =
         mock(ConnectedUserProjectWorkflowManager.class);
+    private final ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
     private final ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver =
         mock(ConnectedUserWorkflowConnectionResolver.class);
     private final ProjectDeploymentFacade projectDeploymentFacade = mock(ProjectDeploymentFacade.class);
@@ -73,14 +75,13 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         mock(ProjectDeploymentWorkflowService.class);
     private final ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
-    private final WorkflowService workflowService = mock(WorkflowService.class);
 
     private final ConnectedUserCodeWorkflowReferenceFacadeImpl facade =
         new ConnectedUserCodeWorkflowReferenceFacadeImpl(
             automationWorkflowProjectFacade, connectedUserProjectWorkflowConnectionRepository,
-            connectedUserProjectWorkflowRepository, connectedUserProjectWorkflowManager,
+            connectedUserProjectWorkflowRepository, connectedUserProjectWorkflowManager, connectedUserService,
             connectedUserWorkflowConnectionResolver, projectDeploymentFacade, projectDeploymentService,
-            projectDeploymentWorkflowService, projectWorkflowService, workflowService);
+            projectDeploymentWorkflowService, projectWorkflowService);
 
     @Test
     void testGetOrCreateReferenceProvisionsATemplateTheConnectedUserIsPermittedToSee() {
@@ -171,13 +172,13 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
     }
 
     private void givenCatalogWorkflow(String workflowUuid) {
-        Workflow workflow = new Workflow("{\"triggers\":[],\"tasks\":[]}", Workflow.Format.JSON);
-
         when(projectWorkflowService.getLastPublishedWorkflowId(workflowUuid)).thenReturn("workflow-1");
         when(projectWorkflowService.getWorkflowProjectWorkflow("workflow-1"))
             .thenReturn(new ProjectWorkflow(500L, 1, "workflow-1"));
-        when(workflowService.getWorkflow("workflow-1")).thenReturn(workflow);
-        when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition())).thenReturn(Map.of());
+        when(connectedUserService.getConnectedUser(eq(EXTERNAL_USER_ID), any()))
+            .thenReturn(new ConnectedUser(Map.of(), null, true, EXTERNAL_USER_ID, 200L, null, 0));
+        when(connectedUserWorkflowConnectionResolver.resolve(eq("workflow-1"), anyLong(), eq(Map.of()), eq(List.of())))
+            .thenReturn(new ResolvedWorkflowConnections(List.of(), List.of()));
         when(projectDeploymentService.fetchProjectDeploymentByName(anyLong(), anyString()))
             .thenReturn(Optional.empty());
         when(projectDeploymentFacade.createProjectDeployment(
