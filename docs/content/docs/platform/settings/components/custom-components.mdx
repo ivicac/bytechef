@@ -372,14 +372,13 @@ Custom components are loaded at runtime through a sandboxed classloader:
 
 ### Hardening options for Java uploads
 
-Two properties let administrators tighten how Java custom components are handled:
+One property lets administrators tighten how Java custom components are handled:
 
 | Property | Default | Effect |
 |---|---|---|
 | `bytechef.component.custom-component.java-enabled` (`BYTECHEF_COMPONENT_CUSTOM_COMPONENT_JAVA_ENABLED`) | `true` | Set `false` to reject new Java (jar) uploads while JavaScript, Python, and Ruby components - and previously uploaded Java components - keep working. Use this when you want scripting-language extensibility without accepting arbitrary JVM bytecode. |
-| `bytechef.component.custom-component.java-loader` (`BYTECHEF_COMPONENT_CUSTOM_COMPONENT_JAVA_LOADER`) | `CLASS_LOADER` | Set `ESPRESSO` to execute Java custom components inside a sandboxed GraalVM Espresso guest JVM instead of the in-process isolating classloader, adding a stronger boundary between component code and the host process. |
 
-The same pair exists for Java code workflows: `bytechef.workflow.code-workflow.java-enabled` and `bytechef.workflow.code-workflow.java-loader`, with the same defaults. See [Environment Variables](/platform/use-bytechef/self-hosted/configuration/environment-variables#component-configuration).
+The same property exists for Java code workflows: `bytechef.workflow.code-workflow.java-enabled`, with the same default. See [Environment Variables](/platform/use-bytechef/self-hosted/configuration/environment-variables#component-configuration).
 
 ## Scaffolding and deploying with the CLI
 
