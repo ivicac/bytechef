@@ -102,6 +102,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
+    private final ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver;
     private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
     private final ConnectedUserService connectedUserService;
     private final ConnectionService connectionService;
@@ -133,6 +134,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
+        ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver,
         ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
         ConnectedUserService connectedUserService, ConnectionService connectionService,
         @Lazy @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator, EnvironmentService environmentService,
@@ -153,6 +155,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
+        this.connectedUserReferenceAttentionResolver = connectedUserReferenceAttentionResolver;
         this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
         this.connectedUserService = connectedUserService;
         this.connectionService = connectionService;
@@ -769,7 +772,8 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
                     reference.isDangling()
                         ? Map.of()
                         : connectedUserReferenceDeploymentManager.getInputs(
-                            reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid()));
+                            reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid()),
+                    connectedUserReferenceAttentionResolver.resolve(reference));
             })
             .toList();
     }

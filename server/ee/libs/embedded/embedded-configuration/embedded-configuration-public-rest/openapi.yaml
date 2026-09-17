@@ -256,11 +256,17 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The catalog workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Provision a reference to a catalog code workflow for the authenticated connected user."
+      description: "Provision a reference to a catalog workflow template for the authenticated connected user."
       summary: "Provision a workflow reference"
       tags:
         - "connected-user-project-workflow"
@@ -278,9 +284,17 @@ paths:
           required: true
           schema:
             type: "string"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
+        "400":
+          description: "A requested connection is not one of the connected user's connections."
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -624,11 +638,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
     delete:
@@ -654,11 +670,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/inputs:
@@ -690,6 +708,12 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+        "409":
+          description: "A required workflow input has no value; the reference stays disabled."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/publish:
@@ -1179,12 +1203,18 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The catalog workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Explicitly provision a reference to a catalog code workflow ahead of first invocation."
-      summary: "Provision a reference to a catalog code workflow"
+      description: "Explicitly provision a reference to a catalog workflow template ahead of first invocation."
+      summary: "Provision a reference to a catalog workflow template"
       tags:
         - "connected-user-project-workflow"
       operationId: "provisionWorkflowReference"
@@ -1207,9 +1237,17 @@ paths:
           required: true
           schema:
             type: "string"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
+        "400":
+          description: "A requested connection is not one of the connected user's connections."
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -1505,11 +1543,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
     delete:
@@ -1541,11 +1581,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/inputs:
@@ -1583,6 +1625,12 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+        "409":
+          description: "A required workflow input has no value; the reference stays disabled."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/publish:
@@ -2124,6 +2172,10 @@ components:
           description: "The values the connected user has already supplied, keyed by input name."
           type: "object"
           additionalProperties: true
+        attentionReason:
+          description: "Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or\
+            \ UPDATE_PENDING. Null when healthy or for COPY rows."
+          type: "string"
     Connection:
       description: "Contains all required information to open a connection to a service defined by componentName parameter"
       type: "object"
@@ -2582,6 +2634,31 @@ components:
       properties:
         missingConnectionComponentName:
           description: "The name of the component that is missing a matching connection for the connected user."
+          type: "string"
+    ProvisionWorkflowReferenceRequest:
+      type: "object"
+      description: "Connections the connected user chose, keyed by component name. Components not listed keep their\
+        \ current connection or are auto-matched."
+      properties:
+        connections:
+          type: "object"
+          additionalProperties:
+            type: "integer"
+            format: "int64"
+    CodeWorkflowNotCopyableError:
+      type: "object"
+      description: "Returned when a code workflow template is copied; code workflow templates can only be referenced."
+      properties:
+        reason:
+          type: "string"
+          enum:
+            - "CODE_WORKFLOW_NOT_COPYABLE"
+    MissingInputError:
+      type: "object"
+      description: "Returned when a reference cannot be enabled because a required workflow input has no value yet."
+      properties:
+        missingInputName:
+          description: "The name of the required input that has no value."
           type: "string"
     AutomationWorkflowProjectWorkflowTemplate:
       type: "object"
