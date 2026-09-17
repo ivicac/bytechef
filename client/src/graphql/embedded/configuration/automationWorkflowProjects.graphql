@@ -9,6 +9,7 @@ query automationWorkflowProjects {
         version
         lastPublishedVersion
         permissionExpression
+        automationHubVisible
         codeWorkflowProject
         workflowTemplates {
             workflowUuid
@@ -30,12 +31,12 @@ query automationWorkflowProjects {
     }
 }
 
-mutation createAutomationWorkflowProject($name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String) {
-    createAutomationWorkflowProject(name: $name, description: $description, category: $category, tags: $tags, permissionExpression: $permissionExpression)
+mutation createAutomationWorkflowProject($name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String, $automationHubVisible: Boolean) {
+    createAutomationWorkflowProject(name: $name, description: $description, category: $category, tags: $tags, permissionExpression: $permissionExpression, automationHubVisible: $automationHubVisible)
 }
 
-mutation updateAutomationWorkflowProject($id: ID!, $name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String) {
-    updateAutomationWorkflowProject(id: $id, name: $name, description: $description, category: $category, tags: $tags, permissionExpression: $permissionExpression)
+mutation updateAutomationWorkflowProject($id: ID!, $name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String, $automationHubVisible: Boolean) {
+    updateAutomationWorkflowProject(id: $id, name: $name, description: $description, category: $category, tags: $tags, permissionExpression: $permissionExpression, automationHubVisible: $automationHubVisible)
 }
 
 mutation deleteAutomationWorkflowProject($id: ID!) {
