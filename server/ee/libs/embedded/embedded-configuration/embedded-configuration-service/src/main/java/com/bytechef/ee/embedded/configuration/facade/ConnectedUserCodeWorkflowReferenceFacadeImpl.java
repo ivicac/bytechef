@@ -50,6 +50,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+    private final ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
     private final ConnectedUserService connectedUserService;
 
     @SuppressFBWarnings("EI")
@@ -58,12 +59,14 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
+        ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService,
         ConnectedUserService connectedUserService) {
 
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
+        this.connectedUserReferenceRolloutService = connectedUserReferenceRolloutService;
         this.connectedUserService = connectedUserService;
     }
 
@@ -90,7 +93,8 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     public void enableReference(
         String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment) {
 
-        ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
+        ConnectedUserProjectWorkflow reference = catchUp(
+            requireReference(externalUserId, catalogWorkflowUuid, environment));
 
         if (reference.isDangling()) {
             if (enable) {
@@ -156,7 +160,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), catalogWorkflowUuid);
 
         if (existingReference.isPresent()) {
-            ConnectedUserProjectWorkflow reference = existingReference.get();
+            ConnectedUserProjectWorkflow reference = catchUp(existingReference.get());
 
             if (!requestedConnectionIds.isEmpty() && !reference.isDangling()) {
                 return applyWorkflow(
@@ -171,6 +175,14 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
 
         long projectDeploymentId = connectedUserReferenceDeploymentManager.getOrCreateDeployment(
             catalogProject.id(), externalUserId, environment);
+
+        // An existing deployment may be behind the version that first published this template, which has no workflow
+        // at the old version to write a row for. Catching up can delete a deployment none of whose references
+        // survives, so the deployment is looked up again afterwards.
+        if (connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(projectDeploymentId)) {
+            projectDeploymentId = connectedUserReferenceDeploymentManager.getOrCreateDeployment(
+                catalogProject.id(), externalUserId, environment);
+        }
 
         ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
 
@@ -259,6 +271,22 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         }
 
         return savedReference;
+    }
+
+    /**
+     * Moves the reference's deployment to the catalog project's last published version when it was left behind (a
+     * failed or missed rollout). A rolled-forward reference is reloaded: the rollout saved it, possibly disabled or
+     * marked dangling.
+     */
+    private ConnectedUserProjectWorkflow catchUp(ConnectedUserProjectWorkflow reference) {
+        if (reference.isDangling() ||
+            !connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(reference.getProjectDeploymentId())) {
+
+            return reference;
+        }
+
+        return connectedUserProjectWorkflowRepository.findById(reference.getId())
+            .orElseThrow();
     }
 
     /**

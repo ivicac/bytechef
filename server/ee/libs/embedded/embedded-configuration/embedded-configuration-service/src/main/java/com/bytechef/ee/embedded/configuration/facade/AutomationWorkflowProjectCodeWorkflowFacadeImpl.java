@@ -40,9 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
@@ -51,9 +49,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Deploys a plain automation code-workflow artifact into the embedded catalog. Structured identically to
+ * Deploys a plain automation code-workflow artifact into the embedded automation workflows. Structured identically to
  * {@code ProjectCodeWorkflowFacadeImpl} (same java-enabled/loader gate, same {@link ProjectHandlerLoader} call), with
- * one structural difference: the target catalog project is resolved/created through
+ * one structural difference: the target automation workflow project is resolved/created through
  * {@link AutomationWorkflowProjectFacade}'s marker convention instead of a bare {@code ProjectService#fetchProject}, so
  * it stays hidden behind the embedded automation-workflow-project entity. Publish goes straight through
  * {@link ProjectService#publishProject}, mirroring how {@code ProjectCodeWorkflowFacadeImpl} itself publishes -- NOT
@@ -62,10 +60,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>
  * Redeploying the same artifact must keep each {@link ProjectWorkflow#getUuid()} stable across versions, since per-user
- * references pin on {@code catalog_workflow_uuid}. {@link ProjectWorkflowService#addWorkflow} always mints a fresh uuid
- * for a new row, so before the new version's workflows are added, {@link #fetchPreviousWorkflowUuidsByName} reads the
- * previous deploy's {@link CodeWorkflowContainer} (via its {@link ProjectCodeWorkflow} row) to map each still-present
- * workflow name to its previously-assigned uuid, mirroring the uuid carry-forward principle in
+ * references pin on {@code automation_workflow_uuid}. {@link ProjectWorkflowService#addWorkflow} always mints a fresh
+ * uuid for a new row, so before the new version's workflows are added, {@link #fetchPreviousWorkflowUuidsByName} reads
+ * the previous deploy's {@link CodeWorkflowContainer} (via its {@link ProjectCodeWorkflow} row) to map each
+ * still-present workflow name to its previously-assigned uuid, mirroring the uuid carry-forward principle in
  * {@code ProjectFacadeImpl#publishProject} -- a same-named workflow keeps its uuid across redeploys, and only a
  * genuinely new name gets a fresh one.
  *
@@ -84,7 +82,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final CodeWorkflowContainerFacade codeWorkflowContainerFacade;
     private final CodeWorkflowContainerService codeWorkflowContainerService;
-    private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
     private final ProjectService projectService;
     private final ProjectWorkflowService projectWorkflowService;
@@ -96,7 +93,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
         CodeWorkflowContainerFacade codeWorkflowContainerFacade,
         CodeWorkflowContainerService codeWorkflowContainerService,
-        ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
@@ -104,7 +100,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.codeWorkflowContainerFacade = codeWorkflowContainerFacade;
         this.codeWorkflowContainerService = codeWorkflowContainerService;
-        this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
         this.projectService = projectService;
         this.projectWorkflowService = projectWorkflowService;
@@ -165,19 +160,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         }
 
         projectService.publishProject(project.getId(), null, false);
-
-        Set<String> currentUuids = projectWorkflowService
-            .getProjectWorkflows(project.getId(), project.getLastProjectVersion())
-            .stream()
-            .map(ProjectWorkflow::getUuidAsString)
-            .collect(Collectors.toSet());
-
-        Set<String> previousUuids = previousWorkflowUuidsByName.values()
-            .stream()
-            .map(UUID::toString)
-            .collect(Collectors.toSet());
-
-        connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), previousUuids, currentUuids);
 
         List<String> warnings = new ArrayList<>();
 
