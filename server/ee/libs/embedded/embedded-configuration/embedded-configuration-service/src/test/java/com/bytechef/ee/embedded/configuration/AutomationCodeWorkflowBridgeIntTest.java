@@ -40,13 +40,11 @@ import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurati
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
 import com.bytechef.ee.embedded.codeworkflowbridge.AutomationCodeWorkflowBridgeIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCodeWorkflowFacade;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
-import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
@@ -175,9 +173,6 @@ class AutomationCodeWorkflowBridgeIntTest {
 
     @MockitoBean
     private ConnectedUserConnectionFacade connectedUserConnectionFacade;
-
-    @Autowired
-    private ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
 
     @Autowired
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
@@ -347,9 +342,9 @@ class AutomationCodeWorkflowBridgeIntTest {
     /**
      * Priority 3: provisioning a reference to a workflow whose component has no matching connection leaves the
      * reference disabled and rethrows {@link MissingConnectionException} naming the component. Once the connected user
-     * creates the matching connection, enabling the reference re-resolves it, wires it into both the bookkeeping table
-     * and the real {@link ProjectDeploymentWorkflow} connections, and succeeds -- keyed by the platform connection key
-     * (the fixture's single slot's {@code componentConnectionFacade}-declared key, {@code "codeWorkflow"}), not by the
+     * creates the matching connection, enabling the reference re-resolves it, wires it into the real
+     * {@link ProjectDeploymentWorkflow} connections, and succeeds -- keyed by the platform connection key (the
+     * fixture's single slot's {@code componentConnectionFacade}-declared key, {@code "codeWorkflow"}), not by the
      * workflow node name ({@code "task1"}). The fixture forces the pre-fix resolver's "unknown component, might require
      * a connection" branch too (via the {@code componentDefinitionService} override below) and stubs a real
      * {@code Connection} through {@code connectionService} in addition to the {@code connectedUserConnectionFacade}
@@ -419,14 +414,6 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         assertThat(enabledReference.isEnabled()).isTrue();
 
-        List<ConnectedUserProjectWorkflowConnection> wiredConnections =
-            connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(
-                enabledReference.getId());
-
-        assertThat(wiredConnections)
-            .extracting(ConnectedUserProjectWorkflowConnection::getConnectionId)
-            .containsExactly(777L);
-
         String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(workflowUuid);
 
         ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
@@ -491,21 +478,10 @@ class AutomationCodeWorkflowBridgeIntTest {
         Throwable thrown = catchThrowable(() -> connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             "user-b", catalogWorkflowUuid, Environment.PRODUCTION));
 
-        ConnectedUserProjectWorkflow reference = connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(
-                connectedUserProjectId("user-b", Environment.PRODUCTION), catalogWorkflowUuid)
-            .orElseThrow();
-
-        assertThat(
-            connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(
-                reference.getId()))
-                    .as("the bookkeeping table must never hold connection 555, which belongs to another connected user")
-                    .extracting(ConnectedUserProjectWorkflowConnection::getConnectionId)
-                    .doesNotContain(555L);
-
         assertThat(
             projectDeploymentWorkflowService.getProjectDeploymentWorkflows(deploymentIdFor(catalogProjectId, "user-b")))
-                .as("the real ProjectDeploymentWorkflow connections must never hold connection 555 either")
+                .as("the real ProjectDeploymentWorkflow connections must never hold connection 555, which belongs to "
+                    + "another connected user")
                 .allSatisfy(row -> assertThat(row.getConnections()).isEmpty());
 
         assertThat(thrown).isInstanceOf(MissingConnectionException.class);

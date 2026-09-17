@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfigurationSharedMocks;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflowConnection;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,13 +25,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Reference-mode columns (catalog_workflow_uuid, project_deployment_id, enabled, dangling, dangling_reason) on
- * connected_user_project_workflow, plus the new per-node connection wiring table. Parent rows
- * (workspace/project/project_workflow/connected_user_project) are inserted directly through JdbcTemplate rather than
- * through their own repositories, because this module's IntTest harness (IntegrationIntTestConfiguration) only
- * component-scans com.bytechef.ee.embedded.configuration and does not expose the automation-configuration repositories
- * needed to build that object graph the normal way; the foreign keys added by the base schema are enforced by the real
- * Postgres testcontainer, so hard-coded parent ids are not an option here.
+ * Reference-mode columns (automation_workflow_uuid, project_deployment_id, enabled, dangling, dangling_reason) on
+ * connected_user_project_workflow. Parent rows (workspace/project/project_workflow/connected_user_project) are inserted
+ * directly through JdbcTemplate rather than through their own repositories, because this module's IntTest harness
+ * (IntegrationIntTestConfiguration) only component-scans com.bytechef.ee.embedded.configuration and does not expose the
+ * automation-configuration repositories needed to build that object graph the normal way; the foreign keys added by the
+ * base schema are enforced by the real Postgres testcontainer, so hard-coded parent ids are not an option here.
  *
  * @version ee
  *
@@ -47,14 +45,10 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Autowired
-    private ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @AfterEach
     public void afterEach() {
-        connectedUserProjectWorkflowConnectionRepository.deleteAll();
         connectedUserProjectWorkflowRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM connected_user_project");
         jdbcTemplate.update("DELETE FROM project_workflow");
@@ -69,7 +63,7 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
         ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
 
         connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProjectId);
-        connectedUserProjectWorkflow.setCatalogWorkflowUuid("11111111-1111-1111-1111-111111111111");
+        connectedUserProjectWorkflow.setAutomationWorkflowUuid("11111111-1111-1111-1111-111111111111");
         connectedUserProjectWorkflow.setProjectDeploymentId(42L);
         connectedUserProjectWorkflow.setEnabled(true);
         connectedUserProjectWorkflow.setDangling(false);
@@ -79,7 +73,7 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
         ConnectedUserProjectWorkflow reloaded = connectedUserProjectWorkflowRepository.findById(saved.getId())
             .orElseThrow();
 
-        assertThat(reloaded.getCatalogWorkflowUuid()).isEqualTo("11111111-1111-1111-1111-111111111111");
+        assertThat(reloaded.getAutomationWorkflowUuid()).isEqualTo("11111111-1111-1111-1111-111111111111");
         assertThat(reloaded.getProjectDeploymentId()).isEqualTo(42L);
         assertThat(reloaded.isEnabled()).isTrue();
         assertThat(reloaded.isDangling()).isFalse();
@@ -103,62 +97,31 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
         ConnectedUserProjectWorkflow reloaded = connectedUserProjectWorkflowRepository.findById(saved.getId())
             .orElseThrow();
 
-        assertThat(reloaded.getCatalogWorkflowUuid()).isNull();
+        assertThat(reloaded.getAutomationWorkflowUuid()).isNull();
         assertThat(reloaded.isEnabled()).isTrue();
         assertThat(reloaded.isDangling()).isFalse();
     }
 
     @Test
-    public void testConnectedUserProjectWorkflowConnectionRoundTrips() {
-        long workspaceId = insertWorkspace();
-        long projectId = insertProject(workspaceId);
-        long connectedUserProjectId = insertConnectedUserProject(projectId);
-        long projectWorkflowId = insertProjectWorkflow(projectId);
-
-        ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
-
-        connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProjectId);
-        connectedUserProjectWorkflow.setProjectWorkflowId(projectWorkflowId);
-
-        ConnectedUserProjectWorkflow savedConnectedUserProjectWorkflow = connectedUserProjectWorkflowRepository.save(
-            connectedUserProjectWorkflow);
-
-        ConnectedUserProjectWorkflowConnection connection = new ConnectedUserProjectWorkflowConnection();
-
-        connection.setConnectedUserProjectWorkflowId(savedConnectedUserProjectWorkflow.getId());
-        connection.setWorkflowNodeName("slack");
-        connection.setConnectionId(9L);
-
-        ConnectedUserProjectWorkflowConnection saved = connectedUserProjectWorkflowConnectionRepository.save(
-            connection);
-
-        assertThat(
-            connectedUserProjectWorkflowConnectionRepository.findById(saved.getId())
-                .orElseThrow()
-                .getConnectionId())
-                    .isEqualTo(9L);
-    }
-
-    @Test
-    public void testFindByConnectedUserProjectIdAndCatalogWorkflowUuid() {
+    public void testFindByConnectedUserProjectIdAndAutomationWorkflowUuid() {
         long connectedUserProjectId = insertConnectedUserProject(insertProject(insertWorkspace()));
 
         ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
 
         connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProjectId);
-        connectedUserProjectWorkflow.setCatalogWorkflowUuid("22222222-2222-2222-2222-222222222222");
+        connectedUserProjectWorkflow.setAutomationWorkflowUuid("22222222-2222-2222-2222-222222222222");
 
         connectedUserProjectWorkflowRepository.save(connectedUserProjectWorkflow);
 
         Optional<ConnectedUserProjectWorkflow> found = connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(
+            .findByConnectedUserProjectIdAndAutomationWorkflowUuid(
                 connectedUserProjectId, "22222222-2222-2222-2222-222222222222");
 
         assertThat(found).isPresent();
     }
 
     @Test
-    public void testConstraintRejectsBothProjectWorkflowIdAndCatalogWorkflowUuid() {
+    public void testConstraintRejectsBothProjectWorkflowIdAndAutomationWorkflowUuid() {
         long workspaceId = insertWorkspace();
         long projectId = insertProject(workspaceId);
         long connectedUserProjectId = insertConnectedUserProject(projectId);
@@ -168,7 +131,7 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
             jdbcTemplate.update(
                 """
                     INSERT INTO connected_user_project_workflow
-                        (connected_user_project_id, project_workflow_id, catalog_workflow_uuid)
+                        (connected_user_project_id, project_workflow_id, automation_workflow_uuid)
                     VALUES (?, ?, ?)
                     """,
                 connectedUserProjectId, projectWorkflowId, "33333333-3333-3333-3333-333333333333");
@@ -176,7 +139,7 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
     }
 
     @Test
-    public void testConstraintRejectsNeitherProjectWorkflowIdNorCatalogWorkflowUuid() {
+    public void testConstraintRejectsNeitherProjectWorkflowIdNorAutomationWorkflowUuid() {
         long connectedUserProjectId = insertConnectedUserProject(insertProject(insertWorkspace()));
 
         assertThatThrownBy(() -> {
@@ -193,22 +156,22 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
     public void testPartialUniqueIndexRejectsDuplicateReferenceRow() {
         long connectedUserProjectId = insertConnectedUserProject(insertProject(insertWorkspace()));
 
-        String catalogWorkflowUuid = "44444444-4444-4444-4444-444444444444";
+        String automationWorkflowUuid = "44444444-4444-4444-4444-444444444444";
 
         jdbcTemplate.update(
             """
-                INSERT INTO connected_user_project_workflow (connected_user_project_id, catalog_workflow_uuid)
+                INSERT INTO connected_user_project_workflow (connected_user_project_id, automation_workflow_uuid)
                 VALUES (?, ?)
                 """,
-            connectedUserProjectId, catalogWorkflowUuid);
+            connectedUserProjectId, automationWorkflowUuid);
 
         assertThatThrownBy(() -> {
             jdbcTemplate.update(
                 """
-                    INSERT INTO connected_user_project_workflow (connected_user_project_id, catalog_workflow_uuid)
+                    INSERT INTO connected_user_project_workflow (connected_user_project_id, automation_workflow_uuid)
                     VALUES (?, ?)
                     """,
-                connectedUserProjectId, catalogWorkflowUuid);
+                connectedUserProjectId, automationWorkflowUuid);
         }).isInstanceOf(DataIntegrityViolationException.class);
     }
 

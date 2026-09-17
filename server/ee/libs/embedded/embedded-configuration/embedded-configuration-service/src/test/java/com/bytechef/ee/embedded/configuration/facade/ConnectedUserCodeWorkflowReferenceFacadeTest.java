@@ -17,11 +17,9 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowSe
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
-import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -57,9 +55,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
     @Mock
-    private ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
-
-    @Mock
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Mock
@@ -88,10 +83,10 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserCodeWorkflowReferenceFacadeImpl(
-            automationWorkflowProjectFacade, connectedUserProjectWorkflowConnectionRepository,
-            connectedUserProjectWorkflowRepository, connectedUserProjectWorkflowManager, connectedUserService,
-            connectedUserWorkflowConnectionResolver, projectDeploymentFacade, projectDeploymentService,
-            projectDeploymentWorkflowService, projectWorkflowService);
+            automationWorkflowProjectFacade, connectedUserProjectWorkflowRepository,
+            connectedUserProjectWorkflowManager, connectedUserService, connectedUserWorkflowConnectionResolver,
+            projectDeploymentFacade, projectDeploymentService, projectDeploymentWorkflowService,
+            projectWorkflowService);
 
         // Every case in this class provisions a template the connected user IS permitted to see; the rejections are
         // covered by ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest. Lenient because the cases that do not
@@ -104,8 +99,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     /**
      * This is the test that keeps two connected users' connections from leaking into each other, which is the entire
      * reason {@code WorkflowTestConfiguration} couldn't be reused for reference mode: each user's
-     * {@link ConnectedUserCodeWorkflowReferenceFacadeImpl#getOrCreateReference} call must persist its OWN
-     * {@link ConnectedUserProjectWorkflowConnection} rows, never sharing or overwriting the other user's wiring.
+     * {@link ConnectedUserCodeWorkflowReferenceFacadeImpl#getOrCreateReference} call must provision its OWN
+     * {@link ProjectDeployment} with its own resolved connections, never sharing or overwriting the other user's
+     * wiring.
      */
     @Test
     void testTwoUsersReferencingTheSameCatalogWorkflowGetIndependentConnectionRows() {
@@ -149,22 +145,22 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
         Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
             .thenReturn(Optional.empty());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ProjectDeploymentWorkflowConnection>> connectionsCaptor =
+            ArgumentCaptor.forClass(List.class);
+
         Mockito.when(projectDeploymentFacade.createProjectDeployment(
-            Mockito.any(), Mockito.eq("catalog-wf-1"), Mockito.anyList()))
+            Mockito.any(), Mockito.eq("catalog-wf-1"), connectionsCaptor.capture()))
             .thenReturn(900L, 901L);
 
         facade.getOrCreateReference("userA", "catalog-uuid", Environment.PRODUCTION);
         facade.getOrCreateReference("userB", "catalog-uuid", Environment.PRODUCTION);
 
-        ArgumentCaptor<ConnectedUserProjectWorkflowConnection> captor =
-            ArgumentCaptor.forClass(ConnectedUserProjectWorkflowConnection.class);
-
-        Mockito.verify(connectedUserProjectWorkflowConnectionRepository, Mockito.times(2))
-            .save(captor.capture());
-
-        List<Long> wiredConnectionIds = captor.getAllValues()
+        List<Long> wiredConnectionIds = connectionsCaptor.getAllValues()
             .stream()
-            .map(ConnectedUserProjectWorkflowConnection::getConnectionId)
+            .flatMap(List::stream)
+            .map(ProjectDeploymentWorkflowConnection::getConnectionId)
             .toList();
 
         Assertions.assertEquals(List.of(1L, 2L), wiredConnectionIds);
@@ -328,9 +324,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Assertions.assertFalse(saved.isEnabled());
         Assertions.assertEquals("catalog-uuid", saved.getCatalogWorkflowUuid());
         Assertions.assertNull(saved.getProjectWorkflowId());
-
-        Mockito.verify(connectedUserProjectWorkflowConnectionRepository, Mockito.never())
-            .save(Mockito.any());
     }
 
     @Test
@@ -369,8 +362,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
             Mockito.eq(projectDeploymentWorkflow.getConnections())))
             .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(1L, "t1", "t1")));
-        Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
-            .thenReturn(List.of());
 
         facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
 
@@ -384,10 +375,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     /**
      * Finding 3 regression test (fixed-then-enable): provisioning previously failed with
      * {@link MissingConnectionException} and left the reference disabled with no wiring. The connected user has since
-     * created the missing "slack" connection, so re-enabling must re-run resolution, populate BOTH the
-     * {@link ConnectedUserProjectWorkflowConnection} bookkeeping rows and the real {@link ProjectDeploymentWorkflow}
-     * execution-time connections, and then proceed to enable -- never leaving the workflow running with stale/absent
-     * wiring.
+     * created the missing "slack" connection, so re-enabling must re-run resolution, populate the real
+     * {@link ProjectDeploymentWorkflow} execution-time connections, and then proceed to enable -- never leaving the
+     * workflow running with stale/absent wiring.
      */
     @Test
     void testEnableReferenceRewiresConnectionsWhenPreviouslyMissingConnectionWasFixed() {
@@ -429,22 +419,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             Mockito.eq(projectDeploymentWorkflow.getConnections())))
             .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(42L, "t1", "t1")));
 
-        // No bookkeeping rows exist yet, since the original provisioning never got past MissingConnectionException.
-        Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
-            .thenReturn(List.of());
-
         facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
-
-        ArgumentCaptor<ConnectedUserProjectWorkflowConnection> bookkeepingCaptor =
-            ArgumentCaptor.forClass(ConnectedUserProjectWorkflowConnection.class);
-
-        Mockito.verify(connectedUserProjectWorkflowConnectionRepository)
-            .save(bookkeepingCaptor.capture());
-
-        ConnectedUserProjectWorkflowConnection savedBookkeepingConnection = bookkeepingCaptor.getValue();
-
-        Assertions.assertEquals("t1", savedBookkeepingConnection.getWorkflowNodeName());
-        Assertions.assertEquals(42L, savedBookkeepingConnection.getConnectionId());
 
         ArgumentCaptor<ProjectDeploymentWorkflow> projectDeploymentWorkflowCaptor =
             ArgumentCaptor.forClass(ProjectDeploymentWorkflow.class);
@@ -515,8 +490,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Assertions.assertEquals("slack", thrown.getComponentName());
         Assertions.assertFalse(reference.isEnabled());
 
-        Mockito.verify(connectedUserProjectWorkflowConnectionRepository, Mockito.never())
-            .save(Mockito.any());
         Mockito.verify(connectedUserProjectWorkflowRepository, Mockito.never())
             .save(Mockito.any());
         Mockito.verify(projectDeploymentWorkflowService, Mockito.never())
@@ -545,7 +518,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     }
 
     @Test
-    void testDeleteReferenceRemovesConnectionsAndReferenceRow() {
+    void testDeleteReferenceRemovesReferenceRow() {
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
         connectedUserProject.setId(10L);
@@ -564,16 +537,8 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
             .thenReturn(Optional.of(reference));
 
-        ConnectedUserProjectWorkflowConnection connection =
-            new ConnectedUserProjectWorkflowConnection(5L, 1L, "t1", 1L, 0);
-
-        Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
-            .thenReturn(List.of(connection));
-
         facade.deleteReference("userA", "catalog-uuid", Environment.PRODUCTION);
 
-        Mockito.verify(connectedUserProjectWorkflowConnectionRepository)
-            .deleteById(5L);
         Mockito.verify(connectedUserProjectWorkflowRepository)
             .deleteById(1L);
     }
@@ -656,7 +621,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
     /**
      * Simulates the id a real {@code save(...)} call would generate, since the production code reads
-     * {@code saved.getId()} right after saving to stamp it onto the per-node connection rows.
+     * {@code saved.getId()} right after saving to return the persisted row.
      */
     private static Answer<ConnectedUserProjectWorkflow> withGeneratedId() {
         AtomicLong nextId = new AtomicLong(1L);
