@@ -40,10 +40,10 @@ class AutomationWorkflowProjectGraphQlControllerTest {
 
         AutomationWorkflowProjectDTO projectOne =
             new AutomationWorkflowProjectDTO(1L, "Project One", "First project", null, List.of(), true, 5, 2,
-                List.of(workflowTemplateOne), null, false);
+                List.of(workflowTemplateOne), null, false, true);
         AutomationWorkflowProjectDTO projectTwo =
             new AutomationWorkflowProjectDTO(2L, "Project Two", null, 10L, List.of(20L), false, 1, null, List.of(),
-                null, false);
+                null, false, true);
 
         when(automationWorkflowProjectFacade.getProjects()).thenReturn(List.of(projectOne, projectTwo));
 
@@ -94,16 +94,16 @@ class AutomationWorkflowProjectGraphQlControllerTest {
         AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade =
             mock(AutomationWorkflowProjectAdminFacade.class);
 
-        when(automationWorkflowProjectFacade.createProject("My Project", "desc", null, List.of(), null))
+        when(automationWorkflowProjectFacade.createProject("My Project", "desc", null, List.of(), null, null))
             .thenReturn(42L);
 
         AutomationWorkflowProjectGraphQlController controller = new AutomationWorkflowProjectGraphQlController(
             automationWorkflowProjectFacade);
 
-        String result = controller.createAutomationWorkflowProject("My Project", "desc", null, null, null);
+        String result = controller.createAutomationWorkflowProject("My Project", "desc", null, null, null, null);
 
         assertThat(result).isEqualTo("42");
-        verify(automationWorkflowProjectFacade).createProject("My Project", "desc", null, List.of(), null);
+        verify(automationWorkflowProjectFacade).createProject("My Project", "desc", null, List.of(), null, null);
     }
 
     @Test
@@ -111,18 +111,36 @@ class AutomationWorkflowProjectGraphQlControllerTest {
         AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade =
             mock(AutomationWorkflowProjectAdminFacade.class);
 
-        when(automationWorkflowProjectFacade.createProject("P", null, "Electronics", List.of("java", "spring"), null))
-            .thenReturn(99L);
+        when(automationWorkflowProjectFacade.createProject(
+            "P", null, "Electronics", List.of("java", "spring"), null, null))
+                .thenReturn(99L);
 
         AutomationWorkflowProjectGraphQlController controller = new AutomationWorkflowProjectGraphQlController(
             automationWorkflowProjectFacade);
 
-        String result =
-            controller.createAutomationWorkflowProject("P", null, "Electronics", List.of("java", "spring"), null);
+        String result = controller.createAutomationWorkflowProject(
+            "P", null, "Electronics", List.of("java", "spring"), null, null);
 
         assertThat(result).isEqualTo("99");
         verify(automationWorkflowProjectFacade).createProject("P", null, "Electronics", List.of("java", "spring"),
-            null);
+            null, null);
+    }
+
+    @Test
+    void testCreateAutomationWorkflowProjectPassesAutomationHubVisibleToFacade() {
+        AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade =
+            mock(AutomationWorkflowProjectAdminFacade.class);
+
+        when(automationWorkflowProjectFacade.createProject("P", null, null, List.of(), null, false))
+            .thenReturn(7L);
+
+        AutomationWorkflowProjectGraphQlController controller = new AutomationWorkflowProjectGraphQlController(
+            automationWorkflowProjectFacade);
+
+        String result = controller.createAutomationWorkflowProject("P", null, null, null, null, false);
+
+        assertThat(result).isEqualTo("7");
+        verify(automationWorkflowProjectFacade).createProject("P", null, null, List.of(), null, false);
     }
 
     @Test
@@ -133,12 +151,28 @@ class AutomationWorkflowProjectGraphQlControllerTest {
         AutomationWorkflowProjectGraphQlController controller =
             new AutomationWorkflowProjectGraphQlController(automationWorkflowProjectFacade);
 
-        boolean result =
-            controller.updateAutomationWorkflowProject("7", "Updated", "new desc", "Finance", List.of("api"), null);
+        boolean result = controller.updateAutomationWorkflowProject(
+            "7", "Updated", "new desc", "Finance", List.of("api"), null, null);
 
         assertThat(result).isTrue();
         verify(automationWorkflowProjectFacade).updateProject(
-            7L, "Updated", "new desc", "Finance", List.of("api"), null);
+            7L, "Updated", "new desc", "Finance", List.of("api"), null, null);
+    }
+
+    @Test
+    void testUpdateAutomationWorkflowProjectPassesAutomationHubVisibleToFacade() {
+        AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade =
+            mock(AutomationWorkflowProjectAdminFacade.class);
+
+        AutomationWorkflowProjectGraphQlController controller =
+            new AutomationWorkflowProjectGraphQlController(automationWorkflowProjectFacade);
+
+        boolean result = controller.updateAutomationWorkflowProject(
+            "7", "Updated", "new desc", "Finance", List.of("api"), null, false);
+
+        assertThat(result).isTrue();
+        verify(automationWorkflowProjectFacade).updateProject(
+            7L, "Updated", "new desc", "Finance", List.of("api"), null, false);
     }
 
     @Test

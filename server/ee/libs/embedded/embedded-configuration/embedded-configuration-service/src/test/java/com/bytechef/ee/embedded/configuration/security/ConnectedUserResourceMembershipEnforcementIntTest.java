@@ -468,7 +468,7 @@ class ConnectedUserResourceMembershipEnforcementIntTest {
             CATALOG_WORKFLOW_UUID, "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            CATALOG_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+            CATALOG_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_A, Environment.PRODUCTION))
             .thenReturn(List.of(catalogProject));
