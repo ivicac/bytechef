@@ -15,9 +15,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Hidden;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,10 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Serves {@link ConnectedUserCodeWorkflowReferenceFacade} to remote callers -- the embedded-webhook bridge's read and
- * provisioning path for automation-bridge references. {@link MissingConnectionException} is translated to HTTP 409 with
- * the missing component name in the body, mirroring how {@code RequestTriggerApiController} already reports it to its
- * own caller, so {@code RemoteConnectedUserCodeWorkflowReferenceFacadeClient} can reconstruct the exception on the
- * other side of the wire instead of losing the distinction as a generic 5xx.
+ * provisioning path for automation-bridge references. The optional JSON body carries the caller's requested connection
+ * ids by component name. {@link MissingConnectionException} is translated to HTTP 409 with the missing component name
+ * in the body, mirroring how {@code RequestTriggerApiController} already reports it to its own caller, so
+ * {@code RemoteConnectedUserCodeWorkflowReferenceFacadeClient} can reconstruct the exception on the other side of the
+ * wire instead of losing the distinction as a generic 5xx.
  *
  * @version ee
  *
@@ -69,11 +72,13 @@ public class RemoteConnectedUserCodeWorkflowReferenceFacadeController {
         })
     public ResponseEntity<?> getOrCreateReference(
         @RequestParam String externalUserId, @RequestParam String catalogWorkflowUuid,
-        @RequestParam Environment environment) {
+        @RequestParam Environment environment,
+        @RequestBody(required = false) @Nullable Map<String, Long> requestedConnectionIds) {
 
         try {
             ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-                externalUserId, catalogWorkflowUuid, environment);
+                externalUserId, catalogWorkflowUuid, environment,
+                requestedConnectionIds == null ? Map.of() : requestedConnectionIds);
 
             return ResponseEntity.ok(reference);
         } catch (MissingConnectionException missingConnectionException) {

@@ -34,11 +34,12 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfiguration;
+import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
-import com.bytechef.ee.embedded.configuration.exception.ConnectedUserProjectWorkflowErrorType;
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceAttentionResolver.ReferenceState;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
@@ -195,14 +196,17 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
      */
     @Override
     public String copyWorkflowTemplate(String externalUserId, String workflowUuid, Environment environment) {
-        boolean isPublishedCatalogWorkflowTemplate = automationWorkflowProjectFacade
+        AutomationWorkflowProjectDTO catalogProject = automationWorkflowProjectFacade
             .getPublishedProjects(externalUserId, environment)
             .stream()
-            .anyMatch(project -> CollectionUtils.stream(project.workflowTemplates())
-                .anyMatch(workflowTemplate -> Objects.equals(workflowTemplate.workflowUuid(), workflowUuid)));
+            .filter(project -> CollectionUtils.stream(project.workflowTemplates())
+                .anyMatch(workflowTemplate -> Objects.equals(workflowTemplate.workflowUuid(), workflowUuid)))
+            .findFirst()
+            .orElseThrow(
+                () -> new IllegalArgumentException("Not a published catalog workflow template: " + workflowUuid));
 
-        if (!automationWorkflowTemplate) {
-            throw new IllegalArgumentException("Not a published automation workflow template: " + workflowUuid);
+        if (catalogProject.codeWorkflowProject()) {
+            throw new CodeWorkflowNotCopyableException(workflowUuid);
         }
 
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(

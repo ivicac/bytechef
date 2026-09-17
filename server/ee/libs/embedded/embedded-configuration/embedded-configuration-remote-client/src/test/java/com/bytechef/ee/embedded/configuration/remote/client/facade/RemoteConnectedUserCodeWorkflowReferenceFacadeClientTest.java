@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.configuration.remote.client.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -20,6 +21,7 @@ import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.tenant.TenantContext;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -215,6 +217,33 @@ class RemoteConnectedUserCodeWorkflowReferenceFacadeClientTest {
         assertThat(result.isDangling()).isTrue();
         assertThat(result.getDanglingReason()).isEqualTo("workflow deleted");
         assertThat(result.getVersion()).isEqualTo(3);
+
+        server.verify();
+    }
+
+    @Test
+    void testGetOrCreateReferenceSendsTheRequestedConnectionIdsAsTheBody() {
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl("http://configuration-app");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+            .build();
+
+        server.expect(
+            requestTo("http://configuration-app/remote/connected-user-code-workflow-reference-facade"
+                + "/get-or-create-reference?externalUserId=ext-1&catalogWorkflowUuid=uuid-1&environment=PRODUCTION"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(content().json("{\"slack\":7}"))
+            .andRespond(withSuccess(
+                "{\"id\":5,\"connectedUserProjectId\":15,\"enabled\":true,\"dangling\":false,\"version\":0}",
+                MediaType.APPLICATION_JSON));
+
+        RemoteConnectedUserCodeWorkflowReferenceFacadeClient client =
+            new RemoteConnectedUserCodeWorkflowReferenceFacadeClient(new LoadBalancedRestClient(builder));
+
+        ConnectedUserProjectWorkflow result = client.getOrCreateReference(
+            "ext-1", "uuid-1", Environment.PRODUCTION, Map.of("slack", 7L));
+
+        assertThat(result.getId()).isEqualTo(5L);
 
         server.verify();
     }

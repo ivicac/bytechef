@@ -11,16 +11,15 @@ import com.bytechef.atlas.configuration.exception.WorkflowErrorType;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
-import com.bytechef.automation.configuration.domain.ProjectWorkflow;
-import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.security.SkipAutomationAuthorization;
-import com.bytechef.automation.configuration.service.ProjectDeploymentService;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
-import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -47,214 +46,63 @@ import org.springframework.transaction.annotation.Transactional;
 @SkipAutomationAuthorization
 public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUserCodeWorkflowReferenceFacade {
 
-    private static final String MARKER = "__EMBEDDED__";
-
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
-    private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
+    private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+    private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
     private final ConnectedUserService connectedUserService;
-    private final ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver;
-    private final ProjectDeploymentFacade projectDeploymentFacade;
-    private final ProjectDeploymentService projectDeploymentService;
-    private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
-    private final ProjectWorkflowService projectWorkflowService;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserCodeWorkflowReferenceFacadeImpl(
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
-        ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
-        ConnectedUserService connectedUserService,
-        ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver,
-        ProjectDeploymentFacade projectDeploymentFacade, ProjectDeploymentService projectDeploymentService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        ProjectWorkflowService projectWorkflowService) {
+        ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
+        ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
+        ConnectedUserService connectedUserService) {
 
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
-        this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
+        this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
+        this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
         this.connectedUserService = connectedUserService;
-        this.connectedUserWorkflowConnectionResolver = connectedUserWorkflowConnectionResolver;
-        this.projectDeploymentFacade = projectDeploymentFacade;
-        this.projectDeploymentService = projectDeploymentService;
-        this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
-        this.projectWorkflowService = projectWorkflowService;
+    }
+
+    @Override
+    public void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment) {
+        ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
+
+        if (!reference.isDangling()) {
+            connectedUserReferenceDeploymentManager.removeWorkflow(
+                reference.getProjectDeploymentId(), catalogWorkflowUuid);
+        }
+
+        connectedUserProjectWorkflowRepository.deleteById(reference.getId());
     }
 
     /**
-     * Creates the reference on first use, provisioning a dedicated {@link ProjectDeployment} for this (catalog project,
-     * connected user) pair and auto-wiring per-slot connections through
-     * {@link ConnectedUserWorkflowConnectionResolver}.
-     *
-     * <p>
-     * A component with no matching connection for the connected user does not abort provisioning: the reference row is
-     * still created (and any successfully resolved connections up to that point are still wired), just left
-     * {@code enabled = false}, and {@link MissingConnectionException} is rethrown afterward so the caller can surface
-     * which connection is missing.
-     *
-     * <p>
-     * {@code noRollbackFor} is required for that "still create the row, just disabled" contract to actually hold:
-     * without it, Spring's default rollback rule for a {@code @Transactional} method rolls back everything this method
-     * wrote (the {@code ConnectedUserProject}, the disabled reference row, any partially-resolved connection rows) the
-     * instant {@link MissingConnectionException} propagates out -- silently contradicting this method's own documented
-     * behavior. This only surfaces against a real transactional datasource; mocked unit tests never exercise the real
-     * proxy chain, so they never catch it.
+     * {@code noRollbackFor} keeps the reference saved disabled when enabling is refused with a 409: without it Spring's
+     * default rollback rule would undo that write the instant the exception propagates.
      */
     @Override
-    @Transactional(noRollbackFor = MissingConnectionException.class)
-    public ConnectedUserProjectWorkflow getOrCreateReference(
-        String externalUserId, String catalogWorkflowUuid, Environment environment) {
-
-        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager
-            .getOrCreateConnectedUserProject(externalUserId, environment);
-
-        Optional<ConnectedUserProjectWorkflow> existing = connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), catalogWorkflowUuid);
-
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        validateCatalogWorkflowTemplateVisible(externalUserId, catalogWorkflowUuid, environment);
-
-        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(catalogWorkflowUuid);
-        ProjectWorkflow catalogProjectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(
-            catalogWorkflowId);
-
-        long catalogProjectId = catalogProjectWorkflow.getProjectId();
-
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
-
-        ResolvedWorkflowConnections resolvedWorkflowConnections = connectedUserWorkflowConnectionResolver.resolve(
-            catalogWorkflowId, connectedUser.getId(), Map.of(), List.of());
-
-        long projectDeploymentId = getOrCreateProjectDeployment(
-            catalogProjectId, externalUserId, environment, catalogWorkflowId,
-            resolvedWorkflowConnections.connections());
-
-        ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
-
-        connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProject.getId());
-        connectedUserProjectWorkflow.setCatalogWorkflowUuid(catalogWorkflowUuid);
-        connectedUserProjectWorkflow.setProjectDeploymentId(projectDeploymentId);
-        connectedUserProjectWorkflow.setEnabled(resolvedWorkflowConnections.isComplete());
-
-        ConnectedUserProjectWorkflow saved = connectedUserProjectWorkflowRepository.save(
-            connectedUserProjectWorkflow);
-
-        if (!resolvedWorkflowConnections.isComplete()) {
-            throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
-        }
-
-        return saved;
-    }
-
-    /**
-     * Provisioning-time authorization, mirroring {@link ConnectedUserProjectFacadeImpl#copyWorkflowTemplate}: the
-     * caller-supplied {@code catalogWorkflowUuid} must belong to a template the PERMISSION-FILTERED catalog would show
-     * this connected user, so a template the catalog listing hides can never be provisioned by uuid. An unknown uuid
-     * and a uuid the user may not see both miss this same membership test and fail identically, so nothing here reveals
-     * whether the template exists.
-     *
-     * <p>
-     * Deliberately called AFTER the existing-reference early return in {@link #getOrCreateReference}: this gates
-     * PROVISIONING only. A reference already provisioned keeps running even if the vendor later narrows the permission
-     * expression -- revoking access to already running automations is a separate product decision.
-     */
-    private void validateCatalogWorkflowTemplateVisible(
-        String externalUserId, String catalogWorkflowUuid, Environment environment) {
-
-        boolean visibleCatalogWorkflowTemplate = automationWorkflowProjectFacade
-            .getPublishedProjects(externalUserId, environment)
-            .stream()
-            .flatMap(project -> CollectionUtils.stream(project.workflowTemplates()))
-            .anyMatch(workflowTemplate -> Objects.equals(workflowTemplate.workflowUuid(), catalogWorkflowUuid));
-
-        if (!visibleCatalogWorkflowTemplate) {
-            throw new IllegalArgumentException(
-                "Not a published catalog workflow template: " + catalogWorkflowUuid);
-        }
-    }
-
-    private long getOrCreateProjectDeployment(
-        long catalogProjectId, String externalUserId, Environment environment, String catalogWorkflowId,
-        List<ProjectDeploymentWorkflowConnection> connections) {
-
-        // The environment must be part of the name: the same external user can be connected in more than one
-        // Environment (e.g. PRODUCTION and STAGING), and the ProjectDeployment lookup below is scoped to
-        // (catalogProjectId, name) only -- without the environment suffix, the two environments would collide onto
-        // the single deployment created by whichever environment provisioned first.
-        String name = MARKER + externalUserId + "__" + environment.name();
-
-        return projectDeploymentService.fetchProjectDeploymentByName(catalogProjectId, name)
-            .map(ProjectDeployment::getId)
-            .orElseGet(() -> {
-                ProjectDeployment projectDeployment = new ProjectDeployment();
-
-                projectDeployment.setEnabled(true);
-                projectDeployment.setEnvironment(environment);
-                projectDeployment.setName(name);
-                projectDeployment.setProjectId(catalogProjectId);
-                projectDeployment.setProjectVersion(1);
-
-                return projectDeploymentFacade.createProjectDeployment(
-                    projectDeployment, catalogWorkflowId, connections);
-            });
-    }
-
-    /**
-     * Enabling a reference re-runs {@link ConnectedUserWorkflowConnectionResolver#resolve} and re-populates the
-     * connection wiring before flipping the flag, so that a reference whose provisioning (or a previous enable) failed
-     * with {@link MissingConnectionException} does not silently start running once re-enabled: if the connected user
-     * has since created the missing connection, the wiring is refreshed and enabling proceeds; if the connection is
-     * still missing, the same {@link MissingConnectionException} propagates and the reference is left unchanged --
-     * enabling must never succeed while wiring is missing or stale.
-     */
-    @Override
+    @Transactional(noRollbackFor = {
+        MissingConnectionException.class, MissingInputException.class
+    })
     public void enableReference(
         String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment) {
 
         ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
 
-        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(catalogWorkflowUuid);
+        if (reference.isDangling()) {
+            if (enable) {
+                throw new ConfigurationException(
+                    "Reference to catalog workflow %s is dangling".formatted(catalogWorkflowUuid),
+                    WorkflowErrorType.WORKFLOW_NOT_FOUND);
+            }
 
-        if (enable) {
-            rewireConnections(reference, catalogWorkflowId, externalUserId, environment);
+            return;
         }
 
-        reference.setEnabled(enable);
-
-        connectedUserProjectWorkflowRepository.save(reference);
-
-        projectDeploymentFacade.enableProjectDeploymentWorkflow(
-            reference.getProjectDeploymentId(), catalogWorkflowId, enable);
-    }
-
-    /**
-     * Replaces the underlying {@link ProjectDeploymentWorkflow}'s real execution-time connections with a freshly
-     * resolved set, mirroring the wiring performed in {@link #getOrCreateReference}. {@link MissingConnectionException}
-     * is thrown before the {@link ProjectDeploymentWorkflow} is touched, so a still-missing connection leaves its
-     * connections untouched and aborts {@link #enableReference} before the reference is flipped to enabled.
-     */
-    private void rewireConnections(
-        ConnectedUserProjectWorkflow reference, String catalogWorkflowId, String externalUserId,
-        Environment environment) {
-
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
-
-        ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
-            .getProjectDeploymentWorkflow(reference.getProjectDeploymentId(), catalogWorkflowId);
-
-        ResolvedWorkflowConnections resolvedWorkflowConnections = connectedUserWorkflowConnectionResolver.resolve(
-            catalogWorkflowId, connectedUser.getId(), Map.of(), projectDeploymentWorkflow.getConnections());
-
-        if (!resolvedWorkflowConnections.isComplete()) {
-            throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
-        }
-
-        projectDeploymentWorkflow.setConnections(resolvedWorkflowConnections.connections());
-
-        projectDeploymentWorkflowService.update(projectDeploymentWorkflow);
+        applyWorkflow(reference, externalUserId, environment, enable, true, Map.of());
     }
 
     @Override
@@ -262,11 +110,78 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         return connectedUserProjectWorkflowRepository.findAllByConnectedUserId(connectedUserId);
     }
 
+    /**
+     * Creates the reference on first use: the template's row is written into the connected user's deployment of the
+     * catalog project, created at the project's last published version when it does not exist yet, keeping every other
+     * row. Repeating the call with {@code requestedConnectionIds} re-resolves an existing reference's connections.
+     *
+     * <p>
+     * A component with no matching connection does not abort provisioning: the reference and its row are still written,
+     * disabled, and {@link MissingConnectionException} is thrown afterward. {@code noRollbackFor} is what keeps those
+     * writes; mocked unit tests never exercise the real transactional proxy, so they cannot catch its absence.
+     */
     @Override
-    public void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment) {
-        ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
+    @Transactional(noRollbackFor = {
+        MissingConnectionException.class, MissingInputException.class
+    })
+    public ConnectedUserProjectWorkflow getOrCreateReference(
+        String externalUserId, String catalogWorkflowUuid, Environment environment) {
 
-        connectedUserProjectWorkflowRepository.deleteById(reference.getId());
+        return provisionReference(externalUserId, catalogWorkflowUuid, environment, Map.of());
+    }
+
+    /**
+     * See {@link #getOrCreateReference(String, String, Environment)}; both overloads carry the same transaction
+     * attribute and delegate to one private method, so neither reaches the other through {@code this}.
+     */
+    @Override
+    @Transactional(noRollbackFor = {
+        MissingConnectionException.class, MissingInputException.class
+    })
+    public ConnectedUserProjectWorkflow getOrCreateReference(
+        String externalUserId, String catalogWorkflowUuid, Environment environment,
+        Map<String, Long> requestedConnectionIds) {
+
+        return provisionReference(externalUserId, catalogWorkflowUuid, environment, requestedConnectionIds);
+    }
+
+    private ConnectedUserProjectWorkflow provisionReference(
+        String externalUserId, String catalogWorkflowUuid, Environment environment,
+        Map<String, Long> requestedConnectionIds) {
+
+        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager
+            .getOrCreateConnectedUserProject(externalUserId, environment);
+
+        Optional<ConnectedUserProjectWorkflow> existingReference = connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), catalogWorkflowUuid);
+
+        if (existingReference.isPresent()) {
+            ConnectedUserProjectWorkflow reference = existingReference.get();
+
+            if (!requestedConnectionIds.isEmpty() && !reference.isDangling()) {
+                return applyWorkflow(
+                    reference, externalUserId, environment, reference.isEnabled(), false, requestedConnectionIds);
+            }
+
+            return reference;
+        }
+
+        AutomationWorkflowProjectDTO catalogProject = getVisibleCatalogProject(
+            externalUserId, catalogWorkflowUuid, environment);
+
+        long projectDeploymentId = connectedUserReferenceDeploymentManager.getOrCreateDeployment(
+            catalogProject.id(), externalUserId, environment);
+
+        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+
+        reference.setCatalogWorkflowUuid(catalogWorkflowUuid);
+        reference.setConnectedUserProjectId(connectedUserProject.getId());
+        reference.setEnabled(false);
+        reference.setProjectDeploymentId(projectDeploymentId);
+
+        ConnectedUserProjectWorkflow savedReference = connectedUserProjectWorkflowRepository.save(reference);
+
+        return applyWorkflow(savedReference, externalUserId, environment, true, false, requestedConnectionIds);
     }
 
     @Override
@@ -287,9 +202,87 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
 
             reference.setDangling(true);
             reference.setDanglingReason("Removed from the catalog project on redeploy");
+            reference.setEnabled(false);
 
             connectedUserProjectWorkflowRepository.save(reference);
         }
+    }
+
+    /**
+     * Resolves the reference at its deployment's current version, writes its row (other rows are kept) and saves the
+     * reference. When enabling was asked for, a missing required connection throws {@link MissingConnectionException}
+     * and a missing required input throws {@link MissingInputException} -- in both cases AFTER the reference is saved
+     * disabled. On provisioning ({@code throwOnMissingInput == false}) a missing input is not an error: inputs are
+     * written after provisioning in both the hub and the API flow, so the reference is simply left disabled.
+     */
+    private ConnectedUserProjectWorkflow applyWorkflow(
+        ConnectedUserProjectWorkflow reference, String externalUserId, Environment environment, boolean enable,
+        boolean throwOnMissingInput, Map<String, Long> requestedConnectionIds) {
+
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
+        ProjectDeployment projectDeployment = connectedUserReferenceDeploymentManager.getDeployment(
+            reference.getProjectDeploymentId());
+
+        int projectVersion = projectDeployment.getProjectVersion();
+        String catalogWorkflowUuid = reference.getCatalogWorkflowUuid();
+
+        String workflowId = connectedUserReferenceDeploymentManager.getWorkflowId(
+            projectDeployment.getProjectId(), projectVersion, catalogWorkflowUuid);
+
+        Optional<ProjectDeploymentWorkflow> currentRow = connectedUserReferenceDeploymentManager.fetchWorkflowRow(
+            reference.getProjectDeploymentId(), workflowId);
+
+        List<ProjectDeploymentWorkflowConnection> currentConnections = currentRow
+            .map(ProjectDeploymentWorkflow::getConnections)
+            .orElse(List.of());
+        Map<String, ?> currentInputs = currentRow.<Map<String, ?>>map(ProjectDeploymentWorkflow::getInputs)
+            .orElse(Map.of());
+
+        ReferenceResolution resolution = connectedUserReferenceDeploymentManager.resolveReference(
+            connectedUser.getId(), workflowId, enable, requestedConnectionIds, currentConnections, currentInputs);
+
+        RowSpec rowSpec = resolution.rowSpec();
+
+        connectedUserReferenceDeploymentManager.putWorkflows(
+            reference.getProjectDeploymentId(), projectVersion, Map.of(catalogWorkflowUuid, rowSpec));
+
+        reference.setEnabled(rowSpec.enabled());
+
+        ConnectedUserProjectWorkflow savedReference = connectedUserProjectWorkflowRepository.save(reference);
+
+        if (enable && resolution.missingComponentName() != null) {
+            throw new MissingConnectionException(resolution.missingComponentName());
+        }
+
+        if (enable && throwOnMissingInput && resolution.missingInputName() != null) {
+            throw new MissingInputException(resolution.missingInputName());
+        }
+
+        return savedReference;
+    }
+
+    /**
+     * Provisioning-time authorization, mirroring {@link ConnectedUserProjectFacadeImpl#copyWorkflowTemplate}: the
+     * caller-supplied {@code catalogWorkflowUuid} must belong to a template the PERMISSION-FILTERED catalog would show
+     * this connected user, so a template the catalog listing hides can never be provisioned by uuid. An unknown uuid
+     * and a uuid the user may not see both miss this same membership test and fail identically, so nothing here reveals
+     * whether the template exists.
+     *
+     * <p>
+     * Deliberately called AFTER the existing-reference early return in {@link #getOrCreateReference}: this gates
+     * PROVISIONING only. A reference already provisioned keeps running even if the vendor later narrows the permission
+     * expression -- revoking access to already running automations is a separate product decision.
+     */
+    private AutomationWorkflowProjectDTO getVisibleCatalogProject(
+        String externalUserId, String catalogWorkflowUuid, Environment environment) {
+
+        return automationWorkflowProjectFacade.getPublishedProjects(externalUserId, environment)
+            .stream()
+            .filter(project -> CollectionUtils.stream(project.workflowTemplates())
+                .anyMatch(workflowTemplate -> Objects.equals(workflowTemplate.workflowUuid(), catalogWorkflowUuid)))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Not a published catalog workflow template: " + catalogWorkflowUuid));
     }
 
     private ConnectedUserProjectWorkflow requireReference(
