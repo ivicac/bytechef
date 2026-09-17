@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
@@ -20,6 +21,7 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedCo
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestTestConfiguration;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +79,7 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
     @WithMockUser(username = EXTERNAL_USER_ID)
     public void testFrontendProvisionUsesThePrincipalAsExternalUserId() {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of())))
                 .thenReturn(new ConnectedUserProjectWorkflow());
 
         try {
@@ -92,13 +94,36 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
         }
 
         verify(connectedUserCodeWorkflowReferenceFacade)
-            .getOrCreateReference(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class));
+            .getOrCreateReference(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of()));
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testFrontendProvisionForwardsRequestedConnectionsFromTheBody() {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of("slack", 12L))))
+                .thenReturn(new ConnectedUserProjectWorkflow());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflow-templates/{workflowUuid}/provision", WORKFLOW_UUID)
+                .bodyValue(Map.of("connections", Map.of("slack", 12)))
+                .exchange()
+                .expectStatus()
+                .isNoContent();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserCodeWorkflowReferenceFacade).getOrCreateReference(
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of("slack", 12L)));
     }
 
     @Test
     @WithMockUser(username = EXTERNAL_USER_ID)
     public void testFrontendProvisionMissingConnectionReturns409() {
-        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(any(), any(), any()))
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(any(), any(), any(), any()))
             .thenThrow(new MissingConnectionException("slack"));
 
         try {
@@ -116,6 +141,25 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
         }
     }
 
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testFrontendProvisionConnectionNotEntitledReturns400() {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(any(), any(), any(), any()))
+            .thenThrow(new ConnectionNotEntitledException("slack", 12L));
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflow-templates/{workflowUuid}/provision", WORKFLOW_UUID)
+                .bodyValue(Map.of("connections", Map.of("slack", 12)))
+                .exchange()
+                .expectStatus()
+                .isBadRequest();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
     /**
      * A template the connected user's permission expression hides and a uuid that does not exist at all both reach the
      * controller as the same {@link IllegalArgumentException} from the facade, and must leave the HTTP layer as the
@@ -125,12 +169,12 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
     @WithMockUser(username = EXTERNAL_USER_ID)
     public void testFrontendProvisionHiddenTemplateIsIndistinguishableFromUnknownUuid() {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
                     new IllegalArgumentException(
                         "Not a published catalog workflow template: " + HIDDEN_WORKFLOW_UUID));
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
                     new IllegalArgumentException(
                         "Not a published catalog workflow template: " + UNKNOWN_WORKFLOW_UUID));

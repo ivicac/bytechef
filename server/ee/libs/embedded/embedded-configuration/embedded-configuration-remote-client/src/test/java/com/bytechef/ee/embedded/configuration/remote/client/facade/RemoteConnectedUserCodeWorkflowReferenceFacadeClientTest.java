@@ -16,7 +16,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.tenant.TenantContext;
@@ -29,6 +31,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
@@ -94,6 +97,99 @@ class RemoteConnectedUserCodeWorkflowReferenceFacadeClientTest {
         assertThatThrownBy(() -> client.getOrCreateReference("ext-1", "uuid-1", Environment.PRODUCTION))
             .isInstanceOf(MissingConnectionException.class)
             .hasFieldOrPropertyWithValue("componentName", "slack");
+    }
+
+    @Test
+    void testGetOrCreateReferenceTranslates409IntoMissingInputException() {
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl("http://configuration-app");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+            .build();
+
+        server.expect(
+            requestTo("http://configuration-app/remote/connected-user-code-workflow-reference-facade"
+                + "/get-or-create-reference?externalUserId=ext-1&catalogWorkflowUuid=uuid-1&environment=PRODUCTION"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(
+                withStatus(HttpStatus.CONFLICT)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"missingInputName\":\"channel\"}"));
+
+        RemoteConnectedUserCodeWorkflowReferenceFacadeClient client =
+            new RemoteConnectedUserCodeWorkflowReferenceFacadeClient(new LoadBalancedRestClient(builder));
+
+        assertThatThrownBy(() -> client.getOrCreateReference("ext-1", "uuid-1", Environment.PRODUCTION))
+            .isInstanceOf(MissingInputException.class)
+            .hasFieldOrPropertyWithValue("inputName", "channel");
+    }
+
+    @Test
+    void testGetOrCreateReferenceTranslates400IntoConnectionNotEntitledException() {
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl("http://configuration-app");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+            .build();
+
+        server.expect(
+            requestTo("http://configuration-app/remote/connected-user-code-workflow-reference-facade"
+                + "/get-or-create-reference?externalUserId=ext-1&catalogWorkflowUuid=uuid-1&environment=PRODUCTION"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(
+                withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"componentName\":\"slack\",\"connectionId\":12}"));
+
+        RemoteConnectedUserCodeWorkflowReferenceFacadeClient client =
+            new RemoteConnectedUserCodeWorkflowReferenceFacadeClient(new LoadBalancedRestClient(builder));
+
+        assertThatThrownBy(() -> client.getOrCreateReference("ext-1", "uuid-1", Environment.PRODUCTION))
+            .isInstanceOf(ConnectionNotEntitledException.class)
+            .hasFieldOrPropertyWithValue("componentName", "slack")
+            .hasFieldOrPropertyWithValue("connectionId", 12L);
+    }
+
+    @Test
+    void testGetOrCreateReferenceDoesNotTranslateA400WithoutTheRefusedConnection() {
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl("http://configuration-app");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+            .build();
+
+        server.expect(
+            requestTo("http://configuration-app/remote/connected-user-code-workflow-reference-facade"
+                + "/get-or-create-reference?externalUserId=ext-1&catalogWorkflowUuid=uuid-1&environment=PRODUCTION"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        RemoteConnectedUserCodeWorkflowReferenceFacadeClient client =
+            new RemoteConnectedUserCodeWorkflowReferenceFacadeClient(new LoadBalancedRestClient(builder));
+
+        assertThatThrownBy(() -> client.getOrCreateReference("ext-1", "uuid-1", Environment.PRODUCTION))
+            .isInstanceOf(HttpClientErrorException.BadRequest.class);
+    }
+
+    @Test
+    void testGetOrCreateReferenceDoesNotTranslateA409WithoutAKnownKey() {
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl("http://configuration-app");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+            .build();
+
+        server.expect(
+            requestTo("http://configuration-app/remote/connected-user-code-workflow-reference-facade"
+                + "/get-or-create-reference?externalUserId=ext-1&catalogWorkflowUuid=uuid-1&environment=PRODUCTION"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(
+                withStatus(HttpStatus.CONFLICT)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{}"));
+
+        RemoteConnectedUserCodeWorkflowReferenceFacadeClient client =
+            new RemoteConnectedUserCodeWorkflowReferenceFacadeClient(new LoadBalancedRestClient(builder));
+
+        assertThatThrownBy(() -> client.getOrCreateReference("ext-1", "uuid-1", Environment.PRODUCTION))
+            .isInstanceOf(HttpClientErrorException.Conflict.class)
+            .isNotInstanceOf(MissingInputException.class);
     }
 
     @Test

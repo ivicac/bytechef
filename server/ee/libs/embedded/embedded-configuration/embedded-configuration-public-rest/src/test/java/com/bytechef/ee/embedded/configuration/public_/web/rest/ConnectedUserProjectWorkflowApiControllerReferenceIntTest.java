@@ -18,15 +18,22 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestSharedMocks;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestTestConfiguration;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,7 +97,7 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
         ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
 
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of())))
                 .thenReturn(reference);
 
         try {
@@ -106,14 +113,14 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
         }
 
         verify(connectedUserCodeWorkflowReferenceFacade)
-            .getOrCreateReference(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class));
+            .getOrCreateReference(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of()));
     }
 
     @Test
     @WithMockUser(username = EXTERNAL_USER_ID)
     public void testExplicitProvisionMissingConnectionReturns409() {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of())))
                 .thenThrow(new MissingConnectionException("slack"));
 
         try {
@@ -141,12 +148,12 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
     @WithMockUser(username = EXTERNAL_USER_ID)
     public void testExplicitProvisionHiddenTemplateIsIndistinguishableFromUnknownUuid() {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
                     new IllegalArgumentException(
                         "Not a published catalog workflow template: " + HIDDEN_WORKFLOW_UUID));
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class)))
+            eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
                     new IllegalArgumentException(
                         "Not a published catalog workflow template: " + UNKNOWN_WORKFLOW_UUID));
@@ -195,7 +202,7 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
         assertThat(exceptionThrown).isTrue();
 
         verify(connectedUserCodeWorkflowReferenceFacade, never())
-            .getOrCreateReference(any(), any(), any());
+            .getOrCreateReference(any(), any(), any(), any());
     }
 
     @Test
@@ -327,6 +334,61 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
                 .expectBody()
                 .jsonPath("$.missingConnectionComponentName")
                 .isEqualTo("slack");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testEnableReferenceMissingInputReturns409() {
+        doThrow(new MissingInputException("channel"))
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(true), any());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflows/{workflowUuid}/enable", WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingInputName")
+                .isEqualTo("channel");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testListingReportsAttentionReasonFromTheFacadeDto() {
+        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+
+        reference.setId(1L);
+        reference.setCatalogWorkflowUuid(WORKFLOW_UUID);
+
+        Workflow workflow = new Workflow(
+            WORKFLOW_UUID, JsonUtils.write(Map.of("label", "Sync leads", "description", "d")), Workflow.Format.JSON);
+
+        ConnectedUserProjectWorkflowDTO connectedUserProjectWorkflowDTO = ConnectedUserProjectWorkflowDTO.ofReference(
+            7L, reference, new WorkflowDTO(workflow, List.of(), List.of()), List.of(), List.of(), Map.of(),
+            "MISSING_CONNECTION:slack");
+
+        when(connectedUserProjectFacade.getConnectedUserProjectWorkflows(eq(EXTERNAL_USER_ID), any()))
+            .thenReturn(List.of(connectedUserProjectWorkflowDTO));
+
+        try {
+            webTestClient
+                .get()
+                .uri("/v1/automation/workflows")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$[0].attentionReason")
+                .isEqualTo("MISSING_CONNECTION:slack");
         } catch (Exception exception) {
             Assertions.fail(exception);
         }

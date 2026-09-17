@@ -8,7 +8,9 @@
 package com.bytechef.ee.embedded.configuration.remote.web.rest.facade;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -28,10 +30,11 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Serves {@link ConnectedUserCodeWorkflowReferenceFacade} to remote callers -- the embedded-webhook bridge's read and
  * provisioning path for automation-bridge references. The optional JSON body carries the caller's requested connection
- * ids by component name. {@link MissingConnectionException} is translated to HTTP 409 with the missing component name
- * in the body, mirroring how {@code RequestTriggerApiController} already reports it to its own caller, so
- * {@code RemoteConnectedUserCodeWorkflowReferenceFacadeClient} can reconstruct the exception on the other side of the
- * wire instead of losing the distinction as a generic 5xx.
+ * ids by component name. {@link MissingConnectionException} and {@link MissingInputException} are each translated to
+ * HTTP 409 with their own body shape, and {@link ConnectionNotEntitledException} to an HTTP 400 naming the refused
+ * component and connection id, mirroring how {@code RequestTriggerApiController} already reports the first to its own
+ * caller, so {@code RemoteConnectedUserCodeWorkflowReferenceFacadeClient} can reconstruct the right exception on the
+ * other side of the wire instead of losing the distinction as a generic 5xx.
  *
  * @version ee
  *
@@ -84,6 +87,15 @@ public class RemoteConnectedUserCodeWorkflowReferenceFacadeController {
         } catch (MissingConnectionException missingConnectionException) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
+        } catch (MissingInputException missingInputException) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("missingInputName", missingInputException.getInputName()));
+        } catch (ConnectionNotEntitledException connectionNotEntitledException) {
+            return ResponseEntity.badRequest()
+                .body(
+                    Map.of(
+                        "componentName", connectionNotEntitledException.getComponentName(),
+                        "connectionId", connectionNotEntitledException.getConnectionId()));
         }
     }
 }

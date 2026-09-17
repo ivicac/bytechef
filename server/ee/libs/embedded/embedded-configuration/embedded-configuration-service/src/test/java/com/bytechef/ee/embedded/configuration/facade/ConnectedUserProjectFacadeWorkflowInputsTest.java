@@ -56,7 +56,7 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Mock
-    private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+    private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
 
     @Mock
     private EnvironmentService environmentService;
@@ -75,10 +75,10 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
-            null, null, null, null, connectedUserProjectWorkflowManager, connectedUserProjectWorkflowRepository, null,
-            connectedUserReferenceDeploymentManager, null, null, null, environmentService, null, null, null, null,
-            null, projectDeploymentService, projectDeploymentWorkflowService, null, null, null, projectWorkflowService,
-            null, null, null, null, null);
+            null, null, null, connectedUserCodeWorkflowReferenceFacade, connectedUserProjectWorkflowManager,
+            connectedUserProjectWorkflowRepository, null,
+            null, null, null, null, environmentService, null, null, null, null, null, projectDeploymentService,
+            projectDeploymentWorkflowService, null, null, null, projectWorkflowService, null, null, null, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
@@ -136,11 +136,12 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     }
 
     /**
-     * A workflowUuid that belongs to a reference row is delegated to the reference deployment manager instead of the
-     * caller's own project deployment -- the same reference-vs-copy branch {@code enableProjectWorkflow} makes.
+     * A workflowUuid that belongs to a reference row is delegated to the reference facade, which serializes it with the
+     * connected user's other reference writes, instead of the caller's own project deployment -- the same
+     * reference-vs-copy branch {@code enableProjectWorkflow} makes.
      */
     @Test
-    void testUpdateProjectWorkflowInputsDelegatesToReferenceDeploymentManagerForAReferenceRow() {
+    void testUpdateProjectWorkflowInputsDelegatesToReferenceFacadeForAReferenceRow() {
         ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
 
         reference.setCatalogWorkflowUuid(WORKFLOW_UUID);
@@ -152,7 +153,8 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
 
         facade.updateProjectWorkflowInputs(EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("channel", "#alerts"), 0L);
 
-        verify(connectedUserReferenceDeploymentManager).updateInputs(40L, WORKFLOW_UUID, Map.of("channel", "#alerts"));
+        verify(connectedUserCodeWorkflowReferenceFacade).updateReferenceInputs(
+            EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("channel", "#alerts"), Environment.PRODUCTION);
         verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
     }
 }

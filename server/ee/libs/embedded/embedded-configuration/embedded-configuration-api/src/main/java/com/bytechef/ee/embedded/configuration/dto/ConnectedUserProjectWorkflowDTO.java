@@ -14,6 +14,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @version ee
@@ -25,7 +26,8 @@ public record ConnectedUserProjectWorkflowDTO(
     long id, long connectedUserId, boolean enabled, Instant lastExecutionDate, long projectId, WorkflowDTO workflow,
     String workflowUuid, Integer workflowVersion, Kind kind, String catalogWorkflowUuid,
     String copiedFromWorkflowUuid, boolean dangling, List<ConnectedUserWorkflowTemplateDTO.Component> components,
-    List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+    List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues,
+    @Nullable String attentionReason) {
 
     /**
      * {@code COPY} when the workflow is the connected user's own editable copy; {@code REFERENCE} when it points at a
@@ -58,7 +60,7 @@ public record ConnectedUserProjectWorkflowDTO(
             connectedUserProjectWorkflow.getId(), connectedUserId, enabled, lastExecutionDate,
             projectWorkflow.getProjectId(), workflow, projectWorkflow.getUuidAsString(),
             connectedUserProjectWorkflow.getWorkflowVersion(), Kind.COPY, null,
-            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, inputs, inputValues);
+            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, inputs, inputValues, null);
     }
 
     /**
@@ -68,17 +70,19 @@ public record ConnectedUserProjectWorkflowDTO(
         long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
 
-        return ofReference(connectedUserId, reference, catalogWorkflow, components, List.of(), Map.of());
+        return ofReference(connectedUserId, reference, catalogWorkflow, components, List.of(), Map.of(), null);
     }
 
     public static ConnectedUserProjectWorkflowDTO ofReference(
         long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components,
-        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues) {
+        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues,
+        @Nullable String attentionReason) {
 
         return new ConnectedUserProjectWorkflowDTO(
             reference.getId(), connectedUserId, reference.isEnabled(), null, 0L, catalogWorkflow,
             reference.getCatalogWorkflowUuid(), reference.getWorkflowVersion(), Kind.REFERENCE,
-            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, inputs, inputValues);
+            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, inputs, inputValues,
+            attentionReason);
     }
 }

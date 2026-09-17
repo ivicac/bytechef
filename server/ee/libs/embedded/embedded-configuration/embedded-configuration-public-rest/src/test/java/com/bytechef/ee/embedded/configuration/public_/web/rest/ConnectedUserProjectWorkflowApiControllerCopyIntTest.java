@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestSharedMocks;
@@ -179,5 +180,52 @@ public class ConnectedUserProjectWorkflowApiControllerCopyIntTest {
             .isNotFound()
             .expectBody()
             .isEmpty();
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com")
+    public void testCopyFrontendWorkflowTemplateCodeWorkflowTemplateReturns409() {
+        when(connectedUserProjectFacade.copyWorkflowTemplate(
+            eq("user@example.com"), eq(WORKFLOW_UUID), any(Environment.class)))
+                .thenThrow(new CodeWorkflowNotCopyableException(WORKFLOW_UUID));
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflow-templates/{workflowUuid}/copy", WORKFLOW_UUID)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.reason")
+                .isEqualTo("CODE_WORKFLOW_NOT_COPYABLE");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com")
+    public void testCopyWorkflowTemplateCodeWorkflowTemplateReturns409() {
+        when(connectedUserProjectFacade.copyWorkflowTemplate(
+            eq("user@example.com"), eq(WORKFLOW_UUID), any(Environment.class)))
+                .thenThrow(new CodeWorkflowNotCopyableException(WORKFLOW_UUID));
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/{externalUserId}/automation/workflow-templates/{workflowUuid}/copy", "user@example.com",
+                    WORKFLOW_UUID)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.reason")
+                .isEqualTo("CODE_WORKFLOW_NOT_COPYABLE");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
     }
 }
