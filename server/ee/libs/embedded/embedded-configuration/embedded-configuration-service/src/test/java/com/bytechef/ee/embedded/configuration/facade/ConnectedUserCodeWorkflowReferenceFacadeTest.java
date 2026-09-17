@@ -65,6 +65,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
 
     @Mock
+    private ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
+
+    @Mock
     private ConnectedUserService connectedUserService;
 
     private ConnectedUserCodeWorkflowReferenceFacadeImpl facade;
@@ -73,7 +76,8 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     void setUp() {
         facade = new ConnectedUserCodeWorkflowReferenceFacadeImpl(
             automationWorkflowProjectFacade, connectedUserProjectWorkflowManager,
-            connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager, connectedUserService);
+            connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager,
+            connectedUserReferenceRolloutService, connectedUserService);
 
         // Every case in this class provisions a template the connected user IS permitted to see; the rejections are
         // covered by ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest. Lenient because the cases that do not

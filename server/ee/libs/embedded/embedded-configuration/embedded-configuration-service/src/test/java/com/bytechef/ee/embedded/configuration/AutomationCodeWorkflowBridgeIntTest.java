@@ -45,6 +45,7 @@ import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCo
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
+import com.bytechef.ee.embedded.configuration.listener.CatalogProjectPublishedEventListener;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
@@ -164,6 +165,10 @@ class AutomationCodeWorkflowBridgeIntTest {
 
     @Autowired
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+
+    // Publishing would otherwise run the reference rollout from the after-commit listener; rollout has its own tests.
+    @MockitoBean
+    private CatalogProjectPublishedEventListener catalogProjectPublishedEventListener;
 
     @Autowired
     private ComponentConnectionFacade componentConnectionFacade;
