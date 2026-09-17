@@ -17,6 +17,7 @@ description: Manage authentication credentials and connection configurations for
 | Status indicator | Each connection shows **Active** / **Not Active** when its credential is valid, or the credential status itself (e.g. `INVALID`) when it is not. |
 | Shared connections | Mark a connection shared so every connected user in the environment can use it. |
 | Creation date | See when each connection was created. |
+| Shared connections | Mark a connection **Shared Connection** so every connected user in the environment can use it, without granting them reconnect or delete access. |
 
 ### Connection Details
 
@@ -49,11 +50,18 @@ A newly created connection shows **Not Active** until a workflow, integration in
 - **Edit** -- change the connection's name, tags, or **Shared Connection** setting. Credentials cannot be changed here.
 - **Delete** -- remove a connection (confirmed via an alert dialog). Deletion fails while a workflow still uses the connection.
 - **Tag** -- add or remove tags to organize connections.
+- **Share** -- toggle **Shared Connection** from the Edit dialog at any time, not just at creation (see [Sharing a Connection](#sharing-a-connection) below).
 
+### Sharing a Connection
 Only the user who created a connection, or an admin, can edit, tag, or delete it. Anyone else gets an access-denied error.
 
+The **Shared Connection** switch is available only on this admin page, in the New Connection and Edit dialogs - it is never offered to a connected user, whether in the embeddable Workflow Builder's own connection dialog or the Automation Hub's. Turning it on makes the connection available to every connected user in the current environment, without your host app needing to send its id anywhere.
 ### Shared connections
 
+- **Admin-only.** Only a tenant admin using this page can mark a connection shared or unshare it.
+- **Per environment.** Sharing a connection in Development does not share it in Staging or Production - each environment's connections are shared independently.
+- **Toggle anytime.** Turn it on at creation or later from **Edit**; unsharing takes effect on the next fetch, removing the connection from every connected user's picker.
+- **Read-only for connected users.** A connected user may select a shared connection when building or activating a workflow, but cannot reconnect or delete it - only the tenant admin who owns it can.
 Turn on **Shared Connection** in the create or edit dialog to make a connection available to every connected user in the current environment. Shared connections carry a **Shared** badge in the list.
 
 A connected user can select a shared connection in their own workflows, but cannot reconnect or delete it. Only its creator or an admin can change it, and a change applies to every connected user at once. Connections that connected users create themselves are never shared.
