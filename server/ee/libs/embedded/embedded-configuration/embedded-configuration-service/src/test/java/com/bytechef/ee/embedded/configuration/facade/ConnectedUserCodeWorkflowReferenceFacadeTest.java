@@ -10,16 +10,14 @@ package com.bytechef.ee.embedded.configuration.facade;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
-import com.bytechef.automation.configuration.domain.ProjectWorkflow;
-import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
-import com.bytechef.automation.configuration.service.ProjectDeploymentService;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
-import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -51,507 +49,383 @@ import org.mockito.stubbing.Answer;
 })
 class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
-    @Mock
-    private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+    private static final String CATALOG_UUID = "catalog-uuid";
+    private static final String CATALOG_WORKFLOW_ID = "catalog-wf-1";
 
     @Mock
-    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+    private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
     @Mock
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Mock
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Mock
+    private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+
+    @Mock
     private ConnectedUserService connectedUserService;
-
-    @Mock
-    private ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver;
-
-    @Mock
-    private ProjectDeploymentFacade projectDeploymentFacade;
-
-    @Mock
-    private ProjectDeploymentService projectDeploymentService;
-
-    @Mock
-    private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
-
-    @Mock
-    private ProjectWorkflowService projectWorkflowService;
 
     private ConnectedUserCodeWorkflowReferenceFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserCodeWorkflowReferenceFacadeImpl(
-            automationWorkflowProjectFacade, connectedUserProjectWorkflowRepository,
-            connectedUserProjectWorkflowManager, connectedUserService, connectedUserWorkflowConnectionResolver,
-            projectDeploymentFacade, projectDeploymentService, projectDeploymentWorkflowService,
-            projectWorkflowService);
+            automationWorkflowProjectFacade, connectedUserProjectWorkflowManager,
+            connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager, connectedUserService);
 
         // Every case in this class provisions a template the connected user IS permitted to see; the rejections are
         // covered by ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest. Lenient because the cases that do not
         // provision (existing reference, enable/disable, dangling) never reach the catalog lookup.
         Mockito.lenient()
             .when(automationWorkflowProjectFacade.getPublishedProjects(Mockito.anyString(), Mockito.any()))
-            .thenReturn(List.of(publishedCatalogProject("catalog-uuid")));
+            .thenReturn(List.of(publishedCatalogProject(CATALOG_UUID)));
     }
 
     /**
-     * This is the test that keeps two connected users' connections from leaking into each other, which is the entire
-     * reason {@code WorkflowTestConfiguration} couldn't be reused for reference mode: each user's
-     * {@link ConnectedUserCodeWorkflowReferenceFacadeImpl#getOrCreateReference} call must provision its OWN
-     * {@link ProjectDeployment} with its own resolved connections, never sharing or overwriting the other user's
-     * wiring.
+     * Each connected user's reference is resolved against that user's own connected-user id and written into that
+     * user's own deployment -- two users referencing the same catalog workflow never share or overwrite wiring.
      */
     @Test
     void testTwoUsersReferencingTheSameCatalogWorkflowGetIndependentConnectionRows() {
-        ProjectWorkflow catalogProjectWorkflow = new ProjectWorkflow(500L, 1, "catalog-wf-1");
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUserProject("userB", 20L);
+        givenConnectedUser("userA", 101L);
+        givenConnectedUser("userB", 102L);
+        givenNoExistingReference();
+        givenDeployment("userA", Environment.PRODUCTION, 900L);
+        givenDeployment("userB", Environment.PRODUCTION, 901L);
 
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
-        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
-            .thenReturn(catalogProjectWorkflow);
+        RowSpec userARowSpec = rowSpec(true, new ProjectDeploymentWorkflowConnection(1L, "slack", "t1"));
+        RowSpec userBRowSpec = rowSpec(true, new ProjectDeploymentWorkflowConnection(2L, "slack", "t1"));
 
-        ConnectedUserProject userAProject = new ConnectedUserProject();
+        givenResolution(101L, true, new ReferenceResolution(userARowSpec, null, null));
+        givenResolution(102L, true, new ReferenceResolution(userBRowSpec, null, null));
 
-        userAProject.setId(10L);
+        facade.getOrCreateReference("userA", CATALOG_UUID, Environment.PRODUCTION);
+        facade.getOrCreateReference("userB", CATALOG_UUID, Environment.PRODUCTION);
 
-        ConnectedUserProject userBProject = new ConnectedUserProject();
-
-        userBProject.setId(20L);
-
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(userAProject);
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userB"), Mockito.any()))
-            .thenReturn(userBProject);
-
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userB"), Mockito.any()))
-            .thenReturn(connectedUser(102L));
-
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(Mockito.anyLong(), Mockito.eq("catalog-uuid")))
-            .thenReturn(Optional.empty());
-        Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
-            .thenAnswer(withGeneratedId());
-
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of())))
-            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(1L, "t1", "t1")))
-            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(2L, "t1", "t1")));
-
-        Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
-            .thenReturn(Optional.empty());
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<ProjectDeploymentWorkflowConnection>> connectionsCaptor =
-            ArgumentCaptor.forClass(List.class);
-
-        Mockito.when(projectDeploymentFacade.createProjectDeployment(
-            Mockito.any(), Mockito.eq("catalog-wf-1"), connectionsCaptor.capture()))
-            .thenReturn(900L, 901L);
-
-        facade.getOrCreateReference("userA", "catalog-uuid", Environment.PRODUCTION);
-        facade.getOrCreateReference("userB", "catalog-uuid", Environment.PRODUCTION);
-
-        List<Long> wiredConnectionIds = connectionsCaptor.getAllValues()
-            .stream()
-            .flatMap(List::stream)
-            .map(ProjectDeploymentWorkflowConnection::getConnectionId)
-            .toList();
-
-        Assertions.assertEquals(List.of(1L, 2L), wiredConnectionIds);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, userARowSpec));
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(901L, 1, Map.of(CATALOG_UUID, userBRowSpec));
     }
 
-    /**
-     * Finding 2 regression test: the same connected user referencing the same catalog workflow in two different
-     * {@link Environment}s must provision two DISTINCT
-     * {@link com.bytechef.automation.configuration.domain.ProjectDeployment} rows -- one per environment -- rather than
-     * colliding onto a single deployment stamped with whichever environment provisioned first.
-     */
     @Test
     void testGetOrCreateReferenceProvisionsDistinctDeploymentsPerEnvironment() {
-        ProjectWorkflow catalogProjectWorkflow = new ProjectWorkflow(500L, 1, "catalog-wf-1");
+        givenConnectedUserProject("userA", Environment.PRODUCTION, 10L);
+        givenConnectedUserProject("userA", Environment.DEVELOPMENT, 11L);
+        givenConnectedUser("userA", 101L);
+        givenNoExistingReference();
+        givenDeployment("userA", Environment.PRODUCTION, 900L);
+        givenDeployment("userA", Environment.DEVELOPMENT, 901L);
 
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
-        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
-            .thenReturn(catalogProjectWorkflow);
+        RowSpec enabledRowSpec = rowSpec(true);
 
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of())))
-            .thenReturn(resolvedConnections());
+        givenResolution(101L, true, new ReferenceResolution(enabledRowSpec, null, null));
 
-        ConnectedUserProject productionProject = new ConnectedUserProject();
+        ConnectedUserProjectWorkflow productionReference = facade.getOrCreateReference(
+            "userA", CATALOG_UUID, Environment.PRODUCTION);
+        ConnectedUserProjectWorkflow developmentReference = facade.getOrCreateReference(
+            "userA", CATALOG_UUID, Environment.DEVELOPMENT);
 
-        productionProject.setId(10L);
-
-        ConnectedUserProject developmentProject = new ConnectedUserProject();
-
-        developmentProject.setId(11L);
-
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            "userA", Environment.PRODUCTION))
-            .thenReturn(productionProject);
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            "userA", Environment.DEVELOPMENT))
-            .thenReturn(developmentProject);
-
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(Mockito.anyLong(), Mockito.eq("catalog-uuid")))
-            .thenReturn(Optional.empty());
-        Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
-            .thenAnswer(withGeneratedId());
-
-        // Names differ by environment, so each lookup misses and a fresh deployment is created.
-        Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
-            .thenReturn(Optional.empty());
-
-        ArgumentCaptor<ProjectDeployment> projectDeploymentCaptor = ArgumentCaptor.forClass(ProjectDeployment.class);
-
-        Mockito.when(projectDeploymentFacade.createProjectDeployment(
-            projectDeploymentCaptor.capture(), Mockito.eq("catalog-wf-1"), Mockito.anyList()))
-            .thenReturn(900L, 901L);
-
-        facade.getOrCreateReference("userA", "catalog-uuid", Environment.PRODUCTION);
-        facade.getOrCreateReference("userA", "catalog-uuid", Environment.DEVELOPMENT);
-
-        List<ProjectDeployment> createdDeployments = projectDeploymentCaptor.getAllValues();
-
-        Assertions.assertEquals(2, createdDeployments.size());
-
-        ProjectDeployment productionDeployment = createdDeployments.get(0);
-        ProjectDeployment developmentDeployment = createdDeployments.get(1);
-
-        Assertions.assertEquals(Environment.PRODUCTION, productionDeployment.getEnvironment());
-        Assertions.assertEquals(Environment.DEVELOPMENT, developmentDeployment.getEnvironment());
-
-        // Distinct names is what makes the (catalogProjectId, name) lookup unable to collide across environments.
-        Assertions.assertNotEquals(productionDeployment.getName(), developmentDeployment.getName());
+        Assertions.assertEquals(900L, productionReference.getProjectDeploymentId());
+        Assertions.assertEquals(901L, developmentReference.getProjectDeploymentId());
     }
 
     @Test
     void testGetOrCreateReferenceReturnsExistingRowWithoutReprovisioning() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+        givenConnectedUserProject("userA", 10L);
 
-        connectedUserProject.setId(10L);
-
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
-
-        ConnectedUserProjectWorkflow existingReference = new ConnectedUserProjectWorkflow();
-
-        existingReference.setId(1L);
+        ConnectedUserProjectWorkflow existingReference = reference(1L, 900L, false);
 
         Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, CATALOG_UUID))
             .thenReturn(Optional.of(existingReference));
 
         ConnectedUserProjectWorkflow result = facade.getOrCreateReference(
-            "userA", "catalog-uuid", Environment.PRODUCTION);
+            "userA", CATALOG_UUID, Environment.PRODUCTION);
 
         Assertions.assertSame(existingReference, result);
 
         // automationWorkflowProjectFacade included deliberately: the provisioning-time permission check must not run
         // for an already-provisioned reference, so a narrowed permission expression cannot break a running automation.
         Mockito.verifyNoInteractions(
-            automationWorkflowProjectFacade, projectWorkflowService, connectedUserService,
-            connectedUserWorkflowConnectionResolver, projectDeploymentFacade, projectDeploymentService);
+            automationWorkflowProjectFacade, connectedUserService, connectedUserReferenceDeploymentManager);
+    }
+
+    /**
+     * Repeating the call with requested connections is how an existing reference's connections are changed: its row is
+     * re-resolved with them and rewritten, keeping the reference's enabled state as the requested one.
+     */
+    @Test
+    void testGetOrCreateReferenceReResolvesAnExistingReferenceWithRequestedConnections() {
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
+        givenNoCurrentRow(900L);
+
+        ConnectedUserProjectWorkflow existingReference = reference(1L, 900L, true);
+
+        Mockito.when(connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, CATALOG_UUID))
+            .thenReturn(Optional.of(existingReference));
+        Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        RowSpec rowSpec = rowSpec(true, new ProjectDeploymentWorkflowConnection(7L, "slack", "t1"));
+
+        Mockito.when(connectedUserReferenceDeploymentManager.resolveReference(
+            101L, CATALOG_WORKFLOW_ID, true, Map.of("slack", 7L), List.of(), Map.of()))
+            .thenReturn(new ReferenceResolution(rowSpec, null, null));
+
+        facade.getOrCreateReference("userA", CATALOG_UUID, Environment.PRODUCTION, Map.of("slack", 7L));
+
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, rowSpec));
+        Mockito.verifyNoInteractions(automationWorkflowProjectFacade);
     }
 
     /**
      * A component with no matching connection for the connected user must not abort provisioning outright: the
-     * reference row is still created -- left {@code enabled = false} -- and {@link MissingConnectionException} is
-     * rethrown afterward so the caller can surface which connection is missing and let the connected user fix it.
+     * reference row and its deployment row are still written -- disabled -- and {@link MissingConnectionException} is
+     * rethrown afterward so the caller can surface which connection is missing.
      */
     @Test
     void testMissingConnectionStillCreatesDisabledReferenceAndRethrows() {
-        ProjectWorkflow catalogProjectWorkflow = new ProjectWorkflow(500L, 1, "catalog-wf-1");
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenNoExistingReference();
+        givenDeployment("userA", Environment.PRODUCTION, 900L);
 
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
-        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
-            .thenReturn(catalogProjectWorkflow);
+        RowSpec disabledRowSpec = new RowSpec(
+            new ResolvedWorkflowConnections(List.of(), List.of("slack")), false, null);
 
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
-
-        connectedUserProject.setId(10L);
-
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
-
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
-            .thenReturn(Optional.empty());
-        Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of())))
-            .thenReturn(new ResolvedWorkflowConnections(List.of(), List.of("slack")));
-
-        Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
-            .thenReturn(Optional.empty());
-        Mockito.when(projectDeploymentFacade.createProjectDeployment(
-            Mockito.any(), Mockito.eq("catalog-wf-1"), Mockito.eq(List.of())))
-            .thenReturn(900L);
+        givenResolution(101L, true, new ReferenceResolution(disabledRowSpec, "slack", null));
 
         MissingConnectionException thrown = Assertions.assertThrows(
             MissingConnectionException.class,
-            () -> facade.getOrCreateReference("userA", "catalog-uuid", Environment.PRODUCTION));
+            () -> facade.getOrCreateReference("userA", CATALOG_UUID, Environment.PRODUCTION));
 
         Assertions.assertEquals("slack", thrown.getComponentName());
 
-        ArgumentCaptor<ConnectedUserProjectWorkflow> captor =
-            ArgumentCaptor.forClass(ConnectedUserProjectWorkflow.class);
-
-        Mockito.verify(connectedUserProjectWorkflowRepository)
-            .save(captor.capture());
-
-        ConnectedUserProjectWorkflow saved = captor.getValue();
+        ConnectedUserProjectWorkflow saved = lastSavedReference();
 
         Assertions.assertFalse(saved.isEnabled());
-        Assertions.assertEquals("catalog-uuid", saved.getCatalogWorkflowUuid());
+        Assertions.assertEquals(CATALOG_UUID, saved.getCatalogWorkflowUuid());
         Assertions.assertNull(saved.getProjectWorkflowId());
+
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, disabledRowSpec));
+    }
+
+    /**
+     * Inputs are written after provisioning in both the hub and the API flow, so a required input without a value does
+     * not fail provisioning: the reference is simply left disabled.
+     */
+    @Test
+    void testGetOrCreateReferenceLeavesReferenceDisabledWithoutErrorWhenARequiredInputHasNoValue() {
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenNoExistingReference();
+        givenDeployment("userA", Environment.PRODUCTION, 900L);
+
+        RowSpec disabledRowSpec = rowSpec(false);
+
+        givenResolution(101L, true, new ReferenceResolution(disabledRowSpec, null, "channel"));
+
+        ConnectedUserProjectWorkflow reference = facade.getOrCreateReference(
+            "userA", CATALOG_UUID, Environment.PRODUCTION);
+
+        Assertions.assertFalse(reference.isEnabled());
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, disabledRowSpec));
     }
 
     @Test
     void testEnableReferenceTogglesEnabledFlagAndProjectDeploymentWorkflow() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
+        givenNoCurrentRow(900L);
 
-        connectedUserProject.setId(10L);
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
 
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
+        RowSpec enabledRowSpec = rowSpec(true, new ProjectDeploymentWorkflowConnection(1L, "slack", "t1"));
 
-        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+        givenResolution(101L, true, new ReferenceResolution(enabledRowSpec, null, null));
 
-        reference.setId(1L);
-        reference.setConnectedUserProjectId(10L);
-        reference.setCatalogWorkflowUuid("catalog-uuid");
-        reference.setProjectDeploymentId(900L);
-        reference.setEnabled(false);
-
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
-            .thenReturn(Optional.of(reference));
-
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
-
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-
-        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
-
-        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
-            .thenReturn(projectDeploymentWorkflow);
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
-            Mockito.eq(projectDeploymentWorkflow.getConnections())))
-            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(1L, "t1", "t1")));
-
-        facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
+        facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION);
 
         Assertions.assertTrue(reference.isEnabled());
         Mockito.verify(connectedUserProjectWorkflowRepository)
             .save(reference);
-        Mockito.verify(projectDeploymentFacade)
-            .enableProjectDeploymentWorkflow(900L, "catalog-wf-1", true);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, enabledRowSpec));
     }
 
     /**
-     * Finding 3 regression test (fixed-then-enable): provisioning previously failed with
-     * {@link MissingConnectionException} and left the reference disabled with no wiring. The connected user has since
-     * created the missing "slack" connection, so re-enabling must re-run resolution, populate the real
-     * {@link ProjectDeploymentWorkflow} execution-time connections, and then proceed to enable -- never leaving the
-     * workflow running with stale/absent wiring.
+     * Provisioning previously failed with {@link MissingConnectionException}. The connected user has since created the
+     * missing connection, so re-enabling re-resolves against the row's current connections and writes the new wiring
+     * together with the enabled flag.
      */
     @Test
     void testEnableReferenceRewiresConnectionsWhenPreviouslyMissingConnectionWasFixed() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
 
-        connectedUserProject.setId(10L);
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
 
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
+        ProjectDeploymentWorkflow currentRow = new ProjectDeploymentWorkflow();
+        List<ProjectDeploymentWorkflowConnection> currentConnections = List.of(
+            new ProjectDeploymentWorkflowConnection(41L, "slack", "t1"));
 
-        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+        currentRow.setConnections(currentConnections);
+        currentRow.setInputs(Map.of("channel", "general"));
 
-        reference.setId(1L);
-        reference.setConnectedUserProjectId(10L);
-        reference.setCatalogWorkflowUuid("catalog-uuid");
-        reference.setProjectDeploymentId(900L);
-        reference.setEnabled(false);
+        Mockito.when(connectedUserReferenceDeploymentManager.fetchWorkflowRow(900L, CATALOG_WORKFLOW_ID))
+            .thenReturn(Optional.of(currentRow));
 
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
-            .thenReturn(Optional.of(reference));
+        RowSpec enabledRowSpec = rowSpec(true, new ProjectDeploymentWorkflowConnection(42L, "slack", "t1"));
 
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
+        Mockito.when(connectedUserReferenceDeploymentManager.resolveReference(
+            101L, CATALOG_WORKFLOW_ID, true, Map.of(), currentConnections, Map.of("channel", "general")))
+            .thenReturn(new ReferenceResolution(enabledRowSpec, null, null));
 
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-
-        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
-
-        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
-            .thenReturn(projectDeploymentWorkflow);
-
-        // The connection is now resolvable -- the connected user created it after the earlier
-        // MissingConnectionException.
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
-            Mockito.eq(projectDeploymentWorkflow.getConnections())))
-            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(42L, "t1", "t1")));
-
-        facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
-
-        ArgumentCaptor<ProjectDeploymentWorkflow> projectDeploymentWorkflowCaptor =
-            ArgumentCaptor.forClass(ProjectDeploymentWorkflow.class);
-
-        Mockito.verify(projectDeploymentWorkflowService)
-            .update(projectDeploymentWorkflowCaptor.capture());
-
-        List<ProjectDeploymentWorkflowConnection> updatedConnections = projectDeploymentWorkflowCaptor.getValue()
-            .getConnections();
-
-        Assertions.assertEquals(1, updatedConnections.size());
-        Assertions.assertEquals(42L, updatedConnections.get(0)
-            .getConnectionId());
+        facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION);
 
         Assertions.assertTrue(reference.isEnabled());
-        Mockito.verify(projectDeploymentFacade)
-            .enableProjectDeploymentWorkflow(900L, "catalog-wf-1", true);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, enabledRowSpec));
     }
 
     /**
-     * Finding 3 regression test (still-missing-then-enable): the connected user has NOT created the missing connection
-     * yet, so re-running resolution on enable must still throw {@link MissingConnectionException}, and enabling must
-     * never succeed -- the reference is left disabled and neither {@link ConnectedUserProjectWorkflowRepository#save}
-     * nor {@link com.bytechef.automation.configuration.facade.ProjectDeploymentFacade#enableProjectDeploymentWorkflow}
-     * is ever called.
+     * The connected user has NOT created the missing connection yet: enabling throws
+     * {@link MissingConnectionException}, and both the reference and its row are written disabled first.
      */
     @Test
     void testEnableReferenceStillThrowsWhenConnectionIsStillMissing() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
+        givenNoCurrentRow(900L);
 
-        connectedUserProject.setId(10L);
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
 
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
+        RowSpec disabledRowSpec = new RowSpec(
+            new ResolvedWorkflowConnections(List.of(), List.of("slack")), false, null);
 
-        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
-
-        reference.setId(1L);
-        reference.setConnectedUserProjectId(10L);
-        reference.setCatalogWorkflowUuid("catalog-uuid");
-        reference.setProjectDeploymentId(900L);
-        reference.setEnabled(false);
-
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
-            .thenReturn(Optional.of(reference));
-
-        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
-            .thenReturn("catalog-wf-1");
-
-        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUser(101L));
-
-        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
-
-        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
-            .thenReturn(projectDeploymentWorkflow);
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
-            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
-            Mockito.eq(projectDeploymentWorkflow.getConnections())))
-            .thenReturn(new ResolvedWorkflowConnections(List.of(), List.of("slack")));
+        givenResolution(101L, true, new ReferenceResolution(disabledRowSpec, "slack", null));
 
         MissingConnectionException thrown = Assertions.assertThrows(
             MissingConnectionException.class,
-            () -> facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION));
+            () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
 
         Assertions.assertEquals("slack", thrown.getComponentName());
         Assertions.assertFalse(reference.isEnabled());
 
-        Mockito.verify(connectedUserProjectWorkflowRepository, Mockito.never())
-            .save(Mockito.any());
-        Mockito.verify(projectDeploymentWorkflowService, Mockito.never())
-            .update(Mockito.any(ProjectDeploymentWorkflow.class));
-        Mockito.verify(projectDeploymentFacade, Mockito.never())
-            .enableProjectDeploymentWorkflow(Mockito.anyLong(), Mockito.anyString(), Mockito.anyBoolean());
+        Mockito.verify(connectedUserProjectWorkflowRepository)
+            .save(reference);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, disabledRowSpec));
+    }
+
+    @Test
+    void testEnableReferenceThrowsMissingInputWhenARequiredInputHasNoValue() {
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
+        givenNoCurrentRow(900L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
+
+        RowSpec disabledRowSpec = rowSpec(false);
+
+        givenResolution(101L, true, new ReferenceResolution(disabledRowSpec, null, "channel"));
+
+        MissingInputException thrown = Assertions.assertThrows(
+            MissingInputException.class,
+            () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
+
+        Assertions.assertEquals("channel", thrown.getInputName());
+        Assertions.assertFalse(reference.isEnabled());
+
+        Mockito.verify(connectedUserProjectWorkflowRepository)
+            .save(reference);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, disabledRowSpec));
+    }
+
+    @Test
+    void testEnableReferenceRefusesToEnableADanglingReference() {
+        givenConnectedUserProject("userA", 10L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
+
+        reference.setDangling(true);
+
+        Assertions.assertThrows(
+            ConfigurationException.class,
+            () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
+
+        Mockito.verifyNoInteractions(connectedUserReferenceDeploymentManager);
     }
 
     @Test
     void testEnableReferenceThrowsWhenNoReferenceExists() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
-
-        connectedUserProject.setId(10L);
-
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
+        givenConnectedUserProject("userA", 10L);
 
         Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, CATALOG_UUID))
             .thenReturn(Optional.empty());
 
         Assertions.assertThrows(
             ConfigurationException.class,
-            () -> facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION));
+            () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
     }
 
     @Test
-    void testDeleteReferenceRemovesReferenceRow() {
-        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+    void testDeleteReferenceRemovesItsDeploymentRowAndTheReferenceRow() {
+        givenConnectedUserProject("userA", 10L);
 
-        connectedUserProject.setId(10L);
+        givenExistingReference(10L, true);
 
-        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
-            Mockito.eq("userA"), Mockito.any()))
-            .thenReturn(connectedUserProject);
+        facade.deleteReference("userA", CATALOG_UUID, Environment.PRODUCTION);
 
-        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .removeWorkflow(900L, CATALOG_UUID);
+        Mockito.verify(connectedUserProjectWorkflowRepository)
+            .deleteById(1L);
+    }
 
-        reference.setId(1L);
-        reference.setConnectedUserProjectId(10L);
-        reference.setCatalogWorkflowUuid("catalog-uuid");
+    @Test
+    void testDeleteDanglingReferenceRemovesOnlyTheReferenceRow() {
+        givenConnectedUserProject("userA", 10L);
 
-        Mockito.when(connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
-            .thenReturn(Optional.of(reference));
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
 
-        facade.deleteReference("userA", "catalog-uuid", Environment.PRODUCTION);
+        reference.setDangling(true);
 
+        facade.deleteReference("userA", CATALOG_UUID, Environment.PRODUCTION);
+
+        Mockito.verifyNoInteractions(connectedUserReferenceDeploymentManager);
         Mockito.verify(connectedUserProjectWorkflowRepository)
             .deleteById(1L);
     }
 
     /**
      * The uuid-stability fix means a redeploy that keeps every workflow name unchanged must not dangle any reference:
-     * only a reference whose catalog workflow was genuinely removed from the artifact gets flagged.
+     * only a reference whose catalog workflow was genuinely removed from the artifact gets flagged, and disabled.
      */
     @Test
     void testMarkDanglingReferencesFlagsOnlyReferencesRemovedFromTheCatalog() {
         ConnectedUserProjectWorkflow stillPresent = referenceRow(1L, "uuid-present");
         ConnectedUserProjectWorkflow removed = referenceRow(2L, "uuid-removed");
         ConnectedUserProjectWorkflow copyModeRow = new ConnectedUserProjectWorkflow();
+
+        removed.setEnabled(true);
 
         copyModeRow.setId(3L);
         copyModeRow.setConnectedUserProjectId(30L);
@@ -568,6 +442,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             .save(stillPresent);
 
         Assertions.assertTrue(removed.isDangling());
+        Assertions.assertFalse(removed.isEnabled());
         Assertions.assertEquals("Removed from the catalog project on redeploy", removed.getDanglingReason());
         Mockito.verify(connectedUserProjectWorkflowRepository)
             .save(removed);
@@ -578,10 +453,10 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     }
 
     /**
-     * Finding 1 regression test: {@code markDanglingReferences} must dangle exactly {@code previous \ current} for THIS
-     * catalog project, never guessing off the repository-wide set of all references. A reference belonging to a
-     * different catalog project (e.g. "acme-crm") must never be touched by a redeploy of another catalog project (e.g.
-     * "acme-billing"), even though both rows are returned by the same {@code findAll()} call.
+     * {@code markDanglingReferences} must dangle exactly {@code previous \ current} for THIS catalog project, never
+     * guessing off the repository-wide set of all references. A reference belonging to a different catalog project must
+     * never be touched by a redeploy of another catalog project, even though both rows are returned by the same
+     * {@code findAll()} call.
      */
     @Test
     void testMarkDanglingReferencesNeverTouchesAnotherCatalogProjectsReferences() {
@@ -592,8 +467,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(connectedUserProjectWorkflowRepository.findAll())
             .thenReturn(List.of(billingRemoved, billingStillPresent, crmReference));
 
-        // Redeploy of "acme-billing" only: its previous/current sets say nothing about "acme-crm"'s uuid, so
-        // crmReference must never be considered even though currentCatalogWorkflowUuids doesn't contain it either.
         facade.markDanglingReferences(
             500L, Set.of("billing-uuid-removed", "billing-uuid-present"), Set.of("billing-uuid-present"));
 
@@ -610,6 +483,102 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             .save(crmReference);
     }
 
+    private void givenConnectedUser(String externalUserId, long connectedUserId) {
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq(externalUserId), Mockito.any()))
+            .thenReturn(new ConnectedUser(Map.of(), null, true, externalUserId, connectedUserId, null, 0));
+    }
+
+    private void givenConnectedUserProject(String externalUserId, long connectedUserProjectId) {
+        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+
+        connectedUserProject.setId(connectedUserProjectId);
+
+        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
+            Mockito.eq(externalUserId), Mockito.any()))
+            .thenReturn(connectedUserProject);
+    }
+
+    private void givenConnectedUserProject(
+        String externalUserId, Environment environment, long connectedUserProjectId) {
+
+        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+
+        connectedUserProject.setId(connectedUserProjectId);
+
+        Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(externalUserId, environment))
+            .thenReturn(connectedUserProject);
+    }
+
+    /**
+     * Stubs a newly created deployment for (catalog project 500, user, environment) at version 1 -- the catalog
+     * project's last published version -- and an empty row for the template.
+     */
+    private void givenDeployment(String externalUserId, Environment environment, long projectDeploymentId) {
+        Mockito.when(connectedUserReferenceDeploymentManager.getOrCreateDeployment(
+            500L, externalUserId, environment))
+            .thenReturn(projectDeploymentId);
+
+        givenDeploymentAtVersionOne(projectDeploymentId);
+        givenNoCurrentRow(projectDeploymentId);
+    }
+
+    private void givenDeploymentAtVersionOne(long projectDeploymentId) {
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setProjectId(500L);
+        projectDeployment.setProjectVersion(1);
+
+        Mockito.when(connectedUserReferenceDeploymentManager.getDeployment(projectDeploymentId))
+            .thenReturn(projectDeployment);
+        Mockito.lenient()
+            .when(connectedUserReferenceDeploymentManager.getWorkflowId(500L, 1, CATALOG_UUID))
+            .thenReturn(CATALOG_WORKFLOW_ID);
+    }
+
+    private ConnectedUserProjectWorkflow givenExistingReference(long connectedUserProjectId, boolean enabled) {
+        ConnectedUserProjectWorkflow reference = reference(1L, 900L, enabled);
+
+        reference.setConnectedUserProjectId(connectedUserProjectId);
+
+        Mockito.when(connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProjectId, CATALOG_UUID))
+            .thenReturn(Optional.of(reference));
+        Mockito.lenient()
+            .when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        return reference;
+    }
+
+    private void givenNoCurrentRow(long projectDeploymentId) {
+        Mockito.when(connectedUserReferenceDeploymentManager.fetchWorkflowRow(projectDeploymentId, CATALOG_WORKFLOW_ID))
+            .thenReturn(Optional.empty());
+    }
+
+    private void givenNoExistingReference() {
+        Mockito.when(connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(Mockito.anyLong(), Mockito.eq(CATALOG_UUID)))
+            .thenReturn(Optional.empty());
+        Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
+            .thenAnswer(withGeneratedId());
+    }
+
+    private void givenResolution(long connectedUserId, boolean enable, ReferenceResolution referenceResolution) {
+        Mockito.when(connectedUserReferenceDeploymentManager.resolveReference(
+            connectedUserId, CATALOG_WORKFLOW_ID, enable, Map.of(), List.of(), Map.of()))
+            .thenReturn(referenceResolution);
+    }
+
+    private ConnectedUserProjectWorkflow lastSavedReference() {
+        ArgumentCaptor<ConnectedUserProjectWorkflow> referenceCaptor =
+            ArgumentCaptor.forClass(ConnectedUserProjectWorkflow.class);
+
+        Mockito.verify(connectedUserProjectWorkflowRepository, Mockito.atLeastOnce())
+            .save(referenceCaptor.capture());
+
+        return referenceCaptor.getValue();
+    }
+
     private static AutomationWorkflowProjectDTO publishedCatalogProject(String workflowUuid) {
         return new AutomationWorkflowProjectDTO(
             500L, "Catalog", "", null, List.of(), true, 1, 1,
@@ -619,20 +588,15 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             null, true);
     }
 
-    /**
-     * Simulates the id a real {@code save(...)} call would generate, since the production code reads
-     * {@code saved.getId()} right after saving to return the persisted row.
-     */
-    private static Answer<ConnectedUserProjectWorkflow> withGeneratedId() {
-        AtomicLong nextId = new AtomicLong(1L);
+    private static ConnectedUserProjectWorkflow reference(long id, long projectDeploymentId, boolean enabled) {
+        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
 
-        return invocation -> {
-            ConnectedUserProjectWorkflow connectedUserProjectWorkflow = invocation.getArgument(0);
+        reference.setId(id);
+        reference.setCatalogWorkflowUuid(CATALOG_UUID);
+        reference.setEnabled(enabled);
+        reference.setProjectDeploymentId(projectDeploymentId);
 
-            connectedUserProjectWorkflow.setId(nextId.getAndIncrement());
-
-            return connectedUserProjectWorkflow;
-        };
+        return reference;
     }
 
     private static ConnectedUserProjectWorkflow referenceRow(long id, String catalogWorkflowUuid) {
@@ -645,11 +609,22 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         return connectedUserProjectWorkflow;
     }
 
-    private static ConnectedUser connectedUser(long id) {
-        return new ConnectedUser(Map.of(), null, true, "external-id", id, null, 0);
+    private static RowSpec rowSpec(boolean enabled, ProjectDeploymentWorkflowConnection... connections) {
+        return new RowSpec(new ResolvedWorkflowConnections(List.of(connections), List.of()), enabled, null);
     }
 
-    private static ResolvedWorkflowConnections resolvedConnections(ProjectDeploymentWorkflowConnection... connections) {
-        return new ResolvedWorkflowConnections(List.of(connections), List.of());
+    /**
+     * Simulates the id a real {@code save(...)} call would generate.
+     */
+    private static Answer<ConnectedUserProjectWorkflow> withGeneratedId() {
+        AtomicLong nextId = new AtomicLong(1L);
+
+        return invocation -> {
+            ConnectedUserProjectWorkflow connectedUserProjectWorkflow = invocation.getArgument(0);
+
+            connectedUserProjectWorkflow.setId(nextId.getAndIncrement());
+
+            return connectedUserProjectWorkflow;
+        };
     }
 }

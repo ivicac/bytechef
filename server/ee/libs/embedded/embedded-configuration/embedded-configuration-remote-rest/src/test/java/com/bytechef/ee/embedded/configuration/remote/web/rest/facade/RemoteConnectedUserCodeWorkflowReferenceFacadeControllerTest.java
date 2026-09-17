@@ -20,12 +20,14 @@ import com.bytechef.ee.embedded.configuration.exception.MissingConnectionExcepti
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -77,7 +79,7 @@ class RemoteConnectedUserCodeWorkflowReferenceFacadeControllerTest {
     @Test
     void testGetOrCreateReferenceReturns409OnMissingConnection() throws Exception {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-            eq("ext-1"), eq("uuid-1"), any(Environment.class)))
+            eq("ext-1"), eq("uuid-1"), any(Environment.class), eq(Map.of())))
                 .thenThrow(new MissingConnectionException("slack"));
 
         mockMvc.perform(
@@ -87,5 +89,27 @@ class RemoteConnectedUserCodeWorkflowReferenceFacadeControllerTest {
                 .param("environment", "PRODUCTION"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.missingConnectionComponentName").value("slack"));
+    }
+
+    @Test
+    void testGetOrCreateReferencePassesTheRequestedConnectionIdsBody() throws Exception {
+        ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
+
+        connectedUserProjectWorkflow.setId(5L);
+        connectedUserProjectWorkflow.setConnectedUserProjectId(15L);
+
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "ext-1", "uuid-1", Environment.PRODUCTION, Map.of("slack", 7L)))
+                .thenReturn(connectedUserProjectWorkflow);
+
+        mockMvc.perform(
+            post("/remote/connected-user-code-workflow-reference-facade/get-or-create-reference")
+                .param("externalUserId", "ext-1")
+                .param("catalogWorkflowUuid", "uuid-1")
+                .param("environment", "PRODUCTION")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"slack\":7}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(5));
     }
 }

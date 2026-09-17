@@ -396,9 +396,20 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         connection.setId(777L);
         connection.setComponentName(CODE_WORKFLOW_COMPONENT_NAME);
+        connection.setEnvironmentId(Environment.PRODUCTION.ordinal());
 
         when(connectionService.getConnections(PlatformType.EMBEDDED))
             .thenReturn(List.of(connection));
+
+        // Enabling writes the row through ProjectDeploymentFacadeImpl, which validates an enabled row's connection
+        // against its declared slot (component name) and the deployment's environment.
+        when(connectionService.getConnection(777L))
+            .thenReturn(connection);
+        when(componentConnectionFacade.getComponentConnection(anyString(), eq("task1"),
+            eq(CODE_WORKFLOW_COMPONENT_NAME)))
+                .thenReturn(
+                    new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME,
+                        true));
 
         ConnectionDTO connectionDTO = connectionDTO(777L, CODE_WORKFLOW_COMPONENT_NAME);
 
