@@ -69,6 +69,14 @@ public class RemoteConnectedUserCodeWorkflowReferenceFacadeClient implements Con
     public ConnectedUserProjectWorkflow getOrCreateReference(
         String externalUserId, String catalogWorkflowUuid, Environment environment) {
 
+        return getOrCreateReference(externalUserId, catalogWorkflowUuid, environment, Map.of());
+    }
+
+    @Override
+    public ConnectedUserProjectWorkflow getOrCreateReference(
+        String externalUserId, String catalogWorkflowUuid, Environment environment,
+        Map<String, Long> requestedConnectionIds) {
+
         try {
             return loadBalancedRestClient.post(
                 uriBuilder -> uriBuilder
@@ -78,7 +86,7 @@ public class RemoteConnectedUserCodeWorkflowReferenceFacadeClient implements Con
                     .queryParam("catalogWorkflowUuid", catalogWorkflowUuid)
                     .queryParam("environment", environment)
                     .build(),
-                null, ConnectedUserProjectWorkflow.class);
+                requestedConnectionIds, ConnectedUserProjectWorkflow.class);
         } catch (HttpClientErrorException.Conflict conflict) {
             Map<String, String> body = conflict.getResponseBodyAs(new ParameterizedTypeReference<>() {});
 
