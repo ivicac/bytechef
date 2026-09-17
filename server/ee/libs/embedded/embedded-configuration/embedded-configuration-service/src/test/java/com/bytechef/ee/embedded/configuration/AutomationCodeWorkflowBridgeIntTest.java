@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +27,7 @@ import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
@@ -45,6 +48,8 @@ import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCo
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectWorkflowManager;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceRolloutService;
 import com.bytechef.ee.embedded.configuration.listener.CatalogProjectPublishedEventListener;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
@@ -93,12 +98,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -183,7 +194,13 @@ class AutomationCodeWorkflowBridgeIntTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Autowired
+    private ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
+
+    @Autowired
     private ConnectedUserProjectService connectedUserProjectService;
+
+    @Autowired
+    private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Autowired
     private ConnectedUserService connectedUserService;
@@ -196,6 +213,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
     @Autowired
     private EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
+
+    @Autowired
+    private PrincipalJobService principalJobService;
 
     @Autowired
     private ProjectDeploymentService projectDeploymentService;
@@ -527,6 +547,216 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         assertThat(productionReference.getProjectDeploymentId())
             .isNotEqualTo(developmentReference.getProjectDeploymentId());
+    }
+
+    /**
+     * A code-workflow redeploy marks a removed template's references dangling in the publishing transaction, but their
+     * deployment rows stay enabled until the rollout runs (here: never, the listener is mocked). Deleting the reference
+     * in that window must still remove its row -- and the deployment with its last row -- or nothing would ever clean
+     * the deployment up: the rollout skips a deployment none of whose references is left.
+     */
+    @Test
+    void testDeletingADanglingReferenceBeforeTheRolloutDeletesItsDeployment() {
+        connectedUserService.createConnectedUser("userDanglingDelete", Environment.PRODUCTION);
+
+        givenNoRunningJobs();
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("dangling-delete-project", "keptWorkflow", "removedWorkflow"), Language.JAVASCRIPT);
+
+        long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("dangling-delete-project")
+            .orElseThrow();
+        String removedWorkflowUuid =
+            findProjectWorkflowByLabel(projectId, publishedVersion(projectId), "removedWorkflow")
+                .getUuidAsString();
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "userDanglingDelete", removedWorkflowUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("dangling-delete-project", "keptWorkflow"), Language.JAVASCRIPT);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isDangling)
+            .isEqualTo(true);
+        assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(reference.getProjectDeploymentId()))
+            .singleElement()
+            .extracting(ProjectDeploymentWorkflow::isEnabled)
+            .isEqualTo(true);
+
+        connectedUserCodeWorkflowReferenceFacade.deleteReference(
+            "userDanglingDelete", removedWorkflowUuid, Environment.PRODUCTION);
+
+        assertThat(projectDeploymentService.fetchProjectDeploymentByName(
+            projectId, "__EMBEDDED__userDanglingDelete__PRODUCTION")).isEmpty();
+        assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId())).isEmpty();
+    }
+
+    /**
+     * Same window as {@link #testDeletingADanglingReferenceBeforeTheRolloutDeletesItsDeployment}: disabling the
+     * dangling reference removes its still-enabled row (a dangling template can never be enabled again), and keeps the
+     * row of the connected user's other template.
+     */
+    @Test
+    void testDisablingADanglingReferenceBeforeTheRolloutRemovesItsRow() {
+        connectedUserService.createConnectedUser("userDanglingDisable", Environment.PRODUCTION);
+
+        givenNoRunningJobs();
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("dangling-disable-project", "keptWorkflow", "removedWorkflow"), Language.JAVASCRIPT);
+
+        long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("dangling-disable-project")
+            .orElseThrow();
+        int publishedVersion = publishedVersion(projectId);
+
+        ProjectWorkflow keptProjectWorkflow = findProjectWorkflowByLabel(projectId, publishedVersion, "keptWorkflow");
+        String removedWorkflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion, "removedWorkflow")
+            .getUuidAsString();
+
+        connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "userDanglingDisable", keptProjectWorkflow.getUuidAsString(), Environment.PRODUCTION);
+
+        ConnectedUserProjectWorkflow removedReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "userDanglingDisable", removedWorkflowUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("dangling-disable-project", "keptWorkflow"), Language.JAVASCRIPT);
+
+        connectedUserCodeWorkflowReferenceFacade.enableReference(
+            "userDanglingDisable", removedWorkflowUuid, false, Environment.PRODUCTION);
+
+        assertThat(
+            projectDeploymentWorkflowService.getProjectDeploymentWorkflows(removedReference.getProjectDeploymentId()))
+                .extracting(ProjectDeploymentWorkflow::getWorkflowId)
+                .containsExactly(keptProjectWorkflow.getWorkflowId());
+        assertThat(connectedUserProjectWorkflowRepository.findById(removedReference.getId()))
+            .get()
+            .satisfies(reference -> {
+                assertThat(reference.isDangling()).isTrue();
+                assertThat(reference.isEnabled()).isFalse();
+            });
+    }
+
+    /**
+     * A code-workflow redeploy marks a removed template's references dangling before the rollout runs. The rollout that
+     * follows still moves the deployment to the new version: the kept template's row is carried to its new workflow id,
+     * and the dangling reference's still-enabled row is dropped rather than left running.
+     */
+    @Test
+    void testRolloutAfterARedeployDropsTheDanglingReferencesRowAndCarriesTheKeptOne() {
+        connectedUserService.createConnectedUser("userRedeployRollout", Environment.PRODUCTION);
+
+        givenNoRunningJobs();
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("redeploy-rollout-project", "keptWorkflow", "removedWorkflow"), Language.JAVASCRIPT);
+
+        long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("redeploy-rollout-project")
+            .orElseThrow();
+        int firstVersion = publishedVersion(projectId);
+
+        String keptWorkflowUuid = findProjectWorkflowByLabel(projectId, firstVersion, "keptWorkflow")
+            .getUuidAsString();
+        String removedWorkflowUuid = findProjectWorkflowByLabel(projectId, firstVersion, "removedWorkflow")
+            .getUuidAsString();
+
+        ConnectedUserProjectWorkflow keptReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "userRedeployRollout", keptWorkflowUuid, Environment.PRODUCTION);
+        ConnectedUserProjectWorkflow removedReference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            "userRedeployRollout", removedWorkflowUuid, Environment.PRODUCTION);
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("redeploy-rollout-project", "keptWorkflow"), Language.JAVASCRIPT);
+
+        int secondVersion = publishedVersion(projectId);
+
+        connectedUserReferenceRolloutService.rollOut(projectId);
+
+        long projectDeploymentId = keptReference.getProjectDeploymentId();
+
+        assertThat(projectDeploymentService.getProjectDeployment(projectDeploymentId)
+            .getProjectVersion()).isEqualTo(secondVersion);
+        assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(projectDeploymentId))
+            .extracting(ProjectDeploymentWorkflow::getWorkflowId)
+            .containsExactly(
+                findProjectWorkflowByLabel(projectId, secondVersion, "keptWorkflow").getWorkflowId());
+        assertThat(connectedUserProjectWorkflowRepository.findById(removedReference.getId()))
+            .get()
+            .satisfies(reference -> {
+                assertThat(reference.isDangling()).isTrue();
+                assertThat(reference.isEnabled()).isFalse();
+            });
+    }
+
+    /**
+     * Two first provisions of one connected user for two templates of the same catalog project, racing: both find no
+     * deployment and, unserialized, both create one -- after which every lookup by (project, name) fails. The connected
+     * user's project row is created before the race; only the reference writes that follow are under test.
+     */
+    @Test
+    void testConcurrentFirstProvisionsOfOneConnectedUserShareOneDeployment() throws Exception {
+        connectedUserService.createConnectedUser("userConcurrent", Environment.PRODUCTION);
+
+        automationWorkflowProjectCodeWorkflowFacade.save(
+            projectSource("concurrent-project", "firstWorkflow", "secondWorkflow"), Language.JAVASCRIPT);
+
+        long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("concurrent-project")
+            .orElseThrow();
+        int publishedVersion = publishedVersion(projectId);
+
+        String firstWorkflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion, "firstWorkflow")
+            .getUuidAsString();
+        String secondWorkflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion, "secondWorkflow")
+            .getUuidAsString();
+
+        connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject("userConcurrent", Environment.PRODUCTION);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        ConnectedUserProjectWorkflow firstReference;
+        ConnectedUserProjectWorkflow secondReference;
+
+        try (ExecutorService executorService = Executors.newFixedThreadPool(2)) {
+            Future<ConnectedUserProjectWorkflow> firstFuture = executorService.submit(
+                () -> provisionAfterStart(startLatch, "userConcurrent", firstWorkflowUuid));
+            Future<ConnectedUserProjectWorkflow> secondFuture = executorService.submit(
+                () -> provisionAfterStart(startLatch, "userConcurrent", secondWorkflowUuid));
+
+            startLatch.countDown();
+
+            firstReference = firstFuture.get(2, TimeUnit.MINUTES);
+            secondReference = secondFuture.get(2, TimeUnit.MINUTES);
+        }
+
+        List<ProjectDeployment> projectDeployments = projectDeploymentService.getAllProjectDeployments(projectId);
+
+        assertThat(projectDeployments).hasSize(1);
+
+        long projectDeploymentId = projectDeployments.getFirst()
+            .getId();
+
+        assertThat(firstReference.getProjectDeploymentId()).isEqualTo(projectDeploymentId);
+        assertThat(secondReference.getProjectDeploymentId()).isEqualTo(projectDeploymentId);
+    }
+
+    /**
+     * Removing an enabled row stops its running jobs first; the mocked job service answers "none running", as an empty
+     * job table would.
+     */
+    private void givenNoRunningJobs() {
+        when(principalJobService.getJobIds(any(), any(), any(), anyList(), any(), anyList(), anyBoolean(), anyInt()))
+            .thenReturn(Page.empty());
+    }
+
+    private ConnectedUserProjectWorkflow provisionAfterStart(
+        CountDownLatch startLatch, String externalUserId, String catalogWorkflowUuid) throws InterruptedException {
+
+        startLatch.await();
+
+        return connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            externalUserId, catalogWorkflowUuid, Environment.PRODUCTION);
     }
 
     private long connectedUserProjectId(String externalUserId, Environment environment) {

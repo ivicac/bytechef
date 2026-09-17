@@ -54,7 +54,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SkipAutomationAuthorization
 public class ConnectedUserReferenceRolloutService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConnectedUserReferenceRolloutService.class);
+    private static final Logger log = LoggerFactory.getLogger(ConnectedUserReferenceRolloutService.class);
 
     private static final String REMOVED_DANGLING_REASON = "Removed from the catalog project on publish";
 
@@ -100,7 +100,7 @@ public class ConnectedUserReferenceRolloutService {
             lastPublishedVersion = connectedUserReferenceDeploymentManager.getLastPublishedVersion(catalogProjectId);
             projectDeployments = projectDeploymentService.getAllProjectDeployments(catalogProjectId);
         } catch (RuntimeException exception) {
-            logger.error("Rolling out catalog project id={} failed", catalogProjectId, exception);
+            log.error("Rolling out catalog project id={} failed", catalogProjectId, exception);
 
             return;
         }
@@ -121,7 +121,8 @@ public class ConnectedUserReferenceRolloutService {
 
     /**
      * Rolls one deployment forward when it is behind, inside the caller's transaction. A deployment none of whose
-     * references survives the new version is deleted, so a caller that goes on to write into it must look it up again.
+     * references survives the new version -- or that has no reference left at all -- is deleted, so a caller that goes
+     * on to write into it must look it up again.
      *
      * @return whether the deployment was behind and rolled forward, i.e. whether its references may have changed
      */
@@ -136,7 +137,7 @@ public class ConnectedUserReferenceRolloutService {
             return false;
         }
 
-        rollOutDeployment(projectDeployment, lastPublishedVersion, getReferences(projectDeploymentId));
+        rollOutDeploymentWithReferences(projectDeployment, lastPublishedVersion);
 
         return true;
     }
@@ -159,7 +160,7 @@ public class ConnectedUserReferenceRolloutService {
     private static void logRolloutFailure(long catalogProjectId, long projectDeploymentId, RuntimeException exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof OptimisticLockingFailureException) {
-                logger.warn(
+                log.warn(
                     "Rolling out catalog project id={} to deployment id={} lost a concurrent update; it will converge "
                         +
                         "on the next publish or enable",
@@ -169,15 +170,26 @@ public class ConnectedUserReferenceRolloutService {
             }
         }
 
-        logger.error(
+        log.error(
             "Rolling out catalog project id={} to deployment id={} failed", catalogProjectId, projectDeploymentId,
             exception);
     }
 
+    /**
+     * A reference deployment with no reference left still has to go: a reference deleted while its row was still
+     * running (a dangling one, whose rows a code-workflow redeploy leaves to this rollout) may have been the last one.
+     * Any other deployment of the catalog project is none of the rollout's business and is left alone.
+     */
     private void rollOutDeploymentWithReferences(ProjectDeployment projectDeployment, int lastPublishedVersion) {
+        if (!ConnectedUserReferenceDeploymentManager.isReferenceDeployment(projectDeployment)) {
+            return;
+        }
+
         List<ConnectedUserProjectWorkflow> references = getReferences(projectDeployment.getId());
 
         if (references.isEmpty()) {
+            connectedUserReferenceDeploymentManager.deleteDeployment(projectDeployment.getId());
+
             return;
         }
 
