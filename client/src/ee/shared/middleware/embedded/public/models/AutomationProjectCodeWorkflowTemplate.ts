@@ -14,15 +14,13 @@
 
 import { mapValues } from '../runtime';
 /**
- * A catalog workflow template within an automation workflow project.
+ * An automation workflow template within an automation workflow project.
  * @export
  * @interface AutomationProjectCodeWorkflowTemplate
  */
 export interface AutomationProjectCodeWorkflowTemplate {
     /**
      * The label of the workflow.
-     * @type {string}
-     * @memberof AutomationProjectCodeWorkflowTemplate
      */
     label?: string;
 }

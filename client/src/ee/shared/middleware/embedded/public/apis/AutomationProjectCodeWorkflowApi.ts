@@ -25,6 +25,9 @@ import {
 } from '../models/AutomationProjectCodeWorkflowDeployResult';
 
 export interface DeployAutomationProjectCodeWorkflowRequest {
+    /**
+     * The file of a code-native automation project.
+     */
     projectFile?: Blob;
 }
 
@@ -82,8 +85,8 @@ export class AutomationProjectCodeWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Deploy a new automation code workflow into the embedded catalog. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
-     * Deploy a new automation code workflow into the embedded catalog
+     * Deploy a new automation code workflow into the embedded automation workflows. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
+     * Deploy a new automation code workflow into the embedded automation workflows
      */
     async deployAutomationProjectCodeWorkflowRaw(requestParameters: DeployAutomationProjectCodeWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AutomationProjectCodeWorkflowDeployResult>> {
         const requestOptions = await this.deployAutomationProjectCodeWorkflowRequestOpts(requestParameters);
@@ -93,8 +96,8 @@ export class AutomationProjectCodeWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Deploy a new automation code workflow into the embedded catalog. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
-     * Deploy a new automation code workflow into the embedded catalog
+     * Deploy a new automation code workflow into the embedded automation workflows. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
+     * Deploy a new automation code workflow into the embedded automation workflows
      */
     async deployAutomationProjectCodeWorkflow(requestParameters: DeployAutomationProjectCodeWorkflowRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AutomationProjectCodeWorkflowDeployResult> {
         const response = await this.deployAutomationProjectCodeWorkflowRaw(requestParameters, initOverrides);
@@ -129,8 +132,8 @@ export class AutomationProjectCodeWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
-     * List catalog projects in the embedded automation bridge
+     * List automation workflow projects in the embedded automation bridge. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
+     * List automation workflow projects in the embedded automation bridge
      */
     async listAutomationProjectCodeWorkflowsRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<AutomationProjectCodeWorkflow>>> {
         const requestOptions = await this.listAutomationProjectCodeWorkflowsRequestOpts();
@@ -140,8 +143,8 @@ export class AutomationProjectCodeWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
-     * List catalog projects in the embedded automation bridge
+     * List automation workflow projects in the embedded automation bridge. Unlike the connected-user-scoped endpoints on this API, this operation is authenticated as the API key\'s own ByteChef user and does not fabricate a connected-user identity.
+     * List automation workflow projects in the embedded automation bridge
      */
     async listAutomationProjectCodeWorkflows(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<AutomationProjectCodeWorkflow>> {
         const response = await this.listAutomationProjectCodeWorkflowsRaw(initOverrides);

@@ -3,7 +3,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationProjectCodeWorkflowTemplateModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -23,12 +22,12 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * An automation workflow catalog project, without the underlying automation project id.
+ * An automation workflow project, without the underlying automation project id.
  */
 
-@Schema(name = "AutomationProjectCodeWorkflow", description = "An automation workflow catalog project, without the underlying automation project id.")
+@Schema(name = "AutomationProjectCodeWorkflow", description = "An automation workflow project, without the underlying automation project id.")
 @JsonTypeName("AutomationProjectCodeWorkflow")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T22:59:12.689723+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class AutomationProjectCodeWorkflowModel {
 
   private @Nullable String name;
@@ -128,11 +127,11 @@ public class AutomationProjectCodeWorkflowModel {
   }
 
   /**
-   * The list of catalog workflow templates belonging to this project.
+   * The list of automation workflow templates belonging to this project.
    * @return workflowTemplates
    */
   @Valid 
-  @Schema(name = "workflowTemplates", description = "The list of catalog workflow templates belonging to this project.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "workflowTemplates", description = "The list of automation workflow templates belonging to this project.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("workflowTemplates")
   public List<@Valid AutomationProjectCodeWorkflowTemplateModel> getWorkflowTemplates() {
     return workflowTemplates;

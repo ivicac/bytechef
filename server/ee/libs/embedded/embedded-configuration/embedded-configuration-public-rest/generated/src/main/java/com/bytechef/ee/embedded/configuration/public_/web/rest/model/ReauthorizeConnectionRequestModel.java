@@ -23,7 +23,7 @@ import jakarta.annotation.Generated;
  */
 
 @JsonTypeName("ReauthorizeConnectionRequest")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T22:59:12.689723+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class ReauthorizeConnectionRequestModel {
 
   private Map<String, Object> parameters = new HashMap<>();

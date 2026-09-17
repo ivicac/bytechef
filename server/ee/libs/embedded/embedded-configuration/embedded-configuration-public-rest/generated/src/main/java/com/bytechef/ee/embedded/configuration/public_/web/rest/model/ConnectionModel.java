@@ -2,8 +2,8 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 
 import java.net.URI;
 import java.util.Objects;
+import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CredentialStatusModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -27,7 +27,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "Connection", description = "Contains all required information to open a connection to a service defined by componentName parameter")
 @JsonTypeName("Connection")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T22:59:12.689723+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class ConnectionModel {
 
   private Long id;
@@ -44,6 +44,8 @@ public class ConnectionModel {
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime createdDate;
+
+  private @Nullable CredentialStatusModel credentialStatus;
 
   private @Nullable Boolean shared;
 
@@ -208,6 +210,27 @@ public class ConnectionModel {
     this.createdDate = createdDate;
   }
 
+  public ConnectionModel credentialStatus(@Nullable CredentialStatusModel credentialStatus) {
+    this.credentialStatus = credentialStatus;
+    return this;
+  }
+
+  /**
+   * Get credentialStatus
+   * @return credentialStatus
+   */
+  @Valid 
+  @Schema(name = "credentialStatus", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("credentialStatus")
+  public @Nullable CredentialStatusModel getCredentialStatus() {
+    return credentialStatus;
+  }
+
+  @JsonProperty("credentialStatus")
+  public void setCredentialStatus(@Nullable CredentialStatusModel credentialStatus) {
+    this.credentialStatus = credentialStatus;
+  }
+
   public ConnectionModel shared(@Nullable Boolean shared) {
     this.shared = shared;
     return this;
@@ -266,13 +289,14 @@ public class ConnectionModel {
         Objects.equals(this.connectionVersion, connection.connectionVersion) &&
         Objects.equals(this.authorizationType, connection.authorizationType) &&
         Objects.equals(this.createdDate, connection.createdDate) &&
+        Objects.equals(this.credentialStatus, connection.credentialStatus) &&
         Objects.equals(this.shared, connection.shared) &&
         Objects.equals(this.editable, connection.editable);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, environment, componentName, connectionVersion, authorizationType, createdDate, shared, editable);
+    return Objects.hash(id, name, environment, componentName, connectionVersion, authorizationType, createdDate, credentialStatus, shared, editable);
   }
 
   @Override
@@ -286,6 +310,7 @@ public class ConnectionModel {
     sb.append("    connectionVersion: ").append(toIndentedString(connectionVersion)).append("\n");
     sb.append("    authorizationType: ").append(toIndentedString(authorizationType)).append("\n");
     sb.append("    createdDate: ").append(toIndentedString(createdDate)).append("\n");
+    sb.append("    credentialStatus: ").append(toIndentedString(credentialStatus)).append("\n");
     sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
     sb.append("    editable: ").append(toIndentedString(editable)).append("\n");
     sb.append("}");

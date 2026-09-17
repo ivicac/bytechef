@@ -3,7 +3,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowTemplateModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -28,7 +27,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "AutomationWorkflowProject", description = "An automation workflow automation workflow project.")
 @JsonTypeName("AutomationWorkflowProject")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T22:59:12.689723+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class AutomationWorkflowProjectModel {
 
   private @Nullable Long id;
@@ -36,6 +35,8 @@ public class AutomationWorkflowProjectModel {
   private @Nullable String name;
 
   private @Nullable String description;
+
+  private @Nullable Boolean automationHubVisible;
 
   private List<@Valid AutomationWorkflowProjectWorkflowTemplateModel> workflowTemplates = new ArrayList<>();
 
@@ -222,13 +223,14 @@ public class AutomationWorkflowProjectModel {
     return Objects.equals(this.id, automationWorkflowProject.id) &&
         Objects.equals(this.name, automationWorkflowProject.name) &&
         Objects.equals(this.description, automationWorkflowProject.description) &&
+        Objects.equals(this.automationHubVisible, automationWorkflowProject.automationHubVisible) &&
         Objects.equals(this.workflowTemplates, automationWorkflowProject.workflowTemplates) &&
         Objects.equals(this.kind, automationWorkflowProject.kind);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, description, workflowTemplates, kind);
+    return Objects.hash(id, name, description, automationHubVisible, workflowTemplates, kind);
   }
 
   @Override
