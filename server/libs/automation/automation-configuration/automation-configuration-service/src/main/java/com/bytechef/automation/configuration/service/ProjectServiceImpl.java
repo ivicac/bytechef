@@ -262,6 +262,15 @@ public class ProjectServiceImpl implements ProjectService {
         return projectRepository.save(project);
     }
 
+    @Override
+    public Project updateAutomationHubVisible(long id, boolean automationHubVisible) {
+        Project project = getProject(id);
+
+        project.setAutomationHubVisible(automationHubVisible);
+
+        return projectRepository.save(project);
+    }
+
     /**
      * Rejects a rung the project model does not support, so the guarantee does not rest on caller discipline. The
      * sharing facade checks the same thing first and keeps owning the error a caller sees — this is the backstop for a

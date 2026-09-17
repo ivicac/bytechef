@@ -50,6 +50,9 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table
 public final class Project {
 
+    @Column("automation_hub_visible")
+    private boolean automationHubVisible = true;
+
     @Column("category_id")
     private AggregateReference<Category, Long> categoryId;
 
@@ -170,6 +173,10 @@ public final class Project {
         return permissionExpression;
     }
 
+    public boolean isAutomationHubVisible() {
+        return automationHubVisible;
+    }
+
     public Long getId() {
         return id;
     }
@@ -288,6 +295,10 @@ public final class Project {
         this.permissionExpression = permissionExpression;
     }
 
+    public void setAutomationHubVisible(boolean automationHubVisible) {
+        this.automationHubVisible = automationHubVisible;
+    }
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -357,6 +368,7 @@ public final class Project {
             ", projectTags=" + projectTags +
             ", version=" + version +
             ", visibility=" + visibility +
+            ", automationHubVisible=" + automationHubVisible +
             ", createdBy='" + createdBy + '\'' +
             ", createdDate=" + createdDate +
             ", lastModifiedBy='" + lastModifiedBy + '\'' +

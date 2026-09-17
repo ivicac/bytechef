@@ -194,7 +194,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
             .toList();
 
         return new AutomationWorkflowProjectDTO(
-            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, false);
+            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, false, true);
     }
 
     private static String rejectionMessage(String workflowUuid) {

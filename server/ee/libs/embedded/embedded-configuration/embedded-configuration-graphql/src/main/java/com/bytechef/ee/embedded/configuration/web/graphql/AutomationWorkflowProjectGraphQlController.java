@@ -62,20 +62,24 @@ public class AutomationWorkflowProjectGraphQlController {
     @MutationMapping
     public String createAutomationWorkflowProject(
         @Argument String name, @Argument String description, @Argument String category,
-        @Argument List<String> tags, @Argument String permissionExpression) {
+        @Argument List<String> tags, @Argument String permissionExpression,
+        @Argument Boolean automationHubVisible) {
 
         return String.valueOf(
             automationWorkflowProjectFacade.createProject(
-                name, description, category, tags == null ? List.of() : tags, permissionExpression));
+                name, description, category, tags == null ? List.of() : tags, permissionExpression,
+                automationHubVisible));
     }
 
     @MutationMapping
     public boolean updateAutomationWorkflowProject(
         @Argument String id, @Argument String name, @Argument String description, @Argument String category,
-        @Argument List<String> tags, @Argument String permissionExpression) {
+        @Argument List<String> tags, @Argument String permissionExpression,
+        @Argument Boolean automationHubVisible) {
 
         automationWorkflowProjectFacade.updateProject(
-            Long.parseLong(id), name, description, category, tags == null ? List.of() : tags, permissionExpression);
+            Long.parseLong(id), name, description, category, tags == null ? List.of() : tags, permissionExpression,
+            automationHubVisible);
 
         return true;
     }

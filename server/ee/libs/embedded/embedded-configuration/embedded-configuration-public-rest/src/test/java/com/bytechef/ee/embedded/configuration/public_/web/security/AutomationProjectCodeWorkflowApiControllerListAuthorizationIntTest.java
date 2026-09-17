@@ -90,7 +90,7 @@ class AutomationProjectCodeWorkflowApiControllerListAuthorizationIntTest {
         when(automationWorkflowProjectFacade.getPublishedProjects())
             .thenReturn(List.of(
                 new AutomationWorkflowProjectDTO(
-                    1L, "project-1", null, null, List.of(), true, 1, 1, List.of(), null, false)));
+                    1L, "project-1", null, null, List.of(), true, 1, 1, List.of(), null, false, true)));
 
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken(

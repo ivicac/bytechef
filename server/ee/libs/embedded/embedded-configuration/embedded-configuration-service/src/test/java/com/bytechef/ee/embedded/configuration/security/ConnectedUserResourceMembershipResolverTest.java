@@ -573,7 +573,7 @@ class ConnectedUserResourceMembershipResolverTest {
     @Test
     void testResolveProjectDeniedForACatalogProjectWithNoVisibleTemplate() {
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), false, 1, null, List.of(), null, false);
+            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), false, 1, null, List.of(), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(catalogProject));
@@ -602,7 +602,7 @@ class ConnectedUserResourceMembershipResolverTest {
             "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false, true);
 
         lenient().when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(catalogProject));
@@ -1016,7 +1016,7 @@ class ConnectedUserResourceMembershipResolverTest {
             templateUuid.toString(), "Template", "", null, List.of(), List.of(), List.of(), null);
 
         AutomationWorkflowProjectDTO catalogProject = new AutomationWorkflowProjectDTO(
-            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false);
+            OTHER_PROJECT_ID, "Catalog", "", null, List.of(), true, 1, 1, List.of(template), null, false, true);
 
         lenient().when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(catalogProject));

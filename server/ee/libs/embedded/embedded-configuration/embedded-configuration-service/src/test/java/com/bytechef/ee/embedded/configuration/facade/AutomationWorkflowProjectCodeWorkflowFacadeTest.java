@@ -93,7 +93,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();
@@ -135,7 +136,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();
@@ -294,7 +296,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();

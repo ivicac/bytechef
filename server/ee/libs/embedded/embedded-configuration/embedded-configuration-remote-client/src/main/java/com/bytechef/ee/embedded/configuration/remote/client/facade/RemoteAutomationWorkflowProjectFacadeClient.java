@@ -18,6 +18,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,8 @@ public class RemoteAutomationWorkflowProjectFacadeClient implements AutomationWo
 
     @Override
     public long createProject(
-        String name, String description, String category, List<String> tags, String permissionExpression) {
+        String name, String description, String category, List<String> tags, String permissionExpression,
+        @Nullable Boolean automationHubVisible) {
 
         throw new UnsupportedOperationException();
     }
@@ -125,7 +127,7 @@ public class RemoteAutomationWorkflowProjectFacadeClient implements AutomationWo
     @Override
     public void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
-        String permissionExpression) {
+        String permissionExpression, @Nullable Boolean automationHubVisible) {
 
         throw new UnsupportedOperationException();
     }
