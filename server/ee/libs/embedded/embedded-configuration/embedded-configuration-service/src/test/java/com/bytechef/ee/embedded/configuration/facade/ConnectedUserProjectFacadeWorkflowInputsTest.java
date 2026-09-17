@@ -19,6 +19,8 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
+import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
@@ -51,6 +53,12 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Mock
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Mock
+    private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+
+    @Mock
     private EnvironmentService environmentService;
 
     @Mock
@@ -67,9 +75,10 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
-            null, null, null, null, connectedUserProjectWorkflowManager, null, null, null, null, null,
-            environmentService, null, null, null, null, null, projectDeploymentService,
-            projectDeploymentWorkflowService, null, null, null, projectWorkflowService, null, null, null, null, null);
+            null, null, null, null, connectedUserProjectWorkflowManager, connectedUserProjectWorkflowRepository, null,
+            connectedUserReferenceDeploymentManager, null, null, null, environmentService, null, null, null, null,
+            null, projectDeploymentService, projectDeploymentWorkflowService, null, null, null, projectWorkflowService,
+            null, null, null, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
@@ -123,6 +132,27 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
                 EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("sheetName", "Leads"), 0L))
                     .isInstanceOf(ConfigurationException.class);
 
+        verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+    }
+
+    /**
+     * A workflowUuid that belongs to a reference row is delegated to the reference deployment manager instead of the
+     * caller's own project deployment -- the same reference-vs-copy branch {@code enableProjectWorkflow} makes.
+     */
+    @Test
+    void testUpdateProjectWorkflowInputsDelegatesToReferenceDeploymentManagerForAReferenceRow() {
+        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+
+        reference.setCatalogWorkflowUuid(WORKFLOW_UUID);
+        reference.setProjectDeploymentId(40L);
+
+        when(connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, WORKFLOW_UUID))
+                .thenReturn(Optional.of(reference));
+
+        facade.updateProjectWorkflowInputs(EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("channel", "#alerts"), 0L);
+
+        verify(connectedUserReferenceDeploymentManager).updateInputs(40L, WORKFLOW_UUID, Map.of("channel", "#alerts"));
         verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
     }
 }

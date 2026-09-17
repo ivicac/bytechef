@@ -54,8 +54,8 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
 
     private final ConnectedUserProjectFacadeImpl facade = new ConnectedUserProjectFacadeImpl(
         automationWorkflowProjectFacade, null, null, null, connectedUserProjectWorkflowManager, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, projectWorkflowService, null, null,
-        workflowService, null, null);
+        null, null, null, null, null, null, null, null, null, null, null, null, null, projectWorkflowService, null,
+        null, workflowService, null, null);
 
     @Test
     void testCopyWorkflowTemplateCopiesATemplateTheConnectedUserIsPermittedToSee() {

@@ -21,6 +21,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -124,6 +125,15 @@ public class ConnectedUserReferenceDeploymentManager {
 
     public String getDeploymentName(String externalUserId, Environment environment) {
         return MARKER + externalUserId + "__" + environment.name();
+    }
+
+    /**
+     * The row's stored inputs, or an empty map when the reference has no row yet (e.g. dangling).
+     */
+    public Map<String, ?> getInputs(long projectDeploymentId, String catalogWorkflowUuid) {
+        return fetchRow(projectDeploymentId, catalogWorkflowUuid)
+            .<Map<String, ?>>map(ProjectDeploymentWorkflow::getInputs)
+            .orElse(Map.of());
     }
 
     public int getLastPublishedVersion(long catalogProjectId) {
@@ -285,6 +295,41 @@ public class ConnectedUserReferenceDeploymentManager {
 
         return new ReferenceResolution(
             new RowSpec(resolved, enabled, null), resolved.firstMissingComponentName(), missingInputName);
+    }
+
+    /**
+     * Rewrites the row through {@link #putWorkflows} so an enabled row's triggers re-register with the new inputs. An
+     * empty map cannot clear inputs: {@code ProjectDeploymentWorkflow.setInputs} ignores it, the same limit the copy
+     * path has.
+     *
+     * <p>
+     * An ENABLED row is checked against its required inputs before any write: without this, {@link #putWorkflows} would
+     * disable the row, save the incomplete inputs, then fail to re-enable it through
+     * {@code ProjectDeploymentFacadeImpl#enableProjectDeploymentWorkflow}, whose own validation throws a raw
+     * {@code IllegalArgumentException} -- leaving the row disabled and surfacing a low-level exception the rest of the
+     * reference API never uses. A disabled row skips this check: a partial input set is allowed there, the same as
+     * provisioning.
+     */
+    public void updateInputs(long projectDeploymentId, String catalogWorkflowUuid, Map<String, ?> inputs) {
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
+
+        ProjectDeploymentWorkflow row = fetchRow(projectDeploymentId, catalogWorkflowUuid)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Catalog workflow %s is not deployed in deployment id=%s".formatted(
+                    catalogWorkflowUuid, projectDeploymentId)));
+
+        if (row.isEnabled()) {
+            String missingInputName = findMissingRequiredInput(row.getWorkflowId(), inputs);
+
+            if (missingInputName != null) {
+                throw new MissingInputException(missingInputName);
+            }
+        }
+
+        RowSpec rowSpec = new RowSpec(
+            new ResolvedWorkflowConnections(row.getConnections(), List.of()), row.isEnabled(), inputs);
+
+        putWorkflows(projectDeploymentId, projectDeployment.getProjectVersion(), Map.of(catalogWorkflowUuid, rowSpec));
     }
 
     private Optional<ProjectDeploymentWorkflow> fetchRowAtCurrentVersion(

@@ -69,6 +69,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -101,6 +102,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
+    private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
     private final ConnectedUserService connectedUserService;
     private final ConnectionService connectionService;
     private final @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator;
@@ -131,6 +133,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
+        ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
         ConnectedUserService connectedUserService, ConnectionService connectionService,
         @Lazy @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator, EnvironmentService environmentService,
         IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
@@ -150,6 +153,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
+        this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
         this.connectedUserService = connectedUserService;
         this.connectionService = connectionService;
         this.copilotWorkflowGenerator = copilotWorkflowGenerator;
@@ -547,6 +551,21 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             externalUserId, environment);
 
+        // See enableProjectWorkflow(String, String, boolean, Long) above: a reference row has no ProjectWorkflow of
+        // its own in the caller's project, so it is routed to the reference deployment manager instead, keyed by
+        // catalogWorkflowUuid.
+        Optional<ConnectedUserProjectWorkflow> reference = connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), workflowUuid);
+
+        if (reference.isPresent()) {
+            ConnectedUserProjectWorkflow connectedUserProjectWorkflow = reference.get();
+
+            connectedUserReferenceDeploymentManager.updateInputs(
+                connectedUserProjectWorkflow.getProjectDeploymentId(), workflowUuid, inputs);
+
+            return;
+        }
+
         String workflowId = projectWorkflowService
             .fetchLastProjectWorkflowId(connectedUserProject.getProjectId(), workflowUuid)
             .orElseThrow(() -> new ConfigurationException(
@@ -746,7 +765,11 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
                 return ConnectedUserProjectWorkflowDTO.ofReference(
                     connectedUser.getId(), reference, new WorkflowDTO(workflow, List.of(), List.of()),
                     template == null ? List.of() : template.components(),
-                    template == null ? List.of() : template.inputs(), Map.of());
+                    template == null ? List.of() : template.inputs(),
+                    reference.isDangling()
+                        ? Map.of()
+                        : connectedUserReferenceDeploymentManager.getInputs(
+                            reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid()));
             })
             .toList();
     }

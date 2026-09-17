@@ -144,7 +144,7 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
     private ConnectedUserProjectFacadeImpl facade() {
         return new ConnectedUserProjectFacadeImpl(
             null, null, null, connectedUserCodeWorkflowReferenceFacade, connectedUserProjectWorkflowManager,
-            connectedUserProjectWorkflowRepository, null, null, null, null, null, null, null, null, null,
+            connectedUserProjectWorkflowRepository, null, null, null, null, null, null, null, null, null, null,
             projectDeploymentFacade, projectDeploymentService, null, null, null, null, projectWorkflowService, null,
             null, null, null, null);
     }
