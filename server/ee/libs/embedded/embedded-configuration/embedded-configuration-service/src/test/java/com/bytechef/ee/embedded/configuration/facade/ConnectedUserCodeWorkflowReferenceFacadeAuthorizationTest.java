@@ -25,6 +25,7 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
 import com.bytechef.ee.embedded.configuration.repository.ConnectUserProjectRepository;
@@ -108,7 +109,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
 
         assertThatThrownBy(
             () -> facade.getOrCreateReference(EXTERNAL_USER_ID, HIDDEN_WORKFLOW_UUID, Environment.PRODUCTION))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(CatalogWorkflowTemplateNotVisibleException.class);
 
         // Nothing was provisioned: no deployment, no reference row, no connection wiring.
         verifyNoInteractions(connectedUserReferenceDeploymentManager);
@@ -127,8 +128,8 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
         Throwable unknownThrowable = catchThrowable(
             () -> facade.getOrCreateReference(EXTERNAL_USER_ID, UNKNOWN_WORKFLOW_UUID, Environment.PRODUCTION));
 
-        assertThat(hiddenThrowable).isExactlyInstanceOf(IllegalArgumentException.class);
-        assertThat(unknownThrowable).isExactlyInstanceOf(IllegalArgumentException.class);
+        assertThat(hiddenThrowable).isExactlyInstanceOf(CatalogWorkflowTemplateNotVisibleException.class);
+        assertThat(unknownThrowable).isExactlyInstanceOf(CatalogWorkflowTemplateNotVisibleException.class);
         assertThat(hiddenThrowable).hasMessage(rejectionMessage(HIDDEN_WORKFLOW_UUID));
         assertThat(unknownThrowable).hasMessage(rejectionMessage(UNKNOWN_WORKFLOW_UUID));
     }

@@ -9,10 +9,12 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -162,8 +165,8 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
 
     /**
      * A template the connected user's permission expression hides and a uuid that does not exist at all both reach the
-     * controller as the same {@link IllegalArgumentException} from the facade, and must leave the HTTP layer as the
-     * same bodyless 404 -- otherwise the response itself would tell the caller which templates exist.
+     * controller as the same {@link CatalogWorkflowTemplateNotVisibleException} from the facade, and must leave the
+     * HTTP layer as the same bodyless 404 -- otherwise the response itself would tell the caller which templates exist.
      */
     @Test
     @WithMockUser(username = EXTERNAL_USER_ID)
@@ -171,13 +174,11 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
-                    new IllegalArgumentException(
-                        "Not a published catalog workflow template: " + HIDDEN_WORKFLOW_UUID));
+                    new CatalogWorkflowTemplateNotVisibleException(HIDDEN_WORKFLOW_UUID));
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
-                    new IllegalArgumentException(
-                        "Not a published catalog workflow template: " + UNKNOWN_WORKFLOW_UUID));
+                    new CatalogWorkflowTemplateNotVisibleException(UNKNOWN_WORKFLOW_UUID));
 
         try {
             expectProvisionNotFoundWithoutBody(HIDDEN_WORKFLOW_UUID);
@@ -214,5 +215,25 @@ public class ConnectedUserProjectWorkflowApiControllerFrontendProvisionIntTest {
 
         verify(connectedUserCodeWorkflowReferenceFacade)
             .deleteReference(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class));
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testFrontendProvisionConnectionWithoutIdReturns400() {
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflow-templates/{workflowUuid}/provision", WORKFLOW_UUID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"connections\":{\"slack\":null}}")
+                .exchange()
+                .expectStatus()
+                .isBadRequest();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserCodeWorkflowReferenceFacade, never())
+            .getOrCreateReference(any(), any(), any(), any());
     }
 }
