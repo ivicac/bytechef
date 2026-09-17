@@ -16,6 +16,7 @@ import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
@@ -241,6 +242,24 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     }
 
     /**
+     * A dangling reference's template was removed, so there is no row to carry the inputs -- refused the same way
+     * enabling it is.
+     */
+    @Override
+    public void updateReferenceInputs(
+        String externalUserId, String catalogWorkflowUuid, Map<String, ?> inputs, Environment environment) {
+
+        ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
+
+        if (reference.isDangling()) {
+            throw new DanglingReferenceException(catalogWorkflowUuid);
+        }
+
+        connectedUserReferenceDeploymentManager.updateInputs(
+            reference.getProjectDeploymentId(), catalogWorkflowUuid, inputs);
+    }
+
+    /**
      * Resolves the reference at its deployment's current version, writes its row (other rows are kept) and saves the
      * reference. When enabling was asked for, a missing required connection throws {@link MissingConnectionException}
      * and a missing required input throws {@link MissingInputException} -- in both cases AFTER the reference is saved
@@ -331,8 +350,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
             .filter(project -> CollectionUtils.stream(project.workflowTemplates())
                 .anyMatch(workflowTemplate -> Objects.equals(workflowTemplate.workflowUuid(), catalogWorkflowUuid)))
             .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Not a published catalog workflow template: " + catalogWorkflowUuid));
+            .orElseThrow(() -> new CatalogWorkflowTemplateNotVisibleException(catalogWorkflowUuid));
     }
 
     /**

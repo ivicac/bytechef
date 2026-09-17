@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
@@ -43,6 +44,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * @version ee
@@ -449,10 +451,11 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
     /**
      * A rejected {@code workflowUuid} -- one the permission-filtered catalog does not show this connected user, and one
-     * that does not exist at all -- reaches this method as the same {@link IllegalArgumentException} from
-     * {@code getOrCreateReference} and is mapped to the same bodyless 404 the copy endpoints use, so the response never
-     * reveals whether the template exists. {@link MissingConnectionException} is a different type and still reaches
-     * {@link #handleMissingConnectionException}.
+     * that does not exist at all -- reaches this method as the same {@link CatalogWorkflowTemplateNotVisibleException}
+     * from {@code getOrCreateReference} and is mapped to the same bodyless 404 the copy endpoints use, so the response
+     * never reveals whether the template exists. Nothing else is caught: provisioning also catches the deployment up
+     * and validates it, and a failure there is a server error, not a missing template.
+     * {@link MissingConnectionException} still reaches {@link #handleMissingConnectionException}.
      *
      * <p>
      * Unlike {@link #provisionWorkflowReference}, the generated {@code provisionFrontendWorkflowReference} signature
@@ -474,8 +477,8 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
             connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
                 externalUserId, workflowUuid, getEnvironment(xEnvironment),
                 getRequestedConnectionIds(provisionWorkflowReferenceRequestModel));
-        } catch (IllegalArgumentException illegalArgumentException) {
-            return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
+        } catch (CatalogWorkflowTemplateNotVisibleException catalogWorkflowTemplateNotVisibleException) {
+            return notFoundForRejectedProvisioning(workflowUuid, catalogWorkflowTemplateNotVisibleException);
         }
 
         return ResponseEntity.noContent()
@@ -493,21 +496,34 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
             connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
                 externalUserId, workflowUuid, getEnvironment(xEnvironment),
                 getRequestedConnectionIds(provisionWorkflowReferenceRequestModel));
-        } catch (IllegalArgumentException illegalArgumentException) {
-            return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
+        } catch (CatalogWorkflowTemplateNotVisibleException catalogWorkflowTemplateNotVisibleException) {
+            return notFoundForRejectedProvisioning(workflowUuid, catalogWorkflowTemplateNotVisibleException);
         }
 
         return ResponseEntity.noContent()
             .build();
     }
 
+    /**
+     * A component named with no connection id is refused as a bad request rather than forwarded: a null id would fail
+     * deep in resolution as a server error.
+     */
     private static Map<String, Long> getRequestedConnectionIds(
         ProvisionWorkflowReferenceRequestModel provisionWorkflowReferenceRequestModel) {
 
-        return provisionWorkflowReferenceRequestModel == null ||
-            provisionWorkflowReferenceRequestModel.getConnections() == null
-                ? Map.of()
-                : provisionWorkflowReferenceRequestModel.getConnections();
+        if (provisionWorkflowReferenceRequestModel == null ||
+            provisionWorkflowReferenceRequestModel.getConnections() == null) {
+
+            return Map.of();
+        }
+
+        Map<String, Long> connections = provisionWorkflowReferenceRequestModel.getConnections();
+
+        if (connections.containsValue(null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Every requested connection needs an id");
+        }
+
+        return connections;
     }
 
     @Override
@@ -543,12 +559,12 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
      * reason is logged at debug for an operator debugging a genuinely misconfigured deployment.
      */
     private <T> ResponseEntity<T> notFoundForRejectedProvisioning(
-        String workflowUuid, IllegalArgumentException illegalArgumentException) {
+        String workflowUuid, CatalogWorkflowTemplateNotVisibleException catalogWorkflowTemplateNotVisibleException) {
 
         if (log.isDebugEnabled()) {
             log.debug(
                 "Provisioning of catalog workflow {} was rejected for the connected user; returning 404: {}",
-                workflowUuid, illegalArgumentException.getMessage());
+                workflowUuid, catalogWorkflowTemplateNotVisibleException.getMessage());
         }
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

@@ -19,6 +19,7 @@ import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
@@ -234,8 +235,8 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
         } catch (MissingConnectionException missingConnectionException) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
-        } catch (IllegalArgumentException illegalArgumentException) {
-            return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
+        } catch (CatalogWorkflowTemplateNotVisibleException catalogWorkflowTemplateNotVisibleException) {
+            return notFoundForRejectedProvisioning(workflowUuid, catalogWorkflowTemplateNotVisibleException);
         }
 
         if (!reference.isEnabled() || reference.isDangling()) {
@@ -296,12 +297,12 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
      * template exists. Logged at debug because the response deliberately says nothing.
      */
     private ResponseEntity<Object> notFoundForRejectedProvisioning(
-        String workflowUuid, IllegalArgumentException illegalArgumentException) {
+        String workflowUuid, RuntimeException rejectionException) {
 
         if (log.isDebugEnabled()) {
             log.debug(
                 "Provisioning of catalog workflow {} was rejected for the connected user; returning 404: {}",
-                workflowUuid, illegalArgumentException.getMessage());
+                workflowUuid, rejectionException.getMessage());
         }
 
         return ResponseEntity.notFound()

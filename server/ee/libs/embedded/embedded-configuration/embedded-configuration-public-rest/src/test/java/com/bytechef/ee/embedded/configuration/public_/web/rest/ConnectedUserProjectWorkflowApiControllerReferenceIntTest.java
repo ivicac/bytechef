@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.configuration.public_.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -22,6 +23,7 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
@@ -39,6 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
@@ -150,13 +153,11 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             eq(EXTERNAL_USER_ID), eq(HIDDEN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
-                    new IllegalArgumentException(
-                        "Not a published catalog workflow template: " + HIDDEN_WORKFLOW_UUID));
+                    new CatalogWorkflowTemplateNotVisibleException(HIDDEN_WORKFLOW_UUID));
         when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
             eq(EXTERNAL_USER_ID), eq(UNKNOWN_WORKFLOW_UUID), any(Environment.class), any()))
                 .thenThrow(
-                    new IllegalArgumentException(
-                        "Not a published catalog workflow template: " + UNKNOWN_WORKFLOW_UUID));
+                    new CatalogWorkflowTemplateNotVisibleException(UNKNOWN_WORKFLOW_UUID));
 
         try {
             expectProvisionNotFoundWithoutBody(HIDDEN_WORKFLOW_UUID);
@@ -164,6 +165,30 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
         } catch (Exception exception) {
             Assertions.fail(exception);
         }
+    }
+
+    /**
+     * Only the catalog visibility rejection is a 404. Provisioning also catches the deployment up and validates it, and
+     * an {@link IllegalArgumentException} from there is a server-side failure that must not be reported as a missing
+     * template. In this {@code @WebMvcTest} slice an unhandled exception surfaces wrapped in a
+     * {@code ServletException}.
+     */
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testExplicitProvisionFailureOtherThanVisibilityIsNotReportedAsNotFound() {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), any()))
+                .thenThrow(
+                    new IllegalArgumentException(
+                        "Catalog workflow " + WORKFLOW_UUID + " is not in version 2 of project id=5"));
+
+        Throwable thrown = catchThrowable(
+            () -> mockMvc.perform(
+                post(
+                    "/v1/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision", EXTERNAL_USER_ID,
+                    WORKFLOW_UUID)));
+
+        assertThat(thrown).hasCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private void expectProvisionNotFoundWithoutBody(String workflowUuid) {
@@ -389,6 +414,73 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
                 .expectBody()
                 .jsonPath("$[0].attentionReason")
                 .isEqualTo("MISSING_CONNECTION:slack");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testExplicitProvisionForwardsRequestedConnectionsFromTheBody() {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of("slack", 12L))))
+                .thenReturn(new ConnectedUserProjectWorkflow());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision", EXTERNAL_USER_ID,
+                    WORKFLOW_UUID)
+                .bodyValue(Map.of("connections", Map.of("slack", 12)))
+                .exchange()
+                .expectStatus()
+                .isNoContent();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserCodeWorkflowReferenceFacade).getOrCreateReference(
+            eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(Environment.class), eq(Map.of("slack", 12L)));
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testExplicitProvisionConnectionWithoutIdReturns400() {
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision", EXTERNAL_USER_ID,
+                    WORKFLOW_UUID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"connections\":{\"slack\":null}}")
+                .exchange()
+                .expectStatus()
+                .isBadRequest();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserCodeWorkflowReferenceFacade, never())
+            .getOrCreateReference(any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testExternalUserEnableReferenceMissingInputReturns409() {
+        doThrow(new MissingInputException("channel"))
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(true), any());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/{externalUserId}/automation/workflows/{workflowUuid}/enable", EXTERNAL_USER_ID, WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingInputName")
+                .isEqualTo("channel");
         } catch (Exception exception) {
             Assertions.fail(exception);
         }

@@ -19,6 +19,7 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflo
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
+import com.bytechef.ee.embedded.configuration.exception.CatalogWorkflowTemplateNotVisibleException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
@@ -705,7 +706,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
         Mockito.when(
             connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
                 Mockito.eq("ext-1"), Mockito.eq("hidden-uuid-3"), Mockito.any()))
-            .thenThrow(new IllegalArgumentException("Not a published catalog workflow template: hidden-uuid-3"));
+            .thenThrow(new CatalogWorkflowTemplateNotVisibleException("hidden-uuid-3"));
 
         ResponseEntity<Object> hiddenResponseEntity;
         ResponseEntity<Object> unknownResponseEntity;
