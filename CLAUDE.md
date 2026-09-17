@@ -588,7 +588,7 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/code-artifacts.md` | Custom components & code workflows: draft/publish, perform context, declared connections |
 | `.agents/mcp-a2a-servers.md` | MCP workflows-as-tools (fromAi), A2A servers |
 | `.agents/environment-promotion.md` | Promoting API collections / MCP / A2A / deployments across environments |
-| `.agents/embedded-bridge.md` | Embedded automation code workflow bridge |
+| `.agents/embedded-bridge.md` | Embedded automation code workflow bridge; referenced catalog templates (visual and code) |
 | `.agents/field-mapping.md` | Embedded field mapping: per-user input merge, the `field-mapping` component, `sampleMapping`, what was deliberately not built |
 | `.agents/api-connectors.md` | API connectors (spec-as-source-of-truth) |
 | `.agents/resource-visibility.md` | Workspace scoping, visibility/sharing, per-environment roles |
