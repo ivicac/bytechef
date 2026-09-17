@@ -56,6 +56,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * @version ee
@@ -126,7 +127,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("uuid-1", null);
+            controller.executeFrontendWorkflow("uuid-1", null);
         }
 
         Mockito.verifyNoInteractions(connectedUserCodeWorkflowReferenceFacade);
@@ -157,8 +158,8 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             // The exception must not propagate out of executeWorkflow (it would surface as a 500 in a distributed
             // webhook-app that only carries remote-client stubs for the automation-bridge facades) and must resolve
             // to the same 404 an unknown workflowUuid returns.
-            firstResponseEntity = controller.executeWorkflow("uuid-unsupported", null);
-            secondResponseEntity = controller.executeWorkflow("uuid-unsupported", null);
+            firstResponseEntity = controller.executeFrontendWorkflow("uuid-unsupported", null);
+            secondResponseEntity = controller.executeFrontendWorkflow("uuid-unsupported", null);
         }
 
         Assertions.assertEquals(HttpStatus.NOT_FOUND, firstResponseEntity.getStatusCode());
@@ -185,7 +186,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            ResponseEntity<Object> responseEntity = controller.executeWorkflow("uuid-2", null);
+            ResponseEntity<Object> responseEntity = controller.executeFrontendWorkflow("uuid-2", null);
 
             Assertions.assertEquals(HttpStatus.NOT_FOUND, responseEntity.getStatusCode());
         }
@@ -220,7 +221,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("uuid-3", null);
+            controller.executeFrontendWorkflow("uuid-3", null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> workflowExecutionIdCaptor =
@@ -273,8 +274,8 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            disabledResponseEntity = controller.executeWorkflow("uuid-5", null);
-            danglingResponseEntity = controller.executeWorkflow("uuid-6", null);
+            disabledResponseEntity = controller.executeFrontendWorkflow("uuid-5", null);
+            danglingResponseEntity = controller.executeFrontendWorkflow("uuid-6", null);
         }
 
         Assertions.assertEquals(HttpStatus.NOT_FOUND, disabledResponseEntity.getStatusCode());
@@ -310,7 +311,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            responseEntity = controller.executeWorkflow("uuid-7", null);
+            responseEntity = controller.executeFrontendWorkflow("uuid-7", null);
         }
 
         Assertions.assertEquals(HttpStatus.CONFLICT, responseEntity.getStatusCode());
@@ -344,7 +345,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            responseEntity = controller.executeWorkflow("uuid-8", null);
+            responseEntity = controller.executeFrontendWorkflow("uuid-8", null);
         }
 
         Assertions.assertEquals(HttpStatus.NOT_FOUND, responseEntity.getStatusCode());
@@ -378,7 +379,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("login-a"));
 
-            controller.executeWorkflow("uuid-9", null);
+            controller.executeFrontendWorkflow("uuid-9", null);
         }
 
         // Resolution went through connected user A's external id...
@@ -426,7 +427,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow(projectWorkflow.getUuidAsString(), null);
+            controller.executeFrontendWorkflow(projectWorkflow.getUuidAsString(), null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> workflowExecutionIdCaptor =
@@ -491,7 +492,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("template-uuid-1", null);
+            controller.executeFrontendWorkflow("template-uuid-1", null);
         }
 
         Mockito.verify(connectedUserProjectFacade)
@@ -547,8 +548,8 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("template-uuid-2", null);
-            controller.executeWorkflow("template-uuid-2", null);
+            controller.executeFrontendWorkflow("template-uuid-2", null);
+            controller.executeFrontendWorkflow("template-uuid-2", null);
         }
 
         // No duplicate: an existing copy is reused on every call, so the copy endpoint's facade method is never
@@ -596,7 +597,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("hidden-uuid-1", null);
+            controller.executeFrontendWorkflow("hidden-uuid-1", null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> workflowExecutionIdCaptor =
@@ -659,7 +660,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflow("hidden-uuid-2", null);
+            controller.executeFrontendWorkflow("hidden-uuid-2", null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> workflowExecutionIdCaptor =
@@ -715,8 +716,8 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            hiddenResponseEntity = controller.executeWorkflow("hidden-uuid-3", null);
-            unknownResponseEntity = controller.executeWorkflow("unknown-uuid-3", null);
+            hiddenResponseEntity = controller.executeFrontendWorkflow("hidden-uuid-3", null);
+            unknownResponseEntity = controller.executeFrontendWorkflow("unknown-uuid-3", null);
         }
 
         Assertions.assertEquals(HttpStatus.NOT_FOUND, hiddenResponseEntity.getStatusCode());
@@ -755,8 +756,8 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            hiddenResponseEntity = controller.executeWorkflow("hidden-uuid-4", null);
-            unknownResponseEntity = controller.executeWorkflow("unknown-uuid-4", null);
+            hiddenResponseEntity = controller.executeFrontendWorkflow("hidden-uuid-4", null);
+            unknownResponseEntity = controller.executeFrontendWorkflow("unknown-uuid-4", null);
         }
 
         Assertions.assertEquals(HttpStatus.NOT_FOUND, hiddenResponseEntity.getStatusCode());
@@ -799,6 +800,61 @@ class RequestTriggerApiControllerAutomationBridgeTest {
 
         return new ConnectedUserProjectWorkflow(
             2L, 5L, projectWorkflowId, 1, null, null, enabled, dangling, null, 0);
+    }
+
+    @Test
+    void testExecuteWorkflowForAnExternalUserIdRunsAsThatConnectedUser() {
+        RequestTriggerApiController controller = controller();
+
+        Mockito.when(integrationWorkflowService.fetchLastWorkflowId(Mockito.eq("uuid-1"), Mockito.any()))
+            .thenReturn(Optional.of("integration-wf-1"));
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        IntegrationInstance integrationInstance = new IntegrationInstance();
+
+        integrationInstance.setId(2L);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("ext-1"), Mockito.any()))
+            .thenReturn(connectedUser);
+        Mockito.when(integrationInstanceService.getIntegrationInstance(1L, "integration-wf-1", Environment.PRODUCTION))
+            .thenReturn(integrationInstance);
+        Mockito.when(workflowService.getWorkflow("integration-wf-1"))
+            .thenReturn(new Workflow(
+                "{\"label\":\"Integration Workflow\",\"triggers\":[{\"name\":\"trigger_1\",\"type\":\"request/v1\"}],"
+                    + "\"tasks\":[]}",
+                Workflow.Format.JSON));
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("ext-1"));
+            securityUtils.when(() -> SecurityUtils.checkCurrentUserLogin(Mockito.anyString()))
+                .thenCallRealMethod();
+
+            controller.executeWorkflow("ext-1", "uuid-1", null);
+        }
+
+        Mockito.verify(integrationInstanceService)
+            .getIntegrationInstance(1L, "integration-wf-1", Environment.PRODUCTION);
+    }
+
+    @Test
+    void testExecuteWorkflowRefusesAnExternalUserIdOtherThanTheAuthenticatedOne() {
+        RequestTriggerApiController controller = controller();
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("ext-1"));
+            securityUtils.when(() -> SecurityUtils.checkCurrentUserLogin(Mockito.anyString()))
+                .thenCallRealMethod();
+
+            Assertions.assertThrows(
+                AccessDeniedException.class, () -> controller.executeWorkflow("ext-2", "uuid-1", null));
+        }
+
+        Mockito.verifyNoInteractions(
+            connectedUserService, integrationWorkflowService, connectedUserCodeWorkflowReferenceFacade,
+            webhookWorkflowExecutor);
     }
 
     private RequestTriggerApiController controller() {
