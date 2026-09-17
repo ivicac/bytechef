@@ -31,7 +31,6 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
-import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -61,8 +60,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
 
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade =
         mock(AutomationWorkflowProjectFacade.class);
-    private final ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository =
-        mock(ConnectedUserProjectWorkflowConnectionRepository.class);
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository =
         mock(ConnectedUserProjectWorkflowRepository.class);
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager =
@@ -78,10 +75,10 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
 
     private final ConnectedUserCodeWorkflowReferenceFacadeImpl facade =
         new ConnectedUserCodeWorkflowReferenceFacadeImpl(
-            automationWorkflowProjectFacade, connectedUserProjectWorkflowConnectionRepository,
-            connectedUserProjectWorkflowRepository, connectedUserProjectWorkflowManager, connectedUserService,
-            connectedUserWorkflowConnectionResolver, projectDeploymentFacade, projectDeploymentService,
-            projectDeploymentWorkflowService, projectWorkflowService);
+            automationWorkflowProjectFacade, connectedUserProjectWorkflowRepository,
+            connectedUserProjectWorkflowManager, connectedUserService, connectedUserWorkflowConnectionResolver,
+            projectDeploymentFacade, projectDeploymentService, projectDeploymentWorkflowService,
+            projectWorkflowService);
 
     @Test
     void testGetOrCreateReferenceProvisionsATemplateTheConnectedUserIsPermittedToSee() {
@@ -106,8 +103,8 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         // Nothing was provisioned: no deployment, no reference row, no connection wiring.
-        verifyNoInteractions(projectDeploymentFacade, projectDeploymentService, connectedUserWorkflowConnectionResolver,
-            connectedUserProjectWorkflowConnectionRepository);
+        verifyNoInteractions(
+            projectDeploymentFacade, projectDeploymentService, connectedUserWorkflowConnectionResolver);
 
         verify(connectedUserProjectWorkflowRepository, never())
             .save(any());
