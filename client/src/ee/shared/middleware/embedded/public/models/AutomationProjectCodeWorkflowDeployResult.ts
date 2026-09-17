@@ -21,8 +21,6 @@ import { mapValues } from '../runtime';
 export interface AutomationProjectCodeWorkflowDeployResult {
     /**
      * 
-     * @type {Array<string>}
-     * @memberof AutomationProjectCodeWorkflowDeployResult
      */
     warnings?: Array<string>;
 }

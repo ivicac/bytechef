@@ -4,7 +4,6 @@ import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectComponentModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowInputModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -33,7 +32,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ConnectedUserProjectWorkflow", description = "A group of tasks that make one logical workflow.")
 @JsonTypeName("ConnectedUserProjectWorkflow")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-17T14:18:19.022624+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class ConnectedUserProjectWorkflowModel {
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -102,6 +101,8 @@ public class ConnectedUserProjectWorkflowModel {
   private List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs = new ArrayList<>();
 
   private Map<String, Object> inputValues = new HashMap<>();
+
+  private @Nullable String attentionReason;
 
   public ConnectedUserProjectWorkflowModel createdDate(@Nullable OffsetDateTime createdDate) {
     this.createdDate = createdDate;
@@ -442,6 +443,27 @@ public class ConnectedUserProjectWorkflowModel {
     this.inputValues = inputValues;
   }
 
+  public ConnectedUserProjectWorkflowModel attentionReason(@Nullable String attentionReason) {
+    this.attentionReason = attentionReason;
+    return this;
+  }
+
+  /**
+   * Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.
+   * @return attentionReason
+   */
+  
+  @Schema(name = "attentionReason", description = "Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("attentionReason")
+  public @Nullable String getAttentionReason() {
+    return attentionReason;
+  }
+
+  @JsonProperty("attentionReason")
+  public void setAttentionReason(@Nullable String attentionReason) {
+    this.attentionReason = attentionReason;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -465,12 +487,13 @@ public class ConnectedUserProjectWorkflowModel {
         Objects.equals(this.dangling, connectedUserProjectWorkflow.dangling) &&
         Objects.equals(this.components, connectedUserProjectWorkflow.components) &&
         Objects.equals(this.inputs, connectedUserProjectWorkflow.inputs) &&
-        Objects.equals(this.inputValues, connectedUserProjectWorkflow.inputValues);
+        Objects.equals(this.inputValues, connectedUserProjectWorkflow.inputValues) &&
+        Objects.equals(this.attentionReason, connectedUserProjectWorkflow.attentionReason);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues);
+    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues, attentionReason);
   }
 
   @Override
@@ -492,6 +515,7 @@ public class ConnectedUserProjectWorkflowModel {
     sb.append("    components: ").append(toIndentedString(components)).append("\n");
     sb.append("    inputs: ").append(toIndentedString(inputs)).append("\n");
     sb.append("    inputValues: ").append(toIndentedString(inputValues)).append("\n");
+    sb.append("    attentionReason: ").append(toIndentedString(attentionReason)).append("\n");
     sb.append("}");
     return sb.toString();
   }

@@ -29,32 +29,22 @@ import {
 export interface AutomationWorkflowProject {
     /**
      * The id of the automation workflow project.
-     * @type {number}
-     * @memberof AutomationWorkflowProject
      */
     id?: number;
     /**
      * The name of the automation workflow project.
-     * @type {string}
-     * @memberof AutomationWorkflowProject
      */
     name?: string;
     /**
      * The description of the automation workflow project.
-     * @type {string}
-     * @memberof AutomationWorkflowProject
      */
     description?: string;
     /**
      * The list of catalog workflow templates belonging to this project.
-     * @type {Array<AutomationWorkflowProjectWorkflowTemplate>}
-     * @memberof AutomationWorkflowProject
      */
     workflowTemplates?: Array<AutomationWorkflowProjectWorkflowTemplate>;
     /**
      * Whether copying this project's templates creates a per-user copy or a shared reference.
-     * @type {AutomationWorkflowProjectKindEnum}
-     * @memberof AutomationWorkflowProject
      */
     kind?: AutomationWorkflowProjectKindEnum;
 }
@@ -65,7 +55,7 @@ export interface AutomationWorkflowProject {
  */
 export const AutomationWorkflowProjectKindEnum = {
     Copy: 'COPY',
-    Reference: 'REFERENCE'
+    Reference: 'REFERENCE',
 } as const;
 export type AutomationWorkflowProjectKindEnum = typeof AutomationWorkflowProjectKindEnum[keyof typeof AutomationWorkflowProjectKindEnum];
 

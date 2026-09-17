@@ -21,8 +21,6 @@ import { mapValues } from '../runtime';
 export interface AutomationProjectCodeWorkflowTemplate {
     /**
      * The label of the workflow.
-     * @type {string}
-     * @memberof AutomationProjectCodeWorkflowTemplate
      */
     label?: string;
 }
