@@ -7,14 +7,19 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.configuration.domain.Environment;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,10 +30,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Verifies that {@link ConnectedUserProjectFacadeImpl#deleteProjectWorkflow(long)} and
  * {@link ConnectedUserProjectFacadeImpl#enableProjectWorkflow(long, boolean)} branch to
- * {@link ConnectedUserCodeWorkflowReferenceFacade} for a reference row instead of resolving it through
+ * {@link ConnectedUserWorkflowReferenceFacade} for a reference row instead of resolving it through
  * {@link ProjectWorkflowService#getProjectWorkflow(long)} -- a reference row's {@code projectWorkflowId} is null
- * ({@code catalogWorkflowUuid} is set instead), so passing it straight into that {@code long}-typed overload would NPE
- * on auto-unboxing.
+ * ({@code automationWorkflowUuid} is set instead), so passing it straight into that {@code long}-typed overload would
+ * NPE on auto-unboxing.
  *
  * @version ee
  *
@@ -38,10 +43,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ConnectedUserProjectFacadeReferenceRowTest {
 
     @Mock
-    private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
+    private ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
 
     @Mock
     private ConnectedUserProjectService connectUserProjectService;
+
+    @Mock
+    private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
+
+    @Mock
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Mock
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
@@ -57,9 +68,11 @@ class ConnectedUserProjectFacadeReferenceRowTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
-            null, null, connectUserProjectService, connectedUserCodeWorkflowReferenceFacade, null, null,
-            connectedUserProjectWorkflowService, null, null, connectedUserService, null, null, null, null, null, null,
-            null, null, null, null, null, null, null, projectWorkflowService, null, null, null, null, null);
+            null, null, connectUserProjectService, connectedUserWorkflowReferenceFacade,
+            connectedUserProjectWorkflowManager, connectedUserProjectWorkflowRepository,
+            connectedUserProjectWorkflowService, null, connectedUserService,
+            mock(ConnectedUserWorkflowWebhookUrlResolver.class), null, null, null, null, null, null, null, null, null,
+            null, null, null, null, projectWorkflowService, null, null, null, null, null);
     }
 
     @Test
@@ -81,8 +94,8 @@ class ConnectedUserProjectFacadeReferenceRowTest {
 
         facade.deleteProjectWorkflow(1L);
 
-        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .deleteReference("ext-1", "catalog-uuid", Environment.PRODUCTION);
+        Mockito.verify(connectedUserWorkflowReferenceFacade)
+            .deleteReference("ext-1", "automation workflow-uuid", Environment.PRODUCTION);
         Mockito.verifyNoInteractions(projectWorkflowService);
     }
 
@@ -105,8 +118,38 @@ class ConnectedUserProjectFacadeReferenceRowTest {
 
         facade.enableProjectWorkflow(1L, false);
 
-        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .enableReference("ext-1", "catalog-uuid", false, Environment.PRODUCTION);
+        Mockito.verify(connectedUserWorkflowReferenceFacade)
+            .enableReference("ext-1", "automation workflow-uuid", false, Environment.PRODUCTION);
+        Mockito.verifyNoInteractions(projectWorkflowService);
+    }
+
+    /**
+     * Inputs of a reference row -- dangling or not -- are written by the reference facade, which refuses a dangling one
+     * and serializes the write with the connected user's other reference writes; the copy-mode path is never reached.
+     */
+    @Test
+    void testUpdateProjectWorkflowInputsOnAReferenceRowDelegatesToTheReferenceFacade() {
+        ConnectedUserProject connectedUserProject = connectedUserProject();
+
+        Mockito
+            .when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject("ext-1", Environment.PRODUCTION))
+            .thenReturn(connectedUserProject);
+
+        ConnectedUserProjectWorkflow referenceRow = referenceRow();
+
+        referenceRow.setDangling(true);
+        referenceRow.setProjectDeploymentId(900L);
+
+        Mockito.when(connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndAutomationWorkflowUuid(
+            10L, "automation workflow-uuid"))
+            .thenReturn(Optional.of(referenceRow));
+
+        Map<String, String> inputs = Map.of("channel", "general");
+
+        facade.updateProjectWorkflowInputs("ext-1", "automation workflow-uuid", inputs, null);
+
+        Mockito.verify(connectedUserWorkflowReferenceFacade)
+            .updateReferenceInputs("ext-1", "automation workflow-uuid", inputs, Environment.PRODUCTION);
         Mockito.verifyNoInteractions(projectWorkflowService);
     }
 
@@ -115,7 +158,7 @@ class ConnectedUserProjectFacadeReferenceRowTest {
 
         connectedUserProjectWorkflow.setId(1L);
         connectedUserProjectWorkflow.setConnectedUserProjectId(10L);
-        connectedUserProjectWorkflow.setCatalogWorkflowUuid("catalog-uuid");
+        connectedUserProjectWorkflow.setAutomationWorkflowUuid("automation workflow-uuid");
 
         return connectedUserProjectWorkflow;
     }
