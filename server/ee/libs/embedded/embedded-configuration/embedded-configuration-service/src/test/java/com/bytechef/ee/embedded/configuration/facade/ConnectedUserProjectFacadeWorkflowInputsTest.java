@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,8 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
+import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
@@ -51,6 +54,12 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Mock
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Mock
+    private ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
+
+    @Mock
     private EnvironmentService environmentService;
 
     @Mock
@@ -67,9 +76,11 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
-            null, null, null, null, connectedUserProjectWorkflowManager, null, null, null, null, null,
-            environmentService, null, null, null, null, null, projectDeploymentService,
-            projectDeploymentWorkflowService, null, null, null, projectWorkflowService, null, null, null, null, null);
+            null, null, null, connectedUserWorkflowReferenceFacade, connectedUserProjectWorkflowManager,
+            connectedUserProjectWorkflowRepository, null, null, null,
+            mock(ConnectedUserWorkflowWebhookUrlResolver.class), null, null, environmentService, null, null, null, null,
+            null, projectDeploymentService, projectDeploymentWorkflowService, null, null, null, projectWorkflowService,
+            null, null, null, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
@@ -86,9 +97,9 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
 
     @Test
     void testUpdateProjectWorkflowInputsWritesValuesToTheDeploymentWorkflow() {
-        when(projectWorkflowService.fetchLastProjectWorkflowId(20L, WORKFLOW_UUID))
-            .thenReturn(Optional.of(WORKFLOW_ID));
         when(projectDeploymentService.getProjectDeploymentId(20L, Environment.PRODUCTION)).thenReturn(30L);
+        when(projectWorkflowService.fetchProjectWorkflowWorkflowId(30L, WORKFLOW_UUID))
+            .thenReturn(Optional.of(WORKFLOW_ID));
 
         ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
 
@@ -116,13 +127,37 @@ class ConnectedUserProjectFacadeWorkflowInputsTest {
      */
     @Test
     void testUpdateProjectWorkflowInputsRefusesAWorkflowOutsideTheConnectedUsersProject() {
-        when(projectWorkflowService.fetchLastProjectWorkflowId(20L, WORKFLOW_UUID)).thenReturn(Optional.empty());
+        when(projectDeploymentService.getProjectDeploymentId(20L, Environment.PRODUCTION)).thenReturn(30L);
+        when(projectWorkflowService.fetchProjectWorkflowWorkflowId(30L, WORKFLOW_UUID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(
             () -> facade.updateProjectWorkflowInputs(
                 EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("sheetName", "Leads"), 0L))
                     .isInstanceOf(ConfigurationException.class);
 
+        verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+    }
+
+    /**
+     * A workflowUuid that belongs to a reference row is delegated to the reference facade, which serializes it with the
+     * connected user's other reference writes, instead of the caller's own project deployment -- the same
+     * reference-vs-copy branch {@code enableProjectWorkflow} makes.
+     */
+    @Test
+    void testUpdateProjectWorkflowInputsDelegatesToReferenceFacadeForAReferenceRow() {
+        ConnectedUserProjectWorkflow reference = new ConnectedUserProjectWorkflow();
+
+        reference.setAutomationWorkflowUuid(WORKFLOW_UUID);
+        reference.setProjectDeploymentId(40L);
+
+        when(connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndAutomationWorkflowUuid(10L, WORKFLOW_UUID))
+                .thenReturn(Optional.of(reference));
+
+        facade.updateProjectWorkflowInputs(EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("channel", "#alerts"), 0L);
+
+        verify(connectedUserWorkflowReferenceFacade).updateReferenceInputs(
+            EXTERNAL_USER_ID, WORKFLOW_UUID, Map.of("channel", "#alerts"), Environment.PRODUCTION);
         verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
     }
 }

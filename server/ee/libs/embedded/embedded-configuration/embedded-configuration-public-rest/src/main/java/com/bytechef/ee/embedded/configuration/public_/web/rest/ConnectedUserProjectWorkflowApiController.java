@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.ee.embedded.configuration.exception.AutomationWorkflowTemplateNotVisibleException;
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
@@ -456,12 +457,16 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
      */
     @Override
     @CrossOrigin
-    public ResponseEntity<Void> provisionFrontendWorkflowReference(String workflowUuid, EnvironmentModel xEnvironment) {
+    public ResponseEntity<Void> provisionFrontendWorkflowReference(
+        String workflowUuid, EnvironmentModel xEnvironment,
+        ProvisionWorkflowReferenceRequestModel provisionWorkflowReferenceRequestModel) {
+
         String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
 
         try {
             connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-                externalUserId, workflowUuid, getEnvironment(xEnvironment));
+                externalUserId, workflowUuid, getEnvironment(xEnvironment),
+                getRequestedConnectionIds(provisionWorkflowReferenceRequestModel));
         } catch (IllegalArgumentException illegalArgumentException) {
             return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
         }
@@ -472,19 +477,30 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
     @Override
     public ResponseEntity<Void> provisionWorkflowReference(
-        String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+        String externalUserId, String workflowUuid, EnvironmentModel xEnvironment,
+        ProvisionWorkflowReferenceRequestModel provisionWorkflowReferenceRequestModel) {
 
         SecurityUtils.checkCurrentUserLogin(externalUserId);
 
         try {
             connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
-                externalUserId, workflowUuid, getEnvironment(xEnvironment));
+                externalUserId, workflowUuid, getEnvironment(xEnvironment),
+                getRequestedConnectionIds(provisionWorkflowReferenceRequestModel));
         } catch (IllegalArgumentException illegalArgumentException) {
             return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
         }
 
         return ResponseEntity.noContent()
             .build();
+    }
+
+    private static Map<String, Long> getRequestedConnectionIds(
+        ProvisionWorkflowReferenceRequestModel provisionWorkflowReferenceRequestModel) {
+
+        return provisionWorkflowReferenceRequestModel == null ||
+            provisionWorkflowReferenceRequestModel.getConnections() == null
+                ? Map.of()
+                : provisionWorkflowReferenceRequestModel.getConnections();
     }
 
     @Override
@@ -538,6 +554,28 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
+    }
+
+    @ExceptionHandler(CodeWorkflowNotCopyableException.class)
+    public ResponseEntity<Object> handleCodeWorkflowNotCopyableException(
+        CodeWorkflowNotCopyableException codeWorkflowNotCopyableException) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(Map.of("reason", "CODE_WORKFLOW_NOT_COPYABLE"));
+    }
+
+    @ExceptionHandler(ConnectionNotEntitledException.class)
+    public ResponseEntity<Void> handleConnectionNotEntitledException(
+        ConnectionNotEntitledException connectionNotEntitledException) {
+
+        return ResponseEntity.badRequest()
+            .build();
+    }
+
+    @ExceptionHandler(MissingInputException.class)
+    public ResponseEntity<Object> handleMissingInputException(MissingInputException missingInputException) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(Map.of("missingInputName", missingInputException.getInputName()));
     }
 
     @InitBinder
