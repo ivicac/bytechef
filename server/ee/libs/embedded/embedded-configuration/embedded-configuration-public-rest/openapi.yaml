@@ -256,11 +256,17 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The automation workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Provision a reference to a catalog code workflow for the authenticated connected user."
+      description: "Provision a reference to an automation workflow template for the authenticated connected user."
       summary: "Provision a workflow reference"
       tags:
         - "connected-user-project-workflow"
@@ -278,9 +284,17 @@ paths:
           required: true
           schema:
             type: "string"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
+        "400":
+          description: "A requested connection is not one of the connected user's connections."
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -290,7 +304,7 @@ paths:
       security:
         - jwtBearerAuth: [ ]
     delete:
-      description: "De-provision a reference to a catalog code workflow for the authenticated connected user."
+      description: "De-provision a reference to an automation workflow template for the authenticated connected user."
       summary: "De-provision a workflow reference"
       tags:
         - "connected-user-project-workflow"
@@ -624,11 +638,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
     delete:
@@ -654,11 +670,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/inputs:
@@ -690,6 +708,12 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+        "409":
+          description: "A required workflow input has no value; the reference stays disabled."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingInputError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/publish:
@@ -1179,12 +1203,18 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The automation workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Explicitly provision a reference to a catalog code workflow ahead of first invocation."
-      summary: "Provision a reference to a catalog code workflow"
+      description: "Explicitly provision a reference to an automation workflow template ahead of first invocation."
+      summary: "Provision a reference to an automation workflow template"
       tags:
         - "connected-user-project-workflow"
       operationId: "provisionWorkflowReference"
@@ -1207,9 +1237,17 @@ paths:
           required: true
           schema:
             type: "string"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
+        "400":
+          description: "A requested connection is not one of the connected user's connections."
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -1219,8 +1257,8 @@ paths:
       security:
         - bearerAuth: [ ]
     delete:
-      description: "De-provision a reference to a catalog code workflow."
-      summary: "De-provision a reference to a catalog code workflow"
+      description: "De-provision a reference to an automation workflow template."
+      summary: "De-provision a reference to an automation workflow template"
       tags:
         - "connected-user-project-workflow"
       operationId: "deprovisionWorkflowReference"
@@ -1505,11 +1543,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
     delete:
@@ -1541,11 +1581,13 @@ paths:
         "204":
           description: "Successful operation."
         "409":
-          description: "A required connection could not be auto-wired."
+          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingConnectionError"
+                oneOf:
+                  - $ref: "#/components/schemas/MissingConnectionError"
+                  - $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/inputs:
@@ -1583,6 +1625,12 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+        "409":
+          description: "A required workflow input has no value; the reference stays disabled."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingInputError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/publish:
@@ -1977,10 +2025,10 @@ paths:
         - bearerAuth: [ ]
   /automation-project-code-workflows:
     get:
-      description: "List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped\
+      description: "List automation workflow projects in the embedded automation bridge. Unlike the connected-user-scoped\
         \ endpoints on this API, this operation is authenticated as the API key's own ByteChef user and does not\
         \ fabricate a connected-user identity."
-      summary: "List catalog projects in the embedded automation bridge"
+      summary: "List automation workflow projects in the embedded automation bridge"
       tags:
         - "automation-project-code-workflow"
       operationId: "listAutomationProjectCodeWorkflows"
@@ -1999,10 +2047,10 @@ paths:
         - bearerAuth: [ ]
   /automation-project-code-workflows/deploy:
     post:
-      description: "Deploy a new automation code workflow into the embedded catalog. Unlike the connected-user-scoped\
-        \ endpoints on this API, this operation is authenticated as the API key's own ByteChef user and does not\
-        \ fabricate a connected-user identity."
-      summary: "Deploy a new automation code workflow into the embedded catalog"
+      description: "Deploy a new automation code workflow into the embedded automation workflows. Unlike the\
+        \ connected-user-scoped endpoints on this API, this operation is authenticated as the API key's own ByteChef\
+        \ user and does not fabricate a connected-user identity."
+      summary: "Deploy a new automation code workflow into the embedded automation workflows"
       tags:
         - "automation-project-code-workflow"
       operationId: "deployAutomationProjectCodeWorkflow"
@@ -2039,7 +2087,7 @@ components:
             type: "string"
     AutomationProjectCodeWorkflow:
       type: "object"
-      description: "An automation workflow catalog project, without the underlying automation project id."
+      description: "An automation workflow project, without the underlying automation project id."
       properties:
         name:
           description: "The name of the automation workflow project."
@@ -2051,13 +2099,13 @@ components:
             - "COPY"
             - "REFERENCE"
         workflowTemplates:
-          description: "The list of catalog workflow templates belonging to this project."
+          description: "The list of automation workflow templates belonging to this project."
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationProjectCodeWorkflowTemplate"
     AutomationProjectCodeWorkflowTemplate:
       type: "object"
-      description: "A catalog workflow template within an automation workflow project."
+      description: "An automation workflow template within an automation workflow project."
       properties:
         label:
           description: "The label of the workflow."
@@ -2096,19 +2144,19 @@ components:
           type: "integer"
           description: "The workflow version, if null a workflow is not yet published"
         kind:
-          description: "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared catalog workflow."
+          description: "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared automation workflow."
           type: "string"
           enum:
             - "COPY"
             - "REFERENCE"
-        catalogWorkflowUuid:
-          description: "For REFERENCE rows, the uuid of the catalog workflow being referenced."
+        automationWorkflowUuid:
+          description: "For REFERENCE rows, the uuid of the automation workflow being referenced."
           type: "string"
         copiedFromWorkflowUuid:
-          description: "For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise."
+          description: "For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise."
           type: "string"
         dangling:
-          description: "True when a REFERENCE points at a catalog workflow that is no longer served."
+          description: "True when a REFERENCE points at an automation workflow that is no longer served."
           type: "boolean"
         components:
           description: "The components used by the workflow."
@@ -2124,6 +2172,10 @@ components:
           description: "The values the connected user has already supplied, keyed by input name."
           type: "object"
           additionalProperties: true
+        attentionReason:
+          description: "Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or\
+            \ UPDATE_PENDING. Null when healthy or for COPY rows."
+          type: "string"
     Connection:
       description: "Contains all required information to open a connection to a service defined by componentName parameter"
       type: "object"
@@ -2153,6 +2205,8 @@ components:
           description: "The created date."
           type: "string"
           format: "date-time"
+        credentialStatus:
+          $ref: "../../../../../libs/platform/platform-connection/platform-connection-rest/openapi/components/schemas/objects/credential_status.yaml"
         shared:
           description: "Whether a tenant admin marked this connection shared with every connected user in the\
             \ environment. Shared and owned are independent: a connected user may own a connection the admin also\
@@ -2598,10 +2652,41 @@ components:
             - "REFERENCE"
     MissingConnectionError:
       type: "object"
-      description: "Returned when a required connection could not be auto-wired for a catalog code workflow reference."
+      description: "Returned when a required connection could not be auto-wired for an automation workflow template reference."
       properties:
         missingConnectionComponentName:
           description: "The name of the component that is missing a matching connection for the connected user."
+          type: "string"
+    ProvisionWorkflowReferenceRequest:
+      type: "object"
+      description: "Connections the connected user chose, keyed by component name, and optional workflow input values.\
+        \ Components not listed keep their current connection or are auto-matched."
+      properties:
+        connections:
+          type: "object"
+          additionalProperties:
+            type: "integer"
+            format: "int64"
+        inputs:
+          description: "Input values for the workflow's inputs, keyed by input name. When given, they replace the\
+            \ reference's stored input values before it is enabled, so a workflow with required inputs is enabled\
+            \ in the same call."
+          type: "object"
+          additionalProperties: true
+    CodeWorkflowNotCopyableError:
+      type: "object"
+      description: "Returned when a code workflow template is copied; code workflow templates can only be referenced."
+      properties:
+        reason:
+          type: "string"
+          enum:
+            - "CODE_WORKFLOW_NOT_COPYABLE"
+    MissingInputError:
+      type: "object"
+      description: "Returned when a reference cannot be enabled because a required workflow input has no value yet."
+      properties:
+        missingInputName:
+          description: "The name of the required input that has no value."
           type: "string"
     AutomationWorkflowProjectWorkflowTemplate:
       type: "object"
@@ -2638,7 +2723,7 @@ components:
           additionalProperties: true
     AutomationWorkflowProjectWorkflowInput:
       type: "object"
-      description: "A value the connected user supplies before a catalog workflow runs."
+      description: "A value the connected user supplies before an automation workflow runs."
       properties:
         name:
           description: "The name of the input, and the key its value is stored under."

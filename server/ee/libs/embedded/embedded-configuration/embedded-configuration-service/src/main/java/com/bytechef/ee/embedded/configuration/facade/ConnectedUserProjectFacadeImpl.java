@@ -104,6 +104,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private final ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver;
+    private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
     private final ConnectedUserService connectedUserService;
     private final ConnectedUserWorkflowWebhookUrlResolver connectedUserWorkflowWebhookUrlResolver;
     private final ConnectionService connectionService;
@@ -136,6 +137,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
         ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver,
+        ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
         ConnectedUserService connectedUserService,
         ConnectedUserWorkflowWebhookUrlResolver connectedUserWorkflowWebhookUrlResolver,
         ConnectionService connectionService,
@@ -157,6 +159,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
         this.connectedUserReferenceAttentionResolver = connectedUserReferenceAttentionResolver;
+        this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
         this.connectedUserService = connectedUserService;
         this.connectedUserWorkflowWebhookUrlResolver = connectedUserWorkflowWebhookUrlResolver;
         this.connectionService = connectionService;
@@ -595,6 +598,21 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             externalUserId, environment);
 
+        // See enableProjectWorkflow(String, String, boolean, Long) above: a reference row has no ProjectWorkflow of
+        // its own in the caller's project, so it is routed to the reference deployment manager instead, keyed by
+        // catalogWorkflowUuid.
+        Optional<ConnectedUserProjectWorkflow> reference = connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), workflowUuid);
+
+        if (reference.isPresent()) {
+            ConnectedUserProjectWorkflow connectedUserProjectWorkflow = reference.get();
+
+            connectedUserReferenceDeploymentManager.updateInputs(
+                connectedUserProjectWorkflow.getProjectDeploymentId(), workflowUuid, inputs);
+
+            return;
+        }
+
         String workflowId = projectWorkflowService
             .fetchLastProjectWorkflowId(connectedUserProject.getProjectId(), workflowUuid)
             .orElseThrow(() -> new ConfigurationException(
@@ -799,7 +817,12 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
                     ConnectedUserProjectWorkflowDTO.ofReference(
                         connectedUser.getId(), reference, new WorkflowDTO(workflow, List.of(), List.of()),
                         template == null ? List.of() : template.components(),
-                        template == null ? List.of() : template.inputs(), Map.of());
+                        template == null ? List.of() : template.inputs(),
+                        reference.isDangling()
+                            ? Map.of()
+                            : connectedUserReferenceDeploymentManager.getInputs(
+                                reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid()),
+                        connectedUserReferenceAttentionResolver.resolve(reference));
 
                 return connectedUserProjectWorkflowDTO.withStaticWebhookUrl(
                     reference.isDangling() ? null : connectedUserWorkflowWebhookUrlResolver.resolve(

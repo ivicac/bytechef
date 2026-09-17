@@ -21,9 +21,11 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
+import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.stream.Stream;
@@ -31,8 +33,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Provisioning-time authorization for {@link ConnectedUserProjectFacadeImpl#copyWorkflowTemplate}: the requested uuid
- * must belong to a template the PERMISSION-FILTERED catalog would show the requesting connected user, not merely to
- * some published catalog template somewhere in the tenant.
+ * must belong to a template the PERMISSION-FILTERED automation workflow would show the requesting connected user, not
+ * merely to some published automation workflow template somewhere in the tenant.
  *
  * @version ee
  *
@@ -49,19 +51,28 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
         mock(AutomationWorkflowProjectFacade.class);
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager =
         mock(ConnectedUserProjectWorkflowManager.class);
+    private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService =
+        mock(ConnectedUserProjectWorkflowService.class);
     private final ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
     private final WorkflowService workflowService = mock(WorkflowService.class);
 
     private final ConnectedUserProjectFacadeImpl facade = new ConnectedUserProjectFacadeImpl(
-        automationWorkflowProjectFacade, null, null, null, connectedUserProjectWorkflowManager, null, null, null, null,
+        automationWorkflowProjectFacade, null, null, null, connectedUserProjectWorkflowManager, null,
+        connectedUserProjectWorkflowService, null, null, mock(ConnectedUserWorkflowWebhookUrlResolver.class), null,
         null, null, null, null, null, null, null, null, null, null, null, null, projectWorkflowService, null, null,
         workflowService, null, null);
 
     @Test
     void testCopyWorkflowTemplateCopiesATemplateTheConnectedUserIsPermittedToSee() {
-        givenTenantCatalogContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
-        givenVisibleCatalogContains(VISIBLE_WORKFLOW_UUID);
+        givenTenantAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
+        givenVisibleAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID);
 
+        ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+
+        connectedUserProject.setId(1L);
+
+        when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
+            EXTERNAL_USER_ID, Environment.PRODUCTION)).thenReturn(connectedUserProject);
         when(projectWorkflowService.getLastPublishedWorkflowId(VISIBLE_WORKFLOW_UUID)).thenReturn("workflow-1");
         when(workflowService.getWorkflow("workflow-1"))
             .thenReturn(new Workflow("{\"tasks\":[]}", Workflow.Format.JSON));
@@ -77,8 +88,8 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
 
     @Test
     void testCopyWorkflowTemplateRejectsATemplateHiddenByThePermissionExpression() {
-        givenTenantCatalogContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
-        givenVisibleCatalogContains(VISIBLE_WORKFLOW_UUID);
+        givenTenantAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
+        givenVisibleAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID);
 
         assertThatThrownBy(
             () -> facade.copyWorkflowTemplate(EXTERNAL_USER_ID, HIDDEN_WORKFLOW_UUID, Environment.PRODUCTION))
@@ -95,8 +106,8 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
      */
     @Test
     void testHiddenTemplateRejectionIsIndistinguishableFromAnUnknownUuid() {
-        givenTenantCatalogContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
-        givenVisibleCatalogContains(VISIBLE_WORKFLOW_UUID);
+        givenTenantAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID, HIDDEN_WORKFLOW_UUID);
+        givenVisibleAutomationWorkflowsContains(VISIBLE_WORKFLOW_UUID);
 
         Throwable hiddenThrowable = catchThrowable(
             () -> facade.copyWorkflowTemplate(EXTERNAL_USER_ID, HIDDEN_WORKFLOW_UUID, Environment.PRODUCTION));
@@ -114,7 +125,7 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
      */
     @Test
     void testCopyWorkflowTemplateRejectsCodeWorkflowTemplate() {
-        stubVisibleCatalogTemplate(VISIBLE_WORKFLOW_UUID, true);
+        stubVisibleAutomationWorkflowTemplate(VISIBLE_WORKFLOW_UUID, true);
 
         assertThatThrownBy(
             () -> facade.copyWorkflowTemplate(EXTERNAL_USER_ID, VISIBLE_WORKFLOW_UUID, Environment.PRODUCTION))
@@ -124,35 +135,38 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
             .createProjectWorkflow(any(), any(), any(), any());
     }
 
-    private void stubVisibleCatalogTemplate(String workflowUuid, boolean codeWorkflowProject) {
+    private void stubVisibleAutomationWorkflowTemplate(String workflowUuid, boolean codeWorkflowProject) {
         when(automationWorkflowProjectFacade.getPublishedProjects(anyString(), any()))
-            .thenReturn(List.of(catalogProject(codeWorkflowProject, workflowUuid)));
+            .thenReturn(List.of(automationWorkflowProject(codeWorkflowProject, workflowUuid)));
     }
 
-    private void givenTenantCatalogContains(String... workflowUuids) {
-        when(automationWorkflowProjectFacade.getPublishedProjects()).thenReturn(List.of(catalogProject(workflowUuids)));
+    private void givenTenantAutomationWorkflowsContains(String... workflowUuids) {
+        when(automationWorkflowProjectFacade.getPublishedProjects())
+            .thenReturn(List.of(automationWorkflowProject(workflowUuids)));
     }
 
-    private void givenVisibleCatalogContains(String... workflowUuids) {
+    private void givenVisibleAutomationWorkflowsContains(String... workflowUuids) {
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
-            .thenReturn(List.of(catalogProject(workflowUuids)));
+            .thenReturn(List.of(automationWorkflowProject(workflowUuids)));
     }
 
-    private static AutomationWorkflowProjectDTO catalogProject(String... workflowUuids) {
-        return catalogProject(false, workflowUuids);
+    private static AutomationWorkflowProjectDTO automationWorkflowProject(String... workflowUuids) {
+        return automationWorkflowProject(false, workflowUuids);
     }
 
-    private static AutomationWorkflowProjectDTO catalogProject(boolean codeWorkflowProject, String... workflowUuids) {
+    private static AutomationWorkflowProjectDTO
+        automationWorkflowProject(boolean codeWorkflowProject, String... workflowUuids) {
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates = Stream.of(workflowUuids)
             .map(workflowUuid -> new ConnectedUserWorkflowTemplateDTO(
                 workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null))
             .toList();
 
         return new AutomationWorkflowProjectDTO(
-            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, codeWorkflowProject);
+            1L, "Automation workflow", "", null, List.of(), true, 1, 1, workflowTemplates, null, codeWorkflowProject,
+            true);
     }
 
     private static String rejectionMessage(String workflowUuid) {
-        return "Not a published catalog workflow template: " + workflowUuid;
+        return "Not a published automation workflow template: " + workflowUuid;
     }
 }
