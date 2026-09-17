@@ -74,6 +74,16 @@ const GROUP_META: Record<
     navTitle: 'Workflow Catalog',
     description: 'List the catalog projects available to connected users.',
   },
+  'embedded-webhook-app-event-trigger': {
+    title: 'Embedded App Events',
+    navTitle: 'App Events',
+    description: "Fire an App Event to start every one of a connected user's subscribed workflows.",
+  },
+  'embedded-webhook-request-trigger': {
+    title: 'Embedded Request Trigger',
+    navTitle: 'Request Trigger',
+    description: "Execute a single workflow of a connected user through its Request trigger and return its result.",
+  },
   'embedded-workflow-execution': {
     title: 'Embedded Workflow Executions',
     navTitle: 'Workflow Executions',
@@ -165,12 +175,12 @@ const GROUP_META: Record<
     description: "List the catalog projects available to the signed-in connected user.",
   },
   'embedded-webhook-app-event-trigger-frontend': {
-    title: 'Embedded App Events',
+    title: 'Embedded App Events (Frontend)',
     navTitle: 'App Events',
-    description: "Fire an App Event to start every one of a connected user's subscribed workflows.",
+    description: "Fire an App Event to start every one of the signed-in user's subscribed workflows.",
   },
   'embedded-webhook-request-trigger-frontend': {
-    title: 'Embedded Request Trigger',
+    title: 'Embedded Request Trigger (Frontend)',
     navTitle: 'Request Trigger',
     description: "Execute a single workflow through its Request trigger and return its result.",
   },

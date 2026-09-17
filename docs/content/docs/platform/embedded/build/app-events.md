@@ -57,6 +57,17 @@ X-Environment: DEVELOPMENT
 
 The connected user is identified by the JWT `sub` claim. ByteChef looks up that user's enabled integration instances and starts an execution for every enabled workflow that carries an **App Event** trigger, in the environment named by `X-Environment`.
 
+To fire the event from your own server instead, use your API Key and name the connected user in the path:
+
+```http
+POST /api/embedded/v1/{externalUserId}/app-events HTTP/1.1
+Host: your-bytechef-host.example.com
+Authorization: Bearer <API Key>
+X-Environment: DEVELOPMENT
+```
+
+Both routes start the same workflows. See the [backend](/openapi/backend/embedded-webhook-app-event-trigger) and [frontend](/openapi/frontend/embedded-webhook-app-event-trigger) API reference.
+
 > **Payload delivery is coming soon.** Today the endpoint takes **no request body**: a `POST /api/embedded/v1/app-events` starts every one of the connected user's App Event–triggered workflows in the given environment. Carrying the event payload in the request body - so the schema's properties populate as variables your workflows can read - is coming soon. Until then, the schema documents the event's intended shape.
 
 ### Filtering App Events

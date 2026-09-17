@@ -57,6 +57,10 @@ new invocation surface:
   non-dangling reference whose workflow declares that trigger fires when the connected user's app
   event is posted, alongside their integration workflows.
 
+Both are called from the browser with the end user's JWT. Your backend calls the same endpoints with an API Key by
+putting the connected user's id first: `POST /api/embedded/v1/{externalUserId}/workflows/{workflowUuid}` and
+`POST /api/embedded/v1/{externalUserId}/app-events`.
+
 Deploy-time validation is advisory, not a hard rejection: a workflow with neither trigger still
 deploys, but the server logs a warning that it will never be reachable from either endpoint.
 
