@@ -7,8 +7,6 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
-import com.bytechef.atlas.configuration.domain.Workflow;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
@@ -23,6 +21,8 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflo
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
+import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -61,6 +61,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Mock
+    private ConnectedUserService connectedUserService;
+
+    @Mock
     private ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver;
 
     @Mock
@@ -75,17 +78,15 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     @Mock
     private ProjectWorkflowService projectWorkflowService;
 
-    @Mock
-    private WorkflowService workflowService;
-
     private ConnectedUserCodeWorkflowReferenceFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserCodeWorkflowReferenceFacadeImpl(
             connectedUserProjectWorkflowConnectionRepository, connectedUserProjectWorkflowRepository,
-            connectedUserProjectWorkflowManager, connectedUserWorkflowConnectionResolver, projectDeploymentFacade,
-            projectDeploymentService, projectDeploymentWorkflowService, projectWorkflowService, workflowService);
+            connectedUserProjectWorkflowManager, connectedUserService, connectedUserWorkflowConnectionResolver,
+            projectDeploymentFacade, projectDeploymentService, projectDeploymentWorkflowService,
+            projectWorkflowService);
     }
 
     /**
@@ -103,12 +104,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
             .thenReturn(catalogProjectWorkflow);
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[{\"name\":\"t1\",\"type\":\"slack/v1/postMessage\"}]}", Workflow.Format.JSON);
-
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-
         ConnectedUserProject userAProject = new ConnectedUserProject();
 
         userAProject.setId(10L);
@@ -124,15 +119,22 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             Mockito.eq("userB"), Mockito.any()))
             .thenReturn(userBProject);
 
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userB"), Mockito.any()))
+            .thenReturn(connectedUser(102L));
+
         Mockito.when(connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(Mockito.anyLong(), Mockito.eq("catalog-uuid")))
             .thenReturn(Optional.empty());
         Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
             .thenAnswer(withGeneratedId());
 
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenReturn(Map.of("t1", 1L))
-            .thenReturn(Map.of("t1", 2L));
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of()),
+            Mockito.eq(Map.of())))
+            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(1L, "t1", "t1")))
+            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(2L, "t1", "t1")));
 
         Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
             .thenReturn(Optional.empty());
@@ -172,13 +174,10 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
             .thenReturn(catalogProjectWorkflow);
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[]}", Workflow.Format.JSON);
-
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenReturn(Map.of());
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of()),
+            Mockito.eq(Map.of())))
+            .thenReturn(resolvedConnections());
 
         ConnectedUserProject productionProject = new ConnectedUserProject();
 
@@ -194,6 +193,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             "userA", Environment.DEVELOPMENT))
             .thenReturn(developmentProject);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
 
         Mockito.when(connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(Mockito.anyLong(), Mockito.eq("catalog-uuid")))
@@ -251,8 +253,8 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
         Assertions.assertSame(existingReference, result);
         Mockito.verifyNoInteractions(
-            projectWorkflowService, workflowService, connectedUserWorkflowConnectionResolver, projectDeploymentFacade,
-            projectDeploymentService);
+            projectWorkflowService, connectedUserService, connectedUserWorkflowConnectionResolver,
+            projectDeploymentFacade, projectDeploymentService);
     }
 
     /**
@@ -269,12 +271,6 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("catalog-wf-1"))
             .thenReturn(catalogProjectWorkflow);
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[{\"name\":\"t1\",\"type\":\"slack/v1/postMessage\"}]}", Workflow.Format.JSON);
-
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
         connectedUserProject.setId(10L);
@@ -283,14 +279,19 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             Mockito.eq("userA"), Mockito.any()))
             .thenReturn(connectedUserProject);
 
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
+
         Mockito.when(connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, "catalog-uuid"))
             .thenReturn(Optional.empty());
         Mockito.when(connectedUserProjectWorkflowRepository.save(Mockito.any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenThrow(new MissingConnectionException("slack"));
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()), Mockito.eq(List.of()),
+            Mockito.eq(Map.of())))
+            .thenReturn(new ResolvedWorkflowConnections(List.of(), List.of("slack")));
 
         Mockito.when(projectDeploymentService.fetchProjectDeploymentByName(Mockito.eq(500L), Mockito.anyString()))
             .thenReturn(Optional.empty());
@@ -345,17 +346,19 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
             .thenReturn("catalog-wf-1");
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[{\"name\":\"t1\",\"type\":\"slack/v1/postMessage\"}]}", Workflow.Format.JSON);
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
 
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenReturn(Map.of("t1", 1L));
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
+            .thenReturn(projectDeploymentWorkflow);
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
+            Mockito.eq(projectDeploymentWorkflow.getConnections()), Mockito.eq(Map.of())))
+            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(1L, "t1", "t1")));
         Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
             .thenReturn(List.of());
-        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
-            .thenReturn(new ProjectDeploymentWorkflow());
 
         facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
 
@@ -399,25 +402,24 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
             .thenReturn("catalog-wf-1");
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[{\"name\":\"t1\",\"type\":\"slack/v1/postMessage\"}]}", Workflow.Format.JSON);
-
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-
-        // The connection is now resolvable -- the connected user created it after the earlier
-        // MissingConnectionException.
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenReturn(Map.of("t1", 42L));
-
-        // No bookkeeping rows exist yet, since the original provisioning never got past MissingConnectionException.
-        Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
-            .thenReturn(List.of());
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
 
         ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
 
         Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
             .thenReturn(projectDeploymentWorkflow);
+
+        // The connection is now resolvable -- the connected user created it after the earlier
+        // MissingConnectionException.
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
+            Mockito.eq(projectDeploymentWorkflow.getConnections()), Mockito.eq(Map.of())))
+            .thenReturn(resolvedConnections(new ProjectDeploymentWorkflowConnection(42L, "t1", "t1")));
+
+        // No bookkeeping rows exist yet, since the original provisioning never got past MissingConnectionException.
+        Mockito.when(connectedUserProjectWorkflowConnectionRepository.findAllByConnectedUserProjectWorkflowId(1L))
+            .thenReturn(List.of());
 
         facade.enableReference("userA", "catalog-uuid", true, Environment.PRODUCTION);
 
@@ -482,13 +484,17 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid"))
             .thenReturn("catalog-wf-1");
 
-        Workflow workflow = new Workflow(
-            "{\"triggers\":[],\"tasks\":[{\"name\":\"t1\",\"type\":\"slack/v1/postMessage\"}]}", Workflow.Format.JSON);
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("userA"), Mockito.any()))
+            .thenReturn(connectedUser(101L));
 
-        Mockito.when(workflowService.getWorkflow("catalog-wf-1"))
-            .thenReturn(workflow);
-        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(workflow.getDefinition()))
-            .thenThrow(new MissingConnectionException("slack"));
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(900L, "catalog-wf-1"))
+            .thenReturn(projectDeploymentWorkflow);
+        Mockito.when(connectedUserWorkflowConnectionResolver.resolve(
+            Mockito.eq("catalog-wf-1"), Mockito.anyLong(), Mockito.eq(Map.of()),
+            Mockito.eq(projectDeploymentWorkflow.getConnections()), Mockito.eq(Map.of())))
+            .thenReturn(new ResolvedWorkflowConnections(List.of(), List.of("slack")));
 
         MissingConnectionException thrown = Assertions.assertThrows(
             MissingConnectionException.class,
@@ -651,5 +657,13 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         connectedUserProjectWorkflow.setCatalogWorkflowUuid(catalogWorkflowUuid);
 
         return connectedUserProjectWorkflow;
+    }
+
+    private static ConnectedUser connectedUser(long id) {
+        return new ConnectedUser(Map.of(), null, true, "external-id", id, null, 0);
+    }
+
+    private static ResolvedWorkflowConnections resolvedConnections(ProjectDeploymentWorkflowConnection... connections) {
+        return new ResolvedWorkflowConnections(List.of(connections), List.of());
     }
 }
