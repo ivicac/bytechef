@@ -16,7 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
@@ -89,6 +91,39 @@ class RemoteConnectedUserCodeWorkflowReferenceFacadeControllerTest {
                 .param("environment", "PRODUCTION"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.missingConnectionComponentName").value("slack"));
+    }
+
+    @Test
+    void testGetOrCreateReferenceReturns409OnMissingInput() throws Exception {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            eq("ext-1"), eq("uuid-1"), any(Environment.class), eq(Map.of())))
+                .thenThrow(new MissingInputException("channel"));
+
+        mockMvc.perform(
+            post("/remote/connected-user-code-workflow-reference-facade/get-or-create-reference")
+                .param("externalUserId", "ext-1")
+                .param("catalogWorkflowUuid", "uuid-1")
+                .param("environment", "PRODUCTION"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.missingInputName").value("channel"));
+    }
+
+    @Test
+    void testGetOrCreateReferenceReturns400OnConnectionNotEntitled() throws Exception {
+        when(connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            eq("ext-1"), eq("uuid-1"), any(Environment.class), eq(Map.of("slack", 12L))))
+                .thenThrow(new ConnectionNotEntitledException("slack", 12L));
+
+        mockMvc.perform(
+            post("/remote/connected-user-code-workflow-reference-facade/get-or-create-reference")
+                .param("externalUserId", "ext-1")
+                .param("catalogWorkflowUuid", "uuid-1")
+                .param("environment", "PRODUCTION")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"slack\":12}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.componentName").value("slack"))
+            .andExpect(jsonPath("$.connectionId").value(12));
     }
 
     @Test

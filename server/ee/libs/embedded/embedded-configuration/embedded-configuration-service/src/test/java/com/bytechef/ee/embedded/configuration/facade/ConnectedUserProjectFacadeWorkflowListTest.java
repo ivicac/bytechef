@@ -74,6 +74,9 @@ class ConnectedUserProjectFacadeWorkflowListTest {
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
 
     @Mock
+    private ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver;
+
+    @Mock
     private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
 
     @Mock
@@ -110,9 +113,10 @@ class ConnectedUserProjectFacadeWorkflowListTest {
         facade = new ConnectedUserProjectFacadeImpl(
             automationWorkflowProjectFacade, null, null, connectedUserCodeWorkflowReferenceFacade,
             connectedUserProjectWorkflowManager, null, connectedUserProjectWorkflowService,
-            connectedUserReferenceDeploymentManager, connectedUserService, null, null, null, null, null, jobService,
-            null, null, projectDeploymentService, projectDeploymentWorkflowService, null, projectService, null,
-            projectWorkflowService, workflowComponentResolver, null, workflowService, null, null);
+            connectedUserReferenceAttentionResolver, connectedUserReferenceDeploymentManager, connectedUserService,
+            null, null, null, null, null, jobService, null, null, projectDeploymentService,
+            projectDeploymentWorkflowService, null, projectService, null, projectWorkflowService,
+            workflowComponentResolver, null, workflowService, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 

@@ -8,7 +8,9 @@
 package com.bytechef.ee.embedded.configuration.remote.client.facade;
 
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -92,13 +94,40 @@ public class RemoteConnectedUserCodeWorkflowReferenceFacadeClient implements Con
 
             String missingConnectionComponentName = body == null ? null : body.get("missingConnectionComponentName");
 
-            throw new MissingConnectionException(missingConnectionComponentName);
+            if (missingConnectionComponentName != null) {
+                throw new MissingConnectionException(missingConnectionComponentName);
+            }
+
+            String missingInputName = body == null ? null : body.get("missingInputName");
+
+            if (missingInputName != null) {
+                throw new MissingInputException(missingInputName);
+            }
+
+            throw conflict;
+        } catch (HttpClientErrorException.BadRequest badRequest) {
+            Map<String, Object> body = badRequest.getResponseBodyAs(new ParameterizedTypeReference<>() {});
+
+            if (body == null || !(body.get("componentName") instanceof String componentName) ||
+                !(body.get("connectionId") instanceof Number connectionId)) {
+
+                throw badRequest;
+            }
+
+            throw new ConnectionNotEntitledException(componentName, connectionId.longValue());
         }
     }
 
     @Override
     public void markDanglingReferences(
         long catalogProjectId, Set<String> previousCatalogWorkflowUuids, Set<String> currentCatalogWorkflowUuids) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateReferenceInputs(
+        String externalUserId, String catalogWorkflowUuid, Map<String, ?> inputs, Environment environment) {
 
         throw new UnsupportedOperationException();
     }

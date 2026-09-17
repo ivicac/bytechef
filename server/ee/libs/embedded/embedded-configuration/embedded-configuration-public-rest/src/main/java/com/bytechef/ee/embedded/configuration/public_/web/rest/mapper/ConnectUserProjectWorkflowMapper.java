@@ -35,5 +35,6 @@ public interface ConnectUserProjectWorkflowMapper
     @Mapping(target = "copiedFromWorkflowUuid", source = "copiedFromWorkflowUuid")
     @Mapping(target = "dangling", source = "dangling")
     @Mapping(target = "components", source = "components")
+    @Mapping(target = "attentionReason", source = "attentionReason")
     ConnectedUserProjectWorkflowModel convert(ConnectedUserProjectWorkflowDTO connectedUserProjectWorkflowDTO);
 }

@@ -10,11 +10,13 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestSharedMocks;
@@ -135,5 +137,57 @@ public class ConnectedUserProjectWorkflowApiControllerInputsIntTest {
         assertThat(exceptionThrown).isTrue();
 
         verify(connectedUserProjectFacade, never()).updateProjectWorkflowInputs(any(), any(), any(), any());
+    }
+
+    /**
+     * Pins the controller ruling: on an ENABLED reference, {@code updateProjectWorkflowInputs} refuses inputs that
+     * still miss a required value with {@link MissingInputException}, mapped here to 409.
+     */
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testUpdateFrontendProjectWorkflowInputsMissingInputReturns409() {
+        doThrow(new MissingInputException("channel"))
+            .when(connectedUserProjectFacade)
+            .updateProjectWorkflowInputs(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(), any());
+
+        try {
+            webTestClient
+                .put()
+                .uri("/v1/automation/workflows/{workflowUuid}/inputs", WORKFLOW_UUID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"inputs\":{}}")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingInputName")
+                .isEqualTo("channel");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testUpdateProjectWorkflowInputsMissingInputReturns409() {
+        doThrow(new MissingInputException("channel"))
+            .when(connectedUserProjectFacade)
+            .updateProjectWorkflowInputs(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), any(), any());
+
+        try {
+            webTestClient
+                .put()
+                .uri("/v1/{externalUserId}/automation/workflows/{workflowUuid}/inputs", EXTERNAL_USER_ID, WORKFLOW_UUID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"inputs\":{}}")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingInputName")
+                .isEqualTo("channel");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
     }
 }
