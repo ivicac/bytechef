@@ -20,6 +20,7 @@ import com.bytechef.ee.embedded.configuration.exception.MissingConnectionExcepti
 import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
+import com.bytechef.ee.embedded.configuration.repository.ConnectUserProjectRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -47,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUserCodeWorkflowReferenceFacade {
 
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+    private final ConnectUserProjectRepository connectUserProjectRepository;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
@@ -56,6 +58,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     @SuppressFBWarnings("EI")
     public ConnectedUserCodeWorkflowReferenceFacadeImpl(
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
+        ConnectUserProjectRepository connectUserProjectRepository,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
@@ -63,6 +66,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         ConnectedUserService connectedUserService) {
 
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
+        this.connectUserProjectRepository = connectUserProjectRepository;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
@@ -70,43 +74,60 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         this.connectedUserService = connectedUserService;
     }
 
+    /**
+     * Removes the reference's row even when the reference is dangling: a code-workflow redeploy marks references
+     * dangling before the rollout drops their rows, and a deployment whose last reference is gone would otherwise keep
+     * that row -- and its triggers -- running.
+     */
     @Override
     public void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment) {
         ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
 
-        if (!reference.isDangling()) {
-            connectedUserReferenceDeploymentManager.removeWorkflow(
-                reference.getProjectDeploymentId(), catalogWorkflowUuid);
-        }
+        removeRow(reference);
 
         connectedUserProjectWorkflowRepository.deleteById(reference.getId());
     }
 
     /**
      * {@code noRollbackFor} keeps the reference saved disabled when enabling is refused with a 409: without it Spring's
-     * default rollback rule would undo that write the instant the exception propagates.
+     * default rollback rule would undo that write the instant the exception propagates. It also keeps a lazy catch-up
+     * that found the template removed when enabling is then refused with {@link DanglingReferenceException}.
+     *
+     * <p>
+     * Disabling never catches up: turning a reference off must not depend on moving the deployment to another version,
+     * which can fail. The row is disabled at the deployment's current version; a dangling reference's row is removed
+     * instead, since its template can never be enabled again.
      */
     @Override
     @Transactional(noRollbackFor = {
-        MissingConnectionException.class, MissingInputException.class
+        DanglingReferenceException.class, MissingConnectionException.class, MissingInputException.class
     })
     public void enableReference(
         String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment) {
 
-        ConnectedUserProjectWorkflow reference = catchUp(
-            requireReference(externalUserId, catalogWorkflowUuid, environment));
+        ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
 
-        if (reference.isDangling()) {
-            if (enable) {
-                throw new ConfigurationException(
-                    "Reference to catalog workflow %s is dangling".formatted(catalogWorkflowUuid),
-                    WorkflowErrorType.WORKFLOW_NOT_FOUND);
+        if (!enable) {
+            if (reference.isDangling()) {
+                removeRow(reference);
+            } else {
+                applyWorkflow(reference, externalUserId, environment, false, true, Map.of());
             }
 
             return;
         }
 
-        applyWorkflow(reference, externalUserId, environment, enable, true, Map.of());
+        if (reference.isDangling()) {
+            throw new DanglingReferenceException(catalogWorkflowUuid);
+        }
+
+        reference = catchUp(reference);
+
+        if (reference.isDangling()) {
+            throw new DanglingReferenceException(catalogWorkflowUuid);
+        }
+
+        applyWorkflow(reference, externalUserId, environment, true, true, Map.of());
     }
 
     @Override
@@ -153,8 +174,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         String externalUserId, String catalogWorkflowUuid, Environment environment,
         Map<String, Long> requestedConnectionIds) {
 
-        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager
-            .getOrCreateConnectedUserProject(externalUserId, environment);
+        ConnectedUserProject connectedUserProject = lockConnectedUserProject(externalUserId, environment);
 
         Optional<ConnectedUserProjectWorkflow> existingReference = connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), catalogWorkflowUuid);
@@ -279,8 +299,10 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
      * marked dangling.
      */
     private ConnectedUserProjectWorkflow catchUp(ConnectedUserProjectWorkflow reference) {
-        if (reference.isDangling() ||
-            !connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(reference.getProjectDeploymentId())) {
+        Long projectDeploymentId = reference.getProjectDeploymentId();
+
+        if (projectDeploymentId == null || isDanglingWithoutDeployment(reference, projectDeploymentId) ||
+            !connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(projectDeploymentId)) {
 
             return reference;
         }
@@ -313,11 +335,56 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
                 "Not a published catalog workflow template: " + catalogWorkflowUuid));
     }
 
+    /**
+     * A dangling reference's deployment may already be gone: a rollout deletes a deployment none of whose references
+     * survives. While it still exists, catching it up drops the dangling reference's row.
+     */
+    private boolean isDanglingWithoutDeployment(ConnectedUserProjectWorkflow reference, long projectDeploymentId) {
+        if (!reference.isDangling()) {
+            return false;
+        }
+
+        Optional<ProjectDeployment> projectDeployment = connectedUserReferenceDeploymentManager.fetchDeployment(
+            projectDeploymentId);
+
+        return projectDeployment.isEmpty();
+    }
+
+    /**
+     * Serializes a connected user's reference writes: two first provisions for templates of the same catalog project
+     * would otherwise both find no deployment and both create one. The row lock is held until the caller's transaction
+     * ends.
+     *
+     * <p>
+     * It cannot serialize the creation of the connected user's project row itself, which happens before there is a row
+     * to lock: {@code connected_user_project}'s unique index is on {@code (connected_user_id, project_id)} and every
+     * creation makes a new project, so two concurrent creations both succeed.
+     */
+    private ConnectedUserProject lockConnectedUserProject(String externalUserId, Environment environment) {
+        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager
+            .getOrCreateConnectedUserProject(externalUserId, environment);
+
+        return connectUserProjectRepository.findByIdForUpdate(connectedUserProject.getId())
+            .orElseThrow();
+    }
+
+    /**
+     * Removes the reference's row from its deployment, deleting the deployment with its last row; a deployment or row
+     * that no longer exists is tolerated.
+     */
+    private void removeRow(ConnectedUserProjectWorkflow reference) {
+        Long projectDeploymentId = reference.getProjectDeploymentId();
+
+        if (projectDeploymentId != null) {
+            connectedUserReferenceDeploymentManager.removeWorkflow(
+                projectDeploymentId, reference.getCatalogWorkflowUuid());
+        }
+    }
+
     private ConnectedUserProjectWorkflow requireReference(
         String externalUserId, String catalogWorkflowUuid, Environment environment) {
 
-        ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager
-            .getOrCreateConnectedUserProject(externalUserId, environment);
+        ConnectedUserProject connectedUserProject = lockConnectedUserProject(externalUserId, environment);
 
         return connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), catalogWorkflowUuid)

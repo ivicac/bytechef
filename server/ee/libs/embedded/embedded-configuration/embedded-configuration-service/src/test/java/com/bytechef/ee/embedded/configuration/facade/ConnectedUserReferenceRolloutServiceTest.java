@@ -43,7 +43,6 @@ import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectServic
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -76,18 +75,8 @@ class ConnectedUserReferenceRolloutServiceTest {
 
     private ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
 
-    private ListAppender<ILoggingEvent> logAppender;
-    private Logger rolloutServiceLogger;
-
     @BeforeEach
     void setUp() {
-        rolloutServiceLogger = (Logger) LoggerFactory.getLogger(ConnectedUserReferenceRolloutService.class);
-        logAppender = new ListAppender<>();
-
-        logAppender.start();
-
-        rolloutServiceLogger.addAppender(logAppender);
-
         when(platformTransactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 
         connectedUserReferenceRolloutService = new ConnectedUserReferenceRolloutService(
@@ -109,11 +98,6 @@ class ConnectedUserReferenceRolloutServiceTest {
                     new RowSpec(new ResolvedWorkflowConnections(List.of(), List.of()), true, null), null, null));
         when(projectWorkflowService.getProjectWorkflows(CATALOG_PROJECT_ID, 2))
             .thenReturn(List.of(projectWorkflow(FIRST_UUID), projectWorkflow(SECOND_UUID)));
-    }
-
-    @AfterEach
-    void tearDown() {
-        rolloutServiceLogger.detachAppender(logAppender);
     }
 
     @Test
@@ -153,16 +137,22 @@ class ConnectedUserReferenceRolloutServiceTest {
         when(connectedUserReferenceDeploymentManager.getLastPublishedVersion(CATALOG_PROJECT_ID))
             .thenThrow(new IllegalArgumentException("Catalog project id=500 is not published"));
 
-        assertThatCode(() -> connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID))
-            .doesNotThrowAnyException();
+        ListAppender<ILoggingEvent> appender = attachAppenderToRolloutServiceLogger();
 
-        verify(projectDeploymentService, never()).getAllProjectDeployments(anyLong());
-        assertThat(logAppender.list)
-            .singleElement()
-            .satisfies(event -> {
-                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
-                assertThat(event.getFormattedMessage()).contains("catalog project id=500");
-            });
+        try {
+            assertThatCode(() -> connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID))
+                .doesNotThrowAnyException();
+
+            verify(projectDeploymentService, never()).getAllProjectDeployments(anyLong());
+            assertThat(appender.list)
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getFormattedMessage()).contains("catalog project id=500");
+                });
+        } finally {
+            detachAppenderFromRolloutServiceLogger(appender);
+        }
     }
 
     @Test
@@ -170,18 +160,24 @@ class ConnectedUserReferenceRolloutServiceTest {
         when(projectDeploymentService.getAllProjectDeployments(CATALOG_PROJECT_ID))
             .thenThrow(new IllegalStateException("Database unavailable"));
 
-        assertThatCode(() -> connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID))
-            .doesNotThrowAnyException();
+        ListAppender<ILoggingEvent> appender = attachAppenderToRolloutServiceLogger();
 
-        verifyNoInteractions(connectedUserProjectWorkflowRepository);
-        assertThat(logAppender.list)
-            .singleElement()
-            .extracting(ILoggingEvent::getLevel)
-            .isEqualTo(Level.ERROR);
+        try {
+            assertThatCode(() -> connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID))
+                .doesNotThrowAnyException();
+
+            verifyNoInteractions(connectedUserProjectWorkflowRepository);
+            assertThat(appender.list)
+                .singleElement()
+                .extracting(ILoggingEvent::getLevel)
+                .isEqualTo(Level.ERROR);
+        } finally {
+            detachAppenderFromRolloutServiceLogger(appender);
+        }
     }
 
     @Test
-    void testRollOutLoadsEachDeploymentsReferencesInsideItsOwnTransactionAndSkipsDeploymentsWithoutAny() {
+    void testRollOutLoadsEachDeploymentsReferencesInsideItsOwnTransactionAndDeletesDeploymentsWithoutAny() {
         when(projectDeploymentService.getAllProjectDeployments(CATALOG_PROJECT_ID))
             .thenReturn(List.of(projectDeployment(901L), projectDeployment(902L)));
         when(connectedUserProjectWorkflowRepository.findAllByProjectDeploymentId(901L)).thenReturn(List.of());
@@ -203,8 +199,44 @@ class ConnectedUserReferenceRolloutServiceTest {
 
         verify(connectedUserProjectWorkflowRepository, never()).findAll();
         verify(connectedUserReferenceDeploymentManager, never()).putWorkflows(eq(901L), anyInt(), anyMap());
-        verify(connectedUserReferenceDeploymentManager, never()).deleteDeployment(901L);
+        verify(connectedUserReferenceDeploymentManager).deleteDeployment(901L);
         verify(connectedUserReferenceDeploymentManager).putWorkflows(eq(902L), eq(2), anyMap());
+    }
+
+    /**
+     * Only a connected user's reference deployment is the rollout's to delete: any other deployment of the catalog
+     * project has no references by nature.
+     */
+    @Test
+    void testRollOutLeavesADeploymentThatIsNotAReferenceDeploymentAlone() {
+        ProjectDeployment projectDeployment = projectDeployment(901L);
+
+        projectDeployment.setName("Vendor deployment");
+
+        when(projectDeploymentService.getAllProjectDeployments(CATALOG_PROJECT_ID))
+            .thenReturn(List.of(projectDeployment));
+
+        connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID);
+
+        verify(connectedUserProjectWorkflowRepository, never()).findAllByProjectDeploymentId(anyLong());
+        verify(connectedUserReferenceDeploymentManager, never()).deleteDeployment(anyLong());
+        verify(connectedUserReferenceDeploymentManager, never()).putWorkflows(anyLong(), anyInt(), anyMap());
+    }
+
+    /**
+     * A reference deleted while its deployment was behind -- a dangling one, whose row a code-workflow redeploy leaves
+     * for the rollout -- may have been the deployment's last: the lazy catch-up deletes the deployment rather than
+     * leaving its rows running.
+     */
+    @Test
+    void testRollOutDeploymentIfBehindDeletesADeploymentWithoutReferences() {
+        when(connectedUserReferenceDeploymentManager.getDeployment(901L)).thenReturn(projectDeployment(901L));
+        when(connectedUserProjectWorkflowRepository.findAllByProjectDeploymentId(901L)).thenReturn(List.of());
+
+        assertThat(connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(901L)).isTrue();
+
+        verify(connectedUserReferenceDeploymentManager).deleteDeployment(901L);
+        verify(connectedUserReferenceDeploymentManager, never()).putWorkflows(anyLong(), anyInt(), anyMap());
     }
 
     @Test
@@ -225,22 +257,29 @@ class ConnectedUserReferenceRolloutServiceTest {
             .when(connectedUserReferenceDeploymentManager)
             .putWorkflows(eq(902L), eq(2), anyMap());
 
-        connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID);
+        ListAppender<ILoggingEvent> appender = attachAppenderToRolloutServiceLogger();
 
-        assertThat(logAppender.list)
-            .extracting(ILoggingEvent::getLevel, ILoggingEvent::getFormattedMessage)
-            .containsExactly(
-                tuple(
-                    Level.WARN,
-                    "Rolling out catalog project id=500 to deployment id=901 lost a concurrent update; it will " +
-                        "converge on the next publish or enable"),
-                tuple(Level.ERROR, "Rolling out catalog project id=500 to deployment id=902 failed"));
+        try {
+            connectedUserReferenceRolloutService.rollOut(CATALOG_PROJECT_ID);
+
+            assertThat(appender.list)
+                .extracting(ILoggingEvent::getLevel, ILoggingEvent::getFormattedMessage)
+                .containsExactly(
+                    tuple(
+                        Level.WARN,
+                        "Rolling out catalog project id=500 to deployment id=901 lost a concurrent update; it will " +
+                            "converge on the next publish or enable"),
+                    tuple(Level.ERROR, "Rolling out catalog project id=500 to deployment id=902 failed"));
+        } finally {
+            detachAppenderFromRolloutServiceLogger(appender);
+        }
     }
 
     private static ProjectDeployment projectDeployment(long id) {
         ProjectDeployment projectDeployment = new ProjectDeployment();
 
         projectDeployment.setId(id);
+        projectDeployment.setName("__EMBEDDED__user-" + id + "__PRODUCTION");
         projectDeployment.setProjectId(CATALOG_PROJECT_ID);
         projectDeployment.setProjectVersion(1);
 
@@ -268,5 +307,22 @@ class ConnectedUserReferenceRolloutServiceTest {
         reference.setProjectDeploymentId(projectDeploymentId);
 
         return reference;
+    }
+
+    private static ListAppender<ILoggingEvent> attachAppenderToRolloutServiceLogger() {
+        Logger logger = (Logger) LoggerFactory.getLogger(ConnectedUserReferenceRolloutService.class);
+
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+
+        appender.start();
+        logger.addAppender(appender);
+
+        return appender;
+    }
+
+    private static void detachAppenderFromRolloutServiceLogger(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(ConnectedUserReferenceRolloutService.class);
+
+        logger.detachAppender(appender);
     }
 }
