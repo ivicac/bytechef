@@ -34,6 +34,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -370,6 +371,57 @@ class ConnectedUserReferenceDeploymentManagerTest {
 
         verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
         verify(projectDeploymentWorkflowService, never()).create(any(ProjectDeploymentWorkflow.class));
+    }
+
+    /**
+     * {@code putWorkflow} would otherwise disable the row, save the incomplete inputs, then refuse to re-enable it with
+     * a raw {@code IllegalArgumentException} from {@code ProjectDeploymentFacadeImpl}'s own input validation -- a
+     * low-level exception the rest of the reference API never surfaces, on a row that is left disabled behind the
+     * caller's back. Checking the missing input up front, before any write, keeps the row's old inputs and its enabled
+     * state untouched.
+     */
+    @Test
+    void testUpdateInputsRefusesAnEnabledRowMissingARequiredInput() {
+        givenDeployment(1);
+        givenWorkflowId(1, "uuid-1", WORKFLOW_ID);
+        givenWorkflowInputs(new Workflow.Input("channel", "Channel", "string", true));
+
+        ProjectDeploymentWorkflow existingRow = row(11L, WORKFLOW_ID, true, Map.of("channel", "general"));
+
+        when(projectDeploymentWorkflowService.fetchProjectDeploymentWorkflow(900L, WORKFLOW_ID))
+            .thenReturn(Optional.of(existingRow));
+
+        assertThatThrownBy(() -> connectedUserReferenceDeploymentManager.updateInputs(900L, "uuid-1", Map.of()))
+            .isInstanceOf(MissingInputException.class)
+            .extracting("inputName")
+            .isEqualTo("channel");
+
+        verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+        verify(projectDeploymentWorkflowService, never()).create(any(ProjectDeploymentWorkflow.class));
+        verify(projectDeploymentFacade, never())
+            .enableProjectDeploymentWorkflow(anyLong(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void testUpdateInputsSavesADisabledRowWithIncompleteInputs() {
+        givenDeployment(1);
+        givenWorkflowId(1, "uuid-1", "wf-1");
+
+        ProjectDeploymentWorkflow existingRow = row(11L, "wf-1", false, Map.of("channel", "general"));
+
+        when(projectDeploymentWorkflowService.fetchProjectDeploymentWorkflow(900L, "wf-1"))
+            .thenReturn(Optional.of(existingRow));
+
+        // A non-empty map: ProjectDeploymentWorkflow#setInputs silently ignores an empty one (see the class javadoc
+        // on updateInputs), which would make this assertion pass regardless of whether the write actually happened.
+        connectedUserReferenceDeploymentManager.updateInputs(900L, "uuid-1", Map.of("note", "partial"));
+
+        verify(projectDeploymentWorkflowService).update(existingRow);
+
+        assertThat(existingRow.getInputs()).isEqualTo(Map.of("note", "partial"));
+
+        verify(projectDeploymentFacade, never())
+            .enableProjectDeploymentWorkflow(anyLong(), anyString(), anyBoolean());
     }
 
     @Test
