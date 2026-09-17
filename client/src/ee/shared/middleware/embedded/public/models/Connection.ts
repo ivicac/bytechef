@@ -12,7 +12,14 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
+import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime';
+import type { CredentialStatus } from './CredentialStatus';
+import {
+    CredentialStatusFromJSON,
+    CredentialStatusFromJSONTyped,
+    CredentialStatusToJSON,
+    CredentialStatusToJSONTyped,
+} from './CredentialStatus';
 import type { Environment } from './Environment';
 import {
     EnvironmentFromJSON,
@@ -56,6 +63,10 @@ export interface Connection {
      */
     createdDate?: Date;
     /**
+     * 
+     */
+    credentialStatus?: CredentialStatus;
+    /**
      * Whether a tenant admin marked this connection shared with every connected user in the environment. Shared and owned are independent: a connected user may own a connection the admin also shared, and can still modify that one -- see `editable`.
      */
     shared?: boolean;
@@ -92,7 +103,8 @@ export function ConnectionFromJSONTyped(json: any, ignoreDiscriminator: boolean)
         'componentName': json['componentName'] == null ? undefined : json['componentName'],
         'connectionVersion': json['connectionVersion'] == null ? undefined : json['connectionVersion'],
         'authorizationType': json['authorizationType'] == null ? undefined : json['authorizationType'],
-        'createdDate': json['createdDate'] == null ? undefined : (new Date(json['createdDate'])),
+        'createdDate': json['createdDate'] == null ? undefined : (parseDateTime(json['createdDate'])),
+        'credentialStatus': json['credentialStatus'] == null ? undefined : CredentialStatusFromJSON(json['credentialStatus']),
         'shared': json['shared'] == null ? undefined : json['shared'],
         'editable': json['editable'] == null ? undefined : json['editable'],
     };
@@ -115,7 +127,8 @@ export function ConnectionToJSONTyped(value?: Connection | null, ignoreDiscrimin
         'componentName': value['componentName'],
         'connectionVersion': value['connectionVersion'],
         'authorizationType': value['authorizationType'],
-        'createdDate': value['createdDate'] == null ? value['createdDate'] : value['createdDate'].toISOString(),
+        'createdDate': value['createdDate'] == null ? value['createdDate'] : serializeDateTime(value['createdDate']),
+        'credentialStatus': CredentialStatusToJSON(value['credentialStatus']),
         'shared': value['shared'],
         'editable': value['editable'],
     };

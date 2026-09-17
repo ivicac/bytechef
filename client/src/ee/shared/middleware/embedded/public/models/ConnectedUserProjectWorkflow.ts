@@ -71,15 +71,11 @@ export interface ConnectedUserProjectWorkflow {
      */
     kind?: ConnectedUserProjectWorkflowKindEnum;
     /**
-     * For REFERENCE rows, the uuid of the catalog workflow being referenced.
-     * @type {string}
-     * @memberof ConnectedUserProjectWorkflow
+     * For REFERENCE rows, the uuid of the automation workflow being referenced.
      */
-    catalogWorkflowUuid?: string;
+    automationWorkflowUuid?: string;
     /**
-     * For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise.
-     * @type {string}
-     * @memberof ConnectedUserProjectWorkflow
+     * For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise.
      */
     copiedFromWorkflowUuid?: string;
     /**
@@ -98,6 +94,10 @@ export interface ConnectedUserProjectWorkflow {
      * The values the connected user has already supplied, keyed by input name.
      */
     inputValues?: { [key: string]: any; };
+    /**
+     * Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.
+     */
+    attentionReason?: string;
 }
 
 
@@ -137,12 +137,13 @@ export function ConnectedUserProjectWorkflowFromJSONTyped(json: any, ignoreDiscr
         'workflowUuid': json['workflowUuid'] == null ? undefined : json['workflowUuid'],
         'workflowVersion': json['workflowVersion'] == null ? undefined : json['workflowVersion'],
         'kind': json['kind'] == null ? undefined : json['kind'],
-        'catalogWorkflowUuid': json['catalogWorkflowUuid'] == null ? undefined : json['catalogWorkflowUuid'],
+        'automationWorkflowUuid': json['automationWorkflowUuid'] == null ? undefined : json['automationWorkflowUuid'],
         'copiedFromWorkflowUuid': json['copiedFromWorkflowUuid'] == null ? undefined : json['copiedFromWorkflowUuid'],
         'dangling': json['dangling'] == null ? undefined : json['dangling'],
         'components': json['components'] == null ? undefined : ((json['components'] as Array<any>).map(AutomationWorkflowProjectComponentFromJSON)),
         'inputs': json['inputs'] == null ? undefined : ((json['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputFromJSON)),
         'inputValues': json['inputValues'] == null ? undefined : json['inputValues'],
+        'attentionReason': json['attentionReason'] == null ? undefined : json['attentionReason'],
     };
 }
 
@@ -166,12 +167,13 @@ export function ConnectedUserProjectWorkflowToJSONTyped(value?: ConnectedUserPro
         'workflowUuid': value['workflowUuid'],
         'workflowVersion': value['workflowVersion'],
         'kind': value['kind'],
-        'catalogWorkflowUuid': value['catalogWorkflowUuid'],
+        'automationWorkflowUuid': value['automationWorkflowUuid'],
         'copiedFromWorkflowUuid': value['copiedFromWorkflowUuid'],
         'dangling': value['dangling'],
         'components': value['components'] == null ? undefined : ((value['components'] as Array<any>).map(AutomationWorkflowProjectComponentToJSON)),
         'inputs': value['inputs'] == null ? undefined : ((value['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputToJSON)),
         'inputValues': value['inputValues'],
+        'attentionReason': value['attentionReason'],
     };
 }
 

@@ -6,7 +6,6 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectionC
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.IntegrationInstanceModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.IntegrationWorkflowModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.McpToolModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;

@@ -3,7 +3,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowTemplateModel;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -36,6 +35,8 @@ public class AutomationWorkflowProjectModel {
   private @Nullable String name;
 
   private @Nullable String description;
+
+  private @Nullable Boolean automationHubVisible;
 
   private List<@Valid AutomationWorkflowProjectWorkflowTemplateModel> workflowTemplates = new ArrayList<>();
 
@@ -222,13 +223,14 @@ public class AutomationWorkflowProjectModel {
     return Objects.equals(this.id, automationWorkflowProject.id) &&
         Objects.equals(this.name, automationWorkflowProject.name) &&
         Objects.equals(this.description, automationWorkflowProject.description) &&
+        Objects.equals(this.automationHubVisible, automationWorkflowProject.automationHubVisible) &&
         Objects.equals(this.workflowTemplates, automationWorkflowProject.workflowTemplates) &&
         Objects.equals(this.kind, automationWorkflowProject.kind);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, description, workflowTemplates, kind);
+    return Objects.hash(id, name, description, automationHubVisible, workflowTemplates, kind);
   }
 
   @Override

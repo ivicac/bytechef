@@ -2,7 +2,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 
 import java.net.URI;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -18,13 +17,13 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * Returned when a required connection could not be auto-wired for a catalog code workflow reference.
+ * Returned when a required connection could not be auto-wired for an automation workflow template reference.
  */
 
-@Schema(name = "MissingConnectionError", description = "Returned when a required connection could not be auto-wired for a catalog code workflow reference.")
+@Schema(name = "MissingConnectionError", description = "Returned when a required connection could not be auto-wired for an automation workflow template reference.")
 @JsonTypeName("MissingConnectionError")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
-public class MissingConnectionErrorModel {
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+public class MissingConnectionErrorModel implements EnableFrontendProjectWorkflow409ResponseModel {
 
   private @Nullable String missingConnectionComponentName;
 

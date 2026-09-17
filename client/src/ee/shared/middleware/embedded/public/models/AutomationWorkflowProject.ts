@@ -40,15 +40,15 @@ export interface AutomationWorkflowProject {
      */
     description?: string;
     /**
-     * The list of catalog workflow templates belonging to this project.
-     * @type {Array<AutomationWorkflowProjectWorkflowTemplate>}
-     * @memberof AutomationWorkflowProject
+     * Whether the project is listed in the Automation Hub. The API returns hidden projects too, so a custom UI can offer them.
+     */
+    automationHubVisible?: boolean;
+    /**
+     * The list of automation workflow templates belonging to this project.
      */
     workflowTemplates?: Array<AutomationWorkflowProjectWorkflowTemplate>;
     /**
      * Whether copying this project's templates creates a per-user copy or a shared reference.
-     * @type {AutomationWorkflowProjectKindEnum}
-     * @memberof AutomationWorkflowProject
      */
     kind?: AutomationWorkflowProjectKindEnum;
 }
@@ -59,7 +59,7 @@ export interface AutomationWorkflowProject {
  */
 export const AutomationWorkflowProjectKindEnum = {
     Copy: 'COPY',
-    Reference: 'REFERENCE'
+    Reference: 'REFERENCE',
 } as const;
 export type AutomationWorkflowProjectKindEnum = typeof AutomationWorkflowProjectKindEnum[keyof typeof AutomationWorkflowProjectKindEnum];
 
@@ -84,6 +84,7 @@ export function AutomationWorkflowProjectFromJSONTyped(json: any, ignoreDiscrimi
         'id': json['id'] == null ? undefined : json['id'],
         'name': json['name'] == null ? undefined : json['name'],
         'description': json['description'] == null ? undefined : json['description'],
+        'automationHubVisible': json['automationHubVisible'] == null ? undefined : json['automationHubVisible'],
         'workflowTemplates': json['workflowTemplates'] == null ? undefined : ((json['workflowTemplates'] as Array<any>).map(AutomationWorkflowProjectWorkflowTemplateFromJSON)),
         'kind': json['kind'] == null ? undefined : json['kind'],
     };
@@ -103,6 +104,7 @@ export function AutomationWorkflowProjectToJSONTyped(value?: AutomationWorkflowP
         'id': value['id'],
         'name': value['name'],
         'description': value['description'],
+        'automationHubVisible': value['automationHubVisible'],
         'workflowTemplates': value['workflowTemplates'] == null ? undefined : ((value['workflowTemplates'] as Array<any>).map(AutomationWorkflowProjectWorkflowTemplateToJSON)),
         'kind': value['kind'],
     };

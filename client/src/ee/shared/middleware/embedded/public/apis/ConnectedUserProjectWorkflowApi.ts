@@ -14,6 +14,11 @@
 
 import * as runtime from '../runtime';
 import {
+    type CodeWorkflowNotCopyableError,
+    CodeWorkflowNotCopyableErrorFromJSON,
+    CodeWorkflowNotCopyableErrorToJSON,
+} from '../models/CodeWorkflowNotCopyableError';
+import {
     type ConnectedUserProjectWorkflow,
     ConnectedUserProjectWorkflowFromJSON,
     ConnectedUserProjectWorkflowToJSON,
@@ -29,6 +34,11 @@ import {
     CreateFrontendProjectWorkflowRequestToJSON,
 } from '../models/CreateFrontendProjectWorkflowRequest';
 import {
+    type EnableFrontendProjectWorkflow409Response,
+    EnableFrontendProjectWorkflow409ResponseFromJSON,
+    EnableFrontendProjectWorkflow409ResponseToJSON,
+} from '../models/EnableFrontendProjectWorkflow409Response';
+import {
     type Environment,
     EnvironmentFromJSON,
     EnvironmentToJSON,
@@ -38,6 +48,16 @@ import {
     MissingConnectionErrorFromJSON,
     MissingConnectionErrorToJSON,
 } from '../models/MissingConnectionError';
+import {
+    type MissingInputError,
+    MissingInputErrorFromJSON,
+    MissingInputErrorToJSON,
+} from '../models/MissingInputError';
+import {
+    type ProvisionWorkflowReferenceRequest,
+    ProvisionWorkflowReferenceRequestFromJSON,
+    ProvisionWorkflowReferenceRequestToJSON,
+} from '../models/ProvisionWorkflowReferenceRequest';
 import {
     type PublishFrontendProjectWorkflowRequest,
     PublishFrontendProjectWorkflowRequestFromJSON,
@@ -289,9 +309,16 @@ export interface ProvisionFrontendWorkflowReferenceRequest {
      * The environment.
      */
     xEnvironment?: Environment;
+    /**
+     * 
+     */
+    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
-export interface ProvisionWorkflowReferenceRequest {
+export interface ProvisionWorkflowReferenceOperationRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
     /**
      * The workflow template uuid.
@@ -301,6 +328,10 @@ export interface ProvisionWorkflowReferenceRequest {
      * The environment.
      */
     xEnvironment?: Environment;
+    /**
+     * 
+     */
+    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
 export interface PublishFrontendProjectWorkflowOperationRequest {
@@ -1651,6 +1682,8 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        headerParameters['Content-Type'] = 'application/json';
+
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
@@ -1672,6 +1705,7 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
@@ -1697,7 +1731,7 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     /**
      * Creates request options for provisionWorkflowReference without sending the request
      */
-    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceRequest): Promise<runtime.RequestOpts> {
+    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceOperationRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['externalUserId'] == null) {
             throw new runtime.RequiredError(
                 'externalUserId',
@@ -1715,6 +1749,8 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
 
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
@@ -1738,14 +1774,15 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
     /**
-     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
-     * Provision a reference to a catalog code workflow
+     * Explicitly provision a reference to an automation workflow template ahead of first invocation.
+     * Provision a reference to an automation workflow template
      */
-    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
         const requestOptions = await this.provisionWorkflowReferenceRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
@@ -1753,10 +1790,10 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
-     * Provision a reference to a catalog code workflow
+     * Explicitly provision a reference to an automation workflow template ahead of first invocation.
+     * Provision a reference to an automation workflow template
      */
-    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.provisionWorkflowReferenceRaw(requestParameters, initOverrides);
     }
 

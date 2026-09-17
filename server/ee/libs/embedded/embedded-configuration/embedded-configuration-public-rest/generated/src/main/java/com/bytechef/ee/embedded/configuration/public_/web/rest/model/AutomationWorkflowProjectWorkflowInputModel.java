@@ -2,7 +2,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 
 import java.net.URI;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -18,10 +17,10 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * A value the connected user supplies before a catalog workflow runs.
+ * A value the connected user supplies before an automation workflow runs.
  */
 
-@Schema(name = "AutomationWorkflowProjectWorkflowInput", description = "A value the connected user supplies before a catalog workflow runs.")
+@Schema(name = "AutomationWorkflowProjectWorkflowInput", description = "A value the connected user supplies before an automation workflow runs.")
 @JsonTypeName("AutomationWorkflowProjectWorkflowInput")
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class AutomationWorkflowProjectWorkflowInputModel {
