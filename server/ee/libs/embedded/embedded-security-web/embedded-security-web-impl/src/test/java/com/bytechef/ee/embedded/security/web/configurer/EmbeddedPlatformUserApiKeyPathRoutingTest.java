@@ -64,7 +64,9 @@ class EmbeddedPlatformUserApiKeyPathRoutingTest {
         for (String path : new String[] {
             "/api/embedded/v1/user-1/integrations",
             "/api/embedded/v1/app-events",
-            "/api/embedded/v1/workflows/some-uuid"
+            "/api/embedded/v1/user-1/app-events",
+            "/api/embedded/v1/workflows/some-uuid",
+            "/api/embedded/v1/user-1/workflows/some-uuid"
         }) {
             assertThat(PLATFORM_USER_MATCHER.matches(request(path)))
                 .as("platform-user configurer must not claim %s", path)

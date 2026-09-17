@@ -121,11 +121,21 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
 
     @CrossOrigin
     @Override
-    public ResponseEntity<Object> executeWorkflow(String workflowUuid, EnvironmentModel xEnvironment) {
+    public ResponseEntity<Object> executeFrontendWorkflow(String workflowUuid, EnvironmentModel xEnvironment) {
+        String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
+
+        return executeWorkflow(externalUserId, workflowUuid, xEnvironment);
+    }
+
+    @Override
+    public ResponseEntity<Object> executeWorkflow(
+        String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         Environment environment = environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
 
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(
-            OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), environment);
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
         Optional<String> integrationWorkflowId = integrationWorkflowService.fetchLastWorkflowId(
             workflowUuid, environment);

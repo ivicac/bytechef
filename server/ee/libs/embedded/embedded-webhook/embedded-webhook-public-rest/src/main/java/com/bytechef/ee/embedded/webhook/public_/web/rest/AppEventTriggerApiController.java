@@ -120,11 +120,20 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         this.workflowService = workflowService;
     }
 
-    public ResponseEntity<Void> executeWorkflows(EnvironmentModel xEnvironment) {
+    @Override
+    public ResponseEntity<Void> executeFrontendWorkflows(EnvironmentModel xEnvironment) {
+        String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
+
+        return executeWorkflows(externalUserId, xEnvironment);
+    }
+
+    @Override
+    public ResponseEntity<Void> executeWorkflows(String externalUserId, EnvironmentModel xEnvironment) {
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         Environment environment = environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
 
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(
-            OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), environment);
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
         List<IntegrationInstance> integrationInstances =
             integrationInstanceService.getConnectedUserIntegrationInstances(connectedUser.getId(), true);

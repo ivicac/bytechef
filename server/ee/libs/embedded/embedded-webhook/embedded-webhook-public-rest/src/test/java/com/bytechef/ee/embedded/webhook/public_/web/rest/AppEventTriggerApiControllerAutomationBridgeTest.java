@@ -55,6 +55,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * @version ee
@@ -120,7 +121,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
@@ -188,8 +189,8 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
                 .thenReturn(Optional.of("user-1"));
 
             // Called twice: the exception must never propagate and must not break a subsequent call either.
-            firstResponseEntity = controller.executeWorkflows(null);
-            secondResponseEntity = controller.executeWorkflows(null);
+            firstResponseEntity = controller.executeFrontendWorkflows(null);
+            secondResponseEntity = controller.executeFrontendWorkflows(null);
         }
 
         Assertions.assertEquals(HttpStatus.OK, firstResponseEntity.getStatusCode());
@@ -228,7 +229,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         Mockito.verifyNoInteractions(webhookWorkflowExecutor);
@@ -253,7 +254,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         Mockito.verifyNoInteractions(webhookWorkflowExecutor);
@@ -286,7 +287,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         Mockito.verifyNoInteractions(webhookWorkflowExecutor);
@@ -322,7 +323,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            responseEntity = controller.executeWorkflows(null);
+            responseEntity = controller.executeFrontendWorkflows(null);
         }
 
         Assertions.assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
@@ -363,7 +364,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("login-a"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
@@ -435,7 +436,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> flagsCaptor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
@@ -500,7 +501,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
@@ -556,7 +557,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
                 .thenReturn(Optional.of("user-1"));
 
-            controller.executeWorkflows(null);
+            controller.executeFrontendWorkflows(null);
         }
 
         ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
@@ -602,6 +603,49 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         return new ConnectedUserProjectWorkflow(
             2L, 5L, projectWorkflowId, 1, null, null, enabled, dangling, null, 0);
+    }
+
+    @Test
+    void testExecuteWorkflowsForAnExternalUserIdFansOutForThatConnectedUser() {
+        AppEventTriggerApiController controller = controller();
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.eq("ext-1"), Mockito.any()))
+            .thenReturn(connectedUser);
+
+        ResponseEntity<Void> responseEntity;
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("ext-1"));
+            securityUtils.when(() -> SecurityUtils.checkCurrentUserLogin(Mockito.anyString()))
+                .thenCallRealMethod();
+
+            responseEntity = controller.executeWorkflows("ext-1", null);
+        }
+
+        Assertions.assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+
+        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
+            .getConnectedUserWorkflows(1L);
+    }
+
+    @Test
+    void testExecuteWorkflowsRefusesAnExternalUserIdOtherThanTheAuthenticatedOne() {
+        AppEventTriggerApiController controller = controller();
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("ext-1"));
+            securityUtils.when(() -> SecurityUtils.checkCurrentUserLogin(Mockito.anyString()))
+                .thenCallRealMethod();
+
+            Assertions.assertThrows(AccessDeniedException.class, () -> controller.executeWorkflows("ext-2", null));
+        }
+
+        Mockito.verifyNoInteractions(
+            connectedUserService, connectedUserCodeWorkflowReferenceFacade, webhookWorkflowExecutor);
     }
 
     private AppEventTriggerApiController controller() {
