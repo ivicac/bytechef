@@ -14,6 +14,11 @@
 
 import * as runtime from '../runtime';
 import {
+    type CodeWorkflowNotCopyableError,
+    CodeWorkflowNotCopyableErrorFromJSON,
+    CodeWorkflowNotCopyableErrorToJSON,
+} from '../models/CodeWorkflowNotCopyableError';
+import {
     type ConnectedUserProjectWorkflow,
     ConnectedUserProjectWorkflowFromJSON,
     ConnectedUserProjectWorkflowToJSON,
@@ -29,6 +34,11 @@ import {
     CreateFrontendProjectWorkflowRequestToJSON,
 } from '../models/CreateFrontendProjectWorkflowRequest';
 import {
+    type EnableFrontendProjectWorkflow409Response,
+    EnableFrontendProjectWorkflow409ResponseFromJSON,
+    EnableFrontendProjectWorkflow409ResponseToJSON,
+} from '../models/EnableFrontendProjectWorkflow409Response';
+import {
     type Environment,
     EnvironmentFromJSON,
     EnvironmentToJSON,
@@ -38,6 +48,16 @@ import {
     MissingConnectionErrorFromJSON,
     MissingConnectionErrorToJSON,
 } from '../models/MissingConnectionError';
+import {
+    type MissingInputError,
+    MissingInputErrorFromJSON,
+    MissingInputErrorToJSON,
+} from '../models/MissingInputError';
+import {
+    type ProvisionWorkflowReferenceRequest,
+    ProvisionWorkflowReferenceRequestFromJSON,
+    ProvisionWorkflowReferenceRequestToJSON,
+} from '../models/ProvisionWorkflowReferenceRequest';
 import {
     type PublishFrontendProjectWorkflowRequest,
     PublishFrontendProjectWorkflowRequestFromJSON,
@@ -55,179 +75,448 @@ import {
 } from '../models/UpdateWorkflowInputsRequest';
 
 export interface CopyFrontendWorkflowTemplateRequest {
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface CopyWorkflowTemplateRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface CreateFrontendProjectWorkflowOperationRequest {
+    /**
+     * 
+     */
     createFrontendProjectWorkflowRequest: CreateFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface CreateFrontendProjectWorkflowFromPromptOperationRequest {
+    /**
+     * 
+     */
     createFrontendProjectWorkflowFromPromptRequest: CreateFrontendProjectWorkflowFromPromptRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface CreateProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowRequest: CreateFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface CreateProjectWorkflowFromPromptRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowFromPromptRequest: CreateFrontendProjectWorkflowFromPromptRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DeleteFrontendProjectWorkflowRequest {
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DeleteProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DeprovisionFrontendWorkflowReferenceRequest {
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DeprovisionWorkflowReferenceRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DisableFrontendProjectWorkflowRequest {
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface DisableProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface EnableFrontendProjectWorkflowRequest {
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface EnableProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface GetFrontendProjectWorkflowRequest {
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface GetFrontendProjectWorkflowsRequest {
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface GetProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface GetProjectWorkflowsRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface ProvisionFrontendWorkflowReferenceRequest {
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
+    /**
+     * 
+     */
+    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
-export interface ProvisionWorkflowReferenceRequest {
+export interface ProvisionWorkflowReferenceOperationRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow template uuid.
+     */
     workflowUuid: string;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
+    /**
+     * 
+     */
+    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
 export interface PublishFrontendProjectWorkflowOperationRequest {
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     publishFrontendProjectWorkflowRequest: PublishFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface PublishProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     publishFrontendProjectWorkflowRequest: PublishFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateFrontendProjectWorkflowRequest {
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowRequest: CreateFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateFrontendProjectWorkflowFromPromptRequest {
+    /**
+     * The uuid of the workflow to update.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowFromPromptRequest: CreateFrontendProjectWorkflowFromPromptRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateFrontendProjectWorkflowInputsRequest {
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     updateWorkflowInputsRequest: UpdateWorkflowInputsRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateFrontendWorkflowConfigurationConnectionOperationRequest {
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The action/trigger name defined in the workflow.
+     */
     workflowNodeName: string;
+    /**
+     * The name of a workflow connection key.
+     */
     workflowConnectionKey: string;
+    /**
+     * 
+     */
     updateFrontendWorkflowConfigurationConnectionRequest: UpdateFrontendWorkflowConfigurationConnectionRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateProjectWorkflowRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowRequest: CreateFrontendProjectWorkflowRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateProjectWorkflowFromPromptRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The uuid of the workflow to update.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     createFrontendProjectWorkflowFromPromptRequest: CreateFrontendProjectWorkflowFromPromptRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateProjectWorkflowInputsRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow uuid.
+     */
     workflowUuid: string;
+    /**
+     * 
+     */
     updateWorkflowInputsRequest: UpdateWorkflowInputsRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
 export interface UpdateWorkflowConfigurationConnectionRequest {
+    /**
+     * The external user id.
+     */
     externalUserId: string;
+    /**
+     * The workflow reference of the workflow to delete.
+     */
     workflowUuid: string;
+    /**
+     * The action/trigger name defined in the workflow.
+     */
     workflowNodeName: string;
+    /**
+     * The name of a workflow connection key.
+     */
     workflowConnectionKey: string;
+    /**
+     * 
+     */
     updateFrontendWorkflowConfigurationConnectionRequest: UpdateFrontendWorkflowConfigurationConnectionRequest;
+    /**
+     * The environment.
+     */
     xEnvironment?: Environment;
 }
 
@@ -1393,6 +1682,8 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        headerParameters['Content-Type'] = 'application/json';
+
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
@@ -1414,11 +1705,12 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
     /**
-     * Provision a reference to a catalog code workflow for the authenticated connected user.
+     * Provision a reference to a catalog workflow template for the authenticated connected user.
      * Provision a workflow reference
      */
     async provisionFrontendWorkflowReferenceRaw(requestParameters: ProvisionFrontendWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
@@ -1429,7 +1721,7 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Provision a reference to a catalog code workflow for the authenticated connected user.
+     * Provision a reference to a catalog workflow template for the authenticated connected user.
      * Provision a workflow reference
      */
     async provisionFrontendWorkflowReference(requestParameters: ProvisionFrontendWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
@@ -1439,7 +1731,7 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     /**
      * Creates request options for provisionWorkflowReference without sending the request
      */
-    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceRequest): Promise<runtime.RequestOpts> {
+    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceOperationRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['externalUserId'] == null) {
             throw new runtime.RequiredError(
                 'externalUserId',
@@ -1457,6 +1749,8 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
 
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
@@ -1480,14 +1774,15 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
     /**
-     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
-     * Provision a reference to a catalog code workflow
+     * Explicitly provision a reference to a catalog workflow template ahead of first invocation.
+     * Provision a reference to a catalog workflow template
      */
-    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
         const requestOptions = await this.provisionWorkflowReferenceRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
@@ -1495,10 +1790,10 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
-     * Provision a reference to a catalog code workflow
+     * Explicitly provision a reference to a catalog workflow template ahead of first invocation.
+     * Provision a reference to a catalog workflow template
      */
-    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.provisionWorkflowReferenceRaw(requestParameters, initOverrides);
     }
 

@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
+import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime';
 import type { Environment } from './Environment';
 import {
     EnvironmentFromJSON,
@@ -29,56 +29,38 @@ import {
 export interface Connection {
     /**
      * The id of an integration.
-     * @type {number}
-     * @memberof Connection
      */
     id: number;
     /**
      * The name of a connection.
-     * @type {string}
-     * @memberof Connection
      */
     name: string;
     /**
      * 
-     * @type {Environment}
-     * @memberof Connection
      */
     environment?: Environment;
     /**
      * The component name.
-     * @type {string}
-     * @memberof Connection
      */
     componentName?: string;
     /**
      * The connection version.
-     * @type {number}
-     * @memberof Connection
      */
     connectionVersion?: number;
     /**
      * The authorization type name.
-     * @type {string}
-     * @memberof Connection
      */
     authorizationType?: string;
     /**
      * The created date.
-     * @type {Date}
-     * @memberof Connection
      */
     createdDate?: Date;
     /**
      * Whether a tenant admin marked this connection shared with every connected user in the environment. Shared and owned are independent: a connected user may own a connection the admin also shared, and can still modify that one -- see `editable`.
-     * @type {boolean}
-     * @memberof Connection
      */
     shared?: boolean;
     /**
      * Whether THIS connected user may reconnect or delete the connection, which is true only of the ones they own. A shared connection they do not own is listed and selectable but never modifiable: it belongs to the tenant admin who shared it, and changing it would act on every connected user at once.
-     * @type {boolean}
-     * @memberof Connection
      */
     editable?: boolean;
 }
@@ -110,7 +92,7 @@ export function ConnectionFromJSONTyped(json: any, ignoreDiscriminator: boolean)
         'componentName': json['componentName'] == null ? undefined : json['componentName'],
         'connectionVersion': json['connectionVersion'] == null ? undefined : json['connectionVersion'],
         'authorizationType': json['authorizationType'] == null ? undefined : json['authorizationType'],
-        'createdDate': json['createdDate'] == null ? undefined : (new Date(json['createdDate'])),
+        'createdDate': json['createdDate'] == null ? undefined : (parseDateTime(json['createdDate'])),
         'shared': json['shared'] == null ? undefined : json['shared'],
         'editable': json['editable'] == null ? undefined : json['editable'],
     };
@@ -133,7 +115,7 @@ export function ConnectionToJSONTyped(value?: Connection | null, ignoreDiscrimin
         'componentName': value['componentName'],
         'connectionVersion': value['connectionVersion'],
         'authorizationType': value['authorizationType'],
-        'createdDate': value['createdDate'] == null ? value['createdDate'] : value['createdDate'].toISOString(),
+        'createdDate': value['createdDate'] == null ? value['createdDate'] : serializeDateTime(value['createdDate']),
         'shared': value['shared'],
         'editable': value['editable'],
     };

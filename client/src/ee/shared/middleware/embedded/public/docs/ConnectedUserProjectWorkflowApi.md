@@ -23,7 +23,7 @@ All URIs are relative to */api/embedded/v1*
 | [**getProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#getprojectworkflow) | **GET** /{externalUserId}/automation/workflows/{workflowUuid} | Get a workflow by workflow reference code |
 | [**getProjectWorkflows**](ConnectedUserProjectWorkflowApi.md#getprojectworkflows) | **GET** /{externalUserId}/automation/workflows | Get automation workflows for particular external user |
 | [**provisionFrontendWorkflowReference**](ConnectedUserProjectWorkflowApi.md#provisionfrontendworkflowreference) | **POST** /automation/workflow-templates/{workflowUuid}/provision | Provision a workflow reference |
-| [**provisionWorkflowReference**](ConnectedUserProjectWorkflowApi.md#provisionworkflowreference) | **POST** /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision | Provision a reference to a catalog code workflow |
+| [**provisionWorkflowReference**](ConnectedUserProjectWorkflowApi.md#provisionworkflowreferenceoperation) | **POST** /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision | Provision a reference to a catalog workflow template |
 | [**publishFrontendProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#publishfrontendprojectworkflowoperation) | **POST** /automation/workflows/{workflowUuid}/publish | Publishes existing workflow |
 | [**publishProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#publishprojectworkflow) | **POST** /{externalUserId}/automation/workflows/{workflowUuid}/publish | Publishes existing workflow |
 | [**updateFrontendProjectWorkflow**](ConnectedUserProjectWorkflowApi.md#updatefrontendprojectworkflow) | **PUT** /automation/workflows/{workflowUuid} | Update an existing workflow |
@@ -107,6 +107,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | The new workflow uuid. |  -  |
+| **409** | The catalog workflow template is a code workflow template; it can only be referenced. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -184,6 +185,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | The new workflow uuid. |  -  |
+| **409** | The catalog workflow template is a code workflow template; it can only be referenced. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -862,7 +864,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
-| **409** | A required connection could not be auto-wired. |  -  |
+| **409** | A required connection could not be auto-wired, or a required workflow input has no value. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -940,7 +942,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
-| **409** | A required connection could not be auto-wired. |  -  |
+| **409** | A required connection could not be auto-wired, or a required workflow input has no value. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -1015,7 +1017,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
-| **409** | A required connection could not be auto-wired. |  -  |
+| **409** | A required connection could not be auto-wired, or a required workflow input has no value. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -1093,7 +1095,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
-| **409** | A required connection could not be auto-wired. |  -  |
+| **409** | A required connection could not be auto-wired, or a required workflow input has no value. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -1396,11 +1398,11 @@ example().catch(console.error);
 
 ## provisionFrontendWorkflowReference
 
-> provisionFrontendWorkflowReference(workflowUuid, xEnvironment)
+> provisionFrontendWorkflowReference(workflowUuid, xEnvironment, provisionWorkflowReferenceRequest)
 
 Provision a workflow reference
 
-Provision a reference to a catalog code workflow for the authenticated connected user.
+Provision a reference to a catalog workflow template for the authenticated connected user.
 
 ### Example
 
@@ -1424,6 +1426,8 @@ async function example() {
     workflowUuid: workflowUuid_example,
     // Environment | The environment. (optional)
     xEnvironment: ...,
+    // ProvisionWorkflowReferenceRequest (optional)
+    provisionWorkflowReferenceRequest: ...,
   } satisfies ProvisionFrontendWorkflowReferenceRequest;
 
   try {
@@ -1445,6 +1449,7 @@ example().catch(console.error);
 |------------- | ------------- | ------------- | -------------|
 | **workflowUuid** | `string` | The workflow template uuid. | [Defaults to `undefined`] |
 | **xEnvironment** | `Environment` | The environment. | [Optional] [Defaults to `undefined`] [Enum: DEVELOPMENT, STAGING, PRODUCTION] |
+| **provisionWorkflowReferenceRequest** | [ProvisionWorkflowReferenceRequest](ProvisionWorkflowReferenceRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -1456,7 +1461,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: Not defined
+- **Content-Type**: `application/json`
 - **Accept**: `application/json`
 
 
@@ -1464,6 +1469,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
+| **400** | A requested connection is not one of the connected user\&#39;s connections. |  -  |
 | **409** | A required connection could not be auto-wired. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
@@ -1471,11 +1477,11 @@ example().catch(console.error);
 
 ## provisionWorkflowReference
 
-> provisionWorkflowReference(externalUserId, workflowUuid, xEnvironment)
+> provisionWorkflowReference(externalUserId, workflowUuid, xEnvironment, provisionWorkflowReferenceRequest)
 
-Provision a reference to a catalog code workflow
+Provision a reference to a catalog workflow template
 
-Explicitly provision a reference to a catalog code workflow ahead of first invocation.
+Explicitly provision a reference to a catalog workflow template ahead of first invocation.
 
 ### Example
 
@@ -1484,7 +1490,7 @@ import {
   Configuration,
   ConnectedUserProjectWorkflowApi,
 } from '';
-import type { ProvisionWorkflowReferenceRequest } from '';
+import type { ProvisionWorkflowReferenceOperationRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -1501,7 +1507,9 @@ async function example() {
     workflowUuid: workflowUuid_example,
     // Environment | The environment. (optional)
     xEnvironment: ...,
-  } satisfies ProvisionWorkflowReferenceRequest;
+    // ProvisionWorkflowReferenceRequest (optional)
+    provisionWorkflowReferenceRequest: ...,
+  } satisfies ProvisionWorkflowReferenceOperationRequest;
 
   try {
     const data = await api.provisionWorkflowReference(body);
@@ -1523,6 +1531,7 @@ example().catch(console.error);
 | **externalUserId** | `string` | The external user id. | [Defaults to `undefined`] |
 | **workflowUuid** | `string` | The workflow template uuid. | [Defaults to `undefined`] |
 | **xEnvironment** | `Environment` | The environment. | [Optional] [Defaults to `undefined`] [Enum: DEVELOPMENT, STAGING, PRODUCTION] |
+| **provisionWorkflowReferenceRequest** | [ProvisionWorkflowReferenceRequest](ProvisionWorkflowReferenceRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -1534,7 +1543,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: Not defined
+- **Content-Type**: `application/json`
 - **Accept**: `application/json`
 
 
@@ -1542,6 +1551,7 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
+| **400** | A requested connection is not one of the connected user\&#39;s connections. |  -  |
 | **409** | A required connection could not be auto-wired. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
@@ -1924,13 +1934,14 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`
-- **Accept**: Not defined
+- **Accept**: `application/json`
 
 
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
+| **409** | A required workflow input has no value; the reference stays disabled. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
@@ -2247,13 +2258,14 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`
-- **Accept**: Not defined
+- **Accept**: `application/json`
 
 
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **204** | Successful operation. |  -  |
+| **409** | A required workflow input has no value; the reference stays disabled. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

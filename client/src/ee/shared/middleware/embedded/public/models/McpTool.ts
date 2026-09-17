@@ -21,20 +21,14 @@ import { mapValues } from '../runtime';
 export interface McpTool {
     /**
      * The description of the MCP tool.
-     * @type {string}
-     * @memberof McpTool
      */
     description?: string;
     /**
      * The id of an MCP tool.
-     * @type {number}
-     * @memberof McpTool
      */
     readonly id?: number;
     /**
      * The display name of the MCP tool, formatted as 'MCP Component name - McpTool name'.
-     * @type {string}
-     * @memberof McpTool
      */
     name?: string;
 }

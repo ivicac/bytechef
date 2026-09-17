@@ -22,6 +22,7 @@ Name | Type
 `components` | [Array&lt;AutomationWorkflowProjectComponent&gt;](AutomationWorkflowProjectComponent.md)
 `inputs` | [Array&lt;AutomationWorkflowProjectWorkflowInput&gt;](AutomationWorkflowProjectWorkflowInput.md)
 `inputValues` | { [key: string]: any; }
+`attentionReason` | string
 
 ## Example
 
@@ -45,6 +46,7 @@ const example = {
   "components": null,
   "inputs": null,
   "inputValues": null,
+  "attentionReason": null,
 } satisfies ConnectedUserProjectWorkflow
 
 console.log(example)

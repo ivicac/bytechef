@@ -3339,7 +3339,7 @@ export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProject
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, codeWorkflowProject: boolean, workflowTemplates: Array<{ workflowUuid: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
+export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, automationHubVisible: boolean, codeWorkflowProject: boolean, workflowTemplates: Array<{ workflowUuid: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
 
 export type CreateAutomationWorkflowProjectMutationVariables = Exact<{
   name: string;
@@ -3347,6 +3347,7 @@ export type CreateAutomationWorkflowProjectMutationVariables = Exact<{
   category?: string | null | undefined;
   tags?: Array<string> | string | null | undefined;
   permissionExpression?: string | null | undefined;
+  automationHubVisible?: boolean | null | undefined;
 }>;
 
 
@@ -3359,6 +3360,7 @@ export type UpdateAutomationWorkflowProjectMutationVariables = Exact<{
   category?: string | null | undefined;
   tags?: Array<string> | string | null | undefined;
   permissionExpression?: string | null | undefined;
+  automationHubVisible?: boolean | null | undefined;
 }>;
 
 
@@ -16520,6 +16522,7 @@ export const AutomationWorkflowProjectsDocument = new TypedDocumentString(`
     version
     lastPublishedVersion
     permissionExpression
+    automationHubVisible
     codeWorkflowProject
     workflowTemplates {
       workflowUuid
@@ -16559,13 +16562,14 @@ export const useAutomationWorkflowProjectsQuery = <
     )};
 
 export const CreateAutomationWorkflowProjectDocument = new TypedDocumentString(`
-    mutation createAutomationWorkflowProject($name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String) {
+    mutation createAutomationWorkflowProject($name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String, $automationHubVisible: Boolean) {
   createAutomationWorkflowProject(
     name: $name
     description: $description
     category: $category
     tags: $tags
     permissionExpression: $permissionExpression
+    automationHubVisible: $automationHubVisible
   )
 }
     `);
@@ -16584,7 +16588,7 @@ export const useCreateAutomationWorkflowProjectMutation = <
     )};
 
 export const UpdateAutomationWorkflowProjectDocument = new TypedDocumentString(`
-    mutation updateAutomationWorkflowProject($id: ID!, $name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String) {
+    mutation updateAutomationWorkflowProject($id: ID!, $name: String!, $description: String, $category: String, $tags: [String!], $permissionExpression: String, $automationHubVisible: Boolean) {
   updateAutomationWorkflowProject(
     id: $id
     name: $name
@@ -16592,6 +16596,7 @@ export const UpdateAutomationWorkflowProjectDocument = new TypedDocumentString(`
     category: $category
     tags: $tags
     permissionExpression: $permissionExpression
+    automationHubVisible: $automationHubVisible
   )
 }
     `);

@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * The environment of a project.
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-20T20:47:01.884417+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-17T18:44:17.537603+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public enum EnvironmentModel {
   
   DEVELOPMENT("DEVELOPMENT"),

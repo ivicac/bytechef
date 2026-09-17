@@ -25,6 +25,9 @@ import {
 } from '../models/AutomationProjectCodeWorkflowDeployResult';
 
 export interface DeployAutomationProjectCodeWorkflowRequest {
+    /**
+     * The file of a code-native automation project.
+     */
     projectFile?: Blob;
 }
 

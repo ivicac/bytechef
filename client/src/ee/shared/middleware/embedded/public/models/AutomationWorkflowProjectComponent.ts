@@ -21,20 +21,14 @@ import { mapValues } from '../runtime';
 export interface AutomationWorkflowProjectComponent {
     /**
      * The name of the component.
-     * @type {string}
-     * @memberof AutomationWorkflowProjectComponent
      */
     name?: string;
     /**
      * The title of the component.
-     * @type {string}
-     * @memberof AutomationWorkflowProjectComponent
      */
     title?: string;
     /**
      * The icon of the component.
-     * @type {string}
-     * @memberof AutomationWorkflowProjectComponent
      */
     icon?: string;
 }
