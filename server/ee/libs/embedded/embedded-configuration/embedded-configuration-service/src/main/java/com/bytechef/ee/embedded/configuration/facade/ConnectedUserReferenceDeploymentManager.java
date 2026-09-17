@@ -49,7 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @ConditionalOnEEVersion
 @SkipAutomationAuthorization
-public class ConnectedUserReferenceDeploymentManager {
+class ConnectedUserReferenceDeploymentManager {
 
     private static final String MARKER = "__EMBEDDED__";
 
@@ -91,13 +91,13 @@ public class ConnectedUserReferenceDeploymentManager {
         projectDeploymentFacade.deleteProjectDeployment(projectDeploymentId);
     }
 
-    /**
-     * The row of {@code catalogWorkflowUuid} at the deployment's current version, looked up directly rather than by
-     * scanning the deployment's rows.
-     */
-    public Optional<ProjectDeploymentWorkflow> fetchRow(long projectDeploymentId, String catalogWorkflowUuid) {
+    public Optional<ProjectDeploymentWorkflow> fetchRow(long projectDeploymentId, String automationWorkflowUuid) {
         return projectDeploymentService.fetchProjectDeployment(projectDeploymentId)
-            .flatMap(projectDeployment -> fetchRowAtCurrentVersion(projectDeployment, catalogWorkflowUuid));
+            .flatMap(projectDeployment -> fetchRowAtCurrentVersion(projectDeployment, automationWorkflowUuid));
+    }
+
+    public Optional<ProjectDeployment> fetchDeployment(long projectDeploymentId) {
+        return projectDeploymentService.fetchProjectDeployment(projectDeploymentId);
     }
 
     public Optional<ProjectDeploymentWorkflow> fetchWorkflowRow(long projectDeploymentId, String workflowId) {
@@ -123,44 +123,29 @@ public class ConnectedUserReferenceDeploymentManager {
         return projectDeploymentService.getProjectDeployment(projectDeploymentId);
     }
 
-    public String getDeploymentName(String externalUserId, Environment environment) {
-        return MARKER + externalUserId + "__" + environment.name();
+    public Map<String, ?> getInputs(long projectDeploymentId, String automationWorkflowUuid) {
+        return fetchRow(projectDeploymentId, automationWorkflowUuid)
+            .<Map<String, ?>>map(ProjectDeploymentWorkflow::getInputs)
+            .orElse(Map.of());
     }
 
-    public int getLastPublishedVersion(long catalogProjectId) {
-        Project project = projectService.getProject(catalogProjectId);
+    public int getLastPublishedVersion(long automationWorkflowProjectId) {
+        Project project = projectService.getProject(automationWorkflowProjectId);
 
         ProjectVersion lastPublishedProjectVersion = project.getLastPublishedProjectVersion();
 
         if (lastPublishedProjectVersion == null) {
-            throw new IllegalArgumentException("Catalog project id=%s is not published".formatted(catalogProjectId));
+            throw new IllegalArgumentException(
+                "Automation workflow project id=%s is not published".formatted(automationWorkflowProjectId));
         }
 
         return lastPublishedProjectVersion.getVersion();
     }
 
-    /**
-     * The environment is part of the name because the same external user can be connected in more than one environment,
-     * and the lookup is scoped to (catalog project, name) only.
-     *
-     * <p>
-     * {@code ProjectDeploymentService#create} always stores a new deployment disabled, and triggers of enabled rows are
-     * registered only while their deployment is enabled, so a created deployment is enabled right away -- before it has
-     * any row, which makes enabling it a flag flip. Whether a template runs is carried by its row's enabled flag.
-     */
-    public long getOrCreateDeployment(long catalogProjectId, String externalUserId, Environment environment) {
-        String name = getDeploymentName(externalUserId, environment);
-
-        return projectDeploymentService.fetchProjectDeploymentByName(catalogProjectId, name)
-            .map(ProjectDeployment::getId)
-            .orElseGet(() -> {
-                ProjectDeployment projectDeployment = new ProjectDeployment();
-
-                projectDeployment.setEnabled(true);
-                projectDeployment.setEnvironment(environment);
-                projectDeployment.setName(name);
-                projectDeployment.setProjectId(catalogProjectId);
-                projectDeployment.setProjectVersion(getLastPublishedVersion(catalogProjectId));
+    @Transactional
+    public long
+        getOrCreateDeployment(long automationWorkflowProjectId, String externalUserId, Environment environment) {
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
         return connectedUserReferenceDeploymentService
             .fetchConnectedUserReferenceDeployment(connectedUser.getId(), automationWorkflowProjectId)
@@ -168,50 +153,45 @@ public class ConnectedUserReferenceDeploymentManager {
             .orElseGet(() -> createDeployment(automationWorkflowProjectId, connectedUser));
     }
 
-    public String getWorkflowId(long catalogProjectId, int projectVersion, String catalogWorkflowUuid) {
-        return projectWorkflowService.fetchProjectWorkflow(catalogProjectId, projectVersion, catalogWorkflowUuid)
-            .map(ProjectWorkflow::getWorkflowId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Catalog workflow %s is not in version %s of project id=%s".formatted(
-                    catalogWorkflowUuid, projectVersion, catalogProjectId)));
+    public boolean isReferenceDeployment(long projectDeploymentId) {
+        return connectedUserReferenceDeploymentService.isReferenceDeployment(projectDeploymentId);
     }
 
-    /**
-     * Writes the rows of {@code rowSpecsByCatalogWorkflowUuid} at {@code projectVersion}.
-     *
-     * <p>
-     * At the deployment's current version each passed row is written on its own and no other row is read or re-sent:
-     * {@code ProjectDeploymentFacadeImpl#updateProjectDeployment} disables and re-enables every enabled row it is
-     * handed, which stops that row's running jobs and re-registers its triggers, so a full-list write would disturb
-     * every other template of the connected user whenever one of them changed.
-     *
-     * <p>
-     * At a different version the deployment moves as a whole through {@code updateProjectDeployment}: every workflow id
-     * changes, so re-registration is inherent, and the rows not passed are dropped because their workflow ids belong to
-     * the version the deployment is leaving.
-     */
-    public void putWorkflows(
-        long projectDeploymentId, int projectVersion, Map<String, RowSpec> rowSpecsByCatalogWorkflowUuid) {
+    public Optional<String>
+        fetchWorkflowId(long automationWorkflowProjectId, int projectVersion, String automationWorkflowUuid) {
+        return projectWorkflowService
+            .fetchProjectWorkflow(automationWorkflowProjectId, projectVersion, automationWorkflowUuid)
+            .map(ProjectWorkflow::getWorkflowId);
+    }
 
+    public String getWorkflowId(long automationWorkflowProjectId, int projectVersion, String automationWorkflowUuid) {
+        return fetchWorkflowId(automationWorkflowProjectId, projectVersion, automationWorkflowUuid)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Automation workflow %s is not in version %s of project id=%s".formatted(
+                    automationWorkflowUuid, projectVersion, automationWorkflowProjectId)));
+    }
+
+    public void putWorkflows(
+        long projectDeploymentId, int projectVersion, Map<String, RowSpec> rowSpecsByAutomationWorkflowUuid) {
         ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
 
         if (projectDeployment.getProjectVersion() == projectVersion) {
-            for (Map.Entry<String, RowSpec> entry : rowSpecsByCatalogWorkflowUuid.entrySet()) {
+            for (Map.Entry<String, RowSpec> entry : rowSpecsByAutomationWorkflowUuid.entrySet()) {
                 putWorkflow(projectDeployment, entry.getKey(), entry.getValue());
             }
 
             return;
         }
 
-        Map<String, ProjectDeploymentWorkflow> existingRowsByCatalogWorkflowUuid = getRowsByCatalogWorkflowUuid(
+        Map<String, ProjectDeploymentWorkflow> existingRowsByAutomationWorkflowUuid = getRowsByAutomationWorkflowUuid(
             projectDeploymentId);
 
         List<ProjectDeploymentWorkflow> rows = new ArrayList<>();
 
-        for (Map.Entry<String, RowSpec> entry : rowSpecsByCatalogWorkflowUuid.entrySet()) {
+        for (Map.Entry<String, RowSpec> entry : rowSpecsByAutomationWorkflowUuid.entrySet()) {
             RowSpec rowSpec = entry.getValue();
 
-            ProjectDeploymentWorkflow existingRow = existingRowsByCatalogWorkflowUuid.get(entry.getKey());
+            ProjectDeploymentWorkflow existingRow = existingRowsByAutomationWorkflowUuid.get(entry.getKey());
             ResolvedWorkflowConnections resolved = rowSpec.resolved();
 
             ProjectDeploymentWorkflow row = new ProjectDeploymentWorkflow();
@@ -231,12 +211,7 @@ public class ConnectedUserReferenceDeploymentManager {
         projectDeploymentFacade.updateProjectDeployment(projectDeployment, rows, List.of());
     }
 
-    /**
-     * Removes the row of {@code catalogWorkflowUuid} alone -- disabling it first when enabled, which unregisters its
-     * triggers and stops its running jobs -- and deletes the deployment when no row remains. A deployment that no
-     * longer exists has nothing to remove, so the caller can still delete its reference.
-     */
-    public void removeWorkflow(long projectDeploymentId, String catalogWorkflowUuid) {
+    public void removeWorkflow(long projectDeploymentId, String automationWorkflowUuid) {
         Optional<ProjectDeployment> fetchedProjectDeployment = projectDeploymentService.fetchProjectDeployment(
             projectDeploymentId);
 
@@ -245,7 +220,7 @@ public class ConnectedUserReferenceDeploymentManager {
         }
 
         Optional<ProjectDeploymentWorkflow> row = fetchRowAtCurrentVersion(
-            fetchedProjectDeployment.get(), catalogWorkflowUuid);
+            fetchedProjectDeployment.get(), automationWorkflowUuid);
 
         if (row.isPresent()) {
             ProjectDeploymentWorkflow existingRow = row.get();
@@ -280,43 +255,81 @@ public class ConnectedUserReferenceDeploymentManager {
             new RowSpec(resolved, enabled, null), resolved.firstMissingComponentName(), missingInputName);
     }
 
-    private Optional<ProjectDeploymentWorkflow> fetchRowAtCurrentVersion(
-        ProjectDeployment projectDeployment, String catalogWorkflowUuid) {
+    public void updateInputs(long projectDeploymentId, String automationWorkflowUuid, Map<String, ?> inputs) {
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
 
+        ProjectDeploymentWorkflow row = fetchRowAtCurrentVersion(projectDeployment, automationWorkflowUuid)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Automation workflow %s is not deployed in deployment id=%s".formatted(
+                    automationWorkflowUuid, projectDeploymentId)));
+
+        if (row.isEnabled()) {
+            String missingInputName = findMissingRequiredInput(row.getWorkflowId(), inputs);
+
+            if (missingInputName != null) {
+                throw new MissingInputException(missingInputName);
+            }
+        }
+
+        RowSpec rowSpec = new RowSpec(
+            new ResolvedWorkflowConnections(row.getConnections(), List.of()), row.isEnabled(), inputs);
+
+        putWorkflow(projectDeployment, automationWorkflowUuid, rowSpec);
+    }
+
+    private long createDeployment(long automationWorkflowProjectId, ConnectedUser connectedUser) {
+        Environment environment = connectedUser.getEnvironment();
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setEnabled(true);
+        projectDeployment.setEnvironment(environment);
+        projectDeployment.setName(getDeploymentName(connectedUser.getExternalId(), environment));
+        projectDeployment.setProjectId(automationWorkflowProjectId);
+        projectDeployment.setProjectVersion(getLastPublishedVersion(automationWorkflowProjectId));
+
+        long projectDeploymentId = projectDeploymentFacade.createProjectDeployment(
+            projectDeployment, List.of(), List.of());
+
+        connectedUserReferenceDeploymentService.create(
+            connectedUser.getId(), automationWorkflowProjectId, projectDeploymentId);
+
+        projectDeploymentFacade.enableProjectDeployment(projectDeploymentId, true);
+
+        return projectDeploymentId;
+    }
+
+    private Optional<ProjectDeploymentWorkflow> fetchRowAtCurrentVersion(
+        ProjectDeployment projectDeployment, String automationWorkflowUuid) {
         return projectWorkflowService
             .fetchProjectWorkflow(
-                projectDeployment.getProjectId(), projectDeployment.getProjectVersion(), catalogWorkflowUuid)
+                projectDeployment.getProjectId(), projectDeployment.getProjectVersion(), automationWorkflowUuid)
             .flatMap(projectWorkflow -> projectDeploymentWorkflowService.fetchProjectDeploymentWorkflow(
                 projectDeployment.getId(), projectWorkflow.getWorkflowId()));
     }
 
-    private Map<String, ProjectDeploymentWorkflow> getRowsByCatalogWorkflowUuid(long projectDeploymentId) {
-        Map<String, ProjectDeploymentWorkflow> rowsByCatalogWorkflowUuid = new LinkedHashMap<>();
+    private static String getDeploymentName(String externalUserId, Environment environment) {
+        return MARKER + externalUserId + "__" + environment.name();
+    }
+
+    private Map<String, ProjectDeploymentWorkflow> getRowsByAutomationWorkflowUuid(long projectDeploymentId) {
+        Map<String, ProjectDeploymentWorkflow> rowsByAutomationWorkflowUuid = new LinkedHashMap<>();
 
         for (ProjectDeploymentWorkflow row : projectDeploymentWorkflowService.getProjectDeploymentWorkflows(
             projectDeploymentId)) {
-
             ProjectWorkflow projectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(row.getWorkflowId());
 
-            rowsByCatalogWorkflowUuid.put(projectWorkflow.getUuidAsString(), row);
+            rowsByAutomationWorkflowUuid.put(projectWorkflow.getUuidAsString(), row);
         }
 
-        return rowsByCatalogWorkflowUuid;
+        return rowsByAutomationWorkflowUuid;
     }
 
-    /**
-     * Writes one row without touching any other. A row whose connections, inputs and enabled flag already match the
-     * spec is left alone, so repeating an enable or re-resolving unchanged wiring never stops the row's own running
-     * jobs. Otherwise an enabled row is disabled first (unregistering its triggers), then saved disabled with its new
-     * wiring, and enabled again through {@code ProjectDeploymentFacade#enableProjectDeploymentWorkflow} when the spec
-     * asks for it -- which checks the required connections and inputs and registers the triggers of this workflow
-     * alone.
-     */
-    private void putWorkflow(ProjectDeployment projectDeployment, String catalogWorkflowUuid, RowSpec rowSpec) {
+    private void putWorkflow(ProjectDeployment projectDeployment, String automationWorkflowUuid, RowSpec rowSpec) {
         long projectDeploymentId = projectDeployment.getId();
 
         String workflowId = getWorkflowId(
-            projectDeployment.getProjectId(), projectDeployment.getProjectVersion(), catalogWorkflowUuid);
+            projectDeployment.getProjectId(), projectDeployment.getProjectVersion(), automationWorkflowUuid);
 
         Optional<ProjectDeploymentWorkflow> existingRow = projectDeploymentWorkflowService
             .fetchProjectDeploymentWorkflow(projectDeploymentId, workflowId);

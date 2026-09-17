@@ -136,13 +136,15 @@ The reference listing reads input values from the row (fixes D5).
 
 `enableReference` rolls the deployment out first when it is behind (§6), then re-resolves connections (§4.3) and
 enables the row. A missing connection keeps it disabled and returns the existing 409; a missing required input keeps
-it disabled and returns 409 `MissingInputError`. A dangling reference cannot be enabled.
+it disabled and returns 409 `MissingInputError`. A dangling reference cannot be enabled. Disabling never rolls the
+deployment out: the row is disabled at the deployment's current version, and a dangling reference's row is removed.
 
 ### 4.6 Delete
 
 `deleteReference` rewrites the deployment without this template's row — `updateProjectDeployment` disables its
 triggers and stops running jobs before deleting it — deletes the whole deployment when it was the last row, then
-deletes the reference row (fixes D8). A dangling reference has no row; only the reference row is deleted.
+deletes the reference row (fixes D8). A dangling reference's row, if one still exists (a code-workflow redeploy
+marks references dangling before the rollout drops their rows), is removed too.
 
 ### 4.7 Copy guard
 
