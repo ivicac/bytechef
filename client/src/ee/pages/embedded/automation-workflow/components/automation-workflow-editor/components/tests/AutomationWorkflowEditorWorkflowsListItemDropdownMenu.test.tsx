@@ -73,6 +73,7 @@ const workflow = {
 };
 
 const project = {
+    automationHubVisible: true,
     categoryId: null,
     codeWorkflowProject: false,
     description: null,
