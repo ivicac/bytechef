@@ -33,7 +33,9 @@ one external user can be connected in more than one environment), looked up by n
 `fetchProjectDeployment(projectId, environment)` assumes one deployment per project+environment,
 which only holds because copy-mode gives each user their own private project).
 `RequestTriggerApiController#executeWorkflow` (sync `POST /workflows/{workflowUuid}`) and
-`AppEventTriggerApiController#executeWorkflows` (async `POST /app-events`) both gained an
+`AppEventTriggerApiController#executeWorkflows` (async `POST /app-events`) -- each with a JWT
+`executeFrontend*` route and an API-key `/{externalUserId}/...` route sharing one body, the same pair
+`IntegrationApiController` has -- both gained an
 automation-bridge fallback branch that only runs once the existing integration-workflow lookup comes
 back empty (regression-pinned unchanged); dispatch reuses `AbstractWebhookTriggerController
 #doProcessTrigger` unmodified with `PlatformType.AUTOMATION` and the reference's (or copy's)
