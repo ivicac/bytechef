@@ -1799,6 +1799,7 @@ export enum AuthorizationType {
 
 export type AutomationWorkflowProject = {
   __typename?: 'AutomationWorkflowProject';
+  automationHubVisible: Scalars['Boolean']['output'];
   categoryId?: Maybe<Scalars['ID']['output']>;
   codeWorkflowProject: Scalars['Boolean']['output'];
   description?: Maybe<Scalars['String']['output']>;
@@ -4572,6 +4573,7 @@ export type MutationCreateApprovalTaskArgs = {
 
 
 export type MutationCreateAutomationWorkflowProjectArgs = {
+  automationHubVisible?: InputMaybe<Scalars['Boolean']['input']>;
   category?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -6042,6 +6044,7 @@ export type MutationUpdateAssetFileTextContentArgs = {
 
 
 export type MutationUpdateAutomationWorkflowProjectArgs = {
+  automationHubVisible?: InputMaybe<Scalars['Boolean']['input']>;
   category?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];

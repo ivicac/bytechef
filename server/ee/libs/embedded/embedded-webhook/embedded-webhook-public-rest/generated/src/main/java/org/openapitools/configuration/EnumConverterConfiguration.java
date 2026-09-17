@@ -19,7 +19,7 @@ import org.springframework.core.convert.converter.Converter;
  * correct conversion if the OpenAPI specification is using an `enumPropertyNaming` other than
  * `original` or the specification has an integer enum.
  */
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-20T20:47:01.884417+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-17T18:44:17.537603+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 @Configuration(value = "org.openapitools.configuration.enumConverterConfiguration")
 public class EnumConverterConfiguration {
 
