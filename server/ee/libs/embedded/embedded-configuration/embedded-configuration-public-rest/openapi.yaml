@@ -288,6 +288,12 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The automation workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflow-templates/{workflowUuid}/provision:
@@ -1280,6 +1286,12 @@ paths:
             application/json:
               schema:
                 type: "string"
+        "409":
+          description: "The automation workflow template is a code workflow template; it can only be referenced."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeWorkflowNotCopyableError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision:
@@ -2784,6 +2796,14 @@ components:
           description: "The number of validation errors of the workflow that would run."
           type: "integer"
           format: "int32"
+    CodeWorkflowNotCopyableError:
+      type: "object"
+      description: "Returned when a code workflow template is copied; code workflow templates can only be referenced."
+      properties:
+        reason:
+          type: "string"
+          enum:
+            - "CODE_WORKFLOW_NOT_COPYABLE"
     MissingInputError:
       type: "object"
       description: "Returned when a reference cannot be enabled because a required workflow input has no value yet."

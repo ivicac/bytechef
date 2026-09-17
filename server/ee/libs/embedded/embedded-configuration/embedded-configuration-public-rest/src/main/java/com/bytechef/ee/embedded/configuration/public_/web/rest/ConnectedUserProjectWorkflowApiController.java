@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.ee.embedded.configuration.exception.AutomationWorkflowTemplateNotVisibleException;
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
 import com.bytechef.ee.embedded.configuration.exception.InvalidWorkflowException;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
@@ -535,6 +536,14 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .build();
+    }
+
+    @ExceptionHandler(CodeWorkflowNotCopyableException.class)
+    public ResponseEntity<Object> handleCodeWorkflowNotCopyableException(
+        CodeWorkflowNotCopyableException codeWorkflowNotCopyableException) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(Map.of("reason", "CODE_WORKFLOW_NOT_COPYABLE"));
     }
 
     @ExceptionHandler(MissingConnectionException.class)
