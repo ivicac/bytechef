@@ -62,12 +62,15 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
         mock(ConnectedUserProjectWorkflowManager.class);
     private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager =
         mock(ConnectedUserReferenceDeploymentManager.class);
+    private final ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService =
+        mock(ConnectedUserReferenceRolloutService.class);
     private final ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
 
     private final ConnectedUserCodeWorkflowReferenceFacadeImpl facade =
         new ConnectedUserCodeWorkflowReferenceFacadeImpl(
             automationWorkflowProjectFacade, connectedUserProjectWorkflowManager,
-            connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager, connectedUserService);
+            connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager,
+            connectedUserReferenceRolloutService, connectedUserService);
 
     @Test
     void testGetOrCreateReferenceProvisionsATemplateTheConnectedUserIsPermittedToSee() {
@@ -131,6 +134,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
         ConnectedUserProjectWorkflow existingReference = new ConnectedUserProjectWorkflow();
 
         existingReference.setId(1L);
+        existingReference.setProjectDeploymentId(900L);
 
         when(connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(10L, HIDDEN_WORKFLOW_UUID))

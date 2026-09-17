@@ -55,6 +55,14 @@ public interface ConnectedUserProjectWorkflowRepository extends ListCrudReposito
     @Query("""
         SELECT cupw.*
         FROM connected_user_project_workflow cupw
+        WHERE cupw.project_deployment_id = :projectDeploymentId
+        """)
+    List<ConnectedUserProjectWorkflow> findAllByProjectDeploymentId(
+        @Param("projectDeploymentId") long projectDeploymentId);
+
+    @Query("""
+        SELECT cupw.*
+        FROM connected_user_project_workflow cupw
         WHERE cupw.catalog_workflow_uuid IN (:catalogWorkflowUuids)
         """)
     List<ConnectedUserProjectWorkflow> findAllByCatalogWorkflowUuidIn(
