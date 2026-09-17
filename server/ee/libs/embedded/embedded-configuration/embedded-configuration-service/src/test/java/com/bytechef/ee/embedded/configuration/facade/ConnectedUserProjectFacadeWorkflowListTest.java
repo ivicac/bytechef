@@ -74,6 +74,9 @@ class ConnectedUserProjectFacadeWorkflowListTest {
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
 
     @Mock
+    private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
+
+    @Mock
     private ConnectedUserService connectedUserService;
 
     @Mock
@@ -106,10 +109,10 @@ class ConnectedUserProjectFacadeWorkflowListTest {
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
             automationWorkflowProjectFacade, null, null, connectedUserCodeWorkflowReferenceFacade,
-            connectedUserProjectWorkflowManager, null, connectedUserProjectWorkflowService, connectedUserService,
-            null, null, null, null, null, jobService, null, null, projectDeploymentService,
-            projectDeploymentWorkflowService, null, projectService, null, projectWorkflowService,
-            workflowComponentResolver, null, workflowService, null, null);
+            connectedUserProjectWorkflowManager, null, connectedUserProjectWorkflowService,
+            connectedUserReferenceDeploymentManager, connectedUserService, null, null, null, null, null, jobService,
+            null, null, projectDeploymentService, projectDeploymentWorkflowService, null, projectService, null,
+            projectWorkflowService, workflowComponentResolver, null, workflowService, null, null);
 
         ConnectedUserProject connectedUserProject = new ConnectedUserProject();
 
@@ -149,6 +152,7 @@ class ConnectedUserProjectFacadeWorkflowListTest {
         reference.setCatalogWorkflowUuid("cat-1");
         reference.setEnabled(true);
         reference.setDangling(false);
+        reference.setProjectDeploymentId(500L);
 
         when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(7L)).thenReturn(List.of(reference));
 
@@ -295,6 +299,7 @@ class ConnectedUserProjectFacadeWorkflowListTest {
         reference.setCatalogWorkflowUuid("cat-1");
         reference.setEnabled(true);
         reference.setDangling(false);
+        reference.setProjectDeploymentId(500L);
 
         when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(7L)).thenReturn(List.of(reference));
 

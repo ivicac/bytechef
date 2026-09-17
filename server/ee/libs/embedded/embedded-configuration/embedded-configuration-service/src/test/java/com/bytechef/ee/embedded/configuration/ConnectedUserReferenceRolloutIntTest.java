@@ -42,10 +42,14 @@ import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurati
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
 import com.bytechef.ee.embedded.codeworkflowbridge.AutomationCodeWorkflowBridgeIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
+import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -88,6 +92,8 @@ import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -149,6 +155,11 @@ class ConnectedUserReferenceRolloutIntTest {
         {"label":"Post","triggers":[],"tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}}]}
         """;
 
+    private static final String SLACK_WORKFLOW_WITH_CHANNEL_INPUT_DEFINITION = """
+        {"label":"Post","inputs":[{"name":"channel","label":"Channel","type":"string","required":true}],
+         "triggers":[],"tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}}]}
+        """;
+
     @Autowired
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
@@ -165,7 +176,13 @@ class ConnectedUserReferenceRolloutIntTest {
     private ConnectedUserConnectionFacade connectedUserConnectionFacade;
 
     @Autowired
+    private ConnectedUserProjectFacade connectedUserProjectFacade;
+
+    @Autowired
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Autowired
+    private ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
 
     @Autowired
     private ConnectedUserService connectedUserService;
@@ -175,6 +192,9 @@ class ConnectedUserReferenceRolloutIntTest {
 
     @Autowired
     private EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
+
+    @Autowired
+    private EnvironmentService environmentService;
 
     @Autowired
     private JobFacade jobFacade;
@@ -429,6 +449,124 @@ class ConnectedUserReferenceRolloutIntTest {
         assertThat(second.getProjectDeploymentId()).isEqualTo(first.getProjectDeploymentId());
         assertThat(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(first.getProjectDeploymentId()))
             .hasSize(2);
+    }
+
+    /**
+     * A connected user's input values for a reference land on the deployment row through
+     * {@link ConnectedUserProjectFacade#updateProjectWorkflowInputs} the same way copy-mode inputs do, and are reported
+     * back by {@link ConnectedUserProjectFacade#getConnectedUserProjectWorkflows}.
+     */
+    @Test
+    void testInputsCanBeSetOnAReferenceAndAreListed() {
+        long catalogProjectId = createCatalogProject("Inputs");
+
+        String workflowUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_WITH_CHANNEL_INPUT_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
+
+        long environmentId = Environment.PRODUCTION.ordinal();
+
+        when(environmentService.getEnvironment(environmentId)).thenReturn(Environment.PRODUCTION);
+
+        connectedUserProjectFacade.updateProjectWorkflowInputs(
+            EXTERNAL_USER_ID, workflowUuid, Map.of("channel", "#alerts"), environmentId);
+
+        assertThat(
+            connectedUserProjectFacade.getConnectedUserProjectWorkflows(EXTERNAL_USER_ID, Environment.PRODUCTION))
+                .filteredOn(workflow -> Objects.equals(workflow.catalogWorkflowUuid(), workflowUuid))
+                .singleElement()
+                .extracting(ConnectedUserProjectWorkflowDTO::inputValues)
+                .isEqualTo(Map.of("channel", "#alerts"));
+    }
+
+    /**
+     * Provisioning with a missing required input succeeds and leaves the reference disabled rather than aborting;
+     * enabling is refused with {@link MissingInputException} until the input is set, mirroring
+     * {@link #testEnableReferenceWithAMissingConnectionThrowsAndKeepsTheReferenceDisabled} for inputs instead of
+     * connections.
+     */
+    @Test
+    void testProvisionWithAMissingRequiredInputSucceedsDisabledAndEnableRefusesUntilItIsSet() {
+        long catalogProjectId = createCatalogProject("Required Input");
+
+        String workflowUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_WITH_CHANNEL_INPUT_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
+
+        assertThat(reference.isEnabled()).isFalse();
+
+        assertThatThrownBy(() -> connectedUserCodeWorkflowReferenceFacade.enableReference(
+            EXTERNAL_USER_ID, workflowUuid, true, Environment.PRODUCTION))
+                .isInstanceOf(MissingInputException.class)
+                .extracting("inputName")
+                .isEqualTo("channel");
+
+        connectedUserReferenceDeploymentManager.updateInputs(
+            reference.getProjectDeploymentId(), workflowUuid, Map.of("channel", "#alerts"));
+
+        connectedUserCodeWorkflowReferenceFacade.enableReference(
+            EXTERNAL_USER_ID, workflowUuid, true, Environment.PRODUCTION);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isEnabled)
+            .isEqualTo(true);
+    }
+
+    /**
+     * Updating an ENABLED reference's inputs must not drop a required value out from under a running automation:
+     * {@link ConnectedUserReferenceDeploymentManager#updateInputs} refuses with {@link MissingInputException} before
+     * writing anything, rather than saving the incomplete inputs and then failing to re-enable the row with a raw
+     * {@code IllegalArgumentException} from {@code ProjectDeploymentFacadeImpl}'s own validation.
+     */
+    @Test
+    void testUpdatingInputsOnAnEnabledReferenceRefusesToDropARequiredValue() {
+        long catalogProjectId = createCatalogProject("Enabled Required Input");
+
+        String workflowUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_WITH_CHANNEL_INPUT_DEFINITION);
+
+        automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+        stubEntitledSlackConnection(777L);
+
+        ConnectedUserProjectWorkflow reference = connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+            EXTERNAL_USER_ID, workflowUuid, Environment.PRODUCTION);
+
+        connectedUserReferenceDeploymentManager.updateInputs(
+            reference.getProjectDeploymentId(), workflowUuid, Map.of("channel", "#alerts"));
+
+        connectedUserCodeWorkflowReferenceFacade.enableReference(
+            EXTERNAL_USER_ID, workflowUuid, true, Environment.PRODUCTION);
+
+        long environmentId = Environment.PRODUCTION.ordinal();
+
+        when(environmentService.getEnvironment(environmentId)).thenReturn(Environment.PRODUCTION);
+
+        // Non-empty but missing "channel": an empty map is a no-op (ProjectDeploymentWorkflow#setInputs ignores it),
+        // which would let this call through even without the fix and hide the bug entirely.
+        assertThatThrownBy(() -> connectedUserProjectFacade.updateProjectWorkflowInputs(
+            EXTERNAL_USER_ID, workflowUuid, Map.of("note", "no channel here"), environmentId))
+                .isInstanceOf(MissingInputException.class)
+                .extracting("inputName")
+                .isEqualTo("channel");
+
+        assertThat(connectedUserReferenceDeploymentManager.getInputs(reference.getProjectDeploymentId(), workflowUuid))
+            .isEqualTo(Map.of("channel", "#alerts"));
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId()))
+            .get()
+            .extracting(ConnectedUserProjectWorkflow::isEnabled)
+            .isEqualTo(true);
     }
 
     private long createCatalogProject(String name) {
