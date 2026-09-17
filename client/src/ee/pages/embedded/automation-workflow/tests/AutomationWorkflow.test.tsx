@@ -1,4 +1,5 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
+import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import {fireEvent, render, screen, userEvent} from '@/shared/util/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -94,7 +95,16 @@ vi.mock('@/pages/platform/workflow-editor/stores/useWorkflowDataStore', () => ({
 }));
 
 vi.mock('@/pages/platform/workflow-editor/WorkflowEditorLayout', () => ({
-    default: () => <div data-testid="workflow-editor-layout" />,
+    default: function WorkflowEditorLayoutMock() {
+        const {useGetComponentDefinitionsQuery} = useWorkflowEditor();
+
+        return (
+            <div
+                data-component-definitions-source={useGetComponentDefinitionsQuery!({}).data?.[0]?.name}
+                data-testid="workflow-editor-layout"
+            />
+        );
+    },
 }));
 
 vi.mock('@/shared/components/LoadingIndicator', () => ({
@@ -145,7 +155,11 @@ vi.mock('@/shared/queries/automation/connections.queries', () => ({
 }));
 
 vi.mock('@/shared/queries/automation/componentDefinitions.queries', () => ({
-    useGetComponentDefinitionsQuery: () => ({data: []}),
+    useGetComponentDefinitionsQuery: () => ({data: [{name: 'automation'}]}),
+}));
+
+vi.mock('@/ee/shared/queries/embedded/componentDefinitions.queries', () => ({
+    useGetComponentDefinitionsQuery: () => ({data: [{name: 'embedded'}]}),
 }));
 
 // ---------------------------------------------------------------------------
@@ -175,6 +189,15 @@ describe('AutomationWorkflow', () => {
 
         expect(screen.getAllByText('My Workflow Template').length).toBeGreaterThan(0);
         expect(screen.getByTestId('workflow-editor-layout')).toBeInTheDocument();
+    });
+
+    it('lists components through the embedded filter so the palette offers embedded triggers', () => {
+        renderAutomationWorkflow();
+
+        expect(screen.getByTestId('workflow-editor-layout')).toHaveAttribute(
+            'data-component-definitions-source',
+            'embedded'
+        );
     });
 
     it('renders the left sidebar with the project select', () => {

@@ -2,6 +2,7 @@ import {ResizableHandle, ResizablePanel, ResizablePanelGroup} from '@/components
 import AutomationWorkflowEditorHeader from '@/ee/pages/embedded/automation-workflow/components/automation-workflow-editor/AutomationWorkflowEditorHeader';
 import AutomationWorkflowEditorLeftSidebar from '@/ee/pages/embedded/automation-workflow/components/automation-workflow-editor/AutomationWorkflowEditorLeftSidebar';
 import {useAutomationWorkflowEditorSidebarStore} from '@/ee/pages/embedded/automation-workflow/components/automation-workflow-editor/stores/useAutomationWorkflowEditorSidebarStore';
+import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import WorkflowEditorLayout from '@/pages/platform/workflow-editor/WorkflowEditorLayout';
 import WorkflowExecutionsTestOutput from '@/pages/platform/workflow-editor/components/WorkflowExecutionsTestOutput';
@@ -26,7 +27,6 @@ import {
     useUpdateWorkflowNodeParameterMutation,
 } from '@/shared/mutations/platform/workflowNodeParameters.mutations';
 import useUpdatePlatformWorkflowMutation from '@/shared/mutations/platform/workflows.mutations';
-import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
 import {
     ConnectionKeys,
     useGetConnectionTagsQuery,
