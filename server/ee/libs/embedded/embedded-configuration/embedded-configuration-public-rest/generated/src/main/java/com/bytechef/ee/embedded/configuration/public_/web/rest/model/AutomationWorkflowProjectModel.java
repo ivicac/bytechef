@@ -223,13 +223,14 @@ public class AutomationWorkflowProjectModel {
     return Objects.equals(this.id, automationWorkflowProject.id) &&
         Objects.equals(this.name, automationWorkflowProject.name) &&
         Objects.equals(this.description, automationWorkflowProject.description) &&
+        Objects.equals(this.automationHubVisible, automationWorkflowProject.automationHubVisible) &&
         Objects.equals(this.workflowTemplates, automationWorkflowProject.workflowTemplates) &&
         Objects.equals(this.kind, automationWorkflowProject.kind);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, description, workflowTemplates, kind);
+    return Objects.hash(id, name, description, automationHubVisible, workflowTemplates, kind);
   }
 
   @Override

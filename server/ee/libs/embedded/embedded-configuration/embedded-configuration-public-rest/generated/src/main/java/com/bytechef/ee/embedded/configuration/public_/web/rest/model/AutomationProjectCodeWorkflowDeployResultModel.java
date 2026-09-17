@@ -2,7 +2,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 
 import java.net.URI;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -25,7 +24,7 @@ import jakarta.annotation.Generated;
  */
 
 @JsonTypeName("AutomationProjectCodeWorkflowDeployResult")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-05T22:01:14.789656+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T22:59:12.689723+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class AutomationProjectCodeWorkflowDeployResultModel {
 
   private List<String> warnings = new ArrayList<>();

@@ -5,6 +5,7 @@
  */
 package com.bytechef.ee.embedded.configuration.public_.web.rest;
 
+import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CodeWorkflowNotCopyableErrorModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectedUserProjectWorkflowModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowFromPromptRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowRequestModel;
@@ -46,7 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-29T16:19:24.084130+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:42:51.849501+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "connected-user-project-workflow", description = "The Embedded Connected User Project Workflow Public API")
 public interface ConnectedUserProjectWorkflowApi {
@@ -63,6 +64,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow template uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return The new workflow uuid. (status code 200)
+     *         or The automation workflow template is a code workflow template; it can only be referenced. (status code 409)
      */
     @Operation(
         operationId = "copyFrontendWorkflowTemplate",
@@ -72,6 +74,9 @@ public interface ConnectedUserProjectWorkflowApi {
         responses = {
             @ApiResponse(responseCode = "200", description = "The new workflow uuid.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = String.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "The automation workflow template is a code workflow template; it can only be referenced.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = CodeWorkflowNotCopyableErrorModel.class))
             })
         },
         security = {
@@ -87,6 +92,15 @@ public interface ConnectedUserProjectWorkflowApi {
         @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"reason\" : \"CODE_WORKFLOW_NOT_COPYABLE\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
@@ -101,6 +115,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow template uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return The new workflow uuid. (status code 200)
+     *         or The automation workflow template is a code workflow template; it can only be referenced. (status code 409)
      */
     @Operation(
         operationId = "copyWorkflowTemplate",
@@ -110,6 +125,9 @@ public interface ConnectedUserProjectWorkflowApi {
         responses = {
             @ApiResponse(responseCode = "200", description = "The new workflow uuid.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = String.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "The automation workflow template is a code workflow template; it can only be referenced.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = CodeWorkflowNotCopyableErrorModel.class))
             })
         },
         security = {
@@ -126,6 +144,15 @@ public interface ConnectedUserProjectWorkflowApi {
         @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"reason\" : \"CODE_WORKFLOW_NOT_COPYABLE\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }

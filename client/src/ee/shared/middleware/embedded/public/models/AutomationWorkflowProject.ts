@@ -47,7 +47,22 @@ export interface AutomationWorkflowProject {
      * The list of automation workflow templates belonging to this project.
      */
     workflowTemplates?: Array<AutomationWorkflowProjectWorkflowTemplate>;
+    /**
+     * Whether copying this project's templates creates a per-user copy or a shared reference.
+     */
+    kind?: AutomationWorkflowProjectKindEnum;
 }
+
+
+/**
+ * @export
+ */
+export const AutomationWorkflowProjectKindEnum = {
+    Copy: 'COPY',
+    Reference: 'REFERENCE',
+} as const;
+export type AutomationWorkflowProjectKindEnum = typeof AutomationWorkflowProjectKindEnum[keyof typeof AutomationWorkflowProjectKindEnum];
+
 
 /**
  * Check if a given object implements the AutomationWorkflowProject interface.
@@ -71,6 +86,7 @@ export function AutomationWorkflowProjectFromJSONTyped(json: any, ignoreDiscrimi
         'description': json['description'] == null ? undefined : json['description'],
         'automationHubVisible': json['automationHubVisible'] == null ? undefined : json['automationHubVisible'],
         'workflowTemplates': json['workflowTemplates'] == null ? undefined : ((json['workflowTemplates'] as Array<any>).map(AutomationWorkflowProjectWorkflowTemplateFromJSON)),
+        'kind': json['kind'] == null ? undefined : json['kind'],
     };
 }
 
@@ -90,6 +106,7 @@ export function AutomationWorkflowProjectToJSONTyped(value?: AutomationWorkflowP
         'description': value['description'],
         'automationHubVisible': value['automationHubVisible'],
         'workflowTemplates': value['workflowTemplates'] == null ? undefined : ((value['workflowTemplates'] as Array<any>).map(AutomationWorkflowProjectWorkflowTemplateToJSON)),
+        'kind': value['kind'],
     };
 }
 

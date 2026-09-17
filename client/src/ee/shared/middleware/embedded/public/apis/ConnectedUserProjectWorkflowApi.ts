@@ -14,6 +14,11 @@
 
 import * as runtime from '../runtime';
 import {
+    type CodeWorkflowNotCopyableError,
+    CodeWorkflowNotCopyableErrorFromJSON,
+    CodeWorkflowNotCopyableErrorToJSON,
+} from '../models/CodeWorkflowNotCopyableError';
+import {
     type ConnectedUserProjectWorkflow,
     ConnectedUserProjectWorkflowFromJSON,
     ConnectedUserProjectWorkflowToJSON,
