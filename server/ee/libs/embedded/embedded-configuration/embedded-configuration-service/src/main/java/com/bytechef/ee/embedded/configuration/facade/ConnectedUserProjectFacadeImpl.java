@@ -40,6 +40,7 @@ import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDT
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
 import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceAttentionResolver.ReferenceState;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
@@ -103,7 +104,6 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private final ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver;
-    private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
     private final ConnectedUserService connectedUserService;
     private final ConnectionService connectionService;
     private final @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator;
@@ -135,7 +135,6 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
         ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver,
-        ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
         ConnectedUserService connectedUserService, ConnectionService connectionService,
         @Lazy @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator, EnvironmentService environmentService,
         IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
@@ -156,7 +155,6 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
         this.connectedUserReferenceAttentionResolver = connectedUserReferenceAttentionResolver;
-        this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
         this.connectedUserService = connectedUserService;
         this.connectionService = connectionService;
         this.copilotWorkflowGenerator = copilotWorkflowGenerator;
@@ -555,16 +553,14 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
             externalUserId, environment);
 
         // See enableProjectWorkflow(String, String, boolean, Long) above: a reference row has no ProjectWorkflow of
-        // its own in the caller's project, so it is routed to the reference deployment manager instead, keyed by
+        // its own in the caller's project, so it is routed to the reference facade instead, keyed by
         // catalogWorkflowUuid.
         Optional<ConnectedUserProjectWorkflow> reference = connectedUserProjectWorkflowRepository
             .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), workflowUuid);
 
         if (reference.isPresent()) {
-            ConnectedUserProjectWorkflow connectedUserProjectWorkflow = reference.get();
-
-            connectedUserReferenceDeploymentManager.updateInputs(
-                connectedUserProjectWorkflow.getProjectDeploymentId(), workflowUuid, inputs);
+            connectedUserCodeWorkflowReferenceFacade.updateReferenceInputs(
+                externalUserId, workflowUuid, inputs, environment);
 
             return;
         }
@@ -765,15 +761,13 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
                     reference.getCatalogWorkflowUuid(),
                     JsonUtils.write(Map.of("label", label, "description", description)), Workflow.Format.JSON);
 
+                ReferenceState referenceState = connectedUserReferenceAttentionResolver.resolve(reference);
+
                 return ConnectedUserProjectWorkflowDTO.ofReference(
                     connectedUser.getId(), reference, new WorkflowDTO(workflow, List.of(), List.of()),
                     template == null ? List.of() : template.components(),
-                    template == null ? List.of() : template.inputs(),
-                    reference.isDangling()
-                        ? Map.of()
-                        : connectedUserReferenceDeploymentManager.getInputs(
-                            reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid()),
-                    connectedUserReferenceAttentionResolver.resolve(reference));
+                    template == null ? List.of() : template.inputs(), referenceState.inputs(),
+                    referenceState.attentionReason());
             })
             .toList();
     }

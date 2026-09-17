@@ -10,11 +10,14 @@ package com.bytechef.ee.embedded.configuration.facade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.configuration.domain.Environment;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +47,12 @@ class ConnectedUserProjectFacadeReferenceRowTest {
     private ConnectedUserProjectService connectUserProjectService;
 
     @Mock
+    private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
+
+    @Mock
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Mock
     private ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
 
     @Mock
@@ -57,9 +66,10 @@ class ConnectedUserProjectFacadeReferenceRowTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserProjectFacadeImpl(
-            null, null, connectUserProjectService, connectedUserCodeWorkflowReferenceFacade, null, null,
-            connectedUserProjectWorkflowService, null, null, connectedUserService, null, null, null, null, null, null,
-            null, null, null, null, null, null, null, projectWorkflowService, null, null, null, null, null);
+            null, null, connectUserProjectService, connectedUserCodeWorkflowReferenceFacade,
+            connectedUserProjectWorkflowManager, connectedUserProjectWorkflowRepository,
+            connectedUserProjectWorkflowService, null, connectedUserService, null, null, null, null, null, null, null,
+            null, null, null, null, null, null, projectWorkflowService, null, null, null, null, null);
     }
 
     @Test
@@ -107,6 +117,36 @@ class ConnectedUserProjectFacadeReferenceRowTest {
 
         Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
             .enableReference("ext-1", "catalog-uuid", false, Environment.PRODUCTION);
+        Mockito.verifyNoInteractions(projectWorkflowService);
+    }
+
+    /**
+     * Inputs of a reference row -- dangling or not -- are written by the reference facade, which refuses a dangling one
+     * and serializes the write with the connected user's other reference writes; the copy-mode path is never reached.
+     */
+    @Test
+    void testUpdateProjectWorkflowInputsOnAReferenceRowDelegatesToTheReferenceFacade() {
+        ConnectedUserProject connectedUserProject = connectedUserProject();
+
+        Mockito
+            .when(connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject("ext-1", Environment.PRODUCTION))
+            .thenReturn(connectedUserProject);
+
+        ConnectedUserProjectWorkflow referenceRow = referenceRow();
+
+        referenceRow.setDangling(true);
+        referenceRow.setProjectDeploymentId(900L);
+
+        Mockito.when(connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndCatalogWorkflowUuid(
+            10L, "catalog-uuid"))
+            .thenReturn(Optional.of(referenceRow));
+
+        Map<String, String> inputs = Map.of("channel", "general");
+
+        facade.updateProjectWorkflowInputs("ext-1", "catalog-uuid", inputs, null);
+
+        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
+            .updateReferenceInputs("ext-1", "catalog-uuid", inputs, Environment.PRODUCTION);
         Mockito.verifyNoInteractions(projectWorkflowService);
     }
 

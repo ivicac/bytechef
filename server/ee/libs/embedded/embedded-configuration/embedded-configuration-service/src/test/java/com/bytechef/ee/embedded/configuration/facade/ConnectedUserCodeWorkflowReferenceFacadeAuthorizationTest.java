@@ -27,6 +27,7 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
+import com.bytechef.ee.embedded.configuration.repository.ConnectUserProjectRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -56,6 +57,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
 
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade =
         mock(AutomationWorkflowProjectFacade.class);
+    private final ConnectUserProjectRepository connectUserProjectRepository = connectUserProjectRepository();
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository =
         mock(ConnectedUserProjectWorkflowRepository.class);
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager =
@@ -68,9 +70,23 @@ class ConnectedUserCodeWorkflowReferenceFacadeAuthorizationTest {
 
     private final ConnectedUserCodeWorkflowReferenceFacadeImpl facade =
         new ConnectedUserCodeWorkflowReferenceFacadeImpl(
-            automationWorkflowProjectFacade, connectedUserProjectWorkflowManager,
+            automationWorkflowProjectFacade, connectUserProjectRepository, connectedUserProjectWorkflowManager,
             connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager,
             connectedUserReferenceRolloutService, connectedUserService);
+
+    private static ConnectUserProjectRepository connectUserProjectRepository() {
+        ConnectUserProjectRepository connectUserProjectRepository = mock(ConnectUserProjectRepository.class);
+
+        when(connectUserProjectRepository.findByIdForUpdate(anyLong())).thenAnswer(invocation -> {
+            ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+
+            connectedUserProject.setId(invocation.getArgument(0));
+
+            return Optional.of(connectedUserProject);
+        });
+
+        return connectUserProjectRepository;
+    }
 
     @Test
     void testGetOrCreateReferenceProvisionsATemplateTheConnectedUserIsPermittedToSee() {

@@ -18,12 +18,14 @@ import com.bytechef.ee.embedded.configuration.exception.MissingConnectionExcepti
 import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.ReferenceResolution;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceDeploymentManager.RowSpec;
+import com.bytechef.ee.embedded.configuration.repository.ConnectUserProjectRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,10 +36,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @version ee
@@ -54,6 +58,9 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
     @Mock
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+
+    @Mock
+    private ConnectUserProjectRepository connectUserProjectRepository;
 
     @Mock
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
@@ -75,7 +82,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
     @BeforeEach
     void setUp() {
         facade = new ConnectedUserCodeWorkflowReferenceFacadeImpl(
-            automationWorkflowProjectFacade, connectedUserProjectWorkflowManager,
+            automationWorkflowProjectFacade, connectUserProjectRepository, connectedUserProjectWorkflowManager,
             connectedUserProjectWorkflowRepository, connectedUserReferenceDeploymentManager,
             connectedUserReferenceRolloutService, connectedUserService);
 
@@ -85,6 +92,17 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
         Mockito.lenient()
             .when(automationWorkflowProjectFacade.getPublishedProjects(Mockito.anyString(), Mockito.any()))
             .thenReturn(List.of(publishedCatalogProject(CATALOG_UUID)));
+
+        // The row lock answers the connected user's project it was asked for; markDanglingReferences never takes it.
+        Mockito.lenient()
+            .when(connectUserProjectRepository.findByIdForUpdate(Mockito.anyLong()))
+            .thenAnswer(invocation -> {
+                ConnectedUserProject connectedUserProject = new ConnectedUserProject();
+
+                connectedUserProject.setId(invocation.getArgument(0));
+
+                return Optional.of(connectedUserProject);
+            });
     }
 
     /**
@@ -92,7 +110,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
      * user's own deployment -- two users referencing the same catalog workflow never share or overwrite wiring.
      */
     @Test
-    void testTwoUsersReferencingTheSameCatalogWorkflowGetIndependentConnectionRows() {
+    void testTwoUsersReferencingTheSameCatalogWorkflowGetIndependentWiring() {
         givenConnectedUserProject("userA", 10L);
         givenConnectedUserProject("userB", 20L);
         givenConnectedUser("userA", 101L);
@@ -374,7 +392,94 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             ConfigurationException.class,
             () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
 
-        Mockito.verifyNoInteractions(connectedUserReferenceDeploymentManager);
+        Mockito.verifyNoInteractions(connectedUserReferenceDeploymentManager, connectedUserReferenceRolloutService);
+    }
+
+    /**
+     * The lazy catch-up can itself find the template removed and write the reference dangling. Enabling is then
+     * refused, but with an exception {@code noRollbackFor} names, so that catch-up is not rolled back with it.
+     */
+    @Test
+    void testEnableReferenceRefusedBecauseTheCatchUpLeftItDanglingKeepsTheCatchUp() throws NoSuchMethodException {
+        givenConnectedUserProject("userA", 10L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
+        ConnectedUserProjectWorkflow caughtUpReference = reference(1L, 900L, false);
+
+        caughtUpReference.setDangling(true);
+
+        Mockito.when(connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(900L))
+            .thenReturn(true);
+        Mockito.when(connectedUserProjectWorkflowRepository.findById(reference.getId()))
+            .thenReturn(Optional.of(caughtUpReference));
+
+        DanglingReferenceException danglingReferenceException = Assertions.assertThrows(
+            DanglingReferenceException.class,
+            () -> facade.enableReference("userA", CATALOG_UUID, true, Environment.PRODUCTION));
+
+        Method enableReferenceMethod = ConnectedUserCodeWorkflowReferenceFacadeImpl.class.getMethod(
+            "enableReference", String.class, String.class, boolean.class, Environment.class);
+        Transactional transactional = enableReferenceMethod.getAnnotation(Transactional.class);
+
+        Assertions.assertInstanceOf(ConfigurationException.class, danglingReferenceException);
+        Assertions.assertTrue(List.of(transactional.noRollbackFor())
+            .contains(DanglingReferenceException.class));
+        Mockito.verify(connectedUserReferenceDeploymentManager, Mockito.never())
+            .putWorkflows(Mockito.anyLong(), Mockito.anyInt(), Mockito.anyMap());
+    }
+
+    /**
+     * Turning a reference off never depends on moving its deployment to another version, which can fail -- e.g. when a
+     * sibling template's trigger cannot be re-registered: the row is disabled at the deployment's current version.
+     */
+    @Test
+    void testDisableReferenceSkipsTheCatchUpAndDisablesTheRowAtTheCurrentVersion() {
+        givenConnectedUserProject("userA", 10L);
+        givenConnectedUser("userA", 101L);
+        givenDeploymentAtVersionOne(900L);
+        givenNoCurrentRow(900L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, true);
+
+        Mockito.lenient()
+            .when(connectedUserReferenceRolloutService.rollOutDeploymentIfBehind(900L))
+            .thenThrow(new IllegalStateException("Trigger registration failed"));
+
+        RowSpec disabledRowSpec = rowSpec(false);
+
+        givenResolution(101L, false, new ReferenceResolution(disabledRowSpec, null, null));
+
+        Assertions.assertDoesNotThrow(
+            () -> facade.enableReference("userA", CATALOG_UUID, false, Environment.PRODUCTION));
+
+        Assertions.assertFalse(reference.isEnabled());
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .putWorkflows(900L, 1, Map.of(CATALOG_UUID, disabledRowSpec));
+        Mockito.verify(connectedUserReferenceRolloutService, Mockito.never())
+            .rollOutDeploymentIfBehind(Mockito.anyLong());
+    }
+
+    /**
+     * A code-workflow redeploy marks a reference dangling before the rollout drops its row. Disabling it removes that
+     * still-running row -- a dangling template can never be enabled again -- and leaves the reference dangling.
+     */
+    @Test
+    void testDisableDanglingReferenceRemovesItsRow() {
+        givenConnectedUserProject("userA", 10L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
+
+        reference.setDangling(true);
+
+        facade.enableReference("userA", CATALOG_UUID, false, Environment.PRODUCTION);
+
+        Assertions.assertTrue(reference.isDangling());
+        Assertions.assertFalse(reference.isEnabled());
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .removeWorkflow(900L, CATALOG_UUID);
+        Mockito.verify(connectedUserReferenceDeploymentManager, Mockito.never())
+            .putWorkflows(Mockito.anyLong(), Mockito.anyInt(), Mockito.anyMap());
+        Mockito.verifyNoInteractions(connectedUserReferenceRolloutService);
     }
 
     @Test
@@ -404,8 +509,13 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             .deleteById(1L);
     }
 
+    /**
+     * A dangling reference's row may still exist -- a code-workflow redeploy marks references dangling before the
+     * rollout drops their rows -- so deleting it removes the row too (the manager tolerates a row or deployment that is
+     * already gone).
+     */
     @Test
-    void testDeleteDanglingReferenceRemovesOnlyTheReferenceRow() {
+    void testDeleteDanglingReferenceAlsoRemovesItsRow() {
         givenConnectedUserProject("userA", 10L);
 
         ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
@@ -414,9 +524,56 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
 
         facade.deleteReference("userA", CATALOG_UUID, Environment.PRODUCTION);
 
-        Mockito.verifyNoInteractions(connectedUserReferenceDeploymentManager);
+        Mockito.verify(connectedUserReferenceDeploymentManager)
+            .removeWorkflow(900L, CATALOG_UUID);
         Mockito.verify(connectedUserProjectWorkflowRepository)
             .deleteById(1L);
+    }
+
+    @Test
+    void testUpdateReferenceInputsWritesTheRowUnderTheConnectedUsersLock() {
+        givenConnectedUserProject("userA", 10L);
+        givenExistingReference(10L, true);
+
+        facade.updateReferenceInputs("userA", CATALOG_UUID, Map.of("channel", "#alerts"), Environment.PRODUCTION);
+
+        InOrder inOrder = Mockito.inOrder(connectUserProjectRepository, connectedUserReferenceDeploymentManager);
+
+        inOrder.verify(connectUserProjectRepository)
+            .findByIdForUpdate(10L);
+        inOrder.verify(connectedUserReferenceDeploymentManager)
+            .updateInputs(900L, CATALOG_UUID, Map.of("channel", "#alerts"));
+    }
+
+    @Test
+    void testUpdateReferenceInputsRefusesADanglingReference() {
+        givenConnectedUserProject("userA", 10L);
+
+        ConnectedUserProjectWorkflow reference = givenExistingReference(10L, false);
+
+        reference.setDangling(true);
+
+        DanglingReferenceException danglingReferenceException = Assertions.assertThrows(
+            DanglingReferenceException.class,
+            () -> facade.updateReferenceInputs(
+                "userA", CATALOG_UUID, Map.of("channel", "#alerts"), Environment.PRODUCTION));
+
+        Assertions.assertEquals(
+            "Reference to catalog workflow " + CATALOG_UUID + " is dangling", danglingReferenceException.getMessage());
+
+        Mockito.verify(connectedUserReferenceDeploymentManager, Mockito.never())
+            .updateInputs(Mockito.anyLong(), Mockito.anyString(), Mockito.anyMap());
+    }
+
+    @Test
+    void testReferenceWritesLockTheConnectedUsersProjectRow() {
+        givenConnectedUserProject("userA", 10L);
+        givenExistingReference(10L, false);
+
+        facade.deleteReference("userA", CATALOG_UUID, Environment.PRODUCTION);
+
+        Mockito.verify(connectUserProjectRepository)
+            .findByIdForUpdate(10L);
     }
 
     /**

@@ -100,6 +100,10 @@ public class ConnectedUserReferenceDeploymentManager {
             .flatMap(projectDeployment -> fetchRowAtCurrentVersion(projectDeployment, catalogWorkflowUuid));
     }
 
+    public Optional<ProjectDeployment> fetchDeployment(long projectDeploymentId) {
+        return projectDeploymentService.fetchProjectDeployment(projectDeploymentId);
+    }
+
     public Optional<ProjectDeploymentWorkflow> fetchWorkflowRow(long projectDeploymentId, String workflowId) {
         return projectDeploymentWorkflowService.fetchProjectDeploymentWorkflow(projectDeploymentId, workflowId);
     }
@@ -180,9 +184,23 @@ public class ConnectedUserReferenceDeploymentManager {
             });
     }
 
-    public String getWorkflowId(long catalogProjectId, int projectVersion, String catalogWorkflowUuid) {
+    /**
+     * Whether the deployment is a connected user's reference deployment, as opposed to any other deployment of the
+     * catalog project, which the reference code must never touch.
+     */
+    public static boolean isReferenceDeployment(ProjectDeployment projectDeployment) {
+        String name = projectDeployment.getName();
+
+        return name != null && name.startsWith(MARKER);
+    }
+
+    public Optional<String> fetchWorkflowId(long catalogProjectId, int projectVersion, String catalogWorkflowUuid) {
         return projectWorkflowService.fetchProjectWorkflow(catalogProjectId, projectVersion, catalogWorkflowUuid)
-            .map(ProjectWorkflow::getWorkflowId)
+            .map(ProjectWorkflow::getWorkflowId);
+    }
+
+    public String getWorkflowId(long catalogProjectId, int projectVersion, String catalogWorkflowUuid) {
+        return fetchWorkflowId(catalogProjectId, projectVersion, catalogWorkflowUuid)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Catalog workflow %s is not in version %s of project id=%s".formatted(
                     catalogWorkflowUuid, projectVersion, catalogProjectId)));
@@ -298,13 +316,13 @@ public class ConnectedUserReferenceDeploymentManager {
     }
 
     /**
-     * Rewrites the row through {@link #putWorkflows} so an enabled row's triggers re-register with the new inputs. An
-     * empty map cannot clear inputs: {@code ProjectDeploymentWorkflow.setInputs} ignores it, the same limit the copy
-     * path has.
+     * Rewrites the row at the deployment's current version so an enabled row's triggers re-register with the new
+     * inputs. An empty map cannot clear inputs: {@code ProjectDeploymentWorkflow.setInputs} ignores it, the same limit
+     * the copy path has.
      *
      * <p>
-     * An ENABLED row is checked against its required inputs before any write: without this, {@link #putWorkflows} would
-     * disable the row, save the incomplete inputs, then fail to re-enable it through
+     * An ENABLED row is checked against its required inputs before any write: without this, the rewrite would disable
+     * the row, save the incomplete inputs, then fail to re-enable it through
      * {@code ProjectDeploymentFacadeImpl#enableProjectDeploymentWorkflow}, whose own validation throws a raw
      * {@code IllegalArgumentException} -- leaving the row disabled and surfacing a low-level exception the rest of the
      * reference API never uses. A disabled row skips this check: a partial input set is allowed there, the same as
@@ -313,7 +331,7 @@ public class ConnectedUserReferenceDeploymentManager {
     public void updateInputs(long projectDeploymentId, String catalogWorkflowUuid, Map<String, ?> inputs) {
         ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
 
-        ProjectDeploymentWorkflow row = fetchRow(projectDeploymentId, catalogWorkflowUuid)
+        ProjectDeploymentWorkflow row = fetchRowAtCurrentVersion(projectDeployment, catalogWorkflowUuid)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Catalog workflow %s is not deployed in deployment id=%s".formatted(
                     catalogWorkflowUuid, projectDeploymentId)));
@@ -329,7 +347,7 @@ public class ConnectedUserReferenceDeploymentManager {
         RowSpec rowSpec = new RowSpec(
             new ResolvedWorkflowConnections(row.getConnections(), List.of()), row.isEnabled(), inputs);
 
-        putWorkflows(projectDeploymentId, projectDeployment.getProjectVersion(), Map.of(catalogWorkflowUuid, rowSpec));
+        putWorkflow(projectDeployment, catalogWorkflowUuid, rowSpec);
     }
 
     private Optional<ProjectDeploymentWorkflow> fetchRowAtCurrentVersion(
