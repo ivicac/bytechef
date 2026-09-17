@@ -25,6 +25,7 @@ type EmbeddedTagType = AutomationWorkflowProjectTagsQuery['automationWorkflowPro
 const makeProject = (
     overrides: Partial<AutomationWorkflowProjectType> & Pick<AutomationWorkflowProjectType, 'id' | 'name'>
 ): AutomationWorkflowProjectType => ({
+    automationHubVisible: true,
     categoryId: null,
     codeWorkflowProject: false,
     description: null,
@@ -91,6 +92,23 @@ describe('AutomationWorkflowProjectList', () => {
 
         expect(screen.getByText('V3')).toBeInTheDocument();
         expect(screen.getByText('PUBLISHED')).toBeInTheDocument();
+    });
+
+    it('renders a hidden from hub badge when the project is not visible in the automation hub', () => {
+        const projects = [makeProject({automationHubVisible: false, id: 'p1', name: 'Hidden Project'})];
+
+        renderWithProviders(<AutomationWorkflowProjectList {...defaultProps} projects={projects} />);
+
+        expect(screen.getByText('Hidden from hub')).toBeInTheDocument();
+    });
+
+    it('does not render a hidden from hub badge when the project is visible in the automation hub', () => {
+        const projects = [makeProject({automationHubVisible: true, id: 'p1', name: 'Visible Project'})];
+
+        renderWithProviders(<AutomationWorkflowProjectList {...defaultProps} projects={projects} />);
+
+        expect(screen.getByText('Visible Project')).toBeInTheDocument();
+        expect(screen.queryByText('Hidden from hub')).not.toBeInTheDocument();
     });
 
     it('renders the project tags as interactive chips', () => {
