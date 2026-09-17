@@ -27,8 +27,8 @@ public interface ConnectedUserProjectWorkflowRepository extends ListCrudReposito
     Optional<ConnectedUserProjectWorkflow> findByConnectedUserProjectIdAndProjectWorkflowId(
         long connectedUserProjectId, long projectWorkflowId);
 
-    Optional<ConnectedUserProjectWorkflow> findByConnectedUserProjectIdAndCatalogWorkflowUuid(
-        long connectedUserProjectId, String catalogWorkflowUuid);
+    Optional<ConnectedUserProjectWorkflow> findByConnectedUserProjectIdAndAutomationWorkflowUuid(
+        long connectedUserProjectId, String automationWorkflowUuid);
 
     Optional<ConnectedUserProjectWorkflow> findByConnectedUserProjectIdAndCopiedFromWorkflowUuid(
         long connectedUserProjectId, String copiedFromWorkflowUuid);
@@ -52,8 +52,16 @@ public interface ConnectedUserProjectWorkflowRepository extends ListCrudReposito
     @Query("""
         SELECT cupw.*
         FROM connected_user_project_workflow cupw
-        WHERE cupw.catalog_workflow_uuid IN (:catalogWorkflowUuids)
+        WHERE cupw.project_deployment_id = :projectDeploymentId
         """)
-    List<ConnectedUserProjectWorkflow> findAllByCatalogWorkflowUuidIn(
-        @Param("catalogWorkflowUuids") Set<String> catalogWorkflowUuids);
+    List<ConnectedUserProjectWorkflow> findAllByProjectDeploymentId(
+        @Param("projectDeploymentId") long projectDeploymentId);
+
+    @Query("""
+        SELECT cupw.*
+        FROM connected_user_project_workflow cupw
+        WHERE cupw.automation_workflow_uuid IN (:automationWorkflowUuids)
+        """)
+    List<ConnectedUserProjectWorkflow> findAllByAutomationWorkflowUuidIn(
+        @Param("automationWorkflowUuids") Set<String> automationWorkflowUuids);
 }

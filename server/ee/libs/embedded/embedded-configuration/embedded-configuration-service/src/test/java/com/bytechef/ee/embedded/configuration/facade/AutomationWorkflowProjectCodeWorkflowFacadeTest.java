@@ -16,6 +16,7 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
+import com.bytechef.ee.embedded.configuration.event.AutomationWorkflowProjectPublishedEvent;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
@@ -26,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,12 +36,13 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Verifies {@link AutomationWorkflowProjectCodeWorkflowFacadeImpl#save}: the first deploy of a code workflow project
- * must resolve/create its catalog {@link Project} through {@link AutomationWorkflowProjectFacade}'s marker convention,
- * rather than through {@link AutomationWorkflowProjectFacade#createProject} being called a second time or a bare
- * {@link ProjectService} lookup.
+ * must resolve/create its automation workflow {@link Project} through {@link AutomationWorkflowProjectFacade}'s marker
+ * convention, rather than through {@link AutomationWorkflowProjectFacade#createProject} being called a second time or a
+ * bare {@link ProjectService} lookup.
  *
  * @version ee
  *
@@ -51,6 +52,9 @@ import org.springframework.cache.CacheManager;
 class AutomationWorkflowProjectCodeWorkflowFacadeTest {
 
     @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
+    @Mock
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
     @Mock
@@ -58,9 +62,6 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
 
     @Mock
     private CodeWorkflowContainerService codeWorkflowContainerService;
-
-    @Mock
-    private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
 
     @Mock
     private ProjectCodeWorkflowService projectCodeWorkflowService;
@@ -78,17 +79,18 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         ApplicationProperties applicationProperties = new ApplicationProperties();
 
         facade = new AutomationWorkflowProjectCodeWorkflowFacadeImpl(
-            applicationProperties, mock(CacheManager.class), automationWorkflowProjectFacade,
-            codeWorkflowContainerFacade, codeWorkflowContainerService, connectedUserCodeWorkflowReferenceFacade,
-            projectCodeWorkflowService, projectService, projectWorkflowService);
+            applicationEventPublisher, applicationProperties, mock(CacheManager.class), automationWorkflowProjectFacade,
+            codeWorkflowContainerFacade, codeWorkflowContainerService, projectCodeWorkflowService, projectService,
+            projectWorkflowService);
     }
 
     @Test
-    void testFirstDeployCreatesTheCatalogProject() {
+    void testFirstDeployCreatesTheAutomationWorkflowProject() {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();
@@ -119,18 +121,13 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
             .publishProject(Mockito.anyLong());
     }
 
-    /**
-     * Verifies the dangling-detection wiring: after {@code save} publishes the project, it must call
-     * {@link ConnectedUserCodeWorkflowReferenceFacade#markDanglingReferences} with the newly-published project id and
-     * the uuid set of the workflows that are actually live in that published version -- otherwise a reference to a
-     * workflow removed from the catalog would never be flagged.
-     */
     @Test
-    void testSaveMarksDanglingReferencesWithPublishedProjectWorkflowUuids() {
+    void testSavePublishesTheAutomationWorkflowProjectPublishedEvent() {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();
@@ -147,27 +144,17 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
             Mockito.any(), Mockito.eq(PlatformType.AUTOMATION)))
             .thenReturn(container);
 
-        UUID chargeUuid = UUID.randomUUID();
-
-        ProjectWorkflow publishedProjectWorkflow = new ProjectWorkflow(
-            100L, project.getLastProjectVersion(), "wf-1", chargeUuid);
-
-        Mockito.when(projectWorkflowService.getProjectWorkflows(100L, project.getLastProjectVersion()))
-            .thenReturn(List.of(publishedProjectWorkflow));
-
         facade.save(fakeProjectDefinitionBytes("acme-billing"), Language.JAVASCRIPT);
 
-        // First deploy of this catalog project: there is no previous published version, so the previous-uuid set
-        // must be empty.
-        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .markDanglingReferences(100L, Set.of(), Set.of(chargeUuid.toString()));
+        Mockito.verify(applicationEventPublisher)
+            .publishEvent(new AutomationWorkflowProjectPublishedEvent(100L));
     }
 
     /**
      * Verifies the uuid carry-forward invariant: {@link ProjectWorkflowService#addWorkflow} always mints a fresh uuid,
      * so a workflow whose name is unchanged across a redeploy must have that fresh uuid overwritten with the uuid the
      * previous deploy's same-named {@link ProjectWorkflow} row carried -- otherwise per-user references pinned on
-     * {@code catalog_workflow_uuid} would go dangling on every redeploy.
+     * {@code automation_workflow_uuid} would go dangling on every redeploy.
      */
     @Test
     void testRedeployWithUnchangedWorkflowNameCarriesUuidForward() {
@@ -287,7 +274,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
             .thenReturn(Optional.empty());
         Mockito.when(automationWorkflowProjectFacade.createProject(
-            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull(),
+            Mockito.isNull()))
             .thenReturn(100L);
 
         Project project = new Project();
