@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -161,6 +162,11 @@ class ConnectedUserReferenceRolloutIntTest {
          {"name":"createIssue1","type":"jira/v1/createIssue","parameters":{}}]}
         """;
 
+    private static final String SLACK_TRIGGER_WORKFLOW_DEFINITION = """
+        {"label":"Post","triggers":[{"name":"newMessage1","type":"slack/v1/newMessage","parameters":{}}],
+         "tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}}]}
+        """;
+
     private static final String SLACK_WORKFLOW_DEFINITION = """
         {"label":"Post","triggers":[],"tasks":[{"name":"postMessage1","type":"slack/v1/postMessage","parameters":{}}]}
         """;
@@ -230,6 +236,9 @@ class ConnectedUserReferenceRolloutIntTest {
 
     @Autowired
     private ProjectWorkflowService projectWorkflowService;
+
+    @Autowired
+    private TriggerLifecycleFacade triggerLifecycleFacade;
 
     @Autowired
     private WorkflowService workflowService;
@@ -352,10 +361,10 @@ class ConnectedUserReferenceRolloutIntTest {
      * re-sending a sibling row would stop the sibling template's in-flight runs and re-register its triggers.
      */
     @Test
-    void testChangingOneReferenceNeverStopsAnotherTemplatesRunningJobs() {
+    void testChangingOneReferenceNeverStopsAnotherTemplatesRunningJobsOrTriggers() {
         long catalogProjectId = createCatalogProject("Sibling Rows");
 
-        String firstUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
+        String firstUuid = addWorkflow(catalogProjectId, SLACK_TRIGGER_WORKFLOW_DEFINITION);
         String secondUuid = addWorkflow(catalogProjectId, SLACK_WORKFLOW_DEFINITION);
 
         automationWorkflowProjectFacade.publishProject(catalogProjectId);
@@ -385,6 +394,10 @@ class ConnectedUserReferenceRolloutIntTest {
         assertThat(second.getProjectDeploymentId()).isEqualTo(first.getProjectDeploymentId());
 
         verify(jobFacade, never()).stopJob(RUNNING_FIRST_TEMPLATE_JOB_ID);
+        verify(triggerLifecycleFacade, times(1))
+            .executeTriggerEnable(eq(firstWorkflowId), any(), any(), any(), any(), any(), anyLong());
+        verify(triggerLifecycleFacade, never())
+            .executeTriggerDisable(eq(firstWorkflowId), any(), any(), any(), any());
     }
 
     /**
@@ -846,7 +859,8 @@ class ConnectedUserReferenceRolloutIntTest {
     }
 
     private long createCatalogProject(String name) {
-        return automationWorkflowProjectFacade.createProject(name + " " + UUID.randomUUID(), "", null, List.of(), null);
+        return automationWorkflowProjectFacade.createProject(name + " " + UUID.randomUUID(), "", null, List.of(), null,
+            null);
     }
 
     private String addWorkflow(long catalogProjectId, String definition) {

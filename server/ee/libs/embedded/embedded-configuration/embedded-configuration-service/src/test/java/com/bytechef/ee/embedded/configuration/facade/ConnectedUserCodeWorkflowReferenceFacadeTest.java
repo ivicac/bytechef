@@ -589,7 +589,7 @@ class ConnectedUserCodeWorkflowReferenceFacadeTest {
             List.of(
                 new ConnectedUserWorkflowTemplateDTO(
                     workflowUuid, "Label", "Description", null, List.of(), List.of(), List.of(), null)),
-            null, true);
+            null, true, true);
     }
 
     private static ConnectedUserProjectWorkflow reference(long id, long projectDeploymentId, boolean enabled) {

@@ -53,9 +53,9 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
     private final WorkflowService workflowService = mock(WorkflowService.class);
 
     private final ConnectedUserProjectFacadeImpl facade = new ConnectedUserProjectFacadeImpl(
-        automationWorkflowProjectFacade, null, null, null, connectedUserProjectWorkflowManager, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        projectWorkflowService, null, null, workflowService, null, null);
+        automationWorkflowProjectFacade, null, null, null, connectedUserProjectWorkflowManager, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, projectWorkflowService, null,
+        null, workflowService, null, null);
 
     @Test
     void testCopyWorkflowTemplateCopiesATemplateTheConnectedUserIsPermittedToSee() {
@@ -149,7 +149,7 @@ class ConnectedUserProjectFacadeCopyTemplateAuthorizationTest {
             .toList();
 
         return new AutomationWorkflowProjectDTO(
-            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, codeWorkflowProject);
+            1L, "Catalog", "", null, List.of(), true, 1, 1, workflowTemplates, null, codeWorkflowProject, true);
     }
 
     private static String rejectionMessage(String workflowUuid) {

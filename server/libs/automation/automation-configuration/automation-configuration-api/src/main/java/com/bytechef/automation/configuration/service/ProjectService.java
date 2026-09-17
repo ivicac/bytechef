@@ -99,6 +99,8 @@ public interface ProjectService {
 
     Project updatePermissionExpression(long id, @Nullable String permissionExpression);
 
+    Project updateAutomationHubVisible(long id, boolean automationHubVisible);
+
     /**
      * Sets the project's reach, rejecting a rung the project model does not support with the same typed error the
      * sharing facade raises. Authorization (owner-or-admin) remains the sharing facade's, and so does the

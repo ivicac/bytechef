@@ -93,7 +93,7 @@ class AutomationWorkflowProjectFacadePermissionFilterTest {
 
         when(projectService.getProject(7L)).thenReturn(project);
 
-        facade.updateProject(7L, "Pro", "desc", null, List.of(), null);
+        facade.updateProject(7L, "Pro", "desc", null, List.of(), null, null);
 
         ArgumentCaptor<Project> captor = ArgumentCaptor.forClass(Project.class);
 
@@ -109,7 +109,7 @@ class AutomationWorkflowProjectFacadePermissionFilterTest {
 
         when(projectService.getProject(7L)).thenReturn(project);
 
-        facade.updateProject(7L, "Pro", "desc", null, List.of(), "");
+        facade.updateProject(7L, "Pro", "desc", null, List.of(), "", null);
 
         // A blank argument normalizes to null and clears the stored value through the dedicated
         // updatePermissionExpression(...); the generic update(...) intentionally leaves the column untouched.

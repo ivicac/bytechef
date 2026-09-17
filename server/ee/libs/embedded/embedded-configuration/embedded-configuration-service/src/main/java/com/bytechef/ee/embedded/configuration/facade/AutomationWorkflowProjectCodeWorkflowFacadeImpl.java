@@ -146,7 +146,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
                 projectDefinition.getName(),
                 projectDefinition.getDescription()
                     .orElse(null),
-                null, List.of(), null));
+                null, List.of(), null, null));
 
         Project project = projectService.getProject(projectId);
 

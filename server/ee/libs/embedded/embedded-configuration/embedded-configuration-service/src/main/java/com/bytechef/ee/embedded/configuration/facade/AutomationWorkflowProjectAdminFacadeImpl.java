@@ -13,6 +13,7 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDT
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -39,9 +40,11 @@ public class AutomationWorkflowProjectAdminFacadeImpl implements AutomationWorkf
 
     @Override
     public long createProject(
-        String name, String description, String category, List<String> tags, String permissionExpression) {
+        String name, String description, String category, List<String> tags, String permissionExpression,
+        @Nullable Boolean automationHubVisible) {
 
-        return automationWorkflowProjectFacade.createProject(name, description, category, tags, permissionExpression);
+        return automationWorkflowProjectFacade.createProject(
+            name, description, category, tags, permissionExpression, automationHubVisible);
     }
 
     @Override
@@ -97,10 +100,10 @@ public class AutomationWorkflowProjectAdminFacadeImpl implements AutomationWorkf
     @Override
     public void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
-        String permissionExpression) {
+        String permissionExpression, @Nullable Boolean automationHubVisible) {
 
         automationWorkflowProjectFacade.updateProject(
-            projectId, name, description, category, tags, permissionExpression);
+            projectId, name, description, category, tags, permissionExpression, automationHubVisible);
     }
 
     @Override

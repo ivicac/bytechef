@@ -12,6 +12,7 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Admin-console-only facade over {@link AutomationWorkflowProjectFacade}. The underlying facade is shared with the
@@ -26,7 +27,8 @@ import java.util.List;
 public interface AutomationWorkflowProjectAdminFacade {
 
     long createProject(
-        String name, String description, String category, List<String> tags, String permissionExpression);
+        String name, String description, String category, List<String> tags, String permissionExpression,
+        @Nullable Boolean automationHubVisible);
 
     String createProjectWorkflow(long projectId, String definition, String permissionExpression);
 
@@ -50,7 +52,7 @@ public interface AutomationWorkflowProjectAdminFacade {
 
     void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
-        String permissionExpression);
+        String permissionExpression, @Nullable Boolean automationHubVisible);
 
     void updateProjectWorkflow(String workflowId, String label, String description);
 

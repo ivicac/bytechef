@@ -169,6 +169,11 @@ public class RemoteProjectServiceClient implements ProjectService {
     }
 
     @Override
+    public Project updateAutomationHubVisible(long id, boolean automationHubVisible) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Project updateVisibility(long id, ResourceVisibility visibility) {
         throw new UnsupportedOperationException();
     }

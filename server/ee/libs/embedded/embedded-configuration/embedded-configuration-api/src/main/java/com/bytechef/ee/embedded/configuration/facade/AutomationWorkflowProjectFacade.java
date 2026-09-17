@@ -14,6 +14,7 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersi
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @version ee
@@ -23,7 +24,8 @@ import java.util.Optional;
 public interface AutomationWorkflowProjectFacade {
 
     long createProject(
-        String name, String description, String category, List<String> tags, String permissionExpression);
+        String name, String description, String category, List<String> tags, String permissionExpression,
+        @Nullable Boolean automationHubVisible);
 
     String duplicateProjectWorkflow(String workflowId);
 
@@ -62,7 +64,7 @@ public interface AutomationWorkflowProjectFacade {
 
     void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
-        String permissionExpression);
+        String permissionExpression, @Nullable Boolean automationHubVisible);
 
     void updateProjectWorkflow(String workflowId, String label, String description);
 

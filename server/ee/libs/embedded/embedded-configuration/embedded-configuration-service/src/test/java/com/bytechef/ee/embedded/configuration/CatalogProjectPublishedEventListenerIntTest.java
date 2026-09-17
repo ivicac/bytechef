@@ -7,6 +7,9 @@
 
 package com.bytechef.ee.embedded.configuration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -65,16 +68,25 @@ import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefi
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Publishing a catalog project hands the reference rollout to {@code CatalogProjectPublishedEventListener} once the
  * publishing transaction has committed. Uses the {@code AutomationWorkflowProjectFacadeIntTest} Spring configuration
- * and mock boundary, with the rollout service itself mocked.
+ * and mock boundary, with the rollout service itself mocked. Async execution is enabled here, with a
+ * {@code workerExecutor} of its own, so the listener's {@code @Async} is exercised rather than inert.
  *
  * @version ee
  *
@@ -89,7 +101,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "spring.liquibase.contexts=configuration,user",
         "spring.main.allow-bean-definition-overriding=true"
     })
-@Import(PostgreSQLContainerConfiguration.class)
+@Import({
+    CatalogProjectPublishedEventListenerIntTest.AsyncTestConfiguration.class, PostgreSQLContainerConfiguration.class
+})
 @MockitoBean(types = {
     ActionDefinitionFacade.class, ApiKeyFacade.class, ApiKeyService.class, AuthorityService.class,
     ClusterElementDefinitionService.class, TriggerDefinitionFacade.class,
@@ -120,10 +134,13 @@ class CatalogProjectPublishedEventListenerIntTest {
     @MockitoBean
     private ConnectedUserReferenceRolloutService connectedUserReferenceRolloutService;
 
+    @Autowired
+    private PlatformTransactionManager platformTransactionManager;
+
     @Test
     void testPublishProjectHandsTheRolloutToTheListenerAfterCommit() {
         long catalogProjectId = automationWorkflowProjectFacade.createProject(
-            "Listener " + UUID.randomUUID(), "", null, List.of(), null);
+            "Listener " + UUID.randomUUID(), "", null, List.of(), null, null);
 
         automationWorkflowProjectFacade.createProjectWorkflow(
             catalogProjectId, "{\"label\":\"x\",\"triggers\":[],\"tasks\":[]}", null);
@@ -131,5 +148,50 @@ class CatalogProjectPublishedEventListenerIntTest {
         automationWorkflowProjectFacade.publishProject(catalogProjectId);
 
         verify(connectedUserReferenceRolloutService, timeout(5000)).rollOut(catalogProjectId);
+    }
+
+    /**
+     * Publishing inside a surrounding transaction must not start the rollout until that transaction commits -- the
+     * rollout reads the published version in transactions of its own -- and the rollout then runs off the publishing
+     * thread.
+     */
+    @Test
+    void testRolloutWaitsForTheCommitAndRunsOffThePublishingThread() {
+        long catalogProjectId = automationWorkflowProjectFacade.createProject(
+            "Listener " + UUID.randomUUID(), "", null, List.of(), null, null);
+
+        automationWorkflowProjectFacade.createProjectWorkflow(
+            catalogProjectId, "{\"label\":\"x\",\"triggers\":[],\"tasks\":[]}", null);
+
+        AtomicReference<Thread> rolloutThread = new AtomicReference<>();
+
+        doAnswer(invocation -> {
+            rolloutThread.set(Thread.currentThread());
+
+            return null;
+        }).when(connectedUserReferenceRolloutService)
+            .rollOut(catalogProjectId);
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+
+        transactionTemplate.executeWithoutResult(status -> {
+            automationWorkflowProjectFacade.publishProject(catalogProjectId);
+
+            verify(connectedUserReferenceRolloutService, after(500).never()).rollOut(catalogProjectId);
+        });
+
+        verify(connectedUserReferenceRolloutService, timeout(5000)).rollOut(catalogProjectId);
+
+        assertThat(rolloutThread.get()).isNotSameAs(Thread.currentThread());
+    }
+
+    @EnableAsync
+    @TestConfiguration
+    static class AsyncTestConfiguration {
+
+        @Bean
+        TaskExecutor workerExecutor() {
+            return new SimpleAsyncTaskExecutor("rollout-listener-");
+        }
     }
 }

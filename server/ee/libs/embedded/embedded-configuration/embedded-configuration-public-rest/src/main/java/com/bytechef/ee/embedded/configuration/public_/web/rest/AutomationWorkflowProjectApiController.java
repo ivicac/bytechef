@@ -8,6 +8,8 @@
 package com.bytechef.ee.embedded.configuration.public_.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.commons.util.OptionalUtils;
+import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectModel;
@@ -54,7 +56,16 @@ public class AutomationWorkflowProjectApiController implements AutomationWorkflo
     @CrossOrigin
     @Override
     public ResponseEntity<List<AutomationWorkflowProjectModel>> getFrontendProjects(EnvironmentModel xEnvironment) {
-        return ResponseEntity.ok(toAutomationWorkflowProjectModels());
+        String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
+
+        List<AutomationWorkflowProjectModel> models = automationWorkflowProjectFacade
+            .getPublishedProjects(externalUserId, getEnvironment(xEnvironment))
+            .stream()
+            .filter(AutomationWorkflowProjectDTO::automationHubVisible)
+            .map(project -> conversionService.convert(project, AutomationWorkflowProjectModel.class))
+            .toList();
+
+        return ResponseEntity.ok(models);
     }
 
     @Override
@@ -79,12 +90,5 @@ public class AutomationWorkflowProjectApiController implements AutomationWorkflo
 
     private Environment getEnvironment(EnvironmentModel xEnvironment) {
         return environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
-    }
-
-    private List<AutomationWorkflowProjectModel> toAutomationWorkflowProjectModels() {
-        return automationWorkflowProjectFacade.getPublishedProjects()
-            .stream()
-            .map(project -> conversionService.convert(project, AutomationWorkflowProjectModel.class))
-            .toList();
     }
 }

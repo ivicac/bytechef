@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -121,7 +122,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @Override
     public long createProject(
-        String name, String description, String category, List<String> tags, String permissionExpression) {
+        String name, String description, String category, List<String> tags, String permissionExpression,
+        @Nullable Boolean automationHubVisible) {
 
         if (name != null && name.startsWith("__EMBEDDED")) {
             throw new IllegalArgumentException("Project name must not start with '__EMBEDDED': " + name);
@@ -137,6 +139,10 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         project.setPermissionExpression(normalizePermissionExpression(permissionExpression));
 
         project = projectService.create(project);
+
+        if (automationHubVisible != null && !automationHubVisible) {
+            projectService.updateAutomationHubVisible(project.getId(), false);
+        }
 
         return project.getId();
     }
@@ -358,7 +364,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     @Override
     public void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
-        String permissionExpression) {
+        String permissionExpression, @Nullable Boolean automationHubVisible) {
 
         Project project = getMarkedProject(projectId);
 
@@ -375,6 +381,12 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         // blank argument normalizes to null and clears the stored value.
         if (permissionExpression != null) {
             projectService.updatePermissionExpression(projectId, normalizePermissionExpression(permissionExpression));
+        }
+
+        // Same "not supplied" convention as the permission expression above: automationHubVisible is persisted only
+        // through the dedicated updateAutomationHubVisible(...), never through the generic update(...).
+        if (automationHubVisible != null) {
+            projectService.updateAutomationHubVisible(projectId, automationHubVisible);
         }
     }
 
@@ -447,7 +459,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.id(), project.name(), project.description(), project.categoryId(), project.tagIds(),
             project.published(), project.version(), project.lastPublishedVersion(), visibleTemplates,
-            project.permissionExpression(), project.codeWorkflowProject());
+            project.permissionExpression(), project.codeWorkflowProject(), project.automationHubVisible());
     }
 
     /**
@@ -532,7 +544,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.getId(), displayName, project.getDescription(), project.getCategoryId(),
             project.getTagIds(), published, project.getLastProjectVersion(), lastPublishedVersion, workflowTemplates,
-            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()));
+            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()),
+            project.isAutomationHubVisible());
     }
 
     private AutomationWorkflowProjectDTO toPublishedDTO(Project project, Set<Long> codeWorkflowProjectIds) {
@@ -570,6 +583,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.getId(), displayName, project.getDescription(), project.getCategoryId(),
             project.getTagIds(), published, project.getLastProjectVersion(), lastPublishedVersion, workflowTemplates,
-            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()));
+            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()),
+            project.isAutomationHubVisible());
     }
 }
