@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfigurationSharedMocks;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflowConnection;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,12 +26,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Reference-mode columns (catalog_workflow_uuid, project_deployment_id, enabled, dangling, dangling_reason) on
- * connected_user_project_workflow, plus the new per-node connection wiring table. Parent rows
- * (workspace/project/project_workflow/connected_user_project) are inserted directly through JdbcTemplate rather than
- * through their own repositories, because this module's IntTest harness (IntegrationIntTestConfiguration) only
- * component-scans com.bytechef.ee.embedded.configuration and does not expose the automation-configuration repositories
- * needed to build that object graph the normal way; the foreign keys added by the base schema are enforced by the real
- * Postgres testcontainer, so hard-coded parent ids are not an option here.
+ * connected_user_project_workflow. Parent rows (workspace/project/project_workflow/connected_user_project) are inserted
+ * directly through JdbcTemplate rather than through their own repositories, because this module's IntTest harness
+ * (IntegrationIntTestConfiguration) only component-scans com.bytechef.ee.embedded.configuration and does not expose the
+ * automation-configuration repositories needed to build that object graph the normal way; the foreign keys added by the
+ * base schema are enforced by the real Postgres testcontainer, so hard-coded parent ids are not an option here.
  *
  * @version ee
  *
@@ -47,14 +45,10 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Autowired
-    private ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @AfterEach
     public void afterEach() {
-        connectedUserProjectWorkflowConnectionRepository.deleteAll();
         connectedUserProjectWorkflowRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM connected_user_project");
         jdbcTemplate.update("DELETE FROM project_workflow");
@@ -106,37 +100,6 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
         assertThat(reloaded.getCatalogWorkflowUuid()).isNull();
         assertThat(reloaded.isEnabled()).isTrue();
         assertThat(reloaded.isDangling()).isFalse();
-    }
-
-    @Test
-    public void testConnectedUserProjectWorkflowConnectionRoundTrips() {
-        long workspaceId = insertWorkspace();
-        long projectId = insertProject(workspaceId);
-        long connectedUserProjectId = insertConnectedUserProject(projectId);
-        long projectWorkflowId = insertProjectWorkflow(projectId);
-
-        ConnectedUserProjectWorkflow connectedUserProjectWorkflow = new ConnectedUserProjectWorkflow();
-
-        connectedUserProjectWorkflow.setConnectedUserProjectId(connectedUserProjectId);
-        connectedUserProjectWorkflow.setProjectWorkflowId(projectWorkflowId);
-
-        ConnectedUserProjectWorkflow savedConnectedUserProjectWorkflow = connectedUserProjectWorkflowRepository.save(
-            connectedUserProjectWorkflow);
-
-        ConnectedUserProjectWorkflowConnection connection = new ConnectedUserProjectWorkflowConnection();
-
-        connection.setConnectedUserProjectWorkflowId(savedConnectedUserProjectWorkflow.getId());
-        connection.setWorkflowNodeName("slack");
-        connection.setConnectionId(9L);
-
-        ConnectedUserProjectWorkflowConnection saved = connectedUserProjectWorkflowConnectionRepository.save(
-            connection);
-
-        assertThat(
-            connectedUserProjectWorkflowConnectionRepository.findById(saved.getId())
-                .orElseThrow()
-                .getConnectionId())
-                    .isEqualTo(9L);
     }
 
     @Test

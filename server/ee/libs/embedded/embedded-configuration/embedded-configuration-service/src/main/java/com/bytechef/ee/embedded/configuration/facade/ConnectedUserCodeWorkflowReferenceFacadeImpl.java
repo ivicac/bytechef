@@ -20,9 +20,7 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
-import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflowConnection;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
-import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowConnectionRepository;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -52,7 +50,6 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     private static final String MARKER = "__EMBEDDED__";
 
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
-    private final ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserService connectedUserService;
@@ -65,7 +62,6 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     @SuppressFBWarnings("EI")
     public ConnectedUserCodeWorkflowReferenceFacadeImpl(
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
-        ConnectedUserProjectWorkflowConnectionRepository connectedUserProjectWorkflowConnectionRepository,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserService connectedUserService,
@@ -75,7 +71,6 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         ProjectWorkflowService projectWorkflowService) {
 
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
-        this.connectedUserProjectWorkflowConnectionRepository = connectedUserProjectWorkflowConnectionRepository;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserService = connectedUserService;
@@ -146,8 +141,6 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
 
         ConnectedUserProjectWorkflow saved = connectedUserProjectWorkflowRepository.save(
             connectedUserProjectWorkflow);
-
-        saveConnectedUserProjectWorkflowConnections(saved.getId(), resolvedWorkflowConnections.connections());
 
         if (!resolvedWorkflowConnections.isComplete()) {
             throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
@@ -238,12 +231,10 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     }
 
     /**
-     * Replaces the reference's {@link ConnectedUserProjectWorkflowConnection} bookkeeping rows and the underlying
-     * {@link ProjectDeploymentWorkflow}'s real execution-time connections with a freshly resolved set, mirroring the
-     * wiring performed in {@link #getOrCreateReference}. {@link MissingConnectionException} is thrown before any
-     * bookkeeping is touched, so a still-missing connection leaves both the bookkeeping rows and the real
-     * {@link ProjectDeploymentWorkflow} connections untouched and aborts {@link #enableReference} before the reference
-     * is flipped to enabled.
+     * Replaces the underlying {@link ProjectDeploymentWorkflow}'s real execution-time connections with a freshly
+     * resolved set, mirroring the wiring performed in {@link #getOrCreateReference}. {@link MissingConnectionException}
+     * is thrown before the {@link ProjectDeploymentWorkflow} is touched, so a still-missing connection leaves its
+     * connections untouched and aborts {@link #enableReference} before the reference is flipped to enabled.
      */
     private void rewireConnections(
         ConnectedUserProjectWorkflow reference, String catalogWorkflowId, String externalUserId,
@@ -261,32 +252,9 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
             throw new MissingConnectionException(resolvedWorkflowConnections.firstMissingComponentName());
         }
 
-        for (ConnectedUserProjectWorkflowConnection connection : connectedUserProjectWorkflowConnectionRepository
-            .findAllByConnectedUserProjectWorkflowId(reference.getId())) {
-
-            connectedUserProjectWorkflowConnectionRepository.deleteById(connection.getId());
-        }
-
-        saveConnectedUserProjectWorkflowConnections(reference.getId(), resolvedWorkflowConnections.connections());
-
         projectDeploymentWorkflow.setConnections(resolvedWorkflowConnections.connections());
 
         projectDeploymentWorkflowService.update(projectDeploymentWorkflow);
-    }
-
-    private void saveConnectedUserProjectWorkflowConnections(
-        Long connectedUserProjectWorkflowId, List<ProjectDeploymentWorkflowConnection> connections) {
-
-        for (ProjectDeploymentWorkflowConnection connection : connections) {
-            ConnectedUserProjectWorkflowConnection connectedUserProjectWorkflowConnection =
-                new ConnectedUserProjectWorkflowConnection();
-
-            connectedUserProjectWorkflowConnection.setConnectedUserProjectWorkflowId(connectedUserProjectWorkflowId);
-            connectedUserProjectWorkflowConnection.setWorkflowNodeName(connection.getWorkflowNodeName());
-            connectedUserProjectWorkflowConnection.setConnectionId(connection.getConnectionId());
-
-            connectedUserProjectWorkflowConnectionRepository.save(connectedUserProjectWorkflowConnection);
-        }
     }
 
     @Override
@@ -297,12 +265,6 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     @Override
     public void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment) {
         ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
-
-        for (ConnectedUserProjectWorkflowConnection connection : connectedUserProjectWorkflowConnectionRepository
-            .findAllByConnectedUserProjectWorkflowId(reference.getId())) {
-
-            connectedUserProjectWorkflowConnectionRepository.deleteById(connection.getId());
-        }
 
         connectedUserProjectWorkflowRepository.deleteById(reference.getId());
     }
