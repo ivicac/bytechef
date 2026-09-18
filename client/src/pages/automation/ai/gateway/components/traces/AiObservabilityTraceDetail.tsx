@@ -43,9 +43,9 @@ const SPAN_TYPE_CLASSES: Record<string, string> = {
 };
 
 const TRACE_STATUS_CLASSES: Record<string, string> = {
-    ACTIVE: 'bg-blue-100 text-blue-800',
-    COMPLETED: 'bg-green-100 text-green-800',
-    ERROR: 'bg-red-100 text-red-800',
+    ACTIVE: 'bg-surface-brand-secondary text-content-brand-primary',
+    COMPLETED: 'bg-surface-success-secondary text-content-success-primary',
+    ERROR: 'bg-surface-destructive-secondary text-content-destructive',
 };
 
 function buildSpanTree(spans: AiObservabilitySpanType[]): SpanTreeNodeI[] {
@@ -117,7 +117,7 @@ const SpanNode = ({depth, expandedSpanIds, node, onScoreSpan, onToggleExpand, sp
                     <span
                         className={twMerge(
                             'rounded-full px-2 py-0.5 text-xs font-medium',
-                            SPAN_TYPE_CLASSES[span.type] || 'bg-gray-100 text-gray-800'
+                            SPAN_TYPE_CLASSES[span.type] || 'bg-surface-neutral-secondary text-content-neutral-primary'
                         )}
                     >
                         {span.type}
@@ -136,10 +136,10 @@ const SpanNode = ({depth, expandedSpanIds, node, onScoreSpan, onToggleExpand, sp
                             className={twMerge(
                                 'rounded-full px-2 py-0.5 text-xs font-medium',
                                 span.status === 'COMPLETED'
-                                    ? 'bg-green-100 text-green-800'
+                                    ? 'bg-surface-success-secondary text-content-success-primary'
                                     : span.status === 'ERROR'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-blue-100 text-blue-800'
+                                      ? 'bg-surface-destructive-secondary text-content-destructive'
+                                      : 'bg-surface-brand-secondary text-content-brand-primary'
                             )}
                         >
                             {span.status}
@@ -251,7 +251,7 @@ const SpanNode = ({depth, expandedSpanIds, node, onScoreSpan, onToggleExpand, sp
                                 </button>
 
                                 <button
-                                    className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-red-50"
+                                    className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-surface-destructive-secondary"
                                     onClick={() => onScoreSpan(span.id, 0)}
                                 >
                                     <ThumbsDownIcon className="size-3" />
@@ -502,7 +502,8 @@ const AiObservabilityTraceDetail = ({onBack, traceId}: AiObservabilityTraceDetai
                     <span
                         className={twMerge(
                             'rounded-full px-2 py-0.5 text-xs font-medium',
-                            TRACE_STATUS_CLASSES[trace.status] || 'bg-gray-100 text-gray-800'
+                            TRACE_STATUS_CLASSES[trace.status] ||
+                                'bg-surface-neutral-secondary text-content-neutral-primary'
                         )}
                     >
                         {trace.status}
@@ -581,7 +582,7 @@ const AiObservabilityTraceDetail = ({onBack, traceId}: AiObservabilityTraceDetai
                     </button>
 
                     <button
-                        className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm hover:bg-surface-destructive-secondary disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isScoreSubmitting}
                         onClick={() => handleQuickScore(0)}
                     >

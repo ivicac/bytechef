@@ -5,6 +5,7 @@ import AutomationWorkflowProjectDialog from '../AutomationWorkflowProjectDialog'
 
 const existingProject = {
     categoryId: null,
+    codeWorkflowProject: false,
     configurationCount: 0,
     description: null,
     id: '1',

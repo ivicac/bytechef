@@ -74,7 +74,7 @@ const LeftSidebarNavItem = ({
                 buttonVariants({variant: 'ghost'}),
                 current
                     ? 'bg-accent text-sidebar-accent-foreground hover:bg-accent hover:text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground hover:bg-accent hover:text-sidebar-accent-foreground',
+                    : 'text-sidebar-foreground group-hover:text-sidebar-accent-foreground hover:bg-accent hover:text-sidebar-accent-foreground',
                 'w-full justify-start px-2 font-normal',
                 trailing && 'pr-8',
                 disabled && 'pointer-events-none opacity-50',

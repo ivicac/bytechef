@@ -15,11 +15,8 @@ import WorkflowTriggerExecutionItem from '@/shared/components/workflow-execution
 import {useWorkflowExecutionDetailQueries} from '@/shared/components/workflow-executions/providers/workflowExecutionDetailQueriesProvider';
 import {getExecutionSelectionKey} from '@/shared/components/workflow-executions/util/executionSelectionKey';
 import {TaskExecutionAttemptsI} from '@/shared/components/workflow-executions/util/groupTaskExecutionAttempts';
-import {
-    getWorkflowStatusType,
-    isJobEnded,
-} from '@/shared/components/workflow-executions/util/workflowExecution-utils';
-import {EXECUTIONS_PANEL_HEADER_CLASS_NAME} from '@/shared/components/workflow-executions/workflowExecutionsPanelClassNames';
+import {isClusterElementCallTaskExecution} from '@/shared/components/workflow-executions/util/toClusterElementCallTaskExecutions';
+import {getWorkflowStatusType, isJobEnded} from '@/shared/components/workflow-executions/util/workflowExecution-utils';
 import {ExecutionError, Job, TaskExecution, TriggerExecution} from '@/shared/middleware/automation/workflow/execution';
 import {useWorkflowExecutionCostQuery} from '@/shared/middleware/graphql';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
@@ -113,6 +110,8 @@ const WorkflowExecutionSheetContent = ({
 
     const workflowExecutionCost = workflowExecutionCostData?.workflowExecutionCost || undefined;
 
+    const selectedExecutionKey = getExecutionSelectionKey(selectedItem);
+
     const breadcrumbItems = useMemo<BreadcrumbEntryI[]>(() => {
         if (subflowStack.length === 0) {
             return [];
@@ -197,7 +196,7 @@ const WorkflowExecutionSheetContent = ({
                             </div>
                         )}
 
-                        <ScrollArea className="min-h-0 flex-1 pr-4 pl-1">
+                        <ScrollArea className="min-h-0 flex-1 pr-3 pl-1">
                             <Accordion
                                 className={twMerge('ml-2 space-y-2 pb-4', subflowStack.length === 0 && 'pt-3')}
                                 defaultValue={

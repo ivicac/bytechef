@@ -49,6 +49,9 @@
 }
 
 @layer components {
+    /* Tooltips follow the theme in dark mode instead of inverting to a light bubble, so every floating
+       surface reads the same. In the components layer with `!important`: Tailwind's utilities are
+       `!important` too, and for important declarations an earlier layer wins. */
     .dark [data-slot='tooltip-content'] {
         background-color: hsl(var(--popover)) !important;
         color: hsl(var(--popover-foreground)) !important;

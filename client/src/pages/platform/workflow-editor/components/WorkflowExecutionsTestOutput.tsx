@@ -26,7 +26,6 @@ import useWorkflowExecutions from './properties/hooks/useWorkflowExecutions';
 interface WorkflowExecutionsTestOutputProps {
     onCloseClick?: () => void;
     onEditSubflowClick?: (workflowUuid: string) => void;
-    resizablePanelSize?: number;
     workflowIsRunning: boolean;
     workflowTestExecution?: WorkflowTestExecution;
 }
@@ -34,7 +33,6 @@ interface WorkflowExecutionsTestOutputProps {
 const WorkflowExecutionsTestOutput = ({
     onCloseClick,
     onEditSubflowClick,
-    resizablePanelSize = 380,
     workflowIsRunning,
     workflowTestExecution,
 }: WorkflowExecutionsTestOutputProps) => {
@@ -124,10 +122,7 @@ const WorkflowExecutionsTestOutput = ({
                     {workflowIsRunning && !workflowTestExecution?.job && (
                         <div className="size-full" data-testid="workflow-test-output-pending">
                             <ResizablePanelGroup orientation="horizontal">
-                                <ResizablePanel
-                                    className="flex flex-col overflow-hidden"
-                                    defaultSize={resizablePanelSize}
-                                >
+                                <ResizablePanel className="flex flex-col overflow-hidden" defaultSize={400}>
                                     <div className={twMerge(EXECUTIONS_PANEL_HEADER_CLASS_NAME, 'gap-1')}>
                                         <RefreshCwIcon className="size-3 shrink-0 animate-spin text-content-neutral-secondary" />
 
@@ -180,21 +175,7 @@ const WorkflowExecutionsTestOutput = ({
 
                             {workflowTestExecution?.job && !jobFailedWithNoExecutions && (
                                 <ResizablePanelGroup orientation="horizontal">
-                                    <ResizablePanel
-                                        className="flex flex-col overflow-hidden"
-                                        defaultSize={resizablePanelSize}
-                                    >
-                                        {subflowStack.length === 0 && rootJob && (
-                                            <div className={twMerge(EXECUTIONS_PANEL_HEADER_CLASS_NAME, 'gap-1')}>
-                                                <WorkflowIcon className="size-3 shrink-0 text-content-neutral-primary" />
-
-                                                <TruncatedLabel
-                                                    className="text-sm leading-4 font-medium text-content-neutral-primary"
-                                                    label={rootJob.label ?? ''}
-                                                />
-                                            </div>
-                                        )}
-
+                                    <ResizablePanel className="flex flex-col overflow-hidden" defaultSize={400}>
                                         {subflowStack.length > 0 && (
                                             <SubflowExecutionBreadcrumb
                                                 items={breadcrumbItems}
@@ -202,7 +183,7 @@ const WorkflowExecutionsTestOutput = ({
                                             />
                                         )}
 
-                                        <ScrollArea className="min-h-0 flex-1 pr-4 pl-1">
+                                        <ScrollArea className="min-h-0 flex-1 pr-3 pl-1">
                                             <Accordion
                                                 className={twMerge(
                                                     'ml-2 space-y-2 pb-4',

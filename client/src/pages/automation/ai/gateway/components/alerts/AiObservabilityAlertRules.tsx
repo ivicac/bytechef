@@ -1,16 +1,7 @@
+import AlertDialog from '@/components/AlertDialog';
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {
     useAiObservabilityAlertRulesQuery,
@@ -207,7 +198,7 @@ const AiObservabilityAlertRules = () => {
                                                     </span>
 
                                                     {rule.snoozedUntil && Number(rule.snoozedUntil) > Date.now() && (
-                                                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                                        <span className="rounded-full bg-surface-warning-secondary px-2 py-0.5 text-xs font-medium text-content-warning-primary">
                                                             Snoozed {formatRemainingSnooze(Number(rule.snoozedUntil))}
                                                         </span>
                                                     )}
@@ -278,29 +269,12 @@ const AiObservabilityAlertRules = () => {
                 </>
             )}
 
-            <AlertDialog open={!!deletingRuleId}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the alert rule and stop all
-                            notifications.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingRuleId(undefined)}>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction
-                            className="bg-surface-destructive-primary text-content-onsurface-primary shadow-none hover:bg-surface-destructive-primary-hover active:bg-surface-destructive-primary-active"
-                            onClick={handleConfirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AlertDialog
+                description="This action cannot be undone. This will permanently delete the alert rule and stop all notifications."
+                onCancel={() => setDeletingRuleId(undefined)}
+                onConfirm={handleConfirmDelete}
+                open={!!deletingRuleId}
+            />
 
             {showDialog && currentWorkspaceId != null && (
                 <AiObservabilityAlertRuleDialog

@@ -12,7 +12,7 @@ import {useCallback, useMemo, useState} from 'react';
 import {twMerge} from 'tailwind-merge';
 
 const STATUS_CLASSES: Record<string, string> = {
-    ACKNOWLEDGED: 'bg-yellow-100 text-yellow-800',
+    ACKNOWLEDGED: 'bg-surface-warning-secondary text-content-warning-primary',
     RESOLVED: 'bg-surface-success-secondary text-content-success-primary',
     TRIGGERED: 'bg-surface-destructive-secondary text-content-destructive',
 };

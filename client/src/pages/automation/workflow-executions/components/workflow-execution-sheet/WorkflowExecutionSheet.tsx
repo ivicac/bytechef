@@ -3,7 +3,6 @@ import {Sheet, SheetCloseButton, SheetContent, SheetTitle} from '@/components/ui
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import CopilotPanel from '@/shared/components/copilot/CopilotPanel';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {SparklesIcon, WorkflowIcon} from 'lucide-react';
 import {VisuallyHidden} from 'radix-ui';
 
@@ -23,8 +22,6 @@ const WorkflowExecutionSheet = () => {
         workflowExecutionLoading,
         workflowExecutionSheetOpen,
     } = useWorkflowExecutionSheet();
-
-    const ff_4077 = useFeatureFlagsStore()('ff-4077');
 
     const projectVersion = workflowExecution ? getProjectVersion(workflowExecution) : undefined;
 
@@ -60,7 +57,7 @@ const WorkflowExecutionSheet = () => {
                         </div>
 
                         <div className="flex items-center gap-1">
-                            {ff_4077 && copilotEnabled && (
+                            {copilotEnabled && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button

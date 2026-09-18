@@ -69,6 +69,9 @@ vi.mock(
     })
 );
 
+// The real InputConfigurationList renders single-property references through Properties (which surfaces the property
+// label) and renders group references with their own group header. Stub Properties to render each property label as
+// plain text so the test asserts on labels without pulling the full property renderer tree (and its stores) in.
 vi.mock('@/pages/platform/workflow-editor/components/properties/Properties', () => ({
     default: ({properties}: {properties: Array<{label?: string; name?: string}>}) => (
         <div data-testid="properties">

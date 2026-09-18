@@ -38,7 +38,7 @@ const AiEvalScoreTrendChart = ({endDate, name, startDate, workspaceId}: AiEvalSc
 
             <ResponsiveContainer height={160} width="100%">
                 <LineChart data={chartData} margin={{bottom: 0, left: 0, right: 0, top: 5}}>
-                    <CartesianGrid stroke="#eee" strokeDasharray="3 3" />
+                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
 
                     <XAxis dataKey="day" tick={{fontSize: 10}} />
 

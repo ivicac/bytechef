@@ -42,6 +42,9 @@ const IntegrationInstanceConfigurationDialogWorkflowsStepItem = ({
         .concat((workflow?.triggers ?? []).flatMap((trigger) => trigger.connections ?? []))
         .filter((connection) => connection.componentName !== componentName);
 
+    // Inputs referencing the integration's own component are configured through the connect flow.
+    // Only internalOnly inputs are configured here (the admin dialog); end-user inputs render in the ConnectDialog.
+    // The REST inputs[] already carry componentReference/internalOnly (populated server-side by the workflow mappers).
     const inputs = (workflow.inputs ?? []).filter(
         (input) => input.componentReference?.componentName !== componentName && input.internalOnly
     );

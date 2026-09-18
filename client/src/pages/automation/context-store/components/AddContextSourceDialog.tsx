@@ -1,18 +1,17 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+    DialogTrigger,
+} from '@/components/Dialog';
 import LoadingIcon from '@/components/LoadingIcon';
 import RequiredMark from '@/components/RequiredMark';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {
-    Dialog,
-    DialogCloseButton,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
@@ -338,368 +337,375 @@ const AddContextSourceDialog = ({contextStoreId: presetContextStoreId, trigger}:
         <Dialog onOpenChange={handleOpenChange} open={open}>
             <DialogTrigger asChild>{trigger || <Button>Add Source</Button>}</DialogTrigger>
 
-            <DialogContent className="sm:max-w-[700px]">
-                <DialogHeader className="flex flex-row items-center justify-between space-y-0">
-                    <fieldset className="flex flex-col space-y-1 border-0 p-0">
-                        <DialogTitle>Add Context Source</DialogTitle>
+            <DialogContent size="md">
+                <DialogMain>
+                    <DialogHeader
+                        description={`Step ${step + 1} of ${STEP_LABELS.length}: ${STEP_LABELS[step]}`}
+                        title="Add Context Source"
+                    />
 
-                        <DialogDescription>
-                            Step {step + 1} of {STEP_LABELS.length}: {STEP_LABELS[step]}
-                        </DialogDescription>
-                    </fieldset>
+                    <DialogBody>
+                        {step === 0 && (
+                            <fieldset className="space-y-4 border-0 p-0">
+                                {!presetContextStoreId && (
+                                    <fieldset className="space-y-2 border-0 p-0">
+                                        <Label htmlFor="contextStoreId">Context Store</Label>
 
-                    <DialogCloseButton />
-                </DialogHeader>
+                                        {existingContextStores.length === 0 ? (
+                                            <p
+                                                className="rounded-md border border-stroke-warning-secondary bg-surface-warning-secondary p-2 text-xs text-content-warning-primary"
+                                                data-testid="no-context-stores-warning"
+                                            >
+                                                No Context Stores exist in this workspace at the active environment.
+                                                Create one on the Context Stores page before adding sources.
+                                            </p>
+                                        ) : (
+                                            <Select onValueChange={setContextStoreId} value={contextStoreId}>
+                                                <SelectTrigger data-testid="context-store-select" id="contextStoreId">
+                                                    <SelectValue placeholder="Select a Context Store..." />
+                                                </SelectTrigger>
 
-                <fieldset className="space-y-4 border-0 p-0 py-4">
-                    {step === 0 && (
-                        <fieldset className="space-y-4 border-0 p-0">
-                            {!presetContextStoreId && (
+                                                <SelectContent>
+                                                    {existingContextStores.map((store) => (
+                                                        <SelectItem key={store.id} value={store.id}>
+                                                            {store.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </fieldset>
+                                )}
+
                                 <fieldset className="space-y-2 border-0 p-0">
-                                    <Label htmlFor="contextStoreId">Context Store</Label>
+                                    <Label htmlFor="sourceName">Source Name</Label>
 
-                                    {existingContextStores.length === 0 ? (
-                                        <p
-                                            className="rounded-md border border-amber-200 bg-surface-warning-secondary p-2 text-xs text-content-warning-primary"
-                                            data-testid="no-context-stores-warning"
-                                        >
-                                            No Context Stores exist in this workspace at the active environment. Create
-                                            one on the Context Stores page before adding sources.
-                                        </p>
-                                    ) : (
-                                        <Select onValueChange={setContextStoreId} value={contextStoreId}>
-                                            <SelectTrigger data-testid="context-store-select" id="contextStoreId">
-                                                <SelectValue placeholder="Select a Context Store..." />
+                                    <Input
+                                        id="sourceName"
+                                        onChange={(event) => setName(event.target.value)}
+                                        placeholder="My HubSpot CRM"
+                                        value={name}
+                                    />
+                                </fieldset>
+
+                                {selectedComponentName === null ? (
+                                    <fieldset className="space-y-2 border-0 p-0">
+                                        <Label>Pick a Component</Label>
+
+                                        {connectionsLoading ? (
+                                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <LoadingIcon /> Loading components...
+                                            </p>
+                                        ) : availableComponents.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                No data-stream-compatible connections found in this workspace. Create
+                                                one on the Connections page before adding a source.
+                                            </p>
+                                        ) : (
+                                            <div
+                                                className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3"
+                                                data-testid="component-grid"
+                                            >
+                                                {availableComponents.map((component) => (
+                                                    <Card
+                                                        className="cursor-pointer transition-shadow hover:shadow-md"
+                                                        data-testid={`component-option-${component.name}`}
+                                                        key={component.name}
+                                                        onClick={() => setSelectedComponentName(component.name)}
+                                                    >
+                                                        <CardHeader className="pb-2 text-center">
+                                                            <div className="mx-auto mb-2">
+                                                                {component.icon ? (
+                                                                    <InlineSVG
+                                                                        className="size-12"
+                                                                        src={component.icon}
+                                                                    />
+                                                                ) : (
+                                                                    <PackageIcon className="size-12 text-content-neutral-tertiary" />
+                                                                )}
+                                                            </div>
+
+                                                            <CardTitle className="text-sm">
+                                                                {component.title || component.name}
+                                                            </CardTitle>
+                                                        </CardHeader>
+
+                                                        {component.description && (
+                                                            <CardContent className="pt-0">
+                                                                <CardDescription className="line-clamp-2 text-center text-xs">
+                                                                    {component.description}
+                                                                </CardDescription>
+                                                            </CardContent>
+                                                        )}
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </fieldset>
+                                ) : (
+                                    <fieldset className="space-y-2 border-0 p-0">
+                                        <div className="flex items-center justify-between">
+                                            <Label>Pick a Connection</Label>
+
+                                            <button
+                                                className="text-xs text-muted-foreground hover:text-foreground"
+                                                data-testid="change-component"
+                                                onClick={() => {
+                                                    setSelectedComponentName(null);
+                                                    setSelectedConnection(null);
+                                                }}
+                                                type="button"
+                                            >
+                                                Change component
+                                            </button>
+                                        </div>
+
+                                        {connectionsForSelectedComponent.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                No connections for this component. Create one on the Connections page.
+                                            </p>
+                                        ) : (
+                                            <fieldset
+                                                className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border p-2"
+                                                data-testid="connection-list"
+                                            >
+                                                {connectionsForSelectedComponent.map((connection) => {
+                                                    const isSelected = selectedConnection?.id === connection.id;
+
+                                                    return (
+                                                        <button
+                                                            aria-pressed={isSelected}
+                                                            className={
+                                                                isSelected
+                                                                    ? 'flex w-full items-center justify-between rounded-md bg-surface-brand-secondary px-3 py-2 text-left'
+                                                                    : 'flex w-full items-center justify-between rounded-md px-3 py-2 text-left hover:bg-muted'
+                                                            }
+                                                            data-testid={`connection-option-${connection.id}`}
+                                                            key={connection.id}
+                                                            onClick={() => setSelectedConnection(connection)}
+                                                            type="button"
+                                                        >
+                                                            <fieldset className="border-0 p-0">
+                                                                <p className="text-sm font-medium">{connection.name}</p>
+
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {`${connection.componentName}v${connection.componentVersion}`}
+                                                                </p>
+                                                            </fieldset>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </fieldset>
+                                        )}
+                                    </fieldset>
+                                )}
+                            </fieldset>
+                        )}
+
+                        {step === 1 && selectedConnection && (
+                            <fieldset className="space-y-4 border-0 p-0" data-testid="record-shape-step">
+                                <fieldset className="space-y-1 border-0 p-0">
+                                    <Label htmlFor="entityName">
+                                        Entity Name
+                                        <RequiredMark />
+                                    </Label>
+
+                                    <Input
+                                        id="entityName"
+                                        onChange={(event) => setEntityName(event.target.value)}
+                                        placeholder="contacts"
+                                        value={entityName}
+                                    />
+                                </fieldset>
+
+                                <fieldset className="space-y-1 border-0 p-0">
+                                    <Label htmlFor="description">Description</Label>
+
+                                    <Textarea
+                                        id="description"
+                                        onChange={(event) => setDescription(event.target.value)}
+                                        placeholder="Optional"
+                                        value={description}
+                                    />
+                                </fieldset>
+
+                                {sourceProperties.length > 0 && (
+                                    <fieldset className="space-y-2 border-0 p-0">
+                                        <Label>Source Configuration</Label>
+
+                                        <WorkflowMockProvider>
+                                            <ClusterElementProvider
+                                                value={{
+                                                    clusterElementName: sourceClusterElementName ?? '',
+                                                    componentName: selectedConnection.componentName,
+                                                    componentVersion: selectedConnection.componentVersion,
+                                                    connectionId: selectedConnection.id
+                                                        ? Number(selectedConnection.id)
+                                                        : undefined,
+                                                    connectionRequired: sourceComponentDefinition?.connectionRequired,
+                                                    inputParameters: (watchedParameters ?? {}) as Record<
+                                                        string,
+                                                        unknown
+                                                    >,
+                                                }}
+                                            >
+                                                <Properties
+                                                    control={control as unknown as Control<FieldValues>}
+                                                    controlPath="parameters"
+                                                    customClassName="p-0"
+                                                    formState={formState as unknown as FormState<FieldValues>}
+                                                    hideFromAi={true}
+                                                    properties={sourceProperties}
+                                                />
+                                            </ClusterElementProvider>
+                                        </WorkflowMockProvider>
+                                    </fieldset>
+                                )}
+
+                                <fieldset className="space-y-1 border-0 p-0">
+                                    <Label htmlFor="idField">ID Field</Label>
+
+                                    {hasAvailableFields ? (
+                                        <Select onValueChange={setIdField} value={idField}>
+                                            <SelectTrigger aria-label="ID Field" id="idField">
+                                                <SelectValue placeholder="Select a field..." />
                                             </SelectTrigger>
 
                                             <SelectContent>
-                                                {existingContextStores.map((store) => (
-                                                    <SelectItem key={store.id} value={store.id}>
-                                                        {store.name}
+                                                {availableFields.map((field) => (
+                                                    <SelectItem key={field.name} value={field.name}>
+                                                        {field.label || field.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                    )}
-                                </fieldset>
-                            )}
-
-                            <fieldset className="space-y-2 border-0 p-0">
-                                <Label htmlFor="sourceName">Source Name</Label>
-
-                                <Input
-                                    id="sourceName"
-                                    onChange={(event) => setName(event.target.value)}
-                                    placeholder="My HubSpot CRM"
-                                    value={name}
-                                />
-                            </fieldset>
-
-                            {selectedComponentName === null ? (
-                                <fieldset className="space-y-2 border-0 p-0">
-                                    <Label>Pick a Component</Label>
-
-                                    {connectionsLoading ? (
-                                        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <LoadingIcon /> Loading components...
-                                        </p>
-                                    ) : availableComponents.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No data-stream-compatible connections found in this workspace. Create one on
-                                            the Connections page before adding a source.
-                                        </p>
                                     ) : (
-                                        <div
-                                            className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3"
-                                            data-testid="component-grid"
-                                        >
-                                            {availableComponents.map((component) => (
-                                                <Card
-                                                    className="cursor-pointer transition-shadow hover:shadow-md"
-                                                    data-testid={`component-option-${component.name}`}
-                                                    key={component.name}
-                                                    onClick={() => setSelectedComponentName(component.name)}
-                                                >
-                                                    <CardHeader className="pb-2 text-center">
-                                                        <div className="mx-auto mb-2">
-                                                            {component.icon ? (
-                                                                <InlineSVG className="size-12" src={component.icon} />
-                                                            ) : (
-                                                                <PackageIcon className="size-12 text-content-neutral-tertiary" />
-                                                            )}
-                                                        </div>
-
-                                                        <CardTitle className="text-sm">
-                                                            {component.title || component.name}
-                                                        </CardTitle>
-                                                    </CardHeader>
-
-                                                    {component.description && (
-                                                        <CardContent className="pt-0">
-                                                            <CardDescription className="line-clamp-2 text-center text-xs">
-                                                                {component.description}
-                                                            </CardDescription>
-                                                        </CardContent>
-                                                    )}
-                                                </Card>
-                                            ))}
-                                        </div>
+                                        <Input
+                                            id="idField"
+                                            onChange={(event) => setIdField(event.target.value)}
+                                            placeholder="id"
+                                            value={idField}
+                                        />
                                     )}
                                 </fieldset>
-                            ) : (
-                                <fieldset className="space-y-2 border-0 p-0">
-                                    <div className="flex items-center justify-between">
-                                        <Label>Pick a Connection</Label>
 
+                                <fieldset className="space-y-1 border-0 p-0">
+                                    <Label>Indexed Fields</Label>
+
+                                    <IndexedFieldsEditor
+                                        availableFields={availableFields}
+                                        fields={indexedFields}
+                                        onChange={setIndexedFields}
+                                    />
+                                </fieldset>
+                            </fieldset>
+                        )}
+
+                        {step === 2 && (
+                            <fieldset className="space-y-4 border-0 p-0" data-testid="cadence-step">
+                                <fieldset className="space-y-2 border-0 p-0">
+                                    <Label>Sync Cadence</Label>
+
+                                    <p className="text-xs text-muted-foreground">
+                                        How often the source pulls fresh records.
+                                    </p>
+
+                                    <CadencePicker onChange={setCadence} value={cadence} />
+                                </fieldset>
+
+                                <fieldset className="space-y-2 border-0 p-0">
+                                    <Label>Full Re-sync Cadence (optional)</Label>
+
+                                    <p className="text-xs text-muted-foreground">
+                                        Pair the sync cadence above with a less-frequent full re-sync that detects
+                                        upstream deletions. Recommended for sources without a deletion event feed. Leave
+                                        empty to keep single-trigger behavior.
+                                    </p>
+
+                                    <CadencePicker
+                                        onChange={setFullReplaceCadence}
+                                        value={fullReplaceCadence || '@manual'}
+                                    />
+
+                                    {fullReplaceCadence && (
                                         <button
-                                            className="text-xs text-muted-foreground hover:text-foreground"
-                                            data-testid="change-component"
-                                            onClick={() => {
-                                                setSelectedComponentName(null);
-                                                setSelectedConnection(null);
-                                            }}
+                                            className="text-xs text-muted-foreground underline"
+                                            onClick={() => setFullReplaceCadence('')}
                                             type="button"
                                         >
-                                            Change component
+                                            Clear (single-trigger)
                                         </button>
-                                    </div>
-
-                                    {connectionsForSelectedComponent.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No connections for this component. Create one on the Connections page.
-                                        </p>
-                                    ) : (
-                                        <fieldset
-                                            className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border p-2"
-                                            data-testid="connection-list"
-                                        >
-                                            {connectionsForSelectedComponent.map((connection) => {
-                                                const isSelected = selectedConnection?.id === connection.id;
-
-                                                return (
-                                                    <button
-                                                        aria-pressed={isSelected}
-                                                        className={
-                                                            isSelected
-                                                                ? 'flex w-full items-center justify-between rounded-md bg-surface-brand-secondary px-3 py-2 text-left'
-                                                                : 'flex w-full items-center justify-between rounded-md px-3 py-2 text-left hover:bg-muted'
-                                                        }
-                                                        data-testid={`connection-option-${connection.id}`}
-                                                        key={connection.id}
-                                                        onClick={() => setSelectedConnection(connection)}
-                                                        type="button"
-                                                    >
-                                                        <fieldset className="border-0 p-0">
-                                                            <p className="text-sm font-medium">{connection.name}</p>
-
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {connection.componentName}v{connection.componentVersion}
-                                                            </p>
-                                                        </fieldset>
-                                                    </button>
-                                                );
-                                            })}
-                                        </fieldset>
                                     )}
                                 </fieldset>
-                            )}
-                        </fieldset>
-                    )}
 
-                    {step === 1 && selectedConnection && (
-                        <fieldset className="space-y-4 border-0 p-0" data-testid="record-shape-step">
-                            <fieldset className="space-y-1 border-0 p-0">
-                                <Label htmlFor="entityName">
-                                    Entity Name
-                                    <RequiredMark />
-                                </Label>
-
-                                <Input
-                                    id="entityName"
-                                    onChange={(event) => setEntityName(event.target.value)}
-                                    placeholder="contacts"
-                                    value={entityName}
+                                <TombstoneStrategySelect
+                                    onChange={(value) =>
+                                        setContextStoreTombstoneStrategy(value as ContextStoreTombstoneStrategy)
+                                    }
+                                    testId="tombstone-strategy-select"
+                                    value={tombstoneStrategy}
                                 />
                             </fieldset>
+                        )}
 
-                            <fieldset className="space-y-1 border-0 p-0">
-                                <Label htmlFor="description">Description</Label>
+                        {step === 3 && (
+                            <fieldset className="space-y-3 border-0 p-0 text-sm" data-testid="review-step">
+                                <p>
+                                    <strong>Context Store:</strong>
 
-                                <Textarea
-                                    id="description"
-                                    onChange={(event) => setDescription(event.target.value)}
-                                    placeholder="Optional"
-                                    value={description}
-                                />
-                            </fieldset>
-
-                            {sourceProperties.length > 0 && (
-                                <fieldset className="space-y-2 border-0 p-0">
-                                    <Label>Source Configuration</Label>
-
-                                    <WorkflowMockProvider>
-                                        <ClusterElementProvider
-                                            value={{
-                                                clusterElementName: sourceClusterElementName ?? '',
-                                                componentName: selectedConnection.componentName,
-                                                componentVersion: selectedConnection.componentVersion,
-                                                connectionId: selectedConnection.id
-                                                    ? Number(selectedConnection.id)
-                                                    : undefined,
-                                                connectionRequired: sourceComponentDefinition?.connectionRequired,
-                                                inputParameters: (watchedParameters ?? {}) as Record<string, unknown>,
-                                            }}
-                                        >
-                                            <Properties
-                                                control={control as unknown as Control<FieldValues>}
-                                                controlPath="parameters"
-                                                customClassName="p-0"
-                                                formState={formState as unknown as FormState<FieldValues>}
-                                                hideFromAi={true}
-                                                properties={sourceProperties}
-                                            />
-                                        </ClusterElementProvider>
-                                    </WorkflowMockProvider>
-                                </fieldset>
-                            )}
-
-                            <fieldset className="space-y-1 border-0 p-0">
-                                <Label htmlFor="idField">ID Field</Label>
-
-                                {hasAvailableFields ? (
-                                    <Select onValueChange={setIdField} value={idField}>
-                                        <SelectTrigger aria-label="ID Field" id="idField">
-                                            <SelectValue placeholder="Select a field..." />
-                                        </SelectTrigger>
-
-                                        <SelectContent>
-                                            {availableFields.map((field) => (
-                                                <SelectItem key={field.name} value={field.name}>
-                                                    {field.label || field.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <Input
-                                        id="idField"
-                                        onChange={(event) => setIdField(event.target.value)}
-                                        placeholder="id"
-                                        value={idField}
-                                    />
-                                )}
-                            </fieldset>
-
-                            <fieldset className="space-y-1 border-0 p-0">
-                                <Label>Indexed Fields</Label>
-
-                                <IndexedFieldsEditor
-                                    availableFields={availableFields}
-                                    fields={indexedFields}
-                                    onChange={setIndexedFields}
-                                />
-                            </fieldset>
-                        </fieldset>
-                    )}
-
-                    {step === 2 && (
-                        <fieldset className="space-y-4 border-0 p-0" data-testid="cadence-step">
-                            <fieldset className="space-y-2 border-0 p-0">
-                                <Label>Sync Cadence</Label>
-
-                                <p className="text-xs text-muted-foreground">
-                                    How often the source pulls fresh records.
+                                    {` ${existingContextStores.find((store) => store.id === contextStoreId)?.name ?? ''}`}
                                 </p>
 
-                                <CadencePicker onChange={setCadence} value={cadence} />
-                            </fieldset>
-
-                            <fieldset className="space-y-2 border-0 p-0">
-                                <Label>Full Re-sync Cadence (optional)</Label>
-
-                                <p className="text-xs text-muted-foreground">
-                                    Pair the sync cadence above with a less-frequent full re-sync that detects upstream
-                                    deletions. Recommended for sources without a deletion event feed. Leave empty to
-                                    keep single-trigger behavior.
+                                <p>
+                                    <strong>Name:</strong> {name}
                                 </p>
 
-                                <CadencePicker
-                                    onChange={setFullReplaceCadence}
-                                    value={fullReplaceCadence || '@manual'}
-                                />
+                                <p>
+                                    <strong>Connection:</strong>
 
-                                {fullReplaceCadence && (
-                                    <button
-                                        className="text-xs text-muted-foreground underline"
-                                        onClick={() => setFullReplaceCadence('')}
-                                        type="button"
-                                    >
-                                        Clear (single-trigger)
-                                    </button>
-                                )}
+                                    {` ${selectedConnection?.name ?? ''} (${selectedConnection?.componentName ?? ''} v${selectedConnection?.componentVersion ?? ''})`}
+                                </p>
+
+                                <p>
+                                    <strong>Entity:</strong> {entityName}
+                                </p>
+
+                                <p>
+                                    <strong>Cadence:</strong> {cadenceDisplay}
+                                </p>
+
+                                <p>
+                                    <strong>Tombstone Strategy:</strong> {tombstoneStrategy}
+                                </p>
                             </fieldset>
+                        )}
+                    </DialogBody>
 
-                            <TombstoneStrategySelect
-                                onChange={(value) =>
-                                    setContextStoreTombstoneStrategy(value as ContextStoreTombstoneStrategy)
-                                }
-                                testId="tombstone-strategy-select"
-                                value={tombstoneStrategy}
-                            />
-                        </fieldset>
-                    )}
-
-                    {step === 3 && (
-                        <fieldset className="space-y-3 border-0 p-0 text-sm" data-testid="review-step">
-                            <p>
-                                <strong>Context Store:</strong>
-
-                                {` ${existingContextStores.find((store) => store.id === contextStoreId)?.name ?? ''}`}
-                            </p>
-
-                            <p>
-                                <strong>Name:</strong> {name}
-                            </p>
-
-                            <p>
-                                <strong>Connection:</strong>
-
-                                {` ${selectedConnection?.name ?? ''} (${selectedConnection?.componentName ?? ''} v${selectedConnection?.componentVersion ?? ''})`}
-                            </p>
-
-                            <p>
-                                <strong>Entity:</strong> {entityName}
-                            </p>
-
-                            <p>
-                                <strong>Cadence:</strong> {cadenceDisplay}
-                            </p>
-
-                            <p>
-                                <strong>Tombstone Strategy:</strong> {tombstoneStrategy}
-                            </p>
-                        </fieldset>
-                    )}
-                </fieldset>
-
-                <DialogFooter className="flex justify-between">
-                    <Button disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))} variant="ghost">
-                        Back
-                    </Button>
-
-                    {step < STEP_LABELS.length - 1 ? (
-                        <Button
-                            disabled={!canProceed}
-                            onClick={() => setStep(Math.min(STEP_LABELS.length - 1, step + 1))}
-                        >
-                            Next
-                        </Button>
-                    ) : (
-                        <Button disabled={createMutation.isPending} onClick={handleSubmit}>
-                            {createMutation.isPending ? 'Creating...' : 'Create Source'}
-                        </Button>
-                    )}
-                </DialogFooter>
+                    <DialogFooter
+                        startContent={
+                            <Button
+                                disabled={step === 0}
+                                onClick={() => setStep(Math.max(0, step - 1))}
+                                variant="ghost"
+                            >
+                                Back
+                            </Button>
+                        }
+                    >
+                        {step < STEP_LABELS.length - 1 ? (
+                            <Button
+                                disabled={!canProceed}
+                                onClick={() => setStep(Math.min(STEP_LABELS.length - 1, step + 1))}
+                            >
+                                Next
+                            </Button>
+                        ) : (
+                            <Button disabled={createMutation.isPending} onClick={handleSubmit}>
+                                {createMutation.isPending ? 'Creating...' : 'Create Source'}
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );

@@ -235,7 +235,11 @@ const WorkflowTestChatPanel = () => {
                     </div>
                 </header>
 
-                {error && <div className="bg-red-50 px-4 py-2 text-xs text-red-900">{error}</div>}
+                {error && (
+                    <div className="bg-surface-destructive-secondary px-4 py-2 text-xs text-content-destructive">
+                        {error}
+                    </div>
+                )}
 
                 <div className="absolute inset-x-0 top-16 bottom-0">
                     <WorkflowTestChatRuntimeProvider voiceAdapter={voiceAdapter}>

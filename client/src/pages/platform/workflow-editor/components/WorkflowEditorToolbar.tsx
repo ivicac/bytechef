@@ -1,15 +1,15 @@
 import Button from '@/components/Button/Button';
 import {ButtonGroup} from '@/components/ui/button-group';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import {useUserGuidingLauncher} from '@/hooks/useUserGuiding';
 import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
-import {NodeDataType} from '@/shared/types';
 import {Panel, useReactFlow} from '@xyflow/react';
 import {
     ArrowRightIcon,
     BoxIcon,
     BrushCleaningIcon,
+    EyeOffIcon,
     FocusIcon,
     InfoIcon,
     LockIcon,
@@ -73,11 +73,10 @@ const WorkflowEditorToolbar = ({
 
     const {clusterElementsViewMode, setClusterElementsViewMode} = useClusterElementsViewModeStore();
 
-    const ff_5470 = useFeatureFlagsStore()('ff-5470');
-
     const {fitView, zoomIn, zoomOut} = useReactFlow();
     const {canRedo, canUndo, handleRedo, handleUndo} = useWorkflowUndoRedo();
     const {updateWorkflowMutation} = useWorkflowEditor();
+    const userGuidingLauncher = useUserGuidingLauncher();
 
     const taskCount = getWorkflowTaskCount(nodes);
 
@@ -131,7 +130,7 @@ const WorkflowEditorToolbar = ({
     return (
         <>
             <Panel className="m-2" position="top-left">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 [&_button:not(.text-content-brand-primary)]:text-content-neutral-subtle [&_button:not(.text-content-brand-primary):hover]:text-content-neutral-primary">
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <span tabIndex={!elkLayoutSupported ? 0 : undefined}>
@@ -149,43 +148,33 @@ const WorkflowEditorToolbar = ({
                             </span>
                         </TooltipTrigger>
 
-                        <TooltipContent
-                            className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                            side="bottom"
-                        >
+                        <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="bottom">
                             {layoutEngineTooltip}
                         </TooltipContent>
                     </Tooltip>
 
-                    {ff_5470 && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    aria-label={
-                                        clusterElementsViewMode === 'box'
-                                            ? 'Show cluster elements in the editor dialog'
-                                            : 'Show cluster elements inline'
-                                    }
-                                    className={twMerge(
-                                        clusterElementsViewMode === 'box' && 'text-content-brand-primary'
-                                    )}
-                                    icon={clusterElementsViewMode === 'box' ? <BoxIcon /> : <SquareDashedIcon />}
-                                    onClick={handleToggleClusterElementsViewMode}
-                                    size="icon"
-                                    variant="outline"
-                                />
-                            </TooltipTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                aria-label={
+                                    clusterElementsViewMode === 'box'
+                                        ? 'Show cluster elements in the editor dialog'
+                                        : 'Show cluster elements inline'
+                                }
+                                className={twMerge(clusterElementsViewMode === 'box' && 'text-content-brand-primary')}
+                                icon={clusterElementsViewMode === 'box' ? <BoxIcon /> : <SquareDashedIcon />}
+                                onClick={handleToggleClusterElementsViewMode}
+                                size="icon"
+                                variant="outline"
+                            />
+                        </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="bottom"
-                            >
-                                {clusterElementsViewMode === 'box'
-                                    ? 'Show cluster elements in the editor dialog'
-                                    : 'Show cluster elements inline'}
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
+                        <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="bottom">
+                            {clusterElementsViewMode === 'box'
+                                ? 'Show cluster elements in the editor dialog'
+                                : 'Show cluster elements inline'}
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             </Panel>
 
@@ -206,25 +195,19 @@ const WorkflowEditorToolbar = ({
                                 />
                             </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="top"
-                            >
+                            <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="top">
                                 Number of tasks executed per workflow run.
                             </TooltipContent>
                         </Tooltip>
                     </div>
 
-                    <ButtonGroup>
+                    <ButtonGroup className="[&_button:not(.text-content-brand-primary)]:text-content-neutral-subtle [&_button:not(.text-content-brand-primary):hover]:text-content-neutral-primary">
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button icon={<ZoomInIcon />} onClick={handleZoomIn} size="icon" variant="outline" />
                             </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="top"
-                            >
+                            <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="top">
                                 Zoom in
                             </TooltipContent>
                         </Tooltip>
@@ -234,10 +217,7 @@ const WorkflowEditorToolbar = ({
                                 <Button icon={<ZoomOutIcon />} onClick={handleZoomOut} size="icon" variant="outline" />
                             </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="top"
-                            >
+                            <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="top">
                                 Zoom out
                             </TooltipContent>
                         </Tooltip>
@@ -247,10 +227,7 @@ const WorkflowEditorToolbar = ({
                                 <Button icon={<FocusIcon />} onClick={handleFitView} size="icon" variant="outline" />
                             </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="top"
-                            >
+                            <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="top">
                                 Fit to screen
                             </TooltipContent>
                         </Tooltip>
@@ -271,10 +248,7 @@ const WorkflowEditorToolbar = ({
                                 />
                             </TooltipTrigger>
 
-                            <TooltipContent
-                                className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
-                                side="top"
-                            >
+                            <TooltipContent className="rounded-lg bg-surface-tooltip text-content-ontooltip" side="top">
                                 {layoutDirectionLabel}
                             </TooltipContent>
                         </Tooltip>
@@ -309,7 +283,7 @@ const WorkflowEditorToolbar = ({
                                 </TooltipTrigger>
 
                                 <TooltipContent
-                                    className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                                    className="rounded-lg bg-surface-tooltip text-content-ontooltip"
                                     side="top"
                                 >
                                     Add note
@@ -322,7 +296,7 @@ const WorkflowEditorToolbar = ({
                                 <TooltipTrigger asChild>
                                     <button
                                         aria-label={nodesLocked ? 'Unlock node movement' : 'Lock node movement'}
-                                        className="flex size-9 items-center justify-center rounded-md border border-stroke-neutral-secondary bg-surface-neutral-primary hover:bg-slate-50 active:bg-surface-neutral-secondary"
+                                        className="flex size-9 items-center justify-center rounded-md border border-stroke-neutral-secondary bg-surface-neutral-primary hover:bg-surface-neutral-primary-hover active:bg-surface-neutral-secondary"
                                         onClick={handleToggleLock}
                                     >
                                         {nodesLocked ? (
@@ -334,17 +308,38 @@ const WorkflowEditorToolbar = ({
                                 </TooltipTrigger>
 
                                 <TooltipContent
-                                    className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                                    className="rounded-lg bg-surface-tooltip text-content-ontooltip"
                                     side="top"
                                 >
                                     {nodesLocked ? 'Unlock node movement' : 'Lock node movement'}
                                 </TooltipContent>
                             </Tooltip>
                         )}
+
+                        {userGuidingLauncher.available && !userGuidingLauncher.launcherHidden && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        aria-label="Hide guide"
+                                        icon={<EyeOffIcon />}
+                                        onClick={userGuidingLauncher.hideLauncher}
+                                        size="icon"
+                                        variant="outline"
+                                    />
+                                </TooltipTrigger>
+
+                                <TooltipContent
+                                    className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                                    side="top"
+                                >
+                                    Hide guide (show it again from Help & Feedback)
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                     </ButtonGroup>
 
                     {enableUndoRedo && !readOnly && (
-                        <ButtonGroup>
+                        <ButtonGroup className="[&_button:not(.text-content-brand-primary)]:text-content-neutral-subtle [&_button:not(.text-content-brand-primary):hover]:text-content-neutral-primary">
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
@@ -357,7 +352,7 @@ const WorkflowEditorToolbar = ({
                                 </TooltipTrigger>
 
                                 <TooltipContent
-                                    className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                                    className="rounded-lg bg-surface-tooltip text-content-ontooltip"
                                     side="top"
                                 >
                                     Undo
@@ -376,7 +371,7 @@ const WorkflowEditorToolbar = ({
                                 </TooltipTrigger>
 
                                 <TooltipContent
-                                    className="rounded-lg bg-surface-tooltip text-content-onsurface-primary"
+                                    className="rounded-lg bg-surface-tooltip text-content-ontooltip"
                                     side="top"
                                 >
                                     Redo
