@@ -22,7 +22,6 @@ import {
     ServerIcon,
     Settings2Icon,
     SlidersHorizontalIcon,
-    SparklesIcon,
     SquareIcon,
     Table2Icon,
     UnplugIcon,
@@ -104,7 +103,6 @@ export const automationNavigation: NavigationItemI[] = [
         icon: WrenchIcon,
         name: 'Tool Invocations',
     },
-    {group: 'AI', href: '/automation/ai/gateway', icon: RouterIcon, name: 'AI Gateway'},
     {
         group: 'Resources',
         href: '/automation/datatables',
@@ -129,6 +127,7 @@ export const automationNavigation: NavigationItemI[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
+    {href: '/automation/ai/gateway', icon: RouterIcon, name: 'AI Gateway'},
 ];
 
 export const embeddedNavigation: NavigationItemI[] = [
@@ -189,7 +188,6 @@ export const platformNavigation: NavigationItemI[] = [
  * icon — so adding a group to the arrays above never breaks the sidebar, it only looks unconsidered.
  */
 export const NAVIGATION_GROUP_ICONS: Record<string, LucideIcon> = {
-    AI: SparklesIcon,
     Build: HammerIcon,
     Configure: SlidersHorizontalIcon,
     Deploy: RocketIcon,
