@@ -27,10 +27,6 @@ vi.mock('../WorkflowExecutionDetail', () => ({default: () => <div>Execution deta
 
 vi.mock('@/shared/components/copilot/CopilotPanel', () => ({default: () => null}));
 
-vi.mock('@/shared/stores/useFeatureFlagsStore', () => ({
-    useFeatureFlagsStore: () => () => false,
-}));
-
 const renderSheet = (workflowExecution: object) => {
     sheetState.workflowExecution = workflowExecution as WorkflowExecution;
 

@@ -205,7 +205,7 @@ const DataSyncDetailHeader = ({
                             <Button
                                 disabled={!deployable}
                                 icon={<RocketIcon />}
-                                label="Deploy Project"
+                                label="Deploy"
                                 onClick={() => setShowDeployDialog(true)}
                                 variant="outline"
                             />

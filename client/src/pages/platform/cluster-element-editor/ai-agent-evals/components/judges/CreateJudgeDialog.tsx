@@ -144,8 +144,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     judgeType === option.value
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 key={option.value}
                                                 onClick={() => setJudgeType(option.value)}
@@ -351,8 +351,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     !mustNotContain
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setMustNotContain(false)}
                                                 type="button"
@@ -364,8 +364,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     mustNotContain
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setMustNotContain(true)}
                                                 type="button"
@@ -426,8 +426,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     !mustNotMatch
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setMustNotMatch(false)}
                                                 type="button"
@@ -439,8 +439,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     mustNotMatch
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setMustNotMatch(true)}
                                                 type="button"
@@ -539,7 +539,9 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                         value={jsonSchema}
                                     />
 
-                                    {jsonSchemaError && <p className="text-xs text-red-500">{jsonSchemaError}</p>}
+                                    {jsonSchemaError && (
+                                        <p className="text-xs text-content-destructive">{jsonSchemaError}</p>
+                                    )}
                                 </div>
                             )}
 
@@ -622,8 +624,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     algorithm === 'COSINE'
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setAlgorithm('COSINE')}
                                                 type="button"
@@ -635,8 +637,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     algorithm === 'EDIT_DISTANCE'
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setAlgorithm('EDIT_DISTANCE')}
                                                 type="button"
@@ -693,8 +695,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     caseSensitive
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setCaseSensitive(true)}
                                                 type="button"
@@ -706,8 +708,8 @@ const CreateJudgeDialog = ({editData, onClose, onCreate, onUpdate}: CreateJudgeD
                                                 className={twMerge(
                                                     'rounded-md border px-3 py-1.5 text-sm',
                                                     !caseSensitive
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                                 )}
                                                 onClick={() => setCaseSensitive(false)}
                                                 type="button"

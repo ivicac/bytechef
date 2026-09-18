@@ -320,7 +320,7 @@ const ConnectionDialog = ({
 
     const authorizationOptions = useMemo(
         () =>
-            connectionDefinition && connectionDefinition.authorizations
+            connectionDefinition?.authorizations
                 ? [
                       ...(connectionDefinition.authorizationRequired === false
                           ? [{label: 'None', value: undefined}]
@@ -594,10 +594,17 @@ const ConnectionDialog = ({
             setValue('authorizationType', connection.authorizationType);
         }
 
-        if (startInCredentialsMode || connection?.credentialStatus === 'INVALID') {
+        if (canUpdateCredentials && (startInCredentialsMode || connection?.credentialStatus === 'INVALID')) {
             setIsUpdatingCredentials(true);
         }
-    }, [connection?.authorizationType, connection?.credentialStatus, isEdit, setValue, startInCredentialsMode]);
+    }, [
+        canUpdateCredentials,
+        connection?.authorizationType,
+        connection?.credentialStatus,
+        isEdit,
+        setValue,
+        startInCredentialsMode,
+    ]);
 
     return (
         <Dialog
@@ -1096,18 +1103,20 @@ const ConnectionDialog = ({
 
                             {!oAuth2AuthorizationParametersLoading && wizardStep === 'oauth_step' && (
                                 <>
-                                    <Alert className="border-blue-50 bg-surface-brand-secondary text-content-brand-primary">
+                                    <Alert className="border-surface-brand-secondary bg-surface-brand-secondary text-content-brand-primary">
                                         <RocketIcon className="size-4" />
 
                                         <AlertTitle>Heads up!</AlertTitle>
 
-                                        <AlertDescription>
-                                            Excellent! You can connect and create the
-                                            <span className="mx-0.5 font-semibold">
-                                                {selectedComponentDefinition?.title}
-                                            </span>
-                                            connection under name
-                                            <span className="mx-0.5 font-semibold">{`'${getValues()?.name}'`}</span>.
+                                        <AlertDescription className="block wrap-anywhere">
+                                            <>
+                                                Excellent! You can connect and create the{' '}
+                                                <span className="font-semibold">
+                                                    {selectedComponentDefinition?.title}
+                                                </span>{' '}
+                                                connection under name{' '}
+                                                <span className="font-semibold">{`'${getValues()?.name}'`}</span>.
+                                            </>
                                         </AlertDescription>
                                     </Alert>
 
@@ -1211,6 +1220,7 @@ const ConnectionDialog = ({
                                                 <OAuth2Button
                                                     authorizationUrl={oAuth2AuthorizationParameters.authorizationUrl}
                                                     clientId={oAuth2AuthorizationParameters.clientId}
+                                                    componentName={selectedComponentDefinition?.name}
                                                     extraQueryParameters={
                                                         oAuth2AuthorizationParameters?.extraQueryParameters
                                                     }

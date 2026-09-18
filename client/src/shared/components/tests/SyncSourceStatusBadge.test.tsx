@@ -3,14 +3,14 @@ import {render, screen} from '@testing-library/react';
 import {describe, expect, it} from 'vitest';
 
 describe('SyncSourceStatusBadge', () => {
-    it('renders BUILDING_PREVIEW with yellow style and label "Building Preview"', () => {
+    it('renders BUILDING_PREVIEW with warning style and label "Building Preview"', () => {
         render(<SyncSourceStatusBadge status="BUILDING_PREVIEW" />);
 
         const badge = screen.getByText('Building Preview');
 
         expect(badge).toBeInTheDocument();
-        expect(badge.className).toContain('bg-yellow-100');
-        expect(badge.className).toContain('text-yellow-800');
+        expect(badge.className).toContain('bg-surface-warning-secondary');
+        expect(badge.className).toContain('text-content-warning-primary');
     });
 
     it('renders DISABLED with gray style and label "Disabled"', () => {

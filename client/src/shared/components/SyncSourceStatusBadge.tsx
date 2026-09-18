@@ -5,7 +5,10 @@ interface SyncSourceStatusBadgePropsI {
 }
 
 const STATUS_STYLES: Record<string, {className: string; label: string}> = {
-    BUILDING_PREVIEW: {className: 'bg-yellow-100 text-yellow-800', label: 'Building Preview'},
+    BUILDING_PREVIEW: {
+        className: 'bg-surface-warning-secondary text-content-warning-primary',
+        label: 'Building Preview',
+    },
     DISABLED: {className: 'bg-surface-neutral-secondary text-content-neutral-primary', label: 'Disabled'},
     FAILED: {className: 'bg-surface-destructive-secondary text-content-destructive', label: 'Failed'},
     PREVIEW: {className: 'bg-surface-brand-secondary text-content-brand-primary', label: 'Preview'},

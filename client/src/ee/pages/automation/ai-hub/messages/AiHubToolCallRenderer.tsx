@@ -559,7 +559,10 @@ const AiHubToolCallRenderer = ({args, argsText, isError, result, toolCallId, too
 
             <span className="ml-auto flex items-center gap-1">
                 {isSubagent && (
-                    <Badge className="bg-amber-100 text-[10px] text-amber-700" styleType="outline-outline">
+                    <Badge
+                        className="bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                        styleType="outline-outline"
+                    >
                         subagent
                     </Badge>
                 )}

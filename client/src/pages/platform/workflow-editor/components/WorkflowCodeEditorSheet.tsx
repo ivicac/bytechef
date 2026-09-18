@@ -14,7 +14,6 @@ import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
 import CopilotPanel from '@/shared/components/copilot/CopilotPanel';
 import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {Workflow, WorkflowTestConfiguration} from '@/shared/middleware/platform/configuration';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {
     AlertTriangleIcon,
     ChevronDownIcon,
@@ -84,7 +83,6 @@ const WorkflowCodeEditorSheet = ({
         workflowTestExecution,
     } = useWorkflowCodeEditorSheet({invalidateWorkflowQueries, onSheetOpenClose, workflow});
 
-    const ff_4076 = useFeatureFlagsStore()('ff-4076');
     const showBottomPanel = useWorkflowEditorStore((state) => state.showBottomPanel);
 
     return (
@@ -202,7 +200,7 @@ const WorkflowCodeEditorSheet = ({
                                 )}
                             </ButtonGroup>
 
-                            {ff_4076 && copilotEnabled && (
+                            {copilotEnabled && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -255,7 +253,6 @@ const WorkflowCodeEditorSheet = ({
                                         workflowTestExecution && (
                                             <WorkflowExecutionsTestOutput
                                                 onEditSubflowClick={onEditSubflowClick}
-                                                resizablePanelSize={400}
                                                 workflowIsRunning={workflowIsRunning}
                                                 workflowTestExecution={workflowTestExecution}
                                             />
@@ -290,7 +287,7 @@ const WorkflowCodeEditorSheet = ({
                                         <ul className="flex flex-col gap-2 px-3 py-2">
                                             {errors.map((error, index) => (
                                                 <li
-                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm"
+                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm dark:bg-surface-neutral-secondary"
                                                     key={`${error}_${index}`}
                                                 >
                                                     {error}
@@ -327,7 +324,7 @@ const WorkflowCodeEditorSheet = ({
                                         <ul className="flex flex-col gap-2 px-3 py-2">
                                             {warnings.map((warning, index) => (
                                                 <li
-                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm"
+                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm dark:bg-surface-neutral-secondary"
                                                     key={`${warning}_${index}`}
                                                 >
                                                     {warning}

@@ -23,7 +23,6 @@ import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import addClusterElementToClusterRoot from '../utils/addClusterElementToClusterRoot';
 import calculateNodeInsertIndex from '../utils/calculateNodeInsertIndex';
-import {getClusterRootTask} from '../utils/getClusterRootTask';
 import getFormattedName from '../utils/getFormattedName';
 import getParametersWithDefaultValues from '../utils/getParametersWithDefaultValues';
 import getTaskDispatcherContext from '../utils/getTaskDispatcherContext';
@@ -32,7 +31,6 @@ import handleComponentAddedSuccess, {
     openNodeDetailsPanelForNewNode,
 } from '../utils/handleComponentAddedSuccess';
 import handleTaskDispatcherSubtaskOperationClick from '../utils/handleTaskDispatcherSubtaskOperationClick';
-import processClusterElementsHierarchy from '../utils/processClusterElementsHierarchy';
 import {resolveClusterRootId} from '../utils/resolveClusterRootId';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 
@@ -88,16 +86,9 @@ const WorkflowNodesPopoverMenuOperationList = ({
             }))
         );
 
-    // `rootClusterElementNodeData` is seeded by useWorkflowEditorLayout only while
-    // `clusterElementsCanvasOpen` is true, so on the main canvas it is filled in only after one of the
-    // box header's destinations has been opened. Adding an element must not depend on that having
-    // happened: the placeholder already knows which root it hangs off, so resolve the root from the
-    // node graph and fall back to the store rather than the other way round.
     const mainClusterRootNodeData = useMemo(() => {
         const sourceNode = nodes.find((node) => node.id === sourceNodeId);
 
-        // Node graph first, store second: on the main canvas the store root is whatever last opened
-        // a destination, so preferring it added an element to the wrong box.
         if (!sourceNode) {
             return rootClusterElementNodeData?.componentName && rootClusterElementNodeData?.workflowNodeName
                 ? rootClusterElementNodeData
@@ -160,10 +151,29 @@ const WorkflowNodesPopoverMenuOperationList = ({
         return matchingOperations?.filter((clusterElement) => !hiddenClusterElementNames.includes(clusterElement.name));
     }, [clusterElementType, clusterElements, hiddenClusterElementNames]);
 
-    const operations = useMemo(
-        () => (trigger ? triggers : clusterElementType ? clusterElementOperations : actions),
-        [trigger, triggers, clusterElementType, clusterElementOperations, actions]
-    );
+    const operations = useMemo(() => {
+        if (trigger) {
+            return triggers;
+        }
+
+        if (clusterElementType) {
+            return clusterElementOperations;
+        }
+
+        return actions;
+    }, [trigger, triggers, clusterElementType, clusterElementOperations, actions]);
+
+    const operationsHeading = useMemo(() => {
+        if (trigger) {
+            return 'Triggers';
+        }
+
+        if (clusterElementType) {
+            return getClusterElementsLabel(clusterElementType);
+        }
+
+        return 'Actions';
+    }, [trigger, clusterElementType]);
 
     const getNodeData = useCallback(
         (operation: ClickedOperationType, definition: ActionDefinition | TriggerDefinition) => {
@@ -244,30 +254,15 @@ const WorkflowNodesPopoverMenuOperationList = ({
                 return;
             }
 
-            const workflowDefinition = JSON.parse(workflow.definition);
-
-            const mainClusterRootTask = getClusterRootTask({
-                tasks: workflowDefinition.tasks,
-                triggers: workflowDefinition.triggers,
-                workflowNodeName: mainClusterRootNodeData.workflowNodeName,
-            });
-
-            if (!mainClusterRootTask) {
-                return;
-            }
-
-            const clusterElements = initializeClusterElementsObject({
-                clusterElementsData: mainClusterRootTask.clusterElements || {},
-                mainClusterRootComponentDefinition,
-                mainClusterRootTask,
-            });
-
-            const updatedClusterElements = processClusterElementsHierarchy({
-                clusterElementData,
-                clusterElements,
-                elementType: clusterElementType,
+            const nestedClusterElements = await addClusterElementToClusterRoot({
+                clusterElementName,
+                clusterElementType,
+                clusterRootComponentDefinition: mainClusterRootComponentDefinition,
+                clusterRootId: mainClusterRootNodeData.workflowNodeName,
+                componentDefinition,
                 isMultipleElements,
-                mainRootId: mainClusterRootNodeData.workflowNodeName,
+                label,
+                queryClient,
                 sourceNodeId,
                 updateWorkflowMutation: updateWorkflowMutation!,
                 workflow,
@@ -279,7 +274,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
 
             setRootClusterElementNodeData({
                 ...mainClusterRootNodeData,
-                clusterElements: updatedClusterElements.nestedClusterElements,
+                clusterElements: nestedClusterElements,
             } as typeof mainClusterRootNodeData);
 
             if (currentNode?.clusterRoot && !currentNode.isNestedClusterRoot) {
@@ -292,36 +287,17 @@ const WorkflowNodesPopoverMenuOperationList = ({
             if (workflowNodeDetailsPanelOpen && currentNode?.workflowNodeName === sourceNodeName) {
                 setCurrentNode({
                     ...mainClusterRootNodeData,
-                    clusterElements: updatedClusterElements.nestedClusterElements,
+                    clusterElements: nestedClusterElements,
                 });
 
                 setWorkflowNodeDetailsPanelOpen(false);
             }
-
-            saveWorkflowDefinition({
-                nodeData: {
-                    ...updatedNodeData,
-                    componentName: mainClusterRootNodeData.componentName,
-                    workflowNodeName: mainClusterRootNodeData.workflowNodeName,
-                },
-                onSuccess: () => {
-                    handleComponentAddedSuccess({
-                        nodeData: {
-                            ...updatedNodeData,
-                            componentName: mainClusterRootNodeData.componentName,
-                            workflowNodeName: mainClusterRootNodeData.workflowNodeName,
-                        },
-                        queryClient,
-                        workflow,
-                    });
-                },
-                updateWorkflowMutation: updateWorkflowMutation!,
-            });
         },
         [
             workflow,
             mainClusterRootComponentDefinition,
             mainClusterRootNodeData,
+            componentDefinition,
             setRootClusterElementNodeData,
             currentNode,
             workflowNodeDetailsPanelOpen,
@@ -520,13 +496,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
                 <div className="flex w-full flex-col">
                     <h2 className="text-lg font-semibold">{title}</h2>
 
-                    <h3 className="text-sm text-muted-foreground">
-                        {trigger
-                            ? 'Triggers'
-                            : clusterElementType
-                              ? getClusterElementsLabel(clusterElementType as string)
-                              : 'Actions'}
-                    </h3>
+                    <h3 className="text-sm text-muted-foreground">{operationsHeading}</h3>
                 </div>
             </header>
 
@@ -537,7 +507,7 @@ const WorkflowNodesPopoverMenuOperationList = ({
 
                     return (
                         <li
-                            className={`space-y-1 rounded border-2 border-transparent bg-surface-neutral-primary px-2 py-1 ${isDisabled ? 'cursor-wait opacity-70' : 'cursor-pointer hover:border-blue-200'}`}
+                            className={`space-y-1 rounded border-2 border-transparent bg-surface-neutral-primary px-2 py-1 ${isDisabled ? 'cursor-wait opacity-70' : 'cursor-pointer hover:border-stroke-brand-secondary'}`}
                             key={operation.name}
                             onClick={() => {
                                 if (isDisabled) {

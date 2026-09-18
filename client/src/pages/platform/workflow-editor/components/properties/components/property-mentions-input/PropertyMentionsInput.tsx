@@ -283,7 +283,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                     className={twMerge(
                         'relative flex items-center rounded-md transition-colors',
                         error &&
-                            'border-stroke-destructive-secondary text-rose-900 ring-stroke-destructive-secondary focus-within:ring-stroke-destructive-secondary',
+                            'border-stroke-destructive-secondary text-content-destructive ring-stroke-destructive-secondary focus-within:ring-stroke-destructive-secondary',
                         isFocused && 'ring-2 ring-ring',
                         label && 'mt-1',
                         leadingIcon && 'rounded-md border border-stroke-neutral-secondary'
@@ -301,7 +301,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
 
                     <div
                         className={twMerge(
-                            'property-mentions-editor flex h-full min-h-9 w-full rounded-md bg-surface-neutral-primary',
+                            'property-mentions-editor flex h-full min-h-9 w-full rounded-md bg-surface-neutral-primary dark:bg-surface-neutral-secondary',
                             // Data pill chips size themselves, so the editor's own text-xs does not
                             // reach them. The modifier lets the stylesheet bring them down to match.
                             isFormulaMode && 'property-mentions-editor--formula-mode',
