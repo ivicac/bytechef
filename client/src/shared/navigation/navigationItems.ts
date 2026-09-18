@@ -10,6 +10,7 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
+    RouterIcon,
     ServerCogIcon,
     ServerIcon,
     Settings2Icon,
@@ -95,7 +96,7 @@ export const automationNavigation: NavigationItemI[] = [
         href: '/automation/asset-files',
         icon: FileTextIcon,
         name: 'Files',
-    },
+    },    {href: '/automation/ai/gateway', icon: RouterIcon, name: 'AI Gateway'},
 ];
 
 export const embeddedNavigation: NavigationItemI[] = [
