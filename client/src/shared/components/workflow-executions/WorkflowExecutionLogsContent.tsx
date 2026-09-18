@@ -93,7 +93,7 @@ const LOG_LEVEL_BADGE_CONFIG = {
         icon: <InfoIcon className="size-3" />,
     },
     [LogLevel.Warn]: {
-        className: 'bg-yellow-100 text-yellow-600',
+        className: 'bg-surface-warning-secondary text-content-warning-primary',
         icon: <AlertTriangleIcon className="size-3" />,
     },
     [LogLevel.Error]: {

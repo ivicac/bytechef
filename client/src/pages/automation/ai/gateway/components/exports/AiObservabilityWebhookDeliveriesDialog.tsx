@@ -11,7 +11,7 @@ interface AiObservabilityWebhookDeliveriesDialogPropsI {
 const STATUS_COLORS: Record<string, string> = {
     FAILED: 'bg-surface-destructive-secondary text-content-destructive',
     PENDING: 'bg-surface-neutral-secondary text-content-neutral-primary',
-    RETRYING: 'bg-yellow-100 text-yellow-800',
+    RETRYING: 'bg-surface-warning-secondary text-content-warning-primary',
     SUCCESS: 'bg-surface-success-secondary text-content-success-primary',
 };
 

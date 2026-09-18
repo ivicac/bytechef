@@ -1,6 +1,7 @@
 import Button from '@/components/Button/Button';
 import CreatableSelect, {SelectOptionType} from '@/components/CreatableSelect/CreatableSelect';
 import {Input} from '@/components/Input/Input';
+import Switch from '@/components/Switch/Switch';
 import {
     Dialog,
     DialogClose,
@@ -12,7 +13,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
-import {Switch} from '@/components/ui/switch';
 import {Textarea} from '@/components/ui/textarea';
 import {
     AutomationWorkflowProjectCategoriesQuery,

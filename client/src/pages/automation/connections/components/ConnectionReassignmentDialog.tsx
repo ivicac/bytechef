@@ -113,7 +113,7 @@ const ConnectionReassignmentDialog = ({onClose, open, userLogin, workspaceId}: C
                     </DialogHeader>
 
                     {reassignmentError && (
-                        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-surface-destructive-secondary p-3 text-sm text-content-destructive">
+                        <div className="flex items-start gap-2 rounded-md border border-stroke-destructive-secondary bg-surface-destructive-secondary p-3 text-sm text-content-destructive">
                             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
 
                             <span>{reassignmentError}</span>
@@ -121,7 +121,7 @@ const ConnectionReassignmentDialog = ({onClose, open, userLogin, workspaceId}: C
                     )}
 
                     {affectedWorkflowCount > 0 && (
-                        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-surface-warning-secondary p-3 text-sm text-content-warning-primary">
+                        <div className="flex items-start gap-2 rounded-md border border-stroke-warning-secondary bg-surface-warning-secondary p-3 text-sm text-content-warning-primary">
                             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
 
                             <span>

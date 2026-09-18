@@ -96,7 +96,7 @@ export default function AiAgentSkills() {
             ) : (
                 attachedSkills.map((skill) => (
                     <div className="flex items-center gap-2 rounded bg-muted/50 p-2" key={skill.id}>
-                        <SparklesIcon className="size-5 flex-none text-gray-700" />
+                        <SparklesIcon className="size-5 flex-none text-content-neutral-primary" />
 
                         <span className="flex-1 truncate text-xs font-medium">{skill.name}</span>
 
