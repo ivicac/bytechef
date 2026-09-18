@@ -1,8 +1,8 @@
 import Button from '@/components/Button/Button';
 import PageLoader from '@/components/PageLoader';
+import Switch from '@/components/Switch/Switch';
 import {Label} from '@/components/ui/label';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
-import {Switch} from '@/components/ui/switch';
 import {Textarea} from '@/components/ui/textarea';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {

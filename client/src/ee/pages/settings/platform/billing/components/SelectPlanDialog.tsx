@@ -186,7 +186,7 @@ const SelectPlanDialog = ({
 
                         <div className="flex items-center gap-4">
                             <button
-                                className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-foreground hover:bg-slate-50"
+                                className="flex h-9 items-center gap-2 rounded-md border border-stroke-neutral-secondary bg-surface-neutral-primary px-4 text-sm font-medium text-content-neutral-primary hover:bg-surface-neutral-primary-hover"
                                 onClick={() => window.open('https://bytechef.io/pricing', '_blank')}
                                 type="button"
                             >

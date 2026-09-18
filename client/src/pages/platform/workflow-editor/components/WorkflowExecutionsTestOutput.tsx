@@ -20,7 +20,6 @@ import useWorkflowExecutions from './properties/hooks/useWorkflowExecutions';
 interface WorkflowExecutionsTestOutputProps {
     onCloseClick?: () => void;
     onEditSubflowClick?: (workflowUuid: string) => void;
-    resizablePanelSize?: number;
     workflowIsRunning: boolean;
     workflowTestExecution?: WorkflowTestExecution;
 }
@@ -28,7 +27,6 @@ interface WorkflowExecutionsTestOutputProps {
 const WorkflowExecutionsTestOutput = ({
     onCloseClick,
     onEditSubflowClick,
-    resizablePanelSize = 300,
     workflowIsRunning,
     workflowTestExecution,
 }: WorkflowExecutionsTestOutputProps) => {
@@ -72,7 +70,7 @@ const WorkflowExecutionsTestOutput = ({
     }, [handleBreadcrumbNavigate, subflowStack.length]);
 
     return (
-        <div className="flex h-full w-full flex-col rounded-lg border border-stroke-neutral-secondary bg-surface-neutral-primary">
+        <div className="flex h-full w-full flex-col rounded-lg border border-stroke-neutral-secondary bg-background">
             <div className="flex items-center justify-between border-b border-stroke-neutral-primary">
                 {job ? (
                     <WorkflowExecutionsHeader job={job} triggerExecution={triggerExecution} />
@@ -109,10 +107,7 @@ const WorkflowExecutionsTestOutput = ({
 
                             {workflowTestExecution?.job && !jobFailedWithNoExecutions && (
                                 <ResizablePanelGroup orientation="horizontal">
-                                    <ResizablePanel
-                                        className="flex flex-col overflow-hidden"
-                                        defaultSize={resizablePanelSize}
-                                    >
+                                    <ResizablePanel className="flex flex-col overflow-hidden" defaultSize={400}>
                                         {subflowStack.length === 0 && rootJob && (
                                             <div className="my-2 flex h-9 items-center gap-1 px-3">
                                                 <WorkflowIcon className="size-3 shrink-0 text-content-neutral-primary" />
@@ -131,7 +126,7 @@ const WorkflowExecutionsTestOutput = ({
                                             />
                                         )}
 
-                                        <ScrollArea className="min-h-0 flex-1 pr-4 pl-1">
+                                        <ScrollArea className="min-h-0 flex-1 pr-3 pl-1">
                                             <Accordion
                                                 className="ml-2 space-y-2"
                                                 defaultValue={

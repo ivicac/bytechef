@@ -163,7 +163,7 @@ const Register = () => {
                                 />
 
                                 <Button
-                                    icon={<img alt="Github logo" src={githubLogo} />}
+                                    icon={<img alt="Github logo" className="dark:invert" src={githubLogo} />}
                                     label="Continue with Github"
                                     onClick={() => {
                                         window.location.href = '/oauth2/authorization/github';

@@ -139,7 +139,7 @@ const WorkflowExecutionSheetContent = ({
                             />
                         )}
 
-                        <ScrollArea className="min-h-0 flex-1 pr-4 pl-1">
+                        <ScrollArea className="min-h-0 flex-1 pr-3 pl-1">
                             <Accordion
                                 className="ml-2 space-y-2"
                                 defaultValue={

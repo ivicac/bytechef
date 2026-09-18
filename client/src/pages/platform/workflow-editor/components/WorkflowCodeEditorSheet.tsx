@@ -256,7 +256,6 @@ const WorkflowCodeEditorSheet = ({
                                         workflowTestExecution && (
                                             <WorkflowExecutionsTestOutput
                                                 onEditSubflowClick={onEditSubflowClick}
-                                                resizablePanelSize={400}
                                                 workflowIsRunning={workflowIsRunning}
                                                 workflowTestExecution={workflowTestExecution}
                                             />
@@ -291,7 +290,7 @@ const WorkflowCodeEditorSheet = ({
                                         <ul className="flex flex-col gap-2 px-3 py-2">
                                             {errors.map((error, index) => (
                                                 <li
-                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm"
+                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm dark:bg-surface-neutral-secondary"
                                                     key={`${error}_${index}`}
                                                 >
                                                     {error}
@@ -328,7 +327,7 @@ const WorkflowCodeEditorSheet = ({
                                         <ul className="flex flex-col gap-2 px-3 py-2">
                                             {warnings.map((warning, index) => (
                                                 <li
-                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm"
+                                                    className="gap-1.5 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm dark:bg-surface-neutral-secondary"
                                                     key={`${warning}_${index}`}
                                                 >
                                                     {warning}

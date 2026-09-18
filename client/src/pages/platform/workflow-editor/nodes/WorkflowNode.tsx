@@ -13,7 +13,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ClusterElementsType, NodeDataType} from '@/shared/types';
 import {useQueryClient} from '@tanstack/react-query';
 import {Handle, Position} from '@xyflow/react';
-import {CheckIcon, ComponentIcon, EllipsisVerticalIcon, TriangleAlertIcon, XIcon} from 'lucide-react';
+import {CheckIcon, ComponentIcon, EllipsisVerticalIcon, XIcon} from 'lucide-react';
 import {KeyboardEvent, ReactNode, forwardRef, memo, useCallback, useMemo, useState} from 'react';
 import sanitize from 'sanitize-html';
 import {twMerge} from 'tailwind-merge';
@@ -27,14 +27,15 @@ import {
 } from '../../cluster-element-editor/utils/clusterElementsUtils';
 import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useNodeClickHandler from '../hooks/useNodeClick';
+import useNodeIssues from '../hooks/useNodeIssues';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
+import {useWorkflowEditorReadOnly} from '../providers/workflowEditorReadOnlyContext';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore, {type WorkflowTestNodeStateI} from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {mapHandlePosition} from '../utils/directionUtils';
 import {getClusterRootTask} from '../utils/getClusterRootTask';
-import {getDisabledNodeReferences} from '../utils/getDisabledNodeReferences';
 import {getContextFromTaskNodeData} from '../utils/getTaskDispatcherContext';
 import getTestNodeStateBorderClassName from '../utils/getTestNodeStateBorderClassName';
 import handleDeleteTask from '../utils/handleDeleteTask';
@@ -55,21 +56,6 @@ import WorkflowTestNodeStatus from './WorkflowTestNodeStatus';
 type EffectiveDirectionType = Parameters<typeof mapHandlePosition>[1];
 type NodePositionType = {x: number; y: number} | undefined;
 
-/**
- * Advisory tooltip for a node whose parameters reference a disabled node. Deliberately names the
- * cause rather than a runtime outcome: a bare `${disabledName}` resolves to null, while
- * `${disabledName.field}` is left as the raw expression string (SpEL cannot read a property off
- * null and the evaluator returns the value unchanged), so "will resolve to null" would be wrong
- * for half the cases.
- */
-function getDisabledReferenceWarning(referencedDisabledNames: Array<string>): string {
-    if (referencedDisabledNames.length > 1) {
-        return `References disabled nodes ${referencedDisabledNames.join(', ')} — they will not run, so this value will not resolve`;
-    }
-
-    return `References disabled node ${referencedDisabledNames[0]} — it will not run, so this value will not resolve`;
-}
-
 interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'id'> {
     clusterElementTypesCount: number;
     data: NodeDataType;
@@ -89,6 +75,7 @@ interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElem
     isRegularNode: boolean;
     isRenaming: boolean;
     isSelected: boolean;
+    issueBadgeShown: boolean;
     nodeDescription: string | undefined;
     nodeLabel: string | undefined;
     nodeMenuOpen?: boolean;
@@ -96,7 +83,6 @@ interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElem
     nodeWidth: number;
     onInfoClose: () => void;
     parentClusterRootId: string | undefined;
-    referencedDisabledNames: Array<string>;
     renameValue: string;
     setRenameValue: (value: string) => void;
     setSwitchPopoverOpen: (open: boolean) => void;
@@ -126,6 +112,7 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
             isRegularNode,
             isRenaming,
             isSelected,
+            issueBadgeShown,
             nodeDescription,
             nodeLabel,
             nodeMenuOpen,
@@ -133,7 +120,6 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
             nodeWidth,
             onInfoClose,
             parentClusterRootId,
-            referencedDisabledNames,
             renameValue,
             setRenameValue,
             setSwitchPopoverOpen,
@@ -260,7 +246,12 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                                         : undefined
                             }
                         >
-                            {testNodeState && <WorkflowTestNodeStatus testNodeState={testNodeState} />}
+                            {testNodeState && (
+                                <WorkflowTestNodeStatus
+                                    hideStatusBadge={issueBadgeShown}
+                                    testNodeState={testNodeState}
+                                />
+                            )}
 
                             <div
                                 className={twMerge(
@@ -295,7 +286,10 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
 
                                         {data.operationName && (
                                             <pre
-                                                className={twMerge('text-sm', isNestedClusterRoot && 'w-full truncate')}
+                                                className={twMerge(
+                                                    'text-sm text-content-neutral-subtle',
+                                                    isNestedClusterRoot && 'w-full truncate'
+                                                )}
                                             >
                                                 {data.operationName}
                                             </pre>
@@ -421,22 +415,13 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                             </span>
 
                             {data.disabled && <DisabledNodeBadge />}
-
-                            {referencedDisabledNames.length > 0 && (
-                                <span title={getDisabledReferenceWarning(referencedDisabledNames)}>
-                                    <TriangleAlertIcon
-                                        aria-hidden
-                                        className="size-3.5 shrink-0 text-content-warning-primary"
-                                    />
-                                </span>
-                            )}
                         </div>
                     )}
 
                     {data.operationName && (
                         <pre
                             className={twMerge(
-                                'text-sm',
+                                'text-sm text-content-neutral-subtle',
                                 isClusterElement && 'text-xs',
                                 (isClusterElement || (isHorizontal && isRegularNode)) && 'w-full truncate'
                             )}
@@ -626,6 +611,10 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     const disabledTaskNames = useDisabledTaskNames();
 
+    const readOnly = useWorkflowEditorReadOnly();
+
+    const {count: issueCount} = useNodeIssues(data.name);
+
     const {cancelWorkflowQueries, invalidateWorkflowQueries, updateWorkflowMutation} = useWorkflowEditor();
 
     const handleNodeClick = useNodeClickHandler(data, id);
@@ -728,11 +717,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         () =>
             isMainRootClusterElement || isNestedClusterRoot ? calculateNodeWidth(clusterElementTypesCount) : NODE_WIDTH,
         [isMainRootClusterElement, isNestedClusterRoot, clusterElementTypesCount]
-    );
-
-    const referencedDisabledNames = useMemo(
-        () => (isEffectivelyDisabled ? [] : getDisabledNodeReferences(data.parameters, disabledTaskNames)),
-        [data.parameters, disabledTaskNames, isEffectivelyDisabled]
     );
 
     const handleDeleteNodeClick = useCallback(
@@ -1030,13 +1014,13 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         isRegularNode,
         isRenaming,
         isSelected,
+        issueBadgeShown: !readOnly && issueCount > 0,
         nodeDescription,
         nodeLabel,
         nodeMenuOpen,
         nodeWidth,
         onInfoClose: () => setInfoCardOpen(false),
         parentClusterRootId,
-        referencedDisabledNames,
         renameValue,
         setRenameValue,
         setSwitchPopoverOpen,

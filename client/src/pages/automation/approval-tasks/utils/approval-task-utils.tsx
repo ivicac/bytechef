@@ -110,11 +110,11 @@ export const getStatusIcon = (status: string): ReactNode => {
 export const getPriorityColor = (priority: string): string => {
     switch (priority) {
         case 'high':
-            return 'bg-surface-destructive-secondary text-content-destructive border-red-200';
+            return 'bg-surface-destructive-secondary text-content-destructive border-stroke-destructive-secondary';
         case 'medium':
-            return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            return 'bg-surface-warning-secondary text-content-warning-primary border-stroke-warning-secondary';
         case 'low':
-            return 'bg-surface-success-secondary text-content-success-primary border-green-200';
+            return 'bg-surface-success-secondary text-content-success-primary border-stroke-success-secondary';
         default:
             return 'bg-surface-neutral-secondary text-content-neutral-primary border-stroke-neutral-secondary';
     }
