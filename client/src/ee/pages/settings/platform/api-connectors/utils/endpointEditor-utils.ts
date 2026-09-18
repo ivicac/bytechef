@@ -31,7 +31,7 @@ export const getStatusCodeColor = (statusCode: string): string => {
     }
 
     if (code >= 400 && code < 500) {
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-surface-warning-secondary text-content-warning-primary';
     }
 
     if (code >= 500) {

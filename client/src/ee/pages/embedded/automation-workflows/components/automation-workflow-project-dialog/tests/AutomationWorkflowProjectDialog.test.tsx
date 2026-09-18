@@ -6,6 +6,7 @@ import AutomationWorkflowProjectDialog from '../AutomationWorkflowProjectDialog'
 const existingProject = {
     automationHubVisible: true,
     categoryId: null,
+    codeWorkflowProject: false,
     description: null,
     id: '1',
     lastPublishedVersion: null,

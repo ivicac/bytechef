@@ -9,8 +9,8 @@ import {
     DialogHeader,
     DialogMain,
 } from '@/components/Dialog';
+import Switch from '@/components/Switch/Switch';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
-import {Switch} from '@/components/ui/switch';
 import {Textarea} from '@/components/ui/textarea';
 import DescriptionFormField from '@/shared/components/entity-form/DescriptionFormField';
 import NameFormField from '@/shared/components/entity-form/NameFormField';

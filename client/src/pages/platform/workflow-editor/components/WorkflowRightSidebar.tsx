@@ -42,10 +42,9 @@ const WorkflowRightSidebar = ({
 }: WorkflowRightSidebarProps) => {
     const ai = useApplicationInfoStore((state) => state.ai);
 
-    const ff_1570 = useFeatureFlagsStore()('ff-1570');
     const ff_1840 = useFeatureFlagsStore()('ff-1840');
 
-    const copilotEnabled = ai.copilot.enabled && ff_1570;
+    const copilotEnabled = ai.copilot.enabled;
 
     const rightSidebarNavigation = useMemo(
         () =>
@@ -159,7 +158,10 @@ const WorkflowRightSidebar = ({
                         <TooltipTrigger asChild>
                             <Button
                                 aria-label={item.name}
-                                className={twMerge(isActive && activeItemStyling)}
+                                className={twMerge(
+                                    'text-content-neutral-subtle hover:text-content-neutral-primary',
+                                    isActive && activeItemStyling
+                                )}
                                 icon={item.icon}
                                 key={item.name}
                                 onClick={item.onClick}

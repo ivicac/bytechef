@@ -253,13 +253,13 @@ describe('DataSyncDetailHeader', () => {
         );
     });
 
-    it('enables Deploy Project only once the project has a published version', () => {
+    it('enables Deploy only once the project has a published version', () => {
         renderHeader(0);
 
-        expect(screen.getByRole('button', {name: 'Deploy Project'})).toBeDisabled();
+        expect(screen.getByRole('button', {name: 'Deploy'})).toBeDisabled();
 
         renderHeader(2);
 
-        expect(screen.getAllByRole('button', {name: 'Deploy Project'}).at(-1)).toBeEnabled();
+        expect(screen.getAllByRole('button', {name: 'Deploy'}).at(-1)).toBeEnabled();
     });
 });

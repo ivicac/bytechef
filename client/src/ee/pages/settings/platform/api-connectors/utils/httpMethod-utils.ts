@@ -32,7 +32,7 @@ export const getHttpMethodPillColor = (method?: string | null): string => {
         case 'POST':
             return 'bg-surface-brand-secondary text-content-brand-primary';
         case 'PUT':
-            return 'bg-yellow-100 text-yellow-800';
+            return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300';
         case 'PATCH':
             return 'bg-surface-warning-secondary text-content-warning-primary';
         case 'DELETE':

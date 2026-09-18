@@ -110,7 +110,12 @@ const WorkflowExecutionSheetContent = ({
 
     return (
         <div className="flex size-full flex-col">
-            <WorkflowExecutionsHeader cost={workflowExecutionCost} job={job} triggerExecution={triggerExecution} />
+            <WorkflowExecutionsHeader
+                actions={headerActions}
+                cost={workflowExecutionCost}
+                job={job}
+                triggerExecution={triggerExecution}
+            />
 
             {jobFailedWithNoExecutions ? (
                 <div className="flex-1 p-4">
@@ -142,7 +147,7 @@ const WorkflowExecutionSheetContent = ({
                             />
                         )}
 
-                        <ScrollArea className="min-h-0 flex-1 pr-4 pl-1">
+                        <ScrollArea className="min-h-0 flex-1 pr-3 pl-1">
                             <Accordion
                                 className="ml-2 space-y-2"
                                 defaultValue={

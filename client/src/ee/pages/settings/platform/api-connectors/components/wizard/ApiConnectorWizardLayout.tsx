@@ -68,7 +68,7 @@ const ApiConnectorWizardLayout = ({
                                         className={twMerge(
                                             'group flex flex-col border-l-4 py-2 pl-4 md:flex-1 md:border-t-4 md:border-l-0 md:pt-2 md:pb-0 md:pl-0',
                                             index <= currentStep
-                                                ? 'border-gray-900 hover:border-gray-800'
+                                                ? 'border-gray-900 hover:border-gray-800 dark:border-content-neutral-primary dark:hover:border-content-neutral-subtle'
                                                 : 'border-stroke-neutral-secondary hover:border-stroke-neutral-tertiary'
                                         )}
                                         key={step}
