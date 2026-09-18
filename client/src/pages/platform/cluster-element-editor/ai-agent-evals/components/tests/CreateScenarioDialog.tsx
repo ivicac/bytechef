@@ -151,8 +151,8 @@ const CreateScenarioDialog = ({agentEvalTestId, editData, onClose, onCreate, onU
                                 className={twMerge(
                                     'rounded-md border px-3 py-1.5 text-sm',
                                     scenarioType === AiAgentScenarioType.SingleTurn
-                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        ? 'border-stroke-brand-primary bg-surface-brand-secondary text-content-brand-primary'
+                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                 )}
                                 onClick={() => setScenarioType(AiAgentScenarioType.SingleTurn)}
                                 type="button"
@@ -164,8 +164,8 @@ const CreateScenarioDialog = ({agentEvalTestId, editData, onClose, onCreate, onU
                                 className={twMerge(
                                     'rounded-md border px-3 py-1.5 text-sm',
                                     scenarioType === AiAgentScenarioType.MultiTurn
-                                        ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        ? 'border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                                        : 'border-stroke-neutral-secondary text-content-neutral-secondary hover:bg-surface-neutral-primary-hover'
                                 )}
                                 onClick={() => setScenarioType(AiAgentScenarioType.MultiTurn)}
                                 type="button"

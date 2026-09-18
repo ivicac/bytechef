@@ -207,7 +207,7 @@ const AiObservabilityAlertRules = () => {
                                                     </span>
 
                                                     {rule.snoozedUntil && Number(rule.snoozedUntil) > Date.now() && (
-                                                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                                        <span className="rounded-full bg-surface-warning-secondary px-2 py-0.5 text-xs font-medium text-content-warning-primary">
                                                             Snoozed {formatRemainingSnooze(Number(rule.snoozedUntil))}
                                                         </span>
                                                     )}

@@ -360,7 +360,7 @@ const AddContextSourceDialog = ({contextStoreId: presetContextStoreId, trigger}:
 
                                     {existingContextStores.length === 0 ? (
                                         <p
-                                            className="rounded-md border border-amber-200 bg-surface-warning-secondary p-2 text-xs text-content-warning-primary"
+                                            className="rounded-md border border-stroke-warning-secondary bg-surface-warning-secondary p-2 text-xs text-content-warning-primary"
                                             data-testid="no-context-stores-warning"
                                         >
                                             No Context Stores exist in this workspace at the active environment. Create

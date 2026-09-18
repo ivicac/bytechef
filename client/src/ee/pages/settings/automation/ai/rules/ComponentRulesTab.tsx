@@ -92,7 +92,7 @@ const ComponentRulesTab = () => {
                 </div>
 
                 {componentRuleSettings?.observeMode && (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="rounded-md border border-stroke-warning-secondary bg-surface-warning-secondary p-3 text-sm text-content-neutral-primary">
                         Observe mode is on. Rules are evaluated and recorded on the Audit Events page, but nothing is
                         blocked and no approval is requested.
                     </div>

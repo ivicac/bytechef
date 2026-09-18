@@ -67,7 +67,7 @@ const AgentChannelRow = ({channel, definition, onDelete, onEdit, pinned}: AgentC
                     {definition?.icon ? (
                         <InlineSVG
                             className="size-5"
-                            loader={<ComponentIcon className="size-5 text-gray-700" />}
+                            loader={<ComponentIcon className="size-5 text-content-neutral-primary" />}
                             src={definition.icon}
                         />
                     ) : (

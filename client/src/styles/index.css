@@ -48,6 +48,56 @@
     color: hsl(var(--destructive-foreground)) !important;
 }
 
+@layer components {
+    /* Tooltips follow the theme in dark mode instead of inverting to a light bubble, so every floating
+       surface reads the same. In the components layer with `!important`: Tailwind's utilities are
+       `!important` too, and for important declarations an earlier layer wins. */
+    .dark [data-slot='tooltip-content'] {
+        background-color: hsl(var(--popover)) !important;
+        color: hsl(var(--popover-foreground)) !important;
+        border: 1px solid hsl(var(--surface-neutral-tertiary)) !important;
+    }
+
+    .dark
+        :is(
+            [data-slot='context-menu-content'],
+            [data-slot='context-menu-sub-content'],
+            [data-slot='dropdown-menu-content'],
+            [data-slot='dropdown-menu-sub-content'],
+            [data-slot='hover-card-content'],
+            [data-slot='popover-content'],
+            [data-slot='select-content']
+        ) {
+        border-color: hsl(var(--surface-neutral-tertiary)) !important;
+    }
+
+    .dark
+        :is(
+            [data-slot='context-menu-content'],
+            [data-slot='context-menu-sub-content'],
+            [data-slot='dropdown-menu-content'],
+            [data-slot='dropdown-menu-sub-content'],
+            [data-slot='select-content']
+        ) {
+        box-shadow: 0 10px 24px -6px rgb(0 0 0 / 0.6) !important;
+    }
+
+    .dark
+        :is(
+            [data-slot='command-separator'],
+            [data-slot='context-menu-separator'],
+            [data-slot='dropdown-menu-separator'],
+            [data-slot='select-separator']
+        ) {
+        background-color: color-mix(in srgb, hsl(var(--border)) 50%, hsl(var(--surface-neutral-tertiary))) !important;
+    }
+
+    .dark [data-slot='tooltip-content'] svg.fill-foreground {
+        background-color: hsl(var(--popover)) !important;
+        fill: hsl(var(--popover)) !important;
+    }
+}
+
 @utility heading-tertiary {
     @apply font-semibold text-muted-foreground uppercase;
 }
@@ -91,6 +141,7 @@
         --content-neutral-primary: 229 84% 5%;
         --content-neutral-secondary: 215 19% 35%;
         --content-neutral-secondary-hover: 215 19% 35%;
+        --content-neutral-subtle: 229 84% 5%;
         --content-neutral-tertiary: 215 20% 65%;
         /* Text on the brand surface. Kept separate from `--content-onsurface-primary` so the brand
            fill can move independently of the other "on surface" colours: when the dark brand
@@ -99,6 +150,7 @@
         --content-onbrand: 0 0% 100%;
         --content-onsurface-primary: 0 0% 100%;
         --content-onsurface-secondary: 215 20% 65%;
+        --content-ontooltip: 0 0% 100%;
         --content-onwarning: 229 84% 5%;
         --content-success-primary: 142 72% 29%;
         --content-success: 142 72% 29%;
@@ -154,7 +206,7 @@
         --stroke-map-tertiary: 272 72% 47%;
         --stroke-neutral-primary: 210 40% 96%;
         --stroke-neutral-secondary: 214 32% 91%;
-        --stroke-neutral-tertiary: 213, 27%, 84%;
+        --stroke-neutral-tertiary: 213 27% 84%;
         --stroke-onsurface-primary: 0 0% 100%;
         --stroke-onsurface-primary-hover: 0 0% 100%;
         --stroke-parallel-primary: 85 85% 35%;
@@ -170,7 +222,7 @@
         --stroke-warning-primary: 45 93% 47%;
         --stroke-warning-primary-hover: 41 96% 40%;
         --stroke-warning-primary-active: 35 92% 33%;
-        --stroke-warning-secondary: 44, 70%, 82%;
+        --stroke-warning-secondary: 44 70% 82%;
         --success: 142 76% 36%;
         --success-foreground: 142 77% 73%;
         --surface-brand-primary: 217 91% 40%;
@@ -272,15 +324,11 @@
            an aliased selected segment would be indistinguishable from an unselected one. */
         --hub-segment-selected: #414146;
 
-        /* Neutrals follow a zinc scale (page #19191C, raised #1D1D21, selected/border #2D2D31,
-           text #EDEDF0, secondary text #97979B) — a near-neutral grey at hue 240 rather than the
-           blue-tinted slate this used to be. The brand tokens further down are deliberately NOT
-           part of that change: buttons keep their blue in dark mode. */
         --accent: 240 4% 18%;
         --accent-foreground: 240 9% 94%;
-        --background: 240 6% 10%;
+        --background: 240 6% 13%;
         --border: 240 4% 18%;
-        --card: 240 6% 10%;
+        --card: 240 6% 13%;
         --card-foreground: 240 9% 94%;
         --chart-1: 220 70% 50%;
         --chart-2: 160 60% 45%;
@@ -292,17 +340,19 @@
         --content-brand-primary-active: 217 61% 90%;
         --content-brand-secondary: 217 91% 40%;
         --content-canvas_dot: 240 4% 26%;
-        --content-destructive: 0 84% 60%;
-        --content-destructive-primary: 0 84% 60%;
-        --content-destructive-primary-hover: 0 84% 67%;
+        --content-destructive: 0 91% 71%;
+        --content-destructive-primary: 0 91% 71%;
+        --content-destructive-primary-hover: 0 94% 82%;
         --content-disabled: 0 0% 64%;
         --content-neutral-primary: 240 9% 94%;
         --content-neutral-secondary: 240 2% 60%;
         --content-neutral-secondary-hover: 240 3% 77%;
+        --content-neutral-subtle: 240 3% 77%;
         --content-neutral-tertiary: 240 2% 60%;
         --content-onbrand: 0 0% 100%;
         --content-onsurface-primary: 240 9% 94%;
         --content-onsurface-secondary: 240 3% 77%;
+        --content-ontooltip: 240 6% 10%;
         --content-onwarning: 229 84% 5%;
         --content-success: 142 71% 45%;
         --content-success-primary: 142 71% 45%;
@@ -311,10 +361,10 @@
         --destructive: 0 72% 51%;
         --destructive-foreground: 210 20% 98%;
         --foreground: 240 9% 94%;
-        --input: 240 4% 18%;
+        --input: 240 4% 27%;
         --muted: 240 4% 18%;
         --muted-foreground: 240 2% 60%;
-        --popover: 240 6% 12%;
+        --popover: 240 6% 15%;
         --popover-foreground: 240 9% 94%;
         --primary: 240 9% 94%;
         --primary-foreground: 240 6% 10%;
@@ -374,18 +424,15 @@
         --stroke-warning-primary-hover: 48 96% 53%;
         --stroke-warning-primary-active: 48 96% 53%;
         --stroke-warning-secondary: 45 80% 30%;
-        --success: 142, 69%, 58%;
-        --success-foreground: 144, 61%, 20%;
-        /* A saturated blue with white text, as in light mode, but lifted a step so it does not sink
-           into the near-black page — and its hover/active states go LIGHTER, the reverse of light
-           mode, because darkening on a dark ground reads as the button receding. */
+        --success: 142 69% 58%;
+        --success-foreground: 144 61% 20%;
         --surface-brand-primary: 217 91% 48%;
         --surface-brand-primary-hover: 217 91% 55%;
         --surface-brand-primary-active: 217 91% 60%;
         --surface-brand-primary-disabled: 217 91% 48% / 50%;
-        --surface-brand-secondary: 217 91% 22%;
-        --surface-brand-secondary-hover: 217 91% 28%;
-        --surface-brand-tertiary: 217 91% 22%;
+        --surface-brand-secondary: 217 45% 20%;
+        --surface-brand-secondary-hover: 217 45% 25%;
+        --surface-brand-tertiary: 217 45% 20%;
         --surface-destructive-primary: 0 72% 51%;
         --surface-destructive-primary-hover: 0 72% 51%;
         --surface-destructive-primary-active: 0 72% 51%;
@@ -394,8 +441,8 @@
         --surface-destructive-secondary-active: 0 63% 25%;
         --surface-disabled: 0 0% 83%;
         --surface-main: 240 6% 10%;
-        --surface-neutral-primary: 240 6% 10%;
-        --surface-neutral-primary-hover: 240 5% 14%;
+        --surface-neutral-primary: 240 6% 13%;
+        --surface-neutral-primary-hover: 240 5% 16%;
         --surface-neutral-primary-active: 240 4% 18%;
         --surface-neutral-secondary: 240 4% 18%;
         --surface-neutral-secondary-hover: 240 4% 24%;
@@ -414,6 +461,7 @@
         --surface-warning-secondary: 45 80% 16%;
         --surface-warning-secondary-hover: 45 80% 22%;
         --surface-warning-secondary-active: 45 80% 28%;
+        --sidebar-foreground: 240 3% 77%;
         --rdg-color-scheme: dark;
     }
 
@@ -456,21 +504,56 @@
         --sidebar-border: 217 38% 28%;
     }
 
-    /* Component icons are SVGs shipped by the server and inlined as-is, and the monochrome ones are dark —
-       invisible on the dark canvas. Two shapes: an explicit near-black paint (`manual.svg` strokes `black`,
-       `logger.svg` fills `#000000`, `var.svg` strokes `#374151`), and no fill at all (`condition.svg`,
-       `http-client.svg`), which SVG paints black by default. The first is repainted per attribute; the
-       second by giving an unfilled root a fill its children inherit — an explicit `fill` on a child still
-       wins over an inherited value, so multicolour brand logos keep their colours. Scoped to canvas
-       nodes so icons elsewhere are not affected. */
-    /* The colour list is a census of every dark, near-neutral paint in the shipped component icons (the
-       SVGs under each module's `src/main/resources/assets` directory on the server); a new icon in some
-       other near-black needs adding here. Dark navies (`#1b1c39`, `#0c0f33`) are brand colours and
-       deliberately left out. */
-    .dark .react-flow__node svg:not([fill]),
     .dark
-        .react-flow__node
-        :is(svg, svg *):is(
+        svg:not([fill], [role='img']):not(
+            :has(
+                [fill='#fff' i],
+                [fill='#ffffff' i],
+                [fill='white' i],
+                [fill='#f9f9f9' i],
+                [fill='#fafafa' i],
+                [fill='#fbfbfb' i],
+                [stroke='#fff' i],
+                [stroke='#ffffff' i],
+                [stroke='white' i],
+                [style*='fill: rgb(255, 255, 255)'],
+                [style*='stroke: rgb(255, 255, 255)']
+            )
+        ),
+    .dark
+        :is(
+            svg:not(
+                :has(
+                    [fill='#fff' i],
+                    [fill='#ffffff' i],
+                    [fill='white' i],
+                    [fill='#f9f9f9' i],
+                    [fill='#fafafa' i],
+                    [fill='#fbfbfb' i],
+                    [stroke='#fff' i],
+                    [stroke='#ffffff' i],
+                    [stroke='white' i],
+                    [style*='fill: rgb(255, 255, 255)'],
+                    [style*='stroke: rgb(255, 255, 255)']
+                )
+            ),
+            svg:not(
+                    :has(
+                        [fill='#fff' i],
+                        [fill='#ffffff' i],
+                        [fill='white' i],
+                        [fill='#f9f9f9' i],
+                        [fill='#fafafa' i],
+                        [fill='#fbfbfb' i],
+                        [stroke='#fff' i],
+                        [stroke='#ffffff' i],
+                        [stroke='white' i],
+                        [style*='fill: rgb(255, 255, 255)'],
+                        [style*='stroke: rgb(255, 255, 255)']
+                    )
+                )
+                *
+        ):is(
             [fill='black' i],
             [fill='#000' i],
             [fill='#000000' i],
@@ -497,12 +580,43 @@
             [fill='#474747' i],
             [fill='#4c4c4c' i]
         ) {
-        fill: hsl(var(--content-neutral-primary));
+        fill: hsl(var(--content-neutral-subtle));
     }
 
     .dark
-        .react-flow__node
-        :is(svg, svg *):is(
+        :is(
+            svg:not(
+                :has(
+                    [fill='#fff' i],
+                    [fill='#ffffff' i],
+                    [fill='white' i],
+                    [fill='#f9f9f9' i],
+                    [fill='#fafafa' i],
+                    [fill='#fbfbfb' i],
+                    [stroke='#fff' i],
+                    [stroke='#ffffff' i],
+                    [stroke='white' i],
+                    [style*='fill: rgb(255, 255, 255)'],
+                    [style*='stroke: rgb(255, 255, 255)']
+                )
+            ),
+            svg:not(
+                    :has(
+                        [fill='#fff' i],
+                        [fill='#ffffff' i],
+                        [fill='white' i],
+                        [fill='#f9f9f9' i],
+                        [fill='#fafafa' i],
+                        [fill='#fbfbfb' i],
+                        [stroke='#fff' i],
+                        [stroke='#ffffff' i],
+                        [stroke='white' i],
+                        [style*='fill: rgb(255, 255, 255)'],
+                        [style*='stroke: rgb(255, 255, 255)']
+                    )
+                )
+                *
+        ):is(
             [stroke='black' i],
             [stroke='#000' i],
             [stroke='#000000' i],
@@ -510,23 +624,47 @@
             [stroke='#33363f' i],
             [stroke='#374151' i]
         ) {
-        stroke: hsl(var(--content-neutral-primary));
+        stroke: hsl(var(--content-neutral-subtle));
     }
 
-    /* Some icons paint through an inline `style` instead (`open-ai.svg`: `fill:rgb(0%,0%,0%)`). The selector
-       cannot match the text as shipped: react-inlinesvg rebuilds the SVG as React elements, turning `style`
-       into an object that the browser writes back in its own form, `fill: rgb(0, 0, 0)` for both the hex
-       and the percentage spellings. So these match that serialised form. An inline style outranks any
-       stylesheet rule, so these alone need `!important`. */
     .dark
-        .react-flow__node
-        svg
+        svg:not(
+            :has(
+                [fill='#fff' i],
+                [fill='#ffffff' i],
+                [fill='white' i],
+                [fill='#f9f9f9' i],
+                [fill='#fafafa' i],
+                [fill='#fbfbfb' i],
+                [stroke='#fff' i],
+                [stroke='#ffffff' i],
+                [stroke='white' i],
+                [style*='fill: rgb(255, 255, 255)'],
+                [style*='stroke: rgb(255, 255, 255)']
+            )
+        )
         :is([style*='fill: rgb(0, 0, 0)'], [style*='fill: rgb(24, 24, 24)'], [style*='fill: rgb(40, 42, 54)']) {
-        fill: hsl(var(--content-neutral-primary)) !important;
+        fill: hsl(var(--content-neutral-subtle)) !important;
     }
 
-    .dark .react-flow__node svg [style*='stroke: rgb(0, 0, 0)'] {
-        stroke: hsl(var(--content-neutral-primary)) !important;
+    .dark
+        svg:not(
+            :has(
+                [fill='#fff' i],
+                [fill='#ffffff' i],
+                [fill='white' i],
+                [fill='#f9f9f9' i],
+                [fill='#fafafa' i],
+                [fill='#fbfbfb' i],
+                [stroke='#fff' i],
+                [stroke='#ffffff' i],
+                [stroke='white' i],
+                [style*='fill: rgb(255, 255, 255)'],
+                [style*='stroke: rgb(255, 255, 255)']
+            )
+        )
+        [style*='stroke: rgb(0, 0, 0)'] {
+        stroke: hsl(var(--content-neutral-subtle)) !important;
     }
 
     * {
@@ -611,7 +749,9 @@
     line-height: 1.5rem !important;
 }
 
-.aui-thread-root .aui-composer-root {
+.aui-thread-root .aui-composer-root,
+.aui-cc-thread-root .aui-composer-root {
+    background-color: hsl(var(--background));
     box-shadow: none;
 }
 

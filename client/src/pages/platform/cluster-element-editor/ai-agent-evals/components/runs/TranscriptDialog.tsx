@@ -34,22 +34,22 @@ const TranscriptDialog = ({onClose, resultId, scenarioName}: TranscriptDialogPro
 
                 {isLoading && (
                     <div className="flex items-center justify-center py-8">
-                        <Loader2Icon className="size-5 animate-spin text-gray-400" />
+                        <Loader2Icon className="size-5 animate-spin text-content-neutral-tertiary" />
 
                         <span className="ml-2 text-sm text-content-neutral-secondary">Loading transcript...</span>
                     </div>
                 )}
 
                 {!!error && (
-                    <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-                        <AlertCircleIcon className="size-4 text-red-500" />
+                    <div className="flex items-center gap-2 rounded-md border border-stroke-destructive-secondary bg-surface-destructive-secondary px-4 py-3">
+                        <AlertCircleIcon className="size-4 text-content-destructive" />
 
-                        <span className="text-sm text-red-600">Failed to load transcript.</span>
+                        <span className="text-sm text-content-destructive">Failed to load transcript.</span>
                     </div>
                 )}
 
                 {!isLoading && !error && !transcriptData && (
-                    <div className="rounded-md border border-border/50 bg-gray-50 px-4 py-3">
+                    <div className="rounded-md border border-border/50 bg-surface-neutral-secondary/50 px-4 py-3">
                         <div className="text-sm text-content-neutral-secondary">No transcript data available.</div>
                     </div>
                 )}
@@ -59,32 +59,38 @@ const TranscriptDialog = ({onClose, resultId, scenarioName}: TranscriptDialogPro
                         {groupedTurns.map((turn) => (
                             <div className="space-y-2" key={turn.turnIndex}>
                                 {groupedTurns.length > 1 && (
-                                    <div className="text-xs font-medium text-gray-400">Turn {turn.turnIndex}</div>
+                                    <div className="text-xs font-medium text-content-neutral-tertiary">
+                                        Turn {turn.turnIndex}
+                                    </div>
                                 )}
 
                                 {turn.userMessage && (
-                                    <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2.5">
+                                    <div className="rounded-lg border border-stroke-brand-secondary/50 bg-surface-brand-secondary/50 px-3 py-2.5">
                                         <div className="mb-1.5 flex items-center gap-1.5">
-                                            <UserIcon className="size-3.5 text-blue-600" />
+                                            <UserIcon className="size-3.5 text-content-brand-primary" />
 
-                                            <span className="text-xs font-semibold text-blue-700">User</span>
+                                            <span className="text-xs font-semibold text-content-brand-primary">
+                                                User
+                                            </span>
                                         </div>
 
-                                        <div className="text-sm whitespace-pre-wrap text-gray-800">
+                                        <div className="text-sm whitespace-pre-wrap text-content-neutral-primary">
                                             {turn.userMessage.content}
                                         </div>
                                     </div>
                                 )}
 
                                 {turn.assistantMessage && (
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2.5">
+                                    <div className="rounded-lg border border-stroke-neutral-secondary bg-surface-neutral-secondary/50 px-3 py-2.5">
                                         <div className="mb-1.5 flex items-center gap-1.5">
-                                            <BotIcon className="size-3.5 text-gray-600" />
+                                            <BotIcon className="size-3.5 text-content-neutral-secondary" />
 
-                                            <span className="text-xs font-semibold text-gray-700">Assistant</span>
+                                            <span className="text-xs font-semibold text-content-neutral-primary">
+                                                Assistant
+                                            </span>
                                         </div>
 
-                                        <div className="text-sm whitespace-pre-wrap text-gray-800">
+                                        <div className="text-sm whitespace-pre-wrap text-content-neutral-primary">
                                             {turn.assistantMessage.content}
                                         </div>
 
@@ -93,26 +99,26 @@ const TranscriptDialog = ({onClose, resultId, scenarioName}: TranscriptDialogPro
                                                 <div className="mt-2 space-y-1.5">
                                                     {turn.assistantMessage.toolCalls.map((toolCall, toolCallIndex) => (
                                                         <details
-                                                            className="rounded border border-gray-200 bg-white"
+                                                            className="rounded border border-stroke-neutral-secondary bg-surface-neutral-primary"
                                                             key={toolCallIndex}
                                                         >
                                                             <summary
                                                                 className={twMerge(
-                                                                    'cursor-pointer px-2.5 py-1.5 text-xs font-medium text-gray-600',
-                                                                    'hover:text-gray-800'
+                                                                    'cursor-pointer px-2.5 py-1.5 text-xs font-medium text-content-neutral-secondary',
+                                                                    'hover:text-content-neutral-primary'
                                                                 )}
                                                             >
                                                                 Tool: {toolCall.name}
                                                             </summary>
 
-                                                            <div className="space-y-1 border-t border-gray-100 px-2.5 py-2">
+                                                            <div className="space-y-1 border-t border-stroke-neutral-secondary px-2.5 py-2">
                                                                 {toolCall.input && (
                                                                     <div>
-                                                                        <div className="text-[10px] font-medium tracking-wide text-gray-400 uppercase">
+                                                                        <div className="text-[10px] font-medium tracking-wide text-content-neutral-tertiary uppercase">
                                                                             Input
                                                                         </div>
 
-                                                                        <pre className="mt-0.5 overflow-x-auto rounded bg-gray-100 p-1.5 font-mono text-xs break-all whitespace-pre-wrap text-gray-700">
+                                                                        <pre className="mt-0.5 overflow-x-auto rounded bg-surface-neutral-secondary p-1.5 font-mono text-xs break-all whitespace-pre-wrap text-content-neutral-primary">
                                                                             {toolCall.input}
                                                                         </pre>
                                                                     </div>
@@ -120,11 +126,11 @@ const TranscriptDialog = ({onClose, resultId, scenarioName}: TranscriptDialogPro
 
                                                                 {toolCall.output && (
                                                                     <div>
-                                                                        <div className="text-[10px] font-medium tracking-wide text-gray-400 uppercase">
+                                                                        <div className="text-[10px] font-medium tracking-wide text-content-neutral-tertiary uppercase">
                                                                             Output
                                                                         </div>
 
-                                                                        <pre className="mt-0.5 overflow-x-auto rounded bg-gray-100 p-1.5 font-mono text-xs break-all whitespace-pre-wrap text-gray-700">
+                                                                        <pre className="mt-0.5 overflow-x-auto rounded bg-surface-neutral-secondary p-1.5 font-mono text-xs break-all whitespace-pre-wrap text-content-neutral-primary">
                                                                             {toolCall.output}
                                                                         </pre>
                                                                     </div>
@@ -140,10 +146,12 @@ const TranscriptDialog = ({onClose, resultId, scenarioName}: TranscriptDialogPro
                         ))}
 
                         {transcriptData.expectedOutput && (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-2.5">
-                                <div className="mb-1 text-xs font-semibold text-amber-700">Expected Output</div>
+                            <div className="rounded-lg border border-stroke-warning-secondary bg-surface-warning-secondary/50 px-3 py-2.5">
+                                <div className="mb-1 text-xs font-semibold text-content-warning-primary">
+                                    Expected Output
+                                </div>
 
-                                <div className="text-sm whitespace-pre-wrap text-gray-700">
+                                <div className="text-sm whitespace-pre-wrap text-content-neutral-primary">
                                     {transcriptData.expectedOutput}
                                 </div>
                             </div>

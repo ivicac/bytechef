@@ -64,7 +64,7 @@ export default function AiAgentTools() {
                 <fieldset className="space-y-2 rounded border border-stroke-neutral-secondary p-2" key={toolGroup.name}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                            <ShieldCheckIcon className="size-3.5 text-amber-600" />
+                            <ShieldCheckIcon className="size-3.5 text-content-warning-primary" />
 
                             <span className="text-xs font-medium">{toolGroup.label}</span>
 

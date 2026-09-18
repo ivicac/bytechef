@@ -150,9 +150,6 @@ function AlertDialogAction({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
   return (
-    // className goes on Button, not on the Slot child: Slot concatenates the two class strings without
-    // tailwind-merge, so a call site's `text-*` would sit beside the variant's `text-primary-foreground`
-    // and lose on stylesheet order (dark text on a red destructive button in dark mode).
     <Button variant={variant} size={size} className={className} asChild>
       <AlertDialogPrimitive.Action data-slot="alert-dialog-action" {...props} />
     </Button>

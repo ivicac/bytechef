@@ -1083,7 +1083,7 @@ const ConnectionDialog = ({
 
                         {!oAuth2AuthorizationParametersLoading && wizardStep === 'oauth_step' && (
                             <>
-                                <Alert className="border-blue-50 bg-surface-brand-secondary text-content-brand-primary">
+                                <Alert className="border-surface-brand-secondary bg-surface-brand-secondary text-content-brand-primary">
                                     <RocketIcon className="size-4" />
 
                                     <AlertTitle>Heads up!</AlertTitle>

@@ -135,7 +135,7 @@ const AiObservabilityExports = () => {
                                                                   ? 'bg-surface-destructive-secondary text-content-destructive'
                                                                   : exportJob.status === 'PROCESSING'
                                                                     ? 'bg-surface-brand-secondary text-content-brand-primary'
-                                                                    : 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-surface-warning-secondary text-content-warning-primary'
                                                         }`}
                                                     >
                                                         {exportJob.status}

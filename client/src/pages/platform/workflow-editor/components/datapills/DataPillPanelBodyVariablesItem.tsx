@@ -34,7 +34,7 @@ const DataPillPanelBodyVariablesItem = ({dataPillFilterQuery}: DataPillPanelBody
 
     return (
         <>
-            <AccordionTrigger className="group flex w-full items-center justify-between border-border/50 bg-surface-main p-4 group-data-[state=closed]:border-b">
+            <AccordionTrigger className="group flex w-full items-center justify-between border-border/50 bg-surface-main p-4 group-data-[state=closed]:border-b dark:bg-popover">
                 <div className="flex items-center space-x-4">
                     <VariableIcon className="size-5" />
 

@@ -10,15 +10,21 @@ import useWorkflowIssuesStore from '../stores/useWorkflowIssuesStore';
 import WorkflowNode from './WorkflowNode';
 
 // Mutable slice of the editor store so each test can toggle which node is being renamed.
-const {dataStoreState, directionStoreState, editorStoreState, recordedContextMenuProps} = vi.hoisted(() => ({
-    dataStoreState: {definition: '{}', triggers: [] as Array<{name: string}>},
-    directionStoreState: {layoutDirection: 'TB'},
-    editorStoreState: {
-        copiedNode: undefined as Record<string, unknown> | undefined,
-        copiedWorkflowId: undefined as string | undefined,
-        renamingNodeName: undefined as string | undefined,
-    },
-    recordedContextMenuProps: {value: undefined as Record<string, unknown> | undefined},
+const {dataStoreState, directionStoreState, editorStoreState, recordedContextMenuProps, testNodeStatesState} =
+    vi.hoisted(() => ({
+        dataStoreState: {definition: '{}', triggers: [] as Array<{name: string}>},
+        directionStoreState: {layoutDirection: 'TB'},
+        editorStoreState: {
+            copiedNode: undefined as Record<string, unknown> | undefined,
+            copiedWorkflowId: undefined as string | undefined,
+            renamingNodeName: undefined as string | undefined,
+        },
+        recordedContextMenuProps: {value: undefined as Record<string, unknown> | undefined},
+        testNodeStatesState: {value: {} as Record<string, {status: string}>},
+    }));
+
+vi.mock('../hooks/useWorkflowTestNodeStates', () => ({
+    default: () => testNodeStatesState.value,
 }));
 
 // Render the context menu as a passthrough so the node content (and its rename input) is asserted directly.
@@ -145,6 +151,7 @@ describe('WorkflowNode', () => {
         dataStoreState.definition = '{}';
         directionStoreState.layoutDirection = 'TB';
         editorStoreState.renamingNodeName = undefined;
+        testNodeStatesState.value = {};
     });
 
     // A main root cluster element falls through to the last return, which passes no node menu --
@@ -219,55 +226,40 @@ describe('WorkflowNode', () => {
         useWorkflowIssuesStore.getState().reset();
     });
 
+    it('shows only the issue badge on a tested node that has an issue', () => {
+        testNodeStatesState.value = {approval_1: {status: 'COMPLETED'}};
+
+        useWorkflowIssuesStore.getState().setSweepIssues([
+            {
+                kind: 'DISABLED_REFERENCE',
+                message: 'References disabled node action_1 — it will not run, so this value will not resolve',
+                nodeName: 'approval_1',
+                severity: 'WARNING',
+                source: 'SWEEP',
+            },
+        ]);
+
+        const {container} = renderNode();
+
+        expect(screen.getByLabelText('1 issue')).toBeInTheDocument();
+        expect(container.querySelector('.lucide-check')).not.toBeInTheDocument();
+
+        useWorkflowIssuesStore.getState().reset();
+    });
+
+    it('shows the test status on a tested node without issues', () => {
+        testNodeStatesState.value = {approval_1: {status: 'COMPLETED'}};
+
+        const {container} = renderNode();
+
+        expect(screen.queryByLabelText(/issue/)).not.toBeInTheDocument();
+        expect(container.querySelector('.lucide-check')).toBeInTheDocument();
+    });
+
     it('shows no badge for a node without issues', () => {
         renderNode();
 
         expect(screen.queryByLabelText(/issue/)).not.toBeInTheDocument();
-    });
-
-    it('warns that a single referenced disabled node will not resolve', () => {
-        dataStoreState.definition = JSON.stringify({
-            tasks: [{disabled: true, name: 'action_1', parameters: {}, type: 'test/v1/action'}],
-        });
-
-        renderNode(
-            {
-                componentName: 'test',
-                name: 'action_2',
-                parameters: {value: '${action_1.body}'},
-                workflowNodeName: 'action_2',
-            } as unknown as NodeDataType,
-            'action_2'
-        );
-
-        expect(
-            screen.getByTitle('References disabled node action_1 — it will not run, so this value will not resolve')
-        ).toBeInTheDocument();
-    });
-
-    it('warns in the plural when several referenced nodes are disabled', () => {
-        dataStoreState.definition = JSON.stringify({
-            tasks: [
-                {disabled: true, name: 'action_1', parameters: {}, type: 'test/v1/action'},
-                {disabled: true, name: 'action_3', parameters: {}, type: 'test/v1/action'},
-            ],
-        });
-
-        renderNode(
-            {
-                componentName: 'test',
-                name: 'action_2',
-                parameters: {value: '${action_1} and ${action_3}'},
-                workflowNodeName: 'action_2',
-            } as unknown as NodeDataType,
-            'action_2'
-        );
-
-        expect(
-            screen.getByTitle(
-                'References disabled nodes action_1, action_3 — they will not run, so this value will not resolve'
-            )
-        ).toBeInTheDocument();
     });
 
     it('rotates LR condition labels and keeps the pair on one vertical axis', () => {

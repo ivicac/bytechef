@@ -131,7 +131,7 @@ export default function ApprovalTaskCreateDialog({trigger}: ApprovalTaskCreateDi
                                 <SelectContent>
                                     <SelectItem value="high">
                                         <Badge
-                                            className="border-red-200 bg-surface-destructive-secondary text-content-destructive"
+                                            className="border-stroke-destructive-secondary bg-surface-destructive-secondary text-content-destructive"
                                             label="High"
                                             styleType="outline-outline"
                                         />
@@ -139,7 +139,7 @@ export default function ApprovalTaskCreateDialog({trigger}: ApprovalTaskCreateDi
 
                                     <SelectItem value="medium">
                                         <Badge
-                                            className="border-yellow-200 bg-yellow-100 text-yellow-800"
+                                            className="border-stroke-warning-secondary bg-surface-warning-secondary text-content-warning-primary"
                                             label="Medium"
                                             styleType="outline-outline"
                                         />
@@ -147,7 +147,7 @@ export default function ApprovalTaskCreateDialog({trigger}: ApprovalTaskCreateDi
 
                                     <SelectItem value="low">
                                         <Badge
-                                            className="border-green-200 bg-surface-success-secondary text-content-success-primary"
+                                            className="border-stroke-success-secondary bg-surface-success-secondary text-content-success-primary"
                                             label="Low"
                                             styleType="outline-outline"
                                         />
