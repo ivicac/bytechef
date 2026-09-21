@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -88,14 +89,15 @@ class WebhookTriggerTestApiControllerTest {
     void testStartWebhookTriggerTestIsTypedEmbeddedWhichConstrainsItsCallers() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.EMBEDDED)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.EMBEDDED)))
             .thenReturn("https://example.org/webhook");
 
-        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<PlatformType> platformTypeCaptor = ArgumentCaptor.forClass(PlatformType.class);
 
-        verify(webhookTriggerTestFacade).enableTrigger(eq("workflow-1"), anyLong(), platformTypeCaptor.capture());
+        verify(webhookTriggerTestFacade).enableTrigger(eq("workflow-1"), isNull(), anyLong(),
+            platformTypeCaptor.capture());
 
         assertThat(platformTypeCaptor.getValue())
             .as(
@@ -115,11 +117,12 @@ class WebhookTriggerTestApiControllerTest {
     void testStopWebhookTriggerTestIsTypedEmbeddedWhichConstrainsItsCallers() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<PlatformType> platformTypeCaptor = ArgumentCaptor.forClass(PlatformType.class);
 
-        verify(webhookTriggerTestFacade).disableTrigger(eq("workflow-1"), anyLong(), platformTypeCaptor.capture());
+        verify(webhookTriggerTestFacade).disableTrigger(eq("workflow-1"), isNull(), anyLong(),
+            platformTypeCaptor.capture());
 
         assertThat(platformTypeCaptor.getValue())
             .as(
@@ -132,15 +135,15 @@ class WebhookTriggerTestApiControllerTest {
     void testStartWebhookTriggerTestUsesConfinedPrincipalEnvironmentAtExecution() {
         authenticate(new TestApiKeyAuthenticationToken(PRODUCTION_ORDINAL, user()));
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.EMBEDDED)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.EMBEDDED)))
             .thenReturn("https://example.org/webhook");
 
-        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).enableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
 
         assertThat(environmentIdCaptor.getValue()).isEqualTo(PRODUCTION_ORDINAL);
     }
@@ -149,15 +152,15 @@ class WebhookTriggerTestApiControllerTest {
     void testStartWebhookTriggerTestHonoursSessionPrincipalRequestedEnvironment() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.EMBEDDED)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.EMBEDDED)))
             .thenReturn("https://example.org/webhook");
 
-        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.startWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).enableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
 
         assertThat(environmentIdCaptor.getValue()).isEqualTo(DEVELOPMENT_ORDINAL);
     }
@@ -166,12 +169,12 @@ class WebhookTriggerTestApiControllerTest {
     void testStopWebhookTriggerTestUsesConfinedPrincipalEnvironmentAtExecution() {
         authenticate(new TestApiKeyAuthenticationToken(PRODUCTION_ORDINAL, user()));
 
-        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).disableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
 
         assertThat(environmentIdCaptor.getValue()).isEqualTo(PRODUCTION_ORDINAL);
     }
@@ -180,12 +183,12 @@ class WebhookTriggerTestApiControllerTest {
     void testStopWebhookTriggerTestHonoursSessionPrincipalRequestedEnvironment() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL);
+        controller.stopWebhookTriggerTest("workflow-1", DEVELOPMENT_ORDINAL, null);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).disableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.EMBEDDED));
 
         assertThat(environmentIdCaptor.getValue()).isEqualTo(DEVELOPMENT_ORDINAL);
     }

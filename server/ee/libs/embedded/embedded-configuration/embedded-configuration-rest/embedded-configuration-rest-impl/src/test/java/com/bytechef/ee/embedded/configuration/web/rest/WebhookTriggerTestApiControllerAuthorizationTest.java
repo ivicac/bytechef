@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -105,7 +106,7 @@ class WebhookTriggerTestApiControllerAuthorizationTest {
     void testStartWebhookTriggerTestDeniesCallerWhoIsNotTenantAdmin() {
         gateRecorder.permit(false);
 
-        assertThatThrownBy(() -> controller.startWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL))
+        assertThatThrownBy(() -> controller.startWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL, null))
             .isInstanceOf(AccessDeniedException.class);
 
         assertThat(gateRecorder.getCallCount()).isEqualTo(1);
@@ -117,21 +118,21 @@ class WebhookTriggerTestApiControllerAuthorizationTest {
     void testStartWebhookTriggerTestPermitsTenantAdmin() {
         gateRecorder.permit(true);
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.EMBEDDED)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.EMBEDDED)))
             .thenReturn("https://example.org/webhook");
 
-        controller.startWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL);
+        controller.startWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL, null);
 
         assertThat(gateRecorder.getCallCount()).isEqualTo(1);
 
-        verify(webhookTriggerTestFacade).enableTrigger(WORKFLOW_ID, DEVELOPMENT_ORDINAL, PlatformType.EMBEDDED);
+        verify(webhookTriggerTestFacade).enableTrigger(WORKFLOW_ID, null, DEVELOPMENT_ORDINAL, PlatformType.EMBEDDED);
     }
 
     @Test
     void testStopWebhookTriggerTestDeniesCallerWhoIsNotTenantAdmin() {
         gateRecorder.permit(false);
 
-        assertThatThrownBy(() -> controller.stopWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL))
+        assertThatThrownBy(() -> controller.stopWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL, null))
             .isInstanceOf(AccessDeniedException.class);
 
         assertThat(gateRecorder.getCallCount()).isEqualTo(1);
@@ -143,11 +144,11 @@ class WebhookTriggerTestApiControllerAuthorizationTest {
     void testStopWebhookTriggerTestPermitsTenantAdmin() {
         gateRecorder.permit(true);
 
-        controller.stopWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL);
+        controller.stopWebhookTriggerTest(WORKFLOW_ID, DEVELOPMENT_ORDINAL, null);
 
         assertThat(gateRecorder.getCallCount()).isEqualTo(1);
 
-        verify(webhookTriggerTestFacade).disableTrigger(WORKFLOW_ID, DEVELOPMENT_ORDINAL, PlatformType.EMBEDDED);
+        verify(webhookTriggerTestFacade).disableTrigger(WORKFLOW_ID, null, DEVELOPMENT_ORDINAL, PlatformType.EMBEDDED);
     }
 
     @Test

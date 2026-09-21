@@ -119,7 +119,8 @@ public class WebhookTriggerTestApiController implements WebhookTriggerTestApi {
         // Same as startWebhookTriggerTest above. See PrincipalEnvironment.
         long effectiveEnvironmentId = resolveRequiredEnvironmentId(environmentId);
 
-        webhookTriggerTestFacade.disableTrigger(workflowId, triggerName, effectiveEnvironmentId, PlatformType.EMBEDDED);
+        webhookTriggerTestFacade.disableTrigger(
+            workflowId, triggerName, effectiveEnvironmentId, PlatformType.EMBEDDED);
 
         return ResponseEntity.noContent()
             .build();

@@ -93,14 +93,14 @@ class WebhookTriggerTestApiFacadeDiscriminatingGateTest {
             .thenReturn(true);
         when(permissionService.hasWorkflowScope(WORKFLOW_ID, "WORKFLOW_EDIT", Environment.PRODUCTION))
             .thenReturn(false);
-        when(webhookTriggerTestFacade.enableTrigger(WORKFLOW_ID, DEVELOPMENT_ORDINAL, PlatformType.AUTOMATION))
+        when(webhookTriggerTestFacade.enableTrigger(WORKFLOW_ID, null, DEVELOPMENT_ORDINAL, PlatformType.AUTOMATION))
             .thenReturn("https://example.org/webhook");
 
-        String url = webhookTriggerTestApiFacade.enableTrigger(WORKFLOW_ID, DEVELOPMENT_ORDINAL);
+        String url = webhookTriggerTestApiFacade.enableTrigger(WORKFLOW_ID, null, DEVELOPMENT_ORDINAL);
 
         assertThat(url).isEqualTo("https://example.org/webhook");
 
-        assertThatThrownBy(() -> webhookTriggerTestApiFacade.enableTrigger(WORKFLOW_ID, PRODUCTION_ORDINAL))
+        assertThatThrownBy(() -> webhookTriggerTestApiFacade.enableTrigger(WORKFLOW_ID, null, PRODUCTION_ORDINAL))
             .isInstanceOf(AccessDeniedException.class);
     }
 
