@@ -185,8 +185,7 @@ class SchemaUtilsTest {
 
         assertThat(result).isInstanceOf(BaseObjectProperty.class);
 
-        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties()
-            .orElseThrow();
+        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties();
 
         assertThat(properties)
             .filteredOn(property -> "body".equals(property.getName()))
@@ -207,8 +206,7 @@ class SchemaUtilsTest {
         BaseProperty result = SchemaUtils.getOutputSchema(
             null, Map.of("method", TestMethod.POST, "body", Map.of("key", "value")), SCHEMA_PROPERTY_FACTORY);
 
-        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties()
-            .orElseThrow();
+        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties();
 
         assertThat(properties)
             .filteredOn(property -> "method".equals(property.getName()))
@@ -234,8 +232,7 @@ class SchemaUtilsTest {
                 new TestFileEntry("file.pdf", "pdf", "application/pdf", "file:/editor/temp/file.pdf")),
             SCHEMA_PROPERTY_FACTORY);
 
-        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties()
-            .orElseThrow();
+        List<? extends BaseProperty> properties = ((ModifiableObjectProperty) result).getProperties();
 
         assertThat(properties)
             .filteredOn(property -> "body".equals(property.getName()))
@@ -249,10 +246,9 @@ class SchemaUtilsTest {
             "data", new TestInvoice("INV-1", "Invoice"), SCHEMA_PROPERTY_FACTORY);
 
         assertThat(result).isInstanceOf(BaseObjectProperty.class);
-        assertThat(((ModifiableObjectProperty) result).getProperties()
-            .orElseThrow())
-                .extracting(BaseProperty::getName)
-                .containsExactlyInAnyOrder("invoiceId", "name");
+        assertThat(((ModifiableObjectProperty) result).getProperties())
+            .extracting(BaseProperty::getName)
+            .containsExactlyInAnyOrder("invoiceId", "name");
     }
 
     @Test
