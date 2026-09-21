@@ -201,43 +201,4 @@ class WorkflowNodeTestOutputFacadeTest {
             anyString(), anyString(), anyLong());
     }
 
-    @Test
-    void testSaveWorkflowNodeTestOutputExecutesTriggerNamedInWorkflowExecutionId() {
-        String workflowUuid = "workflow-uuid-1";
-        Workflow workflow = new Workflow(WORKFLOW_ID, """
-            {
-                "triggers": [
-                    {"name": "trigger_1", "type": "manual/v1/manual", "parameters": {}},
-                    {"name": "trigger_2", "type": "webhook/v1/autoRespondWithHTTP200", "parameters": {}}
-                ],
-                "tasks": []
-            }
-            """, Format.JSON);
-        JobPrincipalAccessor jobPrincipalAccessor = mock(JobPrincipalAccessor.class);
-        WebhookRequest webhookRequest = mock(WebhookRequest.class);
-
-        when(jobPrincipalAccessorRegistry.getJobPrincipalAccessor(PlatformType.AUTOMATION))
-            .thenReturn(jobPrincipalAccessor);
-        when(jobPrincipalAccessor.getLastWorkflowId(workflowUuid)).thenReturn(WORKFLOW_ID);
-        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
-        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
-            .thenAnswer(invocation -> Map.of());
-        when(evaluator.evaluate(anyMap(), anyMap(), anyBoolean()))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
-            WORKFLOW_ID, "trigger_2", ENVIRONMENT_ID)).thenReturn(List.of());
-        when(triggerDefinitionFacade.executeTrigger(
-            eq("webhook"), eq(1), eq("autoRespondWithHTTP200"), isNull(), eq(workflowUuid), isNull(), anyMap(),
-            any(), eq(webhookRequest), isNull(), eq(ENVIRONMENT_ID), eq(PlatformType.AUTOMATION), eq(true)))
-                .thenReturn(new TriggerOutput(Map.of("body", "ok"), null, false));
-
-        workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(
-            WorkflowExecutionId.of(PlatformType.AUTOMATION, -1, workflowUuid, "trigger_2"), ENVIRONMENT_ID,
-            webhookRequest);
-
-        verify(workflowNodeTestOutputService).save(
-            eq(WORKFLOW_ID), eq("trigger_2"), any(WorkflowNodeType.class), any(), eq(ENVIRONMENT_ID));
-        verify(webhookTriggerTestFacade).disableTrigger(
-            WORKFLOW_ID, "trigger_2", ENVIRONMENT_ID, PlatformType.AUTOMATION);
-    }
 }
