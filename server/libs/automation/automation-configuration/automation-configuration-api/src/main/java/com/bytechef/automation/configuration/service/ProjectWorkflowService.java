@@ -17,9 +17,11 @@
 package com.bytechef.automation.configuration.service;
 
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Ivica Cardic
@@ -29,6 +31,8 @@ public interface ProjectWorkflowService {
     ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId);
 
     ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId, UUID uuid);
+
+    ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId, ProjectWorkflowType type);
 
     void delete(List<Long> ids);
 
@@ -89,5 +93,4 @@ public interface ProjectWorkflowService {
 
     ProjectWorkflow updateErrorWorkflow(long id, @Nullable Long errorProjectWorkflowId, boolean errorWorkflowDisabled);
 
-    ProjectWorkflow updatePermissionExpression(long id, @Nullable String permissionExpression);
 }

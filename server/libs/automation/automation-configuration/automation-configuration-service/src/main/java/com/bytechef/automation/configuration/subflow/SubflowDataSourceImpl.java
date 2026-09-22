@@ -21,6 +21,7 @@ import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
@@ -133,6 +134,10 @@ class SubflowDataSourceImpl implements SubflowDataSource {
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getLatestProjectWorkflows();
 
         for (ProjectWorkflow projectWorkflow : projectWorkflows) {
+            if (projectWorkflow.getType() == ProjectWorkflowType.AI_AGENT) {
+                continue;
+            }
+
             Workflow workflow = workflowService.getWorkflow(projectWorkflow.getWorkflowId());
 
             if (getCallableTrigger(workflow, triggerName) != null) {

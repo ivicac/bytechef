@@ -16,11 +16,14 @@
 
 package com.bytechef.automation.configuration.service;
 
+import com.bytechef.automation.configuration.audit.ProjectAuditEvent;
+import com.bytechef.automation.configuration.audit.ProjectAuditPublisher;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.exception.ProjectErrorType;
 import com.bytechef.automation.configuration.listener.ProjectGitSyncEventListener;
+import com.bytechef.automation.configuration.listener.ProjectPublishPreListener;
 import com.bytechef.automation.configuration.ownership.ProjectOwner;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
@@ -36,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.data.domain.Sort;
@@ -51,6 +55,7 @@ import org.springframework.util.Assert;
 public class ProjectServiceImpl implements ProjectService {
 
     private final ApplicationContext applicationContext;
+    private final ProjectAuditPublisher projectAuditPublisher;
     private final ProjectRepository projectRepository;
     private final ResourceVisibilityPolicyRegistry resourceVisibilityPolicyRegistry;
 
@@ -60,6 +65,7 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectRepository projectRepository, ResourceVisibilityPolicyRegistry resourceVisibilityPolicyRegistry) {
 
         this.applicationContext = applicationContext;
+        this.projectAuditPublisher = projectAuditPublisher;
         this.projectRepository = projectRepository;
         this.resourceVisibilityPolicyRegistry = resourceVisibilityPolicyRegistry;
     }
@@ -75,12 +81,18 @@ public class ProjectServiceImpl implements ProjectService {
         Assert.isTrue(project.getId() == null, "'id' must be null");
         Assert.notNull(project.getName(), "'name' must not be null");
 
-        return projectRepository.save(project);
+        Project savedProject = projectRepository.save(project);
+
+        projectAuditPublisher.publish(ProjectAuditEvent.PROJECT_CREATED, savedProject.getId());
+
+        return savedProject;
     }
 
     @Override
     public void delete(long id) {
         projectRepository.deleteById(id);
+
+        projectAuditPublisher.publish(ProjectAuditEvent.PROJECT_DELETED, id);
     }
 
     @Override
@@ -139,6 +151,25 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true)
+    public ProjectVersion getPublishedProjectVersion(long id, int projectVersion) {
+        Project project = getProject(id);
+
+        ProjectVersion publishedProjectVersion = project.fetchProjectVersion(projectVersion)
+            .orElseThrow(() -> new ConfigurationException(
+                "Project version v=%s not found".formatted(projectVersion),
+                ProjectErrorType.PROJECT_VERSION_NOT_FOUND));
+
+        if (publishedProjectVersion.getStatus() != Status.PUBLISHED) {
+            throw new ConfigurationException(
+                "Project version v=%s is not published".formatted(projectVersion),
+                ProjectErrorType.PROJECT_VERSION_NOT_PUBLISHED);
+        }
+
+        return publishedProjectVersion;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Project> getProjects() {
         return CollectionUtils.toList(projectRepository.findAll(Sort.by("name")));
     }
@@ -185,6 +216,13 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public int publishProject(long id, String description, boolean syncWithGit) {
+        for (ProjectPublishPreListener projectPublishPreListener : applicationContext
+            .getBeansOfType(ProjectPublishPreListener.class)
+            .values()) {
+
+            projectPublishPreListener.onBeforePublishProject(id);
+        }
+
         Project project = getProject(id);
 
         int newVersion = project.publish(description);
@@ -209,12 +247,25 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    public void removeProjectVersion(long id, int projectVersion) {
+        Project project = getProject(id);
+
+        project.removeProjectVersion(projectVersion);
+
+        projectRepository.save(project);
+    }
+
+    @Override
     public Project update(long id, List<Long> tagIds) {
         Project project = getProject(id);
 
         project.setTagIds(tagIds);
 
-        return projectRepository.save(project);
+        Project savedProject = projectRepository.save(project);
+
+        projectAuditPublisher.publish(ProjectAuditEvent.PROJECT_UPDATED, savedProject.getId());
+
+        return savedProject;
     }
 
     @Override
@@ -231,24 +282,18 @@ public class ProjectServiceImpl implements ProjectService {
         curProject.setTagIds(project.getTagIds());
         curProject.setVersion(project.getVersion());
 
-        return projectRepository.save(curProject);
+        Project savedProject = projectRepository.save(curProject);
+
+        projectAuditPublisher.publish(ProjectAuditEvent.PROJECT_UPDATED, savedProject.getId());
+
+        return savedProject;
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'Project', 'WORKFLOW_EDIT')")
     public Project updateErrorWorkflow(long id, @Nullable Long errorProjectWorkflowId) {
         Project project = getProject(id);
 
         project.setErrorProjectWorkflowId(errorProjectWorkflowId);
-
-        return projectRepository.save(project);
-    }
-
-    @Override
-    public Project updatePermissionExpression(long id, @Nullable String permissionExpression) {
-        Project project = getProject(id);
-
-        project.setPermissionExpression(permissionExpression);
 
         return projectRepository.save(project);
     }

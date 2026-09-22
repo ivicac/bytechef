@@ -25,6 +25,7 @@ import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectOwnershipService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.configuration.service.SharedTemplateService;
@@ -79,13 +80,13 @@ class ProjectErrorWorkflowFacadeTest {
             errorWorkflowConfigurationValidator, mock(PermissionService.class),
             mock(PreBuiltTemplateService.class),
             projectCodeWorkflowInfoSupplierProvider, mock(ProjectWorkflowService.class),
-            mock(ProjectDeploymentService.class),
+            mock(ProjectDeploymentService.class), mock(ProjectOwnershipService.class),
             projectService, mock(ProjectVisibilityFilter.class),
             new ResourceVisibilityPolicyRegistry(List.of(new ProjectVisibilityPolicy())),
             mock(ProjectDeploymentFacade.class), mock(ProjectWorkflowFacade.class),
             mock(SharedTemplateFileStorage.class), mock(SharedTemplateService.class), mock(TagService.class),
             mock(WorkflowService.class), mock(WorkflowTestConfigurationService.class),
-            mock(WorkflowNodeTestOutputService.class), List.of());
+            mock(WorkflowNodeTestOutputService.class), List.of(), List.of(), List.of());
     }
 
     @Test

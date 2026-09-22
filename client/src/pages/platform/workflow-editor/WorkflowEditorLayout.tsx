@@ -2,7 +2,10 @@ import {ReactFlowProvider} from '@xyflow/react';
 
 import './WorkflowEditorLayout.css';
 
+import {IntegrationWorkflowKeys} from '@/ee/shared/queries/embedded/integrationWorkflows.queries';
 import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/components/WorkflowNodeDetailsPanel';
+import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
+import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
 import useDelayedUnmount from '@/pages/platform/workflow-editor/hooks/useDelayedUnmount';
 import useWorkflowEditorLayout from '@/pages/platform/workflow-editor/hooks/useWorkflowEditorLayout';
 import useWorkflowIssues from '@/pages/platform/workflow-editor/hooks/useWorkflowIssues';
@@ -20,9 +23,8 @@ import useCopilotStateContributorRegistry from '@/shared/components/copilot/stor
 import {Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import {ISSUES_SIDEBAR_EXIT_DURATION} from '@/shared/constants';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
-import {WorkflowKeys} from '@/shared/queries/automation/workflows.queries';
 import {useQueryClient} from '@tanstack/react-query';
-import {Suspense, lazy, useEffect, useMemo, useState} from 'react';
+import {Suspense, lazy, useCallback, useEffect, useMemo, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/shallow';
@@ -42,6 +44,10 @@ import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPan
 import useWorkflowTestChatStore from './stores/useWorkflowTestChatStore';
 import {clearAllWorkflowMutations} from './utils/workflowMutationGuard';
 
+const AiAgentTestingPanel = lazy(
+    () =>
+        import('@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-testing-panel/AiAgentTestingPanel')
+);
 const ClusterElementsCanvasDialog = lazy(
     () => import('@/pages/platform/workflow-editor/components/ClusterElementsCanvasDialog')
 );
@@ -124,6 +130,12 @@ const WorkflowEditorLayout = ({
     );
     const dataPillPanelOpen = useDataPillPanelStore((state) => state.dataPillPanelOpen);
     const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
+    const {setTestingPanelOpen, testingPanelOpen} = useClusterElementsCanvasDialogStore(
+        useShallow((state) => ({
+            setTestingPanelOpen: state.setTestingPanelOpen,
+            testingPanelOpen: state.testingPanelOpen,
+        }))
+    );
 
     const [showCodeWorkflowTestConfigurationDialog, setShowCodeWorkflowTestConfigurationDialog] = useState(false);
 
@@ -152,7 +164,7 @@ const WorkflowEditorLayout = ({
     const {handleClusterElementsCanvasOpenChange, isMainRootClusterElement} = useWorkflowEditorLayout();
 
     const queryClient = useQueryClient();
-    const {integrationId, projectId, projectWorkflowId} = useParams();
+    const {integrationId, integrationWorkflowId, projectId, projectWorkflowId} = useParams();
 
     const isCodeWorkflow = useMemo(
         () =>
@@ -195,15 +207,12 @@ const WorkflowEditorLayout = ({
     }, []);
 
     useEffect(() => {
-        // The workflow editor is shared: when opened for an integration (embedded) the Copilot uses the
-        // WORKFLOW_EDITOR_EMBEDDED source, so the post-turn refresh must register for that source and invalidate the
-        // integration's workflow-by-id (there is no project/projectWorkflow to invalidate).
         if (integrationId) {
             return useCopilotPostTurnRegistry.getState().register(Source.WORKFLOW_EDITOR_EMBEDDED, () => {
-                const workflowId = useWorkflowDataStore.getState().workflow?.id;
-
-                if (workflowId) {
-                    queryClient.invalidateQueries({queryKey: WorkflowKeys.workflow(workflowId)});
+                if (integrationWorkflowId) {
+                    queryClient.invalidateQueries({
+                        queryKey: IntegrationWorkflowKeys.integrationWorkflow(+integrationId, +integrationWorkflowId),
+                    });
                 }
             });
         }
@@ -213,7 +222,7 @@ const WorkflowEditorLayout = ({
                 queryKey: ProjectWorkflowKeys.projectWorkflow(+projectId!, +projectWorkflowId!),
             });
         });
-    }, [integrationId, projectId, projectWorkflowId, queryClient]);
+    }, [integrationId, integrationWorkflowId, projectId, projectWorkflowId, queryClient]);
 
     useEffect(() => {
         if (clusterElementsCanvasOpen) {
@@ -365,7 +374,6 @@ const WorkflowEditorLayout = ({
                         previousComponentDefinitions={previousComponentDefinitions}
                         updateWorkflowMutation={updateWorkflowMutation!}
                         workflowNodeOutputs={filteredWorkflowNodeOutputs ?? []}
-                        workflowReferenceId={workflowReferenceId}
                     />
                 </Suspense>
             )}

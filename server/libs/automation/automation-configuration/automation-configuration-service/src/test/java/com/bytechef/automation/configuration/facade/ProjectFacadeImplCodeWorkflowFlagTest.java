@@ -36,6 +36,7 @@ import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupp
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier.CodeWorkflowInfo;
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier.CodeWorkflowSource;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectOwnershipService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.configuration.service.SharedTemplateService;
@@ -106,12 +107,12 @@ class ProjectFacadeImplCodeWorkflowFlagTest {
             mock(ErrorWorkflowConfigurationValidator.class), mock(PermissionService.class),
             preBuiltTemplateService,
             projectCodeWorkflowInfoSupplierProvider, projectWorkflowService, mock(ProjectDeploymentService.class),
-            projectService, mock(ProjectVisibilityFilter.class),
+            mock(ProjectOwnershipService.class), projectService, mock(ProjectVisibilityFilter.class),
             new ResourceVisibilityPolicyRegistry(List.of(new ProjectVisibilityPolicy())),
             mock(ProjectDeploymentFacade.class), mock(ProjectWorkflowFacade.class),
             mock(SharedTemplateFileStorage.class), mock(SharedTemplateService.class), tagService,
             mock(WorkflowService.class), mock(WorkflowTestConfigurationService.class),
-            mock(WorkflowNodeTestOutputService.class), List.of());
+            mock(WorkflowNodeTestOutputService.class), List.of(), List.of(), List.of());
 
         when(project.getId()).thenReturn(PROJECT_ID);
         when(projectService.getProject(PROJECT_ID)).thenReturn(project);

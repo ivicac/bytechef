@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,15 +74,15 @@ class WebhookTriggerTestApiFacadeImplTest {
     void testEnableTriggerUsesConfinedPrincipalEnvironmentAtExecution() {
         authenticate(new TestApiKeyAuthenticationToken(PRODUCTION_ORDINAL, user()));
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.AUTOMATION)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.AUTOMATION)))
             .thenReturn("https://example.org/webhook");
 
-        webhookTriggerTestApiFacade.enableTrigger("workflow-1", DEVELOPMENT_ORDINAL);
+        webhookTriggerTestApiFacade.enableTrigger("workflow-1", null, DEVELOPMENT_ORDINAL);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).enableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
 
         assertEquals(PRODUCTION_ORDINAL, environmentIdCaptor.getValue());
     }
@@ -90,15 +91,15 @@ class WebhookTriggerTestApiFacadeImplTest {
     void testEnableTriggerHonoursSessionPrincipalRequestedEnvironment() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        when(webhookTriggerTestFacade.enableTrigger(anyString(), anyLong(), eq(PlatformType.AUTOMATION)))
+        when(webhookTriggerTestFacade.enableTrigger(anyString(), isNull(), anyLong(), eq(PlatformType.AUTOMATION)))
             .thenReturn("https://example.org/webhook");
 
-        webhookTriggerTestApiFacade.enableTrigger("workflow-1", DEVELOPMENT_ORDINAL);
+        webhookTriggerTestApiFacade.enableTrigger("workflow-1", null, DEVELOPMENT_ORDINAL);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).enableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
 
         assertEquals(DEVELOPMENT_ORDINAL, environmentIdCaptor.getValue());
     }
@@ -107,12 +108,12 @@ class WebhookTriggerTestApiFacadeImplTest {
     void testDisableTriggerUsesConfinedPrincipalEnvironmentAtExecution() {
         authenticate(new TestApiKeyAuthenticationToken(PRODUCTION_ORDINAL, user()));
 
-        webhookTriggerTestApiFacade.disableTrigger("workflow-1", DEVELOPMENT_ORDINAL);
+        webhookTriggerTestApiFacade.disableTrigger("workflow-1", null, DEVELOPMENT_ORDINAL);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).disableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
 
         assertEquals(PRODUCTION_ORDINAL, environmentIdCaptor.getValue());
     }
@@ -121,12 +122,12 @@ class WebhookTriggerTestApiFacadeImplTest {
     void testDisableTriggerHonoursSessionPrincipalRequestedEnvironment() {
         authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
 
-        webhookTriggerTestApiFacade.disableTrigger("workflow-1", DEVELOPMENT_ORDINAL);
+        webhookTriggerTestApiFacade.disableTrigger("workflow-1", null, DEVELOPMENT_ORDINAL);
 
         ArgumentCaptor<Long> environmentIdCaptor = ArgumentCaptor.forClass(Long.class);
 
         verify(webhookTriggerTestFacade).disableTrigger(
-            eq("workflow-1"), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
+            eq("workflow-1"), isNull(), environmentIdCaptor.capture(), eq(PlatformType.AUTOMATION));
 
         assertEquals(DEVELOPMENT_ORDINAL, environmentIdCaptor.getValue());
     }

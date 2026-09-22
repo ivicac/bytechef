@@ -22,6 +22,7 @@ import com.bytechef.automation.configuration.config.ProjectIntTestConfiguration;
 import com.bytechef.automation.configuration.config.ProjectIntTestConfigurationSharedMocks;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
@@ -129,29 +130,37 @@ class ProjectWorkflowServiceIntTest {
     }
 
     @Test
-    void testGetWorkflowUuidProjectWorkflows() {
+    public void testAddWorkflowDefaultsToWorkflowType() {
+        Project project = projectRepository.save(getProject());
+
+        ProjectWorkflow projectWorkflow = projectWorkflowService.addWorkflow(
+            Validate.notNull(project.getId(), "id"), project.getLastProjectVersion(), "workflow3");
+
+        assertThat(projectWorkflow.getType()).isEqualTo(ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Test
+    public void testPublishWorkflowKeepsAgentTypeOnBothRows() {
         Project project = projectRepository.save(getProject());
 
         long projectId = Validate.notNull(project.getId(), "id");
         int initialVersion = project.getLastProjectVersion();
 
-        ProjectWorkflow initialProjectWorkflow = projectWorkflowService.addWorkflow(
-            projectId, initialVersion, "workflow1");
+        ProjectWorkflow agentProjectWorkflow = projectWorkflowService.addWorkflow(
+            projectId, initialVersion, "agentWorkflow1", ProjectWorkflowType.AI_AGENT);
 
-        projectWorkflowService.addWorkflow(projectId, initialVersion, "workflow2");
+        ProjectWorkflow projectWorkflowToPublish = projectWorkflowService.getProjectWorkflow(
+            agentProjectWorkflow.getId());
 
-        ProjectWorkflow publishedProjectWorkflow = projectWorkflowService.getProjectWorkflow(
-            initialProjectWorkflow.getId());
+        projectWorkflowToPublish.setProjectVersion(initialVersion + 1);
+        projectWorkflowToPublish.setWorkflowId("agentWorkflow1_v2");
 
-        publishedProjectWorkflow.setProjectVersion(initialVersion + 1);
-        publishedProjectWorkflow.setWorkflowId("workflow1_v2");
+        projectWorkflowService.publishWorkflow(projectId, initialVersion, "agentWorkflow1", projectWorkflowToPublish);
 
-        projectWorkflowService.publishWorkflow(projectId, initialVersion, "workflow1", publishedProjectWorkflow);
-
-        assertThat(projectWorkflowService.getWorkflowUuidProjectWorkflows(initialProjectWorkflow.getUuidAsString()))
-            .extracting(ProjectWorkflow::getWorkflowId)
-            .containsExactlyInAnyOrder("workflow1", "workflow1_v2");
-        assertThat(projectWorkflowService.getWorkflowUuidProjectWorkflows("workflow1")).isEmpty();
+        assertThat(projectWorkflowService.getProjectWorkflows(projectId, agentProjectWorkflow.getUuidAsString()))
+            .hasSize(2)
+            .extracting(ProjectWorkflow::getType)
+            .containsOnly(ProjectWorkflowType.AI_AGENT);
     }
 
     private Project getProject() {

@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -207,6 +208,27 @@ class WorkflowNodeOutputFacadeIntTest {
     }
 
     @Test
+    void testGetPreviousWorkflowNodeOutputsExcludesGraphAggregateOutputForNestedTask() {
+        assertNestedTaskSeesOnlyVariableOutput(
+            """
+                {
+                    "tasks": [
+                        {
+                            "name": "graph1",
+                            "type": "graph/v1",
+                            "parameters": {
+                                "nodes": [
+                                    {"name": "nested1", "type": "component/v1/action1", "parameters": {}}
+                                ]
+                            }
+                        }
+                    ]
+                }
+                """,
+            "graph", "graph1");
+    }
+
+    @Test
     void testNodeWhoseDynamicOutputFailsDoesNotBreakTheOutputsOfTheNodesAfterIt() {
         String workflowId = createWorkflow(tasksDefinition("action1", "action2", "action3"));
 
@@ -253,6 +275,7 @@ class WorkflowNodeOutputFacadeIntTest {
             .thenReturn(taskDispatcherDefinition);
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("loop", 1)).thenReturn(true);
         when(taskDispatcherDefinition.getOutputResponse()).thenReturn(loopOutputResponse);
+        stubLoopItemsEvaluationFailure();
 
         List<WorkflowNodeOutputDTO> workflowNodeOutputDTOs = workflowNodeOutputFacade.getPreviousWorkflowNodeOutputs(
             workflowId, "action2", ENVIRONMENT_ID);
@@ -266,8 +289,6 @@ class WorkflowNodeOutputFacadeIntTest {
         assertThat(workflowNodeOutputDTO.outputResponse()).isSameAs(loopOutputResponse);
         assertThat(workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(workflowId, "action2", ENVIRONMENT_ID))
             .isEmpty();
-
-        verify(taskDispatcherDefinitionService, never()).executeOutput(any(), anyInt(), anyMap());
     }
 
     @Test
@@ -288,9 +309,23 @@ class WorkflowNodeOutputFacadeIntTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("loop", 1))
             .thenReturn(mock(TaskDispatcherDefinition.class));
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("loop", 1)).thenReturn(true);
+        stubLoopItemsEvaluationFailure();
 
         assertThatThrownBy(() -> workflowNodeOutputFacade.getWorkflowNodeOutput(workflowId, "loop1", ENVIRONMENT_ID))
             .isInstanceOf(ExpressionEvaluationException.class);
+    }
+
+    /**
+     * The editor preview evaluates a dispatcher's parameters leniently, so a half-written items expression reaches the
+     * loop's output function unevaluated; the items evaluation failure surfaces from there instead.
+     */
+    private void stubLoopItemsEvaluationFailure() {
+        when(
+            taskDispatcherDefinitionService.executeOutput(
+                eq("loop"), eq(1),
+                argThat(inputParameters -> UNPARSEABLE_FORMULA.equals(inputParameters.get("items")))))
+                    .thenThrow(
+                        new ExpressionEvaluationException("Unparseable formula expression: " + UNPARSEABLE_FORMULA));
     }
 
     @Test
@@ -583,6 +618,47 @@ class WorkflowNodeOutputFacadeIntTest {
     }
 
     @Test
+    void testGetClusterElementOutputResolvesVoiceAgentUnderTrigger() {
+        String workflowId = createWorkflow(TriggerClusterRootWorkflowFixture.DEFINITION);
+
+        stubVoiceAgentClusterElementDefinition();
+
+        saveTestOutput(
+            workflowId, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME, "deepgram/v1/voiceAgent",
+            Map.of("transcript", "hello"), false);
+
+        ClusterElementOutputDTO clusterElementOutputDTO = workflowNodeOutputFacade.getClusterElementOutput(
+            workflowId, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID);
+
+        assertThat(clusterElementOutputDTO).isNotNull();
+        assertThat(clusterElementOutputDTO.clusterElementName())
+            .isEqualTo(TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME);
+        assertThat(clusterElementOutputDTO.sampleOutput()).isEqualTo(Map.of("transcript", "hello"));
+        assertThat(clusterElementOutputDTO.testOutputResponse()).isTrue();
+    }
+
+    @Test
+    void testGetVoiceAgentClusterElementOutputDoesNotMarkDefinitionOutputAsTestOutputResponse() {
+        String workflowId = createWorkflow(TriggerClusterRootWorkflowFixture.DEFINITION);
+
+        ClusterElementDefinition clusterElementDefinition = stubVoiceAgentClusterElementDefinition();
+
+        when(clusterElementDefinition.getOutputResponse())
+            .thenReturn(new OutputResponse(null, Map.of("transcript", "sample transcript")));
+
+        ClusterElementOutputDTO clusterElementOutputDTO = workflowNodeOutputFacade.getClusterElementOutput(
+            workflowId, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID);
+
+        assertThat(clusterElementOutputDTO).isNotNull();
+        assertThat(clusterElementOutputDTO.sampleOutput()).isEqualTo(Map.of("transcript", "sample transcript"));
+        assertThat(clusterElementOutputDTO.testOutputResponse()).isFalse();
+    }
+
+    @Test
     void testGetClusterElementOutputMarksDynamicOutputAsTestOutputResponse() {
         String workflowId = createWorkflow(CLUSTER_ELEMENT_DEFINITION);
 
@@ -783,6 +859,38 @@ class WorkflowNodeOutputFacadeIntTest {
         assertThat(workflowNodeOutputDTO.getSampleOutput()).isEqualTo(List.of(1, 2));
     }
 
+    private void assertNestedTaskSeesOnlyVariableOutput(
+        String definition, String taskDispatcherName, String taskDispatcherNodeName) {
+
+        String workflowId = createWorkflow(definition);
+
+        TaskDispatcherDefinition taskDispatcherDefinition = mock(TaskDispatcherDefinition.class);
+
+        when(taskDispatcherDefinitionService.getTaskDispatcherDefinition(taskDispatcherName, 1))
+            .thenReturn(taskDispatcherDefinition);
+        when(taskDispatcherDefinitionService.isDynamicOutputDefined(taskDispatcherName, 1)).thenReturn(true);
+
+        OutputResponse variableOutputResponse = new OutputResponse(null, Map.of("item", "value"), null);
+
+        when(taskDispatcherDefinitionService.executeVariableProperties(eq(taskDispatcherName), eq(1), any()))
+            .thenReturn(variableOutputResponse);
+
+        List<WorkflowNodeOutputDTO> workflowNodeOutputDTOs = workflowNodeOutputFacade.getPreviousWorkflowNodeOutputs(
+            workflowId, "nested1", ENVIRONMENT_ID);
+
+        assertThat(workflowNodeOutputDTOs).hasSize(1);
+
+        WorkflowNodeOutputDTO workflowNodeOutputDTO = workflowNodeOutputDTOs.getFirst();
+
+        assertThat(workflowNodeOutputDTO.workflowNodeName()).isEqualTo(taskDispatcherNodeName);
+        assertThat(workflowNodeOutputDTO.variableOutputResponse()).isEqualTo(variableOutputResponse);
+        assertThat(workflowNodeOutputDTO.outputResponse()).isNull();
+
+        verify(taskDispatcherDefinitionService, never()).executeOutput(eq(taskDispatcherName), eq(1), any());
+        verify(taskDispatcherDefinitionService, times(1))
+            .executeVariableProperties(eq(taskDispatcherName), eq(1), any());
+    }
+
     private String createWorkflow(String definition) {
         Workflow workflow = workflowService.create(definition, Format.JSON, Workflow.SourceType.JDBC);
 
@@ -886,6 +994,18 @@ class WorkflowNodeOutputFacadeIntTest {
         when(clusterElementDefinitionService.getClusterElementType("aiAgent", 1, "tools"))
             .thenReturn(new ClusterElementType("TOOLS", "tools", "Tools", true, false));
         when(clusterElementDefinitionService.getClusterElementDefinition("hubspot", 1, "createContact"))
+            .thenReturn(clusterElementDefinition);
+
+        return clusterElementDefinition;
+    }
+
+    private ClusterElementDefinition stubVoiceAgentClusterElementDefinition() {
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
+                .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
             .thenReturn(clusterElementDefinition);
 
         return clusterElementDefinition;

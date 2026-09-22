@@ -34,10 +34,12 @@ import com.bytechef.automation.configuration.facade.ProjectCategoryFacade;
 import com.bytechef.automation.configuration.facade.ProjectCategoryFacadeImpl;
 import com.bytechef.automation.configuration.facade.ProjectTagFacade;
 import com.bytechef.automation.configuration.facade.ProjectTagFacadeImpl;
+import com.bytechef.automation.configuration.listener.ProjectPublishPreListener;
 import com.bytechef.automation.configuration.ownership.ProjectDeploymentOwner;
 import com.bytechef.automation.configuration.repository.ProjectDeploymentRepository;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.category.domain.Category;
@@ -49,13 +51,19 @@ import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.repository.TagRepository;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 
@@ -63,7 +71,9 @@ import org.springframework.dao.IncorrectResultSizeDataAccessException;
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = ProjectIntTestConfiguration.class)
-@Import(PostgreSQLContainerConfiguration.class)
+@Import({
+    PostgreSQLContainerConfiguration.class, ProjectServiceIntTest.RecordingListenerConfiguration.class
+})
 @ProjectIntTestConfigurationSharedMocks
 public class ProjectServiceIntTest {
 
@@ -233,9 +243,10 @@ public class ProjectServiceIntTest {
         when(tagService.getTags(anyList())).thenAnswer(
             invocation -> CollectionUtils.toList(tagRepository.findAllById(invocation.getArgument(0))));
 
-        ProjectTagFacade projectTagFacade = new ProjectTagFacadeImpl(projectService, tagService);
+        ProjectTagFacade projectTagFacade = new ProjectTagFacadeImpl(
+            projectService, allVisibleProjectVisibilityFilter(), tagService);
 
-        assertThat(projectTagFacade.getProjectTags())
+        assertThat(projectTagFacade.getProjectTags(workspace.getId()))
             .extracting(Tag::getName)
             .containsExactly("regular");
     }
@@ -259,7 +270,8 @@ public class ProjectServiceIntTest {
         when(categoryService.getCategories(anyList())).thenAnswer(
             invocation -> CollectionUtils.toList(categoryRepository.findAllById(invocation.getArgument(0))));
 
-        ProjectCategoryFacade projectCategoryFacade = new ProjectCategoryFacadeImpl(categoryService, projectService);
+        ProjectCategoryFacade projectCategoryFacade = new ProjectCategoryFacadeImpl(
+            categoryService, projectService, allVisibleProjectVisibilityFilter());
 
         assertThat(projectCategoryFacade.getProjectCategories(workspace.getId()))
             .extracting(Category::getName)
@@ -544,6 +556,33 @@ public class ProjectServiceIntTest {
             .getVisibility()).isEqualTo(ResourceVisibility.PRIVATE);
     }
 
+    @Test
+    public void testPublishProjectInvokesPublishPreListeners() {
+        Project project = projectRepository.save(getProject());
+
+        long projectId = Validate.notNull(project.getId(), "id");
+
+        RecordingListenerConfiguration.PUBLISHED_PROJECT_IDS.clear();
+
+        projectService.publishProject(projectId, "first release", false);
+
+        assertThat(RecordingListenerConfiguration.PUBLISHED_PROJECT_IDS).containsExactly(projectId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ProjectVisibilityFilter allVisibleProjectVisibilityFilter() {
+        ResourceVisibilityResolver resourceVisibilityResolver =
+            (resourceType, workspaceId, candidates) -> candidates.stream()
+                .map(ResourceVisibilityResolver.VisibilityRecord::id)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        ObjectProvider<ResourceVisibilityResolver> objectProvider = mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(resourceVisibilityResolver);
+
+        return new ProjectVisibilityFilter(objectProvider);
+    }
+
     private Project getProject() {
         return Project.builder()
             .categoryId(category.getId())
@@ -551,5 +590,16 @@ public class ProjectServiceIntTest {
             .name("name")
             .workspaceId(workspace.getId())
             .build();
+    }
+
+    @TestConfiguration
+    static class RecordingListenerConfiguration {
+
+        static final List<Long> PUBLISHED_PROJECT_IDS = new CopyOnWriteArrayList<>();
+
+        @Bean
+        ProjectPublishPreListener recordingProjectPublishPreListener() {
+            return PUBLISHED_PROJECT_IDS::add;
+        }
     }
 }

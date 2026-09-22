@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -110,6 +111,7 @@ class ProjectSearchAssetProviderTest {
 
         when(projectWorkflow.getId()).thenReturn(77L);
         when(projectWorkflow.getProjectId()).thenReturn(5L);
+        when(projectWorkflow.getType()).thenReturn(ProjectWorkflowType.WORKFLOW);
         when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(List.of(projectWorkflow));
 
         ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
@@ -144,6 +146,75 @@ class ProjectSearchAssetProviderTest {
         assertThat(results).singleElement()
             .extracting(ProjectSearchResult::projectWorkflowId)
             .isNull();
+    }
+
+    @Test
+    void testResultSkipsGeneratedAiAgentWorkflows() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectVisibilityFilter projectVisibilityFilter = mock(ProjectVisibilityFilter.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+
+        Project project = billingProject(projectService, projectVisibilityFilter);
+
+        ProjectWorkflow agentProjectWorkflow = projectWorkflow(76L, ProjectWorkflowType.AI_AGENT);
+        ProjectWorkflow ordinaryProjectWorkflow = projectWorkflow(77L, ProjectWorkflowType.WORKFLOW);
+
+        when(projectWorkflowService.getLatestProjectWorkflows())
+            .thenReturn(List.of(agentProjectWorkflow, ordinaryProjectWorkflow));
+
+        ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
+            projectService, projectVisibilityFilter, projectWorkflowService);
+
+        List<ProjectSearchResult> results = provider.search("bill", 10);
+
+        assertThat(results).singleElement()
+            .extracting(ProjectSearchResult::id, ProjectSearchResult::projectWorkflowId)
+            .containsExactly(project.getId(), 77L);
+    }
+
+    @Test
+    void testProjectWorkflowIdIsNullWhenTheProjectHoldsOnlyAgents() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectVisibilityFilter projectVisibilityFilter = mock(ProjectVisibilityFilter.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+
+        billingProject(projectService, projectVisibilityFilter);
+
+        ProjectWorkflow agentProjectWorkflow = projectWorkflow(76L, ProjectWorkflowType.AI_AGENT);
+
+        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(List.of(agentProjectWorkflow));
+
+        ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
+            projectService, projectVisibilityFilter, projectWorkflowService);
+
+        List<ProjectSearchResult> results = provider.search("bill", 10);
+
+        assertThat(results).singleElement()
+            .extracting(ProjectSearchResult::projectWorkflowId)
+            .isNull();
+    }
+
+    private static Project billingProject(
+        ProjectService projectService, ProjectVisibilityFilter projectVisibilityFilter) {
+
+        Project project = mock(Project.class);
+
+        when(project.getId()).thenReturn(5L);
+        when(project.getName()).thenReturn("Billing");
+        when(projectService.getProjects(false, null, null, null, null, null)).thenReturn(List.of(project));
+        when(projectVisibilityFilter.filterVisible(List.of(project))).thenReturn(List.of(project));
+
+        return project;
+    }
+
+    private static ProjectWorkflow projectWorkflow(long id, ProjectWorkflowType type) {
+        ProjectWorkflow projectWorkflow = mock(ProjectWorkflow.class);
+
+        when(projectWorkflow.getId()).thenReturn(id);
+        when(projectWorkflow.getProjectId()).thenReturn(5L);
+        when(projectWorkflow.getType()).thenReturn(type);
+
+        return projectWorkflow;
     }
 
     @SuppressWarnings("unchecked")

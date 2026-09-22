@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
@@ -38,6 +39,7 @@ import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectVersionWorkflowChangeService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.SharedTemplateService;
@@ -279,16 +281,18 @@ class ProjectWorkflowFacadeVisibilityTest {
             new DefaultResourceVisibilityResolver());
     }
 
+    @SuppressWarnings("unchecked")
     private ProjectWorkflowFacadeImpl facade(ResourceVisibilityResolver resourceVisibilityResolver) {
         return new ProjectWorkflowFacadeImpl(
             mock(ComponentDefinitionHelper.class), mock(PreBuiltTemplateService.class),
             mock(ApplicationProperties.class), mock(EnvironmentService.class),
             mock(ErrorWorkflowConfigurationValidator.class), mock(ProjectDeploymentService.class),
             mock(ProjectDeploymentWorkflowService.class), projectService,
+            mock(ProjectVersionWorkflowChangeService.class),
             new ProjectVisibilityFilter(objectProvider(resourceVisibilityResolver)), projectWorkflowService,
             mock(SharedTemplateFileStorage.class), mock(SharedTemplateService.class), mock(WorkflowCacheManager.class),
-            workflowFacade, List.of(), mock(WorkflowService.class), mock(WorkflowTestConfigurationService.class),
-            mock(WorkflowValidatorFacade.class));
+            workflowFacade, List.of(), mock(WorkflowService.class), mock(ObjectProvider.class),
+            mock(WorkflowTestConfigurationService.class), mock(WorkflowValidatorFacade.class));
     }
 
     private static void authenticate(String login) {
@@ -317,6 +321,7 @@ class ProjectWorkflowFacadeVisibilityTest {
 
         when(projectWorkflow.getId()).thenReturn(id);
         when(projectWorkflow.getProjectId()).thenReturn(projectId);
+        when(projectWorkflow.getType()).thenReturn(ProjectWorkflowType.WORKFLOW);
         when(projectWorkflow.getWorkflowId()).thenReturn(workflowId);
 
         return projectWorkflow;
