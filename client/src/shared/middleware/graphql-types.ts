@@ -149,13 +149,13 @@ export type AiAgent = {
   lastPublishedVersion: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   projectId: Scalars['ID']['output'];
+  projectWorkflowUuid: Scalars['String']['output'];
   publishedDate?: Maybe<Scalars['String']['output']>;
   settings?: Maybe<Scalars['Map']['output']>;
-  tags: Array<Tag>;
   title: Scalars['String']['output'];
   unpublishedChanges: Scalars['Boolean']['output'];
   uuid: Scalars['String']['output'];
-  /** Who may see this agent, inherited from its hidden backing project. Governs management surfaces only — a PRIVATE agent keeps serving every one of its channels. */
+  /** Who may see this agent, inherited from its backing project. Governs management surfaces only — a PRIVATE agent keeps serving every one of its channels. */
   visibility: ResourceVisibility;
   workspaceId?: Maybe<Scalars['ID']['output']>;
 };
@@ -197,7 +197,6 @@ export type AiAgentDeployment = {
   name: Scalars['String']['output'];
   projectId: Scalars['ID']['output'];
   projectVersion: Scalars['Int']['output'];
-  tags?: Maybe<Array<Tag>>;
   workflows: Array<AiAgentDeploymentWorkflow>;
 };
 
@@ -2324,6 +2323,7 @@ export type CreateA2aServerInput = {
 
 export type CreateAiAgentInput = {
   description?: InputMaybe<Scalars['String']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
   title: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
 };
@@ -2460,6 +2460,7 @@ export type CreateCustomRoleInput = {
 
 export type CreateDataSyncInput = {
   description?: InputMaybe<Scalars['String']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
   title: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
 };
@@ -2662,8 +2663,8 @@ export type DataSync = {
   lastPublishedVersion: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   projectId: Scalars['ID']['output'];
+  projectWorkflowUuid: Scalars['String']['output'];
   publishedDate?: Maybe<Scalars['String']['output']>;
-  tags: Array<Tag>;
   title: Scalars['String']['output'];
   triggerParameters?: Maybe<Scalars['Map']['output']>;
   triggerType: DataSyncTriggerType;
@@ -2684,7 +2685,6 @@ export type DataSyncDeployment = {
   name: Scalars['String']['output'];
   projectId: Scalars['ID']['output'];
   projectVersion: Scalars['Int']['output'];
-  tags?: Maybe<Array<Tag>>;
   triggerType: DataSyncTriggerType;
   workflowId: Scalars['String']['output'];
 };
@@ -3710,7 +3710,7 @@ export type Mutation = {
    * Creates an agent chat bound to the given AI Agent workflow's execution. Mechanically identical to
    * {@code createWorkflowChatAiHubChat} — always-new, same webhook bridge serves the turns — but the returned row
    * carries {@code kind = AGENT_CHAT} so the UI can present it as the agent the user picked rather than as the
-   * hidden {@code __AI_AGENT__} project's workflow behind it.
+   * generated workflow behind it.
    *
    * Pass the agent's title as {@code title}; it becomes the new row's sidebar label, since the bridge bypasses the
    * LLM-driven title generation.
@@ -3922,8 +3922,6 @@ export type Mutation = {
   generatePropertyValue: GeneratePropertyValuePayload;
   generateSpecification: GenerateSpecificationResponse;
   generateWorkflowDescription: GenerateWorkflowDescriptionPayload;
-  /** Grant a named workspace member sight of an agent its owner has withheld. Idempotent. (AGENT_EDIT plus owner-or-admin, EE only) */
-  grantAiAgentAccess: Scalars['Boolean']['output'];
   /**
    * Grants a named workspace member access to a chat. The grantee must already be a member of the
    * workspace.
@@ -3957,10 +3955,8 @@ export type Mutation = {
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
   /** Promote a resource into another environment: creates the counterpart on first promotion, syncs it afterwards. */
   promoteToEnvironment: EnvironmentPromotionResult;
-  publishAiAgent: Scalars['Int']['output'];
   publishAutomationWorkflowProject: Scalars['Boolean']['output'];
   publishCustomComponent: CustomComponent;
-  publishDataSync: Scalars['Int']['output'];
   /** Reassign all of a user's unresolved connections to a new owner. (admin only) */
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
@@ -3997,8 +3993,6 @@ export type Mutation = {
   renameDataTableColumn: Scalars['Boolean']['output'];
   resolveAiHubToolApproval: AiHubToolApprovalResolution;
   restoreAssetFileVersion: AssetFile;
-  /** Revoke a grant. Silent when no grant exists. (AGENT_EDIT plus owner-or-admin, EE only) */
-  revokeAiAgentAccess: Scalars['Boolean']['output'];
   /**
    * Revokes a named user's access to a chat. No membership check runs — someone removed from the
    * workspace must still be revocable.
@@ -4026,8 +4020,6 @@ export type Mutation = {
    */
   sendTestWorkflowAlert: Scalars['Boolean']['output'];
   setActiveAiPromptVersion?: Maybe<Scalars['Boolean']['output']>;
-  /** Set who may SEE an agent. PRIVATE withholds it from the workspace's agent and deployment lists and from every by-id read; WORKSPACE shares it. It does not change who can USE the agent: a withheld agent's Slack, WhatsApp, webhook and hosted-chat channels keep answering everyone exactly as before. Stored on the agent's hidden backing project, which is the one record either question has. ORGANIZATION is not supported. (AGENT_EDIT plus owner-or-admin, EE only) */
-  setAiAgentVisibility: Scalars['Boolean']['output'];
   setAiGuardrailCustomRuleEnabled: AiGuardrailCustomRule;
   /**
    * Toggle a user connector on/off WITHIN ONE CHAT, leaving its user-global availability untouched. This is
@@ -4105,7 +4097,6 @@ export type Mutation = {
   updateA2aServer?: Maybe<A2aServer>;
   updateAiAgent: AiAgent;
   updateAiAgentChannel: Scalars['Boolean']['output'];
-  updateAiAgentDeploymentTags: Scalars['Boolean']['output'];
   updateAiAgentElement: Scalars['Boolean']['output'];
   updateAiAgentEvalScenario: AiAgentEvalScenario;
   updateAiAgentEvalTest: AiAgentEvalTest;
@@ -4113,7 +4104,6 @@ export type Mutation = {
   updateAiAgentScenarioJudge: AiAgentScenarioJudge;
   updateAiAgentScenarioToolSimulation: AiAgentScenarioToolSimulation;
   updateAiAgentSettings: Scalars['Boolean']['output'];
-  updateAiAgentTags: Scalars['Boolean']['output'];
   /**
    * Partial update of a memory by primary key, resolved within the supplied environment and scoped to the
    * resolved principal. The environment identifies which row the key addresses, not a value to write — a memory's
@@ -4193,9 +4183,7 @@ export type Mutation = {
   /** Update a custom role. Requires tenant admin. */
   updateCustomRole: CustomRole;
   updateDataSync: DataSync;
-  updateDataSyncDeploymentTags: Scalars['Boolean']['output'];
   updateDataSyncElement: Scalars['Boolean']['output'];
-  updateDataSyncTags: Scalars['Boolean']['output'];
   updateDataSyncTrigger: Scalars['Boolean']['output'];
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
@@ -5246,12 +5234,6 @@ export type MutationGenerateWorkflowDescriptionArgs = {
 };
 
 
-export type MutationGrantAiAgentAccessArgs = {
-  agentId: Scalars['ID']['input'];
-  userId: Scalars['ID']['input'];
-};
-
-
 export type MutationGrantAiHubChatAccessArgs = {
   chatId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
@@ -5275,6 +5257,7 @@ export type MutationGrantProjectAccessArgs = {
 
 export type MutationImportAiAgentArgs = {
   json: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -5348,24 +5331,12 @@ export type MutationPromoteToEnvironmentArgs = {
 };
 
 
-export type MutationPublishAiAgentArgs = {
-  description?: InputMaybe<Scalars['String']['input']>;
-  id: Scalars['ID']['input'];
-};
-
-
 export type MutationPublishAutomationWorkflowProjectArgs = {
   id: Scalars['ID']['input'];
 };
 
 
 export type MutationPublishCustomComponentArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
-export type MutationPublishDataSyncArgs = {
-  description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
 };
 
@@ -5470,12 +5441,6 @@ export type MutationRestoreAssetFileVersionArgs = {
 };
 
 
-export type MutationRevokeAiAgentAccessArgs = {
-  agentId: Scalars['ID']['input'];
-  userId: Scalars['ID']['input'];
-};
-
-
 export type MutationRevokeAiHubChatAccessArgs = {
   chatId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
@@ -5562,12 +5527,6 @@ export type MutationSendTestWorkflowAlertArgs = {
 export type MutationSetActiveAiPromptVersionArgs = {
   environment: Scalars['String']['input'];
   promptVersionId: Scalars['ID']['input'];
-};
-
-
-export type MutationSetAiAgentVisibilityArgs = {
-  agentId: Scalars['ID']['input'];
-  visibility: ResourceVisibility;
 };
 
 
@@ -5803,11 +5762,6 @@ export type MutationUpdateAiAgentChannelArgs = {
 };
 
 
-export type MutationUpdateAiAgentDeploymentTagsArgs = {
-  input: UpdateAiAgentDeploymentTagsInput;
-};
-
-
 export type MutationUpdateAiAgentElementArgs = {
   input: UpdateAiAgentElementInput;
 };
@@ -5856,11 +5810,6 @@ export type MutationUpdateAiAgentScenarioToolSimulationArgs = {
 export type MutationUpdateAiAgentSettingsArgs = {
   id: Scalars['ID']['input'];
   settings: Scalars['Map']['input'];
-};
-
-
-export type MutationUpdateAiAgentTagsArgs = {
-  input: UpdateAiAgentTagsInput;
 };
 
 
@@ -6136,18 +6085,8 @@ export type MutationUpdateDataSyncArgs = {
 };
 
 
-export type MutationUpdateDataSyncDeploymentTagsArgs = {
-  input: UpdateDataSyncDeploymentTagsInput;
-};
-
-
 export type MutationUpdateDataSyncElementArgs = {
   input: UpdateDataSyncElementInput;
-};
-
-
-export type MutationUpdateDataSyncTagsArgs = {
-  input: UpdateDataSyncTagsInput;
 };
 
 
@@ -6757,7 +6696,6 @@ export type Query = {
   affectedWorkflows: Array<AffectedWorkflow>;
   aiAgent?: Maybe<AiAgent>;
   aiAgentChannelDefinitions: Array<AiAgentChannelDefinition>;
-  aiAgentDeploymentTags: Array<Tag>;
   aiAgentDeployments: Array<AiAgentDeployment>;
   aiAgentEvalResult?: Maybe<AiAgentEvalResult>;
   aiAgentEvalResultTranscript?: Maybe<Scalars['String']['output']>;
@@ -6765,10 +6703,7 @@ export type Query = {
   aiAgentEvalRuns: Array<AiAgentEvalRun>;
   aiAgentEvalTest?: Maybe<AiAgentEvalTest>;
   aiAgentEvalTests: Array<AiAgentEvalTest>;
-  /** The users a withheld agent has been granted to. Requires AGENT_EDIT on the agent and, through the project facade this delegates to, ownership of it or workspace admin — the audience of a withheld agent is not part of seeing it. (EE only) */
-  aiAgentGrants: Array<Scalars['Long']['output']>;
   aiAgentJudges: Array<AiAgentJudge>;
-  aiAgentTags: Array<Tag>;
   aiAgentVersions: Array<AiAgentVersion>;
   aiAgents: Array<AiAgent>;
   /**
@@ -7041,9 +6976,7 @@ export type Query = {
    */
   dataStreamCompatibleConnections: Array<DataStreamCompatibleConnection>;
   dataSync?: Maybe<DataSync>;
-  dataSyncDeploymentTags: Array<Tag>;
   dataSyncDeployments: Array<DataSyncDeployment>;
-  dataSyncTags: Array<Tag>;
   dataSyncVersions: Array<DataSyncVersion>;
   dataSyncs: Array<DataSync>;
   dataTableRows: Array<DataTableRow>;
@@ -7245,11 +7178,6 @@ export type QueryAiAgentArgs = {
 };
 
 
-export type QueryAiAgentDeploymentTagsArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
 export type QueryAiAgentDeploymentsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
@@ -7288,19 +7216,9 @@ export type QueryAiAgentEvalTestsArgs = {
 };
 
 
-export type QueryAiAgentGrantsArgs = {
-  agentId: Scalars['ID']['input'];
-};
-
-
 export type QueryAiAgentJudgesArgs = {
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
-};
-
-
-export type QueryAiAgentTagsArgs = {
-  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -8033,17 +7951,7 @@ export type QueryDataSyncArgs = {
 };
 
 
-export type QueryDataSyncDeploymentTagsArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
 export type QueryDataSyncDeploymentsArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
-export type QueryDataSyncTagsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -8966,11 +8874,6 @@ export type UpdateAiAgentChannelInput = {
   parameters?: InputMaybe<Scalars['Map']['input']>;
 };
 
-export type UpdateAiAgentDeploymentTagsInput = {
-  id: Scalars['ID']['input'];
-  tags?: InputMaybe<Array<TagInput>>;
-};
-
 export type UpdateAiAgentElementInput = {
   connectionId?: InputMaybe<Scalars['ID']['input']>;
   id: Scalars['ID']['input'];
@@ -8982,11 +8885,6 @@ export type UpdateAiAgentInput = {
   id: Scalars['ID']['input'];
   instructions?: InputMaybe<Scalars['String']['input']>;
   title?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type UpdateAiAgentTagsInput = {
-  id: Scalars['ID']['input'];
-  tags?: InputMaybe<Array<TagInput>>;
 };
 
 export type UpdateAiAutoMemoryInput = {
@@ -9126,12 +9024,6 @@ export type UpdateCustomRoleInput = {
   scopes: Array<Scalars['String']['input']>;
 };
 
-export type UpdateDataSyncDeploymentTagsInput = {
-  id: Scalars['ID']['input'];
-  projectDeploymentId: Scalars['ID']['input'];
-  tags?: InputMaybe<Array<TagInput>>;
-};
-
 export type UpdateDataSyncElementInput = {
   connectionId?: InputMaybe<Scalars['ID']['input']>;
   id: Scalars['ID']['input'];
@@ -9142,11 +9034,6 @@ export type UpdateDataSyncInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
   title?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type UpdateDataSyncTagsInput = {
-  id: Scalars['ID']['input'];
-  tags?: InputMaybe<Array<TagInput>>;
 };
 
 export type UpdateDataSyncTriggerInput = {
