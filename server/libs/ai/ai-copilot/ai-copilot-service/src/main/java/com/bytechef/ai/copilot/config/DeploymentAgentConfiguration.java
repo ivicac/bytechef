@@ -44,7 +44,7 @@ import org.springframework.core.io.Resource;
 
 /**
  * Registers the deployments Copilot panel source agents ({@code deployment_ask}/{@code deployment_build}) backing the
- * copilot trigger on the project-deployments and agent-deployments pages.
+ * copilot trigger on the project deployments page, which also shows the channels of the agents each deployment holds.
  *
  * <p>
  * Deliberately registers NO subagent {@code ChatClient} beans, unlike the other domain slices: the AI Hub used to reach

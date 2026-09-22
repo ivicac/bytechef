@@ -69,7 +69,7 @@ class AutomationWorkflowProjectFacadePermissionFilterTest {
         mock(ApplicationEventPublisher.class), categoryService, connectedUserService, embeddedPermissionEvaluator,
         projectCodeWorkflowService, projectService, projectWorkflowFacade, projectWorkflowService, tagService,
         workflowComponentResolver, workflowNodeTestOutputService, workflowService, workflowTestConfigurationService,
-        List.of());
+        List.of(), List.of());
 
     @Test
     void testGetPublishedProjectsHidesProjectWhenExpressionIsFalse() {

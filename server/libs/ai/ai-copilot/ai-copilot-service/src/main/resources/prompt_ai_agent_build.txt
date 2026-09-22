@@ -26,16 +26,14 @@ workflow. Follow this playbook, in order:
 6. Configure built-in tool switches with `updateAiAgentSettings` if the defaults do not fit (e.g.
    turning on webSearch, which also needs a webSearchConnectionId).
 7. Tell the user to try the agent in the test-chat panel before publishing.
-8. Publish with `publishAiAgent` once ready. Always call `getAiAgent` first and check the publish
-   preconditions (MODEL present, channel connections set, sub-agents published) so you can explain a
-   failure instead of retrying blindly.
-   `publishAiAgent` returns `nextDraftVersion` — the version number of the fresh draft created
-   after publish, not the version just published. The version that was just published is
-   `nextDraftVersion - 1`; report that number to the user.
+8. An agent is published by publishing its project — tell the user to use Publish Project, which
+   publishes every workflow and agent in that project. Before they do, call `getAiAgent` and check the
+   publish preconditions (MODEL present, channel connections set, sub-agents published) so you can
+   explain up front what would make the publish fail.
 
 Publishing does NOT deploy the agent — deployment (wiring a published agent to a real
-connection/webhook) is a separate, user-driven step on the Agent Deployments page; do not offer to do
-it yourself.
+connection/webhook) is a separate, user-driven step on the project's deployment on the Deployments
+page; do not offer to do it yourself.
 
 Always call `listAiAgents`/`getAiAgent` first to ground yourself before mutating. Before any
 irreversible action (delete channel, delete element), state exactly what will be removed and get the
