@@ -490,13 +490,16 @@ The active row is the LONGEST matching href, not merely a matching one: nav entr
 Invocations lives under `/automation/executions`), and a plain prefix test lights up parent and child
 at once.
 
-Current groups: automation Build / Deploy / Monitor / AI / Resources; embedded Build / Configure /
+Current groups: automation Deploy / Monitor / AI / Resources; embedded Build / Configure /
 Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
-Approval Tasks and Connections; embedded Connections alone.
+Projects and Connections; embedded Connections alone. Approval Tasks is not a nav row — it opens
+from the user menu (`AppSidebarFooter`), shown only in automation mode, and renders without the app
+sidebar: `shared/navigation/standaloneRoutes.ts` lists such pages, and its header back button is the way out.
 
-Both Build groups are Development-only. `shared/navigation/developmentOnlyRoutes.ts` is the one list
-pairing each authoring surface with the deployed one that replaces it (Projects — including the Agents
-tab and the agents inside a project — → Deployments, Data Syncs → Data Sync Deployments, Integrations and
+The embedded Build group and the automation Projects row are Development-only.
+`shared/navigation/developmentOnlyRoutes.ts` is the one list
+pairing each authoring surface with the deployed one that replaces it (Projects — including the Agents and
+Data Syncs tabs and the agents and data syncs inside a project — → Deployments, Integrations and
 Automations → Integration Instances); `App.tsx` hides the rows
 outside DEVELOPMENT and `useDevelopmentOnlyRouteGuard` redirects anyone standing on one. Both rules
 must come from that list — a row you cannot reach and a page you cannot leave are the same bug from
@@ -580,7 +583,7 @@ relevant file before working in that area** — each records invariants whose vi
 |------|----------------------|
 | `.agents/ai-hub.md` | AI Hub chats, agent tool tiers, subagent memory + interactive questions, auto-memory, Copilot module map |
 | `.agents/agents.md` | Agents (automation): channels, generated workflows, elements, publishing |
-| `.agents/data-sync.md` | Data Sync: rows-as-truth, generated draft, fixed node names, Run now path, form-mode wizard |
+| `.agents/data-sync.md` | Data Sync: rows-as-truth, generated draft in its project, fixed node names, publish/delete with the project, Run now path, form-mode wizard |
 | `.agents/hitl-approvals.md` | Approval cards, the tool gate, delivery fan-out |
 | `.agents/ai-guardrails.md` | Guardrails engine, advisor, per-surface coverage |
 | `.agents/ai-gateway-guardrails.md` | Gateway adapter + project overlay |
