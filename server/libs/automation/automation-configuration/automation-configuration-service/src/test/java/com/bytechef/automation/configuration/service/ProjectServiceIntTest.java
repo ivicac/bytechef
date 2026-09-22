@@ -172,7 +172,7 @@ public class ProjectServiceIntTest {
 
         projectRepository.save(
             Project.builder()
-                .name("__DATA_SYNC__Sync")
+                .name("__CONTEXT_STORE__Store")
                 .workspaceId(workspace.getId())
                 .build());
 
@@ -181,7 +181,22 @@ public class ProjectServiceIntTest {
         assertThat(projects)
             .extracting(Project::getName)
             .contains("Regular Project")
-            .doesNotContain("__EMBEDDED_AUTOMATION__Catalog", "__DATA_SYNC__Sync");
+            .doesNotContain("__EMBEDDED_AUTOMATION__Catalog", "__CONTEXT_STORE__Store");
+    }
+
+    @Test
+    public void testFormerDataSyncPrefixIsNoLongerSystem() {
+        projectRepository.save(
+            Project.builder()
+                .name("__DATA_SYNC__Sync")
+                .workspaceId(workspace.getId())
+                .build());
+
+        List<Project> projects = projectService.getProjects(null, null, null, null, null, workspace.getId());
+
+        assertThat(projects)
+            .extracting(Project::getName)
+            .contains("__DATA_SYNC__Sync");
     }
 
     @Test

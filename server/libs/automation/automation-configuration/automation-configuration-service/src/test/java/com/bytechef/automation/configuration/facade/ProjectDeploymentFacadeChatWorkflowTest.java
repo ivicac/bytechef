@@ -213,6 +213,56 @@ class ProjectDeploymentFacadeChatWorkflowTest {
     }
 
     /**
+     * A Data Sync's generated workflow is not chat-capable in practice, but it carries the same {@code type} exclusion
+     * as an AI agent's, so this listing must drop it the same way.
+     */
+    @Test
+    void testChatWorkflowsLeaveOutDataSyncWorkflows() {
+        ProjectDeployment userProjectDeployment = projectDeployment(10L, 1L);
+        ProjectDeployment dataSyncProjectDeployment = projectDeployment(11L, 1L);
+
+        Mockito.when(environmentService.getEnvironment(ArgumentMatchers.anyLong()))
+            .thenReturn(Environment.PRODUCTION);
+        Mockito
+            .when(
+                projectDeploymentService.getProjectDeployments(
+                    ArgumentMatchers.eq(false), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any(), ArgumentMatchers.any()))
+            .thenReturn(List.of(userProjectDeployment, dataSyncProjectDeployment));
+        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(
+                List.of(
+                    projectDeploymentWorkflow(100L, 10L, "wf-1"), projectDeploymentWorkflow(101L, 11L, "wf-2")));
+        Mockito.when(workflowService.getWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(List.of(chatWorkflow("wf-1", "User chat"), chatWorkflow("wf-2", "Data sync chat")));
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(
+                List.of(
+                    projectWorkflow(1000L, "wf-1"), projectWorkflow(1001L, "wf-2", ProjectWorkflowType.DATA_SYNC)));
+        Mockito.when(projectService.getProjects(ArgumentMatchers.anyList()))
+            .thenReturn(List.of(workspaceVisibleProject));
+
+        TriggerDefinition triggerDefinition = Mockito.mock(TriggerDefinition.class);
+
+        Mockito.when(triggerDefinition.getType())
+            .thenReturn(TriggerType.STATIC_WEBHOOK);
+        Mockito.when(triggerDefinition.getName())
+            .thenReturn("newChatMessage");
+        Mockito
+            .when(
+                triggerDefinitionService.getTriggerDefinition(
+                    ArgumentMatchers.anyString(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyString()))
+            .thenReturn(triggerDefinition);
+
+        List<ChatWorkflow> chatWorkflows = createProjectDeploymentFacade(ResourceVisibility.WORKSPACE)
+            .getWorkspaceChatWorkflows(WORKSPACE_ID, 0L);
+
+        assertThat(chatWorkflows)
+            .extracting(ChatWorkflow::workflowLabel)
+            .containsExactly("User chat");
+    }
+
+    /**
      * Only the collaborators this listing reaches are stubbed; the rest of the facade's graph is irrelevant to it and
      * is left as bare mocks.
      */

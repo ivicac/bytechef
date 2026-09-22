@@ -321,7 +321,7 @@ class ProjectDeploymentFacadeTest {
     private static Project systemProject() {
         Project systemProject = project(SYSTEM_PROJECT_ID);
 
-        systemProject.setName(SystemProjects.DATA_SYNC_NAME_PREFIX + "sync");
+        systemProject.setName(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + "1");
 
         return systemProject;
     }

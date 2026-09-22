@@ -173,6 +173,30 @@ class ProjectSearchAssetProviderTest {
     }
 
     @Test
+    void testResultSkipsGeneratedDataSyncWorkflows() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectVisibilityFilter projectVisibilityFilter = mock(ProjectVisibilityFilter.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+
+        Project project = billingProject(projectService, projectVisibilityFilter);
+
+        ProjectWorkflow dataSyncProjectWorkflow = projectWorkflow(76L, ProjectWorkflowType.DATA_SYNC);
+        ProjectWorkflow ordinaryProjectWorkflow = projectWorkflow(77L, ProjectWorkflowType.WORKFLOW);
+
+        when(projectWorkflowService.getLatestProjectWorkflows())
+            .thenReturn(List.of(dataSyncProjectWorkflow, ordinaryProjectWorkflow));
+
+        ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
+            projectService, projectVisibilityFilter, projectWorkflowService);
+
+        List<ProjectSearchResult> results = provider.search("bill", 10);
+
+        assertThat(results).singleElement()
+            .extracting(ProjectSearchResult::id, ProjectSearchResult::projectWorkflowId)
+            .containsExactly(project.getId(), 77L);
+    }
+
+    @Test
     void testProjectWorkflowIdIsNullWhenTheProjectHoldsOnlyAgents() {
         ProjectService projectService = mock(ProjectService.class);
         ProjectVisibilityFilter projectVisibilityFilter = mock(ProjectVisibilityFilter.class);
