@@ -183,7 +183,7 @@ public class WorkflowDeleteCascadeIntTest {
         Project systemProject = projectRepository.save(
             Project.builder()
                 .description("test-system-project")
-                .name(SystemProjects.AI_AGENT_NAME_PREFIX + "test-project")
+                .name(SystemProjects.DATA_SYNC_NAME_PREFIX + "test-project")
                 .workspaceId(workspace.getId())
                 .build());
 

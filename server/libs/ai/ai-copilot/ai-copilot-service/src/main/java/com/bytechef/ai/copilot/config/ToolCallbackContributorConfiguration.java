@@ -380,24 +380,23 @@ public class ToolCallbackContributorConfiguration {
      * delegate in the plan) onto the management MCP surface, replacing the dissolved {@code ai_agent_agent} delegate's
      * contribution — formerly built by hand in {@link #copilotAgentToolCallbackContributor} from the
      * {@code aiAgentBuildSubAgentChatClient} bean. This surface has no schema-count pressure (MCP clients page
-     * {@code tools/list}), so all eleven of {@link AiAgentToolCallbacksFactory#writeToolCallbacks()} are registered
-     * flat — {@code listAiAgents}, {@code getAiAgent}, {@code createAiAgent}, {@code updateAiAgent},
+     * {@code tools/list}), so all ten of {@link AiAgentToolCallbacksFactory#writeToolCallbacks()} are registered flat —
+     * {@code listAiAgents}, {@code getAiAgent}, {@code createAiAgent}, {@code updateAiAgent},
      * {@code addAiAgentChannel}, {@code deleteAiAgentChannel}, {@code addAiAgentElement}, {@code updateAiAgentElement},
-     * {@code deleteAiAgentElement}, {@code updateAiAgentSettings}, {@code publishAiAgent} — unlike the AI Hub chat
-     * surface (see {@code AiHubConfiguration#aiAgentFlatCrudToolCallbacks}/{@code #aiAgentCatalogToolCallbacks}), which
-     * splits the two reads (pinned) from the nine mutations (searchable catalog) to keep its pinned tool-schema list
-     * small.
+     * {@code deleteAiAgentElement}, {@code updateAiAgentSettings} — unlike the AI Hub chat surface (see
+     * {@code AiHubConfiguration#aiAgentFlatCrudToolCallbacks}/{@code #aiAgentCatalogToolCallbacks}), which splits the
+     * two reads (pinned) from the eight mutations (searchable catalog) to keep its pinned tool-schema list small.
      *
      * <p>
      * Only {@code listAiAgents} and {@code createAiAgent} read
      * {@code com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext.workspaceId()} — the OTHER key family from
      * every domain flattened onto this surface before Task 5 ({@code AutomationToolInvocationContext}'s). The other
-     * nine resolve everything from an id already in their own input; authorization for those is the same
+     * eight resolve everything from an id already in their own input; authorization for those is the same
      * {@code isAuthenticated()}-only posture documented on {@code AiAgentFacadeImpl}, unaffected by dissolving the
-     * delegate that used to wrap them. All eleven are wrapped in {@link WorkspaceScopedFlatToolCallback} uniformly
-     * anyway — mirroring {@link #dataTableFlatCrudMcpContributor} and {@link #knowledgeBaseFlatCrudMcpContributor} —
-     * since that wrapper writes both key families unconditionally (see its Javadoc) and the extra, unused
-     * workspaceId/environment fields on the other nine tools' schemas are harmless.
+     * delegate that used to wrap them. All ten are wrapped in {@link WorkspaceScopedFlatToolCallback} uniformly anyway
+     * — mirroring {@link #dataTableFlatCrudMcpContributor} and {@link #knowledgeBaseFlatCrudMcpContributor} — since
+     * that wrapper writes both key families unconditionally (see its Javadoc) and the extra, unused
+     * workspaceId/environment fields on the other eight tools' schemas are harmless.
      * </p>
      *
      * <p>

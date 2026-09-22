@@ -40,7 +40,7 @@ class AiAgentToolCallbacksFactoryTest {
         assertThat(names).containsExactlyInAnyOrder("listAiAgents", "getAiAgent");
         assertThat(names).doesNotContain(
             "createAiAgent", "updateAiAgent", "addAiAgentChannel", "deleteAiAgentChannel", "addAiAgentElement",
-            "updateAiAgentElement", "deleteAiAgentElement", "updateAiAgentSettings", "publishAiAgent");
+            "updateAiAgentElement", "deleteAiAgentElement", "updateAiAgentSettings");
     }
 
     @Test
@@ -50,7 +50,7 @@ class AiAgentToolCallbacksFactoryTest {
         assertThat(names).containsExactlyInAnyOrder(
             "listAiAgents", "getAiAgent", "createAiAgent", "updateAiAgent", "addAiAgentChannel",
             "deleteAiAgentChannel", "addAiAgentElement", "updateAiAgentElement", "deleteAiAgentElement",
-            "updateAiAgentSettings", "publishAiAgent");
+            "updateAiAgentSettings");
     }
 
     private static List<String> toolNames(List<ToolCallback> toolCallbacks) {
