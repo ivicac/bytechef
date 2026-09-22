@@ -15,8 +15,15 @@ interface FixtureAgentDeploymentI {
     workflows: {triggers: FixtureTriggerI[]}[];
 }
 
+interface FixtureDataSyncDeploymentI {
+    dataSyncId: string;
+    id: string;
+    triggerType: string;
+}
+
 const hoisted = vi.hoisted(() => ({
     agentDeployments: [] as FixtureAgentDeploymentI[],
+    dataSyncDeployments: [] as FixtureDataSyncDeploymentI[],
     projectDeployments: [] as {id: number; name: string; project: object; projectId: number}[],
     projects: [] as {id: number; name: string}[],
 }));
@@ -28,6 +35,10 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
 
 vi.mock('@/pages/automation/project-deployments/hooks/useAgentDeployments', () => ({
     default: () => ({agentDeployments: hoisted.agentDeployments, agentDeploymentsIsLoading: false}),
+}));
+
+vi.mock('@/pages/automation/project-deployments/hooks/useDataSyncDeployments', () => ({
+    default: () => ({dataSyncDeployments: hoisted.dataSyncDeployments, dataSyncDeploymentsIsLoading: false}),
 }));
 
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
@@ -104,6 +115,11 @@ const renderProjectDeployments = (initialEntries: string[] = ['/']) =>
         </MemoryRouter>
     );
 
+// The Agents and Data Syncs sidebar groups each have their own "Scheduled" item, so the accessible name
+// alone does not pick one out — the target href does.
+const getFilterLink = (name: string, hrefIncludes: string) =>
+    screen.getAllByRole('link', {name}).find((link) => link.getAttribute('href')?.includes(hrefIncludes))!;
+
 describe('ProjectDeployments agents filter', () => {
     beforeEach(() => {
         const project = {id: 1, name: 'Sales'};
@@ -133,7 +149,7 @@ describe('ProjectDeployments agents filter', () => {
         expect(agentsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
         expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?agents=scheduled');
+        expect(getFilterLink('Scheduled', 'agents=scheduled')).toHaveAttribute('href', '/?agents=scheduled');
     });
 
     it('lists every deployment and opens rows on Workflows without the filter', () => {
@@ -202,8 +218,96 @@ describe('ProjectDeployments agents filter', () => {
         renderProjectDeployments(['/?projectId=1&agents=all']);
 
         expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?projectId=1');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?projectId=1&agents=scheduled');
+        expect(getFilterLink('Scheduled', 'agents=scheduled')).toHaveAttribute(
+            'href',
+            '/?projectId=1&agents=scheduled'
+        );
         expect(screen.getByRole('link', {name: 'Sales'})).toHaveAttribute('href', '/?projectId=1&agents=all');
         expect(screen.getByRole('link', {name: 'All Projects'})).toHaveAttribute('href', '/?agents=all');
+    });
+
+    it('picking a data syncs filter clears the active agents filter', () => {
+        renderProjectDeployments(['/?agents=all']);
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?dataSyncs=all');
+    });
+});
+
+describe('ProjectDeployments data syncs filter', () => {
+    beforeEach(() => {
+        const project = {id: 1, name: 'Sales'};
+
+        hoisted.projects = [project];
+
+        hoisted.projectDeployments = [
+            {id: 10, name: 'Scheduled Deployment', project, projectId: 1},
+            {id: 11, name: 'Manual Deployment', project, projectId: 1},
+            {id: 12, name: 'Workflow Deployment', project, projectId: 1},
+        ];
+
+        hoisted.agentDeployments = [];
+        hoisted.dataSyncDeployments = [
+            {dataSyncId: 'ds1', id: '10', triggerType: 'SCHEDULE'},
+            {dataSyncId: 'ds2', id: '11', triggerType: 'MANUAL'},
+        ];
+    });
+
+    it('shows the Data Syncs section between Agents and Tags', () => {
+        renderProjectDeployments();
+
+        const agentsHeading = screen.getByText('Agents');
+        const dataSyncsHeading = screen.getByText('Data Syncs');
+        const tagsHeading = screen.getByText('Tags');
+
+        expect(agentsHeading.compareDocumentPosition(dataSyncsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(dataSyncsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?dataSyncs=all');
+        expect(getFilterLink('Scheduled', 'dataSyncs=scheduled')).toHaveAttribute('href', '/?dataSyncs=scheduled');
+    });
+
+    it('keeps only deployments with a data sync for All Data Syncs, opening rows on Data Syncs', () => {
+        renderProjectDeployments(['/?dataSyncs=all']);
+
+        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
+        expect(screen.getByText('Manual Deployment')).toBeInTheDocument();
+        expect(screen.queryByText('Workflow Deployment')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-deployment-list')).toHaveAttribute('data-default-active-tab', 'dataSyncs');
+        expect(screen.getByText('Data Syncs: All Data Syncs')).toBeInTheDocument();
+    });
+
+    it('keeps only deployments with a scheduled data sync for Scheduled', () => {
+        renderProjectDeployments(['/?dataSyncs=scheduled']);
+
+        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
+        expect(screen.queryByText('Manual Deployment')).not.toBeInTheDocument();
+        expect(screen.queryByText('Workflow Deployment')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-deployment-list')).toHaveAttribute('data-default-active-tab', 'dataSyncs');
+    });
+
+    it('reports a filter miss when no deployment has a matching data sync', () => {
+        hoisted.dataSyncDeployments = [];
+
+        renderProjectDeployments(['/?dataSyncs=all']);
+
+        expect(screen.getByText('No Matching Project Deployments')).toBeInTheDocument();
+    });
+
+    it('combines with the project filter in both directions', () => {
+        renderProjectDeployments(['/?projectId=1&dataSyncs=all']);
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?projectId=1');
+        expect(getFilterLink('Scheduled', 'dataSyncs=scheduled')).toHaveAttribute(
+            'href',
+            '/?projectId=1&dataSyncs=scheduled'
+        );
+        expect(screen.getByRole('link', {name: 'Sales'})).toHaveAttribute('href', '/?projectId=1&dataSyncs=all');
+        expect(screen.getByRole('link', {name: 'All Projects'})).toHaveAttribute('href', '/?dataSyncs=all');
+    });
+
+    it('picking an agents filter clears the active data syncs filter', () => {
+        renderProjectDeployments(['/?dataSyncs=all']);
+
+        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
     });
 });

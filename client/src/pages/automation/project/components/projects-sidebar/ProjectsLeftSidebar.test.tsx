@@ -120,6 +120,20 @@ vi.mock('@/pages/automation/agents/components/AgentsLeftSidebarDropdownMenu', ()
     default: () => null,
 }));
 
+const mockDataSyncDialog = vi.fn();
+vi.mock('@/pages/automation/data-syncs/components/DataSyncDialog', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default: (props: any) => {
+        mockDataSyncDialog(props);
+
+        return <div role="dialog">DataSyncDialog</div>;
+    },
+}));
+
+vi.mock('@/pages/automation/data-syncs/components/DataSyncsLeftSidebarDropdownMenu', () => ({
+    default: () => null,
+}));
+
 // Hooks and stores
 const mockGetProjectWorkflowsQuery = vi.fn();
 const mockGetWorkflowsQuery = vi.fn();
@@ -187,6 +201,14 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
     default: () => ({
         agents: [{id: '1', projectId: '7', title: 'Support Bot'}],
         agentsIsLoading: false,
+    }),
+}));
+
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({
+        dataSyncs: [{id: '1', lastModifiedDate: null, projectId: '7', title: 'Contacts Sync'}],
+        dataSyncsError: undefined,
+        dataSyncsIsLoading: false,
     }),
 }));
 
@@ -513,16 +535,31 @@ describe('ProjectsLeftSidebar', () => {
 
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
 
-        expect(await screen.findByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (1)');
+        const agentsTab = await screen.findByTestId('tabs-trigger-agents');
+        expect(agentsTab).toHaveTextContent('Agents');
+        expect(within(agentsTab).getByText('1')).toBeInTheDocument();
         expect(screen.getByText('Support Bot')).toBeInTheDocument();
     });
 
-    it('defaults to the Workflows tab when no agent is open', async () => {
+    it('shows a Data Syncs tab with a count and lists a project data sync when useDataSyncs returns one for it', async () => {
         setupQueries({selectedProjectId: 7});
 
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
 
-        expect(await screen.findByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
+        const dataSyncsTab = await screen.findByTestId('tabs-trigger-dataSyncs');
+        expect(dataSyncsTab).toHaveTextContent('Data Syncs');
+        expect(within(dataSyncsTab).getByText('1')).toBeInTheDocument();
+        expect(screen.getByText('Contacts Sync')).toBeInTheDocument();
+    });
+
+    it('defaults to the Workflows tab when no agent or data sync is open', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
+
+        const workflowsTab = await screen.findByTestId('tabs-trigger-workflows');
+        expect(workflowsTab).toHaveTextContent('Workflows');
+        expect(within(workflowsTab).getByText('2')).toBeInTheDocument();
         expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'workflows');
     });
 
@@ -560,6 +597,40 @@ describe('ProjectsLeftSidebar', () => {
         );
     });
 
+    it('selects the Data Syncs tab by default when currentDataSyncId is passed', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} currentDataSyncId="1" projectId={7} />);
+
+        await screen.findByTestId('tabs-trigger-dataSyncs');
+
+        expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'dataSyncs');
+    });
+
+    it('switches to the Data Syncs tab when currentDataSyncId is set after the initial render', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        const {rerender} = renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
+
+        await waitFor(() =>
+            expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'workflows')
+        );
+
+        rerender(
+            <QueryClientProvider client={queryClient}>
+                <TooltipProvider>
+                    <MemoryRouter>
+                        <ProjectsLeftSidebar {...baseProps} currentDataSyncId="1" projectId={7} />
+                    </MemoryRouter>
+                </TooltipProvider>
+            </QueryClientProvider>
+        );
+
+        await waitFor(() =>
+            expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'dataSyncs')
+        );
+    });
+
     it('locks New Agent to the project browsed in the sidebar, not the page project', async () => {
         setupQueries({selectedProjectId: 9});
 
@@ -588,6 +659,37 @@ describe('ProjectsLeftSidebar', () => {
         await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 
         const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
+        expect(lastCall.projectId).toBe(9);
+    });
+
+    it('locks New Data Sync to the project browsed in the sidebar, not the page project', async () => {
+        setupQueries({selectedProjectId: 9});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
+
+        fireEvent.click(screen.getByText('switch-to-project-3'));
+
+        // The Data Syncs tab's own creation button, not a menu item of the Workflows tab's button.
+        fireEvent.click(screen.getByText('New Data Sync'));
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
+        expect(lastCall.projectId).toBe(3);
+    });
+
+    it('falls back to the page project for a new data sync when the sidebar is browsing all projects', async () => {
+        setupQueries({selectedProjectId: 9});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
+
+        fireEvent.click(screen.getByText('switch-to-all-projects'));
+
+        fireEvent.click(screen.getByText('New Data Sync'));
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
         expect(lastCall.projectId).toBe(9);
     });
 
