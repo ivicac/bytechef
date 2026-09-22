@@ -5,7 +5,6 @@
   "pages": [
     "environment-variables",
     "message-brokers",
-    "file-storage",
-    "plan-limits"
+    "file-storage"
   ]
 }

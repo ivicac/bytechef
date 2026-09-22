@@ -149,14 +149,8 @@ that prefix, matching whatever the trigger node is actually named in your workfl
 - **Subflow child runs are skipped.** Only a top-level run dispatches a handler. A child job
   launched by a Subflow step carries a parent task-execution id, and the listener skips it - the
   failure surfaces on the parent run, which is where the handler fires from.
-- **Admission gates are not bypassed.** The handler run goes through the normal job-creation path,
-  so plan rate limits, the concurrency gate, and the monthly cost cap all apply exactly as they
-  would for any other run. A bad deploy that fails 5,000 runs is bounded by those gates rather than
-  becoming an unbounded job storm.
 - **No deduplication.** Failures aren't collapsed or throttled: N failed runs can produce up to N
-  handler runs. There's no windowing or per-project rate limiting specific to this feature - the
-  plan's admission gates are what keep a failure storm from becoming a resource problem, not a
-  dedup step.
+  handler runs. There's no windowing or per-project rate limiting specific to this feature.
 
 ## Reference
 

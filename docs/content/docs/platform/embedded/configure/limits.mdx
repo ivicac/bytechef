@@ -18,13 +18,7 @@ The practical consequence is that **one noisy customer can affect another's late
 - [ ] **Bound what a workflow can do.** Component-level pagination and batch sizes are the lever you have inside a workflow - an unbounded sync over a large dataset is a long-running job whichever customer starts it.
 - [ ] **Watch execution volume per customer.** Executions are attributable, so you can see which customer's workflows dominate before it becomes a support ticket.
 
-## Plan limits *(coming soon)*
-
-Deployment-level enforcement is being added: token-bucket rate limits, a bounded number of concurrently running jobs per tenant, a monthly cost cap, and quotas for workspaces, members, and storage. Rejections will be an HTTP **429** with `Retry-After` for the rate and concurrency limits, and a **403** for quotas, which are a ceiling rather than something to retry against.
-
-Self-hosted deployments will default to unlimited, so nothing changes for an existing installation until a tier or an individual override is configured. The full behaviour is described in [Plan Limits](/platform/use-bytechef/self-hosted/configuration/plan-limits).
-
-Until then, treat your ingress as the enforcement point and size the deployment for peak, not average.
+Treat your ingress as the enforcement point and size the deployment for peak, not average.
 
 ## Timeouts and long-running work
 
