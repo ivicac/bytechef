@@ -26,7 +26,6 @@ import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
-import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -43,25 +42,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the deployments Copilot panel source agents ({@code deployment_ask}/{@code deployment_build}) backing the
- * copilot trigger on the project-deployments and agent-deployments pages.
- *
- * <p>
- * Deliberately registers NO subagent {@code ChatClient} beans, unlike the other domain slices: the AI Hub used to reach
- * this domain through a {@code project_deployment_agent} subagent (no ASK/BUILD split of its own) built from this same
- * {@link DeploymentToolCallbacksFactory} bean. That delegate is gone (ticket 732, CRUD-delegate-unwind plan, Task 3) —
- * the AI Hub ASK/BUILD agents and the management MCP server (see {@code ToolCallbackContributorConfiguration
- * #deploymentFlatCrudMcpContributor}) now resolve {@link DeploymentToolCallbacksFactory} directly via
- * {@code ObjectProvider}, the same pattern {@code McpServerToolCallbacksFactory} already uses for the (separate,
- * earlier) MCP-server-CRUD flattening. All four surfaces — this panel pair, AI Hub ASK/BUILD, and the management MCP
- * server — share one {@link DeploymentToolCallbacksFactory} bean so their tool sets cannot drift.
- * </p>
- *
- * <p>
- * Gated so the panel agents exist whenever the Copilot panel is enabled, and also under the AI Hub toggle for parity
- * with the other domain configurations.
- * </p>
- *
  * @author Ivica Cardic
  */
 @Configuration
@@ -75,11 +55,6 @@ public class DeploymentAgentConfiguration {
     private Resource promptDeploymentBuildResource;
 
     private final State state = new State();
-
-    @Bean
-    DeploymentToolCallbacksFactory deploymentToolCallbacksFactory(ProjectDeploymentFacade projectDeploymentFacade) {
-        return new DeploymentToolCallbacksFactory(projectDeploymentFacade);
-    }
 
     @Bean
     AiAgentSpringAIAgent deploymentAskSpringAIAgent(

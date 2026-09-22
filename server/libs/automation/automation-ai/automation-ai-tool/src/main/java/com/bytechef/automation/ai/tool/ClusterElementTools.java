@@ -16,18 +16,15 @@
 
 package com.bytechef.automation.ai.tool;
 
-import com.bytechef.automation.ai.tool.exception.ScriptToolErrorType;
 import com.bytechef.automation.ai.tool.model.WorkflowInfo;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
+import com.bytechef.automation.configuration.exception.ProjectWorkflowErrorType;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
-import com.bytechef.automation.configuration.service.ProjectService;
-import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.exception.ExecutionException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -42,20 +39,11 @@ public class ClusterElementTools {
 
     private static final Logger log = LoggerFactory.getLogger(ClusterElementTools.class);
 
-    private final ProjectService projectService;
     private final ProjectWorkflowFacade projectWorkflowFacade;
-    private final ProjectWorkflowService projectWorkflowService;
-    private final WorkspaceScopeResolver workspaceScopeResolver;
 
     @SuppressFBWarnings("EI")
-    public ClusterElementTools(
-        ProjectService projectService, ProjectWorkflowFacade projectWorkflowFacade,
-        ProjectWorkflowService projectWorkflowService, WorkspaceScopeResolver workspaceScopeResolver) {
-
-        this.projectService = projectService;
+    public ClusterElementTools(ProjectWorkflowFacade projectWorkflowFacade) {
         this.projectWorkflowFacade = projectWorkflowFacade;
-        this.projectWorkflowService = projectWorkflowService;
-        this.workspaceScopeResolver = workspaceScopeResolver;
     }
 
     @Tool(
@@ -66,15 +54,7 @@ public class ClusterElementTools {
         @ToolParam(description = "The ID of the workflow to update") String workflowId,
         @ToolParam(
             description = "A JSON object containing the root-level properties to set, e.g. " +
-                "{\"label\": \"My Workflow\", \"description\": \"Does X\"}") String rootPropertiesDefinition,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
-        ToolContext toolContext) {
-
-        ProjectWorkspaceScope.checkWorkspaceWorkflow(
-            projectService, projectWorkflowService, workflowId,
-            ProjectWorkspaceScope.resolveWorkspaceId(
-                workspaceScopeResolver, workspaceId, toolContext, ScriptToolErrorType.UPDATE_WORKFLOW_ROOT),
-            ScriptToolErrorType.UPDATE_WORKFLOW_ROOT);
+                "{\"label\": \"My Workflow\", \"description\": \"Does X\"}") String rootPropertiesDefinition) {
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
@@ -106,7 +86,7 @@ public class ClusterElementTools {
 
             throw new ExecutionException(
                 "Failed to update workflow root properties: " + e.getMessage(), e,
-                ScriptToolErrorType.UPDATE_WORKFLOW_ROOT);
+                ProjectWorkflowErrorType.UPDATE_WORKFLOW_ROOT);
         }
     }
 
@@ -115,15 +95,7 @@ public class ClusterElementTools {
     public WorkflowInfo updateClusterElementTask(
         @ToolParam(description = "The ID of the workflow to update") String workflowId,
         @ToolParam(description = "The name of the task whose clusterElements should be updated") String taskName,
-        @ToolParam(description = "The cluster elements definition as a JSON string") String clusterElementsDefinition,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
-        ToolContext toolContext) {
-
-        ProjectWorkspaceScope.checkWorkspaceWorkflow(
-            projectService, projectWorkflowService, workflowId,
-            ProjectWorkspaceScope.resolveWorkspaceId(
-                workspaceScopeResolver, workspaceId, toolContext, ScriptToolErrorType.UPDATE_SCRIPT),
-            ScriptToolErrorType.UPDATE_SCRIPT);
+        @ToolParam(description = "The cluster elements definition as a JSON string") String clusterElementsDefinition) {
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
@@ -179,7 +151,7 @@ public class ClusterElementTools {
                 workflowId, taskName, taskName, workflowId, e);
 
             throw new ExecutionException(
-                "Failed to update workflow: " + e.getMessage(), e, ScriptToolErrorType.UPDATE_SCRIPT);
+                "Failed to update workflow: " + e.getMessage(), e, ProjectWorkflowErrorType.UPDATE_SCRIPT);
         }
     }
 }

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfigurationSharedMocks;
@@ -24,6 +25,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -113,9 +115,10 @@ class WebhookTriggerTestAdminFacadeIntTest {
 
         @Bean
         static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
-            @Lazy PermissionService permissionService) {
+            @Lazy PermissionService permissionService,
+            ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider) {
 
-            return new AutomationMethodSecurityExpressionHandler(permissionService);
+            return new AutomationMethodSecurityExpressionHandler(permissionService, resourceMembershipResolverProvider);
         }
     }
 }

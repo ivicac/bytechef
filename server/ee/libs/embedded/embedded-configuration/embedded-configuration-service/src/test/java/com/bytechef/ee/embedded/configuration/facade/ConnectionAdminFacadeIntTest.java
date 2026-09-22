@@ -21,6 +21,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfigurationSharedMocks;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -238,9 +240,10 @@ class ConnectionAdminFacadeIntTest {
 
         @Bean
         static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
-            @Lazy PermissionService permissionService) {
+            @Lazy PermissionService permissionService,
+            ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider) {
 
-            return new AutomationMethodSecurityExpressionHandler(permissionService);
+            return new AutomationMethodSecurityExpressionHandler(permissionService, resourceMembershipResolverProvider);
         }
     }
 }
