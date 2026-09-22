@@ -7,7 +7,10 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import AgentDialog from '@/pages/automation/agents/components/AgentDialog';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import useImportAiAgent from '@/pages/automation/agents/hooks/useImportAiAgent';
+import DataSyncDialog from '@/pages/automation/data-syncs/components/DataSyncDialog';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import ProjectAgentsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectAgentsList';
+import ProjectDataSyncsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectDataSyncsList';
 import ProjectSelect from '@/pages/automation/project/components/projects-sidebar/components/ProjectSelect';
 import ProjectWorkflowsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectWorkflowsList';
 import WorkflowsListFilter from '@/pages/automation/project/components/projects-sidebar/components/WorkflowsListFilter';
@@ -22,20 +25,43 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 
 interface ProjectsLeftSidebarProps {
     currentAgentId?: string;
+    currentDataSyncId?: string;
     currentWorkflowId: string;
     onProjectClick: (projectId: number, projectWorkflowId: number) => void;
     projectId: number;
 }
 
-const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick, projectId}: ProjectsLeftSidebarProps) => {
+// A plain label with the count as a small badge, rather than "Label (N)" as a single string: measured against
+// .superpowers/sidebar-tabs.html (built app CSS, three tabs at exactly 355px), the literal "Workflows (12) |
+// Agents (3) | Data Syncs (4)" example fits with under 3px to spare and a slightly larger, entirely
+// realistic count (e.g. any tab reaching double digits together with another) already overflows the row. The
+// fallback applies to all three tabs, not a shorter label for one, per the spec.
+const TabCountBadge = ({count}: {count: number}) => (
+    <span className="inline-flex min-w-4 shrink-0 items-center justify-center rounded-full bg-surface-neutral-primary px-1 text-xs font-normal text-content-neutral-secondary">
+        {count}
+    </span>
+);
+
+const ProjectsLeftSidebar = ({
+    currentAgentId,
+    currentDataSyncId,
+    currentWorkflowId,
+    onProjectClick,
+    projectId,
+}: ProjectsLeftSidebarProps) => {
     const [selectedProjectId, setSelectedProjectId] = useState(!isNaN(projectId) ? projectId : 0);
     const [sortBy, setSortBy] = useState('last-edited');
     const [searchValue, setSearchValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showAgentDialog, setShowAgentDialog] = useState(false);
-    const [activeTab, setActiveTab] = useState(currentAgentId ? 'agents' : 'workflows');
+    const [showDataSyncDialog, setShowDataSyncDialog] = useState(false);
+    const [activeTab, setActiveTab] = useState(
+        currentDataSyncId ? 'dataSyncs' : currentAgentId ? 'agents' : 'workflows'
+    );
 
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const {dataSyncs} = useDataSyncs();
 
     const {data: eachProjectWorkflows, isLoading: projectWorkflowsLoading} = useGetProjectWorkflowsQuery(
         selectedProjectId,
@@ -66,6 +92,10 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
     // when the sidebar is browsing all projects (selectedProjectId is then 0).
     const agentTargetProjectId = selectedProjectId || projectId;
 
+    // Same rule for a new data sync: locked to whatever project the sidebar is browsing, falling back to the
+    // page's own project when browsing all projects.
+    const dataSyncTargetProjectId = selectedProjectId || projectId;
+
     const filteredWorkflowsList = useMemo(
         () => getFilteredWorkflows(workflows, sortBy, searchValue),
         [workflows, sortBy, searchValue, getFilteredWorkflows]
@@ -76,6 +106,11 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
     const projectAgents = useMemo(
         () => agents.filter((agent) => selectedProjectId === 0 || +agent.projectId === selectedProjectId),
         [agents, selectedProjectId]
+    );
+
+    const projectDataSyncs = useMemo(
+        () => dataSyncs.filter((dataSync) => selectedProjectId === 0 || +dataSync.projectId === selectedProjectId),
+        [dataSyncs, selectedProjectId]
     );
 
     const {
@@ -103,8 +138,8 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
     }, [projectId]);
 
     useEffect(() => {
-        setActiveTab(currentAgentId ? 'agents' : 'workflows');
-    }, [currentAgentId]);
+        setActiveTab(currentDataSyncId ? 'dataSyncs' : currentAgentId ? 'agents' : 'workflows');
+    }, [currentAgentId, currentDataSyncId]);
 
     useEffect(() => {
         if (isLoading) {
@@ -152,11 +187,15 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
                     <Tabs onValueChange={setActiveTab} value={activeTab}>
                         <TabsList className="mb-2 w-full">
                             <TabsTrigger className="flex-1" value="workflows">
-                                Workflows ({filteredWorkflowsList.length})
+                                Workflows <TabCountBadge count={filteredWorkflowsList.length} />
                             </TabsTrigger>
 
                             <TabsTrigger className="flex-1" value="agents">
-                                Agents ({projectAgents.length})
+                                Agents <TabCountBadge count={projectAgents.length} />
+                            </TabsTrigger>
+
+                            <TabsTrigger className="flex-1" value="dataSyncs">
+                                Data Syncs <TabCountBadge count={projectDataSyncs.length} />
                             </TabsTrigger>
                         </TabsList>
 
@@ -250,6 +289,25 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
                                 />
                             </ul>
                         </TabsContent>
+
+                        <TabsContent value="dataSyncs">
+                            <Button
+                                className="mb-3 w-full [&_svg]:size-5"
+                                icon={<PlusIcon />}
+                                label="New Data Sync"
+                                onClick={() => setShowDataSyncDialog(true)}
+                                variant="secondary"
+                            />
+
+                            <ul className="flex flex-col gap-4">
+                                <ProjectDataSyncsList
+                                    calculateTimeDifference={calculateTimeDifference}
+                                    currentDataSyncId={currentDataSyncId}
+                                    emptyMessage="No data syncs yet."
+                                    projectId={selectedProjectId}
+                                />
+                            </ul>
+                        </TabsContent>
                     </Tabs>
                 )}
             </ScrollArea>
@@ -259,6 +317,14 @@ const ProjectsLeftSidebar = ({currentAgentId, currentWorkflowId, onProjectClick,
                     onOpenChange={setShowAgentDialog}
                     open={showAgentDialog}
                     projectId={agentTargetProjectId}
+                />
+            )}
+
+            {showDataSyncDialog && (
+                <DataSyncDialog
+                    onOpenChange={setShowDataSyncDialog}
+                    open={showDataSyncDialog}
+                    projectId={dataSyncTargetProjectId}
                 />
             )}
 

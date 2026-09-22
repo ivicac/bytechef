@@ -1,6 +1,5 @@
 import {
     ActivityIcon,
-    ArrowLeftRightIcon,
     BoxesIcon,
     DatabaseIcon,
     FileTextIcon,
@@ -14,7 +13,6 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
-    RefreshCwIcon,
     RocketIcon,
     RouterIcon,
     ServerIcon,
@@ -45,24 +43,16 @@ export const automationNavigation: NavigationItemI[] = [
     },
     {href: '/automation/chats', icon: MessageSquareIcon, name: 'Chats'},
     {
-        group: 'Build',
         href: '/automation/projects',
         icon: FolderIcon,
         name: 'Projects',
     },
-    {group: 'Build', href: '/automation/data-syncs', icon: ArrowLeftRightIcon, name: 'Data Syncs'},
     {href: '/automation/connections', icon: Link2Icon, name: 'Connections'},
     {
         group: 'Deploy',
         href: '/automation/deployments',
         icon: Layers3Icon,
         name: 'Projects',
-    },
-    {
-        group: 'Deploy',
-        href: '/automation/data-sync-deployments',
-        icon: RefreshCwIcon,
-        name: 'Data Syncs',
     },
     {
         group: 'Deploy',
