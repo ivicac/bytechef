@@ -16,9 +16,9 @@
 
 package com.bytechef.automation.ai.tool;
 
-import com.bytechef.automation.ai.tool.exception.ScriptToolErrorType;
 import com.bytechef.automation.ai.tool.model.WorkflowInfo;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
+import com.bytechef.automation.configuration.exception.ProjectWorkflowErrorType;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.exception.ErrorType;
@@ -68,11 +68,9 @@ public class ClusterElementTools {
         @ToolParam(
             description = "A JSON object containing the root-level properties to set, e.g. " +
                 "{\"label\": \"My Workflow\", \"description\": \"Does X\"}") String rootPropertiesDefinition,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
         ToolContext toolContext) {
 
-        scopedProjectGuard.checkWorkflow(workflowId, workspaceId, toolContext,
-            ScriptToolErrorType.UPDATE_WORKFLOW_ROOT);
+        scopedProjectGuard.checkWorkflow(workflowId, toolContext, ProjectWorkflowErrorType.UPDATE_WORKFLOW_ROOT);
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
@@ -84,7 +82,8 @@ public class ClusterElementTools {
 
             String updatedWorkflowDefinition = JsonUtils.writeWithDefaultPrettyPrinter(rootNode);
 
-            checkAllowedComponents(updatedWorkflowDefinition, toolContext, ScriptToolErrorType.UPDATE_WORKFLOW_ROOT);
+            checkAllowedComponents(
+                updatedWorkflowDefinition, toolContext, ProjectWorkflowErrorType.UPDATE_WORKFLOW_ROOT);
 
             projectWorkflowFacade.updateWorkflow(
                 projectWorkflowDTO.getId(), updatedWorkflowDefinition, projectWorkflowDTO.getVersion());
@@ -108,7 +107,7 @@ public class ClusterElementTools {
 
             throw new ExecutionException(
                 "Failed to update workflow root properties: " + e.getMessage(), e,
-                ScriptToolErrorType.UPDATE_WORKFLOW_ROOT);
+                ProjectWorkflowErrorType.UPDATE_WORKFLOW_ROOT);
         }
     }
 
@@ -118,10 +117,9 @@ public class ClusterElementTools {
         @ToolParam(description = "The ID of the workflow to update") String workflowId,
         @ToolParam(description = "The name of the task whose clusterElements should be updated") String taskName,
         @ToolParam(description = "The cluster elements definition as a JSON string") String clusterElementsDefinition,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
         ToolContext toolContext) {
 
-        scopedProjectGuard.checkWorkflow(workflowId, workspaceId, toolContext, ScriptToolErrorType.UPDATE_SCRIPT);
+        scopedProjectGuard.checkWorkflow(workflowId, toolContext, ProjectWorkflowErrorType.UPDATE_SCRIPT);
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
@@ -155,7 +153,7 @@ public class ClusterElementTools {
 
             String updatedWorkflowDefinition = JsonUtils.writeWithDefaultPrettyPrinter(rootNode);
 
-            checkAllowedComponents(updatedWorkflowDefinition, toolContext, ScriptToolErrorType.UPDATE_SCRIPT);
+            checkAllowedComponents(updatedWorkflowDefinition, toolContext, ProjectWorkflowErrorType.UPDATE_SCRIPT);
 
             projectWorkflowFacade.updateWorkflow(
                 projectWorkflowDTO.getId(), updatedWorkflowDefinition, projectWorkflowDTO.getVersion());
@@ -181,7 +179,7 @@ public class ClusterElementTools {
                 workflowId, taskName, taskName, workflowId, e);
 
             throw new ExecutionException(
-                "Failed to update workflow: " + e.getMessage(), e, ScriptToolErrorType.UPDATE_SCRIPT);
+                "Failed to update workflow: " + e.getMessage(), e, ProjectWorkflowErrorType.UPDATE_SCRIPT);
         }
     }
 

@@ -16,8 +16,13 @@ import com.bytechef.atlas.configuration.repository.WorkflowCrudRepository;
 import com.bytechef.atlas.configuration.repository.WorkflowRepository;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.configuration.service.WorkflowServiceImpl;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
+import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.SpelEvaluator;
@@ -32,6 +37,7 @@ import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.configuration.facade.WorkflowFacadeImpl;
 import com.bytechef.platform.file.storage.SharedTemplateFileStorage;
 import com.bytechef.platform.githubproxy.client.WorkflowTemplateProxyClient;
+import com.bytechef.platform.workflow.execution.service.TriggerStateService;
 import com.bytechef.platform.workflow.validator.WorkflowValidatorFacade;
 import java.io.InputStream;
 import java.util.List;
@@ -81,8 +87,38 @@ import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 public class AutomationWorkflowProjectFacadeIntTestConfiguration {
 
     @Bean
+    CodeWorkflowContainerService codeWorkflowContainerService() {
+        return mock(CodeWorkflowContainerService.class);
+    }
+
+    @Bean
+    CodeWorkflowFileStorage codeWorkflowFileStorage() {
+        return mock(CodeWorkflowFileStorage.class);
+    }
+
+    @Bean
     ComponentDefinitionFacade componentDefinitionFacade() {
         return mock(ComponentDefinitionFacade.class);
+    }
+
+    @Bean
+    CodeWorkflowContainerFacade codeWorkflowContainerFacade() {
+        return mock(CodeWorkflowContainerFacade.class);
+    }
+
+    @Bean
+    PermissionService permissionService() {
+        return mock(PermissionService.class);
+    }
+
+    @Bean
+    ProjectCodeWorkflowService projectCodeWorkflowService() {
+        return mock(ProjectCodeWorkflowService.class);
+    }
+
+    @Bean
+    TriggerStateService triggerStateService() {
+        return mock(TriggerStateService.class);
     }
 
     @Bean

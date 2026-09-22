@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-package com.bytechef.automation.ai.tool.exception;
+package com.bytechef.automation.ai.tool.model;
 
-import com.bytechef.exception.AbstractErrorType;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 
 /**
+ * Workspace information record for API responses.
+ *
  * @author Ivica Cardic
  */
-public class ScriptToolErrorType extends AbstractErrorType {
-
-    public static final ScriptToolErrorType UPDATE_SCRIPT = new ScriptToolErrorType(100);
-    public static final ScriptToolErrorType UPDATE_WORKFLOW_ROOT = new ScriptToolErrorType(101);
-
-    private ScriptToolErrorType(int errorKey) {
-        super(ScriptToolErrorType.class, errorKey);
-    }
+public record WorkspaceInfo(
+    @JsonProperty("id") @JsonPropertyDescription("The unique identifier of the workspace") Long id,
+    @JsonProperty("name") @JsonPropertyDescription("The name of the workspace") String name) {
 }

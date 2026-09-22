@@ -19,11 +19,12 @@ package com.bytechef.automation.ai.tool.knowledgebase;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
+import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
@@ -36,7 +37,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -76,17 +76,16 @@ public class QueryKnowledgeBaseToolCallback implements ToolCallback {
 
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
     private final KnowledgeBaseFacade knowledgeBaseFacade;
-    private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
-    private final JsonMapper jsonMapper = new JsonMapper();
+    private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public QueryKnowledgeBaseToolCallback(
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade, KnowledgeBaseFacade knowledgeBaseFacade,
-        KnowledgeBaseDocumentService knowledgeBaseDocumentService) {
+        KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade) {
 
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
         this.knowledgeBaseFacade = knowledgeBaseFacade;
-        this.knowledgeBaseDocumentService = knowledgeBaseDocumentService;
+        this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
     }
 
     @Override
@@ -106,7 +105,7 @@ public class QueryKnowledgeBaseToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            QueryKnowledgeBaseInput input = jsonMapper.readValue(toolInput, QueryKnowledgeBaseInput.class);
+            QueryKnowledgeBaseInput input = JsonUtils.read(toolInput, QueryKnowledgeBaseInput.class);
 
             String knowledgeBaseIdString = input.knowledgeBaseId();
 
@@ -172,11 +171,11 @@ public class QueryKnowledgeBaseToolCallback implements ToolCallback {
                     knowledgeBase.getName()))
                 .toList();
 
-            return jsonMapper.writeValueAsString(new QueryKnowledgeBaseResult(CITATIONS_KIND, hits));
+            return JsonUtils.write(new QueryKnowledgeBaseResult(CITATIONS_KIND, hits));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(jsonMapper, QueryKnowledgeBaseToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(QueryKnowledgeBaseToolCallback.class, TOOL_NAME, exception);
         }
     }
 
@@ -209,7 +208,7 @@ public class QueryKnowledgeBaseToolCallback implements ToolCallback {
             }
 
             try {
-                KnowledgeBaseDocument document = knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId);
+                KnowledgeBaseDocument document = knowledgeBaseDocumentFacade.getKnowledgeBaseDocument(documentId);
 
                 if (document != null && document.getName() != null) {
                     documentTitlesById.put(documentId, document.getName());
@@ -248,7 +247,7 @@ public class QueryKnowledgeBaseToolCallback implements ToolCallback {
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record QueryKnowledgeBaseInput(

@@ -29,7 +29,6 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDT
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.event.AutomationWorkflowProjectPublishedEvent;
-import com.bytechef.ee.embedded.configuration.event.CatalogProjectPublishedEvent;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.configuration.service.AutomationWorkflowProjectService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationService;
@@ -43,6 +42,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
+import com.bytechef.platform.configuration.workflow.WorkflowUpdateGuard;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -57,7 +57,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -86,10 +85,10 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         }
         """;
 
-    private static final String MANUAL_COMPONENT_NAME = "manual";
-
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final AutomationWorkflowProjectService automationWorkflowProjectService;
     private final CategoryService categoryService;
+    private final ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager;
     private final ConnectedUserService connectedUserService;
     private final EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
@@ -102,20 +101,24 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
+    private final List<WorkflowUpdateGuard> workflowUpdateGuards;
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectFacadeImpl(
-        ApplicationEventPublisher applicationEventPublisher, CategoryService categoryService,
+        ApplicationEventPublisher applicationEventPublisher,
+        AutomationWorkflowProjectService automationWorkflowProjectService, CategoryService categoryService,
+        ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager,
         ConnectedUserService connectedUserService, EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
         TagService tagService, WorkflowComponentResolver workflowComponentResolver,
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
-        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
-
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners, List<WorkflowUpdateGuard> workflowUpdateGuards) {
         this.applicationEventPublisher = applicationEventPublisher;
+        this.automationWorkflowProjectService = automationWorkflowProjectService;
         this.categoryService = categoryService;
+        this.connectedUserReferenceRolloutManager = connectedUserReferenceRolloutManager;
         this.connectedUserService = connectedUserService;
         this.embeddedPermissionEvaluator = embeddedPermissionEvaluator;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
@@ -128,6 +131,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         this.workflowService = workflowService;
         this.workflowPreDeleteListeners = workflowPreDeleteListeners;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
+        this.workflowUpdateGuards = workflowUpdateGuards;
     }
 
     @Override
@@ -206,16 +210,6 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         projectService.delete(projectId);
     }
 
-    /**
-     * Callers pass the template's uuid, while {@link ProjectWorkflowFacade#deleteWorkflow} takes a workflow id, so the
-     * uuid resolves to the workflow id of the catalog project's DRAFT version. Only the draft loses the template: each
-     * published version keeps its own row, which the deployments still on that version point at until the next publish
-     * rolls them forward.
-     *
-     * <p>
-     * Idempotent: when the draft no longer holds the uuid nothing is deleted. Resolving to the uuid's last row instead
-     * would, on a repeated call, pick the last published version and delete the workflow its deployments still run.
-     */
     @Override
     public void deleteProjectWorkflow(String workflowUuid) {
         String lastWorkflowId = projectWorkflowService.getLastWorkflowId(workflowUuid);
@@ -229,10 +223,6 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                 draftProjectWorkflow.getWorkflowId()));
     }
 
-    /**
-     * Uses the same {@link #MARKER}-prefixed lookup as {@link #createProject} so that this resolves the exact catalog
-     * project a prior deploy created, without leaking marked/unmarked project name collisions.
-     */
     @Override
     public Optional<Long> fetchProjectIdByName(String name) {
         return projectService.fetchProject(MARKER + name)
@@ -320,32 +310,34 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @Override
     public AutomationWorkflowProjectDTO getProject(long projectId) {
+        Project project = getMarkedProject(projectId);
+
         Set<Long> codeWorkflowProjectIds = Set.copyOf(projectCodeWorkflowService.getCodeWorkflowProjectIds());
 
-        return toDTO(getMarkedProject(projectId), codeWorkflowProjectIds);
+        return toDTO(
+            project, automationWorkflowProjectService.getAutomationWorkflowProject(projectId), codeWorkflowProjectIds);
     }
 
     @Override
     public List<AutomationWorkflowProjectDTO> getProjects() {
+        Map<Long, AutomationWorkflowProject> automationWorkflowProjects = getAutomationWorkflowProjects();
         Set<Long> codeWorkflowProjectIds = Set.copyOf(projectCodeWorkflowService.getCodeWorkflowProjectIds());
 
-        return projectService.getProjects()
+        return getAutomationWorkflowProjectProjects(automationWorkflowProjects.keySet())
             .stream()
-            .filter(project -> project.getName() != null && Strings.CS.startsWith(project.getName(), MARKER) &&
-                Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
-            .map(project -> toDTO(project, codeWorkflowProjectIds))
+            .map(project -> toDTO(project, automationWorkflowProjects.get(project.getId()), codeWorkflowProjectIds))
             .toList();
     }
 
     @Override
     public List<AutomationWorkflowProjectDTO> getPublishedProjects() {
+        Map<Long, AutomationWorkflowProject> automationWorkflowProjects = getAutomationWorkflowProjects();
         Set<Long> codeWorkflowProjectIds = Set.copyOf(projectCodeWorkflowService.getCodeWorkflowProjectIds());
 
-        return projectService.getProjects()
+        return getAutomationWorkflowProjectProjects(automationWorkflowProjects.keySet())
             .stream()
-            .filter(project -> project.getName() != null && Strings.CS.startsWith(project.getName(), MARKER) &&
-                Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
-            .map(project -> toPublishedDTO(project, codeWorkflowProjectIds))
+            .map(project -> toPublishedDTO(
+                project, automationWorkflowProjects.get(project.getId()), codeWorkflowProjectIds))
             .toList();
     }
 
@@ -387,7 +379,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
             workflowNodeTestOutputService.updateWorkflowId(oldWorkflowId, duplicatedWorkflow.getId());
         }
 
-        applicationEventPublisher.publishEvent(new CatalogProjectPublishedEvent(projectId));
+        applicationEventPublisher.publishEvent(new AutomationWorkflowProjectPublishedEvent(projectId));
     }
 
     @Override
@@ -420,6 +412,10 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         ProjectWorkflow projectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(workflowId);
 
         getMarkedProject(projectWorkflow.getProjectId());
+
+        for (WorkflowUpdateGuard workflowUpdateGuard : workflowUpdateGuards) {
+            workflowUpdateGuard.checkUpdatable(workflowId);
+        }
 
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -514,13 +510,9 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.id(), project.name(), project.description(), project.categoryId(), project.tagIds(),
             project.published(), project.version(), project.lastPublishedVersion(), visibleTemplates,
-            project.permissionExpression(), project.codeWorkflowProject());
+            project.permissionExpression(), project.codeWorkflowProject(), project.automationHubVisible());
     }
 
-    /**
-     * The values a connected user is asked for before the automation runs. {@code Workflow.Input#extensions} is left
-     * behind on purpose: it carries authoring metadata for the builder, and this DTO reaches a vendor's page.
-     */
     private static List<ConnectedUserWorkflowTemplateDTO.Input> toInputs(Workflow workflow) {
         List<Workflow.Input> inputs = workflow.getInputs();
 
@@ -532,6 +524,24 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     private static String normalizePermissionExpression(String permissionExpression) {
         return StringUtils.isBlank(permissionExpression) ? null : permissionExpression.trim();
+    }
+
+    private List<Project> getAutomationWorkflowProjectProjects(Set<Long> projectIds) {
+        if (projectIds.isEmpty()) {
+            return List.of();
+        }
+
+        return projectService.getProjects(List.copyOf(projectIds))
+            .stream()
+            .filter(project -> Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
+            .sorted(Comparator.comparing(Project::getName))
+            .toList();
+    }
+
+    private Map<Long, AutomationWorkflowProject> getAutomationWorkflowProjects() {
+        return automationWorkflowProjectService.getAutomationWorkflowProjects()
+            .stream()
+            .collect(Collectors.toMap(AutomationWorkflowProject::getProjectId, Function.identity()));
     }
 
     private Project getMarkedProject(long projectId) {
@@ -573,7 +583,9 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
             .toList();
     }
 
-    private AutomationWorkflowProjectDTO toDTO(Project project, Set<Long> codeWorkflowProjectIds) {
+    private AutomationWorkflowProjectDTO toDTO(
+        Project project, AutomationWorkflowProject automationWorkflowProject, Set<Long> codeWorkflowProjectIds) {
+
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(
             project.getId(), project.getLastProjectVersion());
 
@@ -585,11 +597,11 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                 Workflow workflow = workflowService.getWorkflow(projectWorkflow.getWorkflowId());
 
                 return new ConnectedUserWorkflowTemplateDTO(
-                    projectWorkflow.getWorkflowId(), workflow.getLabel(), workflow.getDescription(),
+                    projectWorkflow.getUuidAsString(), workflow.getLabel(), workflow.getDescription(),
                     Objects.toString(workflow.getLastModifiedDate(), null),
                     workflowComponentResolver.getTriggerComponents(workflow),
                     workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
-                    projectWorkflow.getPermissionExpression());
+                    workflowPermissionExpressions.get(projectWorkflow.getUuid()), projectWorkflow.getWorkflowId());
             })
             .filter(Objects::nonNull)
             .toList();
@@ -605,10 +617,13 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.getId(), displayName, project.getDescription(), project.getCategoryId(),
             project.getTagIds(), published, project.getLastProjectVersion(), lastPublishedVersion, workflowTemplates,
-            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()));
+            automationWorkflowProject.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()),
+            automationWorkflowProject.isAutomationHubVisible());
     }
 
-    private AutomationWorkflowProjectDTO toPublishedDTO(Project project, Set<Long> codeWorkflowProjectIds) {
+    private AutomationWorkflowProjectDTO toPublishedDTO(
+        Project project, AutomationWorkflowProject automationWorkflowProject, Set<Long> codeWorkflowProjectIds) {
+
         ProjectVersion lastPublishedProjectVersion = project.getLastPublishedProjectVersion();
 
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates;
@@ -631,7 +646,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                         Objects.toString(workflow.getLastModifiedDate(), null),
                         workflowComponentResolver.getTriggerComponents(workflow),
                         workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
-                        projectWorkflow.getPermissionExpression());
+                        workflowPermissionExpressions.get(projectWorkflow.getUuid()));
                 })
                 .filter(Objects::nonNull)
                 .toList();
@@ -646,6 +661,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return new AutomationWorkflowProjectDTO(
             project.getId(), displayName, project.getDescription(), project.getCategoryId(),
             project.getTagIds(), published, project.getLastProjectVersion(), lastPublishedVersion, workflowTemplates,
-            project.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()));
+            automationWorkflowProject.getPermissionExpression(), codeWorkflowProjectIds.contains(project.getId()),
+            automationWorkflowProject.isAutomationHubVisible());
     }
 }

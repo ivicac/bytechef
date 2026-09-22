@@ -18,24 +18,28 @@ package com.bytechef.automation.ai.tool.knowledgebase;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.exception.KnowledgeBaseDocumentNotFoundException;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
  */
 public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
+
+    static final String ARTIFACT_KIND_KB_DOCUMENT_DELETED = "KB_DOCUMENT_DELETED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
     private static final String TOOL_NAME = "deleteKnowledgeBaseDocument";
@@ -59,19 +63,24 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
             }""";
 
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
-    private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
+
+    public DeleteKnowledgeBaseDocumentToolCallback(
+        KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
+        WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade) {
+
+        this(knowledgeBaseDocumentFacade, workspaceKnowledgeBaseFacade, null);
+    }
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public DeleteKnowledgeBaseDocumentToolCallback(
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
-        KnowledgeBaseDocumentService knowledgeBaseDocumentService,
-        WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade) {
+        WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade, @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
-        this.knowledgeBaseDocumentService = knowledgeBaseDocumentService;
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -92,7 +101,7 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
             DeleteKnowledgeBaseDocumentInput input =
-                jsonMapper.readValue(toolInput, DeleteKnowledgeBaseDocumentInput.class);
+                JsonUtils.read(toolInput, DeleteKnowledgeBaseDocumentInput.class);
 
             if (input.knowledgeBaseId() == null || input.knowledgeBaseId()
                 .isBlank()) {
@@ -141,23 +150,42 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
             }
 
             if (!isDocumentInKnowledgeBase(documentId, knowledgeBaseId)) {
-                return jsonMapper.writeValueAsString(new DeleteKnowledgeBaseDocumentOutput(false, input.documentId()));
+                return JsonUtils.write(new DeleteKnowledgeBaseDocumentOutput(false, input.documentId()));
             }
 
             knowledgeBaseDocumentFacade.deleteKnowledgeBaseDocument(documentId);
 
-            return jsonMapper.writeValueAsString(new DeleteKnowledgeBaseDocumentOutput(true, input.documentId()));
+            recordArtifact(invocationContext, input.documentId(), knowledgeBaseId);
+
+            return JsonUtils.write(new DeleteKnowledgeBaseDocumentOutput(true, input.documentId()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(
-                jsonMapper, DeleteKnowledgeBaseDocumentToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(DeleteKnowledgeBaseDocumentToolCallback.class, TOOL_NAME, exception);
         }
+    }
+
+    private void recordArtifact(
+        AgentToolInvocationContext invocationContext, String documentId, long knowledgeBaseId) {
+
+        String conversationId = invocationContext.conversationId();
+        Long userId = invocationContext.userId();
+
+        if (artifactRecorder == null || conversationId == null || userId == null) {
+            return;
+        }
+
+        Map<String, Object> metadata = new HashMap<>();
+
+        metadata.put("knowledgeBaseId", knowledgeBaseId);
+
+        artifactRecorder.record(
+            conversationId, userId, ARTIFACT_KIND_KB_DOCUMENT_DELETED, documentId, "Document " + documentId, metadata);
     }
 
     private boolean isDocumentInKnowledgeBase(long documentId, long knowledgeBaseId) {
         try {
-            return knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId)
+            return knowledgeBaseDocumentFacade.getKnowledgeBaseDocument(documentId)
                 .getKnowledgeBaseId()
                 .equals(knowledgeBaseId);
         } catch (KnowledgeBaseDocumentNotFoundException exception) {
@@ -182,7 +210,7 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record DeleteKnowledgeBaseDocumentInput(String knowledgeBaseId, String documentId) {

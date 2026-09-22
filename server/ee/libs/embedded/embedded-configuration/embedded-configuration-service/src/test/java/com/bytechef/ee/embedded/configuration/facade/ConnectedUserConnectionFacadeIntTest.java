@@ -28,6 +28,7 @@ import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ComponentDsl;
@@ -94,6 +95,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -1175,9 +1177,11 @@ class ConnectedUserConnectionFacadeIntTest {
 
             @Bean
             static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
-                @Lazy PermissionService permissionService) {
+                @Lazy PermissionService permissionService,
+                ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider) {
 
-                return new AutomationMethodSecurityExpressionHandler(permissionService);
+                return new AutomationMethodSecurityExpressionHandler(permissionService,
+                    resourceMembershipResolverProvider);
             }
         }
     }

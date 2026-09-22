@@ -57,7 +57,6 @@ public class AiAgentToolCallbacksFactory {
         toolCallbacks.add(new UpdateAiAgentElementToolCallback(aiAgentFacade));
         toolCallbacks.add(new DeleteAiAgentElementToolCallback(aiAgentFacade));
         toolCallbacks.add(new UpdateAiAgentSettingsToolCallback(aiAgentFacade));
-        toolCallbacks.add(new PublishAiAgentToolCallback(aiAgentFacade));
 
         return toolCallbacks;
     }

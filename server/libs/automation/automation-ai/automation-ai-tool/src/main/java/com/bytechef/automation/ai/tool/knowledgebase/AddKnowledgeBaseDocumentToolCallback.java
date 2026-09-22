@@ -18,7 +18,9 @@ package com.bytechef.automation.ai.tool.knowledgebase;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
@@ -32,7 +34,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -41,6 +42,8 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
 
     static final Set<String> ALLOWED_MIME_TYPES =
         Set.of("text/markdown", "text/plain", "text/html", "application/json");
+
+    static final String ARTIFACT_KIND_KB_DOCUMENT_ADDED = "KB_DOCUMENT_ADDED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
     private static final String TOOL_NAME = "addKnowledgeBaseDocument";
@@ -66,15 +69,23 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
 
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
 
-    @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AddKnowledgeBaseDocumentToolCallback(
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade) {
 
+        this(knowledgeBaseDocumentFacade, workspaceKnowledgeBaseFacade, null);
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public AddKnowledgeBaseDocumentToolCallback(
+        KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
+        WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade, @Nullable ToolArtifactRecorder artifactRecorder) {
+
         this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -95,7 +106,7 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
             AddKnowledgeBaseDocumentInput input =
-                jsonMapper.readValue(toolInput, AddKnowledgeBaseDocumentInput.class);
+                JsonUtils.read(toolInput, AddKnowledgeBaseDocumentInput.class);
 
             if (input.knowledgeBaseId() == null || input.knowledgeBaseId()
                 .isBlank()) {
@@ -155,16 +166,31 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
                 .getBytes(StandardCharsets.UTF_8);
 
             KnowledgeBaseDocument document = knowledgeBaseDocumentFacade.createKnowledgeBaseDocument(
-                knowledgeBaseId, input.name(), input.mimeType(), new ByteArrayInputStream(contentBytes));
+                knowledgeBaseId, input.name(), input.mimeType(), contentBytes.length,
+                new ByteArrayInputStream(contentBytes));
 
-            return jsonMapper.writeValueAsString(
+            recordArtifact(invocationContext, document);
+
+            return JsonUtils.write(
                 new AddKnowledgeBaseDocumentOutput(true, document.getId()
                     .toString(), document.getName()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(
-                jsonMapper, AddKnowledgeBaseDocumentToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(AddKnowledgeBaseDocumentToolCallback.class, TOOL_NAME, exception);
+        }
+    }
+
+    private void recordArtifact(AgentToolInvocationContext invocationContext, KnowledgeBaseDocument document) {
+        String conversationId = invocationContext.conversationId();
+        Long userId = invocationContext.userId();
+
+        if (artifactRecorder != null && conversationId != null && userId != null) {
+            artifactRecorder.record(
+                conversationId, userId, ARTIFACT_KIND_KB_DOCUMENT_ADDED,
+                document.getId()
+                    .toString(),
+                document.getName(), null);
         }
     }
 
@@ -185,7 +211,7 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record AddKnowledgeBaseDocumentInput(
