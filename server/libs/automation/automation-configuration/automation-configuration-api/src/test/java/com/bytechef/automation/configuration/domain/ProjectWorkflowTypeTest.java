@@ -16,20 +16,26 @@
 
 package com.bytechef.automation.configuration.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+
 /**
- * What a {@code project_workflow} row holds. Generated rows ({@link #isGenerated()}) are produced from a feature's own
- * configuration — an AI agent, a Data Sync — and are edited only through that feature, never through the workflow
- * editor, so workflow listings leave them out.
- *
  * @author Ivica Cardic
  */
-public enum ProjectWorkflowType {
+class ProjectWorkflowTypeTest {
 
-    // Persisted as INT ordinal - append new values at the end only.
-    WORKFLOW, AI_AGENT, DATA_SYNC;
+    @Test
+    void testOrdinalsArePersistedValues() {
+        assertThat(ProjectWorkflowType.WORKFLOW.ordinal()).isEqualTo(0);
+        assertThat(ProjectWorkflowType.AI_AGENT.ordinal()).isEqualTo(1);
+        assertThat(ProjectWorkflowType.DATA_SYNC.ordinal()).isEqualTo(2);
+    }
 
-    /** Whether rows of this type are generated from a feature's own configuration and edited only through it. */
-    public boolean isGenerated() {
-        return this != WORKFLOW;
+    @Test
+    void testOnlyWorkflowIsNotGenerated() {
+        assertThat(ProjectWorkflowType.WORKFLOW.isGenerated()).isFalse();
+        assertThat(ProjectWorkflowType.AI_AGENT.isGenerated()).isTrue();
+        assertThat(ProjectWorkflowType.DATA_SYNC.isGenerated()).isTrue();
     }
 }

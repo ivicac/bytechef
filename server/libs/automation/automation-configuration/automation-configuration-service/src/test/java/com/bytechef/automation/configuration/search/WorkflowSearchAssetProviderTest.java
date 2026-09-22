@@ -102,6 +102,32 @@ class WorkflowSearchAssetProviderTest {
             .containsExactly("Order sync workflow-1");
     }
 
+    @Test
+    void testSearchLeavesOutGeneratedDataSyncWorkflows() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+        WorkflowService workflowService = mock(WorkflowService.class);
+
+        List<Workflow> workflows = List.of(workflow("workflow-1"));
+
+        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(
+            List.of(
+                new ProjectWorkflow(VISIBLE_PROJECT_ID, 1, "workflow-1", ProjectWorkflowType.WORKFLOW),
+                new ProjectWorkflow(VISIBLE_PROJECT_ID, 1, "data-sync-workflow", ProjectWorkflowType.DATA_SYNC)));
+        when(workflowService.getWorkflows(List.of("workflow-1"))).thenReturn(workflows);
+        when(projectService.getProjects(List.of(VISIBLE_PROJECT_ID)))
+            .thenReturn(List.of(project(VISIBLE_PROJECT_ID)));
+
+        WorkflowSearchAssetProvider workflowSearchAssetProvider = new WorkflowSearchAssetProvider(
+            projectService, new ProjectVisibilityFilter(objectProvider(visibleOnly(VISIBLE_PROJECT_ID))),
+            projectWorkflowService, workflowService);
+
+        List<WorkflowSearchResult> workflowSearchResults = workflowSearchAssetProvider.search("order", 10);
+
+        assertThat(workflowSearchResults).extracting(WorkflowSearchResult::label)
+            .containsExactly("Order sync workflow-1");
+    }
+
     @SuppressWarnings("unchecked")
     private static ObjectProvider<ResourceVisibilityResolver> objectProvider(
         ResourceVisibilityResolver resourceVisibilityResolver) {
