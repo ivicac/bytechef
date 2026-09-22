@@ -111,10 +111,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     PostgreSQLContainerConfiguration.class, ProjectFacadeIntTest.RecordingDeleteListenerConfiguration.class
 })
 @ProjectIntTestConfigurationSharedMocks
-// The project list surfaces resolve visibility against the current principal, so they need one — the same treatment
-// WorkspaceConnectionFacadeIntTest already gets. In production every one of them is @PreAuthorize-gated, and those
-// gates deny an unauthenticated caller long before the resolver is reached.
-@WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
 public class ProjectFacadeIntTest {
 
     @Autowired
@@ -393,6 +389,57 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    public void testExportProjectSkipsDataSyncWorkflows() throws Exception {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        ProjectWorkflow dataSyncProjectWorkflow = addDataSyncWorkflow(projectDTO);
+
+        byte[] exportedData = projectFacade.exportProject(projectDTO.id());
+
+        List<String> workflowEntryNames = new ArrayList<>();
+
+        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(exportedData))) {
+            ZipEntry zipEntry;
+
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+                String name = zipEntry.getName();
+
+                if (name.startsWith("workflow-")) {
+                    workflowEntryNames.add(name);
+                }
+
+                zipInputStream.closeEntry();
+            }
+        }
+
+        assertThat(workflowEntryNames).hasSize(1)
+            .doesNotContain("workflow-" + dataSyncProjectWorkflow.getUuid() + ".json");
+
+        long importedProjectId = projectFacade.importProject(exportedData, workspace.getId());
+
+        assertThat(projectWorkflowServiceImpl.getProjectWorkflows(importedProjectId))
+            .extracting(ProjectWorkflow::getType)
+            .containsExactly(ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Test
+    public void testDuplicateProjectSkipsDataSyncWorkflows() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        ProjectDTO duplicatedProjectDTO = projectFacade.duplicateProject(projectDTO.id());
+
+        assertThat(projectWorkflowServiceImpl.getProjectWorkflows(Objects.requireNonNull(duplicatedProjectDTO.id())))
+            .extracting(ProjectWorkflow::getType)
+            .containsExactly(ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Test
     public void testExportProjectInvalidId() {
         Assertions.assertThrows(
             Exception.class,
@@ -497,6 +544,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testGetProjects() {
         List<ProjectDTO> testProjectDTOs = new ArrayList<>();
 
@@ -526,6 +574,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testGetProjectTags() {
         Project project = new Project();
 
@@ -689,6 +738,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testGetProjectWorkflows() {
         List<Workflow> allWorkflows = workflowRepository.findAll();
 
@@ -741,6 +791,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testGetWorkspaceLatestProjectWorkflowsMatchesPerProjectListing() {
         Workspace workspace = workspaceRepository.save(new Workspace("test_workspace_latest_project_workflows"));
 
@@ -797,6 +848,43 @@ public class ProjectFacadeIntTest {
                 assertThat(workspaceProjectWorkflow.workflowLabel()).startsWith("test_workflow_label_");
                 assertThat(projectIds).contains(workspaceProjectWorkflow.projectId());
             });
+    }
+
+    @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
+    public void testWorkspaceLatestProjectWorkflowsLeaveOutDataSyncWorkflows() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        ProjectWorkflowDTO ordinaryWorkflow = projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        List<WorkspaceProjectWorkflowDTO> workspaceProjectWorkflows =
+            projectFacade.getWorkspaceLatestProjectWorkflows(workspace.getId());
+
+        assertThat(workspaceProjectWorkflows)
+            .extracting(WorkspaceProjectWorkflowDTO::workflowId)
+            .containsExactly(ordinaryWorkflow.getId());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
+    public void testWorkspaceProjectsProjectWorkflowIdsCountsUserWorkflowsOnly() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        ProjectWorkflowDTO ordinaryWorkflow = projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        List<ProjectDTO> workspaceProjects = projectFacade.getWorkspaceProjects(
+            null, null, true, null, null, null, workspace.getId());
+
+        ProjectDTO reloadedProjectDTO = workspaceProjects.stream()
+            .filter(candidate -> Objects.equals(candidate.id(), projectDTO.id()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(reloadedProjectDTO.projectWorkflowIds()).containsExactly(ordinaryWorkflow.getProjectWorkflowId());
     }
 
     private void createTestProjectWorkflows(int workspaceCount, int projectCount, int workflowCount) {
@@ -959,6 +1047,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testImportProjectTemplatePreBuilt() {
         List<ProjectDTO> initialProjects = projectFacade.getProjects(null, null, null, null);
         int initialCount = initialProjects.size();
@@ -1009,6 +1098,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testImportProjectTemplateShared() {
         List<ProjectDTO> initialProjects = projectFacade.getProjects(null, null, null, null);
         int initialCount = initialProjects.size();
@@ -1155,6 +1245,18 @@ public class ProjectFacadeIntTest {
             project.getId(), project.getLastProjectVersion(), agentWorkflow.getId(), ProjectWorkflowType.AI_AGENT);
     }
 
+    private ProjectWorkflow addDataSyncWorkflow(ProjectDTO projectDTO) {
+        Workflow dataSyncWorkflow = workflowService.create(
+            "{\"label\":\"data sync\",\"tasks\":[]}", Workflow.Format.JSON, Workflow.SourceType.JDBC);
+
+        Project project = projectRepository.findById(Objects.requireNonNull(projectDTO.id()))
+            .orElseThrow();
+
+        return projectWorkflowServiceImpl.addWorkflow(
+            project.getId(), project.getLastProjectVersion(), dataSyncWorkflow.getId(),
+            ProjectWorkflowType.DATA_SYNC);
+    }
+
     @TestConfiguration
     static class RecordingDeleteListenerConfiguration {
 
@@ -1197,6 +1299,155 @@ public class ProjectFacadeIntTest {
                     throw new UnsupportedOperationException();
                 }
             };
+        }
+    }
+
+    @Nested
+    @ContextConfiguration(classes = PreAuthorizeEnforcement.MethodSecurityConfiguration.class)
+    class PreAuthorizeEnforcement {
+
+        private static final long PROJECT_ID = 11L;
+        private static final long WORKSPACE_ID = 21L;
+
+        @MockitoBean
+        private PermissionService permissionService;
+
+        @BeforeEach
+        void beforeEach() {
+            reset(permissionService);
+
+            authenticate(AuthorityConstants.USER);
+        }
+
+        @AfterEach
+        void afterEach() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        void testCreateMutationsAreProtected() {
+            ProjectDTO projectDTO = ProjectDTO.builder()
+                .name("project")
+                .workspaceId(WORKSPACE_ID)
+                .build();
+
+            assertRequiresScope(WORKSPACE_ID, "Workspace", "PROJECT_CREATE",
+                () -> projectFacade.createProject(projectDTO));
+            assertRequiresScope(
+                WORKSPACE_ID, "Workspace", "PROJECT_CREATE",
+                () -> projectFacade.importProject(new byte[0], WORKSPACE_ID));
+            assertRequiresScope(
+                WORKSPACE_ID, "Workspace", "PROJECT_CREATE",
+                () -> projectFacade.importProjectTemplate("template", WORKSPACE_ID, false));
+        }
+
+        @Test
+        void testMutatingMethodsAreProtected() {
+            ProjectDTO projectDTO = ProjectDTO.builder()
+                .id(PROJECT_ID)
+                .name("project")
+                .workspaceId(WORKSPACE_ID)
+                .build();
+
+            assertRequiresScope(PROJECT_ID, "Project", "PROJECT_DELETE", () -> projectFacade.deleteProject(PROJECT_ID));
+            assertRequiresScope(
+                PROJECT_ID, "Project", "PROJECT_SETTINGS", () -> projectFacade.deleteSharedProject(PROJECT_ID));
+            assertRequiresBothScopes(
+                PROJECT_ID, "Project", "WORKFLOW_VIEW", "WORKFLOW_CREATE",
+                () -> projectFacade.duplicateProject(PROJECT_ID));
+            assertRequiresScope(PROJECT_ID, "Project", "WORKFLOW_VIEW", () -> projectFacade.exportProject(PROJECT_ID));
+            assertRequiresScope(
+                PROJECT_ID, "Project", "PROJECT_SETTINGS",
+                () -> projectFacade.exportSharedProject(PROJECT_ID, "description"));
+            assertRequiresBothScopes(
+                PROJECT_ID, "Project", "WORKFLOW_EDIT", "DEPLOYMENT_PUSH",
+                () -> projectFacade.publishProject(PROJECT_ID, "description", false));
+            assertRequiresScope(PROJECT_ID, "Project", "WORKFLOW_EDIT", () -> projectFacade.updateProject(projectDTO));
+        }
+
+        @Test
+        void testReadMethodsAreProtected() {
+            assertRequiresScope(PROJECT_ID, "Project", "WORKFLOW_VIEW", () -> projectFacade.getProject(PROJECT_ID));
+            assertRequiresScope(
+                WORKSPACE_ID, "Workspace", "WORKFLOW_VIEW",
+                () -> projectFacade.getWorkspaceProjects(null, null, false, null, null, null, WORKSPACE_ID));
+            assertRequiresScope(
+                WORKSPACE_ID, "Workspace", "WORKFLOW_VIEW",
+                () -> projectFacade.getWorkspaceProjectWorkflows(WORKSPACE_ID));
+
+            assertRequiresTenantAdmin(() -> projectFacade.getProjects(null, null, null, null));
+        }
+
+        private void assertRequiresBothScopes(
+            Serializable targetId, String targetType, String firstScope, String secondScope, ThrowingCallable call) {
+
+            reset(permissionService);
+
+            when(permissionService.hasResourceScope(targetId, targetType, firstScope)).thenReturn(true);
+
+            assertDenied(call);
+
+            reset(permissionService);
+
+            when(permissionService.hasResourceScope(targetId, targetType, secondScope)).thenReturn(true);
+
+            assertDenied(call);
+
+            when(permissionService.hasResourceScope(targetId, targetType, firstScope)).thenReturn(true);
+
+            assertNotDenied(call);
+
+            reset(permissionService);
+        }
+
+        private void
+            assertRequiresScope(Serializable targetId, String targetType, String scope, ThrowingCallable call) {
+            reset(permissionService);
+
+            assertDenied(call);
+
+            when(permissionService.hasResourceScope(targetId, targetType, scope)).thenReturn(true);
+
+            assertNotDenied(call);
+
+            reset(permissionService);
+        }
+
+        private void assertRequiresTenantAdmin(ThrowingCallable call) {
+            reset(permissionService);
+
+            assertDenied(call);
+
+            when(permissionService.isTenantAdmin()).thenReturn(true);
+
+            assertNotDenied(call);
+
+            reset(permissionService);
+        }
+
+        private static void assertDenied(ThrowingCallable call) {
+            assertThatThrownBy(call).isInstanceOf(AccessDeniedException.class);
+        }
+
+        private static void assertNotDenied(ThrowingCallable call) {
+            Throwable throwable = catchThrowable(call);
+
+            assertThat(throwable)
+                .as("Expected the gate to let the call through, but it was denied: %s", throwable)
+                .satisfiesAnyOf(
+                    actual -> assertThat(actual).isNull(),
+                    actual -> assertThat(actual).isNotInstanceOf(AccessDeniedException.class));
+        }
+
+        private static void authenticate(String authority) {
+            SecurityContextHolder.getContext()
+                .setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                        "user", "n/a", List.of(new SimpleGrantedAuthority(authority))));
+        }
+
+        @EnableMethodSecurity
+        static class MethodSecurityConfiguration {
         }
     }
 }

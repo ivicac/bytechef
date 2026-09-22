@@ -31,9 +31,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that {@link WorkspaceFacadeImpl#getUserWorkspaces(long)} orchestrates {@link WorkspaceService} and
- * {@link PermissionService} correctly: tenant admins see every workspace, while a regular user only sees the workspaces
- * they hold a role in.
+ * Verifies that {@link WorkspaceFacadeImpl} orchestrates {@link WorkspaceService} and {@link PermissionService}
+ * correctly: tenant admins see every workspace, while a regular user only sees the workspaces they hold a role in.
  *
  * @author Ivica Cardic
  */
@@ -88,5 +87,15 @@ class WorkspaceFacadeTest {
         when(permissionService.getMyWorkspaceRole(anyLong())).thenReturn(null);
 
         assertThat(workspaceFacade.getUserWorkspaces(USER_ID)).isEmpty();
+    }
+
+    @Test
+    void testGetMyWorkspacesFiltersToMembershipForNonAdmin() {
+        when(permissionService.isTenantAdmin()).thenReturn(false);
+        when(permissionService.getMyWorkspaceRole(WORKSPACE_1.getId())).thenReturn("VIEWER");
+        when(permissionService.getMyWorkspaceRole(WORKSPACE_2.getId())).thenReturn(null);
+        when(permissionService.getMyWorkspaceRole(WORKSPACE_3.getId())).thenReturn("EDITOR");
+
+        assertThat(workspaceFacade.getMyWorkspaces()).containsExactly(WORKSPACE_1, WORKSPACE_3);
     }
 }
