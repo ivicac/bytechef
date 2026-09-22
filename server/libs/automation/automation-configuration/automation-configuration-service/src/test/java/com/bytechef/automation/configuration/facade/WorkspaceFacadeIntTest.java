@@ -70,6 +70,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -79,7 +80,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * @author Ivica Cardic
  */
-@SpringBootTest(classes = WorkspaceFacadeIntTest.Config.class, properties = "bytechef.edition=ee")
+@SpringBootTest(classes = WorkspaceFacadeIntTest.Config.class, properties = "bytechef.edition=ce")
 @MockitoBean(types = {
     ApplicationProperties.class, CacheManager.class, CategoryService.class, ComponentConnectionFacade.class,
     ComponentDefinitionHelper.class, ConnectionFacade.class,
@@ -127,6 +128,16 @@ class WorkspaceFacadeIntTest {
         when(permissionService.isTenantAdmin()).thenReturn(true);
 
         assertNotDenied(() -> workspaceFacade.getUserWorkspaces(USER_ID));
+    }
+
+    @Test
+    void testGetMyWorkspacesIsGatedOnAuthentication() {
+        assertNotDenied(() -> workspaceFacade.getMyWorkspaces());
+
+        SecurityContextHolder.clearContext();
+
+        assertThatThrownBy(() -> workspaceFacade.getMyWorkspaces())
+            .isInstanceOfAny(AccessDeniedException.class, AuthenticationCredentialsNotFoundException.class);
     }
 
     private static void assertDenied(ThrowingCallable call) {

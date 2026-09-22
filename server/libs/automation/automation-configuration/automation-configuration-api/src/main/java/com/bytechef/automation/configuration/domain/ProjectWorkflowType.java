@@ -17,13 +17,19 @@
 package com.bytechef.automation.configuration.domain;
 
 /**
- * What a {@code project_workflow} row holds. {@link #AI_AGENT} rows are generated from an AI Agent's configuration and
- * are edited through the agent, never through the workflow editor, so workflow listings leave them out.
+ * What a {@code project_workflow} row holds. Generated rows ({@link #isGenerated()}) are produced from a feature's own
+ * configuration — an AI agent, a Data Sync — and are edited only through that feature, never through the workflow
+ * editor, so workflow listings leave them out.
  *
  * @author Ivica Cardic
  */
 public enum ProjectWorkflowType {
 
     // Persisted as INT ordinal - append new values at the end only.
-    WORKFLOW, AI_AGENT
+    WORKFLOW, AI_AGENT, DATA_SYNC;
+
+    /** Whether rows of this type are generated from a feature's own configuration and edited only through it. */
+    public boolean isGenerated() {
+        return this != WORKFLOW;
+    }
 }

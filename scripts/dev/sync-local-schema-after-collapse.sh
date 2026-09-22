@@ -215,6 +215,63 @@ BEGIN
 END
 \$\$;"
 
+# 2026-09-22 data syncs move into ordinary projects: data_sync.project_id became project_workflow_uuid
+# (NOT NULL, unique) and data_sync_tag is gone, both edited in place in the unreleased init changelog.
+# A sync used to own a hidden __DATA_SYNC__<uuid> project holding exactly one generated workflow; that
+# workflow becomes the sync's DATA_SYNC project workflow (type 2) and its project becomes an ordinary
+# one, so local syncs survive the move instead of being dropped. A sync whose project holds anything
+# other than exactly one workflow cannot be resolved automatically and aborts the run rather than
+# losing the row. Guarded throughout, so it is safe to re-run.
+SQL="$SQL
+DO \$\$
+DECLARE
+    unresolved BIGINT;
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'data_sync' AND column_name = 'project_id') THEN
+        ALTER TABLE data_sync ADD COLUMN IF NOT EXISTS project_workflow_uuid UUID;
+
+        UPDATE data_sync ds
+        SET project_workflow_uuid = sole.uuid
+        FROM (SELECT project_id, min(uuid::text)::uuid AS uuid, count(*) AS workflow_count
+              FROM project_workflow GROUP BY project_id) sole
+        WHERE sole.project_id = ds.project_id
+          AND sole.workflow_count = 1
+          AND ds.project_workflow_uuid IS NULL;
+
+        SELECT count(*) INTO unresolved FROM data_sync WHERE project_workflow_uuid IS NULL;
+
+        IF unresolved > 0 THEN
+            RAISE EXCEPTION 'data_sync has % row(s) whose project does not hold exactly one workflow - resolve by hand', unresolved;
+        END IF;
+
+        UPDATE project_workflow SET type = 2
+        WHERE uuid IN (SELECT project_workflow_uuid FROM data_sync);
+
+        UPDATE project p
+        SET name = ds.name, description = NULL
+        FROM data_sync ds
+        WHERE ds.project_id = p.id AND starts_with(p.name, '__DATA_SYNC__');
+
+        ALTER TABLE data_sync ALTER COLUMN project_workflow_uuid SET NOT NULL;
+
+        ALTER TABLE data_sync DROP CONSTRAINT IF EXISTS fk_data_sync_project;
+
+        ALTER TABLE data_sync DROP COLUMN project_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'data_sync')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                       WHERE table_name = 'data_sync'
+                         AND constraint_name = 'uk_data_sync_project_workflow_uuid') THEN
+        ALTER TABLE data_sync
+            ADD CONSTRAINT uk_data_sync_project_workflow_uuid UNIQUE (project_workflow_uuid);
+    END IF;
+
+    DROP TABLE IF EXISTS data_sync_tag CASCADE;
+END
+\$\$;"
+
 # Init changelogs were edited in place, so recorded checksums no longer match. Nulling md5sum
 # makes Liquibase recompute on next run; it does NOT re-run changesets (they stay marked executed).
 SQL="$SQL

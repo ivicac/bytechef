@@ -30,14 +30,12 @@ import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
- * Search is a listing like any other, so a project the current principal may not see must not surface through it
- * either.
- *
  * @author Ivica Cardic
  */
 class ProjectSearchAssetProviderTest {
@@ -61,7 +59,7 @@ class ProjectSearchAssetProviderTest {
             projectService, new ProjectVisibilityFilter(objectProvider(visibleOnly(VISIBLE_PROJECT_ID))),
             projectWorkflowService);
 
-        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10);
+        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10, Set.of(9L));
 
         assertThat(projectSearchResults).extracting(ProjectSearchResult::id)
             .containsExactly(VISIBLE_PROJECT_ID);
@@ -87,7 +85,7 @@ class ProjectSearchAssetProviderTest {
                         .collect(Collectors.toSet()))),
             projectWorkflowService);
 
-        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10);
+        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10, Set.of(9L));
 
         assertThat(projectSearchResults).extracting(ProjectSearchResult::id)
             .containsExactly(VISIBLE_PROJECT_ID, HIDDEN_PROJECT_ID);
@@ -117,7 +115,7 @@ class ProjectSearchAssetProviderTest {
         ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
             projectService, projectVisibilityFilter, projectWorkflowService);
 
-        List<ProjectSearchResult> results = provider.search("bill", 10);
+        List<ProjectSearchResult> results = provider.search("bill", 10, Set.of(10L));
 
         assertThat(results).singleElement()
             .extracting(ProjectSearchResult::projectWorkflowId)
@@ -134,6 +132,7 @@ class ProjectSearchAssetProviderTest {
 
         when(project.getId()).thenReturn(5L);
         when(project.getName()).thenReturn("Billing");
+        when(project.getWorkspaceId()).thenReturn(10L);
         when(projectService.getProjects(false, null, null, null, null, null)).thenReturn(List.of(project));
         when(projectVisibilityFilter.filterVisible(List.of(project))).thenReturn(List.of(project));
         when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(List.of());
@@ -141,7 +140,7 @@ class ProjectSearchAssetProviderTest {
         ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
             projectService, projectVisibilityFilter, projectWorkflowService);
 
-        List<ProjectSearchResult> results = provider.search("bill", 10);
+        List<ProjectSearchResult> results = provider.search("bill", 10, Set.of(10L));
 
         assertThat(results).singleElement()
             .extracting(ProjectSearchResult::projectWorkflowId)
@@ -165,7 +164,31 @@ class ProjectSearchAssetProviderTest {
         ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
             projectService, projectVisibilityFilter, projectWorkflowService);
 
-        List<ProjectSearchResult> results = provider.search("bill", 10);
+        List<ProjectSearchResult> results = provider.search("bill", 10, Set.of(10L));
+
+        assertThat(results).singleElement()
+            .extracting(ProjectSearchResult::id, ProjectSearchResult::projectWorkflowId)
+            .containsExactly(project.getId(), 77L);
+    }
+
+    @Test
+    void testResultSkipsGeneratedDataSyncWorkflows() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectVisibilityFilter projectVisibilityFilter = mock(ProjectVisibilityFilter.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+
+        Project project = billingProject(projectService, projectVisibilityFilter);
+
+        ProjectWorkflow dataSyncProjectWorkflow = projectWorkflow(76L, ProjectWorkflowType.DATA_SYNC);
+        ProjectWorkflow ordinaryProjectWorkflow = projectWorkflow(77L, ProjectWorkflowType.WORKFLOW);
+
+        when(projectWorkflowService.getLatestProjectWorkflows())
+            .thenReturn(List.of(dataSyncProjectWorkflow, ordinaryProjectWorkflow));
+
+        ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
+            projectService, projectVisibilityFilter, projectWorkflowService);
+
+        List<ProjectSearchResult> results = provider.search("bill", 10, Set.of(10L));
 
         assertThat(results).singleElement()
             .extracting(ProjectSearchResult::id, ProjectSearchResult::projectWorkflowId)
@@ -187,7 +210,7 @@ class ProjectSearchAssetProviderTest {
         ProjectSearchAssetProvider provider = new ProjectSearchAssetProvider(
             projectService, projectVisibilityFilter, projectWorkflowService);
 
-        List<ProjectSearchResult> results = provider.search("bill", 10);
+        List<ProjectSearchResult> results = provider.search("bill", 10, Set.of(10L));
 
         assertThat(results).singleElement()
             .extracting(ProjectSearchResult::projectWorkflowId)
@@ -201,6 +224,7 @@ class ProjectSearchAssetProviderTest {
 
         when(project.getId()).thenReturn(5L);
         when(project.getName()).thenReturn("Billing");
+        when(project.getWorkspaceId()).thenReturn(10L);
         when(projectService.getProjects(false, null, null, null, null, null)).thenReturn(List.of(project));
         when(projectVisibilityFilter.filterVisible(List.of(project))).thenReturn(List.of(project));
 
@@ -244,5 +268,45 @@ class ProjectSearchAssetProviderTest {
             .map(VisibilityRecord::id)
             .filter(id -> id == visibleId)
             .collect(Collectors.toSet());
+    }
+
+    @Test
+    void testReturnsOnlyCallerWorkspaceProjectsUpToLimit() {
+        ProjectService projectService = mock(ProjectService.class);
+
+        List<Project> projects = List.of(
+            createProject(1L, "Sales foreign", 99L), createProject(2L, "Sales foreign 2", 99L),
+            createProject(3L, "Sales own", 10L), createProject(4L, "Sales own 2", 10L),
+            createProject(5L, "Sales own 3", 10L));
+
+        when(projectService.getProjects(false, null, null, null, null, null)).thenReturn(projects);
+
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+
+        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(List.of());
+
+        ProjectSearchAssetProvider projectSearchAssetProvider = new ProjectSearchAssetProvider(
+            projectService,
+            new ProjectVisibilityFilter(
+                objectProvider(
+                    (resourceType, workspaceId, candidates) -> candidates.stream()
+                        .map(VisibilityRecord::id)
+                        .collect(Collectors.toSet()))),
+            projectWorkflowService);
+
+        List<ProjectSearchResult> results = projectSearchAssetProvider.search("sales", 2, Set.of(10L));
+
+        assertThat(results).extracting(ProjectSearchResult::id)
+            .containsExactly(3L, 4L);
+    }
+
+    private static Project createProject(long id, String name, long workspaceId) {
+        Project project = mock(Project.class);
+
+        when(project.getId()).thenReturn(id);
+        when(project.getName()).thenReturn(name);
+        when(project.getWorkspaceId()).thenReturn(workspaceId);
+
+        return project;
     }
 }

@@ -114,7 +114,7 @@ class ProjectFacadeRowVisibilityTest {
     private final Project otherWorkspacePrivateProject = project(
         4L, "Elsewhere withheld", UNSCOPED_WORKSPACE_ID, ResourceVisibility.PRIVATE);
     private final Project systemProject = project(
-        5L, SystemProjects.DATA_SYNC_NAME_PREFIX + "sync", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
+        5L, SystemProjects.CONTEXT_STORE_NAME_PREFIX + "1", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
 
     private final List<Project> allProjects = List.of(
         workspaceVisibleProject, privateProject, otherWorkspaceProject, otherWorkspacePrivateProject, systemProject);

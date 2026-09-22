@@ -116,10 +116,11 @@ class ResourceEnvironmentResolverCoverageTest {
         reasons.put(
             "DataSync",
             "The same shape as 'Project' above, and arrived from the base branch rather than from this work: the "
-                + "data_sync row carries a workspaceId and a projectId and no environment column, because a data "
-                + "sync's environments belong to the project DEPLOYMENTS DataSyncFacadeImpl materializes for every "
-                + "Environment.values() (see getDataSyncDeployments, hasAnyDeployment and syncTestConnections). A "
-                + "resolver could not answer with one of the three without picking arbitrarily, so 'DataSync'-keyed "
+                + "data_sync row carries a workspaceId and its project workflow's uuid and no environment column, "
+                + "because a data sync's environments belong to the DEPLOYMENTS of its project -- any number of them "
+                + "per environment (see DataSyncFacadeImpl.isEnabledInAnyDeployment) -- and its test configuration "
+                + "is synced into every Environment.values() (see syncTestConnections). A resolver could not answer "
+                + "with one of the three without picking arbitrarily, so 'DataSync'-keyed "
                 + "gates must carry the environment explicitly, exactly as 'Project' and 'Workspace' must.");
 
         reasons.put(
