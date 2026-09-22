@@ -50,7 +50,9 @@ public class GetAiAgentToolCallback implements ToolCallback {
         KNOWLEDGE_BASE, CHAT_MEMORY, APPROVAL_GATE, APPROVAL_CHANNEL, APPROVAL_TOOL), the settings
         object (streamResponse plus the builtInTools on/off switches), and
         unpublishedChanges/lastPublishedVersion. Always call
-        this before modifying an agent so you know its current channels and elements.""";
+        this before modifying an agent so you know its current channels and elements. An agent is
+        published by publishing its project (the projectId listAiAgents returns) with publishProject,
+        which publishes every workflow and agent in that project.""";
 
     private static final String INPUT_SCHEMA = """
         {

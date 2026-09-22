@@ -28,6 +28,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.exception.ExecutionException;
@@ -55,11 +56,16 @@ public class ProjectTools {
 
     private static final Logger log = LoggerFactory.getLogger(ProjectTools.class);
 
+    private final ProjectFacade projectFacade;
     private final ProjectService projectService;
     private final ProjectDeploymentService projectDeploymentService;
 
     @SuppressFBWarnings("EI")
-    public ProjectTools(ProjectService projectService, ProjectDeploymentService projectDeploymentService) {
+    public ProjectTools(
+        ProjectFacade projectFacade, ProjectService projectService,
+        ProjectDeploymentService projectDeploymentService) {
+
+        this.projectFacade = projectFacade;
         this.projectService = projectService;
         this.projectDeploymentService = projectDeploymentService;
     }
@@ -320,7 +326,7 @@ public class ProjectTools {
             Project project = projectService.getProject(projectId);
             String projectName = project.getName();
 
-            projectService.delete(projectId);
+            projectFacade.deleteProject(projectId);
 
             if (log.isDebugEnabled()) {
                 log.debug("deleteProject({}): Deleted project {} with name '{}'", projectId, projectId, projectName);
@@ -343,7 +349,7 @@ public class ProjectTools {
         @ToolParam(required = false, description = "The description for this published version") String description) {
 
         try {
-            int publishedVersion = projectService.publishProject(projectId, description, false);
+            int publishedVersion = projectFacade.publishProject(projectId, description, false);
 
             Project updatedProject = projectService.getProject(projectId);
 

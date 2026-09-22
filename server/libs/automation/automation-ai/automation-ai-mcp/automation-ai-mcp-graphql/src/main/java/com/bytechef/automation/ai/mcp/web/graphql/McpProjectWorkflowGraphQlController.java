@@ -27,6 +27,7 @@ import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.MapUtils;
@@ -109,6 +110,7 @@ public class McpProjectWorkflowGraphQlController {
         @Argument long projectId, @Argument int projectVersion) {
         return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
             .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
             .filter(projectWorkflow -> {
                 Workflow workflow = workflowService.getWorkflow(projectWorkflow.getWorkflowId());
 
