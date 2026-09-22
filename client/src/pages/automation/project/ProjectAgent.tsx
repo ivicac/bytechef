@@ -11,7 +11,6 @@ import {useAiAgentQuery} from '@/shared/middleware/graphql';
 import {useGetProjectWorkflowsQuery} from '@/shared/queries/automation/projectWorkflows.queries';
 import {useGetProjectQuery} from '@/shared/queries/automation/projects.queries';
 import {useRef, useState} from 'react';
-import {type PanelImperativeHandle} from 'react-resizable-panels';
 import {useNavigate, useParams} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -32,9 +31,6 @@ const TEST_PANEL_HIDE_THRESHOLD = FORM_MIN_WIDTH + TEST_PANEL_MIN_WIDTH + TEST_P
 
 const ProjectAgent = () => {
     const [testPanelOpen, setTestPanelOpen] = useState(true);
-
-    // The sidebar closes the workflow editor's bottom panel after creating a workflow; this page has none.
-    const bottomResizablePanelRef = useRef<PanelImperativeHandle | null>(null);
 
     const contentRowRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +88,6 @@ const ProjectAgent = () => {
                 )}
             >
                 <ProjectsLeftSidebar
-                    bottomResizablePanelRef={bottomResizablePanelRef}
                     currentAgentId={agentId}
                     currentWorkflowId=""
                     onProjectClick={(clickedProjectId, projectWorkflowId) =>

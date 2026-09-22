@@ -8,8 +8,6 @@ import LeftSidebarButton from '@/shared/layout/LeftSidebarButton';
 import {DataSync, useDataSyncQuery} from '@/shared/middleware/graphql';
 import {useGetProjectWorkflowsQuery} from '@/shared/queries/automation/projectWorkflows.queries';
 import {useGetProjectQuery} from '@/shared/queries/automation/projects.queries';
-import {useRef} from 'react';
-import {type PanelImperativeHandle} from 'react-resizable-panels';
 import {useNavigate, useParams} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -20,9 +18,6 @@ import {useShallow} from 'zustand/react/shallow';
  * surface — so the wizard gets the whole width beside the sidebar.
  */
 const ProjectDataSync = () => {
-    // The sidebar closes the workflow editor's bottom panel after creating a workflow; this page has none.
-    const bottomResizablePanelRef = useRef<PanelImperativeHandle | null>(null);
-
     const {projectLeftSidebarOpen, setProjectLeftSidebarOpen} = useProjectsLeftSidebarStore(
         useShallow((state) => ({
             projectLeftSidebarOpen: state.projectLeftSidebarOpen,
@@ -50,7 +45,6 @@ const ProjectDataSync = () => {
                 )}
             >
                 <ProjectsLeftSidebar
-                    bottomResizablePanelRef={bottomResizablePanelRef}
                     currentDataSyncId={dataSyncId}
                     currentWorkflowId=""
                     onProjectClick={(clickedProjectId, projectWorkflowId) =>

@@ -1,11 +1,13 @@
 import Switch from '@/components/Switch/Switch';
 import {Label} from '@/components/ui/label';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import {useWorkflowsEnabledStore} from '@/pages/automation/project-deployments/stores/useWorkflowsEnabledStore';
 import ConnectionConfigurationList from '@/shared/components/ConnectionConfigurationList';
 import InputConfigurationList from '@/shared/components/InputConfigurationList';
 import {Connection, ProjectDeployment, Workflow} from '@/shared/middleware/automation/configuration';
-import {FileInputIcon, Link2Icon, WorkflowIcon} from 'lucide-react';
+import {BotIcon, FileInputIcon, Link2Icon, WorkflowIcon} from 'lucide-react';
+import {useMemo} from 'react';
 import {Control, FieldValues, FormState, UseFormSetValue, useWatch} from 'react-hook-form';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -47,6 +49,8 @@ const ProjectDeploymentDialogWorkflowsStepItem = ({
         useShallow(({setWorkflowEnabled, workflowEnabledMap}) => [setWorkflowEnabled, workflowEnabledMap])
     );
 
+    const {agents} = useAgents();
+
     const componentConnections = getWorkflowComponentConnections(workflow, workflows);
     const workflowInputs = getWorkflowInputs(workflow, workflows);
     const duplicateSubflowConnectionStubs = getSubflowConnectionStubs(workflow, workflows);
@@ -66,6 +70,11 @@ const ProjectDeploymentDialogWorkflowsStepItem = ({
 
     const configuredConnectionIds = componentConnections.map(
         (_componentConnection, connectionIndex) => watchedConnections?.[connectionIndex]?.connectionId
+    );
+
+    const isAgentWorkflow = useMemo(
+        () => !!workflow.workflowUuid && agents.some((agent) => agent.projectWorkflowUuid === workflow.workflowUuid),
+        [agents, workflow.workflowUuid]
     );
 
     const workflowEnabled = workflowEnabledMap.get(workflow.id!);
@@ -92,12 +101,21 @@ const ProjectDeploymentDialogWorkflowsStepItem = ({
                                 workflowEnabled && 'bg-surface-brand-secondary'
                             )}
                         >
-                            <WorkflowIcon
-                                className={twMerge(
-                                    'size-4 text-content-neutral-secondary transition-colors',
-                                    workflowEnabled && 'text-content-brand-primary'
-                                )}
-                            />
+                            {isAgentWorkflow ? (
+                                <BotIcon
+                                    className={twMerge(
+                                        'size-4 text-content-neutral-secondary transition-colors',
+                                        workflowEnabled && 'text-content-brand-primary'
+                                    )}
+                                />
+                            ) : (
+                                <WorkflowIcon
+                                    className={twMerge(
+                                        'size-4 text-content-neutral-secondary transition-colors',
+                                        workflowEnabled && 'text-content-brand-primary'
+                                    )}
+                                />
+                            )}
                         </div>
 
                         {label}
