@@ -39,10 +39,10 @@ import org.springframework.stereotype.Component;
  * below — an audit record that names the project alone is worth more than a failed write.
  *
  * <p>
- * Every registered {@link ProjectAuditSubjectResolver} is consulted so that a project which is really something else —
- * an AI agent's hidden {@code __AI_AGENT__} project is the case that exists — is recorded under a subject an auditor
- * can resolve, rather than under an opaque project id alone. The projectId stays on the record either way: it is still
- * the row that changed, and one event answering one question is the point.
+ * Every registered {@link ProjectAuditSubjectResolver} is consulted so that a project which is really an internal
+ * implementation detail of some other feature is recorded under a subject an auditor can resolve, rather than under an
+ * opaque project id alone. The projectId stays on the record either way: it is still the row that changed, and one
+ * event answering one question is the point.
  *
  * @author Ivica Cardic
  */

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
@@ -279,6 +280,7 @@ class ProjectWorkflowFacadeVisibilityTest {
             new DefaultResourceVisibilityResolver());
     }
 
+    @SuppressWarnings("unchecked")
     private ProjectWorkflowFacadeImpl facade(ResourceVisibilityResolver resourceVisibilityResolver) {
         return new ProjectWorkflowFacadeImpl(
             mock(ComponentDefinitionHelper.class), mock(PreBuiltTemplateService.class),
@@ -287,8 +289,8 @@ class ProjectWorkflowFacadeVisibilityTest {
             mock(ProjectDeploymentWorkflowService.class), projectService,
             new ProjectVisibilityFilter(objectProvider(resourceVisibilityResolver)), projectWorkflowService,
             mock(SharedTemplateFileStorage.class), mock(SharedTemplateService.class), mock(WorkflowCacheManager.class),
-            workflowFacade, List.of(), mock(WorkflowService.class), mock(WorkflowTestConfigurationService.class),
-            mock(WorkflowValidatorFacade.class));
+            workflowFacade, List.of(), mock(WorkflowService.class), mock(ObjectProvider.class),
+            mock(WorkflowTestConfigurationService.class), mock(WorkflowValidatorFacade.class));
     }
 
     private static void authenticate(String login) {
@@ -317,6 +319,7 @@ class ProjectWorkflowFacadeVisibilityTest {
 
         when(projectWorkflow.getId()).thenReturn(id);
         when(projectWorkflow.getProjectId()).thenReturn(projectId);
+        when(projectWorkflow.getType()).thenReturn(ProjectWorkflowType.WORKFLOW);
         when(projectWorkflow.getWorkflowId()).thenReturn(workflowId);
 
         return projectWorkflow;

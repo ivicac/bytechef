@@ -25,6 +25,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade.ChatWorkflow;
 import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
@@ -160,6 +161,58 @@ class ProjectDeploymentFacadeChatWorkflowTest {
     }
 
     /**
+     * The generated workflow behind an AI agent carries a hosted chat trigger just like a user-authored one, but its
+     * chat is surfaced through {@code AiAgentFacade.getWorkspaceChatAgents} instead — so this listing must drop it by
+     * {@code ProjectWorkflow.getType()} even though it is otherwise identical to the workflow that stays. Both rows
+     * belong to the same visible project, so type is the only thing that can explain the exclusion.
+     */
+    @Test
+    void testWorkspaceChatWorkflowsHidesAiAgentWorkflows() {
+        ProjectDeployment userProjectDeployment = projectDeployment(10L, 1L);
+        ProjectDeployment agentProjectDeployment = projectDeployment(11L, 1L);
+
+        Mockito.when(environmentService.getEnvironment(ArgumentMatchers.anyLong()))
+            .thenReturn(Environment.PRODUCTION);
+        Mockito
+            .when(
+                projectDeploymentService.getProjectDeployments(
+                    ArgumentMatchers.eq(false), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any(), ArgumentMatchers.any()))
+            .thenReturn(List.of(userProjectDeployment, agentProjectDeployment));
+        Mockito.when(projectDeploymentWorkflowService.getProjectDeploymentWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(
+                List.of(
+                    projectDeploymentWorkflow(100L, 10L, "wf-1"), projectDeploymentWorkflow(101L, 11L, "wf-2")));
+        Mockito.when(workflowService.getWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(List.of(chatWorkflow("wf-1", "User chat"), chatWorkflow("wf-2", "Agent chat")));
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflows(ArgumentMatchers.anyList()))
+            .thenReturn(
+                List.of(
+                    projectWorkflow(1000L, "wf-1"), projectWorkflow(1001L, "wf-2", ProjectWorkflowType.AI_AGENT)));
+        Mockito.when(projectService.getProjects(ArgumentMatchers.anyList()))
+            .thenReturn(List.of(workspaceVisibleProject));
+
+        TriggerDefinition triggerDefinition = Mockito.mock(TriggerDefinition.class);
+
+        Mockito.when(triggerDefinition.getType())
+            .thenReturn(TriggerType.STATIC_WEBHOOK);
+        Mockito.when(triggerDefinition.getName())
+            .thenReturn("newChatMessage");
+        Mockito
+            .when(
+                triggerDefinitionService.getTriggerDefinition(
+                    ArgumentMatchers.anyString(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyString()))
+            .thenReturn(triggerDefinition);
+
+        List<ChatWorkflow> chatWorkflows = createProjectDeploymentFacade(ResourceVisibility.WORKSPACE)
+            .getWorkspaceChatWorkflows(WORKSPACE_ID, 0L);
+
+        assertThat(chatWorkflows)
+            .extracting(ChatWorkflow::workflowLabel)
+            .containsExactly("User chat");
+    }
+
+    /**
      * Only the collaborators this listing reaches are stubbed; the rest of the facade's graph is irrelevant to it and
      * is left as bare mocks.
      */
@@ -239,10 +292,15 @@ class ProjectDeploymentFacadeChatWorkflowTest {
     }
 
     private static ProjectWorkflow projectWorkflow(long id, String workflowId) {
+        return projectWorkflow(id, workflowId, ProjectWorkflowType.WORKFLOW);
+    }
+
+    private static ProjectWorkflow projectWorkflow(long id, String workflowId, ProjectWorkflowType type) {
         ProjectWorkflow projectWorkflow = new ProjectWorkflow(id);
 
         projectWorkflow.setUuid(UUID.randomUUID());
         projectWorkflow.setWorkflowId(workflowId);
+        projectWorkflow.setType(type);
 
         return projectWorkflow;
     }

@@ -19,12 +19,14 @@ package com.bytechef.automation.configuration.service;
 import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditEvent;
 import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditPublisher;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -37,6 +39,7 @@ import org.springframework.util.Assert;
 public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
 
     private final ProjectWorkflowAuditPublisher projectWorkflowAuditPublisher;
+
     private final ProjectWorkflowRepository projectWorkflowRepository;
 
     public ProjectWorkflowServiceImpl(
@@ -49,8 +52,15 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
 
     @Override
     public ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId) {
+        return addWorkflow(projectId, projectVersion, workflowId, ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Override
+    public ProjectWorkflow addWorkflow(
+        long projectId, int projectVersion, String workflowId, ProjectWorkflowType type) {
+
         ProjectWorkflow savedProjectWorkflow = projectWorkflowRepository.save(
-            new ProjectWorkflow(projectId, projectVersion, workflowId));
+            new ProjectWorkflow(projectId, projectVersion, workflowId, type));
 
         Map<String, Object> data = new HashMap<>();
 
@@ -252,7 +262,8 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
         update(projectWorkflow);
 
         projectWorkflow = new ProjectWorkflow(
-            projectId, oldProjectVersion, oldWorkflowId, UUID.fromString(projectWorkflow.getUuidAsString()));
+            projectId, oldProjectVersion, oldWorkflowId, UUID.fromString(projectWorkflow.getUuidAsString()),
+            projectWorkflow.getType());
 
         projectWorkflowRepository.save(projectWorkflow);
     }
@@ -294,13 +305,4 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
         return projectWorkflowRepository.save(projectWorkflow);
     }
 
-    @Override
-    public ProjectWorkflow updatePermissionExpression(long id, @Nullable String permissionExpression) {
-        ProjectWorkflow projectWorkflow = projectWorkflowRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("ProjectWorkflow not found"));
-
-        projectWorkflow.setPermissionExpression(permissionExpression);
-
-        return projectWorkflowRepository.save(projectWorkflow);
-    }
 }

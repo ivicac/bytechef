@@ -2,6 +2,7 @@ import {ReactFlowProvider} from '@xyflow/react';
 
 import './WorkflowEditorLayout.css';
 
+import {IntegrationWorkflowKeys} from '@/ee/shared/queries/embedded/integrationWorkflows.queries';
 import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/components/WorkflowNodeDetailsPanel';
 import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
 import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
@@ -22,7 +23,6 @@ import useCopilotStateContributorRegistry from '@/shared/components/copilot/stor
 import {Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import {ISSUES_SIDEBAR_EXIT_DURATION} from '@/shared/constants';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
-import {WorkflowKeys} from '@/shared/queries/automation/workflows.queries';
 import {useQueryClient} from '@tanstack/react-query';
 import {Suspense, lazy, useCallback, useEffect, useMemo, useState} from 'react';
 import {useParams} from 'react-router-dom';
@@ -164,7 +164,7 @@ const WorkflowEditorLayout = ({
     const {handleClusterElementsCanvasOpenChange, isMainRootClusterElement} = useWorkflowEditorLayout();
 
     const queryClient = useQueryClient();
-    const {integrationId, projectId, projectWorkflowId} = useParams();
+    const {integrationId, integrationWorkflowId, projectId, projectWorkflowId} = useParams();
 
     const isCodeWorkflow = useMemo(
         () =>
@@ -178,10 +178,6 @@ const WorkflowEditorLayout = ({
         () => codeWorkflow === true && codeWorkflowLanguage === 'JAVA',
         [codeWorkflow, codeWorkflowLanguage]
     );
-
-    const handleClosePlayground = useCallback(() => {
-        setTestingPanelOpen(false);
-    }, [setTestingPanelOpen]);
 
     const handleClosePlayground = useCallback(() => {
         setTestingPanelOpen(false);
@@ -211,15 +207,12 @@ const WorkflowEditorLayout = ({
     }, []);
 
     useEffect(() => {
-        // The workflow editor is shared: when opened for an integration (embedded) the Copilot uses the
-        // WORKFLOW_EDITOR_EMBEDDED source, so the post-turn refresh must register for that source and invalidate the
-        // integration's workflow-by-id (there is no project/projectWorkflow to invalidate).
         if (integrationId) {
             return useCopilotPostTurnRegistry.getState().register(Source.WORKFLOW_EDITOR_EMBEDDED, () => {
-                const workflowId = useWorkflowDataStore.getState().workflow?.id;
-
-                if (workflowId) {
-                    queryClient.invalidateQueries({queryKey: WorkflowKeys.workflow(workflowId)});
+                if (integrationWorkflowId) {
+                    queryClient.invalidateQueries({
+                        queryKey: IntegrationWorkflowKeys.integrationWorkflow(+integrationId, +integrationWorkflowId),
+                    });
                 }
             });
         }
@@ -229,7 +222,7 @@ const WorkflowEditorLayout = ({
                 queryKey: ProjectWorkflowKeys.projectWorkflow(+projectId!, +projectWorkflowId!),
             });
         });
-    }, [integrationId, projectId, projectWorkflowId, queryClient]);
+    }, [integrationId, integrationWorkflowId, projectId, projectWorkflowId, queryClient]);
 
     useEffect(() => {
         if (clusterElementsCanvasOpen) {
@@ -250,8 +243,6 @@ const WorkflowEditorLayout = ({
         };
     }, []);
 
-    // The dialog renders its own details panel, so the root-level one stands down while it is open.
-    // In box mode there is no dialog, so cluster roots and elements get this panel like anything else.
     const showRootLevelDetailsPanel =
         !!currentNode?.type &&
         !clusterElementsCanvasOpen &&
@@ -383,7 +374,6 @@ const WorkflowEditorLayout = ({
                         previousComponentDefinitions={previousComponentDefinitions}
                         updateWorkflowMutation={updateWorkflowMutation!}
                         workflowNodeOutputs={filteredWorkflowNodeOutputs ?? []}
-                        workflowReferenceId={workflowReferenceId}
                     />
                 </Suspense>
             )}
@@ -394,29 +384,19 @@ const WorkflowEditorLayout = ({
                 </Suspense>
             )}
 
-            {/*
-                The agent playground beside the main canvas, box mode's counterpart to the dialog's
-                own AiAgentTestingPanel instance. Gated on view mode so a workflow never shows two —
-                dialog mode keeps mounting its own copy from inside ClusterElementsCanvasDialog.
-                The view-mode check alone is not enough, though: a box-mode destination button (an
-                editor toggle, or Evals) can still open ClusterElementsCanvasDialog on top of an
-                already-open playground, and THAT instance also mounts its own AiAgentTestingPanel
-                sharing the same useAiAgentTestingChatStore. `!clusterElementsCanvasOpen` keeps this
-                one and the dialog's from ever being mounted at the same time.
-            */}
-
             {clusterElementsViewMode === 'box' && testingPanelOpen && !clusterElementsCanvasOpen && (
                 <Suspense fallback={null}>
                     <div
                         className={twMerge(
-                            'absolute inset-y-4 top-2 bottom-6 z-10 w-screen max-w-workflow-node-details-panel-width overflow-hidden rounded-lg border border-stroke-neutral-secondary bg-background',
+                            'absolute top-[15px] bottom-6 z-10 w-screen max-w-workflow-node-details-panel-width overflow-hidden rounded-lg border border-stroke-neutral-secondary bg-surface-main',
                             copilotLayoutShifted ? 'right-[57px]' : 'right-[69px]'
                         )}
                     >
                         <AiAgentTestingPanel
-                            contentClassName="mx-4 mb-4 rounded-lg"
+                            contentClassName="rounded-none bg-transparent"
                             headerClassName="p-4"
                             onClose={handleClosePlayground}
+                            skipIntro
                         />
                     </div>
                 </Suspense>

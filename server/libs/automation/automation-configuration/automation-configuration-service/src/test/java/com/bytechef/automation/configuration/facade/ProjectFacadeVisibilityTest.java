@@ -127,7 +127,7 @@ class ProjectFacadeVisibilityTest {
         sourceProject.setVisibility(ResourceVisibility.PRIVATE);
 
         when(projectService.getProject(1L)).thenReturn(sourceProject);
-        when(projectWorkflowService.getProjectWorkflowIds(1L, sourceProject.getLastProjectVersion()))
+        when(projectWorkflowService.getProjectWorkflows(1L, sourceProject.getLastProjectVersion()))
             .thenReturn(List.of());
 
         ArgumentCaptor<Project> captor = ArgumentCaptor.forClass(Project.class);
@@ -253,7 +253,7 @@ class ProjectFacadeVisibilityTest {
             mock(ProjectDeploymentFacade.class), mock(ProjectWorkflowFacade.class),
             mock(SharedTemplateFileStorage.class), mock(SharedTemplateService.class), tagService,
             mock(WorkflowService.class), mock(WorkflowTestConfigurationService.class),
-            mock(WorkflowNodeTestOutputService.class), List.of());
+            mock(WorkflowNodeTestOutputService.class), List.of(), List.of(), List.of());
     }
 
     private static Project withId(Project project, long id) {

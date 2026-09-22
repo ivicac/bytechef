@@ -60,15 +60,15 @@ public interface ProjectFacade {
      *
      * <p>
      * Feature-owned system projects ({@code SystemProjects}) answer as though they do not exist, matching
-     * {@link #getProjectRows()}, which never lists them. The auto-provisioned {@code __AI_AGENT__} /
+     * {@link #getProjectRows()}, which never lists them. The auto-provisioned {@code __DATA_SYNC__} /
      * {@code __KNOWLEDGE_BASE__} / {@code __CONTEXT_STORE__} / {@code __EMBEDDED_*} projects are a feature's
      * bookkeeping rather than something a user made, so holding one of their ids buys nothing here.
      *
      * <p>
      * This used to be the one exception to "the same question": the listing dropped them and this read answered for
-     * them. Nothing secret leaked — the name is {@code __AI_AGENT__<uuid>}, the description empty, and the gate refused
-     * a caller without {@code WORKFLOW_VIEW} either way — but the two halves of a pair documented as answering alike
-     * did not, so the asymmetry was closed rather than left recorded. {@code ProjectFacadeRowVisibilityTest}'s
+     * them. Nothing secret leaked — the name is a system prefix plus a uuid, the description empty, and the gate
+     * refused a caller without {@code WORKFLOW_VIEW} either way — but the two halves of a pair documented as answering
+     * alike did not, so the asymmetry was closed rather than left recorded. {@code ProjectFacadeRowVisibilityTest}'s
      * agreement loop now covers system projects instead of skipping them.
      */
     Project getProjectRow(long id);

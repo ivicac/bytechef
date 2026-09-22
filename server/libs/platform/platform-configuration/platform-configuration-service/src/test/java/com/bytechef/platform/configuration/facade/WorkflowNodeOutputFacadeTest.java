@@ -701,7 +701,7 @@ class WorkflowNodeOutputFacadeTest {
         when(actionDefinitionService.isDynamicOutputDefined("var", 1, "set")).thenReturn(true);
         when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(WORKFLOW_ID, "var_1", ENVIRONMENT_ID))
             .thenReturn(Optional.empty());
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
             WORKFLOW_ID, "var_1", ENVIRONMENT_ID)).thenReturn(List.of());
@@ -949,8 +949,8 @@ class WorkflowNodeOutputFacadeTest {
             "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
                 .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
 
-        com.bytechef.platform.component.domain.ClusterElementDefinition clusterElementDefinition =
-            mock(com.bytechef.platform.component.domain.ClusterElementDefinition.class);
+        ClusterElementDefinition clusterElementDefinition =
+            mock(ClusterElementDefinition.class);
 
         when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
             .thenReturn(clusterElementDefinition);
@@ -971,5 +971,40 @@ class WorkflowNodeOutputFacadeTest {
         assertNotNull(result);
         assertEquals(TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME, result.clusterElementName());
         assertEquals(sampleOutput, result.sampleOutput());
+        assertTrue(result.testOutputResponse());
+    }
+
+    @Test
+    void testGetVoiceAgentClusterElementOutputDoesNotMarkDefinitionOutputAsTestOutputResponse() {
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
+                .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
+
+        ClusterElementDefinition clusterElementDefinition =
+            mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
+            .thenReturn(clusterElementDefinition);
+
+        Map<String, String> sampleOutput = Map.of("transcript", "sample transcript");
+
+        when(clusterElementDefinition.getOutputResponse()).thenReturn(new OutputResponse(null, sampleOutput));
+        when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID)).thenReturn(Optional.empty());
+        when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID)).thenReturn(List.of());
+
+        ClusterElementOutputDTO result = workflowNodeOutputFacade.getClusterElementOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID);
+
+        assertNotNull(result);
+        assertEquals(sampleOutput, result.sampleOutput());
+        assertFalse(result.testOutputResponse());
     }
 }

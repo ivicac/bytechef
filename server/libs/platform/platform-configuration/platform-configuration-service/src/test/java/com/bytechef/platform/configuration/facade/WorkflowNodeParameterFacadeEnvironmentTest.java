@@ -110,7 +110,8 @@ class WorkflowNodeParameterFacadeEnvironmentTest {
     void setUp() {
         workflowNodeParameterFacade = new WorkflowNodeParameterFacadeImpl(
             actionDefinitionService, clusterElementDefinitionService, evaluator, taskDispatcherDefinitionService,
-            triggerDefinitionService, workflowEvaluationInputsFacade, workflowNodeOutputFacade, workflowService);
+            triggerDefinitionService, workflowEvaluationInputsFacade, workflowNodeOutputFacade, workflowService,
+            List.of());
     }
 
     @AfterEach
