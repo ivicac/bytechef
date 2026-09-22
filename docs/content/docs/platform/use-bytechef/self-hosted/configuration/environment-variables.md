@@ -352,34 +352,6 @@ does not support.
 
 > **Coming soon.** The `BYTECHEF_OAUTH2_AUTHORIZATION_SERVER_*` and `BYTECHEF_OAUTH2_RESOURCE_SERVER_*` variables are on the upcoming release track and are not yet available in the latest released version of ByteChef.
 
-## Plan Limits Configuration
-
-> **Coming soon.** Plan-limit enforcement (tiers, rate limiting, concurrency slots, cost caps, and the quota variables below) is on the upcoming release track and is not yet available in the latest released version of ByteChef.
-
-| Environment Variable | Description | Default Value |
-|---|---|---|
-| `BYTECHEF_PLAN_TIER` | Plan tier whose limits apply to the deployment (`SELF_HOSTED`, `FREE`, `PRO`, `TEAM`, `ENTERPRISE`). `SELF_HOSTED` leaves every limit unset - the pre-plan unlimited behavior | `SELF_HOSTED` |
-| `BYTECHEF_PLAN_ENFORCEMENT_ENABLED` | Enable plan-limit enforcement (rate limits, concurrency slots, cost cap, quotas). With the `SELF_HOSTED` tier every limit is null, so enforcement is a no-op until a tier is configured | `true` |
-| `BYTECHEF_PLAN_ENFORCEMENT_PROVIDER` | Backing store for rate buckets and concurrency counters (`local`, `redis`). `local` keeps per-node in-memory state; `redis` shares state across nodes for strict global limits and fails open on Redis outages | `local` |
-| `BYTECHEF_PLAN_LIMITS_INCLUDED_MONTHLY_COST_USD` | Override: execution spend (USD) allowed per calendar month (UTC) before new asynchronous runs are rejected | tier default |
-| `BYTECHEF_PLAN_LIMITS_SYNC_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for synchronous workflow executions (webhook trigger calls plus the MCP and A2A secret-key endpoints) | tier default |
-| `BYTECHEF_PLAN_LIMITS_ASYNC_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for asynchronous workflow submissions | tier default |
-| `BYTECHEF_PLAN_LIMITS_API_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for general public API requests | tier default |
-| `BYTECHEF_PLAN_LIMITS_BURST_MULTIPLIER` | Override: token-bucket burst capacity as a multiple of the sustained rate | tier default |
-| `BYTECHEF_PLAN_LIMITS_MAX_CONCURRENT_EXECUTIONS` | Override: concurrent execution slots per tenant | tier default |
-| `BYTECHEF_PLAN_LIMITS_SYNC_RUN_TIMEOUT` | Override: wall-clock limit for a synchronous run (ISO-8601 duration, e.g. `PT2M`). Caps the webhook sync wait; it can only tighten the built-in default, never extend it | tier default |
-| `BYTECHEF_PLAN_LIMITS_ASYNC_RUN_TIMEOUT` | Override: wall-clock limit for an asynchronous run (ISO-8601 duration). Enforced by the job timeout monitor | tier default |
-| `BYTECHEF_PLAN_LIMITS_MAX_WORKSPACES` | Override: number of workspaces the tenant may create | tier default |
-| `BYTECHEF_PLAN_LIMITS_MAX_STORAGE_BYTES` | Override: total asset-file storage bytes across the tenant | tier default |
-| `BYTECHEF_PLAN_LIMITS_LOG_RETENTION_DAYS` | Override: execution history retention window in days; older finished runs are purged by the retention monitor | tier default |
-| `BYTECHEF_PLAN_LIMITS_MAX_MEMBERS` | Override: number of member accounts (pending invitations count) | tier default |
-
-Rejections increment the `bytechef_plan_limit_rejection` counter (tag `limit` =
-`login`, `sync`, `api`, `preauth`, `resume`, `async`, `concurrency`, `cost`, `timeout`,
-`workspace`, `member` or `storage`) when observability is enabled. Rate and cost rejections return HTTP 429
-with `Retry-After`; quota rejections (workspaces, members, storage) return HTTP 403 - a capacity
-ceiling is not retryable.
-
 ## Public URL Configuration
 
 | Environment Variable | Description | Default Value |

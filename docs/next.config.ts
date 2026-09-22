@@ -315,11 +315,6 @@ const config: NextConfig = {
         permanent: true,
       },
       {
-        source: '/platform/enterprise/scale-reliability/plan-limits',
-        destination: '/platform/use-bytechef/self-hosted/configuration/plan-limits',
-        permanent: true,
-      },
-      {
         source: '/platform/enterprise/scale-reliability/runtime-job',
         destination: '/platform/use-bytechef/self-hosted/runtime-job',
         permanent: true,
