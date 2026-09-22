@@ -248,7 +248,7 @@ const ModelPicker = ({
                 {/*
                  * Agents sits directly above Workflows, in the same group above the provider separator: both
                  * open a kind=WORKFLOW_CHAT chat bound to a deployed workflow's webhook, the only difference
-                 * being that an agent's workflow lives in its hidden backing project. Agents leads because it
+                 * being that an agent's workflow is generated from the agent. Agents leads because it
                  * is the one users reach for by name; keeping the two adjacent (rather than splitting agents
                  * into their own page) is what makes this popup the single launcher for every kind of chat.
                  */}

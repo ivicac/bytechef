@@ -24,12 +24,9 @@ import {
     WorkflowIcon,
 } from 'lucide-react';
 import {MouseEvent, useState} from 'react';
-import {Link} from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 import {toast} from 'sonner';
 import {twMerge} from 'tailwind-merge';
-
-const TRIGGER_PAGE_LINK_CLASS_NAME =
-    'inline-flex size-9 items-center justify-center rounded-md p-2.5 text-content-neutral-primary hover:bg-surface-neutral-primary-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden [&_svg]:size-4';
 
 const projectDeploymentApi = new ProjectDeploymentApi();
 
@@ -79,6 +76,7 @@ const ProjectDeploymentWorkflowListItem = ({
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [_, copyToClipboard] = useCopyToClipboard();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const {enabled, lastExecutionDate, lastExecutionStatus, staticWebhookUrl} = projectDeploymentWorkflow;
@@ -160,10 +158,10 @@ const ProjectDeploymentWorkflowListItem = ({
             <div className="flex min-w-0 flex-1 cursor-pointer items-center" onClick={handleWorkflowClick}>
                 <div className="flex w-full max-w-80 min-w-0 shrink flex-col gap-1 sm:w-80 sm:shrink-0">
                     <div className="flex min-w-0 items-center gap-2">
-                        <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-content-neutral-secondary" />
+                        <WorkflowIcon className="size-4 shrink-0 text-content-neutral-secondary" />
 
                         <Tooltip>
-                            <TooltipTrigger className="line-clamp-1 min-w-0 truncate text-start">
+                            <TooltipTrigger className="line-clamp-1 min-w-0 flex-1 truncate text-start">
                                 <span
                                     className={twMerge(
                                         'block truncate text-sm font-semibold',
@@ -308,23 +306,13 @@ const ProjectDeploymentWorkflowListItem = ({
                         {formTrigger && staticWebhookUrl && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    {enabled ? (
-                                        <Link
-                                            aria-label="Open form"
-                                            className={TRIGGER_PAGE_LINK_CLASS_NAME}
-                                            to={formTriggerPageUrl}
-                                        >
-                                            <FormIcon />
-                                        </Link>
-                                    ) : (
-                                        <Button
-                                            aria-label="Open form"
-                                            disabled
-                                            icon={<FormIcon />}
-                                            size="icon"
-                                            variant="ghost"
-                                        />
-                                    )}
+                                    <Button
+                                        disabled={!enabled}
+                                        icon={<FormIcon />}
+                                        onClick={() => navigate(formTriggerPageUrl)}
+                                        size="icon"
+                                        variant="ghost"
+                                    />
                                 </TooltipTrigger>
 
                                 <TooltipContent>Click to open a form</TooltipContent>
@@ -334,23 +322,13 @@ const ProjectDeploymentWorkflowListItem = ({
                         {hostedChatTrigger && staticWebhookUrl && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    {enabled ? (
-                                        <Link
-                                            aria-label="Open hosted chat"
-                                            className={TRIGGER_PAGE_LINK_CLASS_NAME}
-                                            to={hostedChatTriggerPageUrl}
-                                        >
-                                            <MessageCircleMoreIcon />
-                                        </Link>
-                                    ) : (
-                                        <Button
-                                            aria-label="Open hosted chat"
-                                            disabled
-                                            icon={<MessageCircleMoreIcon />}
-                                            size="icon"
-                                            variant="ghost"
-                                        />
-                                    )}
+                                    <Button
+                                        disabled={!enabled}
+                                        icon={<MessageCircleMoreIcon />}
+                                        onClick={() => window.open(hostedChatTriggerPageUrl, '_self')}
+                                        size="icon"
+                                        variant="ghost"
+                                    />
                                 </TooltipTrigger>
 
                                 <TooltipContent>Open hosted chat (URL is not copied)</TooltipContent>

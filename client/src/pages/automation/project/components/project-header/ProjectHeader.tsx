@@ -4,7 +4,6 @@ import ProjectDeploymentsSheet, {
     ProjectDeploymentsSheetStateI,
 } from '@/pages/automation/project/components/ProjectDeploymentsSheet';
 import DeployButton from '@/pages/automation/project/components/project-header/components/DeployButton';
-import LeftSidebarButton from '@/pages/automation/project/components/project-header/components/LeftSidebarButton';
 import OutputPanelButton from '@/pages/automation/project/components/project-header/components/OutputButton';
 import ProjectBreadcrumb from '@/pages/automation/project/components/project-header/components/ProjectBreadcrumb';
 import ProjectBreadcrumbSkeleton from '@/pages/automation/project/components/project-header/components/ProjectBreadcrumbSkeleton';
@@ -18,11 +17,13 @@ import useProjectsLeftSidebarStore from '@/pages/automation/project/stores/usePr
 import CodeWorkflowHeaderActions, {
     CodeWorkflowSaveButton,
 } from '@/pages/platform/code-workflow/components/CodeWorkflowHeaderActions';
+import WorkflowActionsButton from '@/pages/platform/workflow-editor/components/WorkflowActionsButton';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import LoadingIndicator from '@/shared/components/LoadingIndicator';
 import useCopilotCompactHeader from '@/shared/components/copilot/hooks/useCopilotCompactHeader';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
+import LeftSidebarButton from '@/shared/layout/LeftSidebarButton';
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {onlineManager, useIsMutating} from '@tanstack/react-query';
 import {RefObject, useState, useSyncExternalStore} from 'react';
@@ -138,18 +139,21 @@ const ProjectHeader = ({
                             onLeftSidebarOpenClick={() => setProjectLeftSidebarOpen(!projectLeftSidebarOpen)}
                         />
 
-                        {projectWorkflows && (
+                        {projectWorkflows ? (
                             <ProjectBreadcrumb
                                 itemSelect={
                                     <ProjectItemSelect
                                         currentLabel={workflow?.label}
                                         currentProjectWorkflowId={projectWorkflowId}
                                         onWorkflowValueChange={handleProjectWorkflowValueChange}
+                                        projectId={project.id!}
                                         projectWorkflows={projectWorkflows}
                                     />
                                 }
                                 project={project}
                             />
+                        ) : (
+                            <ProjectBreadcrumbSkeleton />
                         )}
                     </>
                 )}
@@ -159,10 +163,9 @@ const ProjectHeader = ({
                         currentLabel={workflow?.label}
                         currentProjectWorkflowId={projectWorkflowId}
                         onWorkflowValueChange={onWorkflowChange ?? handleProjectWorkflowValueChange}
+                        projectId={projectId}
                         projectWorkflows={projectWorkflows}
                     />
-                ) : (
-                    <ProjectBreadcrumbSkeleton />
                 )}
 
                 {loadingIndicator}
@@ -194,26 +197,18 @@ const ProjectHeader = ({
                     </ButtonGroup>
                 )}
 
-                <div className="relative">
-                    <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
-
-                    {!settingsMenuVisible && loadingIndicator}
-                </div>
+                <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
 
                 {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export,
                  * error handling); a code workflow's workflows are defined by its source, so it is hidden. */}
 
                 {settingsMenuVisible && (
-                    <div className="relative">
-                        <SettingsMenu
-                            bottomResizablePanelRef={bottomResizablePanelRef}
-                            project={project}
-                            updateWorkflowMutation={updateWorkflowMutation}
-                            workflow={workflow}
-                        />
-
-                        {loadingIndicator}
-                    </div>
+                    <SettingsMenu
+                        bottomResizablePanelRef={bottomResizablePanelRef}
+                        project={project}
+                        updateWorkflowMutation={updateWorkflowMutation}
+                        workflow={workflow}
+                    />
                 )}
             </div>
 

@@ -1,6 +1,8 @@
-import {Dialog, DialogContent, DialogTitle} from '@/components/ui/dialog';
+import {Dialog, DialogBody, DialogContent, DialogHeader, DialogMain} from '@/components/Dialog';
 import AgentDetailContent from '@/pages/automation/agents/AgentDetailContent';
+import getAgentPath from '@/pages/automation/agents/utils/getAgentPath';
 import invalidateAgentQueries from '@/pages/automation/agents/utils/invalidateAgentQueries';
+import {useAiAgentQuery} from '@/shared/middleware/graphql';
 import {WorkflowNodeOptionKeys} from '@/shared/queries/platform/workflowNodeOptions.queries';
 import {useQueryClient} from '@tanstack/react-query';
 import {ExternalLinkIcon} from 'lucide-react';
@@ -28,6 +30,13 @@ export interface CallAiAgentDetailDialogPropsI {
 const CallAiAgentDetailDialog = ({agentId, agentTitle, onOpenChange, open}: CallAiAgentDetailDialogPropsI) => {
     const queryClient = useQueryClient();
 
+    // The routed agent page now lives under its project, so the link needs the agent's projectId — which
+    // this dialog otherwise has no reason to fetch. TanStack Query dedupes this against AgentDetailContent's
+    // own useAiAgentQuery call for the same id.
+    const {data} = useAiAgentQuery({id: agentId}, {enabled: !!agentId});
+
+    const agent = data?.aiAgent;
+
     const handleOpenChange = (nextOpen: boolean) => {
         if (!nextOpen) {
             queryClient.invalidateQueries({queryKey: WorkflowNodeOptionKeys.workflowNodeOptions});
@@ -40,26 +49,29 @@ const CallAiAgentDetailDialog = ({agentId, agentTitle, onOpenChange, open}: Call
 
     return (
         <Dialog onOpenChange={handleOpenChange} open={open}>
-            <DialogContent className="flex h-[85vh] w-[92vw] flex-col gap-0 p-0 sm:max-w-5xl">
-                <header className="flex shrink-0 items-center justify-between gap-2 border-b border-stroke-neutral-secondary px-4 py-3">
-                    <DialogTitle className="truncate text-sm font-semibold text-content-neutral-primary">
-                        {agentTitle}
-                    </DialogTitle>
+            <DialogContent className="h-[85vh]" size="xl">
+                <DialogMain>
+                    <DialogHeader
+                        endContent={
+                            agent && (
+                                <Link
+                                    className="flex shrink-0 items-center gap-1 text-xs text-content-brand-primary hover:underline"
+                                    rel="noreferrer"
+                                    target="_blank"
+                                    to={getAgentPath(agent)}
+                                >
+                                    Open in full view
+                                    <ExternalLinkIcon className="size-3" />
+                                </Link>
+                            )
+                        }
+                        title={agentTitle}
+                    />
 
-                    <Link
-                        className="mr-8 flex shrink-0 items-center gap-1 text-xs text-content-brand-primary hover:underline"
-                        rel="noreferrer"
-                        target="_blank"
-                        to={`/automation/agents/${agentId}`}
-                    >
-                        Open in full view
-                        <ExternalLinkIcon className="size-3" />
-                    </Link>
-                </header>
-
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    <AgentDetailContent agentId={agentId} className="max-w-none p-0" />
-                </div>
+                    <DialogBody>
+                        <AgentDetailContent agentId={agentId} className="max-w-none p-0" />
+                    </DialogBody>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );

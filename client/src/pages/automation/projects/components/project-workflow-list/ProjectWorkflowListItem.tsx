@@ -1,15 +1,9 @@
-import Button from '@/components/Button/Button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/DropdownMenu/DropdownMenu';
+import {DropdownMenuItem} from '@/components/DropdownMenu/DropdownMenu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {WorkflowShareDialog} from '@/pages/automation/project/components/WorkflowShareDialog';
 import DeleteWorkflowAlertDialog from '@/shared/components/DeleteWorkflowAlertDialog';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
+import WorkflowListRowDropdownMenu from '@/shared/components/workflow/WorkflowListRowDropdownMenu';
 import WorkflowTriggerAndComponentsRow from '@/shared/components/workflow/WorkflowTriggerAndComponentsRow';
 import {Project, Workflow} from '@/shared/middleware/automation/configuration';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
@@ -25,7 +19,7 @@ import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowT
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {CopyIcon, DownloadIcon, EditIcon, EllipsisVerticalIcon, Share2Icon, Trash2Icon} from 'lucide-react';
+import {CopyIcon, Share2Icon, WorkflowIcon} from 'lucide-react';
 import {ReactNode, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
@@ -147,9 +141,11 @@ const ProjectWorkflowListItem = ({
                 workflowLabel={workflow.label}
             >
                 <div className="flex w-80 min-w-0 shrink-0 flex-col gap-1 pr-1 text-sm font-semibold">
-                    <div className="flex min-w-0 items-center">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-content-neutral-secondary" />
+
                         <Tooltip>
-                            <TooltipTrigger className="line-clamp-1 min-w-0 truncate text-start">
+                            <TooltipTrigger className="line-clamp-1 min-w-0 flex-1 truncate text-start">
                                 {workflow.label}
                             </TooltipTrigger>
 
@@ -197,67 +193,38 @@ const ProjectWorkflowListItem = ({
                     // action button's width so the Modified-at column lines up with the visual projects' rows.
                     <div aria-hidden className="size-9 shrink-0" />
                 ) : (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end">
+                    <WorkflowListRowDropdownMenu
+                        exportUrl={`/api/automation/internal/workflows/${workflow.id}/export`}
+                        onDeleteClick={() => setShowDeleteDialog(true)}
+                        onEditClick={() => setShowEditDialog(true)}
+                    >
+                        {project && workflow && (
                             <DropdownMenuItem
-                                icon={<EditIcon />}
-                                label="Edit"
-                                onClick={() => {
-                                    setShowEditDialog(true);
-                                }}
-                            />
-
-                            {project && workflow && (
-                                <DropdownMenuItem
-                                    icon={<CopyIcon />}
-                                    label="Duplicate"
-                                    onClick={() =>
-                                        duplicateWorkflowMutation.mutate({
-                                            id: project.id!,
-                                            workflowId: workflow.id!,
-                                        })
-                                    }
-                                />
-                            )}
-
-                            <DropdownMenuItem
-                                icon={<Share2Icon />}
-                                label="Share"
-                                onClick={() => setShowWorkflowShareDialog(true)}
-                            />
-
-                            {templatesSubmissionForm && (
-                                <DropdownMenuItem
-                                    icon={<Share2Icon />}
-                                    label="Share with Community"
-                                    onClick={() => window.open(templatesSubmissionForm, '_blank')}
-                                />
-                            )}
-
-                            <DropdownMenuItem
-                                icon={<DownloadIcon />}
-                                label="Export"
+                                icon={<CopyIcon />}
+                                label="Duplicate"
                                 onClick={() =>
-                                    (window.location.href = `/api/automation/internal/workflows/${workflow.id}/export`)
+                                    duplicateWorkflowMutation.mutate({
+                                        id: project.id!,
+                                        workflowId: workflow.id!,
+                                    })
                                 }
                             />
+                        )}
 
-                            <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            icon={<Share2Icon />}
+                            label="Share"
+                            onClick={() => setShowWorkflowShareDialog(true)}
+                        />
 
+                        {templatesSubmissionForm && (
                             <DropdownMenuItem
-                                icon={<Trash2Icon />}
-                                label="Delete"
-                                onClick={() => {
-                                    setShowDeleteDialog(true);
-                                }}
-                                variant="destructive"
+                                icon={<Share2Icon />}
+                                label="Share with Community"
+                                onClick={() => window.open(templatesSubmissionForm, '_blank')}
                             />
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        )}
+                    </WorkflowListRowDropdownMenu>
                 )}
             </div>
 

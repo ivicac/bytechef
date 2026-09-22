@@ -56,6 +56,8 @@ const renderProjectListItem = (activeTab?: ProjectListItemTabType, projectOverri
                 <Collapsible open={!!activeTab}>
                     <ProjectListItem
                         activeTab={activeTab}
+                        agentsContent={<div>Agents content</div>}
+                        dataSyncsContent={<div>Data syncs content</div>}
                         deploymentsContent={<div>Deployments content</div>}
                         onTabChange={onTabChange}
                         project={{...project, ...projectOverrides}}
@@ -74,7 +76,7 @@ beforeEach(() => {
 it('summarizes workflows and deployments and hides the tabs while collapsed', () => {
     renderProjectListItem();
 
-    expect(screen.getByText('1 workflow')).toBeInTheDocument();
+    expect(screen.getByText('1 workflow · 0 agents · 0 data syncs')).toBeInTheDocument();
     expect(screen.getByText('2 deployments')).toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Project Deployments')).not.toBeInTheDocument();

@@ -1,11 +1,11 @@
 import WorkflowsListItemDropdownMenu from '@/pages/automation/project/components/projects-sidebar/components/WorkflowsListItemDropdownMenu';
-import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import WorkflowTriggerAndComponentsRow from '@/shared/components/workflow/WorkflowTriggerAndComponentsRow';
 import WorkflowsSidebarListItem from '@/shared/components/workflow/WorkflowsSidebarListItem';
 import {Project, Workflow} from '@/shared/middleware/automation/configuration';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
+import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
+import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
 import {useMemo} from 'react';
-import {useShallow} from 'zustand/react/shallow';
 
 interface WorkflowsListItemProps {
     calculateTimeDifference: (date: string) => string;
@@ -26,12 +26,11 @@ const WorkflowsListItem = ({
     setSelectedProjectId,
     workflow,
 }: WorkflowsListItemProps) => {
-    const {componentDefinitions, taskDispatcherDefinitions} = useWorkflowDataStore(
-        useShallow((state) => ({
-            componentDefinitions: state.componentDefinitions,
-            taskDispatcherDefinitions: state.taskDispatcherDefinitions,
-        }))
-    );
+    const {data: componentDefinitions} = useGetComponentDefinitionsQuery({
+        actionDefinitions: true,
+        triggerDefinitions: true,
+    });
+    const {data: taskDispatcherDefinitions} = useGetTaskDispatcherDefinitionsQuery();
 
     const {filteredComponentNames, workflowComponentDefinitions, workflowTaskDispatcherDefinitions} = useMemo(() => {
         const componentNames = [

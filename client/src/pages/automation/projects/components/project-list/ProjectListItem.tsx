@@ -11,45 +11,50 @@ import {
 import {ButtonGroup} from '@/components/ui/button-group';
 import {CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import ProjectDeploymentDialog from '@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog';
 import useOpenSavedProjectDeployment from '@/pages/automation/project-deployments/hooks/useOpenSavedProjectDeployment';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
-import {useConvertN8nToWorkflow} from '@/pages/automation/project/hooks/useConverterN8nToWorkflow';
-import handleImportN8nWorkflow from '@/pages/automation/project/utils/handleImportN8nWorkflow';
-import handleImportWorkflow from '@/pages/automation/project/utils/handleImportWorkflow';
 import ProjectPublishDialog from '@/pages/automation/projects/components/ProjectPublishDialog';
+import ProjectAgentCreationActions from '@/pages/automation/projects/components/project-agent-list/ProjectAgentCreationActions';
 import ProjectListItemDeployButton from '@/pages/automation/projects/components/project-list/ProjectListItemDeployButton';
 import ProjectListItemPublishMenuItem from '@/pages/automation/projects/components/project-list/ProjectListItemPublishMenuItem';
 import ProjectListItemTabs, {
     ProjectListItemTabType,
 } from '@/pages/automation/projects/components/project-list/ProjectListItemTabs';
+import ProjectWorkflowCreationActions from '@/pages/automation/projects/components/project-workflow-list/ProjectWorkflowCreationActions';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
-import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import ResourceVisibilityBadge from '@/shared/components/visibility/ResourceVisibilityBadge';
 import ResourceVisibilityPicker from '@/shared/components/visibility/ResourceVisibilityPicker';
-import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import EEVersion from '@/shared/edition/EEVersion';
 import {ProjectGitConfigurationI, getProjectGitApi} from '@/shared/edition/project-git/projectGitApi';
-import {useAnalytics} from '@/shared/hooks/useAnalytics';
-import {useHasEnabledAiProvider} from '@/shared/hooks/useHasEnabledAiProvider';
 import {useProjectVisibility} from '@/shared/hooks/useProjectVisibility';
 import {Project, Tag} from '@/shared/middleware/automation/configuration';
 import {useUpdateProjectTagsMutation} from '@/shared/mutations/automation/projectTags.mutations';
 import {useDeleteProjectMutation, useDuplicateProjectMutation} from '@/shared/mutations/automation/projects.mutations';
-import {useCreateProjectWorkflowMutation} from '@/shared/mutations/automation/workflows.mutations';
 import {ProjectCategoryKeys} from '@/shared/queries/automation/projectCategories.queries';
 import {useGetWorkspaceProjectDeploymentsQuery} from '@/shared/queries/automation/projectDeployments.queries';
 import {ProjectTagKeys} from '@/shared/queries/automation/projectTags.queries';
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
-import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon, CopyIcon, DownloadIcon, EditIcon, EllipsisVerticalIcon, GitBranchIcon, GitPullRequestArrowIcon, LayoutTemplateIcon, LoaderCircleIcon, PlusIcon, Share2Icon, SparklesIcon, Trash2Icon, UploadIcon, WorkflowIcon} from 'lucide-react';
-import {MouseEvent, ReactNode, Suspense, lazy, useCallback, useRef, useState} from 'react';
+import {
+    ChevronDownIcon,
+    CopyIcon,
+    DownloadIcon,
+    EditIcon,
+    EllipsisVerticalIcon,
+    GitBranchIcon,
+    GitPullRequestArrowIcon,
+    PlusIcon,
+    Share2Icon,
+    Trash2Icon,
+    WorkflowIcon,
+} from 'lucide-react';
+import {MouseEvent, ReactNode, Suspense, lazy, useCallback, useMemo, useState} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 
@@ -58,6 +63,7 @@ import ProjectDialog from '../ProjectDialog';
 
 interface ProjectItemProps {
     activeTab?: ProjectListItemTabType;
+    agentsContent: ReactNode;
     deploymentsContent: ReactNode;
     onTabChange: (tab?: ProjectListItemTabType, expandedProjectDeploymentId?: number) => void;
     project: Project;
@@ -72,6 +78,7 @@ const ProjectGitConfigurationDialog = lazy(
 
 const ProjectListItem = ({
     activeTab,
+    agentsContent,
     deploymentsContent,
     onTabChange,
     project,
@@ -86,12 +93,7 @@ const ProjectListItem = ({
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showPublishProjectDialog, setShowPublishProjectDialog] = useState(false);
-    const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
 
-    const hiddenFileInputRef = useRef<HTMLInputElement>(null);
-    const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
-
-    const {captureProjectWorkflowCreated, captureProjectWorkflowImported} = useAnalytics();
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.projects);
 
     const navigate = useNavigate();
@@ -101,8 +103,6 @@ const ProjectListItem = ({
         projectId: project.id,
     });
     const [searchParams] = useSearchParams();
-    const openCopilot = useOpenCopilot();
-    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -120,25 +120,17 @@ const ProjectListItem = ({
 
     const queryClient = useQueryClient();
 
-    const {convertN8nWorkflow} = useConvertN8nToWorkflow();
-    const {hasEnabledAiProvider, isPending: isAiProviderCheckPending} = useHasEnabledAiProvider();
+    const {agents} = useAgents();
 
-    const importN8nWorkflowDisabled = !isAiProviderCheckPending && !hasEnabledAiProvider;
     const deploymentCount = project.developmentDeploymentCount;
     const workflowCount = project.projectWorkflowIds?.length ?? 0;
     const hasWorkflows = workflowCount > 0;
     const isPublished = !!(project.lastPublishedDate && project.lastProjectVersion);
-    const [isImportingN8nWorkflow, setIsImportingN8nWorkflow] = useState(false);
 
-    const createProjectWorkflowMutation = useCreateProjectWorkflowMutation({
-        onSuccess: (response) => {
-            captureProjectWorkflowCreated();
-
-            queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
-
-            navigate(`/automation/projects/${project.id}/project-workflows/${response.projectWorkflowId}`);
-        },
-    });
+    const agentCount = useMemo(
+        () => agents.filter((agent) => +agent.projectId === project.id).length,
+        [agents, project.id]
+    );
 
     const deleteProjectMutation = useDeleteProjectMutation({
         onSuccess: (_, projectId) => {
@@ -162,25 +154,6 @@ const ProjectListItem = ({
             queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
 
             toast('Project duplicated successfully.');
-        },
-    });
-
-    const importProjectWorkflowMutation = useCreateProjectWorkflowMutation({
-        onSuccess: () => {
-            captureProjectWorkflowImported();
-
-            queryClient.invalidateQueries({queryKey: ProjectKeys.project(project.id!)});
-            queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
-
-            if (hiddenFileInputRef.current) {
-                hiddenFileInputRef.current.value = '';
-            }
-
-            toast('Workflow is imported.');
-
-            if (!activeTab) {
-                onTabChange('workflows');
-            }
         },
     });
 
@@ -361,7 +334,7 @@ const ProjectListItem = ({
                             <div className="flex items-center gap-2">
                                 <CollapsibleTrigger className="group mr-2 flex items-center text-xs font-semibold text-muted-foreground">
                                     <span className="mr-1">
-                                        {workflowCount === 1 ? '1 workflow' : `${workflowCount} workflows`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
                                     </span>
 
                                     <span className="mx-1">-</span>
@@ -575,112 +548,9 @@ const ProjectListItem = ({
                 <ProjectListItemTabs
                     actions={
                         activeTab === 'workflows' && hasWorkflows ? (
-                            <ButtonGroup aria-label="Workflow Creation Actions">
-                                <Button
-                                    aria-label="Create Workflow"
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-
-                                        setShowWorkflowDialog(true);
-                                    }}
-                                    size="sm"
-                                    variant="secondary"
-                                >
-                                    <PlusIcon />
-                                    New Workflow
-                                </Button>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            aria-label="More Workflow Creation Actions"
-                                            icon={
-                                                isImportingN8nWorkflow ? (
-                                                    <LoaderCircleIcon className="animate-spin text-primary" />
-                                                ) : (
-                                                    <ChevronDownIcon />
-                                                )
-                                            }
-                                            size="sm"
-                                            variant="secondary"
-                                        >
-                                            <> </>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-
-                                    <DropdownMenuContent align="end">
-                                        {copilotEnabled && (
-                                            <DropdownMenuItem
-                                                aria-label="Generate Workflow with AI"
-                                                icon={<SparklesIcon />}
-                                                label="Generate with AI"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-
-                                                    openCopilot({
-                                                        composerPlaceholder:
-                                                            'When a new Gmail email arrives, post a summary to a Slack channel.',
-                                                        mode: MODE.BUILD,
-                                                        parameters: {
-                                                            intent: 'generate_workflow',
-                                                            projectId: project.id,
-                                                        },
-                                                        source: Source.PROJECT,
-                                                    });
-                                                }}
-                                            />
-                                        )}
-
-                                        <DropdownMenuItem
-                                            aria-label="Create Workflow from Template"
-                                            icon={<LayoutTemplateIcon />}
-                                            label="From Template"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-
-                                                navigate(`./${project.id}/templates`);
-                                            }}
-                                        />
-
-                                        <DropdownMenuItem
-                                            aria-label="Import Workflow"
-                                            icon={<UploadIcon />}
-                                            label="Import Workflow"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-
-                                                if (hiddenFileInputRef.current) {
-                                                    hiddenFileInputRef.current.click();
-                                                }
-                                            }}
-                                        />
-
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <span className="block">
-                                                    <DropdownMenuItem
-                                                        aria-label="Import n8n Workflow"
-                                                        disabled={importN8nWorkflowDisabled}
-                                                        icon={<UploadIcon />}
-                                                        label="Import n8n Workflow"
-                                                        onClick={() => {
-                                                            if (converterHiddenFileInputRef.current) {
-                                                                converterHiddenFileInputRef.current.click();
-                                                            }
-                                                        }}
-                                                    />
-                                                </span>
-                                            </TooltipTrigger>
-
-                                            {importN8nWorkflowDisabled && (
-                                                <TooltipContent>
-                                                    Enable an AI provider to import n8n workflows.
-                                                </TooltipContent>
-                                            )}
-                                        </Tooltip>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </ButtonGroup>
+                            <ProjectWorkflowCreationActions placement="tabRow" project={project} />
+                        ) : activeTab === 'agents' && agentCount > 0 ? (
+                            <ProjectAgentCreationActions placement="tabRow" project={project} />
                         ) : activeTab === 'deployments' && isPublished && deploymentCount !== 0 ? (
                             <ProjectDeploymentDialog
                                 onSuccess={(projectDeploymentId) => onTabChange('deployments', projectDeploymentId)}
@@ -700,6 +570,7 @@ const ProjectListItem = ({
                         ) : undefined
                     }
                     activeTab={activeTab ?? 'workflows'}
+                    agentsContent={agentsContent}
                     deploymentsContent={deploymentsContent}
                     onTabChange={(tab) => onTabChange(tab)}
                     workflowsContent={workflowsContent}
@@ -747,51 +618,6 @@ const ProjectListItem = ({
             {showPublishProjectDialog && !!project.id && (
                 <ProjectPublishDialog onClose={() => setShowPublishProjectDialog(false)} project={project} />
             )}
-
-            {showWorkflowDialog && (
-                <WorkflowDialog
-                    createWorkflowMutation={createProjectWorkflowMutation}
-                    onClose={() => setShowWorkflowDialog(false)}
-                    parentId={project.id}
-                    useGetWorkflowQuery={useGetWorkflowQuery}
-                />
-            )}
-
-            <input
-                accept=".json,.yaml,.yml"
-                alt="file"
-                className="hidden"
-                data-testid={`${project.id}-importWorkflowHiddenInput`}
-                onChange={(event) => handleImportWorkflow(event, project.id!, importProjectWorkflowMutation)}
-                ref={hiddenFileInputRef}
-                type="file"
-            />
-
-            <input
-                accept=".json"
-                className="hidden"
-                onChange={async (event) => {
-                    if (!event.target.files?.length) return;
-
-                    try {
-                        setIsImportingN8nWorkflow(true);
-                        await handleImportN8nWorkflow(
-                            event,
-                            project.id!,
-                            importProjectWorkflowMutation,
-                            convertN8nWorkflow
-                        );
-                    } finally {
-                        setIsImportingN8nWorkflow(false);
-
-                        if (converterHiddenFileInputRef.current) {
-                            converterHiddenFileInputRef.current.value = '';
-                        }
-                    }
-                }}
-                ref={converterHiddenFileInputRef}
-                type="file"
-            />
         </>
     );
 };

@@ -5,6 +5,7 @@ import Switch from '@/components/Switch/Switch';
 import {CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ProjectDeploymentListItemDropdownMenu from '@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentListItemDropdownMenu';
+import useOpenInProject from '@/pages/automation/project-deployments/hooks/useOpenInProject';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {ENVIRONMENT_CONFIGS} from '@/shared/constants/environmentConfigs';
@@ -33,19 +34,25 @@ const EnvironmentPromotionDialog = lazy(
 );
 
 interface ProjectDeploymentListItemProps {
+    /** How many agents the deployment carries. */
+    agentCount?: number;
     hideOpenInProject?: boolean;
     projectDeployment: ProjectDeployment;
     remainingTags?: Tag[];
     showEnvironment?: boolean;
     showTags?: boolean;
+    /** How many ordinary workflows the deployment carries, leaving out the agents' generated ones. */
+    workflowCount?: number;
 }
 
 const ProjectDeploymentListItem = ({
+    agentCount = 0,
     hideOpenInProject,
     projectDeployment,
     remainingTags,
     showEnvironment,
     showTags = true,
+    workflowCount = projectDeployment.projectDeploymentWorkflows?.length || 0,
 }: ProjectDeploymentListItemProps) => {
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -184,9 +191,7 @@ const ProjectDeploymentListItem = ({
                                     ref={workflowsCollapsibleTriggerRef}
                                 >
                                     <span className="mr-1">
-                                        {projectDeployment.projectDeploymentWorkflows?.length === 1
-                                            ? `1 workflow`
-                                            : `${projectDeployment.projectDeploymentWorkflows?.length} workflows`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
                                     </span>
 
                                     <ChevronDownIcon className="size-4 duration-300 group-data-[state=open]:rotate-180" />

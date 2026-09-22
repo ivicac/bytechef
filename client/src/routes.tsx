@@ -70,6 +70,7 @@ const McpServers = lazy(() => import('@/pages/automation/mcp-servers/McpServers'
 const Notifications = lazy(() => import('@/pages/settings/platform/notifications/Notifications'));
 const WorkflowAlerts = lazy(() => import('@/pages/settings/platform/workflow-alerts/WorkflowAlerts'));
 const Project = lazy(loadProject);
+const ProjectAgent = lazy(() => import('@/pages/automation/project/ProjectAgent'));
 const ProjectDeployments = lazy(() => import('@/pages/automation/project-deployments/ProjectDeployments'));
 const ProjectTemplate = lazy(() => import('@/pages/automation/template/project-template/ProjectTemplate'));
 const ProjectTemplates = lazy(() => import('@/pages/automation/templates/project-templates/ProjectTemplates'));
@@ -948,6 +949,16 @@ export const getRouter = (queryClient: QueryClient) =>
                                             staleTime: 'static',
                                         }),
                                     path: 'projects/:projectId/project-workflows/:projectWorkflowId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper>
+                                                <ProjectAgent />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'projects/:projectId/agents/:agentId',
                                 },
                                 {
                                     element: (

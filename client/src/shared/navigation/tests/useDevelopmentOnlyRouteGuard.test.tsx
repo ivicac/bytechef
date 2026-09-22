@@ -49,9 +49,9 @@ describe('useDevelopmentOnlyRouteGuard', () => {
     it('redirects a development-only detail page in staging', () => {
         hoisted.currentEnvironmentId = 1;
 
-        renderAt('/automation/agents/12');
+        renderAt('/automation/projects/12/agents/34');
 
-        expect(screen.getByTestId('pathname')).toHaveTextContent('/automation/agent-deployments');
+        expect(screen.getByTestId('pathname')).toHaveTextContent('/automation/deployments');
     });
 
     it('redirects the embedded authoring surfaces to integration instances', () => {

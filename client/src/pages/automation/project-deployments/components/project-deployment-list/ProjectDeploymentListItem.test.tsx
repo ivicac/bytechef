@@ -1,15 +1,9 @@
 import {ProjectDeployment} from '@/shared/middleware/automation/configuration';
 import {render, screen} from '@/shared/util/test-utils';
-import {QueryClient} from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectDeploymentListItem from './ProjectDeploymentListItem';
-
-// ---------------------------------------------------------------------------
-// Hoisted mocks (must not reference outer-scope constants - vi.hoisted runs
-// before module initialisation)
-// ---------------------------------------------------------------------------
 
 const hoisted = vi.hoisted(() => ({
     captureProjectDeploymentEnabledMock: vi.fn(),
@@ -26,7 +20,15 @@ const hoisted = vi.hoisted(() => ({
         data: {environments: {id: string; name: string}[]} | undefined;
     },
     invalidateQueriesMock: vi.fn(),
+    openProjectMock: vi.fn(),
     promotionDialogProps: [] as unknown[],
+}));
+
+vi.mock('@/pages/automation/project-deployments/hooks/useOpenInProject', () => ({
+    default: () => ({
+        openProject: hoisted.openProjectMock,
+        openProjectWorkflow: vi.fn(),
+    }),
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
@@ -96,7 +98,7 @@ vi.mock('@/components/ui/tooltip', () => ({
 vi.mock('@/components/ui/dropdown-menu', () => ({
     DropdownMenu: ({children}: {children: React.ReactNode}) => <div>{children}</div>,
     DropdownMenuContent: ({children}: {children: React.ReactNode}) => <div>{children}</div>,
-    DropdownMenuItem: ({children, onClick}: {children: React.ReactNode; onClick?: () => void}) => (
+    DropdownMenuItem: ({children, onClick}: {children?: React.ReactNode; onClick?: () => void}) => (
         <button onClick={onClick} type="button">
             {children}
         </button>
@@ -129,6 +131,7 @@ const projectDeployment: ProjectDeployment = {
     id: 42,
     name: 'My Project Deployment',
     projectDeploymentWorkflows: [],
+    projectId: 7,
     projectVersion: 1,
     tags: [],
 };
@@ -139,6 +142,7 @@ describe('ProjectDeploymentListItem', () => {
         hoisted.deleteProjectDeploymentMock.mockReset();
         hoisted.edition = 'EE';
         hoisted.invalidateQueriesMock.mockReset();
+        hoisted.openProjectMock.mockReset();
         hoisted.promotionDialogProps.length = 0;
         hoisted.environmentsResult.data = {
             environments: [
@@ -181,6 +185,24 @@ describe('ProjectDeploymentListItem', () => {
         expect(hoisted.deleteProjectDeploymentMock).toHaveBeenCalledWith(42);
     });
 
+    it('always shows the workflow and agent counts, zeros included', () => {
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+
+        expect(screen.getByText('0 workflows · 0 agents')).toBeInTheDocument();
+    });
+
+    it('uses the singular for one workflow and one agent', () => {
+        render(<ProjectDeploymentListItem agentCount={1} projectDeployment={projectDeployment} workflowCount={1} />);
+
+        expect(screen.getByText('1 workflow · 1 agent')).toBeInTheDocument();
+    });
+
+    it('uses the plural for several workflows and agents', () => {
+        render(<ProjectDeploymentListItem agentCount={2} projectDeployment={projectDeployment} workflowCount={3} />);
+
+        expect(screen.getByText('3 workflows · 2 agents')).toBeInTheDocument();
+    });
+
     it('refreshes the project list after deleting so the deployment count updates', async () => {
         const user = userEvent.setup();
 
@@ -193,17 +215,21 @@ describe('ProjectDeploymentListItem', () => {
         expect(hoisted.invalidateQueriesMock).toHaveBeenCalledWith({queryKey: ['projects']});
     });
 
-    it('opens the project from the icon beside the name and from the menu', async () => {
     it('hides the Promote to environment menu item when fewer than two environments exist', () => {
         hoisted.environmentsResult.data = {environments: [{id: '0', name: 'Development'}]};
 
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
 
         expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
+    });
 
     it('hides the Promote to environment menu item on CE even with multiple environments', () => {
         hoisted.edition = 'CE';
 
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
 
+        expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
+    });
 
     it('mounts the dialog on click and unmounts it on close, passing the correct resourceType and ids', async () => {
         const user = userEvent.setup();

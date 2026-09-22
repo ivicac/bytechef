@@ -32,6 +32,10 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: any) => selector({currentWorkspaceId: 1}),
 }));
 
+vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
+    default: () => ({agents: [], agentsIsLoading: false}),
+}));
+
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
     EditionType: {CE: 'CE', EE: 'EE'},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +85,17 @@ describe('ProjectListItem visibility', () => {
     it('renders the visibility badge in EE', () => {
         mockUseVisibilityFeatureEnabled.mockReturnValue({enabled: true, isAdmin: false, workspaceId: 1});
 
-        render(<ProjectListItem project={project} remainingTags={[]} />, {wrapper: Wrapper});
+        render(
+            <ProjectListItem
+                agentsContent={null}
+                deploymentsContent={null}
+                onTabChange={vi.fn()}
+                project={project}
+                remainingTags={[]}
+                workflowsContent={null}
+            />,
+            {wrapper: Wrapper}
+        );
 
         expect(screen.getByLabelText('Change visibility')).toBeInTheDocument();
     });
@@ -89,7 +103,17 @@ describe('ProjectListItem visibility', () => {
     it('renders no badge in CE', () => {
         mockUseVisibilityFeatureEnabled.mockReturnValue({enabled: false, isAdmin: false, workspaceId: undefined});
 
-        render(<ProjectListItem project={project} remainingTags={[]} />, {wrapper: Wrapper});
+        render(
+            <ProjectListItem
+                agentsContent={null}
+                deploymentsContent={null}
+                onTabChange={vi.fn()}
+                project={project}
+                remainingTags={[]}
+                workflowsContent={null}
+            />,
+            {wrapper: Wrapper}
+        );
 
         // Anchor: proves the list item itself rendered, so the absence below is the gate and not a failed render.
         expect(screen.getByText('Alpha')).toBeInTheDocument();
@@ -99,9 +123,19 @@ describe('ProjectListItem visibility', () => {
     it('opens the picker in the dropdown without toggling the workflows collapsible', async () => {
         mockUseVisibilityFeatureEnabled.mockReturnValue({enabled: true, isAdmin: false, workspaceId: 1});
 
-        render(<ProjectListItem project={project} remainingTags={[]} />, {wrapper: Wrapper});
+        render(
+            <ProjectListItem
+                agentsContent={null}
+                deploymentsContent={null}
+                onTabChange={vi.fn()}
+                project={project}
+                remainingTags={[]}
+                workflowsContent={null}
+            />,
+            {wrapper: Wrapper}
+        );
 
-        const workflowsTrigger = screen.getByText('0 workflows').closest('button');
+        const workflowsTrigger = screen.getByText('0 workflows · 0 agents').closest('button');
 
         expect(workflowsTrigger).toHaveAttribute('data-state', 'closed');
 

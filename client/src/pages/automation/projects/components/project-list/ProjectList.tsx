@@ -8,7 +8,10 @@ import {ComponentDefinitionBasic, TaskDispatcherDefinition} from '@/shared/middl
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useLocation, useSearchParams} from 'react-router-dom';
 
+import ProjectAgentList from '../project-agent-list/ProjectAgentList';
 import ProjectWorkflowList from '../project-workflow-list/ProjectWorkflowList';
+
+export type ProjectListTabType = Extract<ProjectListItemTabType, 'agents' | 'workflows'>;
 
 interface OpenProjectI {
     expandedProjectDeploymentId?: number;
@@ -32,6 +35,7 @@ const getInitialOpenProjects = (searchParams: URLSearchParams, locationState: un
 
 const ProjectList = ({
     componentDefinitions,
+    defaultActiveTab = 'workflows',
     isRefetchingProjects,
     newlyCreatedProjectId,
     projectGitConfigurations,
@@ -40,6 +44,8 @@ const ProjectList = ({
     taskDispatcherDefinitions,
 }: {
     componentDefinitions?: ComponentDefinitionBasic[];
+    /** The tab every row opens on until the reader picks another one. */
+    defaultActiveTab?: ProjectListTabType;
     isRefetchingProjects?: boolean;
     newlyCreatedProjectId?: number;
     projectGitConfigurations: ProjectGitConfigurationI[];
@@ -55,6 +61,7 @@ const ProjectList = ({
         getInitialOpenProjects(searchParams, location.state)
     );
 
+    const previousDefaultActiveTabRef = useRef<ProjectListTabType>(defaultActiveTab);
     const scrollToProjectIdRef = useRef<number | undefined>(openProjects.keys().next().value);
 
     const handleTabChange = useCallback(
@@ -99,11 +106,25 @@ const ProjectList = ({
         document.querySelector(`[data-project-id="${scrollToProjectId}"]`)?.scrollIntoView({block: 'start'});
     }, [projects]);
 
+    // A new default (the agents filter turning on or off) takes over from tabs picked under the previous one.
+    useEffect(() => {
+        if (previousDefaultActiveTabRef.current === defaultActiveTab) {
+            return;
+        }
+
+        previousDefaultActiveTabRef.current = defaultActiveTab;
+
+        setOpenProjects(
+            (previousOpenProjects) =>
+                new Map([...previousOpenProjects.keys()].map((projectId) => [projectId, {tab: defaultActiveTab}]))
+        );
+    }, [defaultActiveTab]);
+
     useEffect(() => {
         if (newlyCreatedProjectId) {
-            handleTabChange(newlyCreatedProjectId, 'workflows');
+            handleTabChange(newlyCreatedProjectId, defaultActiveTab);
         }
-    }, [handleTabChange, newlyCreatedProjectId]);
+    }, [defaultActiveTab, handleTabChange, newlyCreatedProjectId]);
 
     return (
         <div className="w-full divide-y divide-border/50 self-start p-4 pt-0 3xl:mx-auto 3xl:w-4/5">
@@ -116,11 +137,12 @@ const ProjectList = ({
                         className="group/project mb-2 rounded border border-border/50"
                         data-project-id={project.id}
                         key={project.id}
-                        onOpenChange={(open) => handleTabChange(project.id!, open ? 'workflows' : undefined)}
+                        onOpenChange={(open) => handleTabChange(project.id!, open ? defaultActiveTab : undefined)}
                         open={!!openProject}
                     >
                         <ProjectListItem
                             activeTab={openProject?.tab}
+                            agentsContent={<ProjectAgentList project={project} />}
                             deploymentsContent={
                                 <ProjectDeploymentsPanel
                                     enabled

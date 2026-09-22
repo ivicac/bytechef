@@ -8,12 +8,14 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 vi.mock('@/pages/automation/projects/components/project-list/ProjectListItem', () => ({
     default: ({
         activeTab,
+        agentsContent,
         deploymentsContent,
         onTabChange,
         project,
         workflowsContent,
     }: {
         activeTab?: ProjectListItemTabType;
+        agentsContent: React.ReactNode;
         deploymentsContent: React.ReactNode;
         onTabChange: (tab?: ProjectListItemTabType, expandedProjectDeploymentId?: number) => void;
         project: Project;
@@ -23,6 +25,8 @@ vi.mock('@/pages/automation/projects/components/project-list/ProjectListItem', (
             <span>{`${project.name} tab ${activeTab ?? 'none'}`}</span>
 
             <button onClick={() => onTabChange('deployments', 9)}>{`Open ${project.name} deployments`}</button>
+
+            {activeTab === 'agents' && agentsContent}
 
             {activeTab === 'deployments' && deploymentsContent}
 
@@ -35,6 +39,10 @@ vi.mock('@/pages/automation/project/components/ProjectDeploymentsPanel', () => (
     default: ({expandedProjectDeploymentId, project}: {expandedProjectDeploymentId?: number; project: Project}) => (
         <div>{`${project.name} deployments panel ${expandedProjectDeploymentId ?? 'none'}`}</div>
     ),
+}));
+
+vi.mock('@/pages/automation/projects/components/project-agent-list/ProjectAgentList', () => ({
+    default: ({project}: {project: Project}) => <div>{`${project.name} agent list`}</div>,
 }));
 
 vi.mock('@/pages/automation/projects/components/project-workflow-list/ProjectWorkflowList', () => ({
@@ -52,10 +60,13 @@ const CurrentSearch = () => {
     return <div>{`search: ${location.search}`}</div>;
 };
 
-const renderProjectList = (initialEntry: string | {pathname: string; search: string; state: unknown}) =>
+const renderProjectList = (
+    initialEntry: string | {pathname: string; search: string; state: unknown},
+    props: Partial<Parameters<typeof ProjectList>[0]> = {}
+) =>
     render(
         <MemoryRouter initialEntries={[initialEntry]}>
-            <ProjectList projectGitConfigurations={[]} projects={projects} tags={[]} />
+            <ProjectList projectGitConfigurations={[]} projects={projects} tags={[]} {...props} />
 
             <CurrentSearch />
         </MemoryRouter>
@@ -116,5 +127,41 @@ describe('ProjectList', () => {
 
         expect(screen.getByText('Orders tab deployments')).toBeInTheDocument();
         expect(screen.getByText('Orders deployments panel 9')).toBeInTheDocument();
+    });
+
+    it('opens a newly created project on the default tab', () => {
+        renderProjectList('/automation/projects', {newlyCreatedProjectId: 1});
+
+        expect(screen.getByText('Orders tab workflows')).toBeInTheDocument();
+        expect(screen.getByText('Orders workflow list')).toBeInTheDocument();
+    });
+
+    it('opens rows on the Agents tab when that is the default', () => {
+        renderProjectList('/automation/projects', {defaultActiveTab: 'agents', newlyCreatedProjectId: 1});
+
+        expect(screen.getByText('Orders tab agents')).toBeInTheDocument();
+        expect(screen.getByText('Orders agent list')).toBeInTheDocument();
+        expect(screen.queryByText('Orders workflow list')).not.toBeInTheDocument();
+    });
+
+    it('moves the open rows to a new default tab', () => {
+        const {rerender} = renderProjectList('/automation/projects', {newlyCreatedProjectId: 1});
+
+        fireEvent.click(screen.getByText('Open Leads deployments'));
+
+        rerender(
+            <MemoryRouter initialEntries={['/automation/projects']}>
+                <ProjectList
+                    defaultActiveTab="agents"
+                    newlyCreatedProjectId={1}
+                    projectGitConfigurations={[]}
+                    projects={projects}
+                    tags={[]}
+                />
+            </MemoryRouter>
+        );
+
+        expect(screen.getByText('Orders tab agents')).toBeInTheDocument();
+        expect(screen.getByText('Leads tab agents')).toBeInTheDocument();
     });
 });

@@ -1,11 +1,12 @@
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {ReactNode} from 'react';
 
-export type ProjectListItemTabType = 'deployments' | 'workflows';
+export type ProjectListItemTabType = 'agents' | 'deployments' | 'workflows';
 
 interface ProjectListItemTabsProps {
     actions?: ReactNode;
     activeTab: ProjectListItemTabType;
+    agentsContent: ReactNode;
     deploymentsContent: ReactNode;
     onTabChange: (tab: ProjectListItemTabType) => void;
     workflowsContent: ReactNode;
@@ -14,6 +15,7 @@ interface ProjectListItemTabsProps {
 const ProjectListItemTabs = ({
     actions,
     activeTab,
+    agentsContent,
     deploymentsContent,
     onTabChange,
     workflowsContent,
@@ -23,6 +25,8 @@ const ProjectListItemTabs = ({
             <TabsList>
                 <TabsTrigger value="workflows">Workflows</TabsTrigger>
 
+                <TabsTrigger value="agents">Agents</TabsTrigger>
+
                 <TabsTrigger value="deployments">Deployments</TabsTrigger>
             </TabsList>
 
@@ -31,6 +35,10 @@ const ProjectListItemTabs = ({
 
         <TabsContent className="pt-2" value="workflows">
             {workflowsContent}
+        </TabsContent>
+
+        <TabsContent className="pt-2" value="agents">
+            {agentsContent}
         </TabsContent>
 
         <TabsContent className="pt-2" value="deployments">

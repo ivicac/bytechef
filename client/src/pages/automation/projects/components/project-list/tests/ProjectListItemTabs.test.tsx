@@ -1,13 +1,16 @@
-import ProjectListItemTabs from '@/pages/automation/projects/components/project-list/ProjectListItemTabs';
+import ProjectListItemTabs, {
+    ProjectListItemTabType,
+} from '@/pages/automation/projects/components/project-list/ProjectListItemTabs';
 import {render, screen} from '@/shared/util/test-utils';
 import userEvent from '@testing-library/user-event';
 import {describe, expect, it, vi} from 'vitest';
 
-const renderProjectListItemTabs = (activeTab: 'deployments' | 'workflows', onTabChange = vi.fn()) =>
+const renderProjectListItemTabs = (activeTab: ProjectListItemTabType, onTabChange = vi.fn()) =>
     render(
         <ProjectListItemTabs
             actions={<button>New Workflow</button>}
             activeTab={activeTab}
+            agentsContent={<div>Agents content</div>}
             deploymentsContent={<div>Deployments content</div>}
             onTabChange={onTabChange}
             workflowsContent={<div>Workflows content</div>}
@@ -28,6 +31,14 @@ describe('ProjectListItemTabs', () => {
 
         expect(screen.getByRole('tab', {name: 'Deployments'})).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByText('Deployments content')).toBeInTheDocument();
+        expect(screen.queryByText('Workflows content')).not.toBeInTheDocument();
+    });
+
+    it('shows the agents content when agents is active', () => {
+        renderProjectListItemTabs('agents');
+
+        expect(screen.getByRole('tab', {name: 'Agents'})).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByText('Agents content')).toBeInTheDocument();
         expect(screen.queryByText('Workflows content')).not.toBeInTheDocument();
     });
 
