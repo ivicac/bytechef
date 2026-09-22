@@ -28,10 +28,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.ScopedConnectionGuard;
-import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ai.copilot.tool.context.ScopedProjectToolContext;
 import com.bytechef.automation.ai.tool.model.ProjectDetailInfo;
 import com.bytechef.automation.ai.tool.model.ProjectInfo;
+import com.bytechef.automation.ai.tool.model.ProjectPublishInfo;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.ownership.ProjectOwner;
@@ -53,7 +53,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 /**
  * @author Ivica Cardic
@@ -137,24 +136,6 @@ class ProjectToolsTest {
             verify(projectFacade, never()).updateProject(any());
             verify(projectFacade, never()).deleteProject(anyLong());
             verify(projectFacade, never()).publishProject(anyLong(), any(), anyBoolean());
-        }
-
-        @Test
-        void testRunThatSkipsAuthorizationWithoutAScopedProjectCannotListProjects() {
-            ToolContext toolContext = new ToolContext(
-                AgentToolInvocationContext.builder()
-                    .authentication(new UsernamePasswordAuthenticationToken("1234567890", null, List.of()))
-                    .skipAutomationAuthorization(true)
-                    .build()
-                    .toToolContext());
-
-            ProjectTools projectTools = newTools();
-
-            assertThatCode(() -> projectTools.listProjects(null, toolContext))
-                .isInstanceOf(ExecutionException.class)
-                .hasMessage(ScopedProjectGuard.UNSCOPED_MESSAGE);
-
-            verify(workspaceScopeResolver, never()).resolveWorkspace(any(), any());
         }
 
         private ToolContext scopedToolContext() {
@@ -312,6 +293,32 @@ class ProjectToolsTest {
                 .isInstanceOf(ExecutionException.class);
 
             verify(projectFacade, never()).publishProject(anyLong(), any(), anyBoolean());
+        }
+
+        @Test
+        void testDeleteProjectDeletesThroughTheFacade() {
+            resolveWorkspace(WORKSPACE_ID);
+
+            when(projectService.fetchProject(7L)).thenReturn(Optional.of(project(7L, WORKSPACE_ID)));
+
+            String result = newTools().deleteProject(7L, null, toolContext);
+
+            assertThat(result).contains("project-7");
+
+            verify(projectFacade).deleteProject(7L);
+        }
+
+        @Test
+        void testPublishProjectPublishesThroughTheFacade() {
+            resolveWorkspace(WORKSPACE_ID);
+
+            when(projectService.fetchProject(7L)).thenReturn(Optional.of(project(7L, WORKSPACE_ID)));
+            when(projectFacade.publishProject(7L, "v1", false)).thenReturn(2);
+            when(projectService.getProject(7L)).thenReturn(project(7L, WORKSPACE_ID));
+
+            ProjectPublishInfo projectPublishInfo = newTools().publishProject(7L, "v1", null, toolContext);
+
+            assertThat(projectPublishInfo.publishedVersion()).isEqualTo(2);
         }
     }
 

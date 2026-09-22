@@ -28,6 +28,7 @@ import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ComponentDsl;
@@ -1231,10 +1232,11 @@ class ConnectedUserConnectionFacadeIntTest {
             @Bean
             static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
                 @Lazy PermissionService permissionService,
+                ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
                 ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
 
                 return new AutomationMethodSecurityExpressionHandler(
-                    permissionService, methodSecurityExpressionContributorProvider);
+                    permissionService, resourceMembershipResolverProvider, methodSecurityExpressionContributorProvider);
             }
         }
     }

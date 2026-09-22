@@ -232,7 +232,7 @@ class McpServerToolCallbackContributorConfigurationTest {
     }
 
     @Test
-    void contributesTheElevenFlatAiAgentToolsWhenFactoryPresent() {
+    void contributesTheTenFlatAiAgentToolsWhenFactoryPresent() {
         AiAgentToolCallbacksFactory aiAgentToolCallbacksFactory =
             new AiAgentToolCallbacksFactory(mock(AiAgentFacade.class));
 
@@ -245,7 +245,7 @@ class McpServerToolCallbackContributorConfigurationTest {
             .containsExactlyInAnyOrder(
                 "listAiAgents", "getAiAgent", "createAiAgent", "updateAiAgent", "addAiAgentChannel",
                 "deleteAiAgentChannel", "addAiAgentElement", "updateAiAgentElement", "deleteAiAgentElement",
-                "updateAiAgentSettings", "publishAiAgent");
+                "updateAiAgentSettings");
     }
 
     @Test

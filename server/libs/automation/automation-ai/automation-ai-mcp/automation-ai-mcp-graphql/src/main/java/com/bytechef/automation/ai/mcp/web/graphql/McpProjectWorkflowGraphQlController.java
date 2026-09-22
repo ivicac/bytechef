@@ -25,6 +25,7 @@ import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.mcp.util.McpWorkflowUtils;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.definition.BaseProperty.BaseValueProperty;
@@ -77,16 +78,35 @@ public class McpProjectWorkflowGraphQlController {
             .orElse(null);
     }
 
+    /**
+     * Deliberately {@code public}: proxy-based method security is only guaranteed to intercept public methods, so a
+     * package-private guard here could silently never run.
+     */
     @QueryMapping
     public List<McpProjectWorkflow> mcpProjectWorkflowsByMcpProjectId(@Argument long mcpProjectId) {
         return mcpProjectWorkflowFacade.getMcpProjectMcpProjectWorkflows(mcpProjectId);
     }
 
+    /**
+     * Reads an arbitrary project's workflows, so it carries the project's own view scope — without it any caller could
+     * enumerate the workflow ids and labels of any project in the installation by guessing a numeric id.
+     * <p>
+     * Deliberately {@code public}, like {@link #mcpProjectWorkflowsByMcpProjectId(long)}: proxy-based method security
+     * is only guaranteed to intercept public methods.
+     * </p>
+     */
     @QueryMapping
     public List<ProjectWorkflow> toolEligibleProjectVersionWorkflows(
         @Argument long projectId, @Argument int projectVersion) {
+        return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
+            .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+            .filter(projectWorkflow -> {
+                Workflow workflow = workflowService.getWorkflow(projectWorkflow.getWorkflowId());
 
-        return mcpProjectWorkflowFacade.getToolEligibleProjectVersionWorkflows(projectId, projectVersion);
+                return McpWorkflowUtils.getCallableTrigger(workflow) != null;
+            })
+            .toList();
     }
 
     @SuppressFBWarnings("BC_VACUOUS_INSTANCEOF")

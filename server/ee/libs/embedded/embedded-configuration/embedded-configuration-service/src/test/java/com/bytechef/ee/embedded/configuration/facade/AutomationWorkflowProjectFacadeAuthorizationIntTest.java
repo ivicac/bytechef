@@ -22,6 +22,7 @@ import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectVersionWorkflowChangeService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.AutomationWorkflowProject;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.configuration.security.SkipAutomationAuthorizationAspect;
@@ -37,6 +38,7 @@ import com.bytechef.platform.configuration.dto.VersionWorkflowChanges;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
+import com.bytechef.platform.configuration.workflow.WorkflowUpdateGuard;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tag.service.TagService;
@@ -76,9 +78,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     AutomationWorkflowProjectConfigurationResolver.class, AutomationWorkflowProjectConfigurationService.class,
     CategoryService.class, ConnectedUserReferenceDeploymentManager.class, ConnectedUserReferenceRolloutManager.class,
     ConnectedUserService.class, EmbeddedPermissionEvaluator.class, IntegrationInstanceConfigurationService.class,
-    IntegrationService.class, ProjectWorkflowFacade.class, ProjectWorkflowService.class, TagService.class,
-    WorkflowComponentResolver.class, WorkflowNodeTestOutputService.class, WorkflowPreDeleteListener.class,
-    WorkflowService.class, WorkflowTestConfigurationService.class
+    IntegrationService.class, ProjectCodeWorkflowService.class, ProjectWorkflowFacade.class,
+    ProjectWorkflowService.class, TagService.class, WorkflowComponentResolver.class,
+    WorkflowNodeTestOutputService.class, WorkflowPreDeleteListener.class, WorkflowService.class,
+    WorkflowTestConfigurationService.class, WorkflowUpdateGuard.class
 })
 class AutomationWorkflowProjectFacadeAuthorizationIntTest {
 

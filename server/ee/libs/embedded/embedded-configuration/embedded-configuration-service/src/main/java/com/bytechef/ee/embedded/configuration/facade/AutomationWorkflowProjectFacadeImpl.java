@@ -20,6 +20,8 @@ import com.bytechef.automation.configuration.service.ProjectVersionWorkflowChang
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
+import com.bytechef.ee.embedded.configuration.audit.AutomationWorkflowProjectAuditEvents;
+import com.bytechef.ee.embedded.configuration.audit.WorkflowAuditEvents;
 import com.bytechef.ee.embedded.configuration.domain.AutomationWorkflowProject;
 import com.bytechef.ee.embedded.configuration.domain.AutomationWorkflowProjectConfiguration;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
@@ -49,6 +51,7 @@ import com.bytechef.platform.configuration.dto.VersionWorkflowChanges;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
+import com.bytechef.platform.configuration.workflow.WorkflowUpdateGuard;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -111,6 +114,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
+    private final List<WorkflowUpdateGuard> workflowUpdateGuards;
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectFacadeImpl(
@@ -122,11 +126,12 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         ConnectedUserService connectedUserService, EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
         IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
         IntegrationService integrationService, ProjectCodeWorkflowService projectCodeWorkflowService,
-        ProjectService projectService, ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
+        ProjectService projectService, ProjectVersionWorkflowChangeService projectVersionWorkflowChangeService,
+        ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
         TagService tagService, WorkflowComponentResolver workflowComponentResolver,
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
-        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners, List<WorkflowUpdateGuard> workflowUpdateGuards) {
         this.automationWorkflowProjectConfigurationResolver = automationWorkflowProjectConfigurationResolver;
         this.automationWorkflowProjectConfigurationService = automationWorkflowProjectConfigurationService;
         this.automationWorkflowProjectService = automationWorkflowProjectService;
@@ -148,6 +153,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         this.workflowService = workflowService;
         this.workflowPreDeleteListeners = workflowPreDeleteListeners;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
+        this.workflowUpdateGuards = workflowUpdateGuards;
     }
 
     @Override
@@ -325,6 +331,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     }
 
     @Override
+    @SkipAutomationAuthorization
     public Optional<Long> fetchProjectIdByName(String name) {
         Map<Long, AutomationWorkflowProject> automationWorkflowProjects = getAutomationWorkflowProjects();
 
@@ -336,6 +343,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     }
 
     @Override
+    @PreAuthorize("isTenantAdmin()")
     public List<AutomationWorkflowProjectVersionDTO> getProjectVersions(long projectId) {
         Project project = getProjectOfAutomationWorkflowProject(projectId);
 
@@ -395,7 +403,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     private List<AutomationWorkflowProjectDTO> getProjectsWithConfigurationCounts(@Nullable Long environmentId) {
         Map<Long, AutomationWorkflowProject> automationWorkflowProjects = getAutomationWorkflowProjects();
-        Map<Long, Long> configurationCounts = getConfigurationCounts(automationWorkflowProjects.keySet());
+        Map<Long, Long> configurationCounts =
+            getConfigurationCounts(automationWorkflowProjects.keySet(), environmentId);
         Set<Long> codeWorkflowProjectIds = getCodeWorkflowProjectIds();
 
         return getAutomationWorkflowProjectProjects(automationWorkflowProjects.keySet())
@@ -468,6 +477,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         Map<String, Long> integrationIdsByComponentName = getIntegrationIdsByComponentName(environment, connectedUser);
 
         Map<Long, AutomationWorkflowProject> automationWorkflowProjects = getAutomationWorkflowProjects();
+        Set<Long> codeWorkflowProjectIds = getCodeWorkflowProjectIds();
 
         List<AutomationWorkflowProjectConfigurationReleaseDTO> releases = new ArrayList<>();
 
@@ -491,7 +501,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
                 AutomationWorkflowProjectDTO projectDTO = toPublishedDTO(
                     project, automationWorkflowProject, configuration.getProjectVersion(),
-                    configuration.isAutomationHubVisible(),
+                    configuration.isAutomationHubVisible(), codeWorkflowProjectIds,
                     projectWorkflow -> automationWorkflowProjectConfigurationService.isWorkflowEnabled(
                         configuration, projectWorkflow.getUuid()));
 
@@ -574,6 +584,10 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         ProjectWorkflow projectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(workflowId);
 
         getProjectOfAutomationWorkflowProject(projectWorkflow.getProjectId());
+
+        for (WorkflowUpdateGuard workflowUpdateGuard : workflowUpdateGuards) {
+            workflowUpdateGuard.checkUpdatable(workflowId);
+        }
 
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -763,7 +777,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return Set.copyOf(projectCodeWorkflowService.getCodeWorkflowProjectIds());
     }
 
-    private Map<Long, Long> getConfigurationCounts(Set<Long> projectIds) {
+    private Map<Long, Long> getConfigurationCounts(Set<Long> projectIds, @Nullable Long environmentId) {
         return automationWorkflowProjectConfigurationService.getConfigurations(projectIds)
             .stream()
             .filter(configuration -> environmentId == null || configuration.getEnvironmentId() == environmentId)
@@ -820,7 +834,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     private AutomationWorkflowProjectDTO toPublishedDTO(
         Project project, AutomationWorkflowProject automationWorkflowProject, @Nullable Integer publishedVersion,
-        boolean automationHubVisible, Set<Long> codeWorkflowProjectIds, Predicate<ProjectWorkflow> projectWorkflowFilter) {
+        boolean automationHubVisible, Set<Long> codeWorkflowProjectIds,
+        Predicate<ProjectWorkflow> projectWorkflowFilter) {
 
         List<ConnectedUserWorkflowTemplateDTO> workflowTemplates;
 

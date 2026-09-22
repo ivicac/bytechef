@@ -21,6 +21,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.embedded.configuration.audit.ConnectionAuditEvents;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
@@ -299,10 +300,11 @@ class ConnectionAdminFacadeIntTest {
         @Bean
         static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             @Lazy PermissionService permissionService,
+            ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
             ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
 
             return new AutomationMethodSecurityExpressionHandler(
-                permissionService, methodSecurityExpressionContributorProvider);
+                permissionService, resourceMembershipResolverProvider, methodSecurityExpressionContributorProvider);
         }
     }
 }

@@ -29,10 +29,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Creates a new AI Agent shell (title/description only, in the current workspace). A brand-new agent has the two
- * permanent {@code chat}/{@code workflowCall} channels but no elements — the playbook is: create, then add exactly one
- * MODEL element (required before publish), then channels, then tools/skills/knowledge base, then optional HITL
- * approvals, then settings, then test via the chat panel, then publish.
+ * Creates a new AI Agent shell (title/description only, in the current workspace, inside an existing project or a new
+ * one named after the agent). A brand-new agent has the two permanent {@code chat}/{@code workflowCall} channels but no
+ * elements — the playbook is: create, then add exactly one MODEL element (required before publish), then channels, then
+ * tools/skills/knowledge base, then optional HITL approvals, then settings, then test via the chat panel, then publish.
  *
  * @author Ivica Cardic
  */
@@ -41,20 +41,23 @@ public class CreateAiAgentToolCallback implements ToolCallback {
     private static final String TOOL_NAME = "createAiAgent";
 
     private static final String DESCRIPTION = """
-        Create a new AI Agent in the current workspace. Supply a title (and optionally a description).
+        Create a new AI Agent in the current workspace, inside an existing project (projectId) or a new project
+        named after the agent. Supply a title (and optionally a description and a projectId).
         The agent starts with no MODEL, no tools, and only the two permanent channels (chat,
         workflowCall) — it cannot be published until a MODEL element is added via addAiAgentElement.
-        Returns the new agent's id, name (slugified from the title), and title.""";
+        Returns the new agent's id, name (slugified from the title), title, and projectId.""";
 
-    private static final String INPUT_SCHEMA = """
-        {
-            "type": "object",
-            "properties": {
-                "title": {"type": "string", "description": "Display title for the new agent"},
-                "description": {"type": "string", "description": "Optional human-readable description"}
-            },
-            "required": ["title"]
-        }""";
+    private static final String INPUT_SCHEMA =
+        """
+            {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Display title for the new agent"},
+                    "description": {"type": "string", "description": "Optional human-readable description"},
+                    "projectId": {"type": "integer", "description": "Optional id of an existing project to add the agent to. When omitted a new project named after the agent is created."}
+                },
+                "required": ["title"]
+            }""";
 
     private final AiAgentFacade aiAgentFacade;
     private final JsonMapper jsonMapper = new JsonMapper();
@@ -97,7 +100,8 @@ public class CreateAiAgentToolCallback implements ToolCallback {
                 return toolError("Workspace context unavailable - open this chat from the AI Hub of a workspace.");
             }
 
-            AiAgentDTO agentDTO = aiAgentFacade.createAgent(input.title(), input.description(), workspaceId);
+            AiAgentDTO agentDTO = aiAgentFacade.createAgent(
+                input.title(), input.description(), workspaceId, input.projectId());
 
             return jsonMapper.writeValueAsString(
                 new CreateAiAgentOutput(
@@ -106,7 +110,8 @@ public class CreateAiAgentToolCallback implements ToolCallback {
                     agentDTO.agent()
                         .getName(),
                     agentDTO.agent()
-                        .getTitle()));
+                        .getTitle(),
+                    agentDTO.projectId()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (IllegalArgumentException exception) {
@@ -120,9 +125,9 @@ public class CreateAiAgentToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record CreateAiAgentInput(String title, @Nullable String description) {
+    public record CreateAiAgentInput(String title, @Nullable String description, @Nullable Long projectId) {
     }
 
-    public record CreateAiAgentOutput(Long id, String name, String title) {
+    public record CreateAiAgentOutput(Long id, String name, String title, long projectId) {
     }
 }
