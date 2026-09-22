@@ -44,11 +44,8 @@ import org.springframework.context.annotation.Import;
  *
  * <p>
  * The exclusion is one {@code SystemProjects.projectNameNotLikePredicates("project.name")} call inside
- * {@code CustomProjectDeploymentRepositoryImpl}, and until this test it was asserted in three places and verified in
- * none: {@code CLAUDE.md}, {@code AiAgentFacade#getWorkspaceChatAgents}'s javadoc, and a comment in the client's
- * {@code useAiHubChatLaunchers} all state that hidden {@code __AI_AGENT__} projects cannot reach a deployment listing.
- * The AI Hub launcher's two cascades are built on that being true — the agent cascade and the workflow cascade would
- * otherwise offer the same chat twice — and so is the promise that a hidden project stays hidden.
+ * {@code CustomProjectDeploymentRepositoryImpl}, and until this test it was asserted but verified nowhere. The promise
+ * that a hidden project stays hidden is built on that being true.
  *
  * <p>
  * A hand-built SQL string is the reason this is an IntTest rather than a unit test over the repository: the predicate
@@ -93,7 +90,7 @@ public class ProjectDeploymentServiceSystemProjectIntTest {
     public void testWorkspaceListingHidesEveryKindOfSystemProject() {
         long userDeploymentId = createDeployment("A user project");
 
-        createDeployment(SystemProjects.AI_AGENT_NAME_PREFIX + "b8c1");
+        createDeployment(SystemProjects.DATA_SYNC_NAME_PREFIX + "b8c1");
         createDeployment(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + workspace.getId());
         createDeployment(SystemProjects.CONTEXT_STORE_NAME_PREFIX + workspace.getId());
         createDeployment(SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX + "catalog");

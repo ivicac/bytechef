@@ -21,6 +21,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.dto.SharedWorkflowDTO;
 import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
 import com.bytechef.automation.configuration.dto.WorkspaceProjectWorkflowDTO;
@@ -116,6 +117,7 @@ public class ProjectWorkflowGraphQlController {
     public List<ProjectWorkflow> eligibleErrorWorkflows(@Argument long projectId, @Argument int projectVersion) {
         return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
             .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
             .filter(projectWorkflow -> hasErrorTrigger(workflowService.getWorkflow(projectWorkflow.getWorkflowId())))
             .toList();
     }

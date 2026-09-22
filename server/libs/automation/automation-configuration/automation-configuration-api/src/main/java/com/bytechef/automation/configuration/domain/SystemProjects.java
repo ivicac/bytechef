@@ -25,8 +25,8 @@ import java.util.List;
  * <p>
  * Every system project name is {@code __<DOMAIN>__<discriminator>}: a double-underscore-delimited SCREAMING_SNAKE_CASE
  * domain marker followed by whatever the owning feature scopes by (a workspace id for Knowledge Base and Context Store,
- * the caller-supplied project name for the embedded automation bridge, an agent id for Agents). Keeping one shape
- * across all four lets list surfaces hide them with a single predicate instead of each learning every feature's private
+ * the caller-supplied project name for the embedded automation bridge, a uuid for Data Sync). Keeping one shape across
+ * all of them lets list surfaces hide them with a single predicate instead of each learning every feature's private
  * naming scheme.
  *
  * <p>
@@ -62,13 +62,8 @@ public final class SystemProjects {
     public static final String EMBEDDED_AUTOMATION_NAME_PREFIX = "__EMBEDDED_AUTOMATION__";
 
     /**
-     * Owns the hidden backing project of one Agent.
-     */
-    public static final String AI_AGENT_NAME_PREFIX = "__AI_AGENT__";
-
-    /**
-     * Marks the hidden project backing a Data Sync — see {@code DataSyncFacadeImpl}. Same lifecycle as
-     * {@link #AI_AGENT_NAME_PREFIX}: the project exists only to hold the generated draft workflow and its versions.
+     * Marks the hidden project backing a Data Sync — see {@code DataSyncFacadeImpl}. The project exists only to hold
+     * the generated draft workflow and its versions.
      */
     public static final String DATA_SYNC_NAME_PREFIX = "__DATA_SYNC__";
 
@@ -104,7 +99,7 @@ public final class SystemProjects {
 
     private static final List<String> NAME_PREFIXES = List.of(
         KNOWLEDGE_BASE_NAME_PREFIX, CONTEXT_STORE_NAME_PREFIX, EMBEDDED_AUTOMATION_NAME_PREFIX,
-        AI_AGENT_NAME_PREFIX, DATA_SYNC_NAME_PREFIX);
+        DATA_SYNC_NAME_PREFIX);
 
     private SystemProjects() {
     }

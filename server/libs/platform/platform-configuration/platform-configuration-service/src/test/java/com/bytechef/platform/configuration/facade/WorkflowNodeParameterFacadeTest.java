@@ -17,6 +17,7 @@
 package com.bytechef.platform.configuration.facade;
 
 import static org.apache.commons.lang3.RandomStringUtils.secure;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -56,6 +57,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.dto.DisplayConditionResultDTO;
 import com.bytechef.platform.configuration.dto.ParameterResultDTO;
+import com.bytechef.platform.configuration.workflow.WorkflowUpdateGuard;
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -82,7 +84,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class WorkflowNodeParameterFacadeTest {
 
     private static final WorkflowNodeParameterFacadeImpl WORKFLOW_NODE_PARAMETER_FACADE =
-        new WorkflowNodeParameterFacadeImpl(null, null, SpelEvaluator.create(), null, null, null, null, null);
+        new WorkflowNodeParameterFacadeImpl(null, null, SpelEvaluator.create(), null, null, null, null, null,
+            List.of());
 
     @Mock
     private ActionDefinitionService actionDefinitionService;
@@ -115,7 +118,7 @@ public class WorkflowNodeParameterFacadeTest {
         workflowNodeParameterFacade = new WorkflowNodeParameterFacadeImpl(
             actionDefinitionService, clusterElementDefinitionService, evaluator,
             taskDispatcherDefinitionService, triggerDefinitionService, workflowEvaluationInputsFacade,
-            workflowNodeOutputFacade, workflowService);
+            workflowNodeOutputFacade, workflowService, List.of());
 
         Workflow updatedWorkflow = mock(Workflow.class);
 
@@ -1635,7 +1638,7 @@ public class WorkflowNodeParameterFacadeTest {
         return new WorkflowNodeParameterFacadeImpl(
             actionDefinitionService, clusterElementDefinitionService, SpelEvaluator.create(),
             taskDispatcherDefinitionService, triggerDefinitionService, workflowEvaluationInputsFacade,
-            workflowNodeOutputFacade, workflowService);
+            workflowNodeOutputFacade, workflowService, List.of());
     }
 
     @SuppressWarnings({
@@ -2184,6 +2187,95 @@ public class WorkflowNodeParameterFacadeTest {
             verify(workflowService).getWorkflow(workflowId);
             verify(workflowService).update(anyString(), anyString(), anyInt());
         }
+    }
+
+    @Test
+    void testUpdateClusterElementParameterConsultsWorkflowUpdateGuardAndUpdates() {
+        String workflowId = "workflow1";
+        WorkflowUpdateGuard workflowUpdateGuard = mock(WorkflowUpdateGuard.class);
+
+        WorkflowNodeParameterFacadeImpl guardedFacade = new WorkflowNodeParameterFacadeImpl(
+            actionDefinitionService, clusterElementDefinitionService, evaluator, taskDispatcherDefinitionService,
+            triggerDefinitionService, workflowEvaluationInputsFacade, workflowNodeOutputFacade, workflowService,
+            List.of(workflowUpdateGuard));
+
+        ClusterElementDefinition clusterElementDefinition = mock(ClusterElementDefinition.class);
+
+        when(clusterElementDefinition.getProperties()).thenReturn(new ArrayList<>());
+
+        try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
+            Map<String, Object> clusterElementMap = new HashMap<>();
+
+            clusterElementMap.put("name", "loopTask");
+            clusterElementMap.put("type", "loop/v1/loop");
+            clusterElementMap.put("parameters", new HashMap<>());
+            clusterElementMap.put("metadata", new HashMap<>());
+
+            Map<String, Object> task = new HashMap<>();
+
+            task.put("name", "task1");
+            task.put("type", "component/v1/action");
+            task.put("parameters", new HashMap<>());
+            task.put("metadata", new HashMap<>());
+            task.put("clusterElements", new HashMap<>(Map.of("loop", clusterElementMap)));
+
+            Map<String, Object> definitionMap = new HashMap<>();
+
+            definitionMap.put("tasks", new ArrayList<>(List.of(task)));
+
+            mockedJsonUtils.when(() -> JsonUtils.readMap(anyString()))
+                .thenReturn(definitionMap);
+            mockedJsonUtils.when(() -> JsonUtils.writeWithDefaultPrettyPrinter(any()))
+                .thenReturn("{}");
+
+            Workflow workflow = mock(Workflow.class);
+
+            when(workflow.getId()).thenReturn(workflowId);
+            when(workflow.getDefinition()).thenReturn("{}");
+            when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
+            when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
+                .thenReturn(clusterElementDefinition);
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
+                .thenReturn(Map.of());
+
+            ParameterResultDTO result = guardedFacade.updateClusterElementParameter(
+                workflowId, "task1", "loop", "loopTask", "param1", "testValue", "STRING", false, false, 0);
+
+            assertNotNull(result);
+            verify(workflowUpdateGuard).checkUpdatable(workflowId);
+            verify(workflowService).update(anyString(), anyString(), anyInt());
+        }
+    }
+
+    @Test
+    void testParameterWritesAreRefusedWhenWorkflowUpdateGuardRejects() {
+        String workflowId = "agentWorkflow";
+
+        WorkflowUpdateGuard workflowUpdateGuard = candidateWorkflowId -> {
+            throw new IllegalArgumentException(
+                "Workflow %s is generated by an AI agent; edit it through the agent".formatted(candidateWorkflowId));
+        };
+
+        WorkflowNodeParameterFacadeImpl guardedFacade = new WorkflowNodeParameterFacadeImpl(
+            actionDefinitionService, clusterElementDefinitionService, evaluator, taskDispatcherDefinitionService,
+            triggerDefinitionService, workflowEvaluationInputsFacade, workflowNodeOutputFacade, workflowService,
+            List.of(workflowUpdateGuard));
+
+        assertThatThrownBy(() -> guardedFacade.updateWorkflowNodeParameter(
+            workflowId, "task1", "param1", "value", "STRING", false, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("generated by an AI agent");
+        assertThatThrownBy(() -> guardedFacade.updateClusterElementParameter(
+            workflowId, "task1", "loop", "loopTask", "param1", "value", "STRING", false, false, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> guardedFacade.deleteWorkflowNodeParameter(workflowId, "task1", "param1", 0))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> guardedFacade.deleteClusterElementParameter(
+            workflowId, "task1", "loop", "loopTask", "param1", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(workflowService, never()).getWorkflow(anyString());
+        verify(workflowService, never()).update(anyString(), anyString(), anyInt());
     }
 
     @Test

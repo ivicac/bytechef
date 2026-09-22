@@ -22,13 +22,13 @@ import java.util.Optional;
  * Names the thing a project-keyed audit record is really about, when that is not the project.
  *
  * <p>
- * Some projects are an implementation detail of something else: an AI agent owns a hidden {@code __AI_AGENT__} project
- * one-to-one and every sharing operation on the agent lands on that project, so the audit log carried a project id an
- * auditor could not resolve to anything they had ever seen in the product. This is the seam that lets the owning
- * feature say what the row is, WITHOUT the audit publisher — or {@code ProjectSharingFacade}, which is what publishes
- * on that path — having to know the feature exists. The alternative shapes were both worse: a second, agent-keyed audit
- * event would be two records for one question, and threading an audit subject through every
- * {@code ProjectSharingFacade} method signature would put the agent in the project facade's vocabulary.
+ * Some projects are an implementation detail of something else: a feature can own a project it uses internally, so a
+ * sharing operation on that project would otherwise leave the audit log carrying a project id an auditor could not
+ * resolve to anything they had ever seen in the product. This is the seam that lets the owning feature say what the row
+ * is, WITHOUT the audit publisher — or {@code ProjectSharingFacade}, which is what publishes on that path — having to
+ * know the feature exists. The alternative shapes were both worse: a second, feature-keyed audit event would be two
+ * records for one question, and threading an audit subject through every {@code ProjectSharingFacade} method signature
+ * would put the feature in the project facade's vocabulary.
  *
  * <p>
  * Registered as a Spring bean and discovered as a list, exactly like {@code ResourceOwnershipResolver} and

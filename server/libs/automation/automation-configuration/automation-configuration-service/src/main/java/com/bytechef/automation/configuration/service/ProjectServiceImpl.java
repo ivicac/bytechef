@@ -23,6 +23,7 @@ import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.exception.ProjectErrorType;
 import com.bytechef.automation.configuration.listener.ProjectGitSyncEventListener;
+import com.bytechef.automation.configuration.listener.ProjectPublishPreListener;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.commons.util.CollectionUtils;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -114,7 +116,6 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    // @PreAuthorize("hasPermission(#id, 'Project', 'WORKFLOW_VIEW')")
     @Transactional(readOnly = true)
     public Project getProject(long id) {
         return OptionalUtils.get(projectRepository.findById(id));
@@ -180,6 +181,13 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public int publishProject(long id, String description, boolean syncWithGit) {
+        for (ProjectPublishPreListener projectPublishPreListener : applicationContext
+            .getBeansOfType(ProjectPublishPreListener.class)
+            .values()) {
+
+            projectPublishPreListener.onBeforePublishProject(id);
+        }
+
         Project project = getProject(id);
 
         int newVersion = project.publish(description);
@@ -238,20 +246,10 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'Project', 'WORKFLOW_EDIT')")
     public Project updateErrorWorkflow(long id, @Nullable Long errorProjectWorkflowId) {
         Project project = getProject(id);
 
         project.setErrorProjectWorkflowId(errorProjectWorkflowId);
-
-        return projectRepository.save(project);
-    }
-
-    @Override
-    public Project updatePermissionExpression(long id, @Nullable String permissionExpression) {
-        Project project = getProject(id);
-
-        project.setPermissionExpression(permissionExpression);
 
         return projectRepository.save(project);
     }
@@ -281,4 +279,5 @@ public class ProjectServiceImpl implements ProjectService {
         // tell that from two changes.
         return projectRepository.save(project);
     }
+
 }

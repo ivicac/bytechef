@@ -114,7 +114,7 @@ class ProjectFacadeRowVisibilityTest {
     private final Project otherWorkspacePrivateProject = project(
         4L, "Elsewhere withheld", UNSCOPED_WORKSPACE_ID, ResourceVisibility.PRIVATE);
     private final Project systemProject = project(
-        5L, SystemProjects.AI_AGENT_NAME_PREFIX + "agent", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
+        5L, SystemProjects.DATA_SYNC_NAME_PREFIX + "sync", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
 
     private final List<Project> allProjects = List.of(
         workspaceVisibleProject, privateProject, otherWorkspaceProject, otherWorkspacePrivateProject, systemProject);
@@ -326,7 +326,8 @@ class ProjectFacadeRowVisibilityTest {
             projectVisibilityFilter, mock(ResourceVisibilityPolicyRegistry.class), mock(ProjectDeploymentFacade.class),
             mock(ProjectWorkflowFacade.class), mock(SharedTemplateFileStorage.class),
             mock(SharedTemplateService.class), mock(TagService.class), mock(WorkflowService.class),
-            mock(WorkflowTestConfigurationService.class), mock(WorkflowNodeTestOutputService.class), List.of());
+            mock(WorkflowTestConfigurationService.class), mock(WorkflowNodeTestOutputService.class), List.of(),
+            List.of(), List.of());
     }
 
     private static boolean isVisible(Project project) {

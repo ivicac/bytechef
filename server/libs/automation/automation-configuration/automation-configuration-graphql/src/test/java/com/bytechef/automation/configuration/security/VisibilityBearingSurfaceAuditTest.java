@@ -197,6 +197,9 @@ class VisibilityBearingSurfaceAuditTest {
         "Relation row carrying a tag id and nothing else.",
         "ProjectTag",
         "Relation row carrying a tag id and nothing else.",
+        "ProjectWorkflowType",
+        "Row-type discriminator on ProjectWorkflow (WORKFLOW vs AI_AGENT) — an enum with no id and no content of its " +
+            "own; it carries no visibility beyond that of the ProjectWorkflow row it classifies.",
         "SharedTemplate",
         "The stored side of a share link: a uuid and the exported file entry the owner minted by exporting. The same " +
             "family as SharedProjectDTO, and keyed by the share uuid rather than by a project.",

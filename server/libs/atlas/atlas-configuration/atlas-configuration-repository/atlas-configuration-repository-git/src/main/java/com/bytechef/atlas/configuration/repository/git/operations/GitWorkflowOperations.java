@@ -21,6 +21,7 @@ package com.bytechef.atlas.configuration.repository.git.operations;
 import com.bytechef.atlas.configuration.workflow.mapper.WorkflowResource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Arik Cohen
@@ -35,8 +36,29 @@ public interface GitWorkflowOperations {
 
     String write(List<WorkflowResource> workflowResources, String commitMessage);
 
+    /**
+     * Writes the workflows plus {@code contentFiles} — non-workflow files keyed by their repository path, each under
+     * one of the content directories the operations were created with — replacing everything in the repository.
+     */
+    default String write(
+        List<WorkflowResource> workflowResources, Map<String, byte[]> contentFiles, String commitMessage) {
+
+        if (!contentFiles.isEmpty()) {
+            throw new UnsupportedOperationException("Content files are not supported");
+        }
+
+        return write(workflowResources, commitMessage);
+    }
+
+    /**
+     * @param contentFiles the files under the content directories, keyed by repository path; never read as workflows
+     */
     @SuppressFBWarnings("EI")
-    record HeadFiles(List<WorkflowResource> workflowResources, GitInfo gitInfo) {
+    record HeadFiles(List<WorkflowResource> workflowResources, GitInfo gitInfo, Map<String, byte[]> contentFiles) {
+
+        public HeadFiles(List<WorkflowResource> workflowResources, GitInfo gitInfo) {
+            this(workflowResources, gitInfo, Map.of());
+        }
     }
 
     @SuppressFBWarnings("EI")
