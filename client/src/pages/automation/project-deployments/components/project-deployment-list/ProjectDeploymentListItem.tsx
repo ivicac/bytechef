@@ -33,14 +33,17 @@ const EnvironmentPromotionDialog = lazy(
 interface ProjectDeploymentListItemProps {
     /** How many agents the deployment carries. */
     agentCount?: number;
+    /** How many data syncs the deployment carries. */
+    dataSyncCount?: number;
     projectDeployment: ProjectDeployment;
     remainingTags?: Tag[];
-    /** How many ordinary workflows the deployment carries, leaving out the agents' generated ones. */
+    /** How many ordinary workflows the deployment carries, leaving out the agents' and syncs' generated ones. */
     workflowCount?: number;
 }
 
 const ProjectDeploymentListItem = ({
     agentCount = 0,
+    dataSyncCount = 0,
     projectDeployment,
     remainingTags,
     workflowCount = projectDeployment.projectDeploymentWorkflows?.length || 0,
@@ -154,7 +157,7 @@ const ProjectDeploymentListItem = ({
                                     ref={workflowsCollapsibleTriggerRef}
                                 >
                                     <span className="mr-1">
-                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'} · ${dataSyncCount} ${dataSyncCount === 1 ? 'data sync' : 'data syncs'}`}
                                     </span>
 
                                     <ChevronDownIcon className="size-4 duration-300 group-data-[state=open]:rotate-180" />

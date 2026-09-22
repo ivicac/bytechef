@@ -9,7 +9,6 @@ interface WorkflowConfigurationCardProps {
     connectionCount: number;
     connectionsContent: ReactNode;
     enabled: boolean;
-    hideInputsTab?: boolean;
     inputCount: number;
     inputsContent: ReactNode;
     isAgentWorkflow?: boolean;
@@ -23,7 +22,6 @@ const WorkflowConfigurationCard = ({
     connectionCount,
     connectionsContent,
     enabled,
-    hideInputsTab = false,
     inputCount,
     inputsContent,
     isAgentWorkflow = false,
@@ -79,10 +77,7 @@ const WorkflowConfigurationCard = ({
 
         {(enabled || !showWorkflowToggle) && (
             <Tabs className="flex flex-col gap-2.5" defaultValue="connections">
-                {/* An AI agent's generated workflow declares no inputs, so the Inputs tab is always empty
-                    for one — showing a two-tab strip where one tab can never have content is just noise. */}
-
-                <TabsList className={twMerge('flex w-full', hideInputsTab && 'hidden')}>
+                <TabsList className="flex w-full">
                     <TabsTrigger className="flex w-full data-[state=active]:shadow-none" value="connections">
                         <Link2Icon className="mr-2 size-4" />
 

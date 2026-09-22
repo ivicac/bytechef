@@ -7,6 +7,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
     agents: [] as {channels: {channelType: string}[]; id: string; projectId: string}[],
+    captureProjectImported: vi.fn(),
+    dataSyncs: [] as {id: string; projectId: string; triggerType: string}[],
     navigate: vi.fn(),
     projects: [] as {id: number; name: string}[],
 }));
@@ -30,6 +32,10 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
     default: () => ({agents: hoisted.agents, agentsIsLoading: false}),
 }));
 
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({dataSyncs: hoisted.dataSyncs, dataSyncsIsLoading: false}),
+}));
+
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
     useApplicationInfoStore: () => ({
         ai: {copilot: {enabled: true}},
@@ -41,7 +47,7 @@ vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
 
 vi.mock('@/shared/hooks/useAnalytics', () => ({
     useAnalytics: () => ({
-        captureProjectImported: mockProjectsState.captureProjectImported,
+        captureProjectImported: hoisted.captureProjectImported,
     }),
 }));
 
@@ -132,10 +138,12 @@ let queryClient: QueryClient;
 
 beforeEach(() => {
     hoisted.agents = [];
+    hoisted.dataSyncs = [];
     hoisted.projects = [];
 
     queryClient = createTestQueryClient();
     mockImportMutate.mockClear();
+    hoisted.captureProjectImported.mockClear();
     hoisted.navigate.mockClear();
 });
 
@@ -154,6 +162,11 @@ const renderProjects = (initialEntries: string[] = ['/']) => {
         </MemoryRouter>
     );
 };
+
+// The Agents and Data Syncs sidebar groups each have their own "Scheduled" item, so the accessible name
+// alone does not pick one out — the target href does.
+const getFilterLink = (name: string, hrefIncludes: string) =>
+    screen.getAllByRole('link', {name}).find((link) => link.getAttribute('href')?.includes(hrefIncludes))!;
 
 describe('Projects Import Functionality', () => {
     it('should show import dropdown menu items', async () => {
@@ -222,7 +235,7 @@ describe('Projects Import Functionality', () => {
         fireEvent.change(fileInput, {target: {files: [new File(['test content'], 'test-project.zip')]}});
 
         await waitFor(() => {
-            expect(mockProjectsState.captureProjectImported).toHaveBeenCalledTimes(1);
+            expect(hoisted.captureProjectImported).toHaveBeenCalledTimes(1);
         });
     });
 });
@@ -321,7 +334,7 @@ describe('Projects agents filter', () => {
         expect(agentsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
         expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?agents=scheduled');
+        expect(getFilterLink('Scheduled', 'agents=scheduled')).toHaveAttribute('href', '/?agents=scheduled');
     });
 
     it('no longer offers the Projects | Agents tabs', () => {
@@ -377,9 +390,108 @@ describe('Projects agents filter', () => {
         renderProjects(['/?categoryId=5&agents=all']);
 
         expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?categoryId=5');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute(
+        expect(getFilterLink('Scheduled', 'agents=scheduled')).toHaveAttribute(
             'href',
             '/?categoryId=5&agents=scheduled'
         );
+    });
+
+    it('picking a data syncs filter clears the active agents filter', () => {
+        renderProjects(['/?agents=all']);
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?dataSyncs=all');
+    });
+});
+
+describe('Projects data syncs filter', () => {
+    const setUpProjectsWithDataSyncs = () => {
+        hoisted.projects = [
+            {id: 1, name: 'Scheduled Project'},
+            {id: 2, name: 'Manual Project'},
+            {id: 3, name: 'Workflow Project'},
+        ];
+
+        hoisted.dataSyncs = [
+            {id: 'ds1', projectId: '1', triggerType: 'SCHEDULE'},
+            {id: 'ds2', projectId: '2', triggerType: 'MANUAL'},
+        ];
+    };
+
+    it('shows the Data Syncs section between Agents and Tags', () => {
+        renderProjects();
+
+        const agentsHeading = screen.getByText('Agents');
+        const dataSyncsHeading = screen.getByText('Data Syncs');
+        const tagsHeading = screen.getByText('Tags');
+
+        expect(agentsHeading.compareDocumentPosition(dataSyncsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(dataSyncsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?dataSyncs=all');
+        expect(getFilterLink('Scheduled', 'dataSyncs=scheduled')).toHaveAttribute('href', '/?dataSyncs=scheduled');
+    });
+
+    it('keeps only projects with a data sync for All Data Syncs, opening rows on Data Syncs', () => {
+        setUpProjectsWithDataSyncs();
+
+        renderProjects(['/?dataSyncs=all']);
+
+        expect(screen.getByText('Scheduled Project')).toBeInTheDocument();
+        expect(screen.getByText('Manual Project')).toBeInTheDocument();
+        expect(screen.queryByText('Workflow Project')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-list')).toHaveAttribute('data-default-active-tab', 'dataSyncs');
+        expect(screen.getByText('Data Syncs: All Data Syncs')).toBeInTheDocument();
+    });
+
+    it('keeps only projects with a scheduled data sync for Scheduled', () => {
+        setUpProjectsWithDataSyncs();
+
+        renderProjects(['/?dataSyncs=scheduled']);
+
+        expect(screen.getByText('Scheduled Project')).toBeInTheDocument();
+        expect(screen.queryByText('Manual Project')).not.toBeInTheDocument();
+        expect(screen.queryByText('Workflow Project')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-list')).toHaveAttribute('data-default-active-tab', 'dataSyncs');
+    });
+
+    it('clears the active data syncs filter on a second click and keeps the category filter', () => {
+        renderProjects(['/?categoryId=5&dataSyncs=all']);
+
+        expect(screen.getByRole('link', {name: 'All Data Syncs'})).toHaveAttribute('href', '/?categoryId=5');
+        expect(getFilterLink('Scheduled', 'dataSyncs=scheduled')).toHaveAttribute(
+            'href',
+            '/?categoryId=5&dataSyncs=scheduled'
+        );
+    });
+
+    it('picking an agents filter clears the active data syncs filter', () => {
+        renderProjects(['/?dataSyncs=all']);
+
+        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
+    });
+
+    it('carries the active data syncs filter over to the category and tag links', () => {
+        renderProjects(['/?dataSyncs=scheduled']);
+
+        expect(screen.getByRole('link', {name: 'All Categories'})).toHaveAttribute('href', '/?dataSyncs=scheduled');
+    });
+
+    it('offers to create a data sync from an unlocked dialog when no project matches', async () => {
+        hoisted.projects = [{id: 3, name: 'Workflow Project'}];
+
+        renderProjects(['/?dataSyncs=scheduled']);
+
+        expect(screen.getByText('No Matching Projects')).toBeInTheDocument();
+
+        const createButton = screen.getByRole('button', {name: 'Create Data Sync'});
+
+        expect(createButton).toBeInTheDocument();
+
+        await userEvent.click(createButton);
+
+        await waitFor(() => {
+            expect(screen.getByText('Project')).toBeInTheDocument();
+            expect(screen.getByRole('combobox')).toBeInTheDocument();
+        });
     });
 });

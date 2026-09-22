@@ -33,7 +33,6 @@ import {Navigate, createBrowserRouter, redirect, useLocation} from 'react-router
 
 const App = lazy(() => import('@/App'));
 const AccountProfile = lazy(() => import('@/pages/account/settings/AccountProfile'));
-const AiAutoMemories = lazy(() => import('@/pages/automation/ai/memories/Memories'));
 const AiGateway = lazy(() => import('@/pages/automation/ai/gateway/AiGateway'));
 const AiSkills = lazy(() => import('@/pages/automation/ai/skills/AiSkills'));
 const Appearance = lazy(() => import('@/pages/account/settings/Appearance'));
@@ -45,9 +44,9 @@ const AutomationToolInvocationsPage = lazy(() =>
         default: module.AutomationToolInvocations,
     }))
 );
-const ToolInvocationsPage = lazy(() =>
-    import('@/pages/automation/tool-invocations/ToolInvocations').then((module) => ({
-        default: module.ToolInvocations,
+const EmbeddedToolInvocationsPage = lazy(() =>
+    import('@/ee/pages/embedded/tool-invocations/EmbeddedToolInvocations').then((module) => ({
+        default: module.EmbeddedToolInvocations,
     }))
 );
 const AutomationWorkflowExecutions = lazy(() =>
@@ -62,14 +61,12 @@ const KnowledgeBase = lazy(() => import('@/pages/automation/knowledge-base/Knowl
 const KnowledgeBases = lazy(() => import('@/pages/automation/knowledge-bases/KnowledgeBases'));
 const McpServer = lazy(() => import('@/pages/settings/platform/mcp-server/McpServer'));
 const A2aServers = lazy(() => import('@/pages/automation/a2a-servers/A2aServers'));
-const DataSyncs = lazy(() => import('@/pages/automation/data-syncs/DataSyncs'));
-const DataSyncDetail = lazy(() => import('@/pages/automation/data-syncs/DataSyncDetail'));
-const DataSyncDeployments = lazy(() => import('@/pages/automation/data-sync-deployments/DataSyncDeployments'));
 const McpServers = lazy(() => import('@/pages/automation/mcp-servers/McpServers'));
 const Notifications = lazy(() => import('@/pages/settings/platform/notifications/Notifications'));
 const WorkflowAlerts = lazy(() => import('@/pages/settings/platform/workflow-alerts/WorkflowAlerts'));
 const Project = lazy(loadProject);
 const ProjectAgent = lazy(() => import('@/pages/automation/project/ProjectAgent'));
+const ProjectDataSync = lazy(() => import('@/pages/automation/project/ProjectDataSync'));
 const ProjectDeployments = lazy(() => import('@/pages/automation/project-deployments/ProjectDeployments'));
 const ProjectTemplate = lazy(() => import('@/pages/automation/template/project-template/ProjectTemplate'));
 const ProjectTemplates = lazy(() => import('@/pages/automation/templates/project-templates/ProjectTemplates'));
@@ -445,26 +442,6 @@ const platformSettingsRoutes = {
         // under BOTH the /automation and /embedded settings mounts this group is attached to.
         {
             element: (
-                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                    <LazyLoadWrapper>
-                        <AiSkills />
-                    </LazyLoadWrapper>
-                </PrivateRoute>
-            ),
-            path: 'ai/skills',
-        },
-        {
-            element: (
-                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                    <LazyLoadWrapper>
-                        <AiSkills />
-                    </LazyLoadWrapper>
-                </PrivateRoute>
-            ),
-            path: 'ai/skills/:skillId',
-        },
-        {
-            element: (
                 <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}>
                     <LazyLoadWrapper>
                         <AiSkills />
@@ -482,16 +459,6 @@ const platformSettingsRoutes = {
                 </PrivateRoute>
             ),
             path: 'ai/skills/:skillId',
-        },
-        {
-            element: (
-                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                    <LazyLoadWrapper>
-                        <AiAutoMemories />
-                    </LazyLoadWrapper>
-                </PrivateRoute>
-            ),
-            path: 'ai/memories',
         },
         {
             element: (
@@ -998,6 +965,16 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <LazyLoadWrapper>
+                                                <ProjectDataSync />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'projects/:projectId/data-syncs/:dataSyncId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper>
                                                 <ProjectTemplates />
                                             </LazyLoadWrapper>
                                         </PrivateRoute>
@@ -1043,16 +1020,6 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'deployments',
-                                },
-                                {
-                                    element: (
-                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
-                                                <DataSyncDeployments />
-                                            </LazyLoadWrapper>
-                                        </PrivateRoute>
-                                    ),
-                                    path: 'data-sync-deployments',
                                 },
                                 {
                                     children: [
@@ -1108,26 +1075,6 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'a2a-servers',
-                                },
-                                {
-                                    element: (
-                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
-                                                <DataSyncs />
-                                            </LazyLoadWrapper>
-                                        </PrivateRoute>
-                                    ),
-                                    path: 'data-syncs',
-                                },
-                                {
-                                    element: (
-                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
-                                                <DataSyncDetail />
-                                            </LazyLoadWrapper>
-                                        </PrivateRoute>
-                                    ),
-                                    path: 'data-syncs/:dataSyncId',
                                 },
                                 {
                                     element: (
@@ -1321,10 +1268,6 @@ export const getRouter = (queryClient: QueryClient) =>
                                     path: 'ai/skills/:skillId',
                                 },
                                 {
-                                    loader: () => redirect('/automation/settings/ai/memories'),
-                                    path: 'ai/memories',
-                                },
-                                {
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <LazyLoadWrapper hasLeftSidebar>
@@ -1444,12 +1387,13 @@ export const getRouter = (queryClient: QueryClient) =>
                                             import('@/ee/shared/queries/embedded/integrations.queries'),
                                         ]);
 
-                                        return queryClient.ensureQueryData({
+                                        return queryClient.query({
                                             queryFn: () =>
                                                 new IntegrationApi().getIntegration({
                                                     id: parseInt(params.integrationId!),
                                                 }),
                                             queryKey: IntegrationKeys.integration(parseInt(params.integrationId!)),
+                                            staleTime: 'static',
                                         });
                                     },
                                     path: 'integrations/:integrationId/integration-workflows/:integrationWorkflowId',
@@ -1531,7 +1475,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
                                                 <LazyLoadWrapper hasLeftSidebar>
-                                                    <ToolInvocationsPage />
+                                                    <EmbeddedToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>

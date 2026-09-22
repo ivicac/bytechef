@@ -1,6 +1,7 @@
 import {Collapsible, CollapsibleContent} from '@/components/ui/collapsible';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import ProjectListItem from '@/pages/automation/projects/components/project-list/ProjectListItem';
 import {ProjectGitConfigurationI} from '@/shared/edition/project-git/projectGitApi';
 import {Project, Tag} from '@/shared/middleware/automation/configuration';
@@ -9,10 +10,12 @@ import {useEffect, useMemo, useState} from 'react';
 
 import ProjectAgentCreationActions from '../project-agent-list/ProjectAgentCreationActions';
 import ProjectAgentList from '../project-agent-list/ProjectAgentList';
+import ProjectDataSyncCreationActions from '../project-data-sync-list/ProjectDataSyncCreationActions';
+import ProjectDataSyncList from '../project-data-sync-list/ProjectDataSyncList';
 import ProjectWorkflowCreationActions from '../project-workflow-list/ProjectWorkflowCreationActions';
 import ProjectWorkflowList from '../project-workflow-list/ProjectWorkflowList';
 
-export type ProjectListTabType = 'agents' | 'workflows';
+export type ProjectListTabType = 'agents' | 'dataSyncs' | 'workflows';
 
 const ProjectList = ({
     componentDefinitions,
@@ -38,6 +41,7 @@ const ProjectList = ({
     const [activeTabByProjectId, setActiveTabByProjectId] = useState<Record<number, ProjectListTabType>>({});
 
     const {agents} = useAgents();
+    const {dataSyncs} = useDataSyncs();
 
     const agentCountsByProjectId = useMemo(() => {
         const counts = new Map<number, number>();
@@ -50,6 +54,18 @@ const ProjectList = ({
 
         return counts;
     }, [agents]);
+
+    const dataSyncCountsByProjectId = useMemo(() => {
+        const counts = new Map<number, number>();
+
+        for (const dataSync of dataSyncs) {
+            const dataSyncProjectId = +dataSync.projectId;
+
+            counts.set(dataSyncProjectId, (counts.get(dataSyncProjectId) ?? 0) + 1);
+        }
+
+        return counts;
+    }, [dataSyncs]);
 
     // A new default (the agents filter turning on or off) takes over from tabs picked under the previous one.
     useEffect(() => {
@@ -69,6 +85,7 @@ const ProjectList = ({
 
                 const workflowCount = project.projectWorkflowIds?.length || 0;
                 const agentCount = agentCountsByProjectId.get(project.id!) || 0;
+                const dataSyncCount = dataSyncCountsByProjectId.get(project.id!) || 0;
                 const activeTab = activeTabByProjectId[project.id!] || defaultActiveTab;
 
                 return (
@@ -113,23 +130,25 @@ const ProjectList = ({
                                         <TabsTrigger value="workflows">Workflows ({workflowCount})</TabsTrigger>
 
                                         <TabsTrigger value="agents">Agents ({agentCount})</TabsTrigger>
+
+                                        <TabsTrigger value="dataSyncs">Data Syncs ({dataSyncCount})</TabsTrigger>
                                     </TabsList>
 
                                     <div onClick={(event) => event.stopPropagation()}>
                                         {/* An empty tab shows its own centred create button, so the tab row
                                             only carries one while the active tab lists something. */}
 
-                                        {activeTab === 'workflows'
-                                            ? !project.codeWorkflow &&
-                                              workflowCount > 0 && (
-                                                  <ProjectWorkflowCreationActions
-                                                      placement="tabRow"
-                                                      project={project}
-                                                  />
-                                              )
-                                            : agentCount > 0 && (
-                                                  <ProjectAgentCreationActions placement="tabRow" project={project} />
-                                              )}
+                                        {activeTab === 'workflows' && !project.codeWorkflow && workflowCount > 0 && (
+                                            <ProjectWorkflowCreationActions placement="tabRow" project={project} />
+                                        )}
+
+                                        {activeTab === 'agents' && agentCount > 0 && (
+                                            <ProjectAgentCreationActions placement="tabRow" project={project} />
+                                        )}
+
+                                        {activeTab === 'dataSyncs' && dataSyncCount > 0 && (
+                                            <ProjectDataSyncCreationActions placement="tabRow" project={project} />
+                                        )}
                                     </div>
                                 </div>
 
@@ -144,6 +163,10 @@ const ProjectList = ({
 
                                 <TabsContent value="agents">
                                     <ProjectAgentList project={project} />
+                                </TabsContent>
+
+                                <TabsContent value="dataSyncs">
+                                    <ProjectDataSyncList project={project} />
                                 </TabsContent>
                             </Tabs>
                         </CollapsibleContent>
