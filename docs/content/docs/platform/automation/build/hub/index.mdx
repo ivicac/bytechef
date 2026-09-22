@@ -43,7 +43,7 @@ The composer's **provider popup** - the model picker in the composer, on the hom
 - **Agents** - every deployed AI agent (from **Build → Agents**) whose enabled deployment exposes a hosted chat trigger, listed by the agent's title. When none qualifies, the submenu says so rather than disappearing.
 - **Workflows** - every chat-enabled workflow deployed in the selected environment, listed as `project - workflow`. Every pick starts a fresh chat; earlier chats against the same workflow stay in the list.
 
-Agents live in hidden backing projects, so an agent never also appears under **Workflows** - the two lists are disjoint.
+An agent belongs to the project you choose, alongside that project's workflows. The workflow an agent generates is its own, so it never also appears under **Workflows** - the two lists are disjoint.
 
 Below the cascades, the same popup selects which provider and model answers the chat.
 
