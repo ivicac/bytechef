@@ -5,7 +5,9 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectDeploymentWorkflowList from '../ProjectDeploymentWorkflowList';
 
-const {listItemPropsMock} = vi.hoisted(() => ({listItemPropsMock: vi.fn()}));
+const {listItemPropsMock} = vi.hoisted(() => ({
+    listItemPropsMock: vi.fn(),
+}));
 
 vi.mock('@/shared/queries/automation/projectWorkflows.queries', () => ({
     useGetProjectVersionWorkflowsQuery: () => ({

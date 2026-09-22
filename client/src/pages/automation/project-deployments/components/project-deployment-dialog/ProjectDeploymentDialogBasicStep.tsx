@@ -26,9 +26,10 @@ import {Control, UseFormGetValues, UseFormSetValue} from 'react-hook-form';
 import {useShallow} from 'zustand/react/shallow';
 
 /**
- * A deployable agent, as offered in place of the Project picker on the Agent Deployments page. An agent
- * deployment IS a ProjectDeployment of the agent's hidden backing project, so picking one just fills in
- * that project's id and published version — the rest of the dialog is unchanged.
+ * A deployable entity, offered in place of the Project picker when this dialog is opened for an entity other than an
+ * ordinary project (Data Syncs' own deployment dialog). Its deployment IS a ProjectDeployment of the project that
+ * holds its generated workflow, so picking one just fills in that project's id and published version — the rest of
+ * the dialog is unchanged. AI agents do not use this: they are deployed through their project like any workflow.
  */
 export interface DeployableAgentI {
     id: string;
@@ -40,7 +41,7 @@ export interface DeployableAgentI {
 interface ProjectDialogBasicStepProps {
     agentOptions?: DeployableAgentI[];
     /** Label for the entity picker shown in place of the Project combo box when `agentOptions` is given.
-     *  Defaults to 'Agent' so the agent pages' existing behavior stays unchanged. */
+     *  Defaults to 'Agent'. */
     agentOptionsLabel?: string;
     basicStepTab: 'new-deployment' | 'change-version';
     changeProjectVersion: boolean;

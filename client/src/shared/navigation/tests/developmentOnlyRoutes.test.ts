@@ -3,7 +3,7 @@ import {getDevelopmentOnlyFallbackHref, isDevelopmentOnlyHref} from '@/shared/na
 import {describe, expect, it} from 'vitest';
 
 describe('isDevelopmentOnlyHref', () => {
-    it.each(['/automation/projects', '/automation/agents', '/embedded/integrations', '/embedded/automation-workflows'])(
+    it.each(['/automation/projects', '/embedded/integrations', '/embedded/automation-workflows'])(
         'reports %s as development only',
         (href) => {
             expect(isDevelopmentOnlyHref(href)).toBe(true);
@@ -12,7 +12,6 @@ describe('isDevelopmentOnlyHref', () => {
 
     it.each([
         '/automation/deployments',
-        '/automation/agent-deployments',
         '/automation/connections',
         '/embedded/configurations',
         '/embedded/connections',
@@ -33,7 +32,6 @@ describe('getDevelopmentOnlyFallbackHref', () => {
 
     it.each([
         ['/automation/projects', '/automation/deployments'],
-        ['/automation/agents', '/automation/agent-deployments'],
         ['/embedded/integrations', '/embedded/configurations'],
         ['/embedded/automation-workflows', '/embedded/configurations'],
     ])('sends %s to %s in staging', (pathname, fallbackHref) => {
@@ -43,7 +41,7 @@ describe('getDevelopmentOnlyFallbackHref', () => {
     it.each([
         ['/automation/projects/12/project-workflows/34', '/automation/deployments'],
         ['/automation/projects/templates', '/automation/deployments'],
-        ['/automation/agents/12', '/automation/agent-deployments'],
+        ['/automation/projects/12/agents/34', '/automation/deployments'],
         ['/embedded/integrations/12/integration-workflows/34', '/embedded/configurations'],
         ['/embedded/automation-workflows/12/editor', '/embedded/configurations'],
     ])('covers the detail route %s in production', (pathname, fallbackHref) => {

@@ -11,12 +11,19 @@ import {
 import '@/shared/styles/dropdownMenu.css';
 import {EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
 import {ReactNode, useState} from 'react';
+import {twMerge} from 'tailwind-merge';
 
 interface WorkflowListItemDropdownMenuProps {
     children?: ReactNode;
     dialogs?: ReactNode;
     onDelete: () => void;
     onEditClick: () => void;
+    /**
+     * Extra classes for the trigger button. Callers whose row has a `group` hover state (the project editor
+     * sidebar) use this to keep the trigger hidden until the row is hovered or the menu is open, the way the
+     * data tables and agents sidebars do. Defaults to always visible, matching the other callers of this menu.
+     */
+    triggerClassName?: string;
     workflowLabel?: string | null;
 }
 
@@ -25,6 +32,7 @@ const WorkflowListItemDropdownMenu = ({
     dialogs,
     onDelete,
     onEditClick,
+    triggerClassName,
     workflowLabel,
 }: WorkflowListItemDropdownMenuProps) => {
     const [showDeleteWorkflowAlertDialog, setShowDeleteWorkflowAlertDialog] = useState(false);
@@ -37,7 +45,7 @@ const WorkflowListItemDropdownMenu = ({
                 <DropdownMenuTrigger asChild>
                     <Button
                         aria-label={ariaLabel}
-                        className="-mr-px w-6 px-0"
+                        className={twMerge('-mr-px w-6 px-0', triggerClassName)}
                         icon={<EllipsisVerticalIcon />}
                         onClick={(event) => event.stopPropagation()}
                         size="icon"

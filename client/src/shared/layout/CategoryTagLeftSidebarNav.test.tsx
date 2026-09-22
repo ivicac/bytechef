@@ -93,4 +93,23 @@ describe('CategoryTagLeftSidebarNav', () => {
 
         expect(screen.getByTestId('extra-group')).toBeInTheDocument();
     });
+
+    it('places middle groups between the categories and the tags', () => {
+        renderNav({middleGroups: <div data-testid="middle-group" />});
+
+        const middleGroup = screen.getByTestId('middle-group');
+
+        expect(screen.getByText('Categories').compareDocumentPosition(middleGroup)).toBe(
+            Node.DOCUMENT_POSITION_FOLLOWING
+        );
+        expect(middleGroup.compareDocumentPosition(screen.getByText('Tags'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    it('carries preserved search params on every category and tag link', () => {
+        renderNav({preservedSearchParams: 'agents=all'});
+
+        expect(screen.getByText('All Categories').closest('a')).toHaveAttribute('href', '/?agents=all');
+        expect(screen.getByText('AI').closest('a')).toHaveAttribute('href', '/?categoryId=1&agents=all');
+        expect(screen.getByText('api').closest('a')).toHaveAttribute('href', '/?tagId=10&agents=all');
+    });
 });

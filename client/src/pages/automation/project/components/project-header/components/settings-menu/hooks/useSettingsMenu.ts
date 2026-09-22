@@ -15,7 +15,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 
-export const useSettingsMenu = ({project, workflow}: {project: Project; workflow: Workflow}) => {
+export const useSettingsMenu = ({project, workflow}: {project: Project; workflow?: Workflow}) => {
     // Behind the edition seam: the CE default reports no configuration and never fetches.
     const {data: projectGitConfiguration} = getProjectGitApi().useProjectGitConfigurationQuery(project.id!);
 
@@ -91,13 +91,13 @@ export const useSettingsMenu = ({project, workflow}: {project: Project; workflow
 
     const deleteWorkflowMutation = useDeleteWorkflowMutation({
         onSuccess: () => {
-            const deletedWorkflowId = (workflow as Workflow).projectWorkflowId;
+            const deletedWorkflowId = workflow?.projectWorkflowId;
 
             const firstRemainingWorkflowId = project?.projectWorkflowIds?.find(
                 (projectWorkflowId) => projectWorkflowId !== deletedWorkflowId
             );
 
-            if (!projectId || !deletedWorkflowId) {
+            if (!projectId || !deletedWorkflowId || !workflow?.id) {
                 return;
             }
 
@@ -105,7 +105,7 @@ export const useSettingsMenu = ({project, workflow}: {project: Project; workflow
                 queryKey: ProjectWorkflowKeys.projectWorkflow(projectId, deletedWorkflowId),
             });
 
-            queryClient.removeQueries({queryKey: WorkflowKeys.workflow(workflow.id!)});
+            queryClient.removeQueries({queryKey: WorkflowKeys.workflow(workflow.id)});
 
             queryClient.invalidateQueries({
                 queryKey: ProjectWorkflowKeys.projectWorkflows(projectId),
@@ -128,9 +128,9 @@ export const useSettingsMenu = ({project, workflow}: {project: Project; workflow
     });
 
     const handleDeleteWorkflowAlertDialogClick = () => {
-        if (project.id && workflow.id) {
+        if (project.id && workflow?.id) {
             deleteWorkflowMutation.mutate({
-                id: workflow.id!,
+                id: workflow.id,
             });
         }
     };
@@ -140,9 +140,13 @@ export const useSettingsMenu = ({project, workflow}: {project: Project; workflow
     };
 
     const handleDuplicateWorkflowClick = () => {
+        if (!workflow?.id) {
+            return;
+        }
+
         duplicateWorkflowMutation.mutate({
             id: project.id!,
-            workflowId: workflow.id!,
+            workflowId: workflow.id,
         });
     };
 

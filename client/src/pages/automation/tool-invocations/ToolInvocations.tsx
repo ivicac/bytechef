@@ -109,7 +109,7 @@ export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
                 />
             }
             leftSidebarBody={
-                <div className="space-y-4 px-4">
+                <div className="space-y-4 px-2">
                     <div className="flex flex-col space-y-2">
                         <Label>Surface</Label>
 

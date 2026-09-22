@@ -159,8 +159,7 @@ ProjectDeploymentDialogFooter.displayName = 'ProjectDeploymentDialogFooter';
 interface ProjectDeploymentDialogProps {
     agentOptions?: DeployableAgentI[];
     /** Label for the entity picker shown in place of the Project combo box when `agentOptions` is given.
-     *  Defaults to 'Agent' (via ProjectDeploymentDialogBasicStep) so the agent pages' existing behavior
-     *  stays unchanged. */
+     *  Defaults to 'Agent' (via ProjectDeploymentDialogBasicStep). */
     agentOptionsLabel?: string;
     changeProjectVersion?: boolean;
     environmentEditable?: boolean;

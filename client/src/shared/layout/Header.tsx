@@ -33,10 +33,9 @@ const Header = ({
         // right-aligned action away from the edge the search box and rows below still reach.
         <header
             className={twMerge(
-                'py-3',
-                // px-3 in a sidebar so the title lines up with the rows beneath it; the main header keeps px-4,
-                // where there is nothing below to align to.
-                position === 'sidebar' ? 'px-3' : 'px-4',
+                // px-4 in a sidebar puts the title at 16px, where the rows beneath it land: LayoutContainer
+                // insets the sidebar body by px-2 and each row, subtitle and search box adds its own px-2.
+                'px-4 py-3',
                 position === 'main' && (centerTitle ? '3xl:mx-auto 3xl:w-4/5' : '3xl:w-4/5'),
                 className
             )}

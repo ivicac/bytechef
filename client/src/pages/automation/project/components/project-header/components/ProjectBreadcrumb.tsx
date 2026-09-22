@@ -1,43 +1,26 @@
 import {Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbSeparator} from '@/components/ui/breadcrumb';
 import ProjectTitle from '@/pages/automation/project/components/project-header/components/ProjectTitle';
-import WorkflowSelect from '@/pages/automation/project/components/project-header/components/WorkflowSelect';
-import {Project, Workflow} from '@/shared/middleware/automation/configuration';
+import {Project} from '@/shared/middleware/automation/configuration';
+import {ReactNode} from 'react';
 
 export interface ProjectBreadcrumbProps {
-    currentWorkflow: Workflow;
-    onProjectWorkflowValueChange: (projectWorkflowId: number) => void;
+    /** The current-item switcher (e.g. ProjectItemSelect) shown after the project title, if any. */
+    itemSelect?: ReactNode;
     project: Project;
-    projectWorkflowId: number;
-    projectWorkflows: Workflow[];
-    showWorkflowSelect?: boolean;
 }
-const ProjectBreadcrumb = ({
-    currentWorkflow,
-    onProjectWorkflowValueChange,
-    project,
-    projectWorkflowId,
-    projectWorkflows,
-    showWorkflowSelect = true,
-}: ProjectBreadcrumbProps) => (
+
+const ProjectBreadcrumb = ({itemSelect, project}: ProjectBreadcrumbProps) => (
     <Breadcrumb>
         <BreadcrumbList>
             <BreadcrumbItem>
                 <ProjectTitle project={project} />
             </BreadcrumbItem>
 
-            {showWorkflowSelect && (
+            {itemSelect && (
                 <>
                     <BreadcrumbSeparator />
 
-                    <BreadcrumbItem>
-                        <WorkflowSelect
-                            currentWorkflowLabel={currentWorkflow.label}
-                            onValueChange={onProjectWorkflowValueChange}
-                            projectId={project.id!}
-                            projectWorkflowId={projectWorkflowId}
-                            projectWorkflows={projectWorkflows}
-                        />
-                    </BreadcrumbItem>
+                    <BreadcrumbItem>{itemSelect}</BreadcrumbItem>
                 </>
             )}
         </BreadcrumbList>

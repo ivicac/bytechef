@@ -172,7 +172,7 @@ const LayoutContainer = ({
 
                             <div className="absolute inset-0 mt-5 overflow-auto">
                                 <nav className="flex h-full flex-col bg-muted/50">
-                                    <div className="space-y-1">{leftSidebarBody}</div>
+                                    <div className="space-y-1 px-2">{leftSidebarBody}</div>
                                 </nav>
                             </div>
                         </div>
@@ -200,7 +200,11 @@ const LayoutContainer = ({
                         <nav className="flex h-full flex-col">
                             {leftSidebarHeader}
 
-                            <div className="size-full overflow-y-auto">{leftSidebarBody}</div>
+                            {/* px-2 insets every row highlight 8px from both edges of the rail; rows, subtitles
+                                and search boxes add their own px-2, landing their text at 16px beside the
+                                header's px-4 title. A body must not bring its own root padding on top. */}
+
+                            <div className="size-full overflow-y-auto px-2">{leftSidebarBody}</div>
                         </nav>
                     </aside>
                 )}

@@ -63,7 +63,7 @@ const LeftSidebarFilterNav = ({
                               toLink={item.toLink}
                           />
                       ))
-                    : emptyMessage && <span className="px-3 text-xs">{emptyMessage}</span>}
+                    : emptyMessage && <span className="px-2 text-xs">{emptyMessage}</span>}
             </>
         }
         className={className}

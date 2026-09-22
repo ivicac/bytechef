@@ -1,12 +1,11 @@
 import {ButtonGroup} from '@/components/ui/button-group';
-import {Separator} from '@/components/ui/separator';
 import DeployButton from '@/pages/automation/project/components/project-header/components/DeployButton';
 import OutputPanelButton from '@/pages/automation/project/components/project-header/components/OutputButton';
 import ProjectBreadcrumb from '@/pages/automation/project/components/project-header/components/ProjectBreadcrumb';
+import ProjectItemSelect from '@/pages/automation/project/components/project-header/components/ProjectItemSelect';
 import ProjectSkeleton from '@/pages/automation/project/components/project-header/components/ProjectSkeleton';
 import PublishPopover from '@/pages/automation/project/components/project-header/components/PublishPopover';
 import WorkflowActionsButton from '@/pages/automation/project/components/project-header/components/WorkflowActionsButton';
-import WorkflowSelect from '@/pages/automation/project/components/project-header/components/WorkflowSelect';
 import SettingsMenu from '@/pages/automation/project/components/project-header/components/settings-menu/SettingsMenu';
 import {useProjectHeader} from '@/pages/automation/project/components/project-header/hooks/useProjectHeader';
 import useProjectsLeftSidebarStore from '@/pages/automation/project/stores/useProjectsLeftSidebarStore';
@@ -101,7 +100,7 @@ const ProjectHeader = ({
                 !embedded && copilotLayoutShifted && 'pr-0'
             )}
         >
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
                 {/* The embedded AI Hub workflow editor opens each workflow as its own resource-panel tab and
                  * has no project tree, so the breadcrumb, workflow selector, and the project-sidebar toggle
                  * are all redundant there — hidden behind `embedded`. The full-screen Project page keeps them. */}
@@ -112,27 +111,29 @@ const ProjectHeader = ({
                             onLeftSidebarOpenClick={() => setProjectLeftSidebarOpen(!projectLeftSidebarOpen)}
                         />
 
-                        <Separator className="mr-4 ml-2 h-4" orientation="vertical" />
-
                         {projectWorkflows && (
                             <ProjectBreadcrumb
-                                currentWorkflow={workflow}
-                                onProjectWorkflowValueChange={handleProjectWorkflowValueChange}
+                                itemSelect={
+                                    <ProjectItemSelect
+                                        currentLabel={workflow?.label}
+                                        currentProjectWorkflowId={projectWorkflowId}
+                                        onWorkflowValueChange={handleProjectWorkflowValueChange}
+                                        projectId={project.id!}
+                                        projectWorkflows={projectWorkflows}
+                                    />
+                                }
                                 project={project}
-                                projectWorkflowId={projectWorkflowId}
-                                projectWorkflows={projectWorkflows}
-                                showWorkflowSelect
                             />
                         )}
                     </>
                 )}
 
                 {embedded && showWorkflowSelect && projectWorkflows && (
-                    <WorkflowSelect
-                        currentWorkflowLabel={workflow?.label}
-                        onValueChange={onWorkflowChange ?? handleProjectWorkflowValueChange}
+                    <ProjectItemSelect
+                        currentLabel={workflow?.label}
+                        currentProjectWorkflowId={projectWorkflowId}
+                        onWorkflowValueChange={onWorkflowChange ?? handleProjectWorkflowValueChange}
                         projectId={projectId}
-                        projectWorkflowId={projectWorkflowId}
                         projectWorkflows={projectWorkflows}
                     />
                 )}

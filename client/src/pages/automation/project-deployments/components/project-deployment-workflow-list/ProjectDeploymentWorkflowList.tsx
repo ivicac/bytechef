@@ -116,8 +116,6 @@ const ProjectDeploymentWorkflowList = ({
 
     return (
         <div className="pt-3">
-            <h3 className="flex justify-start pl-3 text-sm heading-tertiary">Workflows</h3>
-
             {enabledWorkflows.length === 0 ? (
                 <p className="py-4 pl-3 text-sm text-muted-foreground">
                     No enabled workflows. Enable a workflow in the project to run it in this deployment.

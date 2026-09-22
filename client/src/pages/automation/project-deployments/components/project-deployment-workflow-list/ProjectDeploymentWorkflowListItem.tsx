@@ -14,7 +14,7 @@ import {useEnableProjectDeploymentWorkflowMutation} from '@/shared/mutations/aut
 import {ProjectDeploymentKeys} from '@/shared/queries/automation/projectDeployments.queries';
 import {useQueryClient} from '@tanstack/react-query';
 import {useCopyToClipboard} from '@uidotdev/usehooks';
-import {ClipboardIcon, FormIcon, MessageCircleMoreIcon, PlayIcon} from 'lucide-react';
+import {ClipboardIcon, FormIcon, MessageCircleMoreIcon, PlayIcon, WorkflowIcon} from 'lucide-react';
 import {MouseEvent, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {toast} from 'sonner';
@@ -135,22 +135,26 @@ const ProjectDeploymentWorkflowListItem = ({
         <li className="flex items-center justify-between rounded-md px-3 py-1 hover:bg-surface-neutral-primary-hover">
             <div className="flex min-w-0 flex-1 cursor-pointer items-center" onClick={handleWorkflowClick}>
                 <div className="flex w-full max-w-80 min-w-0 shrink flex-col gap-1">
-                    <Tooltip>
-                        <TooltipTrigger className="line-clamp-1 w-full truncate text-start">
-                            <span
-                                className={twMerge(
-                                    'block truncate text-sm font-semibold',
-                                    !enabled && 'text-content-neutral-secondary'
-                                )}
-                            >
-                                {workflow.label}
-                            </span>
-                        </TooltipTrigger>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <WorkflowIcon className="size-4 shrink-0 text-content-neutral-secondary" />
 
-                        <TooltipContent align="start" className="max-w-md break-all">
-                            {workflow.label}
-                        </TooltipContent>
-                    </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger className="line-clamp-1 min-w-0 flex-1 truncate text-start">
+                                <span
+                                    className={twMerge(
+                                        'block truncate text-sm font-semibold',
+                                        !enabled && 'text-content-neutral-secondary'
+                                    )}
+                                >
+                                    {workflow.label}
+                                </span>
+                            </TooltipTrigger>
+
+                            <TooltipContent align="start" className="max-w-md break-all">
+                                {workflow.label}
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
 
                     <div className="flex gap-x-6 xl:hidden">
                         {projectDeploymentWorkflow?.lastExecutionDate ? (

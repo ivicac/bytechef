@@ -135,6 +135,7 @@ const WorkflowsListItemDropdownMenu = ({currentWorkflowId, project, workflow}: W
             }
             onDelete={() => deleteWorkflowMutation.mutate({id: workflow.id!})}
             onEditClick={() => setShowEditWorkflowDialog(true)}
+            triggerClassName="opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
             workflowLabel={workflow.label}
         >
             <DropdownMenuItem

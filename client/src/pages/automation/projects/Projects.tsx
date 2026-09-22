@@ -4,6 +4,11 @@ import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import AgentsFilterLeftSidebarNav, {
+    getAgentsFilter,
+} from '@/pages/automation/agents/components/AgentsFilterLeftSidebarNav';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import isScheduledAgent from '@/pages/automation/agents/utils/isScheduledAgent';
 import loadProject from '@/pages/automation/project/loadProject';
 import handleImportProject from '@/pages/automation/project/utils/handleImportProject';
 import ProjectsFilterTitle from '@/pages/automation/projects/components/ProjectsFilterTitle';
@@ -26,7 +31,7 @@ import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/ta
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {ChevronDownIcon, CodeIcon, FolderIcon, LayoutTemplateIcon, UploadIcon} from 'lucide-react';
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 
@@ -67,12 +72,14 @@ const Projects = () => {
     const categoryId = searchParams.get('categoryId');
     const tagId = searchParams.get('tagId');
 
+    const agentsFilter = getAgentsFilter(searchParams);
+
     const filterData = {
         id: categoryId ? parseInt(categoryId) : tagId ? parseInt(tagId) : undefined,
         type: tagId ? Type.Tag : Type.Category,
     };
 
-    const isFiltered = filterData.id !== undefined;
+    const isFiltered = filterData.id !== undefined || agentsFilter !== undefined;
 
     const {data: componentDefinitions} = useGetComponentDefinitionsQuery({
         actionDefinitions: true,
@@ -114,6 +121,23 @@ const Projects = () => {
     const {data: tags, error: tagsError, isLoading: tagsIsLoading} = useGetProjectTagsQuery(currentWorkspaceId!);
 
     const {data: taskDispatcherDefinitions} = useGetTaskDispatcherDefinitionsQuery();
+
+    const {agents, agentsError, agentsIsLoading} = useAgents();
+
+    // Client-side on top of the server's category/tag filter, so the two combine. Agents carry their project id
+    // as a GraphQL string, hence the numeric comparison.
+    const filteredProjects = useMemo(() => {
+        if (!projects || !agentsFilter) {
+            return projects;
+        }
+
+        const matchingAgents =
+            agentsFilter === 'scheduled' ? agents.filter((agent) => isScheduledAgent(agent)) : agents;
+
+        const agentProjectIds = new Set(matchingAgents.map((agent) => +agent.projectId));
+
+        return projects.filter((project) => agentProjectIds.has(project.id!));
+    }, [agents, agentsFilter, projects]);
 
     useEffect(() => {
         loadProject();
@@ -187,7 +211,12 @@ const Projects = () => {
                     }
                     title={
                         (projects && projects.length > 0) || isFiltered ? (
-                            <ProjectsFilterTitle categories={categories} filterData={filterData} tags={tags} />
+                            <ProjectsFilterTitle
+                                agentsFilter={agentsFilter}
+                                categories={categories}
+                                filterData={filterData}
+                                tags={tags}
+                            />
                         ) : (
                             ''
                         )
@@ -200,6 +229,8 @@ const Projects = () => {
                     categoriesIsLoading={categoriesIsLoading}
                     currentCategoryId={categoryId ? parseInt(categoryId) : undefined}
                     currentTagId={tagId ? parseInt(tagId) : undefined}
+                    middleGroups={<AgentsFilterLeftSidebarNav currentAgentsFilter={agentsFilter} />}
+                    preservedSearchParams={agentsFilter ? `agents=${agentsFilter}` : undefined}
                     tags={tags}
                     tagsClassName="mb-0"
                     tagsEmptyMessage="No defined tags."
@@ -210,16 +241,29 @@ const Projects = () => {
             leftSidebarWidth="64"
         >
             <PageLoader
-                errors={[categoriesError, projectGitConfigurationsError, projectsError, tagsError]}
-                loading={categoriesIsLoading || projectGitConfigurationsIsLoading || projectsIsLoading || tagsIsLoading}
+                errors={[
+                    categoriesError,
+                    projectGitConfigurationsError,
+                    projectsError,
+                    tagsError,
+                    agentsFilter ? agentsError : null,
+                ]}
+                loading={
+                    categoriesIsLoading ||
+                    projectGitConfigurationsIsLoading ||
+                    projectsIsLoading ||
+                    tagsIsLoading ||
+                    (!!agentsFilter && agentsIsLoading)
+                }
             >
-                {projects && projects?.length > 0 && tags ? (
+                {filteredProjects && filteredProjects.length > 0 && tags ? (
                     <ProjectList
                         componentDefinitions={componentDefinitions}
+                        defaultActiveTab={agentsFilter ? 'agents' : 'workflows'}
                         isRefetchingProjects={isRefetchingProjects}
                         newlyCreatedProjectId={newlyCreatedProjectId}
                         projectGitConfigurations={projectGitConfigurations ?? []}
-                        projects={projects}
+                        projects={filteredProjects}
                         tags={tags}
                         taskDispatcherDefinitions={taskDispatcherDefinitions}
                     />

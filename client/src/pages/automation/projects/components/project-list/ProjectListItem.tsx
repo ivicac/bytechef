@@ -13,7 +13,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {ButtonGroup} from '@/components/ui/button-group';
 import {CollapsibleTrigger} from '@/components/ui/collapsible';
 import {
     DropdownMenu,
@@ -23,32 +22,23 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import ProjectDeploymentDialog from '@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
-import {useConvertN8nToWorkflow} from '@/pages/automation/project/hooks/useConverterN8nToWorkflow';
-import handleImportN8nWorkflow from '@/pages/automation/project/utils/handleImportN8nWorkflow';
-import handleImportWorkflow from '@/pages/automation/project/utils/handleImportWorkflow';
 import ProjectPublishDialog from '@/pages/automation/projects/components/ProjectPublishDialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
-import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import ResourceVisibilityBadge from '@/shared/components/visibility/ResourceVisibilityBadge';
 import ResourceVisibilityPicker from '@/shared/components/visibility/ResourceVisibilityPicker';
-import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import EEVersion from '@/shared/edition/EEVersion';
 import {ProjectGitConfigurationI, getProjectGitApi} from '@/shared/edition/project-git/projectGitApi';
-import {useAnalytics} from '@/shared/hooks/useAnalytics';
-import {useHasEnabledAiProvider} from '@/shared/hooks/useHasEnabledAiProvider';
 import {useProjectVisibility} from '@/shared/hooks/useProjectVisibility';
 import {Project, Tag} from '@/shared/middleware/automation/configuration';
 import {useUpdateProjectTagsMutation} from '@/shared/mutations/automation/projectTags.mutations';
 import {useDeleteProjectMutation, useDuplicateProjectMutation} from '@/shared/mutations/automation/projects.mutations';
-import {useCreateProjectWorkflowMutation} from '@/shared/mutations/automation/workflows.mutations';
 import {ProjectCategoryKeys} from '@/shared/queries/automation/projectCategories.queries';
 import {useGetWorkspaceProjectDeploymentsQuery} from '@/shared/queries/automation/projectDeployments.queries';
 import {ProjectTagKeys} from '@/shared/queries/automation/projectTags.queries';
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
-import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
@@ -60,18 +50,13 @@ import {
     EllipsisVerticalIcon,
     GitBranchIcon,
     GitPullRequestArrowIcon,
-    LayoutTemplateIcon,
-    LoaderCircleIcon,
-    PlusIcon,
     RocketIcon,
     SendIcon,
     Share2Icon,
-    SparklesIcon,
     Trash2Icon,
-    UploadIcon,
     WorkflowIcon,
 } from 'lucide-react';
-import {MouseEvent, Suspense, lazy, useCallback, useRef, useState} from 'react';
+import {MouseEvent, Suspense, lazy, useCallback, useMemo, useRef, useState} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 
@@ -96,19 +81,13 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showPublishProjectDialog, setShowPublishProjectDialog] = useState(false);
-    const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
 
-    const hiddenFileInputRef = useRef<HTMLInputElement>(null);
-    const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
     const workflowsCollapsibleTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-    const {captureProjectWorkflowCreated, captureProjectWorkflowImported} = useAnalytics();
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.projects);
 
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const openCopilot = useOpenCopilot();
-    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -126,21 +105,14 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
 
     const queryClient = useQueryClient();
 
-    const {convertN8nWorkflow} = useConvertN8nToWorkflow();
-    const {hasEnabledAiProvider, isPending: isAiProviderCheckPending} = useHasEnabledAiProvider();
+    const {agents} = useAgents();
 
-    const importN8nWorkflowDisabled = !isAiProviderCheckPending && !hasEnabledAiProvider;
-    const [isImportingN8nWorkflow, setIsImportingN8nWorkflow] = useState(false);
+    const workflowCount = project.projectWorkflowIds?.length ?? 0;
 
-    const createProjectWorkflowMutation = useCreateProjectWorkflowMutation({
-        onSuccess: (response) => {
-            captureProjectWorkflowCreated();
-
-            queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
-
-            navigate(`/automation/projects/${project.id}/project-workflows/${response.projectWorkflowId}`);
-        },
-    });
+    const agentCount = useMemo(
+        () => agents.filter((agent) => +agent.projectId === project.id).length,
+        [agents, project.id]
+    );
 
     const deleteProjectMutation = useDeleteProjectMutation({
         onSuccess: (_, projectId) => {
@@ -162,25 +134,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
             queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
 
             toast('Project duplicated successfully.');
-        },
-    });
-
-    const importProjectWorkflowMutation = useCreateProjectWorkflowMutation({
-        onSuccess: () => {
-            captureProjectWorkflowImported();
-
-            queryClient.invalidateQueries({queryKey: ProjectKeys.project(project.id!)});
-            queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
-
-            if (hiddenFileInputRef.current) {
-                hiddenFileInputRef.current.value = '';
-            }
-
-            toast('Workflow is imported.');
-
-            if (workflowsCollapsibleTriggerRef.current?.getAttribute('data-state') === 'closed') {
-                workflowsCollapsibleTriggerRef.current.click();
-            }
         },
     });
 
@@ -360,136 +313,18 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                             )}
                         </div>
 
-                        <div className="relative mt-2 min-h-7 sm:flex sm:items-center sm:justify-between">
-                            {/* min-h matches the xs workflow-creation button so code-project rows (which hide it)
-                                keep the same row height and vertical alignment as visual-project rows. */}
-
+                        <div className="relative mt-2 sm:flex sm:items-center sm:justify-between">
                             <div className="flex min-h-6 items-center gap-2">
                                 <CollapsibleTrigger
                                     className="group flex min-w-28 items-center text-xs font-semibold text-muted-foreground"
                                     ref={workflowsCollapsibleTriggerRef}
                                 >
                                     <div className="mr-1">
-                                        {project.projectWorkflowIds?.length === 1
-                                            ? `${project.projectWorkflowIds?.length} workflow`
-                                            : `${project.projectWorkflowIds?.length} workflows`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
                                     </div>
 
                                     <ChevronDownIcon className="size-4 duration-300 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
-
-                                {!project.codeWorkflow && (
-                                    <ButtonGroup aria-label="Workflow Creation Actions">
-                                        <Button
-                                            aria-label="Create Workflow"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-
-                                                setShowWorkflowDialog(true);
-                                            }}
-                                            size="xs"
-                                            variant="outline"
-                                        >
-                                            <PlusIcon />
-                                            Workflow
-                                        </Button>
-
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    aria-label="More Workflow Creation Actions"
-                                                    icon={
-                                                        isImportingN8nWorkflow ? (
-                                                            <LoaderCircleIcon className="animate-spin text-primary" />
-                                                        ) : (
-                                                            <ChevronDownIcon />
-                                                        )
-                                                    }
-                                                    size="xs"
-                                                    variant="outline"
-                                                >
-                                                    <> </>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-
-                                            <DropdownMenuContent align="end" className="p-0">
-                                                {copilotEnabled && (
-                                                    <DropdownMenuItem
-                                                        aria-label="Generate Workflow with AI"
-                                                        className="dropdown-menu-item"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-
-                                                            openCopilot({
-                                                                composerPlaceholder:
-                                                                    'When a new Gmail email arrives, post a summary to a Slack channel.',
-                                                                mode: MODE.BUILD,
-                                                                parameters: {
-                                                                    intent: 'generate_workflow',
-                                                                    projectId: project.id,
-                                                                },
-                                                                source: Source.PROJECT,
-                                                            });
-                                                        }}
-                                                    >
-                                                        <SparklesIcon /> Generate with AI
-                                                    </DropdownMenuItem>
-                                                )}
-
-                                                <DropdownMenuItem
-                                                    aria-label="Create Workflow from Template"
-                                                    className="dropdown-menu-item"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-
-                                                        navigate(`./${project.id}/templates`);
-                                                    }}
-                                                >
-                                                    <LayoutTemplateIcon /> From Template
-                                                </DropdownMenuItem>
-
-                                                <DropdownMenuItem
-                                                    aria-label="Import Workflow"
-                                                    className="dropdown-menu-item"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-
-                                                        if (hiddenFileInputRef.current) {
-                                                            hiddenFileInputRef.current.click();
-                                                        }
-                                                    }}
-                                                >
-                                                    <UploadIcon /> Import Workflow
-                                                </DropdownMenuItem>
-
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <span className="block">
-                                                            <DropdownMenuItem
-                                                                aria-label="Import n8n Workflow"
-                                                                className="dropdown-menu-item"
-                                                                disabled={importN8nWorkflowDisabled}
-                                                                onClick={() => {
-                                                                    if (converterHiddenFileInputRef.current) {
-                                                                        converterHiddenFileInputRef.current.click();
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <UploadIcon /> Import n8n Workflow
-                                                            </DropdownMenuItem>
-                                                        </span>
-                                                    </TooltipTrigger>
-
-                                                    {importN8nWorkflowDisabled && (
-                                                        <TooltipContent>
-                                                            Enable an AI provider to import n8n workflows.
-                                                        </TooltipContent>
-                                                    )}
-                                                </Tooltip>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </ButtonGroup>
-                                )}
 
                                 <div onClick={(event) => event.stopPropagation()}>
                                     {project.tags && (
@@ -752,51 +587,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
             {showPublishProjectDialog && !!project.id && (
                 <ProjectPublishDialog onClose={() => setShowPublishProjectDialog(false)} project={project} />
             )}
-
-            {showWorkflowDialog && (
-                <WorkflowDialog
-                    createWorkflowMutation={createProjectWorkflowMutation}
-                    onClose={() => setShowWorkflowDialog(false)}
-                    parentId={project.id}
-                    useGetWorkflowQuery={useGetWorkflowQuery}
-                />
-            )}
-
-            <input
-                accept=".json,.yaml,.yml"
-                alt="file"
-                className="hidden"
-                data-testid={`${project.id}-importWorkflowHiddenInput`}
-                onChange={(event) => handleImportWorkflow(event, project.id!, importProjectWorkflowMutation)}
-                ref={hiddenFileInputRef}
-                type="file"
-            />
-
-            <input
-                accept=".json"
-                className="hidden"
-                onChange={async (event) => {
-                    if (!event.target.files?.length) return;
-
-                    try {
-                        setIsImportingN8nWorkflow(true);
-                        await handleImportN8nWorkflow(
-                            event,
-                            project.id!,
-                            importProjectWorkflowMutation,
-                            convertN8nWorkflow
-                        );
-                    } finally {
-                        setIsImportingN8nWorkflow(false);
-
-                        if (converterHiddenFileInputRef.current) {
-                            converterHiddenFileInputRef.current.value = '';
-                        }
-                    }
-                }}
-                ref={converterHiddenFileInputRef}
-                type="file"
-            />
         </>
     );
 };
