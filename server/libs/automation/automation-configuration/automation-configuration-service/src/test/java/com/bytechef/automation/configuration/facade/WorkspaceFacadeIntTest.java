@@ -44,6 +44,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -157,6 +158,16 @@ class WorkspaceFacadeIntTest {
             when(permissionService.isTenantAdmin()).thenReturn(true);
 
             assertNotDenied(() -> workspaceFacade.getUserWorkspaces(USER_ID));
+        }
+
+        @Test
+        void testGetMyWorkspacesIsGatedOnAuthentication() {
+            assertNotDenied(() -> workspaceFacade.getMyWorkspaces());
+
+            SecurityContextHolder.clearContext();
+
+            assertThatThrownBy(() -> workspaceFacade.getMyWorkspaces())
+                .isInstanceOfAny(AccessDeniedException.class, AuthenticationCredentialsNotFoundException.class);
         }
 
         private static void assertDenied(ThrowingCallable call) {

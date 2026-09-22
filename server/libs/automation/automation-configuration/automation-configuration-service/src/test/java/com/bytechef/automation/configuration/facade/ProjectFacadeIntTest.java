@@ -116,10 +116,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     PostgreSQLContainerConfiguration.class, ProjectFacadeIntTest.RecordingDeleteListenerConfiguration.class
 })
 @ProjectIntTestConfigurationSharedMocks
-// The project list surfaces resolve visibility against the current principal, so they need one — the same treatment
-// WorkspaceConnectionFacadeIntTest already gets. In production every one of them is @PreAuthorize-gated, and those
-// gates deny an unauthenticated caller long before the resolver is reached.
-@WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
 public class ProjectFacadeIntTest {
 
     @Autowired
@@ -477,6 +473,57 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    public void testExportProjectSkipsDataSyncWorkflows() throws Exception {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        ProjectWorkflow dataSyncProjectWorkflow = addDataSyncWorkflow(projectDTO);
+
+        byte[] exportedData = projectFacade.exportProject(projectDTO.id(), null);
+
+        List<String> workflowEntryNames = new ArrayList<>();
+
+        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(exportedData))) {
+            ZipEntry zipEntry;
+
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+                String name = zipEntry.getName();
+
+                if (name.startsWith("workflow-")) {
+                    workflowEntryNames.add(name);
+                }
+
+                zipInputStream.closeEntry();
+            }
+        }
+
+        assertThat(workflowEntryNames).hasSize(1)
+            .doesNotContain("workflow-" + dataSyncProjectWorkflow.getUuid() + ".json");
+
+        long importedProjectId = projectFacade.importProject(exportedData, workspace.getId());
+
+        assertThat(projectWorkflowServiceImpl.getProjectWorkflows(importedProjectId))
+            .extracting(ProjectWorkflow::getType)
+            .containsExactly(ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Test
+    public void testDuplicateProjectSkipsDataSyncWorkflows() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        ProjectDTO duplicatedProjectDTO = projectFacade.duplicateProject(projectDTO.id());
+
+        assertThat(projectWorkflowServiceImpl.getProjectWorkflows(Objects.requireNonNull(duplicatedProjectDTO.id())))
+            .extracting(ProjectWorkflow::getType)
+            .containsExactly(ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Test
     public void testExportProjectInvalidId() {
         Assertions.assertThrows(
             Exception.class,
@@ -581,6 +628,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testGetProjects() {
         List<ProjectDTO> testProjectDTOs = new ArrayList<>();
 
@@ -923,6 +971,43 @@ public class ProjectFacadeIntTest {
             .toList();
     }
 
+    @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
+    public void testWorkspaceLatestProjectWorkflowsLeaveOutDataSyncWorkflows() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        ProjectWorkflowDTO ordinaryWorkflow = projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        List<WorkspaceProjectWorkflowDTO> workspaceProjectWorkflows =
+            projectFacade.getWorkspaceLatestProjectWorkflows(workspace.getId());
+
+        assertThat(workspaceProjectWorkflows)
+            .extracting(WorkspaceProjectWorkflowDTO::workflowId)
+            .containsExactly(ordinaryWorkflow.getId());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
+    public void testWorkspaceProjectsProjectWorkflowIdsCountsUserWorkflowsOnly() {
+        ProjectDTO projectDTO = projectFacadeInstanceHelper.createProject(workspace.getId());
+
+        ProjectWorkflowDTO ordinaryWorkflow = projectFacadeInstanceHelper.addTestWorkflow(projectDTO);
+
+        addDataSyncWorkflow(projectDTO);
+
+        List<ProjectDTO> workspaceProjects = projectFacade.getWorkspaceProjects(
+            null, null, true, null, null, null, workspace.getId());
+
+        ProjectDTO reloadedProjectDTO = workspaceProjects.stream()
+            .filter(candidate -> Objects.equals(candidate.id(), projectDTO.id()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(reloadedProjectDTO.projectWorkflowIds()).containsExactly(ordinaryWorkflow.getProjectWorkflowId());
+    }
+
     private void createTestProjectWorkflows(int workspaceCount, int projectCount, int workflowCount) {
         for (int i = 0; i < workspaceCount; i++) {
             Workspace testWorkspace = workspaceRepository.save(new Workspace("test_workspace_" + i));
@@ -1083,6 +1168,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testImportProjectTemplatePreBuilt() {
         List<ProjectDTO> initialProjects = projectFacade.getProjects(null, null, null, null);
         int initialCount = initialProjects.size();
@@ -1133,6 +1219,7 @@ public class ProjectFacadeIntTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
     public void testImportProjectTemplateShared() {
         List<ProjectDTO> initialProjects = projectFacade.getProjects(null, null, null, null);
         int initialCount = initialProjects.size();
@@ -1589,6 +1676,18 @@ public class ProjectFacadeIntTest {
                 assertThat(workspaceProjectWorkflow.workflowLabel()).startsWith("test_workflow_label_");
                 assertThat(projectIds).contains(workspaceProjectWorkflow.projectId());
             });
+    }
+
+    private ProjectWorkflow addDataSyncWorkflow(ProjectDTO projectDTO) {
+        Workflow dataSyncWorkflow = workflowService.create(
+            "{\"label\":\"data sync\",\"tasks\":[]}", Workflow.Format.JSON, Workflow.SourceType.JDBC);
+
+        Project project = projectRepository.findById(Objects.requireNonNull(projectDTO.id()))
+            .orElseThrow();
+
+        return projectWorkflowServiceImpl.addWorkflow(
+            project.getId(), project.getLastProjectVersion(), dataSyncWorkflow.getId(),
+            ProjectWorkflowType.DATA_SYNC);
     }
 
     @TestConfiguration

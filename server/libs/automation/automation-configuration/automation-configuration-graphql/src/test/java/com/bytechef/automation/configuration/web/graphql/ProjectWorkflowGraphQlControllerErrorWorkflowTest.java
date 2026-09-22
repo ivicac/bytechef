@@ -141,4 +141,30 @@ class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
 
         Assertions.assertEquals(List.of(eligible), result);
     }
+
+    @Test
+    void testEligibleErrorWorkflowsExcludesDataSyncWorkflows() {
+        ProjectWorkflow eligible = new ProjectWorkflow(1L);
+
+        eligible.setWorkflowId("wf-1");
+
+        ProjectWorkflow dataSyncWorkflow = new ProjectWorkflow(2L);
+
+        dataSyncWorkflow.setWorkflowId("wf-2");
+        dataSyncWorkflow.setType(ProjectWorkflowType.DATA_SYNC);
+
+        Mockito.when(projectWorkflowService.getProjectWorkflows(1L, 3))
+            .thenReturn(List.of(eligible, dataSyncWorkflow));
+
+        Workflow errorHandlerWorkflow = new Workflow(
+            "wf-1", "{\"triggers\":[{\"name\":\"t1\",\"type\":\"workflow/v1/newWorkflowError\"}],\"tasks\":[]}",
+            Workflow.Format.JSON);
+
+        Mockito.when(workflowService.getWorkflow("wf-1"))
+            .thenReturn(errorHandlerWorkflow);
+
+        List<ProjectWorkflow> result = projectWorkflowGraphQlController.eligibleErrorWorkflows(1L, 3);
+
+        Assertions.assertEquals(List.of(eligible), result);
+    }
 }

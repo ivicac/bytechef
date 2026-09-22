@@ -163,6 +163,57 @@ class ProjectWorkflowServiceIntTest {
             .containsOnly(ProjectWorkflowType.AI_AGENT);
     }
 
+    @Test
+    public void testPublishWorkflowKeepsDataSyncTypeOnBothRows() {
+        Project project = projectRepository.save(getProject());
+
+        long projectId = Validate.notNull(project.getId(), "id");
+        int initialVersion = project.getLastProjectVersion();
+
+        ProjectWorkflow dataSyncProjectWorkflow = projectWorkflowService.addWorkflow(
+            projectId, initialVersion, "dataSyncWorkflow1", ProjectWorkflowType.DATA_SYNC);
+
+        ProjectWorkflow projectWorkflowToPublish = projectWorkflowService.getProjectWorkflow(
+            dataSyncProjectWorkflow.getId());
+
+        projectWorkflowToPublish.setProjectVersion(initialVersion + 1);
+        projectWorkflowToPublish.setWorkflowId("dataSyncWorkflow1_v2");
+
+        projectWorkflowService.publishWorkflow(
+            projectId, initialVersion, "dataSyncWorkflow1", projectWorkflowToPublish);
+
+        assertThat(projectWorkflowService.getProjectWorkflows(projectId, dataSyncProjectWorkflow.getUuidAsString()))
+            .hasSize(2)
+            .extracting(ProjectWorkflow::getType)
+            .containsOnly(ProjectWorkflowType.DATA_SYNC);
+    }
+
+    @Test
+    void testGetWorkflowUuidProjectWorkflows() {
+        Project project = projectRepository.save(getProject());
+
+        long projectId = Validate.notNull(project.getId(), "id");
+        int initialVersion = project.getLastProjectVersion();
+
+        ProjectWorkflow initialProjectWorkflow = projectWorkflowService.addWorkflow(
+            projectId, initialVersion, "workflow1");
+
+        projectWorkflowService.addWorkflow(projectId, initialVersion, "workflow2");
+
+        ProjectWorkflow publishedProjectWorkflow = projectWorkflowService.getProjectWorkflow(
+            initialProjectWorkflow.getId());
+
+        publishedProjectWorkflow.setProjectVersion(initialVersion + 1);
+        publishedProjectWorkflow.setWorkflowId("workflow1_v2");
+
+        projectWorkflowService.publishWorkflow(projectId, initialVersion, "workflow1", publishedProjectWorkflow);
+
+        assertThat(projectWorkflowService.getWorkflowUuidProjectWorkflows(initialProjectWorkflow.getUuidAsString()))
+            .extracting(ProjectWorkflow::getWorkflowId)
+            .containsExactlyInAnyOrder("workflow1", "workflow1_v2");
+        assertThat(projectWorkflowService.getWorkflowUuidProjectWorkflows("workflow1")).isEmpty();
+    }
+
     private Project getProject() {
         return Project.builder()
             .description("description")

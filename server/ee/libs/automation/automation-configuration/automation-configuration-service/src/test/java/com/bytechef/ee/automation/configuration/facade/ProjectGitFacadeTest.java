@@ -54,10 +54,12 @@ class ProjectGitFacadeTest {
 
     private static final String AGENTS_DIRECTORY = "agents/";
     private static final String BRANCH = "main";
+    private static final String DATA_SYNCS_DIRECTORY = "data-syncs/";
     private static final long PROJECT_ID = 1L;
     private static final int PROJECT_VERSION = 1;
     private static final long WORKSPACE_ID = 7L;
 
+    private final ProjectContentContributor dataSyncContentContributor = mock(ProjectContentContributor.class);
     private final GitConfigurationFacade gitConfigurationFacade = mock(GitConfigurationFacade.class);
     private final ProjectContentContributor projectContentContributor = mock(ProjectContentContributor.class);
     private final ProjectFacade projectFacade = mock(ProjectFacade.class);
@@ -98,26 +100,29 @@ class ProjectGitFacadeTest {
             .thenReturn(
                 List.of(
                     new ProjectWorkflow(PROJECT_ID, PROJECT_VERSION, "ordinary-workflow", ProjectWorkflowType.WORKFLOW),
-                    new ProjectWorkflow(PROJECT_ID, PROJECT_VERSION, "agent-workflow", ProjectWorkflowType.AI_AGENT)));
+                    new ProjectWorkflow(PROJECT_ID, PROJECT_VERSION, "agent-workflow", ProjectWorkflowType.AI_AGENT),
+                    new ProjectWorkflow(
+                        PROJECT_ID, PROJECT_VERSION, "data-sync-workflow", ProjectWorkflowType.DATA_SYNC)));
 
         ordinaryWorkflow = workflow("ordinary-workflow", "Ordinary");
 
         Workflow agentWorkflow = workflow("agent-workflow", "Agent");
+        Workflow dataSyncWorkflow = workflow("data-sync-workflow", "Data Sync");
 
         when(workflowService.getWorkflow("ordinary-workflow")).thenReturn(ordinaryWorkflow);
         when(workflowService.getWorkflow("agent-workflow")).thenReturn(agentWorkflow);
+        when(workflowService.getWorkflow("data-sync-workflow")).thenReturn(dataSyncWorkflow);
 
         when(projectContentContributor.getContentDirectory()).thenReturn(AGENTS_DIRECTORY);
+        when(dataSyncContentContributor.getContentDirectory()).thenReturn(DATA_SYNCS_DIRECTORY);
 
-        projectGitFacade = new ProjectGitFacadeImpl(
-            gitConfigurationFacade, projectFacade, projectGitConfigurationService, projectGitService, projectService,
-            projectWorkflowFacade, projectWorkflowService, workflowService, workspaceService,
-            List.of(projectContentContributor));
+        projectGitFacade = createProjectGitFacade(List.of(projectContentContributor));
     }
 
     /**
      * The agents' generated workflows never go to the repository as ordinary workflows; the agents travel as their own
-     * files, written by the contributor, next to the workflow files.
+     * files, written by the contributor, next to the workflow files. A Data Sync's generated workflow is dropped for
+     * the same reason, even though it has no contributor of its own writing a file back for it.
      */
     @Test
     void testPushProjectToGitWritesAgentFilesButSkipsAgentWorkflows() {
@@ -131,6 +136,7 @@ class ProjectGitFacadeTest {
             eq(List.of(ordinaryWorkflow)), eq(agentFiles), eq(List.of(AGENTS_DIRECTORY)), eq("commit"), anyString(),
             eq(BRANCH), anyString(), anyString());
         verify(workflowService, never()).getWorkflow("agent-workflow");
+        verify(workflowService, never()).getWorkflow("data-sync-workflow");
     }
 
     @Test
@@ -174,6 +180,73 @@ class ProjectGitFacadeTest {
             .pullProjectContent(PROJECT_ID, Map.of("agents/support-bot.json", agentFile));
         inOrder.verify(projectFacade)
             .publishProject(eq(PROJECT_ID), any(), eq(false));
+    }
+
+    /**
+     * With the agents and the data syncs contributors both registered, the push writes both contributors' files and
+     * names both directories, so the repository keeps each set apart from the workflow files.
+     */
+    @Test
+    void testPushWritesDataSyncContributorFiles() {
+        byte[] agentFile = bytes("{\"title\":\"Support Bot\"}");
+        byte[] dataSyncFile = bytes("{\"title\":\"Orders\"}");
+
+        when(projectContentContributor.exportProjectContent(PROJECT_ID))
+            .thenReturn(Map.of("agents/support-bot.json", agentFile));
+        when(dataSyncContentContributor.exportProjectContent(PROJECT_ID))
+            .thenReturn(Map.of("data-syncs/orders.json", dataSyncFile));
+
+        ProjectGitFacadeImpl twoContributorProjectGitFacade = createProjectGitFacade(
+            List.of(projectContentContributor, dataSyncContentContributor));
+
+        twoContributorProjectGitFacade.pushProjectToGit(PROJECT_ID, "commit");
+
+        verify(projectGitService).save(
+            eq(List.of(ordinaryWorkflow)),
+            eq(Map.of("agents/support-bot.json", agentFile, "data-syncs/orders.json", dataSyncFile)),
+            eq(List.of(AGENTS_DIRECTORY, DATA_SYNCS_DIRECTORY)), eq("commit"), anyString(), eq(BRANCH), anyString(),
+            anyString());
+        verify(workflowService, never()).getWorkflow("data-sync-workflow");
+    }
+
+    /**
+     * With both contributors registered, each gets only the files under its own directory, and both apply them before
+     * the publish, which validates the project's agents and data syncs.
+     */
+    @Test
+    void testPullHandsDataSyncFilesToTheContributor() {
+        byte[] agentFile = bytes("{\"title\":\"Support Bot\"}");
+        byte[] dataSyncFile = bytes("{\"title\":\"Orders\"}");
+
+        when(projectGitService.getWorkflows(anyString(), eq(BRANCH), anyString(), anyString(),
+            eq(List.of(AGENTS_DIRECTORY, DATA_SYNCS_DIRECTORY))))
+                .thenReturn(
+                    new GitWorkflows(
+                        List.of(), new GitInfo("abc123", "message"),
+                        Map.of(
+                            "agents/support-bot.json", agentFile, "data-syncs/orders.json", dataSyncFile,
+                            "other/readme.json", bytes("{}"))));
+
+        ProjectGitFacadeImpl twoContributorProjectGitFacade = createProjectGitFacade(
+            List.of(projectContentContributor, dataSyncContentContributor));
+
+        twoContributorProjectGitFacade.pullProjectFromGit(PROJECT_ID);
+
+        InOrder inOrder = inOrder(projectContentContributor, dataSyncContentContributor, projectFacade);
+
+        inOrder.verify(projectContentContributor)
+            .pullProjectContent(PROJECT_ID, Map.of("agents/support-bot.json", agentFile));
+        inOrder.verify(dataSyncContentContributor)
+            .pullProjectContent(PROJECT_ID, Map.of("data-syncs/orders.json", dataSyncFile));
+        inOrder.verify(projectFacade)
+            .publishProject(eq(PROJECT_ID), any(), eq(false));
+    }
+
+    private ProjectGitFacadeImpl createProjectGitFacade(List<ProjectContentContributor> projectContentContributors) {
+        return new ProjectGitFacadeImpl(
+            gitConfigurationFacade, projectFacade, projectGitConfigurationService, projectGitService, projectService,
+            projectWorkflowFacade, projectWorkflowService, workflowService, workspaceService,
+            projectContentContributors);
     }
 
     private static byte[] bytes(String value) {

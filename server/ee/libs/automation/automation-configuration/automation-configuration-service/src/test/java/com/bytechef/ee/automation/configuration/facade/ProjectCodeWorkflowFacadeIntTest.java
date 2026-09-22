@@ -41,6 +41,8 @@ import com.bytechef.ee.automation.configuration.service.WorkspaceService;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
@@ -91,7 +93,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 @SpringBootTest(classes = ProjectCodeWorkflowFacadeIntTest.Config.class, properties = "bytechef.edition=ee")
 @MockitoBean(types = {
-    ApplicationProperties.class, CacheManager.class, CategoryService.class, CodeWorkflowContainerFacade.class,
+    CacheManager.class, CategoryService.class, CodeWorkflowContainerFacade.class,
+    CodeWorkflowContainerService.class, CodeWorkflowFileStorage.class,
     ComponentConnectionFacade.class, ComponentDefinitionHelper.class, ConnectionFacade.class,
     ConnectionLifecycleFacade.class, ConnectionService.class, EnvironmentService.class, Evaluator.class,
     JobFacade.class, JobService.class, PreBuiltTemplateService.class, PrincipalJobFacade.class,
@@ -242,6 +245,13 @@ class ProjectCodeWorkflowFacadeIntTest {
         ProjectCodeWorkflowFacadeImpl.class
     })
     static class Config {
+
+        // A real instance, not a mock: the facade constructor reads workflow.codeWorkflow.javaEnabled, which a mock
+        // would answer with a null Workflow.
+        @Bean
+        ApplicationProperties applicationProperties() {
+            return new ApplicationProperties();
+        }
 
         @Bean("permissionService")
         PermissionService permissionService() {

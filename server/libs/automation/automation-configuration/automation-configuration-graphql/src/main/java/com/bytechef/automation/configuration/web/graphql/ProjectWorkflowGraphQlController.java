@@ -21,7 +21,6 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
-import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.dto.SharedWorkflowDTO;
 import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
 import com.bytechef.automation.configuration.dto.WorkspaceProjectWorkflowDTO;
@@ -30,6 +29,8 @@ import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.graphql.error.GraphQlBadRequestException;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.configuration.dto.VersionWorkflowChange;
+import com.bytechef.platform.configuration.dto.VersionWorkflowChanges;
 import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.definition.WorkflowNodeType;
@@ -117,7 +118,8 @@ public class ProjectWorkflowGraphQlController {
     public List<ProjectWorkflow> eligibleErrorWorkflows(@Argument long projectId, @Argument int projectVersion) {
         return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
             .stream()
-            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+            .filter(projectWorkflow -> !projectWorkflow.getType()
+                .isGenerated())
             .filter(projectWorkflow -> hasErrorTrigger(workflowService.getWorkflow(projectWorkflow.getWorkflowId())))
             .toList();
     }
@@ -131,6 +133,20 @@ public class ProjectWorkflowGraphQlController {
     @PreAuthorize("hasPermission(#id, 'ProjectWorkflow', 'WORKFLOW_EDIT')")
     public ProjectWorkflow projectWorkflow(@Argument long id) {
         return projectWorkflowService.getProjectWorkflow(id);
+    }
+
+    @QueryMapping
+    public VersionWorkflowChange projectVersionWorkflowChange(
+        @Argument long projectId, @Argument int projectVersion, @Argument String workflowUuid) {
+
+        return projectWorkflowFacade.getProjectVersionWorkflowChange(projectId, projectVersion, workflowUuid);
+    }
+
+    @QueryMapping
+    public VersionWorkflowChanges projectVersionWorkflowChanges(
+        @Argument long projectId, @Argument int projectVersion) {
+
+        return projectWorkflowFacade.getProjectVersionWorkflowChanges(projectId, projectVersion);
     }
 
     @SchemaMapping(typeName = "ProjectDeploymentWorkflow", field = "projectWorkflow")

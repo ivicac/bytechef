@@ -35,6 +35,7 @@ import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectOwnershipService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
@@ -114,7 +115,7 @@ class ProjectFacadeRowVisibilityTest {
     private final Project otherWorkspacePrivateProject = project(
         4L, "Elsewhere withheld", UNSCOPED_WORKSPACE_ID, ResourceVisibility.PRIVATE);
     private final Project systemProject = project(
-        5L, SystemProjects.DATA_SYNC_NAME_PREFIX + "sync", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
+        5L, SystemProjects.CONTEXT_STORE_NAME_PREFIX + "1", SCOPED_WORKSPACE_ID, ResourceVisibility.WORKSPACE);
 
     private final List<Project> allProjects = List.of(
         workspaceVisibleProject, privateProject, otherWorkspaceProject, otherWorkspacePrivateProject, systemProject);
@@ -322,7 +323,8 @@ class ProjectFacadeRowVisibilityTest {
             "CE", mock(ApplicationProperties.class), mock(CategoryService.class),
             mock(ComponentDefinitionHelper.class), mock(ErrorWorkflowConfigurationValidator.class), permissionService,
             mock(PreBuiltTemplateService.class), codeWorkflowInfoSupplierProvider(),
-            mock(ProjectWorkflowService.class), mock(ProjectDeploymentService.class), projectService,
+            mock(ProjectWorkflowService.class), mock(ProjectDeploymentService.class),
+            mock(ProjectOwnershipService.class), projectService,
             projectVisibilityFilter, mock(ResourceVisibilityPolicyRegistry.class), mock(ProjectDeploymentFacade.class),
             mock(ProjectWorkflowFacade.class), mock(SharedTemplateFileStorage.class),
             mock(SharedTemplateService.class), mock(TagService.class), mock(WorkflowService.class),
