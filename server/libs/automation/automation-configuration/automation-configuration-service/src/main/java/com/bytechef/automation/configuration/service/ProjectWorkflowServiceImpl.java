@@ -19,6 +19,7 @@ package com.bytechef.automation.configuration.service;
 import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditEvent;
 import com.bytechef.automation.configuration.audit.ProjectWorkflowAuditPublisher;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import java.util.HashMap;
 import java.util.List;
@@ -52,8 +53,16 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
     @Override
     @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_CREATE')")
     public ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId) {
+        return addWorkflow(projectId, projectVersion, workflowId, ProjectWorkflowType.WORKFLOW);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_CREATE')")
+    public ProjectWorkflow addWorkflow(
+        long projectId, int projectVersion, String workflowId, ProjectWorkflowType type) {
+
         ProjectWorkflow savedProjectWorkflow = projectWorkflowRepository.save(
-            new ProjectWorkflow(projectId, projectVersion, workflowId));
+            new ProjectWorkflow(projectId, projectVersion, workflowId, type));
 
         Map<String, Object> data = new HashMap<>();
 
@@ -244,7 +253,8 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
         update(projectWorkflow);
 
         projectWorkflow = new ProjectWorkflow(
-            projectId, oldProjectVersion, oldWorkflowId, UUID.fromString(projectWorkflow.getUuidAsString()));
+            projectId, oldProjectVersion, oldWorkflowId, UUID.fromString(projectWorkflow.getUuidAsString()),
+            projectWorkflow.getType());
 
         projectWorkflowRepository.save(projectWorkflow);
     }

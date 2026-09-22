@@ -74,8 +74,18 @@ public class GitWorkflowRepository implements WorkflowRepository {
     }
 
     public GitWorkflowRepository(String url, String branch, String username, String password) {
+        this(url, branch, username, password, List.of());
+    }
+
+    /**
+     * @param contentDirectories repository directories, each ending with {@code /}, whose files travel as raw content
+     *                           files next to the workflows instead of being read as workflows
+     */
+    public GitWorkflowRepository(
+        String url, String branch, String username, String password, List<String> contentDirectories) {
+
         this.gitWorkflowOperations = new JGitWorkflowOperations(
-            url, branch, List.of("json", "yaml", "yml"), List.of(), username, password);
+            url, branch, List.of("json", "yaml", "yml"), List.of(), contentDirectories, username, password);
     }
 
     @Override
@@ -109,7 +119,7 @@ public class GitWorkflowRepository implements WorkflowRepository {
                     .map(GitWorkflowRepository::readWorkflow)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList()),
-                headFiles.gitInfo());
+                headFiles.gitInfo(), headFiles.contentFiles());
         } finally {
             lock.unlock();
         }
@@ -165,12 +175,20 @@ public class GitWorkflowRepository implements WorkflowRepository {
     }
 
     public String save(List<Workflow> workflows, String commitMessage) {
+        return save(workflows, Map.of(), commitMessage);
+    }
+
+    /**
+     * Replaces the repository content with {@code workflows} and {@code contentFiles}, the latter keyed by repository
+     * path under one of the content directories this repository was created with.
+     */
+    public String save(List<Workflow> workflows, Map<String, byte[]> contentFiles, String commitMessage) {
         return gitWorkflowOperations.write(
             workflows.stream()
                 .map(workflow -> new WorkflowResource(
                     workflow.getId(), Map.of(), getResource(workflow), workflow.getFormat()))
                 .toList(),
-            commitMessage);
+            contentFiles, commitMessage);
     }
 
     private static ByteArrayResource getResource(Workflow workflow) {
@@ -210,7 +228,14 @@ public class GitWorkflowRepository implements WorkflowRepository {
         return TENANT_LOCKS.computeIfAbsent(tenantKey, k -> new ReentrantLock());
     }
 
+    /**
+     * @param contentFiles the files under the repository's content directories, keyed by repository path
+     */
     @SuppressFBWarnings("EI")
-    public record GitWorkflows(List<Workflow> workflows, GitInfo gitInfo) {
+    public record GitWorkflows(List<Workflow> workflows, GitInfo gitInfo, Map<String, byte[]> contentFiles) {
+
+        public GitWorkflows(List<Workflow> workflows, GitInfo gitInfo) {
+            this(workflows, gitInfo, Map.of());
+        }
     }
 }
