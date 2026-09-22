@@ -22,6 +22,12 @@ describe('isDevelopmentOnlyHref', () => {
     it('matches the nav href exactly rather than by prefix', () => {
         expect(isDevelopmentOnlyHref('/automation/projects/123')).toBe(false);
     });
+
+    // Data syncs live under their project now, so the standalone surface is gone from the list
+    // entirely -- its former entry would keep a dead route development-only.
+    it('no longer knows the standalone data syncs surface', () => {
+        expect(isDevelopmentOnlyHref('/automation/data-syncs')).toBe(false);
+    });
 });
 
 describe('getDevelopmentOnlyFallbackHref', () => {
@@ -42,6 +48,7 @@ describe('getDevelopmentOnlyFallbackHref', () => {
         ['/automation/projects/12/project-workflows/34', '/automation/deployments'],
         ['/automation/projects/templates', '/automation/deployments'],
         ['/automation/projects/12/agents/34', '/automation/deployments'],
+        ['/automation/projects/12/data-syncs/34', '/automation/deployments'],
         ['/embedded/integrations/12/integration-workflows/34', '/embedded/configurations'],
         ['/embedded/automation-workflows/12/editor', '/embedded/configurations'],
     ])('covers the detail route %s in production', (pathname, fallbackHref) => {

@@ -17,6 +17,9 @@ const hoisted = vi.hoisted(() => ({
     agentDeployments: [] as {agentId: string; agentTitle: string; id: string; workflows: {workflowId: string}[]}[],
     agentListPropsMock: vi.fn(),
     agents: [] as {id: string; projectId: string; projectWorkflowUuid: string}[],
+    dataSyncDeploymentListPropsMock: vi.fn(),
+    dataSyncDeployments: [] as {dataSyncId: string; dataSyncTitle: string; id: string; workflowId: string}[],
+    dataSyncs: [] as {id: string; projectId: string; projectWorkflowUuid: string}[],
     workflowListPropsMock: vi.fn(),
 }));
 
@@ -58,15 +61,23 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
     default: () => ({agents: hoisted.agents}),
 }));
 
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({dataSyncs: hoisted.dataSyncs}),
+}));
+
 vi.mock('@/pages/automation/project-deployments/hooks/useAgentDeployments', () => ({
     default: () => ({agentDeployments: hoisted.agentDeployments}),
 }));
 
+vi.mock('@/pages/automation/project-deployments/hooks/useDataSyncDeployments', () => ({
+    default: () => ({dataSyncDeployments: hoisted.dataSyncDeployments}),
+}));
+
 vi.mock('./ProjectDeploymentListItem', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: ({agentCount, projectDeployment, workflowCount}: any) => (
+    default: ({agentCount, dataSyncCount, projectDeployment, workflowCount}: any) => (
         <div data-testid="list-item">
-            {projectDeployment.name}: {workflowCount} workflows, {agentCount} agents
+            {projectDeployment.name}: {workflowCount} workflows, {agentCount} agents, {dataSyncCount} data syncs
         </div>
     ),
 }));
@@ -89,6 +100,15 @@ vi.mock('../project-deployment-agent-list/ProjectDeploymentAgentList', () => ({
     },
 }));
 
+vi.mock('../project-deployment-data-sync-list/ProjectDeploymentDataSyncList', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default: (props: any) => {
+        hoisted.dataSyncDeploymentListPropsMock(props);
+
+        return <div data-testid="data-sync-list" />;
+    },
+}));
+
 const project = {id: 7, name: 'Sales'} as Project;
 
 const projectDeployment = {
@@ -100,6 +120,7 @@ const projectDeployment = {
         {enabled: true, workflowId: 'workflow1', workflowUuid: 'uuid-1'},
         {enabled: true, workflowId: 'workflow2', workflowUuid: 'uuid-2'},
         {enabled: true, workflowId: 'agent-workflow', workflowUuid: 'uuid-agent'},
+        {enabled: true, workflowId: 'data-sync-workflow', workflowUuid: 'uuid-data-sync'},
     ],
     projectVersion: 2,
     tags: [],
@@ -123,17 +144,24 @@ describe('ProjectDeploymentList', () => {
             {agentId: '2', agentTitle: 'Elsewhere Bot', id: '51', workflows: [{workflowId: 'other-workflow'}]},
         ];
         hoisted.agents = [];
+        hoisted.dataSyncDeployments = [
+            {dataSyncId: '1', dataSyncTitle: 'CRM Sync', id: '50', workflowId: 'data-sync-workflow'},
+        ];
+        hoisted.dataSyncs = [];
         hoisted.agentListPropsMock.mockReset();
+        hoisted.dataSyncDeploymentListPropsMock.mockReset();
         hoisted.workflowListPropsMock.mockReset();
     });
 
-    it('shows Workflows and Agents tabs with their counts, opening on Workflows', () => {
+    it('shows Workflows, Agents and Data Syncs tabs with their counts, opening on Workflows', () => {
         renderList();
 
         expect(screen.getByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
         expect(screen.getByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (1)');
+        expect(screen.getByTestId('tabs-trigger-dataSyncs')).toHaveTextContent('Data Syncs (1)');
         expect(screen.getByTestId('tabs-content-workflows')).toBeInTheDocument();
         expect(screen.queryByTestId('tabs-content-agents')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('tabs-content-dataSyncs')).not.toBeInTheDocument();
     });
 
     it('opens rows on the Agents tab when that is the default', () => {
@@ -152,13 +180,31 @@ describe('ProjectDeploymentList', () => {
         expect(screen.queryByTestId('tabs-content-workflows')).not.toBeInTheDocument();
     });
 
-    it('hands the row header the ordinary workflow and agent counts', () => {
-        renderList();
+    it('opens rows on the Data Syncs tab when that is the default', () => {
+        render(
+            <ProjectDeploymentList
+                componentDefinitions={[]}
+                defaultActiveTab="dataSyncs"
+                project={project}
+                projectDeployments={[projectDeployment]}
+                tags={[]}
+                taskDispatcherDefinitions={[]}
+            />
+        );
 
-        expect(screen.getByTestId('list-item')).toHaveTextContent('Sales Deployment: 2 workflows, 1 agents');
+        expect(screen.getByTestId('tabs-content-dataSyncs')).toBeInTheDocument();
+        expect(screen.queryByTestId('tabs-content-workflows')).not.toBeInTheDocument();
     });
 
-    it("leaves an agent's generated workflow out of the Workflows tab", () => {
+    it('hands the row header the ordinary workflow, agent and data sync counts', () => {
+        renderList();
+
+        expect(screen.getByTestId('list-item')).toHaveTextContent(
+            'Sales Deployment: 2 workflows, 1 agents, 1 data syncs'
+        );
+    });
+
+    it("leaves an agent's and a sync's generated workflow out of the Workflows tab", () => {
         renderList();
 
         expect(hoisted.workflowListPropsMock).toHaveBeenLastCalledWith(
@@ -181,6 +227,16 @@ describe('ProjectDeploymentList', () => {
         expect(screen.getByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (0)');
     });
 
+    it('also recognises a data sync workflow by the sync workflow uuid', () => {
+        hoisted.dataSyncDeployments = [];
+        hoisted.dataSyncs = [{id: '1', projectId: '7', projectWorkflowUuid: 'uuid-2'}];
+
+        renderList();
+
+        expect(screen.getByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
+        expect(screen.getByTestId('tabs-trigger-dataSyncs')).toHaveTextContent('Data Syncs (0)');
+    });
+
     it("passes only this deployment's agents to the Agents tab", async () => {
         const user = userEvent.setup();
 
@@ -197,11 +253,30 @@ describe('ProjectDeploymentList', () => {
         );
     });
 
-    it('shows No Workflows when the deployment only carries agents', () => {
+    it("passes only this deployment's data syncs to the Data Syncs tab", async () => {
+        const user = userEvent.setup();
+
+        renderList();
+
+        await user.click(screen.getByTestId('tabs-trigger-dataSyncs'));
+
+        expect(screen.getByTestId('data-sync-list')).toBeInTheDocument();
+        expect(hoisted.dataSyncDeploymentListPropsMock).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                dataSyncDeployments: [expect.objectContaining({dataSyncTitle: 'CRM Sync'})],
+                projectDeploymentWorkflows: projectDeployment.projectDeploymentWorkflows,
+            })
+        );
+    });
+
+    it('shows No Workflows when the deployment only carries agents and data syncs', () => {
         renderList([
             {
                 ...projectDeployment,
-                projectDeploymentWorkflows: [{enabled: true, workflowId: 'agent-workflow'}],
+                projectDeploymentWorkflows: [
+                    {enabled: true, workflowId: 'agent-workflow'},
+                    {enabled: true, workflowId: 'data-sync-workflow'},
+                ],
             } as ProjectDeployment,
         ]);
 
