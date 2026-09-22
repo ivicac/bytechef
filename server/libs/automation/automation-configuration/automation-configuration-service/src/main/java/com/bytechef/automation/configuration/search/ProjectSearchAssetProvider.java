@@ -18,6 +18,7 @@ package com.bytechef.automation.configuration.search;
 
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -61,6 +62,7 @@ class ProjectSearchAssetProvider implements SearchAssetProvider {
 
         Map<Long, Long> projectIdToProjectWorkflowId = projectWorkflowService.getLatestProjectWorkflows()
             .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
             .collect(
                 Collectors.toMap(
                     ProjectWorkflow::getProjectId, ProjectWorkflow::getId, (first, second) -> first));

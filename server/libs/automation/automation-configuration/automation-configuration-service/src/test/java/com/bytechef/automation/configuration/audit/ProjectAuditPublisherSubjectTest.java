@@ -29,9 +29,9 @@ import org.springframework.boot.actuate.audit.listener.AuditApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
- * The agent sharing path publishes through {@code ProjectSharingFacade}, so its audit records are keyed on the hidden
- * {@code __AI_AGENT__} project. An auditor reading one saw a project id that resolves to nothing they had ever seen in
- * the product. These pin the seam that fixes that without inventing a second event for one question.
+ * A feature that shares through {@code ProjectSharingFacade} on behalf of something it owns has its audit records keyed
+ * on the backing project. An auditor reading one would see a project id rather than the thing they actually shared.
+ * These pin the seam that names the real subject without inventing a second event for one question.
  *
  * @author Ivica Cardic
  */

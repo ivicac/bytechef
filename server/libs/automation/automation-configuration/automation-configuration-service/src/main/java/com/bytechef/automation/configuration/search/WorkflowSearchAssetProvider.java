@@ -20,6 +20,7 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -57,7 +58,10 @@ class WorkflowSearchAssetProvider implements SearchAssetProvider {
     public List<WorkflowSearchResult> search(String query, int limit) {
         String queryLower = query.toLowerCase(Locale.ROOT);
 
-        List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getLatestProjectWorkflows();
+        List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getLatestProjectWorkflows()
+            .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+            .toList();
 
         if (projectWorkflows.isEmpty()) {
             return List.of();

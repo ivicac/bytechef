@@ -321,7 +321,7 @@ class ProjectDeploymentFacadeTest {
     private static Project systemProject() {
         Project systemProject = project(SYSTEM_PROJECT_ID);
 
-        systemProject.setName(SystemProjects.AI_AGENT_NAME_PREFIX + "agent");
+        systemProject.setName(SystemProjects.DATA_SYNC_NAME_PREFIX + "sync");
 
         return systemProject;
     }
