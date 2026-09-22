@@ -32,6 +32,10 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: any) => selector({currentWorkspaceId: 1}),
 }));
 
+vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
+    default: () => ({agents: [], agentsIsLoading: false}),
+}));
+
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
     EditionType: {CE: 'CE', EE: 'EE'},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +105,7 @@ describe('ProjectListItem visibility', () => {
 
         render(<ProjectListItem project={project} remainingTags={[]} />, {wrapper: Wrapper});
 
-        const workflowsTrigger = screen.getByText('0 workflows').closest('button');
+        const workflowsTrigger = screen.getByText('0 workflows · 0 agents').closest('button');
 
         expect(workflowsTrigger).toHaveAttribute('data-state', 'closed');
 

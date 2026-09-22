@@ -82,6 +82,14 @@ describe('Header', () => {
         expect(screen.getByRole('button', {name: 'Toggle sidebar'})).toBeInTheDocument();
     });
 
+    // A sidebar header's title sits at 16px because the rows beneath it do: LayoutContainer's px-2 body plus
+    // each row's own px-2.
+    it('pads a sidebar header to the 16px the sidebar rows land at', () => {
+        renderHeader(<Header position="sidebar" title="Projects" />);
+
+        expect(screen.getByText('Projects').closest('header')).toHaveClass('px-4');
+    });
+
     it('shows no sidebar toggle in a sidebar header', () => {
         renderHeader(<Header position="sidebar" title="Settings" />, true);
 

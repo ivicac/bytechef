@@ -1,12 +1,13 @@
 import {render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
-import {describe, expect, it, vi} from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import CallAiAgentDetailDialog from './CallAiAgentDetailDialog';
 
-const {invalidateAgentQueries, invalidateQueries} = vi.hoisted(() => ({
+const {invalidateAgentQueries, invalidateQueries, mockUseAiAgentQuery} = vi.hoisted(() => ({
     invalidateAgentQueries: vi.fn(),
     invalidateQueries: vi.fn(),
+    mockUseAiAgentQuery: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
@@ -22,6 +23,10 @@ vi.mock('@/pages/automation/agents/AgentDetailContent', () => ({
     default: ({agentId}: {agentId: string}) => <div data-testid="agent-detail-content">{agentId}</div>,
 }));
 
+vi.mock('@/shared/middleware/graphql', () => ({
+    useAiAgentQuery: mockUseAiAgentQuery,
+}));
+
 const renderDialog = (onOpenChange = vi.fn()) =>
     render(
         <MemoryRouter>
@@ -30,6 +35,10 @@ const renderDialog = (onOpenChange = vi.fn()) =>
     );
 
 describe('CallAiAgentDetailDialog', () => {
+    beforeEach(() => {
+        mockUseAiAgentQuery.mockReturnValue({data: {aiAgent: {id: '22', projectId: '7'}}});
+    });
+
     it('should mount the editable agent builder on the given agent id', () => {
         renderDialog();
 
@@ -40,7 +49,18 @@ describe('CallAiAgentDetailDialog', () => {
     it('should link to the routed agent page', () => {
         renderDialog();
 
-        expect(screen.getByRole('link', {name: /open in full view/i})).toHaveAttribute('href', '/automation/agents/22');
+        expect(screen.getByRole('link', {name: /open in full view/i})).toHaveAttribute(
+            'href',
+            '/automation/projects/7/agents/22'
+        );
+    });
+
+    it('should render no link until the agent loads', () => {
+        mockUseAiAgentQuery.mockReturnValue({data: undefined});
+
+        renderDialog();
+
+        expect(screen.queryByRole('link', {name: /open in full view/i})).not.toBeInTheDocument();
     });
 
     it('should invalidate both the node options and the agent queries on close', async () => {

@@ -172,7 +172,12 @@ const LayoutContainer = ({
                         <nav className="flex h-full flex-col">
                             {leftSidebarHeader}
 
-                            <div className="size-full overflow-y-auto">{leftSidebarBody}</div>
+                            {/* px-2 insets every row highlight 8px from both edges of the rail; rows and
+                                subtitles add their own px-2, landing their text at 16px beside the header's px-4
+                                title. A search box is a box like a row highlight, so it adds none and spans the
+                                same 8px-inset width. A body must not bring its own root padding on top. */}
+
+                            <div className="size-full overflow-y-auto px-2">{leftSidebarBody}</div>
                         </nav>
                     </aside>
                 )}

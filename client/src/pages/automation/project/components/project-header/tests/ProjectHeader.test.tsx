@@ -4,6 +4,7 @@ import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWor
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {act, render, screen} from '@/shared/util/test-utils';
 import {onlineManager} from '@tanstack/react-query';
+import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
@@ -53,21 +54,27 @@ vi.mock('@/pages/automation/project/components/project-header/components/setting
     default: () => <button>Settings</button>,
 }));
 
+vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
+    default: () => ({agents: []}),
+}));
+
 vi.mock('@/shared/components/copilot/hooks/useCopilotLayoutShifted', () => ({
     default: () => false,
 }));
 
 const renderProjectHeader = () =>
     render(
-        <TooltipProvider>
-            <ProjectHeader
-                bottomResizablePanelRef={{current: null}}
-                projectId={5}
-                projectWorkflowId={11}
-                runDisabled={false}
-                updateWorkflowMutation={{} as UpdateWorkflowMutationType}
-            />
-        </TooltipProvider>
+        <MemoryRouter>
+            <TooltipProvider>
+                <ProjectHeader
+                    bottomResizablePanelRef={{current: null}}
+                    projectId={5}
+                    projectWorkflowId={11}
+                    runDisabled={false}
+                    updateWorkflowMutation={{} as UpdateWorkflowMutationType}
+                />
+            </TooltipProvider>
+        </MemoryRouter>
     );
 
 beforeEach(() => {

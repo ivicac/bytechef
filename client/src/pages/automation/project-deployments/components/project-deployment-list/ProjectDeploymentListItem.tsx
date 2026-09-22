@@ -31,11 +31,20 @@ const EnvironmentPromotionDialog = lazy(
 );
 
 interface ProjectDeploymentListItemProps {
+    /** How many agents the deployment carries. */
+    agentCount?: number;
     projectDeployment: ProjectDeployment;
     remainingTags?: Tag[];
+    /** How many ordinary workflows the deployment carries, leaving out the agents' generated ones. */
+    workflowCount?: number;
 }
 
-const ProjectDeploymentListItem = ({projectDeployment, remainingTags}: ProjectDeploymentListItemProps) => {
+const ProjectDeploymentListItem = ({
+    agentCount = 0,
+    projectDeployment,
+    remainingTags,
+    workflowCount = projectDeployment.projectDeploymentWorkflows?.length || 0,
+}: ProjectDeploymentListItemProps) => {
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showChangeProjectVersionDialog, setShowChangeProjectVersionDialog] = useState(false);
@@ -145,9 +154,7 @@ const ProjectDeploymentListItem = ({projectDeployment, remainingTags}: ProjectDe
                                     ref={workflowsCollapsibleTriggerRef}
                                 >
                                     <span className="mr-1">
-                                        {projectDeployment.projectDeploymentWorkflows?.length === 1
-                                            ? `1 workflow`
-                                            : `${projectDeployment.projectDeploymentWorkflows?.length} workflows`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
                                     </span>
 
                                     <ChevronDownIcon className="size-4 duration-300 group-data-[state=open]:rotate-180" />
