@@ -60,9 +60,9 @@ public interface ProjectFacade {
      *
      * <p>
      * Feature-owned system projects ({@code SystemProjects}) answer as though they do not exist, matching
-     * {@link #getProjectRows()}, which never lists them. The auto-provisioned {@code __DATA_SYNC__} /
-     * {@code __KNOWLEDGE_BASE__} / {@code __CONTEXT_STORE__} / {@code __EMBEDDED_*} projects are a feature's
-     * bookkeeping rather than something a user made, so holding one of their ids buys nothing here.
+     * {@link #getProjectRows()}, which never lists them. The auto-provisioned {@code __KNOWLEDGE_BASE__} /
+     * {@code __CONTEXT_STORE__} / {@code __EMBEDDED_*} projects are a feature's bookkeeping rather than something a
+     * user made, so holding one of their ids buys nothing here.
      *
      * <p>
      * This used to be the one exception to "the same question": the listing dropped them and this read answered for

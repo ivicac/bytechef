@@ -77,6 +77,36 @@ class McpProjectWorkflowGraphQlControllerTest {
         verify(workflowService, never()).getWorkflow("agent-workflow");
     }
 
+    @Test
+    void testToolEligibleProjectVersionWorkflowsLeavesOutGeneratedDataSyncWorkflows() {
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+        WorkflowService workflowService = mock(WorkflowService.class);
+
+        ProjectWorkflow dataSyncProjectWorkflow = new ProjectWorkflow(
+            PROJECT_ID, PROJECT_VERSION, "data-sync-workflow", ProjectWorkflowType.DATA_SYNC);
+        ProjectWorkflow ordinaryProjectWorkflow = new ProjectWorkflow(
+            PROJECT_ID, PROJECT_VERSION, "ordinary-workflow", ProjectWorkflowType.WORKFLOW);
+
+        Workflow toolCallableWorkflow = toolCallableWorkflow();
+
+        when(projectWorkflowService.getProjectWorkflows(PROJECT_ID, PROJECT_VERSION))
+            .thenReturn(List.of(dataSyncProjectWorkflow, ordinaryProjectWorkflow));
+        when(workflowService.getWorkflow("ordinary-workflow")).thenReturn(toolCallableWorkflow);
+        when(workflowService.getWorkflow("data-sync-workflow")).thenReturn(toolCallableWorkflow);
+
+        McpProjectWorkflowGraphQlController mcpProjectWorkflowGraphQlController =
+            new McpProjectWorkflowGraphQlController(
+                mock(McpProjectWorkflowFacade.class), mock(McpProjectWorkflowService.class),
+                mock(ProjectDeploymentWorkflowService.class), projectWorkflowService, workflowService);
+
+        List<ProjectWorkflow> projectWorkflows =
+            mcpProjectWorkflowGraphQlController.toolEligibleProjectVersionWorkflows(PROJECT_ID, PROJECT_VERSION);
+
+        assertThat(projectWorkflows).containsExactly(ordinaryProjectWorkflow);
+
+        verify(workflowService, never()).getWorkflow("data-sync-workflow");
+    }
+
     private static Workflow toolCallableWorkflow() {
         WorkflowTrigger workflowTrigger = mock(WorkflowTrigger.class);
 

@@ -31,7 +31,7 @@ class SystemProjectsTest {
     void testEveryPrefixFollowsTheSharedNameShape() {
         for (String namePrefix : new String[] {
             SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX, SystemProjects.CONTEXT_STORE_NAME_PREFIX,
-            SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX, SystemProjects.DATA_SYNC_NAME_PREFIX
+            SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX
         }) {
             assertTrue(
                 namePrefix.matches("__[A-Z][A-Z_]*[A-Z]__"),
@@ -44,7 +44,6 @@ class SystemProjectsTest {
         assertTrue(SystemProjects.isSystemProjectName(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + 1));
         assertTrue(SystemProjects.isSystemProjectName(SystemProjects.CONTEXT_STORE_NAME_PREFIX + 42));
         assertTrue(SystemProjects.isSystemProjectName(SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX + "catalog"));
-        assertTrue(SystemProjects.isSystemProjectName(SystemProjects.DATA_SYNC_NAME_PREFIX + "x"));
     }
 
     @Test
@@ -89,12 +88,11 @@ class SystemProjectsTest {
         assertTrue(predicates.contains("project.name NOT LIKE '\\_\\_CONTEXT\\_STORE\\_\\_%' ESCAPE '\\'"));
         assertTrue(
             predicates.contains("project.name NOT LIKE '\\_\\_EMBEDDED\\_AUTOMATION\\_\\_%' ESCAPE '\\'"));
-        assertTrue(predicates.contains("project.name NOT LIKE '\\_\\_DATA\\_SYNC\\_\\_%' ESCAPE '\\'"));
 
         int escapeClauseCount = predicates.split("ESCAPE '\\\\'", -1).length - 1;
 
         assertTrue(
-            escapeClauseCount == 4,
+            escapeClauseCount == 3,
             "expected one ESCAPE clause per NAME_PREFIXES entry, got fragments: " + predicates);
     }
 
@@ -128,7 +126,7 @@ class SystemProjectsTest {
     @Test
     void testNotLikePredicateIsTheConditionWithAnAnd() {
         assertEquals(
-            "AND " + SystemProjects.notLikeCondition("project.name", SystemProjects.DATA_SYNC_NAME_PREFIX),
-            SystemProjects.notLikePredicate("project.name", SystemProjects.DATA_SYNC_NAME_PREFIX));
+            "AND " + SystemProjects.notLikeCondition("project.name", SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX),
+            SystemProjects.notLikePredicate("project.name", SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX));
     }
 }

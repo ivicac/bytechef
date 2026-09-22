@@ -90,7 +90,6 @@ public class ProjectDeploymentServiceSystemProjectIntTest {
     public void testWorkspaceListingHidesEveryKindOfSystemProject() {
         long userDeploymentId = createDeployment("A user project");
 
-        createDeployment(SystemProjects.DATA_SYNC_NAME_PREFIX + "b8c1");
         createDeployment(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + workspace.getId());
         createDeployment(SystemProjects.CONTEXT_STORE_NAME_PREFIX + workspace.getId());
         createDeployment(SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX + "catalog");
@@ -101,7 +100,7 @@ public class ProjectDeploymentServiceSystemProjectIntTest {
         // unescaped LIKE wildcards, so '__EMBEDDED__%' matched '__EMBEDDED_AUTOMATION__catalog' and this case
         // passed with EMBEDDED_AUTOMATION_NAME_PREFIX deleted from NAME_PREFIXES. The escaping is fixed, and the
         // embedded=null pass keeps the case honest regardless: with no embedded flag there is no second predicate,
-        // so SystemProjects is the only thing that can hide any of these four rows.
+        // so SystemProjects is the only thing that can hide any of these three rows.
         for (Boolean embedded : new Boolean[] {
             false, null
         }) {

@@ -25,9 +25,8 @@ import java.util.List;
  * <p>
  * Every system project name is {@code __<DOMAIN>__<discriminator>}: a double-underscore-delimited SCREAMING_SNAKE_CASE
  * domain marker followed by whatever the owning feature scopes by (a workspace id for Knowledge Base and Context Store,
- * the caller-supplied project name for the embedded automation bridge, a uuid for Data Sync). Keeping one shape across
- * all of them lets list surfaces hide them with a single predicate instead of each learning every feature's private
- * naming scheme.
+ * the caller-supplied project name for the embedded automation bridge). Keeping one shape across all of them lets list
+ * surfaces hide them with a single predicate instead of each learning every feature's private naming scheme.
  *
  * <p>
  * The prefix is matched against an explicit {@link #NAME_PREFIXES} allow-list rather than a bare {@code "__"} test, so
@@ -62,12 +61,6 @@ public final class SystemProjects {
     public static final String EMBEDDED_AUTOMATION_NAME_PREFIX = "__EMBEDDED_AUTOMATION__";
 
     /**
-     * Marks the hidden project backing a Data Sync — see {@code DataSyncFacadeImpl}. The project exists only to hold
-     * the generated draft workflow and its versions.
-     */
-    public static final String DATA_SYNC_NAME_PREFIX = "__DATA_SYNC__";
-
-    /**
      * The deployment-era marker the embedded bridge writes into {@code project.name}. Distinct from
      * {@link #EMBEDDED_AUTOMATION_NAME_PREFIX} and deliberately NOT part of {@link #NAME_PREFIXES} — list surfaces
      * include or exclude it explicitly via the {@code embedded} flag rather than hiding it unconditionally. Mirrors the
@@ -98,8 +91,7 @@ public final class SystemProjects {
     private static final String LIKE_ESCAPE = "\\";
 
     private static final List<String> NAME_PREFIXES = List.of(
-        KNOWLEDGE_BASE_NAME_PREFIX, CONTEXT_STORE_NAME_PREFIX, EMBEDDED_AUTOMATION_NAME_PREFIX,
-        DATA_SYNC_NAME_PREFIX);
+        KNOWLEDGE_BASE_NAME_PREFIX, CONTEXT_STORE_NAME_PREFIX, EMBEDDED_AUTOMATION_NAME_PREFIX);
 
     private SystemProjects() {
     }

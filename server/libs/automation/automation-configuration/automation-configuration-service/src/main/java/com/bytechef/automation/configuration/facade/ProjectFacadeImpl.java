@@ -23,7 +23,6 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
-import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.SharedTemplate;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.dto.ProjectDTO;
@@ -655,9 +654,9 @@ public class ProjectFacadeImpl implements ProjectFacade {
             .collect(Collectors.toMap(project -> Objects.requireNonNull(project.getId(), "id"), Function.identity()));
 
         // One project workflow row exists per (project, version), so the batch load is filtered down to each
-        // project's own last version, and to WORKFLOW rows only so generated AI agent workflows stay out, as they do
-        // in getProjectWorkflows(projectId). Doing both filters here rather than per project keeps this to a single
-        // repository call regardless of how many projects the workspace has.
+        // project's own last version, and to non-generated rows only so generated AI agent and Data Sync workflows
+        // stay out, as they do in getProjectWorkflows(projectId). Doing both filters here rather than per project
+        // keeps this to a single repository call regardless of how many projects the workspace has.
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(List.copyOf(
             projectMap.keySet()))
             .stream()
@@ -665,7 +664,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
                 Project project = projectMap.get(projectWorkflow.getProjectId());
 
                 return project != null && project.getLastProjectVersion() == projectWorkflow.getProjectVersion() &&
-                    projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW;
+                    !projectWorkflow.getType()
+                        .isGenerated();
             })
             .toList();
 
@@ -947,7 +947,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
     private List<ProjectWorkflow> getOrdinaryProjectWorkflows(long projectId, int projectVersion) {
         return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
             .stream()
-            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+            .filter(projectWorkflow -> !projectWorkflow.getType()
+                .isGenerated())
             .toList();
     }
 
@@ -1007,7 +1008,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
 
             List<ProjectWorkflow> allProjectWorkflows = projectWorkflowService.getProjectWorkflows(projectIds)
                 .stream()
-                .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+                .filter(projectWorkflow -> !projectWorkflow.getType()
+                    .isGenerated())
                 .toList();
 
             List<Category> categories = categoryService.getCategories(

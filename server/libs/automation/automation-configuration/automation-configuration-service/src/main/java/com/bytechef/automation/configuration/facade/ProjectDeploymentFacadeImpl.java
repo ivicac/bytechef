@@ -27,7 +27,6 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
-import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentWorkflowDTO;
@@ -529,12 +528,14 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
             .collect(Collectors.toMap(ProjectWorkflow::getWorkflowId, Function.identity()));
 
         // An AI agent's hosted chat is listed separately by AiAgentFacade.getWorkspaceChatAgents, so its generated
-        // workflow is dropped here rather than surfaced twice.
+        // workflow is dropped here rather than surfaced twice. The same holds for any other generated workflow, such
+        // as a Data Sync's.
         List<ProjectDeploymentWorkflow> userProjectDeploymentWorkflows = enabledProjectDeploymentWorkflows.stream()
             .filter(projectDeploymentWorkflow -> {
                 ProjectWorkflow projectWorkflow = projectWorkflowMap.get(projectDeploymentWorkflow.getWorkflowId());
 
-                return projectWorkflow == null || projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW;
+                return projectWorkflow == null || !projectWorkflow.getType()
+                    .isGenerated();
             })
             .toList();
 
