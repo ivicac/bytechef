@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
@@ -317,6 +318,7 @@ class ProjectWorkflowFacadeVisibilityTest {
 
         when(projectWorkflow.getId()).thenReturn(id);
         when(projectWorkflow.getProjectId()).thenReturn(projectId);
+        when(projectWorkflow.getType()).thenReturn(ProjectWorkflowType.WORKFLOW);
         when(projectWorkflow.getWorkflowId()).thenReturn(workflowId);
 
         return projectWorkflow;

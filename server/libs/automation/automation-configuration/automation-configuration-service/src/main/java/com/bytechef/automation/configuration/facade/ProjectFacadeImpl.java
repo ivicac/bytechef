@@ -23,6 +23,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.domain.SharedTemplate;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.dto.ProjectDTO;
@@ -33,6 +34,8 @@ import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.dto.SharedProjectDTO;
 import com.bytechef.automation.configuration.dto.WorkspaceProjectWorkflowDTO;
 import com.bytechef.automation.configuration.exception.ProjectErrorType;
+import com.bytechef.automation.configuration.listener.ProjectContentContributor;
+import com.bytechef.automation.configuration.listener.ProjectDeleteEventListener;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
@@ -70,6 +73,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -128,6 +132,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
     private final WorkflowNodeTestOutputService workflowNodeTestOutputService;
     private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
+    private final List<ProjectDeleteEventListener> projectDeleteEventListeners;
+    private final List<ProjectContentContributor> projectContentContributors;
 
     @SuppressFBWarnings({
         "CT_CONSTRUCTOR_THROW", "EI2"
@@ -148,7 +154,9 @@ public class ProjectFacadeImpl implements ProjectFacade {
         TagService tagService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
         WorkflowNodeTestOutputService workflowNodeTestOutputService,
-        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners,
+        List<ProjectDeleteEventListener> projectDeleteEventListeners,
+        List<ProjectContentContributor> projectContentContributors) {
 
         validateEdition(edition);
 
@@ -174,6 +182,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
         this.workflowTestConfigurationService = workflowTestConfigurationService;
         this.workflowNodeTestOutputService = workflowNodeTestOutputService;
         this.workflowPreDeleteListeners = workflowPreDeleteListeners;
+        this.projectDeleteEventListeners = projectDeleteEventListeners;
+        this.projectContentContributors = projectContentContributors;
     }
 
     @Override
@@ -205,6 +215,10 @@ public class ProjectFacadeImpl implements ProjectFacade {
     @Override
     @PreAuthorize("hasPermission(#id, 'Project', 'PROJECT_DELETE')")
     public void deleteProject(long id) {
+        for (ProjectDeleteEventListener projectDeleteEventListener : projectDeleteEventListeners) {
+            projectDeleteEventListener.onBeforeDeleteProject(id);
+        }
+
         List<ProjectDeployment> projectDeployments = projectDeploymentService.getAllProjectDeployments(id);
 
         for (ProjectDeployment projectDeployment : projectDeployments) {
@@ -281,17 +295,26 @@ public class ProjectFacadeImpl implements ProjectFacade {
 
             deployCodeWorkflowSource(newProjectId, source.language(), source.source());
 
+            duplicateProjectContent(id, newProjectId);
+
             return toProjectDTO(projectService.getProject(newProjectId));
         }
 
         List<String> workflowIds = copyWorkflowIds(
-            projectWorkflowService.getProjectWorkflowIds(project.getId(), project.getLastProjectVersion()));
+            getOrdinaryProjectWorkflows(project.getId(), project.getLastProjectVersion())
+                .stream()
+                .map(ProjectWorkflow::getWorkflowId)
+                .toList());
 
         newProject = projectService.create(newProject);
 
+        long newProjectId = Objects.requireNonNull(newProject.getId());
+
         for (String workflowId : workflowIds) {
-            projectWorkflowService.addWorkflow(newProject.getId(), newProject.getLastProjectVersion(), workflowId);
+            projectWorkflowService.addWorkflow(newProjectId, newProject.getLastProjectVersion(), workflowId);
         }
+
+        duplicateProjectContent(id, newProjectId);
 
         return toProjectDTO(newProject);
     }
@@ -348,9 +371,9 @@ public class ProjectFacadeImpl implements ProjectFacade {
 
         // A feature-owned system project answers as though it does not exist, which is what the listing already
         // implies by never showing one. Until this filter existed the pair disagreed: getProjectRows() dropped system
-        // projects and this method returned them, so anyone holding the id of an agent's hidden __AI_AGENT__ project
-        // could read it by id. Nothing secret leaked -- the name is __AI_AGENT__<uuid> and the description is empty --
-        // but the javadoc pair claimed the two answered the same question, and they did not.
+        // projects and this method returned them, so anyone holding the id of a hidden system project could
+        // read it by id. Nothing secret leaked -- the name is a system prefix plus a uuid and the description is empty
+        // -- but the javadoc pair claimed the two answered the same question, and they did not.
         //
         // NoSuchElementException rather than a denial, and thrown with no message, because it is exactly what
         // ProjectService.getProject raises for an absent id (OptionalUtils.get -> Optional.orElseThrow). A distinct
@@ -632,7 +655,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
             .collect(Collectors.toMap(project -> Objects.requireNonNull(project.getId(), "id"), Function.identity()));
 
         // One project workflow row exists per (project, version), so the batch load is filtered down to each
-        // project's own last version. Doing the version filter here rather than per project keeps this to a single
+        // project's own last version, and to WORKFLOW rows only so generated AI agent workflows stay out, as they do
+        // in getProjectWorkflows(projectId). Doing both filters here rather than per project keeps this to a single
         // repository call regardless of how many projects the workspace has.
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(List.copyOf(
             projectMap.keySet()))
@@ -640,7 +664,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
             .filter(projectWorkflow -> {
                 Project project = projectMap.get(projectWorkflow.getProjectId());
 
-                return project != null && project.getLastProjectVersion() == projectWorkflow.getProjectVersion();
+                return project != null && project.getLastProjectVersion() == projectWorkflow.getProjectVersion() &&
+                    projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW;
             })
             .toList();
 
@@ -820,6 +845,12 @@ public class ProjectFacadeImpl implements ProjectFacade {
         return CollectionUtils.isEmpty(tags) ? Collections.emptyList() : tagService.save(tags);
     }
 
+    private void duplicateProjectContent(long sourceProjectId, long duplicateProjectId) {
+        for (ProjectContentContributor projectContentContributor : projectContentContributors) {
+            projectContentContributor.onProjectDuplicated(sourceProjectId, duplicateProjectId);
+        }
+    }
+
     private List<String> copyWorkflowIds(List<String> workflowIds) {
         List<String> newWorkflowIds = new ArrayList<>();
 
@@ -837,8 +868,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
     private byte[] createTemplate(long id, String description, boolean sharedTemplate) {
         Project project = projectService.getProject(id);
 
-        List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(
-            id, project.getLastProjectVersion());
+        List<ProjectWorkflow> projectWorkflows = getOrdinaryProjectWorkflows(id, project.getLastProjectVersion());
 
         try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             ZipOutputStream zipOutputStream = new ZipOutputStream(byteArrayOutputStream)) {
@@ -894,12 +924,31 @@ public class ProjectFacadeImpl implements ProjectFacade {
                 zipOutputStream.closeEntry();
             }
 
+            for (ProjectContentContributor projectContentContributor : projectContentContributors) {
+                for (Map.Entry<String, byte[]> entry : projectContentContributor.exportProjectContent(id)
+                    .entrySet()) {
+
+                    zipOutputStream.putNextEntry(new ZipEntry(entry.getKey()));
+
+                    zipOutputStream.write(entry.getValue());
+
+                    zipOutputStream.closeEntry();
+                }
+            }
+
             zipOutputStream.finish();
 
             return byteArrayOutputStream.toByteArray();
         } catch (IOException e) {
             throw new RuntimeException("Failed to export project", e);
         }
+    }
+
+    private List<ProjectWorkflow> getOrdinaryProjectWorkflows(long projectId, int projectVersion) {
+        return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
+            .stream()
+            .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+            .toList();
     }
 
     private String generateName(String oldName) {
@@ -956,7 +1005,10 @@ public class ProjectFacadeImpl implements ProjectFacade {
                 .map(Project::getId)
                 .toList();
 
-            List<ProjectWorkflow> allProjectWorkflows = projectWorkflowService.getProjectWorkflows(projectIds);
+            List<ProjectWorkflow> allProjectWorkflows = projectWorkflowService.getProjectWorkflows(projectIds)
+                .stream()
+                .filter(projectWorkflow -> projectWorkflow.getType() == ProjectWorkflowType.WORKFLOW)
+                .toList();
 
             List<Category> categories = categoryService.getCategories(
                 projects.stream()
@@ -1049,14 +1101,21 @@ public class ProjectFacadeImpl implements ProjectFacade {
         // workflows against this project's own code workflow container.
         if (templateFiles.codeWorkflowLanguage != null) {
             deployCodeWorkflowSource(projectId, templateFiles.codeWorkflowLanguage, templateFiles.codeWorkflowSource);
+        } else {
+            for (String workflowJson : templateFiles.workflowJsons) {
+                String definition = JsonUtils.read(workflowJson, String.class);
 
-            return projectId;
+                projectWorkflowFacade.addWorkflow(projectId, definition);
+            }
         }
 
-        for (String workflowJson : templateFiles.workflowJsons) {
-            String definition = JsonUtils.read(workflowJson, String.class);
+        for (ProjectContentContributor projectContentContributor : projectContentContributors) {
+            Map<String, byte[]> contentFiles = getContentFiles(
+                templateFiles.contentFiles, projectContentContributor.getContentDirectory());
 
-            projectWorkflowFacade.addWorkflow(projectId, definition);
+            if (!contentFiles.isEmpty()) {
+                projectContentContributor.importProjectContent(projectId, workspaceId, contentFiles);
+            }
         }
 
         return projectId;
@@ -1076,6 +1135,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
             null
         };
         List<String> workflowJsons = new ArrayList<>();
+        Map<String, byte[]> contentFiles = new LinkedHashMap<>();
 
         try {
             BoundedZipReader.read(data, (name, entryData) -> {
@@ -1088,21 +1148,49 @@ public class ProjectFacadeImpl implements ProjectFacade {
                     codeWorkflowSource[0] = new String(entryData, StandardCharsets.UTF_8);
                 } else if (name.startsWith("workflow-") && name.endsWith(".json")) {
                     workflowJsons.add(new String(entryData, StandardCharsets.UTF_8));
+                } else if (isContentFile(name)) {
+                    contentFiles.put(name, entryData);
                 }
             });
         } catch (IOException e) {
             throw new RuntimeException("Failed to read shared project", e);
         }
 
-        // A code-backed export needs no workflow definitions — its source generates them on import.
+        // A code-backed export needs no workflow definitions — its source generates them on import — and neither does
+        // a project holding only contributed content such as agents.
         if (projectJson[0] == null || sharedTemplate && (templateJson[0] == null)
-            || workflowJsons.isEmpty() && codeWorkflowSource[0] == null) {
+            || workflowJsons.isEmpty() && codeWorkflowSource[0] == null && contentFiles.isEmpty()) {
 
             throw new RuntimeException("Missing files in a shared project file");
         }
 
         return new TemplateFiles(
-            templateJson[0], projectJson[0], workflowJsons, codeWorkflowLanguage[0], codeWorkflowSource[0]);
+            templateJson[0], projectJson[0], workflowJsons, codeWorkflowLanguage[0], codeWorkflowSource[0],
+            contentFiles);
+    }
+
+    private boolean isContentFile(String name) {
+        for (ProjectContentContributor projectContentContributor : projectContentContributors) {
+            if (name.startsWith(projectContentContributor.getContentDirectory())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Map<String, byte[]> getContentFiles(Map<String, byte[]> contentFiles, String contentDirectory) {
+        Map<String, byte[]> directoryContentFiles = new LinkedHashMap<>();
+
+        for (Map.Entry<String, byte[]> entry : contentFiles.entrySet()) {
+            if (entry.getKey()
+                .startsWith(contentDirectory)) {
+
+                directoryContentFiles.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return directoryContentFiles;
     }
 
     private Optional<CodeWorkflowSource> fetchCodeWorkflowSource(long projectId) {
@@ -1157,8 +1245,9 @@ public class ProjectFacadeImpl implements ProjectFacade {
         }
     }
 
+    @SuppressFBWarnings("EI")
     private record TemplateFiles(
         String templateJson, String projectJson, List<String> workflowJsons, String codeWorkflowLanguage,
-        String codeWorkflowSource) {
+        String codeWorkflowSource, Map<String, byte[]> contentFiles) {
     }
 }

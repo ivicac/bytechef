@@ -17,6 +17,7 @@
 package com.bytechef.automation.configuration.service;
 
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +28,8 @@ import org.jspecify.annotations.Nullable;
 public interface ProjectWorkflowService {
 
     ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId);
+
+    ProjectWorkflow addWorkflow(long projectId, int projectVersion, String workflowId, ProjectWorkflowType type);
 
     void delete(List<Long> ids);
 

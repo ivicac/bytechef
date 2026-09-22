@@ -24,6 +24,7 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -73,6 +74,32 @@ class WorkflowSearchAssetProviderTest {
 
         assertThat(workflowSearchResults).extracting(WorkflowSearchResult::projectId)
             .containsExactly(VISIBLE_PROJECT_ID);
+    }
+
+    @Test
+    void testSearchLeavesOutGeneratedAiAgentWorkflows() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+        WorkflowService workflowService = mock(WorkflowService.class);
+
+        List<Workflow> workflows = List.of(workflow("workflow-1"));
+
+        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(
+            List.of(
+                new ProjectWorkflow(VISIBLE_PROJECT_ID, 1, "workflow-1", ProjectWorkflowType.WORKFLOW),
+                new ProjectWorkflow(VISIBLE_PROJECT_ID, 1, "agent-workflow", ProjectWorkflowType.AI_AGENT)));
+        when(workflowService.getWorkflows(List.of("workflow-1"))).thenReturn(workflows);
+        when(projectService.getProjects(List.of(VISIBLE_PROJECT_ID)))
+            .thenReturn(List.of(project(VISIBLE_PROJECT_ID)));
+
+        WorkflowSearchAssetProvider workflowSearchAssetProvider = new WorkflowSearchAssetProvider(
+            projectService, new ProjectVisibilityFilter(objectProvider(visibleOnly(VISIBLE_PROJECT_ID))),
+            projectWorkflowService, workflowService);
+
+        List<WorkflowSearchResult> workflowSearchResults = workflowSearchAssetProvider.search("order", 10);
+
+        assertThat(workflowSearchResults).extracting(WorkflowSearchResult::label)
+            .containsExactly("Order sync workflow-1");
     }
 
     @SuppressWarnings("unchecked")

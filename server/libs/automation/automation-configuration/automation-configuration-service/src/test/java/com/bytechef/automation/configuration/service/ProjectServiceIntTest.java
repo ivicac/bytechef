@@ -25,6 +25,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.exception.ProjectErrorType;
+import com.bytechef.automation.configuration.listener.ProjectPublishPreListener;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
 import com.bytechef.exception.ConfigurationException;
@@ -35,19 +36,24 @@ import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.repository.TagRepository;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 /**
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = ProjectIntTestConfiguration.class)
-@Import(PostgreSQLContainerConfiguration.class)
+@Import({
+    PostgreSQLContainerConfiguration.class, ProjectServiceIntTest.RecordingListenerConfiguration.class
+})
 @ProjectIntTestConfigurationSharedMocks
 public class ProjectServiceIntTest {
 
@@ -166,7 +172,7 @@ public class ProjectServiceIntTest {
 
         projectRepository.save(
             Project.builder()
-                .name("__AI_AGENT__Agent")
+                .name("__DATA_SYNC__Sync")
                 .workspaceId(workspace.getId())
                 .build());
 
@@ -175,7 +181,7 @@ public class ProjectServiceIntTest {
         assertThat(projects)
             .extracting(Project::getName)
             .contains("Regular Project")
-            .doesNotContain("__EMBEDDED_AUTOMATION__Catalog", "__AI_AGENT__Agent");
+            .doesNotContain("__EMBEDDED_AUTOMATION__Catalog", "__DATA_SYNC__Sync");
     }
 
     @Test
@@ -325,6 +331,19 @@ public class ProjectServiceIntTest {
             .getVisibility()).isEqualTo(ResourceVisibility.PRIVATE);
     }
 
+    @Test
+    public void testPublishProjectInvokesPublishPreListeners() {
+        Project project = projectRepository.save(getProject());
+
+        long projectId = Validate.notNull(project.getId(), "id");
+
+        RecordingListenerConfiguration.PUBLISHED_PROJECT_IDS.clear();
+
+        projectService.publishProject(projectId, "first release", false);
+
+        assertThat(RecordingListenerConfiguration.PUBLISHED_PROJECT_IDS).containsExactly(projectId);
+    }
+
     private Project getProject() {
         return Project.builder()
             .categoryId(category.getId())
@@ -332,5 +351,16 @@ public class ProjectServiceIntTest {
             .name("name")
             .workspaceId(workspace.getId())
             .build();
+    }
+
+    @TestConfiguration
+    static class RecordingListenerConfiguration {
+
+        static final List<Long> PUBLISHED_PROJECT_IDS = new CopyOnWriteArrayList<>();
+
+        @Bean
+        ProjectPublishPreListener recordingProjectPublishPreListener() {
+            return PUBLISHED_PROJECT_IDS::add;
+        }
     }
 }

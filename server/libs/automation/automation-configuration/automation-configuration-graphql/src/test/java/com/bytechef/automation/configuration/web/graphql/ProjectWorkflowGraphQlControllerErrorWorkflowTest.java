@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectWorkflowType;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.graphql.error.GraphQlBadRequestException;
@@ -109,6 +110,32 @@ class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
             .thenReturn(errorHandlerWorkflow);
         Mockito.when(workflowService.getWorkflow("wf-2"))
             .thenReturn(plainWorkflow);
+
+        List<ProjectWorkflow> result = projectWorkflowGraphQlController.eligibleErrorWorkflows(1L, 3);
+
+        Assertions.assertEquals(List.of(eligible), result);
+    }
+
+    @Test
+    void testEligibleErrorWorkflowsExcludesAiAgentWorkflows() {
+        ProjectWorkflow eligible = new ProjectWorkflow(1L);
+
+        eligible.setWorkflowId("wf-1");
+
+        ProjectWorkflow agentWorkflow = new ProjectWorkflow(2L);
+
+        agentWorkflow.setWorkflowId("wf-2");
+        agentWorkflow.setType(ProjectWorkflowType.AI_AGENT);
+
+        Mockito.when(projectWorkflowService.getProjectWorkflows(1L, 3))
+            .thenReturn(List.of(eligible, agentWorkflow));
+
+        Workflow errorHandlerWorkflow = new Workflow(
+            "wf-1", "{\"triggers\":[{\"name\":\"t1\",\"type\":\"workflow/v1/newWorkflowError\"}],\"tasks\":[]}",
+            Workflow.Format.JSON);
+
+        Mockito.when(workflowService.getWorkflow("wf-1"))
+            .thenReturn(errorHandlerWorkflow);
 
         List<ProjectWorkflow> result = projectWorkflowGraphQlController.eligibleErrorWorkflows(1L, 3);
 
