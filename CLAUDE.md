@@ -492,11 +492,12 @@ at once.
 
 Current groups: automation Build / Deploy / Monitor / AI / Resources; embedded Build / Configure /
 Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
-Approval Tasks and Connect; embedded Connect alone.
+Approval Tasks and Connections; embedded Connections alone.
 
 Both Build groups are Development-only. `shared/navigation/developmentOnlyRoutes.ts` is the one list
-pairing each authoring surface with the deployed one that replaces it (Projects → Deployments, Agents
-→ Agent Deployments, Integrations and Automations → Integration Instances); `App.tsx` hides the rows
+pairing each authoring surface with the deployed one that replaces it (Projects — including the Agents
+tab and the agents inside a project — → Deployments, Data Syncs → Data Sync Deployments, Integrations and
+Automations → Integration Instances); `App.tsx` hides the rows
 outside DEVELOPMENT and `useDevelopmentOnlyRouteGuard` redirects anyone standing on one. Both rules
 must come from that list — a row you cannot reach and a page you cannot leave are the same bug from
 opposite ends, and splitting them is how Projects once got the redirect while Agents got neither.
