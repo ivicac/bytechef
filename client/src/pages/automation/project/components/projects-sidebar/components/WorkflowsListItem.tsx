@@ -1,12 +1,12 @@
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import WorkflowsListItemDropdownMenu from '@/pages/automation/project/components/projects-sidebar/components/WorkflowsListItemDropdownMenu';
-import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import WorkflowTriggerAndComponentsRow from '@/shared/components/workflow/WorkflowTriggerAndComponentsRow';
 import {Project, Workflow} from '@/shared/middleware/automation/configuration';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
+import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
+import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
 import {MouseEvent, useMemo} from 'react';
 import {twMerge} from 'tailwind-merge';
-import {useShallow} from 'zustand/react/shallow';
 
 interface WorkflowsListItemProps {
     calculateTimeDifference: (date: string) => string;
@@ -27,12 +27,11 @@ const WorkflowsListItem = ({
     setSelectedProjectId,
     workflow,
 }: WorkflowsListItemProps) => {
-    const {componentDefinitions, taskDispatcherDefinitions} = useWorkflowDataStore(
-        useShallow((state) => ({
-            componentDefinitions: state.componentDefinitions,
-            taskDispatcherDefinitions: state.taskDispatcherDefinitions,
-        }))
-    );
+    const {data: componentDefinitions} = useGetComponentDefinitionsQuery({
+        actionDefinitions: true,
+        triggerDefinitions: true,
+    });
+    const {data: taskDispatcherDefinitions} = useGetTaskDispatcherDefinitionsQuery();
 
     const {filteredComponentNames, workflowComponentDefinitions, workflowTaskDispatcherDefinitions} = useMemo(() => {
         const componentNames = [
@@ -79,7 +78,7 @@ const WorkflowsListItem = ({
     return (
         <li
             className={twMerge(
-                'w-full cursor-pointer rounded-md border border-transparent py-3 pr-1 pl-3 hover:bg-background',
+                'group w-full cursor-pointer rounded-md border border-transparent py-3 pr-1 pl-3 hover:bg-background',
                 workflow.id === currentWorkflowId && 'border-stroke-brand-primary bg-background'
             )}
             key={workflow.id}

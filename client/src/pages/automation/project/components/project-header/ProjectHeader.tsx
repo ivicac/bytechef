@@ -11,6 +11,7 @@ import useProjectsLeftSidebarStore from '@/pages/automation/project/stores/usePr
 import CodeWorkflowHeaderActions, {
     CodeWorkflowSaveButton,
 } from '@/pages/platform/code-workflow/components/CodeWorkflowHeaderActions';
+import WorkflowActionsButton from '@/pages/platform/workflow-editor/components/WorkflowActionsButton';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import LoadingIndicator from '@/shared/components/LoadingIndicator';
@@ -129,6 +130,7 @@ const ProjectHeader = ({
                                         currentLabel={workflow?.label}
                                         currentProjectWorkflowId={projectWorkflowId}
                                         onWorkflowValueChange={handleProjectWorkflowValueChange}
+                                        projectId={project.id!}
                                         projectWorkflows={projectWorkflows}
                                     />
                                 }
@@ -143,6 +145,7 @@ const ProjectHeader = ({
                         currentLabel={workflow?.label}
                         currentProjectWorkflowId={projectWorkflowId}
                         onWorkflowValueChange={onWorkflowChange ?? handleProjectWorkflowValueChange}
+                        projectId={projectId}
                         projectWorkflows={projectWorkflows}
                     />
                 )}
@@ -174,26 +177,18 @@ const ProjectHeader = ({
                     </ButtonGroup>
                 )}
 
-                <div className="relative">
-                    <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
-
-                    {!settingsMenuVisible && loadingIndicator}
-                </div>
+                <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
 
                 {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export,
                  * error handling); a code workflow's workflows are defined by its source, so it is hidden. */}
 
                 {settingsMenuVisible && (
-                    <div className="relative">
-                        <SettingsMenu
-                            bottomResizablePanelRef={bottomResizablePanelRef}
-                            project={project}
-                            updateWorkflowMutation={updateWorkflowMutation}
-                            workflow={workflow}
-                        />
-
-                        {loadingIndicator}
-                    </div>
+                    <SettingsMenu
+                        bottomResizablePanelRef={bottomResizablePanelRef}
+                        project={project}
+                        updateWorkflowMutation={updateWorkflowMutation}
+                        workflow={workflow}
+                    />
                 )}
             </div>
         </header>

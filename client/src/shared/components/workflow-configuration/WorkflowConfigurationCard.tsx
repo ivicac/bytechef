@@ -1,7 +1,7 @@
 import Switch from '@/components/Switch/Switch';
 import {Label} from '@/components/ui/label';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {FileInputIcon, Link2Icon, WorkflowIcon} from 'lucide-react';
+import {BotIcon, FileInputIcon, Link2Icon, WorkflowIcon} from 'lucide-react';
 import {ReactNode} from 'react';
 import {twMerge} from 'tailwind-merge';
 
@@ -12,6 +12,7 @@ interface WorkflowConfigurationCardProps {
     hideInputsTab?: boolean;
     inputCount: number;
     inputsContent: ReactNode;
+    isAgentWorkflow?: boolean;
     label?: string;
     onEnabledChange: (enabled: boolean) => void;
     showWorkflowToggle: boolean;
@@ -25,6 +26,7 @@ const WorkflowConfigurationCard = ({
     hideInputsTab = false,
     inputCount,
     inputsContent,
+    isAgentWorkflow = false,
     label,
     onEnabledChange,
     showWorkflowToggle,
@@ -51,12 +53,21 @@ const WorkflowConfigurationCard = ({
                             enabled && 'bg-surface-brand-secondary'
                         )}
                     >
-                        <WorkflowIcon
-                            className={twMerge(
-                                'size-4 text-content-neutral-secondary transition-colors',
-                                enabled && 'text-content-brand-primary'
-                            )}
-                        />
+                        {isAgentWorkflow ? (
+                            <BotIcon
+                                className={twMerge(
+                                    'size-4 text-content-neutral-secondary transition-colors',
+                                    enabled && 'text-content-brand-primary'
+                                )}
+                            />
+                        ) : (
+                            <WorkflowIcon
+                                className={twMerge(
+                                    'size-4 text-content-neutral-secondary transition-colors',
+                                    enabled && 'text-content-brand-primary'
+                                )}
+                            />
+                        )}
                     </div>
 
                     {label}

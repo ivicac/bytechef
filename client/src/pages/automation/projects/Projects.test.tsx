@@ -5,10 +5,10 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-const mockProjectsState = vi.hoisted(() => ({
-    captureProjectImported: vi.fn(),
+const hoisted = vi.hoisted(() => ({
+    agents: [] as {channels: {channelType: string}[]; id: string; projectId: string}[],
     navigate: vi.fn(),
-    projects: [] as unknown[],
+    projects: [] as {id: number; name: string}[],
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -16,7 +16,7 @@ vi.mock('react-router-dom', async () => {
 
     return {
         ...actual,
-        useNavigate: () => mockProjectsState.navigate,
+        useNavigate: () => hoisted.navigate,
     };
 });
 
@@ -24,6 +24,10 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useWorkspaceStore: (selector: any) => selector({currentWorkspaceId: 1}),
+}));
+
+vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
+    default: () => ({agents: hoisted.agents, agentsIsLoading: false}),
 }));
 
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
@@ -70,7 +74,7 @@ vi.mock('@/shared/queries/automation/projects.queries', () => ({
         projects: ['projects'],
     },
     useGetWorkspaceProjectsQuery: () => ({
-        data: mockProjectsState.projects,
+        data: hoisted.projects,
         error: null,
         isLoading: false,
     }),
@@ -103,11 +107,17 @@ vi.mock('@/shared/mutations/automation/projects.mutations', async () => {
 
 vi.mock('@/pages/automation/project/loadProject', () => ({default: vi.fn()}));
 
-vi.mock('@/pages/automation/projects/components/project-list/ProjectList', () => ({
-    default: () => <div data-testid="project-list" />,
-}));
-
 vi.mock('sonner', () => ({toast: vi.fn()}));
+
+vi.mock('@/pages/automation/projects/components/project-list/ProjectList', () => ({
+    default: ({defaultActiveTab, projects}: {defaultActiveTab?: string; projects: {id: number; name: string}[]}) => (
+        <ul data-default-active-tab={defaultActiveTab} data-testid="project-list">
+            {projects.map((project) => (
+                <li key={project.id}>{project.name}</li>
+            ))}
+        </ul>
+    ),
+}));
 
 const createTestQueryClient = () =>
     new QueryClient({
@@ -121,11 +131,12 @@ const createTestQueryClient = () =>
 let queryClient: QueryClient;
 
 beforeEach(() => {
+    hoisted.agents = [];
+    hoisted.projects = [];
+
     queryClient = createTestQueryClient();
     mockImportMutate.mockClear();
-    mockProjectsState.captureProjectImported.mockClear();
-    mockProjectsState.navigate.mockClear();
-    mockProjectsState.projects = [];
+    hoisted.navigate.mockClear();
 });
 
 afterEach(() => {
@@ -244,7 +255,7 @@ describe('Projects menus', () => {
         ['header', [{id: 1, name: 'Project'}]],
     ])('%s menu', (_name, projects) => {
         beforeEach(() => {
-            mockProjectsState.projects = projects;
+            hoisted.projects = projects as {id: number; name: string}[];
         });
 
         it('should render with the design-system DropdownMenu', async () => {
@@ -264,7 +275,7 @@ describe('Projects menus', () => {
 
             await userEvent.click(screen.getByRole('menuitem', {name: 'From Template'}));
 
-            expect(mockProjectsState.navigate).toHaveBeenCalledWith('templates');
+            expect(hoisted.navigate).toHaveBeenCalledWith('templates');
         });
 
         it('should open the file picker when Import Project is clicked', async () => {
@@ -280,5 +291,95 @@ describe('Projects menus', () => {
 
             clickSpy.mockRestore();
         });
+    });
+});
+
+describe('Projects agents filter', () => {
+    const setUpProjectsWithAgents = () => {
+        hoisted.projects = [
+            {id: 1, name: 'Scheduled Project'},
+            {id: 2, name: 'Chat Project'},
+            {id: 3, name: 'Workflow Project'},
+        ];
+
+        hoisted.agents = [
+            {channels: [{channelType: 'chat'}, {channelType: 'schedule'}], id: 'a1', projectId: '1'},
+            {channels: [{channelType: 'chat'}], id: 'a2', projectId: '2'},
+        ];
+    };
+
+    it('shows the Agents section between Categories and Tags', () => {
+        renderProjects();
+
+        const categoriesHeading = screen.getByText('Categories');
+        const agentsHeading = screen.getByText('Agents');
+        const tagsHeading = screen.getByText('Tags');
+
+        expect(
+            categoriesHeading.compareDocumentPosition(agentsHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+        ).toBeTruthy();
+        expect(agentsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
+        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?agents=scheduled');
+    });
+
+    it('no longer offers the Projects | Agents tabs', () => {
+        renderProjects();
+
+        expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+        expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    });
+
+    it('lists every project and opens rows on Workflows without the filter', () => {
+        setUpProjectsWithAgents();
+
+        renderProjects();
+
+        expect(screen.getByText('Scheduled Project')).toBeInTheDocument();
+        expect(screen.getByText('Chat Project')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Project')).toBeInTheDocument();
+        expect(screen.getByTestId('project-list')).toHaveAttribute('data-default-active-tab', 'workflows');
+    });
+
+    it('keeps only projects with an agent for All Agents, opening rows on Agents', () => {
+        setUpProjectsWithAgents();
+
+        renderProjects(['/?agents=all']);
+
+        expect(screen.getByText('Scheduled Project')).toBeInTheDocument();
+        expect(screen.getByText('Chat Project')).toBeInTheDocument();
+        expect(screen.queryByText('Workflow Project')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-list')).toHaveAttribute('data-default-active-tab', 'agents');
+        expect(screen.getByText('Agents: All Agents')).toBeInTheDocument();
+    });
+
+    it('keeps only projects with a scheduled agent for Scheduled', () => {
+        setUpProjectsWithAgents();
+
+        renderProjects(['/?agents=scheduled']);
+
+        expect(screen.getByText('Scheduled Project')).toBeInTheDocument();
+        expect(screen.queryByText('Chat Project')).not.toBeInTheDocument();
+        expect(screen.queryByText('Workflow Project')).not.toBeInTheDocument();
+        expect(screen.getByTestId('project-list')).toHaveAttribute('data-default-active-tab', 'agents');
+    });
+
+    it('reports a filter miss when no project has a matching agent', () => {
+        hoisted.projects = [{id: 3, name: 'Workflow Project'}];
+
+        renderProjects(['/?agents=scheduled']);
+
+        expect(screen.getByText('No Matching Projects')).toBeInTheDocument();
+    });
+
+    it('clears the active agents filter on a second click and keeps the category filter', () => {
+        renderProjects(['/?categoryId=5&agents=all']);
+
+        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?categoryId=5');
+        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute(
+            'href',
+            '/?categoryId=5&agents=scheduled'
+        );
     });
 });
