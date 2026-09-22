@@ -15,8 +15,8 @@ const formSchema = z.object({
 });
 
 /**
- * `title`/`tooltip` are parameterised so an agent can reuse this: publishing an agent publishes its hidden backing
- * project, which is an implementation detail the header must never say out loud.
+ * `title`/`tooltip` are parameterised so a data sync can reuse this: publishing a data sync publishes its hidden
+ * backing project, which is an implementation detail the header must never say out loud.
  */
 const PublishPopover = ({
     disabled,

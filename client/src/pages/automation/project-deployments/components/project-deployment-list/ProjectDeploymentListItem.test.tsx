@@ -129,6 +129,24 @@ describe('ProjectDeploymentListItem', () => {
         };
     });
 
+    it('always shows the workflow and agent counts, zeros included', () => {
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+
+        expect(screen.getByText('0 workflows · 0 agents')).toBeInTheDocument();
+    });
+
+    it('uses the singular for one workflow and one agent', () => {
+        render(<ProjectDeploymentListItem agentCount={1} projectDeployment={projectDeployment} workflowCount={1} />);
+
+        expect(screen.getByText('1 workflow · 1 agent')).toBeInTheDocument();
+    });
+
+    it('uses the plural for several workflows and agents', () => {
+        render(<ProjectDeploymentListItem agentCount={2} projectDeployment={projectDeployment} workflowCount={3} />);
+
+        expect(screen.getByText('3 workflows · 2 agents')).toBeInTheDocument();
+    });
+
     it('hides the Promote to environment menu item when fewer than two environments exist', () => {
         hoisted.environmentsResult.data = {environments: [{id: '0', name: 'Development'}]};
 

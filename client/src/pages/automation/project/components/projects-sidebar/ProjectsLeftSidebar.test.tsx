@@ -1,7 +1,8 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import React from 'react';
+import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectsLeftSidebar from './ProjectsLeftSidebar';
@@ -53,10 +54,33 @@ vi.mock('@/components/ui/scroll-area', () => ({
     ScrollArea: ({children, ...props}: any) => <div {...props}>{children}</div>,
 }));
 
+vi.mock('@/components/ui/tabs', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Tabs: ({children, value}: any) => <div data-active-tab={value}>{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    TabsContent: ({children, value}: any) => <div data-testid={`tabs-content-${value}`}>{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    TabsList: ({children}: any) => <div>{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    TabsTrigger: ({children, value}: any) => <button data-testid={`tabs-trigger-${value}`}>{children}</button>,
+}));
+
 // Child components mocked to minimal renderers
 vi.mock('@/pages/automation/project/components/projects-sidebar/components/ProjectSelect', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: ({selectedProjectId}: any) => <div data-testid="project-select">ProjectSelect:{selectedProjectId}</div>,
+    default: ({selectedProjectId, setSelectedProjectId}: any) => (
+        <div data-testid="project-select">
+            <span>ProjectSelect:{selectedProjectId}</span>
+
+            <button onClick={() => setSelectedProjectId(3)} type="button">
+                switch-to-project-3
+            </button>
+
+            <button onClick={() => setSelectedProjectId(0)} type="button">
+                switch-to-all-projects
+            </button>
+        </div>
+    ),
 }));
 
 vi.mock('@/pages/automation/project/components/projects-sidebar/components/ProjectWorkflowsList', () => ({
@@ -80,6 +104,20 @@ vi.mock('@/pages/automation/project/components/projects-sidebar/components/Workf
 
 vi.mock('@/shared/components/workflow/WorkflowDialog', () => ({
     default: () => <div role="dialog">WorkflowDialog</div>,
+}));
+
+const mockAgentDialog = vi.fn();
+vi.mock('@/pages/automation/agents/components/AgentDialog', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default: (props: any) => {
+        mockAgentDialog(props);
+
+        return <div role="dialog">AgentDialog</div>;
+    },
+}));
+
+vi.mock('@/pages/automation/agents/components/AgentsLeftSidebarDropdownMenu', () => ({
+    default: () => null,
 }));
 
 // Hooks and stores
@@ -145,6 +183,13 @@ vi.mock('@/shared/hooks/useAnalytics', () => ({
     useAnalytics: () => ({captureProjectWorkflowImported: vi.fn()}),
 }));
 
+vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
+    default: () => ({
+        agents: [{id: '1', projectId: '7', title: 'Support Bot'}],
+        agentsIsLoading: false,
+    }),
+}));
+
 vi.mock('sonner', () => ({toast: vi.fn()}));
 
 vi.mock('@tanstack/react-query', async () => {
@@ -157,10 +202,15 @@ vi.mock('@tanstack/react-query', async () => {
 
 const mockNavigate = vi.hoisted(() => vi.fn());
 
-vi.mock('react-router-dom', async () => ({
-    useNavigate: () => mockNavigate,
-    useSearchParams: () => [new URLSearchParams(), vi.fn()],
-}));
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+
+    return {
+        ...actual,
+        useNavigate: () => mockNavigate,
+        useSearchParams: () => [new URLSearchParams(), vi.fn()],
+    };
+});
 
 // Helper to set default mocks per test scenario
 const setupQueries = ({
@@ -200,7 +250,9 @@ const baseProps = {
 const renderWithProviders = (ui: React.ReactElement) =>
     render(
         <QueryClientProvider client={queryClient}>
-            <TooltipProvider>{ui}</TooltipProvider>
+            <TooltipProvider>
+                <MemoryRouter>{ui}</MemoryRouter>
+            </TooltipProvider>
         </QueryClientProvider>
     );
 
@@ -265,8 +317,10 @@ describe('ProjectsLeftSidebar', () => {
 
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={3} />);
 
-        // Open dropdown (chevron) -> Import Workflow
-        const buttons = screen.getAllByTestId('btn');
+        // Open dropdown (chevron) -> Import Workflow. Scoped to the Workflows tab's own creation button
+        // group, since the Agents tab now renders one too.
+        const workflowsTab = screen.getByTestId('tabs-content-workflows');
+        const buttons = within(workflowsTab).getAllByTestId('btn');
         const chevronBtn = buttons[buttons.length - 1]; // the chevron is rendered after the primary button
         fireEvent.click(chevronBtn);
         fireEvent.click(screen.getByText(/Import Workflow/i));
@@ -317,7 +371,9 @@ describe('ProjectsLeftSidebar', () => {
         rerender(
             <QueryClientProvider client={queryClient}>
                 <TooltipProvider>
-                    <ProjectsLeftSidebar {...baseProps} projectId={7} />
+                    <MemoryRouter>
+                        <ProjectsLeftSidebar {...baseProps} projectId={7} />
+                    </MemoryRouter>
                 </TooltipProvider>
             </QueryClientProvider>
         );
@@ -376,7 +432,9 @@ describe('ProjectsLeftSidebar', () => {
         rerender(
             <QueryClientProvider client={queryClient}>
                 <TooltipProvider>
-                    <ProjectsLeftSidebar {...baseProps} projectId={5} />
+                    <MemoryRouter>
+                        <ProjectsLeftSidebar {...baseProps} projectId={5} />
+                    </MemoryRouter>
                 </TooltipProvider>
             </QueryClientProvider>
         );
@@ -402,7 +460,8 @@ describe('ProjectsLeftSidebar', () => {
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
 
         const items = await screen.findAllByTestId('workflow-item');
-        const scrollContainer = items[0].closest('ul')?.parentElement as HTMLElement;
+        // ul (workflow list) -> tabs-content-workflows -> Tabs -> ScrollArea, the actual scroll container.
+        const scrollContainer = items[0].closest('ul')?.parentElement?.parentElement?.parentElement as HTMLElement;
 
         // The scroll container must fill the remaining flex space and be allowed to shrink
         // (flex-1 + min-h-0) rather than be pinned to the viewport height (h-screen), which
@@ -447,6 +506,89 @@ describe('ProjectsLeftSidebar', () => {
         const menuItem = (await screen.findByText('Import n8n Workflow')).closest('[role="menuitem"]');
 
         expect(menuItem).not.toHaveAttribute('aria-disabled');
+    });
+
+    it('shows an Agents tab with a count and lists a project agent when useAgents returns one for it', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
+
+        expect(await screen.findByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (1)');
+        expect(screen.getByText('Support Bot')).toBeInTheDocument();
+    });
+
+    it('defaults to the Workflows tab when no agent is open', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
+
+        expect(await screen.findByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
+        expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'workflows');
+    });
+
+    it('selects the Agents tab by default when currentAgentId is passed', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} currentAgentId="1" projectId={7} />);
+
+        await screen.findByTestId('tabs-trigger-agents');
+
+        expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'agents');
+    });
+
+    it('switches to the Agents tab when currentAgentId is set after the initial render', async () => {
+        setupQueries({selectedProjectId: 7});
+
+        const {rerender} = renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={7} />);
+
+        await waitFor(() =>
+            expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'workflows')
+        );
+
+        rerender(
+            <QueryClientProvider client={queryClient}>
+                <TooltipProvider>
+                    <MemoryRouter>
+                        <ProjectsLeftSidebar {...baseProps} currentAgentId="1" projectId={7} />
+                    </MemoryRouter>
+                </TooltipProvider>
+            </QueryClientProvider>
+        );
+
+        await waitFor(() =>
+            expect(document.querySelector('[data-active-tab]')).toHaveAttribute('data-active-tab', 'agents')
+        );
+    });
+
+    it('locks New Agent to the project browsed in the sidebar, not the page project', async () => {
+        setupQueries({selectedProjectId: 9});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
+
+        fireEvent.click(screen.getByText('switch-to-project-3'));
+
+        // The Agents tab's own creation button, not a menu item of the Workflows tab's button.
+        fireEvent.click(screen.getByText('New Agent'));
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
+        expect(lastCall.projectId).toBe(3);
+    });
+
+    it('falls back to the page project when the sidebar is browsing all projects', async () => {
+        setupQueries({selectedProjectId: 9});
+
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
+
+        fireEvent.click(screen.getByText('switch-to-all-projects'));
+
+        fireEvent.click(screen.getByText('New Agent'));
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
+        expect(lastCall.projectId).toBe(9);
     });
 
     it('opens the template pages with absolute routes', () => {

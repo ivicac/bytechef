@@ -3,7 +3,12 @@ import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {ScrollArea} from '@/components/ui/scroll-area';
 import {Skeleton} from '@/components/ui/skeleton';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import AgentDialog from '@/pages/automation/agents/components/AgentDialog';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import useImportAiAgent from '@/pages/automation/agents/hooks/useImportAiAgent';
+import ProjectAgentsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectAgentsList';
 import ProjectSelect from '@/pages/automation/project/components/projects-sidebar/components/ProjectSelect';
 import ProjectWorkflowsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectWorkflowsList';
 import WorkflowsListFilter from '@/pages/automation/project/components/projects-sidebar/components/WorkflowsListFilter';
@@ -33,13 +38,15 @@ import {toast} from 'sonner';
 
 interface ProjectsLeftSidebarProps {
     bottomResizablePanelRef: RefObject<PanelImperativeHandle | null>;
+    currentAgentId?: string;
+    currentWorkflowId: string;
     onProjectClick: (projectId: number, projectWorkflowId: number) => void;
     projectId: number;
-    currentWorkflowId: string;
 }
 
 const ProjectsLeftSidebar = ({
     bottomResizablePanelRef,
+    currentAgentId,
     currentWorkflowId,
     onProjectClick,
     projectId,
@@ -48,8 +55,10 @@ const ProjectsLeftSidebar = ({
     const [sortBy, setSortBy] = useState('last-edited');
     const [searchValue, setSearchValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showAgentDialog, setShowAgentDialog] = useState(false);
     const [showProjectDialog, setShowProjectDialog] = useState(false);
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
+    const [activeTab, setActiveTab] = useState(currentAgentId ? 'agents' : 'workflows');
 
     const projectHiddenFileInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -92,12 +101,33 @@ const ProjectsLeftSidebar = ({
         (project) => project.id === (selectedProjectId === 0 ? projectId : selectedProjectId) && project.codeWorkflow
     );
 
+    // New/imported agents target the project browsed in the sidebar, falling back to the page's own project
+    // when the sidebar is browsing all projects (selectedProjectId is then 0).
+    const agentTargetProjectId = selectedProjectId || projectId;
+
     const filteredWorkflowsList = useMemo(
         () => getFilteredWorkflows(workflows, sortBy, searchValue),
         [workflows, sortBy, searchValue, getFilteredWorkflows]
     );
 
+    const {agents} = useAgents();
+
+    const projectAgents = useMemo(
+        () => agents.filter((agent) => selectedProjectId === 0 || +agent.projectId === selectedProjectId),
+        [agents, selectedProjectId]
+    );
+
     const queryClient = useQueryClient();
+
+    const {
+        fileInputRef: agentHiddenFileInputRef,
+        handleImportFileChange: handleImportAgentFileChange,
+        isImporting: isImportingAgent,
+        triggerImport: triggerAgentImport,
+    } = useImportAiAgent({
+        projectId: agentTargetProjectId,
+        workspaceId: currentWorkspaceId,
+    });
 
     const {convertN8nWorkflow} = useConvertN8nToWorkflow();
     const {hasEnabledAiProvider, isPending: isAiProviderCheckPending} = useHasEnabledAiProvider();
@@ -141,6 +171,10 @@ const ProjectsLeftSidebar = ({
     useEffect(() => {
         setSelectedProjectId(!isNaN(projectId) ? projectId : 0);
     }, [projectId]);
+
+    useEffect(() => {
+        setActiveTab(currentAgentId ? 'agents' : 'workflows');
+    }, [currentAgentId]);
 
     useEffect(() => {
         if (isLoading) {
@@ -227,121 +261,199 @@ const ProjectsLeftSidebar = ({
                     setSortBy={setSortBy}
                     sortBy={sortBy}
                 />
-
-                {!selectedProjectIsCodeWorkflow && (
-                    <ButtonGroup className="w-full">
-                        <Button
-                            className="flex-1 [&_svg]:size-5"
-                            icon={<PlusIcon />}
-                            label="New Workflow"
-                            onClick={() => setShowWorkflowDialog(true)}
-                            variant="secondary"
-                        />
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    className="data-[state=open]:border-stroke-brand-secondary data-[state=open]:bg-surface-brand-secondary data-[state=open]:text-content-brand-primary [&_svg]:size-5"
-                                    icon={
-                                        isImportingN8nWorkflow ? (
-                                            <LoaderCircleIcon className="animate-spin text-primary" />
-                                        ) : (
-                                            <ChevronDownIcon />
-                                        )
-                                    }
-                                    size="icon"
-                                    variant="secondary"
-                                />
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => navigate(`/automation/projects/${selectedProjectId}/templates`)}
-                                >
-                                    <LayoutTemplateIcon /> From Template
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => {
-                                        if (workflowHiddenFileInputRef.current) {
-                                            workflowHiddenFileInputRef.current.click();
-                                        }
-                                    }}
-                                >
-                                    <UploadIcon /> Import Workflow
-                                </DropdownMenuItem>
-
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="block">
-                                            <DropdownMenuItem
-                                                className="cursor-pointer"
-                                                disabled={importN8nWorkflowDisabled}
-                                                onClick={() => {
-                                                    if (converterHiddenFileInputRef.current) {
-                                                        converterHiddenFileInputRef.current.click();
-                                                    }
-                                                }}
-                                            >
-                                                <UploadIcon /> Import n8n Workflow
-                                            </DropdownMenuItem>
-                                        </span>
-                                    </TooltipTrigger>
-
-                                    {importN8nWorkflowDisabled && (
-                                        <TooltipContent>Enable an AI provider to import n8n workflows.</TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </ButtonGroup>
-                )}
             </div>
 
             <ScrollArea className="mb-3 min-h-0 w-full flex-1 [&_[data-radix-scroll-area-viewport]>div]:block!">
                 {isLoading && <WorkflowsListSkeleton />}
 
                 {!isLoading && (
-                    <ul className="flex flex-col gap-4">
-                        {selectedProjectId === 0 &&
-                            (projects ? (
-                                projects.map((project) => (
-                                    <ProjectWorkflowsList
-                                        calculateTimeDifference={calculateTimeDifference}
-                                        currentWorkflowId={currentWorkflowId}
-                                        filteredWorkflowsList={filteredWorkflowsList}
-                                        findProjectIdByWorkflow={findProjectIdByWorkflow}
-                                        key={project.id}
-                                        onProjectClick={onProjectClick}
-                                        project={project}
-                                        setSelectedProjectId={setSelectedProjectId}
-                                    />
-                                ))
-                            ) : (
-                                <span className="w-full py-2 text-sm text-muted-foreground">No workflows found</span>
-                            ))}
+                    <Tabs onValueChange={setActiveTab} value={activeTab}>
+                        <TabsList className="mb-2 w-full">
+                            <TabsTrigger className="flex-1" value="workflows">
+                                Workflows ({filteredWorkflowsList.length})
+                            </TabsTrigger>
 
-                        {selectedProjectId !== 0 && filteredWorkflowsList.length > 0 ? (
-                            filteredWorkflowsList.map((workflow) => (
-                                <WorkflowsListItem
-                                    calculateTimeDifference={calculateTimeDifference}
-                                    currentWorkflowId={currentWorkflowId}
-                                    findProjectIdByWorkflow={findProjectIdByWorkflow}
-                                    key={workflow.id}
-                                    onProjectClick={onProjectClick}
-                                    project={selectedProject}
-                                    setSelectedProjectId={setSelectedProjectId}
-                                    workflow={workflow}
+                            <TabsTrigger className="flex-1" value="agents">
+                                Agents ({projectAgents.length})
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="workflows">
+                            {!selectedProjectIsCodeWorkflow && (
+                                <ButtonGroup className="mb-3 w-full">
+                                    <Button
+                                        className="flex-1 [&_svg]:size-5"
+                                        icon={<PlusIcon />}
+                                        label="New Workflow"
+                                        onClick={() => setShowWorkflowDialog(true)}
+                                        variant="secondary"
+                                    />
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                className="data-[state=open]:border-stroke-brand-secondary data-[state=open]:bg-surface-brand-secondary data-[state=open]:text-content-brand-primary [&_svg]:size-5"
+                                                icon={
+                                                    isImportingN8nWorkflow ? (
+                                                        <LoaderCircleIcon className="animate-spin text-primary" />
+                                                    ) : (
+                                                        <ChevronDownIcon />
+                                                    )
+                                                }
+                                                size="icon"
+                                                variant="secondary"
+                                            />
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                    navigate(`/automation/projects/${selectedProjectId}/templates`)
+                                                }
+                                            >
+                                                <LayoutTemplateIcon /> From Template
+                                            </DropdownMenuItem>
+
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                    if (workflowHiddenFileInputRef.current) {
+                                                        workflowHiddenFileInputRef.current.click();
+                                                    }
+                                                }}
+                                            >
+                                                <UploadIcon /> Import Workflow
+                                            </DropdownMenuItem>
+
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="block">
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer"
+                                                            disabled={importN8nWorkflowDisabled}
+                                                            onClick={() => {
+                                                                if (converterHiddenFileInputRef.current) {
+                                                                    converterHiddenFileInputRef.current.click();
+                                                                }
+                                                            }}
+                                                        >
+                                                            <UploadIcon /> Import n8n Workflow
+                                                        </DropdownMenuItem>
+                                                    </span>
+                                                </TooltipTrigger>
+
+                                                {importN8nWorkflowDisabled && (
+                                                    <TooltipContent>
+                                                        Enable an AI provider to import n8n workflows.
+                                                    </TooltipContent>
+                                                )}
+                                            </Tooltip>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </ButtonGroup>
+                            )}
+
+                            <ul className="flex flex-col gap-4">
+                                {selectedProjectId === 0 &&
+                                    (projects ? (
+                                        projects.map((project) => (
+                                            <ProjectWorkflowsList
+                                                calculateTimeDifference={calculateTimeDifference}
+                                                currentWorkflowId={currentWorkflowId}
+                                                filteredWorkflowsList={filteredWorkflowsList}
+                                                findProjectIdByWorkflow={findProjectIdByWorkflow}
+                                                key={project.id}
+                                                onProjectClick={onProjectClick}
+                                                project={project}
+                                                setSelectedProjectId={setSelectedProjectId}
+                                            />
+                                        ))
+                                    ) : (
+                                        <span className="w-full py-2 text-sm text-muted-foreground">
+                                            No workflows found
+                                        </span>
+                                    ))}
+
+                                {selectedProjectId !== 0 && filteredWorkflowsList.length > 0 ? (
+                                    filteredWorkflowsList.map((workflow) => (
+                                        <WorkflowsListItem
+                                            calculateTimeDifference={calculateTimeDifference}
+                                            currentWorkflowId={currentWorkflowId}
+                                            findProjectIdByWorkflow={findProjectIdByWorkflow}
+                                            key={workflow.id}
+                                            onProjectClick={onProjectClick}
+                                            project={selectedProject}
+                                            setSelectedProjectId={setSelectedProjectId}
+                                            workflow={workflow}
+                                        />
+                                    ))
+                                ) : (
+                                    <span className="w-full py-2 text-sm text-muted-foreground">
+                                        No workflows found
+                                    </span>
+                                )}
+                            </ul>
+                        </TabsContent>
+
+                        <TabsContent value="agents">
+                            <ButtonGroup className="mb-3 w-full">
+                                <Button
+                                    className="flex-1 [&_svg]:size-5"
+                                    icon={<PlusIcon />}
+                                    label="New Agent"
+                                    onClick={() => setShowAgentDialog(true)}
+                                    variant="secondary"
                                 />
-                            ))
-                        ) : (
-                            <span className="w-full py-2 text-sm text-muted-foreground">No workflows found</span>
-                        )}
-                    </ul>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            className="data-[state=open]:border-stroke-brand-secondary data-[state=open]:bg-surface-brand-secondary data-[state=open]:text-content-brand-primary [&_svg]:size-5"
+                                            icon={
+                                                isImportingAgent ? (
+                                                    <LoaderCircleIcon className="animate-spin text-primary" />
+                                                ) : (
+                                                    <ChevronDownIcon />
+                                                )
+                                            }
+                                            size="icon"
+                                            variant="secondary"
+                                        />
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            disabled={isImportingAgent}
+                                            onClick={() => triggerAgentImport()}
+                                        >
+                                            <UploadIcon /> Import Agent
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </ButtonGroup>
+
+                            <ul className="flex flex-col gap-4">
+                                <ProjectAgentsList
+                                    calculateTimeDifference={calculateTimeDifference}
+                                    currentAgentId={currentAgentId}
+                                    emptyMessage="No agents yet."
+                                    projectId={selectedProjectId}
+                                />
+                            </ul>
+                        </TabsContent>
+                    </Tabs>
                 )}
             </ScrollArea>
+
+            {showAgentDialog && (
+                <AgentDialog
+                    onOpenChange={setShowAgentDialog}
+                    open={showAgentDialog}
+                    projectId={agentTargetProjectId}
+                />
+            )}
 
             {showProjectDialog && <ProjectDialog onClose={() => setShowProjectDialog(false)} project={undefined} />}
 
@@ -388,6 +500,14 @@ const ProjectsLeftSidebar = ({
                     }
                 }}
                 ref={converterHiddenFileInputRef}
+                type="file"
+            />
+
+            <input
+                accept=".json"
+                className="hidden"
+                onChange={handleImportAgentFileChange}
+                ref={agentHiddenFileInputRef}
                 type="file"
             />
 

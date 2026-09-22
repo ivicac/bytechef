@@ -1,5 +1,7 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
-import SettingsMenu from '@/pages/automation/project/components/project-header/components/settings-menu/SettingsMenu';
+import SettingsMenu, {
+    SettingsMenuFirstTabProps,
+} from '@/pages/automation/project/components/project-header/components/settings-menu/SettingsMenu';
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {render, screen, userEvent, waitFor} from '@/shared/util/test-utils';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
@@ -36,7 +38,7 @@ afterEach(() => {
     queryClient.clear();
 });
 
-const renderSettingsMenu = () => {
+const renderSettingsMenu = ({firstTab}: {firstTab?: SettingsMenuFirstTabProps} = {}) => {
     render(
         <MemoryRouter>
             <QueryClientProvider client={queryClient}>
@@ -45,11 +47,14 @@ const renderSettingsMenu = () => {
                         <Route
                             element={
                                 <SettingsMenu
+                                    firstTab={firstTab}
                                     project={mockProject}
                                     updateWorkflowMutation={
-                                        mockUpdateWorkflowMutation as unknown as UpdateWorkflowMutationType
+                                        firstTab
+                                            ? undefined
+                                            : (mockUpdateWorkflowMutation as unknown as UpdateWorkflowMutationType)
                                     }
-                                    workflow={mockWorkflow}
+                                    workflow={firstTab ? undefined : mockWorkflow}
                                 />
                             }
                             path="/"
@@ -126,5 +131,55 @@ it('should close the dropdown on click of a button inside the Project tab', asyn
 
     await waitFor(() => {
         expect(screen.queryByLabelText('Project tab')).not.toBeInTheDocument();
+    });
+});
+
+// The agent page has no workflow of its own — it plugs in an Agent tab through `firstTab` instead of the
+// default Workflow tab, with the Project tab unchanged.
+it('should show the caller-supplied firstTab in place of the Workflow tab, alongside the Project tab', async () => {
+    const mockCloseDropdownMenu = vi.fn();
+
+    renderSettingsMenu({
+        firstTab: {
+            ariaLabel: 'Agent tab',
+            content: (onCloseDropdownMenu) => (
+                <button
+                    onClick={() => {
+                        mockCloseDropdownMenu();
+                        onCloseDropdownMenu();
+                    }}
+                >
+                    stub agent tab content
+                </button>
+            ),
+            label: 'Agent',
+            value: 'agent',
+        },
+    });
+
+    await userEvent.click(screen.getByLabelText('Settings'));
+
+    expect(screen.queryByLabelText('Workflow tab')).not.toBeInTheDocument();
+
+    await waitFor(() => {
+        expect(screen.getByLabelText('Agent tab')).toBeInTheDocument();
+        expect(screen.getByLabelText('Project tab')).toBeInTheDocument();
+        expect(screen.getByText('stub agent tab content')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByLabelText('Project tab'));
+
+    await waitFor(() => {
+        expect(screen.getByText('Project History')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByLabelText('Agent tab'));
+
+    await userEvent.click(screen.getByText('stub agent tab content'));
+
+    expect(mockCloseDropdownMenu).toHaveBeenCalled();
+
+    await waitFor(() => {
+        expect(screen.queryByLabelText('Agent tab')).not.toBeInTheDocument();
     });
 });

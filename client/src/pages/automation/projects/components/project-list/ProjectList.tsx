@@ -1,14 +1,22 @@
 import {Collapsible, CollapsibleContent} from '@/components/ui/collapsible';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import ProjectListItem from '@/pages/automation/projects/components/project-list/ProjectListItem';
 import {ProjectGitConfigurationI} from '@/shared/edition/project-git/projectGitApi';
 import {Project, Tag} from '@/shared/middleware/automation/configuration';
 import {ComponentDefinitionBasic, TaskDispatcherDefinition} from '@/shared/middleware/platform/configuration';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 
+import ProjectAgentCreationActions from '../project-agent-list/ProjectAgentCreationActions';
+import ProjectAgentList from '../project-agent-list/ProjectAgentList';
+import ProjectWorkflowCreationActions from '../project-workflow-list/ProjectWorkflowCreationActions';
 import ProjectWorkflowList from '../project-workflow-list/ProjectWorkflowList';
+
+export type ProjectListTabType = 'agents' | 'workflows';
 
 const ProjectList = ({
     componentDefinitions,
+    defaultActiveTab = 'workflows',
     isRefetchingProjects,
     newlyCreatedProjectId,
     projectGitConfigurations,
@@ -17,6 +25,8 @@ const ProjectList = ({
     taskDispatcherDefinitions,
 }: {
     componentDefinitions?: ComponentDefinitionBasic[];
+    /** The tab every row opens on until the reader picks another one. */
+    defaultActiveTab?: ProjectListTabType;
     isRefetchingProjects?: boolean;
     newlyCreatedProjectId?: number;
     projectGitConfigurations: ProjectGitConfigurationI[];
@@ -25,6 +35,26 @@ const ProjectList = ({
     taskDispatcherDefinitions?: TaskDispatcherDefinition[];
 }) => {
     const [openCollapsibles, setOpenCollapsibles] = useState<Set<number>>(new Set());
+    const [activeTabByProjectId, setActiveTabByProjectId] = useState<Record<number, ProjectListTabType>>({});
+
+    const {agents} = useAgents();
+
+    const agentCountsByProjectId = useMemo(() => {
+        const counts = new Map<number, number>();
+
+        for (const agent of agents) {
+            const agentProjectId = +agent.projectId;
+
+            counts.set(agentProjectId, (counts.get(agentProjectId) ?? 0) + 1);
+        }
+
+        return counts;
+    }, [agents]);
+
+    // A new default (the agents filter turning on or off) takes over from tabs picked under the previous one.
+    useEffect(() => {
+        setActiveTabByProjectId({});
+    }, [defaultActiveTab]);
 
     useEffect(() => {
         if (newlyCreatedProjectId) {
@@ -36,6 +66,10 @@ const ProjectList = ({
         <div className="w-full divide-y divide-border/50 self-start p-4 pt-0 3xl:mx-auto 3xl:w-4/5">
             {projects.map((project) => {
                 const projectTagIds = project.tags?.map((tag) => tag.id);
+
+                const workflowCount = project.projectWorkflowIds?.length || 0;
+                const agentCount = agentCountsByProjectId.get(project.id!) || 0;
+                const activeTab = activeTabByProjectId[project.id!] || defaultActiveTab;
 
                 return (
                     <Collapsible
@@ -64,12 +98,54 @@ const ProjectList = ({
                         />
 
                         <CollapsibleContent>
-                            <ProjectWorkflowList
-                                componentDefinitions={componentDefinitions}
-                                project={project}
-                                queryEnabled={!isRefetchingProjects}
-                                taskDispatcherDefinitions={taskDispatcherDefinitions}
-                            />
+                            <Tabs
+                                className="px-3 py-2"
+                                onValueChange={(value) =>
+                                    setActiveTabByProjectId((prev) => ({
+                                        ...prev,
+                                        [project.id!]: value as ProjectListTabType,
+                                    }))
+                                }
+                                value={activeTab}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <TabsList>
+                                        <TabsTrigger value="workflows">Workflows ({workflowCount})</TabsTrigger>
+
+                                        <TabsTrigger value="agents">Agents ({agentCount})</TabsTrigger>
+                                    </TabsList>
+
+                                    <div onClick={(event) => event.stopPropagation()}>
+                                        {/* An empty tab shows its own centred create button, so the tab row
+                                            only carries one while the active tab lists something. */}
+
+                                        {activeTab === 'workflows'
+                                            ? !project.codeWorkflow &&
+                                              workflowCount > 0 && (
+                                                  <ProjectWorkflowCreationActions
+                                                      placement="tabRow"
+                                                      project={project}
+                                                  />
+                                              )
+                                            : agentCount > 0 && (
+                                                  <ProjectAgentCreationActions placement="tabRow" project={project} />
+                                              )}
+                                    </div>
+                                </div>
+
+                                <TabsContent value="workflows">
+                                    <ProjectWorkflowList
+                                        componentDefinitions={componentDefinitions}
+                                        project={project}
+                                        queryEnabled={!isRefetchingProjects}
+                                        taskDispatcherDefinitions={taskDispatcherDefinitions}
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="agents">
+                                    <ProjectAgentList project={project} />
+                                </TabsContent>
+                            </Tabs>
                         </CollapsibleContent>
                     </Collapsible>
                 );
