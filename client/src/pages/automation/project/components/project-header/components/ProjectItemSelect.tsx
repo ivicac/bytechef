@@ -10,13 +10,16 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import getAgentPath from '@/pages/automation/agents/utils/getAgentPath';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
+import getDataSyncPath from '@/pages/automation/data-syncs/utils/getDataSyncPath';
 import {Workflow} from '@/shared/middleware/automation/configuration';
-import {BotIcon, ChevronDownIcon, WorkflowIcon} from 'lucide-react';
+import {ArrowLeftRightIcon, BotIcon, ChevronDownIcon, WorkflowIcon} from 'lucide-react';
 import {useMemo} from 'react';
 import {useNavigate} from 'react-router-dom';
 
 interface ProjectItemSelectProps {
     currentAgentId?: string;
+    currentDataSyncId?: string;
     currentLabel?: string;
     currentProjectWorkflowId?: number;
     onWorkflowValueChange: (projectWorkflowId: number) => void;
@@ -26,6 +29,7 @@ interface ProjectItemSelectProps {
 
 const ProjectItemSelect = ({
     currentAgentId,
+    currentDataSyncId,
     currentLabel,
     currentProjectWorkflowId,
     onWorkflowValueChange,
@@ -33,25 +37,52 @@ const ProjectItemSelect = ({
     projectWorkflows,
 }: ProjectItemSelectProps) => {
     const {agents} = useAgents();
+    const {dataSyncs} = useDataSyncs();
     const navigate = useNavigate();
 
     const projectAgents = useMemo(() => agents.filter((agent) => +agent.projectId === projectId), [agents, projectId]);
 
-    const currentValue = currentAgentId ?? currentProjectWorkflowId?.toString();
+    const projectDataSyncs = useMemo(
+        () => dataSyncs.filter((dataSync) => +dataSync.projectId === projectId),
+        [dataSyncs, projectId]
+    );
+
+    const currentValue = currentDataSyncId
+        ? `dataSync:${currentDataSyncId}`
+        : currentAgentId
+          ? `agent:${currentAgentId}`
+          : currentProjectWorkflowId !== undefined
+            ? `workflow:${currentProjectWorkflowId}`
+            : undefined;
 
     const handleValueChange = (value: string) => {
-        const selectedWorkflow = projectWorkflows.find((workflow) => workflow.projectWorkflowId!.toString() === value);
+        const separatorIndex = value.indexOf(':');
 
-        if (selectedWorkflow) {
-            onWorkflowValueChange(selectedWorkflow.projectWorkflowId!);
+        const kind = value.slice(0, separatorIndex);
+        const id = value.slice(separatorIndex + 1);
+
+        if (kind === 'workflow') {
+            onWorkflowValueChange(Number(id));
 
             return;
         }
 
-        const selectedAgent = projectAgents.find((agent) => agent.id === value);
+        if (kind === 'agent') {
+            const selectedAgent = projectAgents.find((agent) => agent.id === id);
 
-        if (selectedAgent) {
-            navigate(getAgentPath(selectedAgent));
+            if (selectedAgent) {
+                navigate(getAgentPath(selectedAgent));
+            }
+
+            return;
+        }
+
+        if (kind === 'dataSync') {
+            const selectedDataSync = projectDataSyncs.find((dataSync) => dataSync.id === id);
+
+            if (selectedDataSync) {
+                navigate(getDataSyncPath(selectedDataSync));
+            }
         }
     };
 
@@ -87,7 +118,7 @@ const ProjectItemSelect = ({
                                     className="cursor-pointer"
                                     key={workflow.projectWorkflowId!}
                                     title={workflow.label!.length > 32 ? workflow.label! : undefined}
-                                    value={workflow.projectWorkflowId!.toString()}
+                                    value={`workflow:${workflow.projectWorkflowId!}`}
                                 >
                                     <WorkflowIcon className="size-4 shrink-0" />
 
@@ -106,11 +137,30 @@ const ProjectItemSelect = ({
                                     className="cursor-pointer"
                                     key={agent.id}
                                     title={agent.title.length > 32 ? agent.title : undefined}
-                                    value={agent.id}
+                                    value={`agent:${agent.id}`}
                                 >
                                     <BotIcon className="size-4 shrink-0" />
 
                                     <span className="truncate">{agent.title}</span>
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </>
+                    )}
+
+                    {projectDataSyncs.length > 0 && (
+                        <>
+                            <DropdownMenuLabel>Data Syncs</DropdownMenuLabel>
+
+                            {projectDataSyncs.map((dataSync) => (
+                                <DropdownMenuRadioItem
+                                    className="cursor-pointer"
+                                    key={dataSync.id}
+                                    title={dataSync.title.length > 32 ? dataSync.title : undefined}
+                                    value={`dataSync:${dataSync.id}`}
+                                >
+                                    <ArrowLeftRightIcon className="size-4 shrink-0" />
+
+                                    <span className="truncate">{dataSync.title}</span>
                                 </DropdownMenuRadioItem>
                             ))}
                         </>

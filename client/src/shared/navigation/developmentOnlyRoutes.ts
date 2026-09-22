@@ -15,12 +15,11 @@ interface DevelopmentOnlyRouteI {
  * page the user cannot leave are the same bug from opposite ends.
  *
  * `href` matches the route and everything nested under it, so detail pages -- a project workflow
- * editor, an agent, an integration workflow -- are covered by their list entry and need no entry of
- * their own.
+ * editor, an agent, a data sync, an integration workflow -- are covered by their list entry and need
+ * no entry of their own.
  */
 const DEVELOPMENT_ONLY_ROUTES: DevelopmentOnlyRouteI[] = [
     {fallbackHref: '/automation/deployments', href: '/automation/projects'},
-    {fallbackHref: '/automation/data-sync-deployments', href: '/automation/data-syncs'},
     {fallbackHref: '/embedded/configurations', href: '/embedded/integrations'},
     {fallbackHref: '/embedded/configurations', href: '/embedded/automation-workflows'},
 ];

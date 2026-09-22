@@ -55,12 +55,21 @@ vi.mock('@/pages/automation/projects/components/project-agent-list/ProjectAgentL
     default: ({project}: any) => <div data-testid="project-agent-list">Agents for {project.id}</div>,
 }));
 
+vi.mock('@/pages/automation/projects/components/project-data-sync-list/ProjectDataSyncList', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default: ({project}: any) => <div data-testid="project-data-sync-list">Data Syncs for {project.id}</div>,
+}));
+
 vi.mock('@/pages/automation/projects/components/project-workflow-list/ProjectWorkflowCreationActions', () => ({
     default: () => <button aria-label="Create Workflow">+ Workflow</button>,
 }));
 
 vi.mock('@/pages/automation/projects/components/project-agent-list/ProjectAgentCreationActions', () => ({
     default: () => <button aria-label="Create Agent">+ Agent</button>,
+}));
+
+vi.mock('@/pages/automation/projects/components/project-data-sync-list/ProjectDataSyncCreationActions', () => ({
+    default: () => <button aria-label="Create Data Sync">+ Data Sync</button>,
 }));
 
 vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
@@ -73,12 +82,18 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
     }),
 }));
 
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({
+        dataSyncs: [{id: 'ds1', projectId: '1', title: 'CRM Sync'}],
+    }),
+}));
+
 const projects = [
     {id: 1, name: 'Project One', projectWorkflowIds: [10, 20, 30]},
     {id: 2, name: 'Project Two', projectWorkflowIds: []},
 ] as Project[];
 
-const renderProjectList = (newlyCreatedProjectId?: number, defaultActiveTab?: 'agents' | 'workflows') =>
+const renderProjectList = (newlyCreatedProjectId?: number, defaultActiveTab?: 'agents' | 'dataSyncs' | 'workflows') =>
     render(
         <MemoryRouter>
             <ProjectList
@@ -92,24 +107,30 @@ const renderProjectList = (newlyCreatedProjectId?: number, defaultActiveTab?: 'a
     );
 
 describe('ProjectList', () => {
-    it('shows Workflows and Agents tabs with counts for the expanded project', async () => {
+    it('shows Workflows, Agents and Data Syncs tabs with counts for the expanded project', async () => {
         renderProjectList(1);
 
         expect(await screen.findByText('Workflows (3)')).toBeInTheDocument();
         expect(screen.getByText('Agents (2)')).toBeInTheDocument();
+        expect(screen.getByText('Data Syncs (1)')).toBeInTheDocument();
     });
 
-    it('always shows both tabs even when the project has no workflows', async () => {
+    it('always shows all three tabs even when the project has nothing in them', async () => {
         renderProjectList(2);
 
         expect(await screen.findByText('Workflows (0)')).toBeInTheDocument();
         expect(screen.getByText('Agents (1)')).toBeInTheDocument();
+        expect(screen.getByText('Data Syncs (0)')).toBeInTheDocument();
     });
 
-    it('renders the workflow and agent tab content for the expanded project', async () => {
+    it('renders the workflow, agent and data sync tab content for the expanded project', async () => {
         renderProjectList(1);
 
         await waitFor(() => expect(screen.getByTestId('project-workflow-list')).toHaveTextContent('Workflows for 1'));
+
+        (await screen.findByTestId('tabs-trigger-dataSyncs')).click();
+
+        await waitFor(() => expect(screen.getByTestId('project-data-sync-list')).toHaveTextContent('Data Syncs for 1'));
     });
 
     it('shows the tab-row create-workflow button when Workflows is active, and switches to create-agent after selecting Agents', async () => {
@@ -124,6 +145,16 @@ describe('ProjectList', () => {
         expect(screen.queryByRole('button', {name: 'Create Workflow'})).not.toBeInTheDocument();
     });
 
+    it('shows the tab-row create-data-sync button after selecting the Data Syncs tab', async () => {
+        renderProjectList(1);
+
+        (await screen.findByTestId('tabs-trigger-dataSyncs')).click();
+
+        expect(await screen.findByRole('button', {name: 'Create Data Sync'})).toBeInTheDocument();
+        expect(screen.queryByRole('button', {name: 'Create Workflow'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', {name: 'Create Agent'})).not.toBeInTheDocument();
+    });
+
     it('leaves the tab row without a create button while the active tab is empty', async () => {
         renderProjectList(2);
 
@@ -133,12 +164,24 @@ describe('ProjectList', () => {
         (await screen.findByTestId('tabs-trigger-agents')).click();
 
         expect(await screen.findByRole('button', {name: 'Create Agent'})).toBeInTheDocument();
+
+        (await screen.findByTestId('tabs-trigger-dataSyncs')).click();
+
+        expect(screen.queryByRole('button', {name: 'Create Data Sync'})).not.toBeInTheDocument();
     });
 
     it('opens the rows on the Agents tab when that is the default', async () => {
         renderProjectList(1, 'agents');
 
         await waitFor(() => expect(screen.getByTestId('project-agent-list')).toHaveTextContent('Agents for 1'));
+
+        expect(screen.queryByTestId('project-workflow-list')).not.toBeInTheDocument();
+    });
+
+    it('opens the rows on the Data Syncs tab when that is the default', async () => {
+        renderProjectList(1, 'dataSyncs');
+
+        await waitFor(() => expect(screen.getByTestId('project-data-sync-list')).toHaveTextContent('Data Syncs for 1'));
 
         expect(screen.queryByTestId('project-workflow-list')).not.toBeInTheDocument();
     });

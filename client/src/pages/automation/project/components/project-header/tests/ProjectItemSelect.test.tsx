@@ -21,6 +21,17 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
             {id: 'agent-1', projectId: '5', title: 'Support Bot'},
             {id: 'agent-2', projectId: '5', title: 'Billing Bot'},
             {id: 'agent-3', projectId: '8', title: 'Other Project Bot'},
+            {id: '1050', projectId: '5', title: 'Same Id Agent'},
+        ],
+    }),
+}));
+
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({
+        dataSyncs: [
+            {id: 'sync-1', projectId: '5', title: 'Order Sync'},
+            {id: 'sync-2', projectId: '5', title: 'Contact Sync'},
+            {id: 'sync-3', projectId: '8', title: 'Other Project Sync'},
         ],
     }),
 }));
@@ -55,7 +66,7 @@ it('shows the closed select with the current item label', () => {
     expect(screen.getByText('Workflow 1')).toBeInTheDocument();
 });
 
-it('lists the Workflows group and the Agents group scoped to the current project', async () => {
+it('lists the Workflows, Agents and Data Syncs groups scoped to the current project', async () => {
     renderProjectItemSelect();
 
     await userEvent.click(screen.getByLabelText('Project item select'));
@@ -67,9 +78,14 @@ it('lists the Workflows group and the Agents group scoped to the current project
     expect(screen.getByText('Support Bot')).toBeInTheDocument();
     expect(screen.getByText('Billing Bot')).toBeInTheDocument();
     expect(screen.queryByText('Other Project Bot')).not.toBeInTheDocument();
+
+    expect(screen.getByText('Data Syncs')).toBeInTheDocument();
+    expect(screen.getByText('Order Sync')).toBeInTheDocument();
+    expect(screen.getByText('Contact Sync')).toBeInTheDocument();
+    expect(screen.queryByText('Other Project Sync')).not.toBeInTheDocument();
 });
 
-it('shows a workflow icon next to each workflow item, matching the agent icon', async () => {
+it('shows a workflow icon, an agent icon and a data sync icon next to each group item', async () => {
     renderProjectItemSelect();
 
     await userEvent.click(screen.getByLabelText('Project item select'));
@@ -78,6 +94,7 @@ it('shows a workflow icon next to each workflow item, matching the agent icon', 
 
     const workflowItem = within(menu).getByText('Workflow 1').closest('[role="menuitemradio"]') as HTMLElement;
     const agentItem = within(menu).getByText('Support Bot').closest('[role="menuitemradio"]') as HTMLElement;
+    const dataSyncItem = within(menu).getByText('Order Sync').closest('[role="menuitemradio"]') as HTMLElement;
 
     expect(within(workflowItem).getByText('Workflow 1').previousElementSibling).toHaveClass(
         'lucide-workflow',
@@ -86,6 +103,11 @@ it('shows a workflow icon next to each workflow item, matching the agent icon', 
     );
     expect(within(agentItem).getByText('Support Bot').previousElementSibling).toHaveClass(
         'lucide-bot',
+        'size-4',
+        'shrink-0'
+    );
+    expect(within(dataSyncItem).getByText('Order Sync').previousElementSibling).toHaveClass(
+        'lucide-arrow-left-right',
         'size-4',
         'shrink-0'
     );
@@ -141,6 +163,28 @@ it('marks the current agent as the checked menu item', async () => {
     );
 });
 
+it('marks the current data sync as the checked menu item', async () => {
+    renderProjectItemSelect({
+        currentAgentId: undefined,
+        currentDataSyncId: 'sync-2',
+        currentLabel: 'Contact Sync',
+        currentProjectWorkflowId: undefined,
+    });
+
+    await userEvent.click(screen.getByLabelText('Project item select'));
+
+    const menu = screen.getByRole('menu');
+
+    expect(within(menu).getByText('Contact Sync').closest('[role="menuitemradio"]')).toHaveAttribute(
+        'aria-checked',
+        'true'
+    );
+    expect(within(menu).getByText('Order Sync').closest('[role="menuitemradio"]')).toHaveAttribute(
+        'aria-checked',
+        'false'
+    );
+});
+
 it('navigates to a project-workflow route when a workflow is selected', async () => {
     renderProjectItemSelect();
 
@@ -157,4 +201,41 @@ it('navigates to the agent path when an agent is selected', async () => {
     await userEvent.click(screen.getByText('Billing Bot'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/automation/projects/5/agents/agent-2');
+});
+
+it('navigates to the data sync path when a data sync is selected', async () => {
+    renderProjectItemSelect();
+
+    await userEvent.click(screen.getByLabelText('Project item select'));
+    await userEvent.click(screen.getByText('Order Sync'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/automation/projects/5/data-syncs/sync-1');
+});
+
+it('dispatches the project-workflow whose id collides with an agent id to onWorkflowValueChange', async () => {
+    renderProjectItemSelect({
+        projectWorkflows: [...mockProjectWorkflows, {label: 'Workflow 1050', projectWorkflowId: 1050}],
+    });
+
+    const navigateCallsBefore = mockNavigate.mock.calls.length;
+
+    await userEvent.click(screen.getByLabelText('Project item select'));
+    await userEvent.click(screen.getByText('Workflow 1050'));
+
+    expect(mockOnWorkflowValueChange).toHaveBeenCalledWith(1050);
+    expect(mockNavigate.mock.calls.length).toBe(navigateCallsBefore);
+});
+
+it('dispatches the agent whose id collides with a project-workflow id to the agent path', async () => {
+    renderProjectItemSelect({
+        projectWorkflows: [...mockProjectWorkflows, {label: 'Workflow 1050', projectWorkflowId: 1050}],
+    });
+
+    const onWorkflowValueChangeCallsBefore = mockOnWorkflowValueChange.mock.calls.length;
+
+    await userEvent.click(screen.getByLabelText('Project item select'));
+    await userEvent.click(screen.getByText('Same Id Agent'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/automation/projects/5/agents/1050');
+    expect(mockOnWorkflowValueChange.mock.calls.length).toBe(onWorkflowValueChangeCallsBefore);
 });

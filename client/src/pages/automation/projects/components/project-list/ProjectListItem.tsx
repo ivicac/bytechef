@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import ProjectDeploymentDialog from '@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
 import ProjectPublishDialog from '@/pages/automation/projects/components/ProjectPublishDialog';
@@ -106,12 +107,18 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
     const queryClient = useQueryClient();
 
     const {agents} = useAgents();
+    const {dataSyncs} = useDataSyncs();
 
     const workflowCount = project.projectWorkflowIds?.length ?? 0;
 
     const agentCount = useMemo(
         () => agents.filter((agent) => +agent.projectId === project.id).length,
         [agents, project.id]
+    );
+
+    const dataSyncCount = useMemo(
+        () => dataSyncs.filter((dataSync) => +dataSync.projectId === project.id).length,
+        [dataSyncs, project.id]
     );
 
     const deleteProjectMutation = useDeleteProjectMutation({
@@ -320,7 +327,7 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                                     ref={workflowsCollapsibleTriggerRef}
                                 >
                                     <div className="mr-1">
-                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'} · ${dataSyncCount} ${dataSyncCount === 1 ? 'data sync' : 'data syncs'}`}
                                     </div>
 
                                     <ChevronDownIcon className="size-4 duration-300 group-data-[state=open]:rotate-180" />

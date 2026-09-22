@@ -1,5 +1,4 @@
 import Badge from '@/components/Badge/Badge';
-import ComboBox from '@/components/ComboBox/ComboBox';
 import {Input} from '@/components/Input/Input';
 import {Note} from '@/components/Note';
 import ReadOnlyInput from '@/components/ReadOnlyInput/ReadOnlyInput';
@@ -25,24 +24,7 @@ import {useMemo, useState} from 'react';
 import {Control, UseFormGetValues, UseFormSetValue} from 'react-hook-form';
 import {useShallow} from 'zustand/react/shallow';
 
-/**
- * A deployable entity, offered in place of the Project picker when this dialog is opened for an entity other than an
- * ordinary project (Data Syncs' own deployment dialog). Its deployment IS a ProjectDeployment of the project that
- * holds its generated workflow, so picking one just fills in that project's id and published version — the rest of
- * the dialog is unchanged. AI agents do not use this: they are deployed through their project like any workflow.
- */
-export interface DeployableAgentI {
-    id: string;
-    lastPublishedVersion: number;
-    projectId: string;
-    title: string;
-}
-
 interface ProjectDialogBasicStepProps {
-    agentOptions?: DeployableAgentI[];
-    /** Label for the entity picker shown in place of the Project combo box when `agentOptions` is given.
-     *  Defaults to 'Agent'. */
-    agentOptionsLabel?: string;
     basicStepTab: 'new-deployment' | 'change-version';
     changeProjectVersion: boolean;
     control: Control<ProjectDeployment>;
@@ -58,8 +40,6 @@ interface ProjectDialogBasicStepProps {
 }
 
 const ProjectDeploymentDialogBasicStep = ({
-    agentOptions,
-    agentOptionsLabel = 'Agent',
     basicStepTab,
     changeProjectVersion,
     control,
@@ -132,27 +112,6 @@ const ProjectDeploymentDialogBasicStep = ({
         setCurrentProjectVersion(value);
     };
 
-    // An agent pick resolves to its backing project AND pins the published version straight away — there is
-    // no version choice to make, since only the last published version of an agent is deployable.
-    const handleAgentSelectionChange = (item?: {value: number; name?: string; lastPublishedVersion?: number}) => {
-        if (!item) {
-            return;
-        }
-
-        resetWorkflowsEnabledStore();
-
-        setValue('projectId', item.value);
-        setValue('projectVersion', item.lastPublishedVersion);
-        setValue('projectDeploymentWorkflows', []);
-
-        if (!getValues('name')) {
-            setValue('name', item.name!.toString());
-        }
-
-        setCurrentProjectId(item.value);
-        setCurrentProjectVersion(item.lastPublishedVersion);
-    };
-
     const handleProjectSelectionChange = (item?: {value: number; name?: string}) => {
         if (!item) {
             return;
@@ -187,29 +146,15 @@ const ProjectDeploymentDialogBasicStep = ({
                     name="projectId"
                     render={({field}) => (
                         <FormItem>
-                            <FormLabel>{agentOptions ? agentOptionsLabel : 'Project'}</FormLabel>
+                            <FormLabel>Project</FormLabel>
 
                             <FormControl>
-                                {agentOptions ? (
-                                    <ComboBox
-                                        items={agentOptions.map((agent) => ({
-                                            label: agent.title,
-                                            lastPublishedVersion: agent.lastPublishedVersion,
-                                            name: agent.title,
-                                            value: +agent.projectId,
-                                        }))}
-                                        onBlur={field.onBlur}
-                                        onChange={handleAgentSelectionChange}
-                                        value={field.value}
-                                    />
-                                ) : (
-                                    <ProjectDeploymentDialogBasicStepProjectsComboBox
-                                        onBlur={field.onBlur}
-                                        onChange={handleProjectSelectionChange}
-                                        projects={projects}
-                                        value={field.value}
-                                    />
-                                )}
+                                <ProjectDeploymentDialogBasicStepProjectsComboBox
+                                    onBlur={field.onBlur}
+                                    onChange={handleProjectSelectionChange}
+                                    projects={projects}
+                                    value={field.value}
+                                />
                             </FormControl>
 
                             <FormMessage />

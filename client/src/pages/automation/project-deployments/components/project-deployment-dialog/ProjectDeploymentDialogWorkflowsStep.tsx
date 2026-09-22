@@ -9,8 +9,6 @@ export interface ProjectDeploymentDialogWorkflowsStepProps {
     connectionsGrouped?: boolean;
     control: Control<ProjectDeployment>;
     formState: FormState<ProjectDeployment>;
-    hideEnabledToggle?: boolean;
-    hideInputsTab?: boolean;
     setValue: UseFormSetValue<ProjectDeployment>;
     workflows: Workflow[];
 }
@@ -20,8 +18,6 @@ const ProjectDeploymentDialogWorkflowsStep = ({
     connectionsGrouped,
     control,
     formState,
-    hideEnabledToggle,
-    hideInputsTab,
     setValue,
     workflows,
 }: ProjectDeploymentDialogWorkflowsStepProps) => {
@@ -39,11 +35,10 @@ const ProjectDeploymentDialogWorkflowsStep = ({
                     connectionsGrouped={connectionsGrouped}
                     control={control}
                     formState={formState}
-                    hideInputsTab={hideInputsTab}
                     key={workflow.id!}
                     label={workflow.label!}
                     setValue={setValue}
-                    showWorkflowToggle={!hideEnabledToggle}
+                    showWorkflowToggle
                     workflow={workflow}
                     workflowIndex={workflowIndex}
                     workflows={workflows}

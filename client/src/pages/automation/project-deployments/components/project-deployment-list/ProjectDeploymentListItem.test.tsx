@@ -129,22 +129,36 @@ describe('ProjectDeploymentListItem', () => {
         };
     });
 
-    it('always shows the workflow and agent counts, zeros included', () => {
+    it('always shows the workflow, agent and data sync counts, zeros included', () => {
         render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
 
-        expect(screen.getByText('0 workflows · 0 agents')).toBeInTheDocument();
+        expect(screen.getByText('0 workflows · 0 agents · 0 data syncs')).toBeInTheDocument();
     });
 
-    it('uses the singular for one workflow and one agent', () => {
-        render(<ProjectDeploymentListItem agentCount={1} projectDeployment={projectDeployment} workflowCount={1} />);
+    it('uses the singular for one workflow, one agent and one data sync', () => {
+        render(
+            <ProjectDeploymentListItem
+                agentCount={1}
+                dataSyncCount={1}
+                projectDeployment={projectDeployment}
+                workflowCount={1}
+            />
+        );
 
-        expect(screen.getByText('1 workflow · 1 agent')).toBeInTheDocument();
+        expect(screen.getByText('1 workflow · 1 agent · 1 data sync')).toBeInTheDocument();
     });
 
-    it('uses the plural for several workflows and agents', () => {
-        render(<ProjectDeploymentListItem agentCount={2} projectDeployment={projectDeployment} workflowCount={3} />);
+    it('uses the plural for several workflows, agents and data syncs', () => {
+        render(
+            <ProjectDeploymentListItem
+                agentCount={2}
+                dataSyncCount={4}
+                projectDeployment={projectDeployment}
+                workflowCount={3}
+            />
+        );
 
-        expect(screen.getByText('3 workflows · 2 agents')).toBeInTheDocument();
+        expect(screen.getByText('3 workflows · 2 agents · 4 data syncs')).toBeInTheDocument();
     });
 
     it('hides the Promote to environment menu item when fewer than two environments exist', () => {

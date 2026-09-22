@@ -1,8 +1,6 @@
 import {
     ActivityIcon,
-    ArrowLeftRightIcon,
     BoxesIcon,
-    CircleIcon,
     DatabaseIcon,
     FileTextIcon,
     FolderIcon,
@@ -15,7 +13,6 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
-    RefreshCwIcon,
     RocketIcon,
     RouterIcon,
     ServerIcon,
@@ -45,26 +42,17 @@ export const automationNavigation: NavigationItemI[] = [
         name: 'AI Hub',
     },
     {href: '/automation/chats', icon: MessageSquareIcon, name: 'Chats'},
-    {href: '/automation/approval-tasks', icon: CircleIcon, name: 'Approval Tasks'},
     {
-        group: 'Build',
         href: '/automation/projects',
         icon: FolderIcon,
         name: 'Projects',
     },
-    {group: 'Build', href: '/automation/data-syncs', icon: ArrowLeftRightIcon, name: 'Data Syncs'},
     {href: '/automation/connections', icon: Link2Icon, name: 'Connections'},
     {
         group: 'Deploy',
         href: '/automation/deployments',
         icon: Layers3Icon,
         name: 'Projects',
-    },
-    {
-        group: 'Deploy',
-        href: '/automation/data-sync-deployments',
-        icon: RefreshCwIcon,
-        name: 'Data Syncs',
     },
     {
         group: 'Deploy',

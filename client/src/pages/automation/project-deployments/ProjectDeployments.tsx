@@ -6,10 +6,14 @@ import {Skeleton} from '@/components/ui/skeleton';
 import AgentsFilterLeftSidebarNav, {
     getAgentsFilter,
 } from '@/pages/automation/agents/components/AgentsFilterLeftSidebarNav';
+import DataSyncsFilterLeftSidebarNav, {
+    getDataSyncsFilter,
+} from '@/pages/automation/data-syncs/components/DataSyncsFilterLeftSidebarNav';
 import ProjectDeploymentFilterTitle from '@/pages/automation/project-deployments/components/ProjectDeploymentFilterTitle';
 import isScheduleTrigger from '@/pages/automation/project-deployments/components/agent-deployment-channel-list/isScheduleTrigger';
 import ProjectDeploymentWorkflowExecutionsSheet from '@/pages/automation/project-deployments/components/project-deployment-workflow-executions-sheet/ProjectDeploymentWorkflowExecutionsSheet';
 import useAgentDeployments from '@/pages/automation/project-deployments/hooks/useAgentDeployments';
+import useDataSyncDeployments from '@/pages/automation/project-deployments/hooks/useDataSyncDeployments';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {WorkflowReadOnlyProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
@@ -19,6 +23,7 @@ import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import LeftSidebarFilterNav from '@/shared/layout/LeftSidebarFilterNav';
 import {ProjectDeployment} from '@/shared/middleware/automation/configuration';
+import {DataSyncTriggerType} from '@/shared/middleware/graphql';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
 import {useGetProjectDeploymentTagsQuery} from '@/shared/queries/automation/projectDeploymentTags.queries';
 import {
@@ -75,19 +80,26 @@ const ProjectDeployments = () => {
     const tagId = searchParams.get('tagId');
 
     const agentsFilter = getAgentsFilter(searchParams);
+    const dataSyncsFilter = getDataSyncsFilter(searchParams);
 
-    // Keeps the agents filter across the project and tag links, the way the Projects page's sidebar does.
-    const agentsSearchParam = agentsFilter ? `agents=${agentsFilter}` : undefined;
+    // Keeps whichever content filter is active across the project and tag links, the way the Projects page's
+    // sidebar does. The two are mutually exclusive (each nav clears the other's search param), so at most one
+    // of these is ever set.
+    const contentFilterSearchParam = agentsFilter
+        ? `agents=${agentsFilter}`
+        : dataSyncsFilter
+          ? `dataSyncs=${dataSyncsFilter}`
+          : undefined;
 
     const getFilterLink = (filterSearchParam: string) =>
-        `?${filterSearchParam}${agentsSearchParam ? `&${agentsSearchParam}` : ''}`;
+        `?${filterSearchParam}${contentFilterSearchParam ? `&${contentFilterSearchParam}` : ''}`;
 
     const filterData = {
         id: projectId ? parseInt(projectId) : tagId ? parseInt(tagId) : undefined,
         type: tagId ? Type.Tag : Type.Project,
     };
 
-    const isFiltered = filterData.id !== undefined || agentsFilter !== undefined;
+    const isFiltered = filterData.id !== undefined || agentsFilter !== undefined || dataSyncsFilter !== undefined;
 
     const {
         data: projects,
@@ -112,29 +124,55 @@ const ProjectDeployments = () => {
     });
 
     const {agentDeployments, agentDeploymentsError, agentDeploymentsIsLoading} = useAgentDeployments();
+    const {dataSyncDeployments, dataSyncDeploymentsError, dataSyncDeploymentsIsLoading} = useDataSyncDeployments();
 
-    // Client-side on top of the server's project/tag filter, so the two combine. An agent deployment entry carries
-    // its ProjectDeployment id as a GraphQL string, hence the numeric comparison. Scheduled goes off the DEPLOYED
-    // workflow's triggers, not the agent's current (draft) channels, so a deployment keeps matching after its
-    // agent's schedule channel is later added or removed -- and stops matching once that change is republished.
+    // Client-side on top of the server's project/tag filter, so the two combine. An agent/data sync deployment
+    // entry carries its ProjectDeployment id as a GraphQL string, hence the numeric comparison. Scheduled goes off
+    // the DEPLOYED workflow's/deployment's triggers, not the current (draft) channels or trigger, so a deployment
+    // keeps matching after that schedule is later added or removed -- and stops matching once that change is
+    // republished. The two filters are mutually exclusive (each nav clears the other's search param), so at most
+    // one of these branches applies.
     const filteredProjectDeployments = useMemo(() => {
-        if (!projectDeployments || !agentsFilter) {
+        if (!projectDeployments) {
             return projectDeployments;
         }
 
-        const matchingAgentDeployments =
-            agentsFilter === 'scheduled'
-                ? agentDeployments.filter((agentDeployment) =>
-                      agentDeployment.workflows.some((workflow) => workflow.triggers.some(isScheduleTrigger))
-                  )
-                : agentDeployments;
+        if (agentsFilter) {
+            const matchingAgentDeployments =
+                agentsFilter === 'scheduled'
+                    ? agentDeployments.filter((agentDeployment) =>
+                          agentDeployment.workflows.some((workflow) => workflow.triggers.some(isScheduleTrigger))
+                      )
+                    : agentDeployments;
 
-        const agentProjectDeploymentIds = new Set(
-            matchingAgentDeployments.map((agentDeployment) => +agentDeployment.id)
-        );
+            const agentProjectDeploymentIds = new Set(
+                matchingAgentDeployments.map((agentDeployment) => +agentDeployment.id)
+            );
 
-        return projectDeployments.filter((projectDeployment) => agentProjectDeploymentIds.has(projectDeployment.id!));
-    }, [agentDeployments, agentsFilter, projectDeployments]);
+            return projectDeployments.filter((projectDeployment) =>
+                agentProjectDeploymentIds.has(projectDeployment.id!)
+            );
+        }
+
+        if (dataSyncsFilter) {
+            const matchingDataSyncDeployments =
+                dataSyncsFilter === 'scheduled'
+                    ? dataSyncDeployments.filter(
+                          (dataSyncDeployment) => dataSyncDeployment.triggerType === DataSyncTriggerType.Schedule
+                      )
+                    : dataSyncDeployments;
+
+            const dataSyncProjectDeploymentIds = new Set(
+                matchingDataSyncDeployments.map((dataSyncDeployment) => +dataSyncDeployment.id)
+            );
+
+            return projectDeployments.filter((projectDeployment) =>
+                dataSyncProjectDeploymentIds.has(projectDeployment.id!)
+            );
+        }
+
+        return projectDeployments;
+    }, [agentDeployments, agentsFilter, dataSyncDeployments, dataSyncsFilter, projectDeployments]);
 
     const projectDeploymentMap: Map<number, ProjectDeployment[]> = new Map<number, ProjectDeployment[]>();
 
@@ -212,6 +250,7 @@ const ProjectDeployments = () => {
                         (projectDeployments && projectDeployments.length > 0) || isFiltered ? (
                             <ProjectDeploymentFilterTitle
                                 agentsFilter={agentsFilter}
+                                dataSyncsFilter={dataSyncsFilter}
                                 filterData={filterData}
                                 projects={projects}
                                 tags={tags}
@@ -234,13 +273,15 @@ const ProjectDeployments = () => {
                         leadItem={{
                             current: !filterData?.id && filterData.type === Type.Project,
                             name: 'All Projects',
-                            toLink: agentsSearchParam ? `?${agentsSearchParam}` : undefined,
+                            toLink: contentFilterSearchParam ? `?${contentFilterSearchParam}` : undefined,
                         }}
                         loading={projectsIsLoading}
                         title="Projects"
                     />
 
                     <AgentsFilterLeftSidebarNav currentAgentsFilter={agentsFilter} />
+
+                    <DataSyncsFilterLeftSidebarNav currentDataSyncsFilter={dataSyncsFilter} />
 
                     <LeftSidebarFilterNav
                         emptyMessage="No defined tags."
@@ -265,12 +306,14 @@ const ProjectDeployments = () => {
                     projectDeploymentsError,
                     tagsError,
                     agentsFilter ? agentDeploymentsError : null,
+                    dataSyncsFilter ? dataSyncDeploymentsError : null,
                 ]}
                 loading={
                     projectsIsLoading ||
                     projectDeploymentsIsLoading ||
                     tagsIsLoading ||
-                    (!!agentsFilter && agentDeploymentsIsLoading)
+                    (!!agentsFilter && agentDeploymentsIsLoading) ||
+                    (!!dataSyncsFilter && dataSyncDeploymentsIsLoading)
                 }
             >
                 {filteredProjectDeployments && filteredProjectDeployments.length > 0 ? (
@@ -286,7 +329,9 @@ const ProjectDeployments = () => {
                                     tags && (
                                         <ProjectDeploymentList
                                             componentDefinitions={componentDefinitions}
-                                            defaultActiveTab={agentsFilter ? 'agents' : 'workflows'}
+                                            defaultActiveTab={
+                                                agentsFilter ? 'agents' : dataSyncsFilter ? 'dataSyncs' : 'workflows'
+                                            }
                                             key={projectId}
                                             newlyCreatedDeploymentId={newlyCreatedDeploymentId}
                                             project={projects.find(
