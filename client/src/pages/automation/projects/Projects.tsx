@@ -6,6 +6,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/DropdownMenu/DropdownMenu';
 import EmptyFilterResult from '@/components/EmptyFilterResult';
+import EmptyList from '@/components/EmptyList';
 import EmptyState from '@/components/EmptyState/EmptyState';
 import JourneySteps from '@/components/JourneySteps/JourneySteps';
 import PageLoader from '@/components/PageLoader';
@@ -15,6 +16,11 @@ import AgentsFilterLeftSidebarNav, {
 } from '@/pages/automation/agents/components/AgentsFilterLeftSidebarNav';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
 import isScheduledAgent from '@/pages/automation/agents/utils/isScheduledAgent';
+import DataSyncDialog from '@/pages/automation/data-syncs/components/DataSyncDialog';
+import DataSyncsFilterLeftSidebarNav, {
+    getDataSyncsFilter,
+} from '@/pages/automation/data-syncs/components/DataSyncsFilterLeftSidebarNav';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import {PROJECTS_DOCUMENTATION_URL, getAutomationJourneySteps} from '@/pages/automation/journey/automationJourneySteps';
 import {getAutomationJourney} from '@/pages/automation/journey/getAutomationJourney';
 import loadProject from '@/pages/automation/project/loadProject';
@@ -40,7 +46,7 @@ import {ProjectKeys, useGetWorkspaceProjectsQuery} from '@/shared/queries/automa
 import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon, CodeIcon, FolderIcon, LayoutTemplateIcon, UploadIcon} from 'lucide-react';
+import {ChevronDownIcon, CodeIcon, FilterXIcon, FolderIcon, LayoutTemplateIcon, UploadIcon} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
@@ -92,13 +98,14 @@ const Projects = () => {
     const currentTagId = tagId ? Number.parseInt(tagId) : undefined;
 
     const agentsFilter = getAgentsFilter(searchParams);
+    const dataSyncsFilter = getDataSyncsFilter(searchParams);
 
     const filterData = {
         id: currentCategoryId ?? currentTagId,
         type: tagId ? Type.Tag : Type.Category,
     };
 
-    const isFiltered = filterData.id !== undefined || agentsFilter !== undefined;
+    const isFiltered = filterData.id !== undefined || agentsFilter !== undefined || dataSyncsFilter !== undefined;
 
     const {data: componentDefinitions} = useGetComponentDefinitionsQuery({
         actionDefinitions: true,
@@ -143,20 +150,40 @@ const Projects = () => {
 
     const {agents, agentsError, agentsIsLoading} = useAgents();
 
-    // Client-side on top of the server's category/tag filter, so the two combine. Agents carry their project id
-    // as a GraphQL string, hence the numeric comparison.
+    const {dataSyncs, dataSyncsError, dataSyncsIsLoading} = useDataSyncs();
+
+    const initialLoadComplete = useInitialLoadComplete(projectsIsLoading);
+
+    // Client-side on top of the server's category/tag filter, so the two combine. Agents and data syncs carry
+    // their project id as a GraphQL string, hence the numeric comparison. The two filters are mutually
+    // exclusive (each nav clears the other's search param), so at most one of these branches applies.
     const filteredProjects = useMemo(() => {
-        if (!projects || !agentsFilter) {
+        if (!projects) {
             return projects;
         }
 
-        const matchingAgents =
-            agentsFilter === 'scheduled' ? agents.filter((agent) => isScheduledAgent(agent)) : agents;
+        if (agentsFilter) {
+            const matchingAgents =
+                agentsFilter === 'scheduled' ? agents.filter((agent) => isScheduledAgent(agent)) : agents;
 
-        const agentProjectIds = new Set(matchingAgents.map((agent) => +agent.projectId));
+            const agentProjectIds = new Set(matchingAgents.map((agent) => +agent.projectId));
 
-        return projects.filter((project) => agentProjectIds.has(project.id!));
-    }, [agents, agentsFilter, projects]);
+            return projects.filter((project) => agentProjectIds.has(project.id!));
+        }
+
+        if (dataSyncsFilter) {
+            const matchingDataSyncs =
+                dataSyncsFilter === 'scheduled'
+                    ? dataSyncs.filter((dataSync) => dataSync.triggerType === 'SCHEDULE')
+                    : dataSyncs;
+
+            const dataSyncProjectIds = new Set(matchingDataSyncs.map((dataSync) => +dataSync.projectId));
+
+            return projects.filter((project) => dataSyncProjectIds.has(project.id!));
+        }
+
+        return projects;
+    }, [agents, agentsFilter, dataSyncs, dataSyncsFilter, projects]);
 
     const isFirstRun = !isFiltered && projects?.length === 0;
 
@@ -240,6 +267,7 @@ const Projects = () => {
                             <ProjectsFilterTitle
                                 agentsFilter={agentsFilter}
                                 categories={categories}
+                                dataSyncsFilter={dataSyncsFilter}
                                 filterData={filterData}
                                 tags={tags}
                             />
@@ -255,8 +283,20 @@ const Projects = () => {
                     categoriesIsLoading={categoriesIsLoading}
                     currentCategoryId={currentCategoryId}
                     currentTagId={currentTagId}
-                    middleGroups={<AgentsFilterLeftSidebarNav currentAgentsFilter={agentsFilter} />}
-                    preservedSearchParams={agentsFilter ? `agents=${agentsFilter}` : undefined}
+                    middleGroups={
+                        <>
+                            <AgentsFilterLeftSidebarNav currentAgentsFilter={agentsFilter} />
+
+                            <DataSyncsFilterLeftSidebarNav currentDataSyncsFilter={dataSyncsFilter} />
+                        </>
+                    }
+                    preservedSearchParams={
+                        agentsFilter
+                            ? `agents=${agentsFilter}`
+                            : dataSyncsFilter
+                              ? `dataSyncs=${dataSyncsFilter}`
+                              : undefined
+                    }
                     tags={tags}
                     tagsClassName="mb-0"
                     tagsEmptyMessage="No defined tags."
@@ -274,19 +314,21 @@ const Projects = () => {
                     projectsError,
                     tagsError,
                     agentsFilter ? agentsError : null,
+                    dataSyncsFilter ? dataSyncsError : null,
                 ]}
                 loading={
                     categoriesIsLoading ||
                     projectGitConfigurationsIsLoading ||
                     projectsIsLoading ||
                     tagsIsLoading ||
-                    (!!agentsFilter && agentsIsLoading)
+                    (!!agentsFilter && agentsIsLoading) ||
+                    (!!dataSyncsFilter && dataSyncsIsLoading)
                 }
             >
                 {filteredProjects && filteredProjects.length > 0 && tags ? (
                     <ProjectList
                         componentDefinitions={componentDefinitions}
-                        defaultActiveTab={agentsFilter ? 'agents' : 'workflows'}
+                        defaultActiveTab={agentsFilter ? 'agents' : dataSyncsFilter ? 'dataSyncs' : 'workflows'}
                         isRefetchingProjects={isRefetchingProjects}
                         newlyCreatedProjectId={newlyCreatedProjectId}
                         projectGitConfigurations={projectGitConfigurations ?? []}
@@ -295,7 +337,18 @@ const Projects = () => {
                         taskDispatcherDefinitions={taskDispatcherDefinitions}
                     />
                 ) : isFiltered ? (
-                    <EmptyFilterResult entityName="projects" entityTitle="Projects" />
+                    dataSyncsFilter ? (
+                        // Unlike the generic filter miss, a Data Syncs filter with no matches offers to create
+                        // one straight away — the reader came here specifically to find or start a data sync.
+                        <EmptyList
+                            button={<DataSyncDialog triggerNode={<Button label="Create Data Sync" />} />}
+                            icon={<FilterXIcon className="size-24 text-stroke-neutral-tertiary" />}
+                            message="No projects match the current filter."
+                            title="No Matching Projects"
+                        />
+                    ) : (
+                        <EmptyFilterResult entityName="projects" entityTitle="Projects" />
+                    )
                 ) : (
                     <EmptyState
                         actions={

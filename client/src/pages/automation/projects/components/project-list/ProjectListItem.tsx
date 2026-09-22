@@ -12,11 +12,13 @@ import {ButtonGroup} from '@/components/ui/button-group';
 import {CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import ProjectDeploymentDialog from '@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog';
 import useOpenSavedProjectDeployment from '@/pages/automation/project-deployments/hooks/useOpenSavedProjectDeployment';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
 import ProjectPublishDialog from '@/pages/automation/projects/components/ProjectPublishDialog';
 import ProjectAgentCreationActions from '@/pages/automation/projects/components/project-agent-list/ProjectAgentCreationActions';
+import ProjectDataSyncCreationActions from '@/pages/automation/projects/components/project-data-sync-list/ProjectDataSyncCreationActions';
 import ProjectListItemDeployButton from '@/pages/automation/projects/components/project-list/ProjectListItemDeployButton';
 import ProjectListItemPublishMenuItem from '@/pages/automation/projects/components/project-list/ProjectListItemPublishMenuItem';
 import ProjectListItemTabs, {
@@ -47,6 +49,7 @@ import {
     DownloadIcon,
     EditIcon,
     EllipsisVerticalIcon,
+    FolderIcon,
     GitBranchIcon,
     GitPullRequestArrowIcon,
     PlusIcon,
@@ -64,6 +67,7 @@ import ProjectDialog from '../ProjectDialog';
 interface ProjectItemProps {
     activeTab?: ProjectListItemTabType;
     agentsContent: ReactNode;
+    dataSyncsContent: ReactNode;
     deploymentsContent: ReactNode;
     onTabChange: (tab?: ProjectListItemTabType, expandedProjectDeploymentId?: number) => void;
     project: Project;
@@ -79,6 +83,7 @@ const ProjectGitConfigurationDialog = lazy(
 const ProjectListItem = ({
     activeTab,
     agentsContent,
+    dataSyncsContent,
     deploymentsContent,
     onTabChange,
     project,
@@ -121,6 +126,7 @@ const ProjectListItem = ({
     const queryClient = useQueryClient();
 
     const {agents} = useAgents();
+    const {dataSyncs} = useDataSyncs();
 
     const deploymentCount = project.developmentDeploymentCount;
     const workflowCount = project.projectWorkflowIds?.length ?? 0;
@@ -130,6 +136,11 @@ const ProjectListItem = ({
     const agentCount = useMemo(
         () => agents.filter((agent) => +agent.projectId === project.id).length,
         [agents, project.id]
+    );
+
+    const dataSyncCount = useMemo(
+        () => dataSyncs.filter((dataSync) => +dataSync.projectId === project.id).length,
+        [dataSyncs, project.id]
     );
 
     const deleteProjectMutation = useDeleteProjectMutation({
@@ -267,6 +278,8 @@ const ProjectListItem = ({
                         data-testid="project-item"
                     >
                         <div className="flex min-h-8 items-center gap-2">
+                            <FolderIcon aria-hidden="true" className="size-6 shrink-0 text-content-neutral-secondary" />
+
                             {project.projectWorkflowIds &&
                             project.projectWorkflowIds.length > 0 &&
                             !javaCodeWorkflow ? (
@@ -334,7 +347,7 @@ const ProjectListItem = ({
                             <div className="flex items-center gap-2">
                                 <CollapsibleTrigger className="group mr-2 flex items-center text-xs font-semibold text-muted-foreground">
                                     <span className="mr-1">
-                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}`}
+                                        {`${workflowCount} ${workflowCount === 1 ? 'workflow' : 'workflows'} · ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'} · ${dataSyncCount} ${dataSyncCount === 1 ? 'data sync' : 'data syncs'}`}
                                     </span>
 
                                     <span className="mx-1">-</span>
@@ -551,6 +564,8 @@ const ProjectListItem = ({
                             <ProjectWorkflowCreationActions placement="tabRow" project={project} />
                         ) : activeTab === 'agents' && agentCount > 0 ? (
                             <ProjectAgentCreationActions placement="tabRow" project={project} />
+                        ) : activeTab === 'dataSyncs' && dataSyncCount > 0 ? (
+                            <ProjectDataSyncCreationActions placement="tabRow" project={project} />
                         ) : activeTab === 'deployments' && isPublished && deploymentCount !== 0 ? (
                             <ProjectDeploymentDialog
                                 onSuccess={(projectDeploymentId) => onTabChange('deployments', projectDeploymentId)}
@@ -571,6 +586,7 @@ const ProjectListItem = ({
                     }
                     activeTab={activeTab ?? 'workflows'}
                     agentsContent={agentsContent}
+                    dataSyncsContent={dataSyncsContent}
                     deploymentsContent={deploymentsContent}
                     onTabChange={(tab) => onTabChange(tab)}
                     workflowsContent={workflowsContent}

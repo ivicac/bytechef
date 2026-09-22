@@ -9,9 +9,10 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {useLocation, useSearchParams} from 'react-router-dom';
 
 import ProjectAgentList from '../project-agent-list/ProjectAgentList';
+import ProjectDataSyncList from '../project-data-sync-list/ProjectDataSyncList';
 import ProjectWorkflowList from '../project-workflow-list/ProjectWorkflowList';
 
-export type ProjectListTabType = Extract<ProjectListItemTabType, 'agents' | 'workflows'>;
+export type ProjectListTabType = Extract<ProjectListItemTabType, 'agents' | 'dataSyncs' | 'workflows'>;
 
 interface OpenProjectI {
     expandedProjectDeploymentId?: number;
@@ -106,7 +107,7 @@ const ProjectList = ({
         document.querySelector(`[data-project-id="${scrollToProjectId}"]`)?.scrollIntoView({block: 'start'});
     }, [projects]);
 
-    // A new default (the agents filter turning on or off) takes over from tabs picked under the previous one.
+    // A new default (the agents or data syncs filter turning on or off) takes over from tabs picked under the previous one.
     useEffect(() => {
         if (previousDefaultActiveTabRef.current === defaultActiveTab) {
             return;
@@ -143,6 +144,7 @@ const ProjectList = ({
                         <ProjectListItem
                             activeTab={openProject?.tab}
                             agentsContent={<ProjectAgentList project={project} />}
+                            dataSyncsContent={<ProjectDataSyncList project={project} />}
                             deploymentsContent={
                                 <ProjectDeploymentsPanel
                                     enabled

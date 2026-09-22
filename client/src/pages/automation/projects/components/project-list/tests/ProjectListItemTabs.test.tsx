@@ -11,6 +11,7 @@ const renderProjectListItemTabs = (activeTab: ProjectListItemTabType, onTabChang
             actions={<button>New Workflow</button>}
             activeTab={activeTab}
             agentsContent={<div>Agents content</div>}
+            dataSyncsContent={<div>Data syncs content</div>}
             deploymentsContent={<div>Deployments content</div>}
             onTabChange={onTabChange}
             workflowsContent={<div>Workflows content</div>}
@@ -39,6 +40,14 @@ describe('ProjectListItemTabs', () => {
 
         expect(screen.getByRole('tab', {name: 'Agents'})).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByText('Agents content')).toBeInTheDocument();
+        expect(screen.queryByText('Workflows content')).not.toBeInTheDocument();
+    });
+
+    it('shows the data syncs content when data syncs is active', () => {
+        renderProjectListItemTabs('dataSyncs');
+
+        expect(screen.getByRole('tab', {name: 'Data Syncs'})).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByText('Data syncs content')).toBeInTheDocument();
         expect(screen.queryByText('Workflows content')).not.toBeInTheDocument();
     });
 

@@ -1,243 +1,141 @@
-import {Project, ProjectDeployment} from '@/shared/middleware/automation/configuration';
-import {render, screen} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import {createContext, useContext} from 'react';
+import {CollapsibleTrigger} from '@/components/ui/collapsible';
+import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
+import {Project, ProjectDeployment, Tag} from '@/shared/middleware/automation/configuration';
+import {render, screen, userEvent} from '@/shared/util/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectDeploymentList from './ProjectDeploymentList';
 
-interface TabsContextValueI {
-    onValueChange?: (value: string) => void;
-    value?: string;
-}
-
-const TabsContext = createContext<TabsContextValueI>({});
-
-const hoisted = vi.hoisted(() => ({
-    agentDeployments: [] as {agentId: string; agentTitle: string; id: string; workflows: {workflowId: string}[]}[],
-    agentListPropsMock: vi.fn(),
-    agents: [] as {id: string; projectId: string; projectWorkflowUuid: string}[],
-    workflowListPropsMock: vi.fn(),
-}));
-
-vi.mock('@/components/ui/collapsible', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Collapsible: ({children, open}: any) => (
-        <div data-open={String(!!open)} data-testid="collapsible">
-            {children}
-        </div>
-    ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    CollapsibleContent: ({children}: any) => <div>{children}</div>,
-}));
-
-vi.mock('@/components/ui/tabs', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Tabs: ({children, onValueChange, value}: any) => (
-        <TabsContext.Provider value={{onValueChange, value}}>
-            <div>{children}</div>
-        </TabsContext.Provider>
-    ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    TabsContent: ({children, value}: any) => {
-        const {value: activeValue} = useContext(TabsContext);
-
-        return activeValue === value ? <div data-testid={`tabs-content-${value}`}>{children}</div> : null;
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    TabsList: ({children}: any) => <div>{children}</div>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    TabsTrigger: ({children, value}: any) => {
-        const {onValueChange} = useContext(TabsContext);
-
-        return (
-            <button data-testid={`tabs-trigger-${value}`} onClick={() => onValueChange?.(value)}>
-                {children}
-            </button>
-        );
-    },
-}));
-
-vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
-    default: () => ({agents: hoisted.agents}),
-}));
-
-vi.mock('@/pages/automation/project-deployments/hooks/useAgentDeployments', () => ({
-    default: () => ({agentDeployments: hoisted.agentDeployments}),
-}));
-
 vi.mock('./ProjectDeploymentListItem', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: ({agentCount, projectDeployment, workflowCount}: any) => (
-        <div data-testid="list-item">
-            {projectDeployment.name}: {workflowCount} workflows, {agentCount} agents
+    default: ({projectDeployment, remainingTags}: {projectDeployment: ProjectDeployment; remainingTags?: Tag[]}) => (
+        <div data-testid={`item-${projectDeployment.id}`}>
+            <CollapsibleTrigger>{`Toggle ${projectDeployment.name}`}</CollapsibleTrigger>
+
+            <span>{`Remaining tags ${projectDeployment.id}: ${remainingTags?.map((tag) => tag.name).join(',')}`}</span>
         </div>
     ),
 }));
 
 vi.mock('../project-deployment-workflow-list/ProjectDeploymentWorkflowList', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        hoisted.workflowListPropsMock(props);
-
-        return <div data-testid="workflow-list" />;
-    },
+    default: ({
+        projectDeploymentEnabled,
+        projectDeploymentId,
+    }: {
+        projectDeploymentEnabled: boolean;
+        projectDeploymentId: number;
+    }) => <div>{`Workflows of ${projectDeploymentId} enabled=${projectDeploymentEnabled}`}</div>,
 }));
 
-vi.mock('../project-deployment-agent-list/ProjectDeploymentAgentList', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        hoisted.agentListPropsMock(props);
+const project: Project = {id: 7, name: 'Order alerts', workspaceId: 1};
 
-        return <div data-testid="agent-list" />;
-    },
-}));
+const tags: Tag[] = [
+    {id: 1, name: 'billing'},
+    {id: 2, name: 'sales'},
+];
 
-const project = {id: 7, name: 'Sales'} as Project;
-
-const projectDeployment = {
+const createProjectDeployment = (id: number, overrides: Partial<ProjectDeployment> = {}): ProjectDeployment => ({
     enabled: true,
-    environmentId: 1,
-    id: 50,
-    name: 'Sales Deployment',
-    projectDeploymentWorkflows: [
-        {enabled: true, workflowId: 'workflow1', workflowUuid: 'uuid-1'},
-        {enabled: true, workflowId: 'workflow2', workflowUuid: 'uuid-2'},
-        {enabled: true, workflowId: 'agent-workflow', workflowUuid: 'uuid-agent'},
-    ],
-    projectVersion: 2,
+    environmentId: 0,
+    id,
+    name: `Deployment ${id}`,
+    projectDeploymentWorkflows: [{id: id * 10, workflowId: `workflow-${id}`}],
+    projectId: project.id,
+    projectVersion: 1,
     tags: [],
-} as ProjectDeployment;
+    ...overrides,
+});
 
-const renderList = (projectDeployments: ProjectDeployment[] = [projectDeployment]) =>
-    render(
-        <ProjectDeploymentList
-            componentDefinitions={[]}
-            project={project}
-            projectDeployments={projectDeployments}
-            tags={[]}
-            taskDispatcherDefinitions={[]}
-        />
-    );
+const projectDeployments = [createProjectDeployment(1), createProjectDeployment(2)];
+
+const renderList = (props: Partial<Parameters<typeof ProjectDeploymentList>[0]> = {}) =>
+    render(<ProjectDeploymentList project={project} projectDeployments={projectDeployments} tags={tags} {...props} />);
 
 describe('ProjectDeploymentList', () => {
     beforeEach(() => {
-        hoisted.agentDeployments = [
-            {agentId: '1', agentTitle: 'Support Bot', id: '50', workflows: [{workflowId: 'agent-workflow'}]},
-            {agentId: '2', agentTitle: 'Elsewhere Bot', id: '51', workflows: [{workflowId: 'other-workflow'}]},
-        ];
-        hoisted.agents = [];
-        hoisted.agentListPropsMock.mockReset();
-        hoisted.workflowListPropsMock.mockReset();
+        useProjectDeploymentsEnabledStore.setState({projectDeploymentMap: new Map<number, boolean>()});
     });
 
-    it('shows Workflows and Agents tabs with their counts, opening on Workflows', () => {
+    it('should render every deployment collapsed by default', () => {
         renderList();
 
-        expect(screen.getByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
-        expect(screen.getByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (1)');
-        expect(screen.getByTestId('tabs-content-workflows')).toBeInTheDocument();
-        expect(screen.queryByTestId('tabs-content-agents')).not.toBeInTheDocument();
+        expect(screen.getByTestId('item-1')).toBeInTheDocument();
+        expect(screen.getByTestId('item-2')).toBeInTheDocument();
+        expect(screen.queryByText(/Workflows of/)).not.toBeInTheDocument();
     });
 
-    it('expands every deployment only when asked to expand all', () => {
-        const otherProjectDeployment = {...projectDeployment, id: 51, name: 'Other Deployment'} as ProjectDeployment;
+    it('should expand every deployment when asked to expand all', () => {
+        renderList({expandAll: true});
 
-        const {unmount} = renderList([projectDeployment, otherProjectDeployment]);
+        expect(screen.getByText('Workflows of 1 enabled=true')).toBeInTheDocument();
+        expect(screen.getByText(/Workflows of 2/)).toBeInTheDocument();
+    });
 
-        expect(
-            screen.getAllByTestId('collapsible').map((collapsible) => collapsible.getAttribute('data-open'))
-        ).toEqual(['false', 'false']);
+    it('should expand only the newly created deployment', () => {
+        renderList({newlyCreatedDeploymentId: 2});
 
-        unmount();
+        expect(screen.getByText('Workflows of 2 enabled=true')).toBeInTheDocument();
+        expect(screen.queryByText(/Workflows of 1/)).not.toBeInTheDocument();
+    });
 
-        render(
+    it('should expand a deployment created after the first render and keep the ones already open', async () => {
+        const {rerender} = renderList();
+
+        await userEvent.click(screen.getByText('Toggle Deployment 1'));
+
+        rerender(
             <ProjectDeploymentList
-                componentDefinitions={[]}
-                expandAll
+                newlyCreatedDeploymentId={2}
                 project={project}
-                projectDeployments={[projectDeployment, otherProjectDeployment]}
-                tags={[]}
-                taskDispatcherDefinitions={[]}
+                projectDeployments={projectDeployments}
+                tags={tags}
             />
         );
 
-        expect(
-            screen.getAllByTestId('collapsible').map((collapsible) => collapsible.getAttribute('data-open'))
-        ).toEqual(['true', 'true']);
+        expect(screen.getByText('Workflows of 1 enabled=true')).toBeInTheDocument();
+        expect(screen.getByText('Workflows of 2 enabled=true')).toBeInTheDocument();
     });
 
-    it('opens rows on the Agents tab when that is the default', () => {
-        render(
-            <ProjectDeploymentList
-                componentDefinitions={[]}
-                defaultActiveTab="agents"
-                project={project}
-                projectDeployments={[projectDeployment]}
-                tags={[]}
-                taskDispatcherDefinitions={[]}
-            />
-        );
-
-        expect(screen.getByTestId('tabs-content-agents')).toBeInTheDocument();
-        expect(screen.queryByTestId('tabs-content-workflows')).not.toBeInTheDocument();
-    });
-
-    it('hands the row header the ordinary workflow and agent counts', () => {
+    it('should toggle a deployment open and closed through its trigger', async () => {
         renderList();
 
-        expect(screen.getByTestId('list-item')).toHaveTextContent('Sales Deployment: 2 workflows, 1 agents');
+        await userEvent.click(screen.getByText('Toggle Deployment 1'));
+
+        expect(screen.getByText('Workflows of 1 enabled=true')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByText('Toggle Deployment 1'));
+
+        expect(screen.queryByText(/Workflows of 1/)).not.toBeInTheDocument();
     });
 
-    it("leaves an agent's generated workflow out of the Workflows tab", () => {
-        renderList();
+    it('should prefer the enabled state toggled in the store over the fetched one', () => {
+        useProjectDeploymentsEnabledStore.setState({projectDeploymentMap: new Map([[2, false]])});
 
-        expect(hoisted.workflowListPropsMock).toHaveBeenLastCalledWith(
-            expect.objectContaining({
-                projectDeploymentWorkflows: [
-                    expect.objectContaining({workflowId: 'workflow1'}),
-                    expect.objectContaining({workflowId: 'workflow2'}),
-                ],
-            })
-        );
+        renderList({newlyCreatedDeploymentId: 2});
+
+        expect(screen.getByText('Workflows of 2 enabled=false')).toBeInTheDocument();
     });
 
-    it('also recognises an agent workflow by the agent workflow uuid', () => {
-        hoisted.agentDeployments = [];
-        hoisted.agents = [{id: '1', projectId: '7', projectWorkflowUuid: 'uuid-2'}];
+    it('should offer only the tags the deployment does not already have', () => {
+        renderList({
+            projectDeployments: [createProjectDeployment(1, {tags: [{id: 1, name: 'billing'}]})],
+        });
 
-        renderList();
-
-        expect(screen.getByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (2)');
-        expect(screen.getByTestId('tabs-trigger-agents')).toHaveTextContent('Agents (0)');
+        expect(screen.getByText('Remaining tags 1: sales')).toBeInTheDocument();
     });
 
-    it("passes only this deployment's agents to the Agents tab", async () => {
-        const user = userEvent.setup();
+    it('should render no workflow list for a deployment without workflows', () => {
+        renderList({
+            newlyCreatedDeploymentId: 1,
+            projectDeployments: [createProjectDeployment(1, {projectDeploymentWorkflows: []})],
+        });
 
-        renderList();
-
-        await user.click(screen.getByTestId('tabs-trigger-agents'));
-
-        expect(screen.getByTestId('agent-list')).toBeInTheDocument();
-        expect(hoisted.agentListPropsMock).toHaveBeenLastCalledWith(
-            expect.objectContaining({
-                agentDeployments: [expect.objectContaining({agentTitle: 'Support Bot'})],
-                projectDeploymentWorkflows: projectDeployment.projectDeploymentWorkflows,
-            })
-        );
+        expect(screen.getByTestId('item-1')).toBeInTheDocument();
+        expect(screen.queryByText(/Workflows of/)).not.toBeInTheDocument();
     });
 
-    it('shows No Workflows when the deployment only carries agents', () => {
-        renderList([
-            {
-                ...projectDeployment,
-                projectDeploymentWorkflows: [{enabled: true, workflowId: 'agent-workflow'}],
-            } as ProjectDeployment,
-        ]);
+    it('should render nothing when the project has no id', () => {
+        renderList({project: {name: 'Unsaved', workspaceId: 1}});
 
-        expect(screen.getByTestId('tabs-trigger-workflows')).toHaveTextContent('Workflows (0)');
-        expect(screen.getByText('No Workflows')).toBeInTheDocument();
-        expect(screen.queryByTestId('workflow-list')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-1')).not.toBeInTheDocument();
     });
 });

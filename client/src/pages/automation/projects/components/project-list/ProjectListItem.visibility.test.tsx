@@ -36,6 +36,10 @@ vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
     default: () => ({agents: [], agentsIsLoading: false}),
 }));
 
+vi.mock('@/pages/automation/data-syncs/hooks/useDataSyncs', () => ({
+    default: () => ({dataSyncs: [], dataSyncsIsLoading: false}),
+}));
+
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
     EditionType: {CE: 'CE', EE: 'EE'},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,6 +92,7 @@ describe('ProjectListItem visibility', () => {
         render(
             <ProjectListItem
                 agentsContent={null}
+                dataSyncsContent={null}
                 deploymentsContent={null}
                 onTabChange={vi.fn()}
                 project={project}
@@ -106,6 +111,7 @@ describe('ProjectListItem visibility', () => {
         render(
             <ProjectListItem
                 agentsContent={null}
+                dataSyncsContent={null}
                 deploymentsContent={null}
                 onTabChange={vi.fn()}
                 project={project}
@@ -126,6 +132,7 @@ describe('ProjectListItem visibility', () => {
         render(
             <ProjectListItem
                 agentsContent={null}
+                dataSyncsContent={null}
                 deploymentsContent={null}
                 onTabChange={vi.fn()}
                 project={project}
@@ -135,7 +142,7 @@ describe('ProjectListItem visibility', () => {
             {wrapper: Wrapper}
         );
 
-        const workflowsTrigger = screen.getByText('0 workflows · 0 agents').closest('button');
+        const workflowsTrigger = screen.getByText('0 workflows · 0 agents · 0 data syncs').closest('button');
 
         expect(workflowsTrigger).toHaveAttribute('data-state', 'closed');
 

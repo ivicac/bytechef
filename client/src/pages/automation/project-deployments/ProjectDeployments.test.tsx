@@ -1,54 +1,59 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
-import ProjectDeployments from '@/pages/automation/project-deployments/ProjectDeployments';
-import {render, screen} from '@/shared/util/test-utils';
-import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {MemoryRouter} from 'react-router-dom';
+import {Project, ProjectDeployment} from '@/shared/middleware/automation/configuration';
+import {render, screen, userEvent} from '@/shared/util/test-utils';
+import {ReactNode} from 'react';
+import {InitialEntry, MemoryRouter} from 'react-router-dom';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-interface FixtureTriggerI {
-    type: string;
-}
-
-interface FixtureAgentDeploymentI {
-    agentId: string;
-    id: string;
-    workflows: {triggers: FixtureTriggerI[]}[];
-}
+import ProjectDeployments from './ProjectDeployments';
 
 const hoisted = vi.hoisted(() => ({
-    agentDeployments: [] as FixtureAgentDeploymentI[],
-    projectDeployments: [] as {id: number; name: string; project: object; projectId: number}[],
-    projects: [] as {id: number; name: string}[],
+    projectDeployments: [] as ProjectDeployment[],
+    projectDeploymentsIsFetching: false,
+    refetchProjectDeployments: vi.fn(),
 }));
+
+const publishedProject: Project = {
+    id: 4,
+    lastPublishedDate: new Date('2026-10-01T10:00:00Z'),
+    name: 'Order alerts',
+    projectWorkflowIds: [41],
+    workspaceId: 1,
+};
 
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    useWorkspaceStore: (selector: any) => selector({currentWorkspaceId: 1}),
-}));
-
-vi.mock('@/pages/automation/project-deployments/hooks/useAgentDeployments', () => ({
-    default: () => ({agentDeployments: hoisted.agentDeployments, agentDeploymentsIsLoading: false}),
+    useWorkspaceStore: (selector: (state: {currentWorkspaceId: number}) => unknown) =>
+        selector({currentWorkspaceId: 1}),
 }));
 
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
-    useApplicationInfoStore: () => ({
-        ai: {copilot: {enabled: true}},
-        analytics: {enabled: false, postHog: {apiKey: '', host: ''}},
-        application: {edition: 'CE'},
-        featureFlags: {},
-    }),
+    useApplicationInfoStore: (
+        selector: (state: {ai: {copilot: {enabled: boolean}}; application: {edition: string}}) => unknown
+    ) => selector({ai: {copilot: {enabled: false}}, application: {edition: 'CE'}}),
 }));
 
-vi.mock('@/shared/queries/automation/projects.queries', () => ({
-    useGetWorkspaceProjectsQuery: () => ({data: hoisted.projects, error: null, isLoading: false}),
+vi.mock('@/shared/components/copilot/CopilotButton', () => ({
+    default: () => null,
 }));
 
-vi.mock('@/shared/queries/automation/projectDeployments.queries', () => ({
-    ProjectDeploymentKeys: {projectDeployments: ['projectDeployments']},
+vi.mock('@/shared/middleware/graphql', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/shared/middleware/graphql')>()),
+    useEnvironmentsQuery: () => ({data: undefined}),
+}));
+
+vi.mock('@/shared/queries/automation/projects.queries', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/shared/queries/automation/projects.queries')>()),
+    useGetWorkspaceProjectsQuery: () => ({data: [publishedProject], error: null, isLoading: false}),
+}));
+
+vi.mock('@/shared/queries/automation/projectDeployments.queries', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/shared/queries/automation/projectDeployments.queries')>()),
     useGetWorkspaceProjectDeploymentsQuery: () => ({
         data: hoisted.projectDeployments,
         error: null,
+        isFetching: hoisted.projectDeploymentsIsFetching,
         isLoading: false,
+        refetch: hoisted.refetchProjectDeployments,
     }),
 }));
 
@@ -64,146 +69,115 @@ vi.mock('@/shared/queries/platform/taskDispatcherDefinitions.queries', () => ({
     useGetTaskDispatcherDefinitionsQuery: () => ({data: []}),
 }));
 
-vi.mock('@/shared/components/copilot/CopilotButton', () => ({
-    default: () => null,
+vi.mock('@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog', () => ({
+    default: ({onSuccess, triggerNode}: {onSuccess?: (deploymentId: number) => void; triggerNode: ReactNode}) => (
+        <>
+            {triggerNode}
+
+            <button onClick={() => onSuccess?.(9)}>Finish deployment dialog</button>
+        </>
+    ),
+}));
+
+vi.mock('@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentList', () => ({
+    default: ({newlyCreatedDeploymentId}: {newlyCreatedDeploymentId?: number}) => (
+        <div>{`Expanded deployment: ${newlyCreatedDeploymentId ?? 'none'}`}</div>
+    ),
 }));
 
 vi.mock(
     '@/pages/automation/project-deployments/components/project-deployment-workflow-executions-sheet/ProjectDeploymentWorkflowExecutionsSheet',
-    () => ({default: () => null})
+    () => ({
+        default: () => null,
+    })
 );
 
-vi.mock('./components/project-deployment-dialog/ProjectDeploymentDialog', () => ({
-    default: () => null,
-}));
-
-vi.mock('./components/project-deployment-list/ProjectDeploymentList', () => ({
-    default: ({
-        defaultActiveTab,
-        projectDeployments,
-    }: {
-        defaultActiveTab?: string;
-        projectDeployments: {id: number; name: string}[];
-    }) => (
-        <ul data-default-active-tab={defaultActiveTab} data-testid="project-deployment-list">
-            {projectDeployments.map((projectDeployment) => (
-                <li key={projectDeployment.id}>{projectDeployment.name}</li>
-            ))}
-        </ul>
-    ),
-}));
-
-const renderProjectDeployments = (initialEntries: string[] = ['/']) =>
+const renderProjectDeployments = (initialEntries: InitialEntry[] = ['/']) =>
     render(
         <MemoryRouter initialEntries={initialEntries}>
-            <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
-                <TooltipProvider>
-                    <ProjectDeployments />
-                </TooltipProvider>
-            </QueryClientProvider>
+            <TooltipProvider>
+                <ProjectDeployments />
+            </TooltipProvider>
         </MemoryRouter>
     );
 
-describe('ProjectDeployments agents filter', () => {
+describe('ProjectDeployments empty states', () => {
     beforeEach(() => {
-        const project = {id: 1, name: 'Sales'};
+        hoisted.projectDeployments = [];
+    });
 
-        hoisted.projects = [project];
+    it('guides a first deployment and hides the project and tag sidebar', () => {
+        renderProjectDeployments();
 
+        expect(screen.getByRole('heading', {level: 2, name: 'Create your first deployment'})).toBeInTheDocument();
+        expect(screen.queryByText('All Projects')).not.toBeInTheDocument();
+        expect(screen.getByText('Deployments')).toBeInTheDocument();
+    });
+
+    it('keeps the sidebar and reports a filter miss when a filter matches nothing', () => {
+        renderProjectDeployments(['/?tagId=1']);
+
+        expect(screen.getByText('No Matching Project Deployments')).toBeInTheDocument();
+        expect(screen.queryByText('Create your first deployment')).not.toBeInTheDocument();
+        expect(screen.getByText('All Projects')).toBeInTheDocument();
+    });
+});
+
+describe('ProjectDeployments expanded deployment', () => {
+    beforeEach(() => {
         hoisted.projectDeployments = [
-            {id: 10, name: 'Scheduled Deployment', project, projectId: 1},
-            {id: 11, name: 'Chat Deployment', project, projectId: 1},
-            {id: 12, name: 'Workflow Deployment', project, projectId: 1},
-        ];
-
-        hoisted.agentDeployments = [
-            {agentId: 'a1', id: '10', workflows: [{triggers: [{type: 'schedule/v1/cron'}]}]},
-            {agentId: 'a2', id: '11', workflows: [{triggers: [{type: 'chat/v1/newChatRequest'}]}]},
-        ];
-    });
-
-    it('shows the Agents section between Projects and Tags', () => {
-        renderProjectDeployments();
-
-        const projectsHeading = screen.getByText('Projects');
-        const agentsHeading = screen.getByText('Agents');
-        const tagsHeading = screen.getByText('Tags');
-
-        expect(projectsHeading.compareDocumentPosition(agentsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-        expect(agentsHeading.compareDocumentPosition(tagsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?agents=all');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?agents=scheduled');
-    });
-
-    it('lists every deployment and opens rows on Workflows without the filter', () => {
-        renderProjectDeployments();
-
-        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
-        expect(screen.getByText('Chat Deployment')).toBeInTheDocument();
-        expect(screen.getByText('Workflow Deployment')).toBeInTheDocument();
-        expect(screen.getByTestId('project-deployment-list')).toHaveAttribute('data-default-active-tab', 'workflows');
-    });
-
-    it('keeps only deployments with an agent for All Agents, opening rows on Agents', () => {
-        renderProjectDeployments(['/?agents=all']);
-
-        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
-        expect(screen.getByText('Chat Deployment')).toBeInTheDocument();
-        expect(screen.queryByText('Workflow Deployment')).not.toBeInTheDocument();
-        expect(screen.getByTestId('project-deployment-list')).toHaveAttribute('data-default-active-tab', 'agents');
-        expect(screen.getByText('Agents: All Agents')).toBeInTheDocument();
-    });
-
-    it('keeps only deployments with a scheduled agent for Scheduled', () => {
-        renderProjectDeployments(['/?agents=scheduled']);
-
-        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
-        expect(screen.queryByText('Chat Deployment')).not.toBeInTheDocument();
-        expect(screen.queryByText('Workflow Deployment')).not.toBeInTheDocument();
-        expect(screen.getByTestId('project-deployment-list')).toHaveAttribute('data-default-active-tab', 'agents');
-    });
-
-    // The Scheduled filter reads the trigger type frozen on the DEPLOYED workflow, so it must keep matching even
-    // when the deployed workflow also carries other, non-schedule triggers alongside the schedule one.
-    it('matches Scheduled off a schedule trigger deployed alongside other triggers on the same workflow', () => {
-        hoisted.agentDeployments = [
             {
-                agentId: 'a1',
-                id: '10',
-                workflows: [{triggers: [{type: 'chat/v1/newChatRequest'}, {type: 'schedule/v1/cron'}]}],
+                enabled: true,
+                environmentId: 0,
+                id: 2,
+                name: 'Order alerts deployment',
+                project: publishedProject,
+                projectId: publishedProject.id,
+                projectVersion: 1,
             },
         ];
 
-        renderProjectDeployments(['/?agents=scheduled']);
-
-        expect(screen.getByText('Scheduled Deployment')).toBeInTheDocument();
+        hoisted.projectDeploymentsIsFetching = false;
+        hoisted.refetchProjectDeployments.mockClear();
     });
 
-    // The predicate matches on the trigger's component name, so a similarly-named but different component must
-    // never be mistaken for the `schedule` channel.
-    it('excludes a deployment from Scheduled whose deployed trigger type only resembles the schedule component', () => {
-        hoisted.agentDeployments = [{agentId: 'a2', id: '11', workflows: [{triggers: [{type: 'scheduler/v1/cron'}]}]}];
+    it('should expand nothing when no deployment is handed over', () => {
+        renderProjectDeployments();
 
-        renderProjectDeployments(['/?agents=scheduled']);
-
-        expect(screen.queryByText('Chat Deployment')).not.toBeInTheDocument();
+        expect(screen.getByText('Expanded deployment: none')).toBeInTheDocument();
     });
 
-    it('reports a filter miss when no deployment has a matching agent', () => {
-        hoisted.agentDeployments = [];
+    it('should expand the deployment the workflow editor redirected to', () => {
+        renderProjectDeployments([{pathname: '/', state: {projectDeploymentId: 2}}]);
 
-        renderProjectDeployments(['/?agents=all']);
-
-        expect(screen.getByText('No Matching Project Deployments')).toBeInTheDocument();
+        expect(screen.getByText('Expanded deployment: 2')).toBeInTheDocument();
     });
 
-    it('combines with the project filter in both directions', () => {
-        renderProjectDeployments(['/?projectId=1&agents=all']);
+    it('should expand a deployment created from the header dialog over the redirected one', async () => {
+        renderProjectDeployments([{pathname: '/', state: {projectDeploymentId: 2}}]);
 
-        expect(screen.getByRole('link', {name: 'All Agents'})).toHaveAttribute('href', '/?projectId=1');
-        expect(screen.getByRole('link', {name: 'Scheduled'})).toHaveAttribute('href', '/?projectId=1&agents=scheduled');
-        expect(screen.getByRole('link', {name: 'Sales'})).toHaveAttribute('href', '/?projectId=1&agents=all');
-        expect(screen.getByRole('link', {name: 'All Projects'})).toHaveAttribute('href', '/?agents=all');
+        await userEvent.click(screen.getByRole('button', {name: 'Finish deployment dialog'}));
+
+        expect(screen.getByText('Expanded deployment: 9')).toBeInTheDocument();
+    });
+
+    it('should refetch deployments in place and keep the expanded deployment', async () => {
+        renderProjectDeployments([{pathname: '/', state: {projectDeploymentId: 2}}]);
+
+        await userEvent.click(screen.getByRole('button', {name: 'Refresh deployments'}));
+
+        expect(hoisted.refetchProjectDeployments).toHaveBeenCalledTimes(1);
+        expect(screen.getByText('Expanded deployment: 2')).toBeInTheDocument();
+    });
+
+    it('should disable the refresh button and spin its icon while deployments are fetching', () => {
+        hoisted.projectDeploymentsIsFetching = true;
+
+        renderProjectDeployments();
+
+        const refreshButton = screen.getByRole('button', {name: 'Refresh deployments'});
+
+        expect(refreshButton).toBeDisabled();
+        expect(refreshButton.querySelector('svg')).toHaveClass('animate-spin');
     });
 });

@@ -2,7 +2,9 @@ import EmptyList from '@/components/EmptyList';
 import {Collapsible, CollapsibleContent} from '@/components/ui/collapsible';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
+import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import useAgentDeployments from '@/pages/automation/project-deployments/hooks/useAgentDeployments';
+import useDataSyncDeployments from '@/pages/automation/project-deployments/hooks/useDataSyncDeployments';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
 import {Project, ProjectDeployment, Tag} from '@/shared/middleware/automation/configuration';
 import {ComponentDefinitionBasic, TaskDispatcherDefinition} from '@/shared/middleware/platform/configuration';
@@ -11,10 +13,12 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import ProjectDeploymentAgentList from '../project-deployment-agent-list/ProjectDeploymentAgentList';
 import {ProjectDeploymentAgentType} from '../project-deployment-agent-list/ProjectDeploymentAgentListItem';
+import ProjectDeploymentDataSyncList from '../project-deployment-data-sync-list/ProjectDeploymentDataSyncList';
+import {ProjectDeploymentDataSyncType} from '../project-deployment-data-sync-list/ProjectDeploymentDataSyncListItem';
 import ProjectDeploymentWorkflowList from '../project-deployment-workflow-list/ProjectDeploymentWorkflowList';
 import ProjectDeploymentListItem from './ProjectDeploymentListItem';
 
-export type ProjectDeploymentListTabType = 'agents' | 'workflows';
+export type ProjectDeploymentListTabType = 'agents' | 'dataSyncs' | 'workflows';
 
 interface ProjectDeploymentListProps {
     componentDefinitions?: ComponentDefinitionBasic[];
@@ -60,8 +64,14 @@ const ProjectDeploymentList = ({
 
     const {agents} = useAgents();
     const {agentDeployments} = useAgentDeployments();
+    const {dataSyncs} = useDataSyncs();
+    const {dataSyncDeployments} = useDataSyncDeployments();
 
     const agentWorkflowUuids = useMemo(() => new Set(agents.map((agent) => agent.projectWorkflowUuid)), [agents]);
+    const dataSyncWorkflowUuids = useMemo(
+        () => new Set(dataSyncs.map((dataSync) => dataSync.projectWorkflowUuid)),
+        [dataSyncs]
+    );
 
     // The GraphQL entry carries the ProjectDeployment id as a string, one entry per deployed agent.
     const agentDeploymentsByProjectDeploymentId = useMemo(() => {
@@ -78,6 +88,22 @@ const ProjectDeploymentList = ({
 
         return agentDeploymentsMap;
     }, [agentDeployments]);
+
+    // The GraphQL entry carries the ProjectDeployment id as a string, one entry per (sync, deployment) pair.
+    const dataSyncDeploymentsByProjectDeploymentId = useMemo(() => {
+        const dataSyncDeploymentsMap = new Map<number, ProjectDeploymentDataSyncType[]>();
+
+        for (const dataSyncDeployment of dataSyncDeployments) {
+            const projectDeploymentId = +dataSyncDeployment.id;
+
+            dataSyncDeploymentsMap.set(projectDeploymentId, [
+                ...(dataSyncDeploymentsMap.get(projectDeploymentId) || []),
+                dataSyncDeployment,
+            ]);
+        }
+
+        return dataSyncDeploymentsMap;
+    }, [dataSyncDeployments]);
 
     const handleOpenChange = useCallback((open: boolean, projectDeploymentId: number) => {
         setOpenCollapsibles((prev) => {
@@ -113,6 +139,8 @@ const ProjectDeploymentList = ({
                 }
 
                 const projectDeploymentAgents = agentDeploymentsByProjectDeploymentId.get(projectDeployment.id!) || [];
+                const projectDeploymentDataSyncs =
+                    dataSyncDeploymentsByProjectDeploymentId.get(projectDeployment.id!) || [];
 
                 const agentWorkflowIds = new Set(
                     projectDeploymentAgents.flatMap((agentDeployment) =>
@@ -120,16 +148,25 @@ const ProjectDeploymentList = ({
                     )
                 );
 
+                const dataSyncWorkflowIds = new Set(
+                    projectDeploymentDataSyncs.map((dataSyncDeployment) => dataSyncDeployment.workflowId)
+                );
+
                 const projectDeploymentWorkflows = projectDeployment.projectDeploymentWorkflows || [];
 
-                // An agent's generated workflow belongs on the Agents tab, recognised either by the deployment's
-                // agent entry or by the agent's workflow uuid.
+                // An agent's or a data sync's generated workflow belongs on its own tab, recognised either by the
+                // deployment's agent/sync entry or by the agent/sync's workflow uuid.
                 const ordinaryProjectDeploymentWorkflows = projectDeploymentWorkflows.filter(
                     (projectDeploymentWorkflow) =>
                         !agentWorkflowIds.has(projectDeploymentWorkflow.workflowId!) &&
                         !(
                             projectDeploymentWorkflow.workflowUuid &&
                             agentWorkflowUuids.has(projectDeploymentWorkflow.workflowUuid)
+                        ) &&
+                        !dataSyncWorkflowIds.has(projectDeploymentWorkflow.workflowId!) &&
+                        !(
+                            projectDeploymentWorkflow.workflowUuid &&
+                            dataSyncWorkflowUuids.has(projectDeploymentWorkflow.workflowUuid)
                         )
                 );
 
@@ -144,6 +181,7 @@ const ProjectDeploymentList = ({
                     >
                         <ProjectDeploymentListItem
                             agentCount={projectDeploymentAgents.length}
+                            dataSyncCount={projectDeploymentDataSyncs.length}
                             hideOpenInProject={hideOpenInProject}
                             key={projectDeployment.id}
                             projectDeployment={projectDeployment}
@@ -169,6 +207,10 @@ const ProjectDeploymentList = ({
                                     </TabsTrigger>
 
                                     <TabsTrigger value="agents">Agents ({projectDeploymentAgents.length})</TabsTrigger>
+
+                                    <TabsTrigger value="dataSyncs">
+                                        Data Syncs ({projectDeploymentDataSyncs.length})
+                                    </TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="workflows">
@@ -203,6 +245,13 @@ const ProjectDeploymentList = ({
                                 <TabsContent value="agents">
                                     <ProjectDeploymentAgentList
                                         agentDeployments={projectDeploymentAgents}
+                                        projectDeploymentWorkflows={projectDeploymentWorkflows}
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="dataSyncs">
+                                    <ProjectDeploymentDataSyncList
+                                        dataSyncDeployments={projectDeploymentDataSyncs}
                                         projectDeploymentWorkflows={projectDeploymentWorkflows}
                                     />
                                 </TabsContent>

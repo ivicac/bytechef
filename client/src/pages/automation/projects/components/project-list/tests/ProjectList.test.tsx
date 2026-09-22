@@ -9,6 +9,7 @@ vi.mock('@/pages/automation/projects/components/project-list/ProjectListItem', (
     default: ({
         activeTab,
         agentsContent,
+        dataSyncsContent,
         deploymentsContent,
         onTabChange,
         project,
@@ -16,6 +17,7 @@ vi.mock('@/pages/automation/projects/components/project-list/ProjectListItem', (
     }: {
         activeTab?: ProjectListItemTabType;
         agentsContent: React.ReactNode;
+        dataSyncsContent: React.ReactNode;
         deploymentsContent: React.ReactNode;
         onTabChange: (tab?: ProjectListItemTabType, expandedProjectDeploymentId?: number) => void;
         project: Project;
@@ -27,6 +29,8 @@ vi.mock('@/pages/automation/projects/components/project-list/ProjectListItem', (
             <button onClick={() => onTabChange('deployments', 9)}>{`Open ${project.name} deployments`}</button>
 
             {activeTab === 'agents' && agentsContent}
+
+            {activeTab === 'dataSyncs' && dataSyncsContent}
 
             {activeTab === 'deployments' && deploymentsContent}
 
@@ -43,6 +47,10 @@ vi.mock('@/pages/automation/project/components/ProjectDeploymentsPanel', () => (
 
 vi.mock('@/pages/automation/projects/components/project-agent-list/ProjectAgentList', () => ({
     default: ({project}: {project: Project}) => <div>{`${project.name} agent list`}</div>,
+}));
+
+vi.mock('@/pages/automation/projects/components/project-data-sync-list/ProjectDataSyncList', () => ({
+    default: ({project}: {project: Project}) => <div>{`${project.name} data sync list`}</div>,
 }));
 
 vi.mock('@/pages/automation/projects/components/project-workflow-list/ProjectWorkflowList', () => ({
@@ -141,6 +149,14 @@ describe('ProjectList', () => {
 
         expect(screen.getByText('Orders tab agents')).toBeInTheDocument();
         expect(screen.getByText('Orders agent list')).toBeInTheDocument();
+        expect(screen.queryByText('Orders workflow list')).not.toBeInTheDocument();
+    });
+
+    it('opens rows on the Data Syncs tab when that is the default', () => {
+        renderProjectList('/automation/projects', {defaultActiveTab: 'dataSyncs', newlyCreatedProjectId: 1});
+
+        expect(screen.getByText('Orders tab dataSyncs')).toBeInTheDocument();
+        expect(screen.getByText('Orders data sync list')).toBeInTheDocument();
         expect(screen.queryByText('Orders workflow list')).not.toBeInTheDocument();
     });
 
