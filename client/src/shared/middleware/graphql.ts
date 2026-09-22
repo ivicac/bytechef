@@ -848,40 +848,19 @@ export type AiAgentQueryVariables = Exact<{
 }>;
 
 
-export type AiAgentQuery = { aiAgent: { id: string, name: string, title: string, description: string | null, instructions: string | null, workspaceId: string | null, projectId: string, uuid: string, unpublishedChanges: boolean, lastPublishedVersion: number, settings: any, lastModifiedDate: string | null, draftWorkflowId: string, visibility: Types.ResourceVisibility, channels: Array<{ id: string, channelType: string, position: number, parameters: any, connectionId: string | null }>, elements: Array<{ id: string, kind: string, referenceId: string | null, position: number, parameters: any, connectionId: string | null }>, tags: Array<{ id: string, name: string }> } | null };
+export type AiAgentQuery = { aiAgent: { id: string, name: string, title: string, description: string | null, instructions: string | null, workspaceId: string | null, projectId: string, uuid: string, projectWorkflowUuid: string, unpublishedChanges: boolean, lastPublishedVersion: number, settings: any, lastModifiedDate: string | null, draftWorkflowId: string, visibility: Types.ResourceVisibility, channels: Array<{ id: string, channelType: string, position: number, parameters: any, connectionId: string | null }>, elements: Array<{ id: string, kind: string, referenceId: string | null, position: number, parameters: any, connectionId: string | null }> } | null };
 
 export type AiAgentChannelDefinitionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type AiAgentChannelDefinitionsQuery = { aiAgentChannelDefinitions: Array<{ approvalCapable: boolean, channelType: string, componentName: string, componentVersion: number, connectionRequired: boolean, description: string | null, icon: string | null, pinned: boolean, propertiesConfigurable: boolean, replyActionName: string | null, schedule: boolean, title: string, triggerName: string }> };
 
-export type AiAgentDeploymentTagsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type AiAgentDeploymentTagsQuery = { aiAgentDeploymentTags: Array<{ id: string, name: string }> };
-
 export type AiAgentDeploymentsQueryVariables = Exact<{
   workspaceId: string | number;
 }>;
 
 
-export type AiAgentDeploymentsQuery = { aiAgentDeployments: Array<{ id: string, name: string, agentId: string, agentTitle: string, projectId: string, environmentId: number, enabled: boolean, projectVersion: number, lastExecutionDate: string | null, tags: Array<{ id: string, name: string }> | null, workflows: Array<{ workflowId: string, enabled: boolean, triggers: Array<{ name: string, type: string, parameters: any, staticWebhookUrl: string | null }> }> }> };
-
-export type AiAgentGrantsQueryVariables = Exact<{
-  agentId: string | number;
-}>;
-
-
-export type AiAgentGrantsQuery = { aiAgentGrants: Array<any> };
-
-export type AiAgentTagsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type AiAgentTagsQuery = { aiAgentTags: Array<{ id: string, name: string }> };
+export type AiAgentDeploymentsQuery = { aiAgentDeployments: Array<{ id: string, name: string, agentId: string, agentTitle: string, projectId: string, environmentId: number, enabled: boolean, projectVersion: number, lastExecutionDate: string | null, workflows: Array<{ workflowId: string, enabled: boolean, triggers: Array<{ name: string, type: string, parameters: any, staticWebhookUrl: string | null }> }> }> };
 
 export type AiAgentVersionsQueryVariables = Exact<{
   id: string | number;
@@ -895,14 +874,14 @@ export type AiAgentsQueryVariables = Exact<{
 }>;
 
 
-export type AiAgentsQuery = { aiAgents: Array<{ id: string, uuid: string, name: string, title: string, description: string | null, projectId: string, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, visibility: Types.ResourceVisibility, tags: Array<{ id: string, name: string }>, elements: Array<{ id: string, kind: string }>, channels: Array<{ id: string, channelType: string, parameters: any }> }> };
+export type AiAgentsQuery = { aiAgents: Array<{ id: string, uuid: string, name: string, title: string, description: string | null, projectId: string, projectWorkflowUuid: string, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, visibility: Types.ResourceVisibility, elements: Array<{ id: string, kind: string }>, channels: Array<{ id: string, channelType: string, parameters: any }> }> };
 
 export type CreateAiAgentMutationVariables = Exact<{
   input: Types.CreateAiAgentInput;
 }>;
 
 
-export type CreateAiAgentMutation = { createAiAgent: { id: string } };
+export type CreateAiAgentMutation = { createAiAgent: { id: string, projectId: string } };
 
 export type DeleteAiAgentMutationVariables = Exact<{
   id: string | number;
@@ -932,45 +911,14 @@ export type ExportAiAgentQueryVariables = Exact<{
 
 export type ExportAiAgentQuery = { exportAiAgent: string };
 
-export type GrantAiAgentAccessMutationVariables = Exact<{
-  agentId: string | number;
-  userId: string | number;
-}>;
-
-
-export type GrantAiAgentAccessMutation = { grantAiAgentAccess: boolean };
-
 export type ImportAiAgentMutationVariables = Exact<{
   workspaceId: string | number;
   json: string;
+  projectId?: string | number | null | undefined;
 }>;
 
 
-export type ImportAiAgentMutation = { importAiAgent: { id: string, title: string } };
-
-export type PublishAiAgentMutationVariables = Exact<{
-  id: string | number;
-  description?: string | null | undefined;
-}>;
-
-
-export type PublishAiAgentMutation = { publishAiAgent: number };
-
-export type RevokeAiAgentAccessMutationVariables = Exact<{
-  agentId: string | number;
-  userId: string | number;
-}>;
-
-
-export type RevokeAiAgentAccessMutation = { revokeAiAgentAccess: boolean };
-
-export type SetAiAgentVisibilityMutationVariables = Exact<{
-  agentId: string | number;
-  visibility: Types.ResourceVisibility;
-}>;
-
-
-export type SetAiAgentVisibilityMutation = { setAiAgentVisibility: boolean };
+export type ImportAiAgentMutation = { importAiAgent: { id: string, projectId: string, title: string } };
 
 export type UpdateAiAgentMutationVariables = Exact<{
   input: Types.UpdateAiAgentInput;
@@ -986,13 +934,6 @@ export type UpdateAiAgentChannelMutationVariables = Exact<{
 
 export type UpdateAiAgentChannelMutation = { updateAiAgentChannel: boolean };
 
-export type UpdateAiAgentDeploymentTagsMutationVariables = Exact<{
-  input: Types.UpdateAiAgentDeploymentTagsInput;
-}>;
-
-
-export type UpdateAiAgentDeploymentTagsMutation = { updateAiAgentDeploymentTags: boolean };
-
 export type UpdateAiAgentElementMutationVariables = Exact<{
   input: Types.UpdateAiAgentElementInput;
 }>;
@@ -1007,13 +948,6 @@ export type UpdateAiAgentSettingsMutationVariables = Exact<{
 
 
 export type UpdateAiAgentSettingsMutation = { updateAiAgentSettings: boolean };
-
-export type UpdateAiAgentTagsMutationVariables = Exact<{
-  input: Types.UpdateAiAgentTagsInput;
-}>;
-
-
-export type UpdateAiAgentTagsMutation = { updateAiAgentTags: boolean };
 
 export type WorkspaceChatAgentsQueryVariables = Exact<{
   workspaceId: string | number;
@@ -2764,35 +2698,21 @@ export type CreateDataSyncMutationVariables = Exact<{
 }>;
 
 
-export type CreateDataSyncMutation = { createDataSync: { id: string, title: string } };
+export type CreateDataSyncMutation = { createDataSync: { id: string, projectId: string } };
 
 export type DataSyncQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type DataSyncQuery = { dataSync: { id: string, name: string, title: string, description: string | null, workspaceId: string | null, projectId: string, uuid: string, triggerType: Types.DataSyncTriggerType, triggerParameters: any, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, draftWorkflowId: string, visibility: Types.ResourceVisibility, elements: Array<{ id: string, kind: Types.DataSyncElementKind, componentName: string, componentVersion: number, operationName: string, parameters: any, connectionId: string | null }>, tags: Array<{ id: string, name: string }> } | null };
-
-export type DataSyncDeploymentTagsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type DataSyncDeploymentTagsQuery = { dataSyncDeploymentTags: Array<{ id: string, name: string }> };
+export type DataSyncQuery = { dataSync: { id: string, name: string, title: string, description: string | null, workspaceId: string | null, projectId: string, uuid: string, projectWorkflowUuid: string, triggerType: Types.DataSyncTriggerType, triggerParameters: any, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, draftWorkflowId: string, visibility: Types.ResourceVisibility, elements: Array<{ id: string, kind: Types.DataSyncElementKind, componentName: string, componentVersion: number, operationName: string, parameters: any, connectionId: string | null }> } | null };
 
 export type DataSyncDeploymentsQueryVariables = Exact<{
   workspaceId: string | number;
 }>;
 
 
-export type DataSyncDeploymentsQuery = { dataSyncDeployments: Array<{ id: string, name: string, dataSyncId: string, dataSyncTitle: string, projectId: string, environmentId: number, enabled: boolean, projectVersion: number, triggerType: Types.DataSyncTriggerType, workflowId: string, lastExecutionDate: string | null, tags: Array<{ id: string, name: string }> | null }> };
-
-export type DataSyncTagsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type DataSyncTagsQuery = { dataSyncTags: Array<{ id: string, name: string }> };
+export type DataSyncDeploymentsQuery = { dataSyncDeployments: Array<{ id: string, name: string, dataSyncId: string, dataSyncTitle: string, projectId: string, environmentId: number, enabled: boolean, projectVersion: number, triggerType: Types.DataSyncTriggerType, workflowId: string, lastExecutionDate: string | null }> };
 
 export type DataSyncVersionsQueryVariables = Exact<{
   id: string | number;
@@ -2806,7 +2726,7 @@ export type DataSyncsQueryVariables = Exact<{
 }>;
 
 
-export type DataSyncsQuery = { dataSyncs: Array<{ id: string, name: string, title: string, description: string | null, projectId: string, triggerType: Types.DataSyncTriggerType, triggerParameters: any, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, visibility: Types.ResourceVisibility, elements: Array<{ id: string, kind: Types.DataSyncElementKind, componentName: string, componentVersion: number, operationName: string }>, tags: Array<{ id: string, name: string }> }> };
+export type DataSyncsQuery = { dataSyncs: Array<{ id: string, name: string, title: string, description: string | null, projectId: string, projectWorkflowUuid: string, triggerType: Types.DataSyncTriggerType, triggerParameters: any, unpublishedChanges: boolean, lastPublishedVersion: number, publishedDate: string | null, lastModifiedDate: string | null, visibility: Types.ResourceVisibility, elements: Array<{ id: string, kind: Types.DataSyncElementKind, componentName: string, componentVersion: number, operationName: string }> }> };
 
 export type DeleteDataSyncMutationVariables = Exact<{
   id: string | number;
@@ -2814,14 +2734,6 @@ export type DeleteDataSyncMutationVariables = Exact<{
 
 
 export type DeleteDataSyncMutation = { deleteDataSync: boolean };
-
-export type PublishDataSyncMutationVariables = Exact<{
-  id: string | number;
-  description?: string | null | undefined;
-}>;
-
-
-export type PublishDataSyncMutation = { publishDataSync: number };
 
 export type RunDataSyncDeploymentMutationVariables = Exact<{
   id: string | number;
@@ -2845,26 +2757,12 @@ export type UpdateDataSyncMutationVariables = Exact<{
 
 export type UpdateDataSyncMutation = { updateDataSync: { id: string, title: string, description: string | null } };
 
-export type UpdateDataSyncDeploymentTagsMutationVariables = Exact<{
-  input: Types.UpdateDataSyncDeploymentTagsInput;
-}>;
-
-
-export type UpdateDataSyncDeploymentTagsMutation = { updateDataSyncDeploymentTags: boolean };
-
 export type UpdateDataSyncElementMutationVariables = Exact<{
   input: Types.UpdateDataSyncElementInput;
 }>;
 
 
 export type UpdateDataSyncElementMutation = { updateDataSyncElement: boolean };
-
-export type UpdateDataSyncTagsMutationVariables = Exact<{
-  input: Types.UpdateDataSyncTagsInput;
-}>;
-
-
-export type UpdateDataSyncTagsMutation = { updateDataSyncTags: boolean };
 
 export type UpdateDataSyncTriggerMutationVariables = Exact<{
   input: Types.UpdateDataSyncTriggerInput;
@@ -7512,6 +7410,7 @@ export const AiAgentDocument = new TypedDocumentString(`
     workspaceId
     projectId
     uuid
+    projectWorkflowUuid
     unpublishedChanges
     lastPublishedVersion
     channels {
@@ -7530,10 +7429,6 @@ export const AiAgentDocument = new TypedDocumentString(`
       connectionId
     }
     settings
-    tags {
-      id
-      name
-    }
     lastModifiedDate
     draftWorkflowId
     visibility
@@ -7593,31 +7488,6 @@ export const useAiAgentChannelDefinitionsQuery = <
   }
     )};
 
-export const AiAgentDeploymentTagsDocument = new TypedDocumentString(`
-    query aiAgentDeploymentTags($workspaceId: ID!) {
-  aiAgentDeploymentTags(workspaceId: $workspaceId) {
-    id
-    name
-  }
-}
-    `);
-
-export const useAiAgentDeploymentTagsQuery = <
-      TData = AiAgentDeploymentTagsQuery,
-      TError = unknown
-    >(
-      variables: AiAgentDeploymentTagsQueryVariables,
-      options?: Omit<UseQueryOptions<AiAgentDeploymentTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiAgentDeploymentTagsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<AiAgentDeploymentTagsQuery, TError, TData>(
-      {
-    queryKey: ['aiAgentDeploymentTags', variables],
-    queryFn: fetcher<AiAgentDeploymentTagsQuery, AiAgentDeploymentTagsQueryVariables>(AiAgentDeploymentTagsDocument, variables),
-    ...options
-  }
-    )};
-
 export const AiAgentDeploymentsDocument = new TypedDocumentString(`
     query aiAgentDeployments($workspaceId: ID!) {
   aiAgentDeployments(workspaceId: $workspaceId) {
@@ -7630,10 +7500,6 @@ export const AiAgentDeploymentsDocument = new TypedDocumentString(`
     enabled
     projectVersion
     lastExecutionDate
-    tags {
-      id
-      name
-    }
     workflows {
       workflowId
       enabled
@@ -7660,53 +7526,6 @@ export const useAiAgentDeploymentsQuery = <
       {
     queryKey: ['aiAgentDeployments', variables],
     queryFn: fetcher<AiAgentDeploymentsQuery, AiAgentDeploymentsQueryVariables>(AiAgentDeploymentsDocument, variables),
-    ...options
-  }
-    )};
-
-export const AiAgentGrantsDocument = new TypedDocumentString(`
-    query AiAgentGrants($agentId: ID!) {
-  aiAgentGrants(agentId: $agentId)
-}
-    `);
-
-export const useAiAgentGrantsQuery = <
-      TData = AiAgentGrantsQuery,
-      TError = unknown
-    >(
-      variables: AiAgentGrantsQueryVariables,
-      options?: Omit<UseQueryOptions<AiAgentGrantsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiAgentGrantsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<AiAgentGrantsQuery, TError, TData>(
-      {
-    queryKey: ['AiAgentGrants', variables],
-    queryFn: fetcher<AiAgentGrantsQuery, AiAgentGrantsQueryVariables>(AiAgentGrantsDocument, variables),
-    ...options
-  }
-    )};
-
-export const AiAgentTagsDocument = new TypedDocumentString(`
-    query aiAgentTags($workspaceId: ID!) {
-  aiAgentTags(workspaceId: $workspaceId) {
-    id
-    name
-  }
-}
-    `);
-
-export const useAiAgentTagsQuery = <
-      TData = AiAgentTagsQuery,
-      TError = unknown
-    >(
-      variables: AiAgentTagsQueryVariables,
-      options?: Omit<UseQueryOptions<AiAgentTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiAgentTagsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<AiAgentTagsQuery, TError, TData>(
-      {
-    queryKey: ['aiAgentTags', variables],
-    queryFn: fetcher<AiAgentTagsQuery, AiAgentTagsQueryVariables>(AiAgentTagsDocument, variables),
     ...options
   }
     )};
@@ -7747,15 +7566,12 @@ export const AiAgentsDocument = new TypedDocumentString(`
     title
     description
     projectId
+    projectWorkflowUuid
     unpublishedChanges
     lastPublishedVersion
     publishedDate
     lastModifiedDate
     visibility
-    tags {
-      id
-      name
-    }
     elements {
       id
       kind
@@ -7789,6 +7605,7 @@ export const CreateAiAgentDocument = new TypedDocumentString(`
     mutation createAiAgent($input: CreateAiAgentInput!) {
   createAiAgent(input: $input) {
     id
+    projectId
   }
 }
     `);
@@ -7885,29 +7702,11 @@ export const useExportAiAgentQuery = <
   }
     )};
 
-export const GrantAiAgentAccessDocument = new TypedDocumentString(`
-    mutation GrantAiAgentAccess($agentId: ID!, $userId: ID!) {
-  grantAiAgentAccess(agentId: $agentId, userId: $userId)
-}
-    `);
-
-export const useGrantAiAgentAccessMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<GrantAiAgentAccessMutation, TError, GrantAiAgentAccessMutationVariables, TContext>) => {
-    
-    return useMutation<GrantAiAgentAccessMutation, TError, GrantAiAgentAccessMutationVariables, TContext>(
-      {
-    mutationKey: ['GrantAiAgentAccess'],
-    mutationFn: (variables?: GrantAiAgentAccessMutationVariables) => fetcher<GrantAiAgentAccessMutation, GrantAiAgentAccessMutationVariables>(GrantAiAgentAccessDocument, variables)(),
-    ...options
-  }
-    )};
-
 export const ImportAiAgentDocument = new TypedDocumentString(`
-    mutation importAiAgent($workspaceId: ID!, $json: String!) {
-  importAiAgent(workspaceId: $workspaceId, json: $json) {
+    mutation importAiAgent($workspaceId: ID!, $json: String!, $projectId: ID) {
+  importAiAgent(workspaceId: $workspaceId, json: $json, projectId: $projectId) {
     id
+    projectId
     title
   }
 }
@@ -7922,63 +7721,6 @@ export const useImportAiAgentMutation = <
       {
     mutationKey: ['importAiAgent'],
     mutationFn: (variables?: ImportAiAgentMutationVariables) => fetcher<ImportAiAgentMutation, ImportAiAgentMutationVariables>(ImportAiAgentDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const PublishAiAgentDocument = new TypedDocumentString(`
-    mutation publishAiAgent($id: ID!, $description: String) {
-  publishAiAgent(id: $id, description: $description)
-}
-    `);
-
-export const usePublishAiAgentMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<PublishAiAgentMutation, TError, PublishAiAgentMutationVariables, TContext>) => {
-    
-    return useMutation<PublishAiAgentMutation, TError, PublishAiAgentMutationVariables, TContext>(
-      {
-    mutationKey: ['publishAiAgent'],
-    mutationFn: (variables?: PublishAiAgentMutationVariables) => fetcher<PublishAiAgentMutation, PublishAiAgentMutationVariables>(PublishAiAgentDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const RevokeAiAgentAccessDocument = new TypedDocumentString(`
-    mutation RevokeAiAgentAccess($agentId: ID!, $userId: ID!) {
-  revokeAiAgentAccess(agentId: $agentId, userId: $userId)
-}
-    `);
-
-export const useRevokeAiAgentAccessMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<RevokeAiAgentAccessMutation, TError, RevokeAiAgentAccessMutationVariables, TContext>) => {
-    
-    return useMutation<RevokeAiAgentAccessMutation, TError, RevokeAiAgentAccessMutationVariables, TContext>(
-      {
-    mutationKey: ['RevokeAiAgentAccess'],
-    mutationFn: (variables?: RevokeAiAgentAccessMutationVariables) => fetcher<RevokeAiAgentAccessMutation, RevokeAiAgentAccessMutationVariables>(RevokeAiAgentAccessDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const SetAiAgentVisibilityDocument = new TypedDocumentString(`
-    mutation SetAiAgentVisibility($agentId: ID!, $visibility: ResourceVisibility!) {
-  setAiAgentVisibility(agentId: $agentId, visibility: $visibility)
-}
-    `);
-
-export const useSetAiAgentVisibilityMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<SetAiAgentVisibilityMutation, TError, SetAiAgentVisibilityMutationVariables, TContext>) => {
-    
-    return useMutation<SetAiAgentVisibilityMutation, TError, SetAiAgentVisibilityMutationVariables, TContext>(
-      {
-    mutationKey: ['SetAiAgentVisibility'],
-    mutationFn: (variables?: SetAiAgentVisibilityMutationVariables) => fetcher<SetAiAgentVisibilityMutation, SetAiAgentVisibilityMutationVariables>(SetAiAgentVisibilityDocument, variables)(),
     ...options
   }
     )};
@@ -8023,25 +7765,6 @@ export const useUpdateAiAgentChannelMutation = <
   }
     )};
 
-export const UpdateAiAgentDeploymentTagsDocument = new TypedDocumentString(`
-    mutation updateAiAgentDeploymentTags($input: UpdateAiAgentDeploymentTagsInput!) {
-  updateAiAgentDeploymentTags(input: $input)
-}
-    `);
-
-export const useUpdateAiAgentDeploymentTagsMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateAiAgentDeploymentTagsMutation, TError, UpdateAiAgentDeploymentTagsMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateAiAgentDeploymentTagsMutation, TError, UpdateAiAgentDeploymentTagsMutationVariables, TContext>(
-      {
-    mutationKey: ['updateAiAgentDeploymentTags'],
-    mutationFn: (variables?: UpdateAiAgentDeploymentTagsMutationVariables) => fetcher<UpdateAiAgentDeploymentTagsMutation, UpdateAiAgentDeploymentTagsMutationVariables>(UpdateAiAgentDeploymentTagsDocument, variables)(),
-    ...options
-  }
-    )};
-
 export const UpdateAiAgentElementDocument = new TypedDocumentString(`
     mutation updateAiAgentElement($input: UpdateAiAgentElementInput!) {
   updateAiAgentElement(input: $input)
@@ -8076,25 +7799,6 @@ export const useUpdateAiAgentSettingsMutation = <
       {
     mutationKey: ['updateAiAgentSettings'],
     mutationFn: (variables?: UpdateAiAgentSettingsMutationVariables) => fetcher<UpdateAiAgentSettingsMutation, UpdateAiAgentSettingsMutationVariables>(UpdateAiAgentSettingsDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const UpdateAiAgentTagsDocument = new TypedDocumentString(`
-    mutation updateAiAgentTags($input: UpdateAiAgentTagsInput!) {
-  updateAiAgentTags(input: $input)
-}
-    `);
-
-export const useUpdateAiAgentTagsMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateAiAgentTagsMutation, TError, UpdateAiAgentTagsMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateAiAgentTagsMutation, TError, UpdateAiAgentTagsMutationVariables, TContext>(
-      {
-    mutationKey: ['updateAiAgentTags'],
-    mutationFn: (variables?: UpdateAiAgentTagsMutationVariables) => fetcher<UpdateAiAgentTagsMutation, UpdateAiAgentTagsMutationVariables>(UpdateAiAgentTagsDocument, variables)(),
     ...options
   }
     )};
@@ -14553,7 +14257,7 @@ export const CreateDataSyncDocument = new TypedDocumentString(`
     mutation createDataSync($input: CreateDataSyncInput!) {
   createDataSync(input: $input) {
     id
-    title
+    projectId
   }
 }
     `);
@@ -14581,6 +14285,7 @@ export const DataSyncDocument = new TypedDocumentString(`
     workspaceId
     projectId
     uuid
+    projectWorkflowUuid
     triggerType
     triggerParameters
     elements {
@@ -14591,10 +14296,6 @@ export const DataSyncDocument = new TypedDocumentString(`
       operationName
       parameters
       connectionId
-    }
-    tags {
-      id
-      name
     }
     unpublishedChanges
     lastPublishedVersion
@@ -14622,31 +14323,6 @@ export const useDataSyncQuery = <
   }
     )};
 
-export const DataSyncDeploymentTagsDocument = new TypedDocumentString(`
-    query dataSyncDeploymentTags($workspaceId: ID!) {
-  dataSyncDeploymentTags(workspaceId: $workspaceId) {
-    id
-    name
-  }
-}
-    `);
-
-export const useDataSyncDeploymentTagsQuery = <
-      TData = DataSyncDeploymentTagsQuery,
-      TError = unknown
-    >(
-      variables: DataSyncDeploymentTagsQueryVariables,
-      options?: Omit<UseQueryOptions<DataSyncDeploymentTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataSyncDeploymentTagsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<DataSyncDeploymentTagsQuery, TError, TData>(
-      {
-    queryKey: ['dataSyncDeploymentTags', variables],
-    queryFn: fetcher<DataSyncDeploymentTagsQuery, DataSyncDeploymentTagsQueryVariables>(DataSyncDeploymentTagsDocument, variables),
-    ...options
-  }
-    )};
-
 export const DataSyncDeploymentsDocument = new TypedDocumentString(`
     query dataSyncDeployments($workspaceId: ID!) {
   dataSyncDeployments(workspaceId: $workspaceId) {
@@ -14660,10 +14336,6 @@ export const DataSyncDeploymentsDocument = new TypedDocumentString(`
     projectVersion
     triggerType
     workflowId
-    tags {
-      id
-      name
-    }
     lastExecutionDate
   }
 }
@@ -14681,31 +14353,6 @@ export const useDataSyncDeploymentsQuery = <
       {
     queryKey: ['dataSyncDeployments', variables],
     queryFn: fetcher<DataSyncDeploymentsQuery, DataSyncDeploymentsQueryVariables>(DataSyncDeploymentsDocument, variables),
-    ...options
-  }
-    )};
-
-export const DataSyncTagsDocument = new TypedDocumentString(`
-    query dataSyncTags($workspaceId: ID!) {
-  dataSyncTags(workspaceId: $workspaceId) {
-    id
-    name
-  }
-}
-    `);
-
-export const useDataSyncTagsQuery = <
-      TData = DataSyncTagsQuery,
-      TError = unknown
-    >(
-      variables: DataSyncTagsQueryVariables,
-      options?: Omit<UseQueryOptions<DataSyncTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataSyncTagsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<DataSyncTagsQuery, TError, TData>(
-      {
-    queryKey: ['dataSyncTags', variables],
-    queryFn: fetcher<DataSyncTagsQuery, DataSyncTagsQueryVariables>(DataSyncTagsDocument, variables),
     ...options
   }
     )};
@@ -14745,6 +14392,7 @@ export const DataSyncsDocument = new TypedDocumentString(`
     title
     description
     projectId
+    projectWorkflowUuid
     triggerType
     triggerParameters
     elements {
@@ -14753,10 +14401,6 @@ export const DataSyncsDocument = new TypedDocumentString(`
       componentName
       componentVersion
       operationName
-    }
-    tags {
-      id
-      name
     }
     unpublishedChanges
     lastPublishedVersion
@@ -14798,25 +14442,6 @@ export const useDeleteDataSyncMutation = <
       {
     mutationKey: ['deleteDataSync'],
     mutationFn: (variables?: DeleteDataSyncMutationVariables) => fetcher<DeleteDataSyncMutation, DeleteDataSyncMutationVariables>(DeleteDataSyncDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const PublishDataSyncDocument = new TypedDocumentString(`
-    mutation publishDataSync($id: ID!, $description: String) {
-  publishDataSync(id: $id, description: $description)
-}
-    `);
-
-export const usePublishDataSyncMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<PublishDataSyncMutation, TError, PublishDataSyncMutationVariables, TContext>) => {
-    
-    return useMutation<PublishDataSyncMutation, TError, PublishDataSyncMutationVariables, TContext>(
-      {
-    mutationKey: ['publishDataSync'],
-    mutationFn: (variables?: PublishDataSyncMutationVariables) => fetcher<PublishDataSyncMutation, PublishDataSyncMutationVariables>(PublishDataSyncDocument, variables)(),
     ...options
   }
     )};
@@ -14890,25 +14515,6 @@ export const useUpdateDataSyncMutation = <
   }
     )};
 
-export const UpdateDataSyncDeploymentTagsDocument = new TypedDocumentString(`
-    mutation updateDataSyncDeploymentTags($input: UpdateDataSyncDeploymentTagsInput!) {
-  updateDataSyncDeploymentTags(input: $input)
-}
-    `);
-
-export const useUpdateDataSyncDeploymentTagsMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateDataSyncDeploymentTagsMutation, TError, UpdateDataSyncDeploymentTagsMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateDataSyncDeploymentTagsMutation, TError, UpdateDataSyncDeploymentTagsMutationVariables, TContext>(
-      {
-    mutationKey: ['updateDataSyncDeploymentTags'],
-    mutationFn: (variables?: UpdateDataSyncDeploymentTagsMutationVariables) => fetcher<UpdateDataSyncDeploymentTagsMutation, UpdateDataSyncDeploymentTagsMutationVariables>(UpdateDataSyncDeploymentTagsDocument, variables)(),
-    ...options
-  }
-    )};
-
 export const UpdateDataSyncElementDocument = new TypedDocumentString(`
     mutation updateDataSyncElement($input: UpdateDataSyncElementInput!) {
   updateDataSyncElement(input: $input)
@@ -14924,25 +14530,6 @@ export const useUpdateDataSyncElementMutation = <
       {
     mutationKey: ['updateDataSyncElement'],
     mutationFn: (variables?: UpdateDataSyncElementMutationVariables) => fetcher<UpdateDataSyncElementMutation, UpdateDataSyncElementMutationVariables>(UpdateDataSyncElementDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const UpdateDataSyncTagsDocument = new TypedDocumentString(`
-    mutation updateDataSyncTags($input: UpdateDataSyncTagsInput!) {
-  updateDataSyncTags(input: $input)
-}
-    `);
-
-export const useUpdateDataSyncTagsMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateDataSyncTagsMutation, TError, UpdateDataSyncTagsMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateDataSyncTagsMutation, TError, UpdateDataSyncTagsMutationVariables, TContext>(
-      {
-    mutationKey: ['updateDataSyncTags'],
-    mutationFn: (variables?: UpdateDataSyncTagsMutationVariables) => fetcher<UpdateDataSyncTagsMutation, UpdateDataSyncTagsMutationVariables>(UpdateDataSyncTagsDocument, variables)(),
     ...options
   }
     )};
