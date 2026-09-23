@@ -78,7 +78,7 @@ class WorkflowExecutionToolsTest {
 
         Workflow workflow = new Workflow("{\"label\": \"My Workflow\", \"tasks\": []}", Format.JSON);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, workflow, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, workflow, null);
 
         when(facade.getWorkflowExecution(7L)).thenReturn(dto);
 
@@ -110,7 +110,7 @@ class WorkflowExecutionToolsTest {
         project.setName("Other workspace");
         project.setWorkspaceId(99L);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, null, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, null, null);
 
         when(facade.getWorkflowExecution(7L)).thenReturn(dto);
 
@@ -135,7 +135,7 @@ class WorkflowExecutionToolsTest {
 
         Workflow workflow = new Workflow("{\"label\": \"My Workflow\", \"tasks\": []}", Format.JSON);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, workflow, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, workflow, null);
 
         Page<WorkflowExecutionDTO> page = new PageImpl<>(List.of(dto));
 
