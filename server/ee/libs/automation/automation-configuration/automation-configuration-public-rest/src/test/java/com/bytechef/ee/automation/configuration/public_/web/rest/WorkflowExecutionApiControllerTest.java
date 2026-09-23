@@ -196,6 +196,6 @@ class WorkflowExecutionApiControllerTest {
             Map.of("outputKey", "outputValue"), null, 0, START_DATE, Job.Status.COMPLETED, List.of(taskExecutionDTO), 0,
             List.of(), "workflow1");
 
-        return new WorkflowExecutionDTO(1000L, project, projectDeployment, jobDTO, workflow, null);
+        return new WorkflowExecutionDTO(1000L, project, projectDeployment, null, jobDTO, workflow, null);
     }
 }
