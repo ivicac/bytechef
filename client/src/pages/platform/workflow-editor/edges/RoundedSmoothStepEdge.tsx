@@ -11,6 +11,10 @@ import computeExitEdgeJogCenter from './computeExitEdgeJogCenter';
 import {getTriggerFanInBusCenter} from './computeTriggerFanIn';
 import useExecutedEdgeStatus from './useExecutedEdgeStatus';
 
+// Every "+" placeholder node id ends this way: `<dispatcher>-parallel-placeholder-0`,
+// `<dispatcher>-forkJoin-placeholder-<n>`, the case placeholders of conditions, branches and the rest.
+const PLACEHOLDER_NODE_ID_PATTERN = /-placeholder-\d+$/;
+
 export default function RoundedSmoothStepEdge({
     data,
     id,
@@ -75,12 +79,19 @@ export default function RoundedSmoothStepEdge({
         targetY,
     });
 
+    // A "+" placeholder is an insertion point, not a step: nothing flows through it, so its edges never
+    // take the running dash.
+    const touchesPlaceholder = PLACEHOLDER_NODE_ID_PATTERN.test(source) || PLACEHOLDER_NODE_ID_PATTERN.test(target);
+    const isRunningPath = workflowIsRunning && !touchesPlaceholder;
+
     return (
         <>
+            {isRunningPath && <path className="fill-none stroke-background stroke-2" d={edgePath} />}
+
             <BaseEdge
                 className={twMerge(
                     'fill-none stroke-stroke-neutral-tertiary stroke-2',
-                    workflowIsRunning && styles.runningPath,
+                    isRunningPath && styles.runningPath,
                     executedEdgeStatus === 'COMPLETED' && 'stroke-green-500',
                     executedEdgeStatus === 'FAILED' && 'stroke-red-500'
                 )}

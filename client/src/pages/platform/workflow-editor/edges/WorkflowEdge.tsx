@@ -226,6 +226,11 @@ export default function WorkflowEdge({
 
     return (
         <>
+            {/* Backs the running dash with the canvas colour, so a solid edge sharing this path (a "+"
+                placeholder's edge leaves the bar from the same handle as a lane) cannot show through
+                the gaps. */}
+            {workflowIsRunning && <path className="fill-none stroke-background stroke-2" d={edgePath} />}
+
             <BaseEdge
                 className={twMerge(
                     'fill-none stroke-stroke-neutral-tertiary stroke-2',
