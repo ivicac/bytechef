@@ -50,6 +50,7 @@ import {getForkJoinBranchSide} from './createForkJoinEdges';
 import {getOnErrorBranchSide} from './createOnErrorEdges';
 import {getCrossAxis, getCrossAxisNodeSize} from './directionUtils';
 import {
+    CONFIGURED_CLUSTER_ROOT_HANDLE_OFFSET,
     adjustBottomGhostForMovedChildren,
     alignBranchCaseChildren,
     alignChainNodesCrossAxis,
@@ -61,6 +62,7 @@ import {
     centerDispatcherPlaceholdersOnMainAxis,
     centerLRSmallNodes,
     centerNodesAfterBottomGhost,
+    collectNestedDispatcherNodes,
     constrainBranchGhostsCrossAxis,
     constrainConditionGhostsCrossAxis,
     constrainLeftGhostPositions,
@@ -997,9 +999,297 @@ export function filterAndDedupeLayoutEdges(allNodes: Node[], edges: Edge[]): Edg
     ).edges;
 
     // Remove edges that reference non-existent nodes
-    const nodeIds = new Set(allNodes.map((node) => node.id));
+    const nodesById = new Map(allNodes.map((node) => [node.id, node]));
 
-    return dedupedEdges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+    const existingEdges = dedupedEdges.filter((edge) => nodesById.has(edge.source) && nodesById.has(edge.target));
+
+    // Edges render in array order, so a later edge paints over an earlier one along any shared run.
+    // A "+" placeholder's edges leave a ghost bar from the same handle as the lane beside them and
+    // share its path up to the corner, and they never carry an executed or running status. Drawn
+    // first, they sit underneath instead of greying out that stretch of the lane's colored edge.
+    const touchesPlaceholder = (edge: Edge) =>
+        nodesById.get(edge.source)?.type === 'placeholder' || nodesById.get(edge.target)?.type === 'placeholder';
+
+    return [...existingEdges.filter(touchesPlaceholder), ...existingEdges.filter((edge) => !touchesPlaceholder(edge))];
+}
+
+// The add-a-branch "+" of a parallel or fork-join is not a branch, so it neither claims a full
+// task column nor counts when the dispatcher is centred over its lanes: it sits this far past the
+// reach of the last real lane (label included), and the lanes are centred on the dispatcher alone.
+const TRAILING_BRANCH_PLACEHOLDER_GAP = 16;
+
+// A task's three label lines stacked under its icon in LR, as TRIGGER_LABEL_BLOCK_HEIGHT.
+const LR_NODE_LABEL_BLOCK_HEIGHT = 64;
+
+const TRAILING_PLACEHOLDER_DISPATCHERS: Record<string, string> = {
+    'fork-join': 'forkJoin',
+    parallel: 'parallel',
+};
+
+function getNodeCrossAnchorOffset(node: Node, crossAxis: 'x' | 'y'): number {
+    const nodeData = node.data as NodeDataType;
+    const frame = nodeData.graphFrame || nodeData.clusterFrame;
+
+    if (frame) {
+        return (crossAxis === 'x' ? frame.width : frame.height) / 2;
+    }
+
+    if (crossAxis === 'x' && rendersClusterElements(node)) {
+        return CONFIGURED_CLUSTER_ROOT_HANDLE_OFFSET;
+    }
+
+    return NODE_ANCHOR_HALF;
+}
+
+/**
+ * How far past its cross-axis position a node paints, labels included — the reach a trailing
+ * placeholder has to clear.
+ */
+function getNodeCrossReach(node: Node, crossAxis: 'x' | 'y'): number {
+    const nodeData = node.data as NodeDataType;
+    const frame = nodeData.graphFrame || nodeData.clusterFrame;
+
+    if (frame) {
+        return crossAxis === 'x' ? frame.width : frame.height;
+    }
+
+    if (node.type === 'placeholder') {
+        return crossAxis === 'x' ? CLUSTER_ELEMENT_NODE_WIDTH : PLACEHOLDER_NODE_HEIGHT;
+    }
+
+    if (node.type === 'taskDispatcherLeftGhostNode') {
+        return 16;
+    }
+
+    if (node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode') {
+        return TRIGGER_NODE_BOX_SIZE;
+    }
+
+    const anchorReach = crossAxis === 'x' && rendersClusterElements(node) ? 240 : TRIGGER_NODE_BOX_SIZE;
+
+    return anchorReach + (crossAxis === 'x' ? getLabelCrossOverhang(node) : LR_NODE_LABEL_BLOCK_HEIGHT);
+}
+
+function getNodeMainReach(node: Node, mainAxis: 'x' | 'y'): number {
+    const nodeData = node.data as NodeDataType;
+    const frame = nodeData.graphFrame || nodeData.clusterFrame;
+
+    if (frame) {
+        return mainAxis === 'x' ? frame.width : frame.height;
+    }
+
+    if (node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode') {
+        return 2;
+    }
+
+    if (node.type === 'placeholder') {
+        return mainAxis === 'y' ? PLACEHOLDER_NODE_HEIGHT : CLUSTER_ELEMENT_NODE_WIDTH;
+    }
+
+    return TRIGGER_NODE_BOX_SIZE;
+}
+
+function getDispatcherDepth(dispatcherNode: Node, nodesById: Map<string, Node>): number {
+    let depth = 0;
+    let parentId = getParentDispatcherIdOf(dispatcherNode);
+    const visitedIds = new Set<string>();
+
+    while (parentId && !visitedIds.has(parentId)) {
+        visitedIds.add(parentId);
+        depth++;
+
+        const parentNode = nodesById.get(parentId);
+
+        parentId = parentNode ? getParentDispatcherIdOf(parentNode) : undefined;
+    }
+
+    return depth;
+}
+
+function getParentDispatcherIdOf(node: Node): string | undefined {
+    const nodeData = node.data as NodeDataType;
+
+    return (
+        nodeData.conditionData?.conditionId ||
+        nodeData.loopData?.loopId ||
+        nodeData.branchData?.branchId ||
+        nodeData.parallelData?.parallelId ||
+        nodeData.forkJoinData?.forkJoinId ||
+        nodeData.graphData?.graphId ||
+        nodeData.eachData?.eachId ||
+        nodeData.mapData?.mapId ||
+        nodeData.onErrorData?.onErrorId
+    );
+}
+
+/**
+ * Pulls the add-a-branch "+" of every parallel and fork-join in against its last real lane and
+ * centres the real lanes on the dispatcher. Both engines lay that "+" out as one more full-width
+ * column, which leaves the frame's right side a column too wide and parks the dispatcher over the
+ * wrong lane. Runs last, on settled positions. Centring moves the lanes toward the far side, so a
+ * frame may only end up wider than the engine made it when nothing sits in the band it grows
+ * into; otherwise the lanes move only within the old "+" column. Innermost dispatchers go first so
+ * an outer frame measures its nested frames at their final width.
+ */
+export function tuckTrailingBranchPlaceholders(allNodes: Node[], edges: Edge[], direction: LayoutDirectionType): void {
+    const crossAxis = getCrossAxis(direction);
+    const mainAxis = crossAxis === 'x' ? 'y' : 'x';
+    const nodesById = new Map(allNodes.map((node) => [node.id, node]));
+
+    // Every "+" of this kind is re-placed from its own lanes, so none of them is an obstacle to a
+    // frame growing into the space it used to occupy.
+    const trailingPlaceholderIds = new Set(
+        edges
+            .filter(
+                (edge) =>
+                    edge.sourceHandle === `${edge.source}-right` &&
+                    /-(parallel|forkJoin)-top-ghost$/.test(edge.source) &&
+                    nodesById.get(edge.target)?.type === 'placeholder'
+            )
+            .map((edge) => edge.target)
+    );
+
+    const dispatcherNodes = allNodes
+        .filter((node) => {
+            const componentName = (node.data as NodeDataType).componentName as string | undefined;
+
+            return !!componentName && componentName in TRAILING_PLACEHOLDER_DISPATCHERS && node.type !== 'placeholder';
+        })
+        .sort(
+            (dispatcherA, dispatcherB) =>
+                getDispatcherDepth(dispatcherB, nodesById) - getDispatcherDepth(dispatcherA, nodesById)
+        );
+
+    for (const dispatcherNode of dispatcherNodes) {
+        const componentName = (dispatcherNode.data as NodeDataType).componentName as string;
+        const ghostSegment = TRAILING_PLACEHOLDER_DISPATCHERS[componentName];
+        const topGhostId = `${dispatcherNode.id}-${ghostSegment}-top-ghost`;
+        const bottomGhostId = `${dispatcherNode.id}-${ghostSegment}-bottom-ghost`;
+
+        const topGhostEdges = edges.filter((edge) => edge.source === topGhostId);
+
+        const placeholderEdge = topGhostEdges.find(
+            (edge) => edge.sourceHandle === `${topGhostId}-right` && nodesById.get(edge.target)?.type === 'placeholder'
+        );
+
+        const placeholderNode = placeholderEdge ? nodesById.get(placeholderEdge.target) : undefined;
+
+        const entryNodes = topGhostEdges
+            .filter((edge) => edge !== placeholderEdge)
+            .map((edge) => nodesById.get(edge.target))
+            .filter((node): node is Node => !!node && node.type !== 'taskDispatcherLeftGhostNode');
+
+        if (!placeholderNode || entryNodes.length === 0) {
+            continue;
+        }
+
+        const memberIds = new Set<string>();
+
+        collectNestedDispatcherNodes(dispatcherNode.id, allNodes, memberIds);
+
+        const laneNodes = [...memberIds]
+            .filter(
+                (memberId) =>
+                    memberId !== dispatcherNode.id &&
+                    memberId !== placeholderNode.id &&
+                    memberId !== topGhostId &&
+                    memberId !== bottomGhostId
+            )
+            .map((memberId) => nodesById.get(memberId))
+            .filter((node): node is Node => !!node);
+
+        if (laneNodes.length === 0) {
+            continue;
+        }
+
+        const laneReach = Math.max(
+            ...laneNodes.map((laneNode) => laneNode.position[crossAxis] + getNodeCrossReach(laneNode, crossAxis))
+        );
+
+        const entryAnchors = entryNodes
+            .map((entryNode) => entryNode.position[crossAxis] + getNodeCrossAnchorOffset(entryNode, crossAxis))
+            .sort((anchorA, anchorB) => anchorA - anchorB);
+
+        const placeholderPosition = placeholderNode.position[crossAxis];
+        const placeholderReach = getNodeCrossReach(placeholderNode, crossAxis);
+
+        // What the dispatcher is centred over. A single lane hangs off the bar's left end, so the
+        // frame's sides are that lane and the "+" — the dispatcher sits midway between them, with the
+        // "+" measured where it is about to land. An odd lane count has a lane leaving the bar
+        // straight down, so that lane sits under the dispatcher; an even count leaves from the bar's
+        // ends, so the outer lanes are balanced.
+        let lanesCenter = (entryAnchors[0] + entryAnchors[entryAnchors.length - 1]) / 2;
+
+        if (entryAnchors.length === 1) {
+            lanesCenter = (entryAnchors[0] + laneReach + TRAILING_BRANCH_PLACEHOLDER_GAP + placeholderReach / 2) / 2;
+        } else if (entryAnchors.length % 2 === 1) {
+            lanesCenter = entryAnchors[(entryAnchors.length - 1) / 2];
+        }
+
+        const dispatcherAnchor =
+            dispatcherNode.position[crossAxis] + getNodeCrossAnchorOffset(dispatcherNode, crossAxis);
+
+        // A lane the user dragged stays exactly where it was put.
+        const hasDraggedLane = laneNodes.some((laneNode) =>
+            containsNodePosition((laneNode.data as NodeDataType).metadata)
+        );
+
+        let laneShift = hasDraggedLane ? 0 : Math.max(0, dispatcherAnchor - lanesCenter);
+
+        const frameFarEdge = placeholderPosition + placeholderReach;
+        const centredFarEdge = laneReach + laneShift + TRAILING_BRANCH_PLACEHOLDER_GAP + placeholderReach;
+
+        // Centring moves the lanes toward the far side, so the frame can end up past where the engine
+        // closed it. That is only safe when the band it grows into is empty; otherwise the lanes
+        // move only as far as the old "+" column leaves room for.
+        if (centredFarEdge > frameFarEdge) {
+            const topGhostNode = nodesById.get(topGhostId);
+            const bottomGhostNode = nodesById.get(bottomGhostId);
+
+            const isBandOccupied =
+                !topGhostNode ||
+                !bottomGhostNode ||
+                allNodes.some((otherNode) => {
+                    if (
+                        otherNode === dispatcherNode ||
+                        memberIds.has(otherNode.id) ||
+                        trailingPlaceholderIds.has(otherNode.id)
+                    ) {
+                        return false;
+                    }
+
+                    const otherCrossStart = otherNode.position[crossAxis];
+                    const otherCrossEnd = otherCrossStart + getNodeCrossReach(otherNode, crossAxis);
+                    const otherMainStart = otherNode.position[mainAxis];
+                    const otherMainEnd = otherMainStart + getNodeMainReach(otherNode, mainAxis);
+
+                    return (
+                        otherCrossEnd > frameFarEdge &&
+                        otherCrossStart < centredFarEdge &&
+                        otherMainEnd > topGhostNode.position[mainAxis] &&
+                        otherMainStart < bottomGhostNode.position[mainAxis]
+                    );
+                });
+
+            if (isBandOccupied) {
+                laneShift = Math.max(
+                    0,
+                    Math.min(laneShift, placeholderPosition - laneReach - TRAILING_BRANCH_PLACEHOLDER_GAP)
+                );
+            }
+        }
+
+        if (laneShift >= 1) {
+            laneNodes.forEach((laneNode) => {
+                laneNode.position = {...laneNode.position, [crossAxis]: laneNode.position[crossAxis] + laneShift};
+            });
+        }
+
+        placeholderNode.position = {
+            ...placeholderNode.position,
+            [crossAxis]: laneReach + laneShift + TRAILING_BRANCH_PLACEHOLDER_GAP,
+        };
+    }
 }
 
 export const getLayoutElements = async ({
@@ -1177,6 +1467,8 @@ export const getLayoutElements = async ({
     if (direction === 'TB') {
         centerDispatcherChildrenOnMainAxis(allNodes, edges, mainAxis);
     }
+
+    tuckTrailingBranchPlaceholders(allNodes, edges, direction);
 
     edges = filterAndDedupeLayoutEdges(allNodes, edges);
 

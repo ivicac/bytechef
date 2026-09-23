@@ -705,6 +705,44 @@ describe('filterAndDedupeLayoutEdges', () => {
 
         expect(filterAndDedupeLayoutEdges(nodes, edges)).toEqual([]);
     });
+    it('should draw "+" placeholder edges first so a lane sharing their handle paints over them', () => {
+        const topGhostId = 'parallel_1-parallel-top-ghost';
+        const bottomGhostId = 'parallel_1-parallel-bottom-ghost';
+        const placeholderId = 'parallel_1-parallel-placeholder-0';
+
+        const nodes: Node[] = [
+            {data: {}, id: topGhostId, position: {x: 0, y: 0}, type: 'taskDispatcherTopGhostNode'},
+            {data: {}, id: bottomGhostId, position: {x: 0, y: 0}, type: 'taskDispatcherBottomGhostNode'},
+            {data: {}, id: placeholderId, position: {x: 0, y: 0}, type: 'placeholder'},
+            makeWorkflowNode('accelo_1'),
+        ];
+
+        const edges: Edge[] = [
+            {
+                id: `${topGhostId}=>accelo_1`,
+                source: topGhostId,
+                sourceHandle: `${topGhostId}-right`,
+                target: 'accelo_1',
+            },
+            {id: `accelo_1=>${bottomGhostId}`, source: 'accelo_1', target: bottomGhostId},
+            {
+                id: `${topGhostId}=>${placeholderId}`,
+                source: topGhostId,
+                sourceHandle: `${topGhostId}-right`,
+                target: placeholderId,
+            },
+            {id: `${placeholderId}=>${bottomGhostId}`, source: placeholderId, target: bottomGhostId},
+        ];
+
+        const orderedEdgeIds = filterAndDedupeLayoutEdges(nodes, edges).map((edge) => edge.id);
+
+        expect(orderedEdgeIds.indexOf(`${topGhostId}=>${placeholderId}`)).toBeLessThan(
+            orderedEdgeIds.indexOf(`${topGhostId}=>accelo_1`)
+        );
+        expect(orderedEdgeIds.indexOf(`${placeholderId}=>${bottomGhostId}`)).toBeLessThan(
+            orderedEdgeIds.indexOf(`accelo_1=>${bottomGhostId}`)
+        );
+    });
 });
 
 describe('getLayoutElements (dagre) with graphTransition edges', () => {

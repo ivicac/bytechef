@@ -24,6 +24,7 @@ import {
     getLabelCrossOverhang,
     getLayoutElements,
     positionTriggerPlaceholder,
+    tuckTrailingBranchPlaceholders,
 } from './layoutUtils';
 import {
     CHAIN_CENTERING_MAX_SLACK,
@@ -849,8 +850,16 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
 
         const scopeDispatcherNode = nodesById.get(scope);
 
+        // The trigger row's "+" is placed beside the last trigger afterwards (positionTriggerPlaceholder).
+        // It has no edges, so in the graph it would be a connected component of its own, and ELK's
+        // component packing stacks it ABOVE a short chain but beside a longer one — dropping an empty
+        // workflow's trigger a row lower than where it sits once the first task is added.
         nodes.forEach((node) => {
-            if (getScope(node.id) !== scope || node.type === 'taskDispatcherLeftGhostNode') {
+            if (
+                getScope(node.id) !== scope ||
+                node.type === 'taskDispatcherLeftGhostNode' ||
+                node.type === 'triggerPlaceholder'
+            ) {
                 return;
             }
 
@@ -2186,6 +2195,8 @@ export const getElkLayoutElements = async ({
                 ? {id: FINAL_PLACEHOLDER_NODE_ID, predecessorId: trailingPlaceholderEdge.source}
                 : undefined
         );
+
+        tuckTrailingBranchPlaceholders(allNodes, edges, direction);
 
         return {edges: filterAndDedupeLayoutEdges(allNodes, edges), engine: 'elk' as const, nodes: allNodes};
     } catch (error) {

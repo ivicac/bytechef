@@ -103,7 +103,7 @@ function getClusterRootCrossOffset(node: Node, direction: LayoutDirectionType): 
  * Recursively collects node IDs belonging to a nested task dispatcher
  * (ghost nodes, placeholders, children, and any further nested dispatchers).
  */
-function collectNestedDispatcherNodes(dispatcherId: string, allNodes: Node[], collected: Set<string>): void {
+export function collectNestedDispatcherNodes(dispatcherId: string, allNodes: Node[], collected: Set<string>): void {
     const newNodeIds: string[] = [];
 
     allNodes.forEach((node) => {
@@ -276,12 +276,11 @@ export function alignBranchCaseChildren(
             return;
         }
 
-        const sourceData = sourceNode.data as NodeDataType;
-
-        const dispatcherId =
-            sourceData.branchId ||
-            ((sourceData as Record<string, unknown>).parallelId as string | undefined) ||
-            ((sourceData as Record<string, unknown>).forkJoinId as string | undefined);
+        // Parallel and fork-join lanes are centred on their dispatcher by tuckTrailingBranchPlaceholders,
+        // which runs once every lane has settled. Snapping the middle lane here would measure against
+        // a dispatcher the engine centred over the add-a-branch column too, and pull that lane onto
+        // its neighbour.
+        const dispatcherId = (sourceNode.data as NodeDataType).branchId;
 
         if (!dispatcherId) {
             return;

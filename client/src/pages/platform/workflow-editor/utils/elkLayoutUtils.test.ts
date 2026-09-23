@@ -1,4 +1,9 @@
-import {FINAL_PLACEHOLDER_NODE_ID, FINAL_PLACEHOLDER_NODE_SIZE, GRAPH_TRANSITION_EDGE_TYPE} from '@/shared/constants';
+import {
+    FINAL_PLACEHOLDER_NODE_ID,
+    FINAL_PLACEHOLDER_NODE_SIZE,
+    GRAPH_TRANSITION_EDGE_TYPE,
+    TRIGGER_PLACEHOLDER_NODE_ID,
+} from '@/shared/constants';
 import {Edge, Node} from '@xyflow/react';
 import {describe, expect, it} from 'vitest';
 
@@ -3624,6 +3629,49 @@ describe('trigger row label separation', () => {
         const secondX = positionOf(result.nodes, 'trigger_2').x;
 
         expect((firstX + secondX) / 2).toBeCloseTo(positionOf(result.nodes, 'task1').x, 5);
+    });
+
+    it('starts the chain at the same height whether or not it has tasks yet', async () => {
+        const triggerPlaceholderNode: Node = {
+            data: {label: '+'},
+            id: TRIGGER_PLACEHOLDER_NODE_ID,
+            position: {x: 0, y: 0},
+            type: 'triggerPlaceholder',
+        };
+
+        const finalPlaceholderNode: Node = {
+            data: {label: '+'},
+            id: FINAL_PLACEHOLDER_NODE_ID,
+            position: {x: 0, y: 0},
+            type: 'placeholder',
+        };
+
+        const emptyResult = await getElkLayoutElements({
+            canvasWidth: 1400,
+            direction: 'TB',
+            edges: [edge('trigger_1', FINAL_PLACEHOLDER_NODE_ID)],
+            nodes: [triggerNode('trigger_1', 'Manual'), triggerPlaceholderNode, finalPlaceholderNode],
+        });
+
+        const oneTaskResult = await getElkLayoutElements({
+            canvasWidth: 1400,
+            direction: 'TB',
+            edges: [edge('trigger_1', 'task1'), edge('task1', FINAL_PLACEHOLDER_NODE_ID)],
+            nodes: [
+                triggerNode('trigger_1', 'Manual'),
+                triggerPlaceholderNode,
+                taskNode('task1'),
+                finalPlaceholderNode,
+            ],
+        });
+
+        // The trigger row's "+" has no edges, so inside ELK it is a connected component of its own;
+        // ELK's component packing stacked it above a short chain and beside a longer one, dropping
+        // an empty workflow's trigger one row lower than it sits once the first task is added
+        expect(positionOf(emptyResult.nodes, 'trigger_1').y).toBe(positionOf(oneTaskResult.nodes, 'trigger_1').y);
+        expect(positionOf(emptyResult.nodes, TRIGGER_PLACEHOLDER_NODE_ID).y).toBe(
+            positionOf(oneTaskResult.nodes, TRIGGER_PLACEHOLDER_NODE_ID).y
+        );
     });
 
     it('keeps the tight trigger pitch when labels fit', async () => {

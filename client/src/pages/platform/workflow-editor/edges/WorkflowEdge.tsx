@@ -8,6 +8,7 @@ import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
 import WorkflowNodesPopoverMenu from '../components/WorkflowNodesPopoverMenu';
+import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
@@ -21,7 +22,7 @@ import computeEdgeButtonPosition from './computeEdgeButtonPosition';
 import computeEdgeCorrectedCoordinates from './computeEdgeCorrectedCoordinates';
 import computeExitEdgeJogCenter from './computeExitEdgeJogCenter';
 import {getTriggerFanInBusCenter, getTriggerFanInButtonPosition} from './computeTriggerFanIn';
-import getExecutedEdgeStatus from './getExecutedEdgeStatus';
+import getExecutedEdgeStatus, {bypassDisabledEdgeEndpoints} from './getExecutedEdgeStatus';
 
 export default function WorkflowEdge({
     data,
@@ -159,8 +160,19 @@ export default function WorkflowEdge({
 
     const workflowIsRunning = useWorkflowEditorStore((state) => state.workflowIsRunning);
     const workflowTestNodeStates = useWorkflowTestNodeStates();
+    const disabledTaskNames = useDisabledTaskNames();
 
-    const executedEdgeStatus = getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates);
+    const executedEdgeEndpoints = bypassDisabledEdgeEndpoints(sourceNode, targetNode, {
+        disabledTaskNames,
+        edges,
+        nodes,
+    });
+
+    const executedEdgeStatus = getExecutedEdgeStatus(
+        executedEdgeEndpoints.sourceNode,
+        executedEdgeEndpoints.targetNode,
+        workflowTestNodeStates
+    );
 
     const edgeClusterElementType = (data as Record<string, unknown>)?.clusterElementType;
 
@@ -252,6 +264,11 @@ export default function WorkflowEdge({
 
     return (
         <>
+            {/* Backs the running dash with the canvas colour, so a solid edge sharing this path (a "+"
+                placeholder's edge leaves the bar from the same handle as a lane) cannot show through
+                the gaps. */}
+            {workflowIsRunning && <path className="fill-none stroke-background stroke-2" d={edgePath} />}
+
             <BaseEdge
                 className={twMerge(
                     'fill-none stroke-stroke-neutral-tertiary stroke-2',

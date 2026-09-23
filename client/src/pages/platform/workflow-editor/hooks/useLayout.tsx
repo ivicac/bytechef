@@ -71,6 +71,7 @@ import {
     getTaskAncestry,
 } from '../utils/layoutUtils';
 import {containsNodePosition} from '../utils/postDagreConstraints';
+import removeTrailingBranchPlaceholders from '../utils/removeTrailingBranchPlaceholders';
 import {buildStickyNoteNodes} from '../utils/stickyNoteUtils';
 import {forEachNestedTaskGroup} from '../utils/taskTraversalUtils';
 import useClusterElementsViewMode from './useClusterElementsViewMode';
@@ -1034,6 +1035,8 @@ export default function useLayout({
             if (lastEdge && lastEdge.target === FINAL_PLACEHOLDER_NODE_ID) {
                 edges.pop();
             }
+
+            ({edges, nodes: layoutNodes} = removeTrailingBranchPlaceholders(layoutNodes, edges));
         }
 
         // Sync position metadata from the latest workflow definition into layout
