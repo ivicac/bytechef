@@ -669,6 +669,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Generate Service Account",
     "workflowNodeDescription": null
   }, {
@@ -838,6 +839,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "List Rows",
     "workflowNodeDescription": null
   }, {
@@ -902,6 +904,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Row",
     "workflowNodeDescription": null
   }, {
@@ -1009,6 +1012,7 @@
       "type": "OBJECT"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Row",
     "workflowNodeDescription": null
   }, {
@@ -1096,6 +1100,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Row",
     "workflowNodeDescription": null
   } ],
@@ -1762,6 +1767,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Generate Service Account",
     "type": {
       "name": "TOOLS",
@@ -1931,6 +1937,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "List Rows",
     "type": {
       "name": "TOOLS",
@@ -1995,6 +2002,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Create Row",
     "type": {
       "name": "TOOLS",
@@ -2102,6 +2110,7 @@
       "required": true,
       "type": "OBJECT"
     } ],
+    "riskLevel": null,
     "title": "Update Row",
     "type": {
       "name": "TOOLS",
@@ -2189,6 +2198,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Delete Row",
     "type": {
       "name": "TOOLS",
