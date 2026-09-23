@@ -73,7 +73,7 @@ class WorkflowExecutionApiControllerTest {
         when(
             projectWorkflowExecutionFacade.getWorkflowExecutions(
                 isNull(), eq((long) Environment.STAGING.ordinal()), eq(Job.Status.COMPLETED), eq(START_DATE),
-                eq(END_DATE), eq(10L), eq(20L), eq("workflow1"), eq(100L), eq(0)))
+                eq(END_DATE), eq(10L), eq(20L), eq("workflow1"), isNull(), eq(100L), eq(0)))
                     .thenReturn(new PageImpl<>(List.of(workflowExecutionDTO)));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
@@ -112,7 +112,7 @@ class WorkflowExecutionApiControllerTest {
         when(
             projectWorkflowExecutionFacade.getWorkflowExecutions(
                 isNull(), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), eq(100L), eq(0)))
+                isNull(), isNull(), isNull(), eq(100L), eq(0)))
                     .thenReturn(new PageImpl<>(List.of()));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
@@ -122,7 +122,7 @@ class WorkflowExecutionApiControllerTest {
 
         verify(projectWorkflowExecutionFacade).getWorkflowExecutions(
             isNull(), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(), isNull(),
-            isNull(), eq(100L), eq(0));
+            isNull(), isNull(), eq(100L), eq(0));
     }
 
     @Test
@@ -189,13 +189,13 @@ class WorkflowExecutionApiControllerTest {
             null, null, END_DATE, new ExecutionError("Task failed", List.of("line1", "line2")), 0, null, 2000L,
             Map.of("url", "https://example.com"), null, null, null, 0, Map.of("body", "ok"), null, 0, 0, 0, null, 0, 0,
             START_DATE, TaskExecution.Status.COMPLETED, 0, "HTTP Request", "httpClient/v1/get", workflowTask, List.of(),
-            List.of(), null);
+            List.of(), null, null, List.of(), List.of());
 
         JobDTO jobDTO = new JobDTO(
             null, null, 0, END_DATE, null, 3000L, Map.of("inputKey", "inputValue"), null, null, null, Map.of(),
             Map.of("outputKey", "outputValue"), null, 0, START_DATE, Job.Status.COMPLETED, List.of(taskExecutionDTO), 0,
             List.of(), "workflow1");
 
-        return new WorkflowExecutionDTO(1000L, project, projectDeployment, jobDTO, workflow, null);
+        return new WorkflowExecutionDTO(1000L, project, projectDeployment, null, jobDTO, workflow, null);
     }
 }
