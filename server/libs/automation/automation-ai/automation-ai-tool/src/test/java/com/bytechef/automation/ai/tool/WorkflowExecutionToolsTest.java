@@ -79,7 +79,7 @@ class WorkflowExecutionToolsTest {
 
         Workflow workflow = new Workflow("{\"label\": \"My Workflow\", \"tasks\": []}", Format.JSON);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, workflow, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, workflow, null);
 
         when(facade.getWorkflowExecution(7L)).thenReturn(dto);
 
@@ -111,11 +111,10 @@ class WorkflowExecutionToolsTest {
         project.setName("Other workspace");
         project.setWorkspaceId(99L);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, null, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, null, null);
 
         when(facade.getWorkflowExecution(7L)).thenReturn(dto);
 
-        // Caller is scoped to workspace 42 but the execution belongs to workspace 99.
         ToolContext toolContext = new ToolContext(Map.of(WorkflowExecutionToolContextKeys.WORKSPACE_ID, 42L));
 
         assertThatThrownBy(() -> workflowExecutionTools.getWorkflowExecution(7L, toolContext))
@@ -136,13 +135,14 @@ class WorkflowExecutionToolsTest {
 
         Workflow workflow = new Workflow("{\"label\": \"My Workflow\", \"tasks\": []}", Format.JSON);
 
-        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, jobDTO, workflow, null);
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(7L, project, null, null, jobDTO, workflow, null);
 
         Page<WorkflowExecutionDTO> page = new PageImpl<>(List.of(dto));
 
         when(
             facade.getWorkflowExecutions(
-                eq(false), eq(2L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(42L), anyInt()))
+                eq(false), eq(2L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(42L),
+                anyInt()))
                     .thenReturn(page);
 
         ToolContext toolContext = new ToolContext(
@@ -161,12 +161,34 @@ class WorkflowExecutionToolsTest {
     }
 
     @Test
-    void testListWorkflowExecutionsReturnsEmptyWhenWorkspaceMissing() {
+    void testGetWorkflowExecutionRefusesWhenWorkspaceMissing() {
         ToolContext toolContext = new ToolContext(Map.of());
 
-        List<WorkflowExecutionSummary> result =
-            workflowExecutionTools.listWorkflowExecutions(null, null, toolContext);
+        assertThatThrownBy(() -> workflowExecutionTools.getWorkflowExecution(7L, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("Workspace context unavailable")
+            .hasMessageNotContaining("not found");
+        verifyNoInteractions(facade);
+    }
 
-        assertThat(result).isEmpty();
+    @Test
+    void testListWorkflowExecutionsRefusesWhenWorkspaceMissing() {
+        ToolContext toolContext = new ToolContext(Map.of());
+
+        assertThatThrownBy(() -> workflowExecutionTools.listWorkflowExecutions(null, null, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("Workspace context unavailable");
+        verifyNoInteractions(facade);
+    }
+
+    @Test
+    void testListWorkflowExecutionsRejectsAnUnknownJobStatus() {
+        ToolContext toolContext = new ToolContext(
+            Map.of(WorkflowExecutionToolContextKeys.WORKSPACE_ID, 42L));
+
+        assertThatThrownBy(() -> workflowExecutionTools.listWorkflowExecutions("FAILURE", null, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("FAILURE")
+            .hasMessageContaining("FAILED");
     }
 }
