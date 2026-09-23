@@ -131,10 +131,17 @@ function distributeBranches(tasks: WorkflowTask[]): {
     middleBranch: WorkflowTask | null;
     rightBranches: WorkflowTask[];
 } {
-    const isEvenCount = (tasks.length + 1) % 2 === 0;
+    // The trailing add-a-branch "+" is not a lane and is not counted: the dispatcher is centred
+    // over its real lanes, so only an odd lane count has a lane straight below it. A single lane is
+    // the exception — it takes the bar's left end so the lane itself draws the frame's left side.
+    if (tasks.length === 1) {
+        return {leftBranches: tasks, middleBranch: null, rightBranches: []};
+    }
+
+    const isEvenCount = tasks.length % 2 === 0;
 
     if (isEvenCount) {
-        const halfPoint = (tasks.length + 1) / 2;
+        const halfPoint = tasks.length / 2;
 
         return {
             leftBranches: tasks.slice(0, halfPoint),
@@ -142,7 +149,7 @@ function distributeBranches(tasks: WorkflowTask[]): {
             rightBranches: tasks.slice(halfPoint),
         };
     } else {
-        const middleIndex = Math.floor((tasks.length + 1) / 2);
+        const middleIndex = Math.floor(tasks.length / 2);
 
         return {
             leftBranches: tasks.slice(0, middleIndex),

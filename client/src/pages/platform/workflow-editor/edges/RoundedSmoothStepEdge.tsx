@@ -8,9 +8,14 @@ import computeExitEdgeJogCenter from './computeExitEdgeJogCenter';
 import {getTriggerFanInBusCenter} from './computeTriggerFanIn';
 import useExecutedEdgeStatus from './useExecutedEdgeStatus';
 
+// Every "+" placeholder node id ends this way: `<dispatcher>-parallel-placeholder-0`,
+// `<dispatcher>-forkJoin-placeholder-<n>`, the case placeholders of conditions, branches and the rest.
+const PLACEHOLDER_NODE_ID_PATTERN = /-placeholder-\d+$/;
+
 export default function RoundedSmoothStepEdge({
     data,
     id,
+    source,
     sourcePosition,
     sourceX,
     sourceY,
@@ -61,21 +66,26 @@ export default function RoundedSmoothStepEdge({
         targetY,
     });
 
+    // A "+" placeholder is an insertion point, not a step: nothing flows through it, so its edges never
+    // take the running dash.
+    const touchesPlaceholder = PLACEHOLDER_NODE_ID_PATTERN.test(source) || PLACEHOLDER_NODE_ID_PATTERN.test(target);
+    const isRunningPath = workflowIsRunning && !touchesPlaceholder;
+
     return (
-        <BaseEdge
-            className={twMerge(
-                'fill-none stroke-stroke-neutral-tertiary stroke-2',
-                // The same canvas-wide running dash WorkflowEdge draws. A dispatcher's plumbing shares
-                // its path with the lane edges beside it (a "+" placeholder's edge leaves the bar from
-                // the lane's own handle), so a solid line here shows through the gaps of the lane's
-                // dashes and makes one side of the frame read as not running.
-                workflowIsRunning && styles.runningPath,
-                executedEdgeStatus === 'COMPLETED' && 'stroke-green-500',
-                executedEdgeStatus === 'FAILED' && 'stroke-red-500'
-            )}
-            id={id}
-            path={edgePath}
-            style={style}
-        />
+        <>
+            {isRunningPath && <path className="fill-none stroke-background stroke-2" d={edgePath} />}
+
+            <BaseEdge
+                className={twMerge(
+                    'fill-none stroke-stroke-neutral-tertiary stroke-2',
+                    isRunningPath && styles.runningPath,
+                    executedEdgeStatus === 'COMPLETED' && 'stroke-green-500',
+                    executedEdgeStatus === 'FAILED' && 'stroke-red-500'
+                )}
+                id={id}
+                path={edgePath}
+                style={style}
+            />
+        </>
     );
 }

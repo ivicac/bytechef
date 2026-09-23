@@ -178,10 +178,17 @@ function distributeBranches<T>(branches: T[]): {
     middleBranch: T | null;
     rightBranches: T[];
 } {
-    const isEvenCount = (branches.length + 1) % 2 === 0;
+    // The trailing add-a-branch "+" is not a lane and is not counted: the dispatcher is centred
+    // over its real lanes, so only an odd lane count has a lane straight below it. A single lane is
+    // the exception — it takes the bar's left end so the lane itself draws the frame's left side.
+    if (branches.length === 1) {
+        return {leftBranches: branches, middleBranch: null, rightBranches: []};
+    }
+
+    const isEvenCount = branches.length % 2 === 0;
 
     if (isEvenCount) {
-        const halfPoint = (branches.length + 1) / 2;
+        const halfPoint = branches.length / 2;
 
         return {
             leftBranches: branches.slice(0, halfPoint),
@@ -189,7 +196,7 @@ function distributeBranches<T>(branches: T[]): {
             rightBranches: branches.slice(halfPoint),
         };
     } else {
-        const middleIndex = Math.floor((branches.length + 1) / 2);
+        const middleIndex = Math.floor(branches.length / 2);
 
         return {
             leftBranches: branches.slice(0, middleIndex),

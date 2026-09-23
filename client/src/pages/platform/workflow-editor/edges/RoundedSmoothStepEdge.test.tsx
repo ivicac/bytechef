@@ -157,17 +157,17 @@ describe('RoundedSmoothStepEdge while the workflow is running', () => {
         useWorkflowEditorStore.setState({workflowIsRunning: false});
     });
 
-    const renderEdgeClassName = () => {
+    const renderEdgePaths = (target: string) => {
         const {container} = render(
             <ReactFlowProvider>
                 <svg>
                     <RoundedSmoothStepEdge
-                        id="parallel_1-parallel-top-ghost=>parallel_1-parallel-placeholder-0"
+                        id={`parallel_1-parallel-top-ghost=>${target}`}
                         source="parallel_1-parallel-top-ghost"
                         sourcePosition={Position.Right}
                         sourceX={300}
                         sourceY={100}
-                        target="parallel_1-parallel-placeholder-0"
+                        target={target}
                         targetPosition={Position.Top}
                         targetX={600}
                         targetY={300}
@@ -176,16 +176,30 @@ describe('RoundedSmoothStepEdge while the workflow is running', () => {
             </ReactFlowProvider>
         );
 
-        return container.querySelector('path')?.getAttribute('class') ?? '';
+        return [...container.querySelectorAll('path')].map((path) => path.getAttribute('class') ?? '');
     };
 
-    it('dashes like the lane edges it shares a path with, so the frame reads as running on both sides', () => {
+    it('dashes a lane edge over a canvas-colored backing, so a solid edge beneath cannot show through', () => {
         useWorkflowEditorStore.setState({workflowIsRunning: true});
 
-        expect(renderEdgeClassName()).toMatch(/runningPath/);
+        const [backingClassName, edgeClassName] = renderEdgePaths('accelo_1');
+
+        expect(backingClassName).toContain('stroke-background');
+        expect(edgeClassName).toMatch(/runningPath/);
+    });
+
+    it('never dashes the edge of a "+" placeholder, which no data flows through', () => {
+        useWorkflowEditorStore.setState({workflowIsRunning: true});
+
+        const pathClassNames = renderEdgePaths('parallel_1-parallel-placeholder-0');
+
+        expect(pathClassNames.some((className) => /runningPath/.test(className))).toBe(false);
+        expect(pathClassNames.some((className) => className.includes('stroke-background'))).toBe(false);
     });
 
     it('draws a solid line when no run is in progress', () => {
-        expect(renderEdgeClassName()).not.toMatch(/runningPath/);
+        const pathClassNames = renderEdgePaths('accelo_1');
+
+        expect(pathClassNames.some((className) => /runningPath/.test(className))).toBe(false);
     });
 });
