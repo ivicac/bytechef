@@ -396,7 +396,7 @@ export default function handleDeleteTask({
     const updatedTaskParametersByName = collectAllTaskParameters(updatedTasks);
 
     // Optimistic UI: close panel and update store immediately so layout recomputes once
-    if (currentNode && isCurrentNodeRemoved(currentNode, rootClusterElementNodeData, updatedTaskParametersByName)) {
+    if (currentNode && isCurrentNodeRemoved(currentNode, updatedTaskParametersByName)) {
         useWorkflowNodeDetailsPanelStore.getState().reset();
         useWorkflowTestChatStore.getState().setWorkflowTestChatPanelOpen(false);
     }
@@ -478,14 +478,13 @@ function collectAllTaskParameters(
 
 function isCurrentNodeRemoved(
     currentNode: NodeDataType,
-    rootClusterElementNodeData: NodeDataType | undefined,
     updatedTaskParametersByName: Map<string, Record<string, object> | undefined>
 ): boolean {
     if (currentNode.trigger) {
         return false;
     }
 
-    const currentTaskName = currentNode.clusterElementType ? rootClusterElementNodeData?.name : currentNode.name;
+    const currentTaskName = currentNode.clusterElementType ? resolveClusterRootId(currentNode) : currentNode.name;
 
     return currentTaskName !== undefined && !updatedTaskParametersByName.has(currentTaskName);
 }

@@ -594,11 +594,11 @@ describe('handleDeleteTask', () => {
                 clusterElementType: 'model',
                 componentName: 'openAi',
                 name: 'openAi_1',
+                topLevelClusterRootId: 'aiAgent_1',
             } as NodeDataType,
             data: {componentName: 'loop', name: 'loop_1'} as NodeDataType,
             invalidateWorkflowQueries: vi.fn(),
             queryClient: makeQueryClient(),
-            rootClusterElementNodeData: {componentName: 'aiAgent', name: 'aiAgent_1'} as NodeDataType,
             updateWorkflowMutation: mutation,
             workflow,
         });
