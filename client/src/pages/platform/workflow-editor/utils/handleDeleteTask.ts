@@ -18,7 +18,7 @@ import findAndRemoveClusterElement from './findAndRemoveClusterElement';
 import {getClusterRootTask} from './getClusterRootTask';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {removeTransitionsForNode} from './graph/graphTransitionMutations';
-import {resolveClusterRootId} from './resolveClusterRootId';
+import {resolveClusterRootId, resolveMainClusterRootName} from './resolveClusterRootId';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 import {forEachNestedTaskGroup} from './taskTraversalUtils';
@@ -73,6 +73,7 @@ export default function handleDeleteTask({
 
     let updatedTasks: Array<WorkflowTaskType>;
     let updatedTriggers: Array<WorkflowTrigger> | undefined;
+    let currentNodeMovedToClusterRoot = false;
 
     if (data.conditionData) {
         const parentConditionTask = TASK_DISPATCHER_CONFIG.condition.getTask({
@@ -310,20 +311,17 @@ export default function handleDeleteTask({
         if (clusterElementRemovalResult.elementFound) {
             const updatedClusterElements = clusterElementRemovalResult.elements;
 
-            // `rootClusterElementNodeData` is the dialog's single open root; box mode can delete a
-            // cluster element with no dialog open at all, in which case there is no dialog-root store
-            // state to refresh here (the box's own nodes are recomputed from the updated workflow
-            // definition instead). Requiring it explicitly -- rather than just the setters, which are
-            // stable store functions and stay truthy regardless -- also keeps TypeScript's narrowing:
-            // without it, the spreads below type as `Partial<NodeDataType>` and fail to satisfy the
-            // setters' `NodeDataType` parameter.
-            if (rootClusterElementNodeData && setRootClusterElementNodeData && setCurrentNode) {
-                if (currentNode?.clusterRoot && !currentNode.isNestedClusterRoot) {
-                    setCurrentNode({
-                        ...currentNode,
-                        clusterElements: updatedClusterElements,
-                    });
-                }
+            if (
+                setCurrentNode &&
+                currentNode?.clusterRoot &&
+                !currentNode.isNestedClusterRoot &&
+                currentNode.workflowNodeName === clusterRootId
+            ) {
+                setCurrentNode({
+                    ...currentNode,
+                    clusterElements: updatedClusterElements,
+                });
+            }
 
             if (
                 rootClusterElementNodeData?.workflowNodeName === clusterRootId &&
