@@ -90,7 +90,7 @@ export const useAnalytics = (): AnalyticsI => {
 
             const posthog = await getPostHog();
 
-            if (posthog) {
+            if (posthog && account.uuid) {
                 posthog.identify(account.uuid, {
                     edition: application?.edition,
                     email: account.email,

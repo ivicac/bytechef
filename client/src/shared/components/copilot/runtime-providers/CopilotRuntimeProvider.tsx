@@ -11,6 +11,7 @@ import {environmentStore} from '@/shared/stores/useEnvironmentStore';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {getRandomId} from '@/shared/util/random-utils';
 import {AgentSubscriber, HttpAgent} from '@ag-ui/client';
+import {contentToText} from '@ag-ui/core';
 import {
     AppendMessage,
     AssistantRuntimeProvider,
@@ -128,13 +129,15 @@ export function CopilotRuntimeProvider({
                 appendToLastAssistantMessage(textMessageBuffer);
             },
             onToolCallResultEvent: ({event}) => {
+                const toolResultContent = contentToText(event.content);
+
                 const toolCallName = toolCallNamesById.get(event.toolCallId);
 
                 toolCallNamesById.delete(event.toolCallId);
 
-                useCopilotToolResultHandlerRegistry.getState().runFor(toolCallName ?? '', event.content);
+                useCopilotToolResultHandlerRegistry.getState().runFor(toolCallName ?? '', toolResultContent);
 
-                const dataPart = toToolResultDataPart(toolCallName ?? '', event.content);
+                const dataPart = toToolResultDataPart(toolCallName ?? '', toolResultContent);
 
                 if (!dataPart) {
                     return;
@@ -142,7 +145,7 @@ export function CopilotRuntimeProvider({
 
                 if (!dataPart.ok) {
                     const errorEnvelope = parseJson<{error?: unknown}>(
-                        event.content,
+                        toolResultContent,
                         'copilot tool-result error envelope'
                     );
                     const envelopeError =
