@@ -18,6 +18,7 @@ import findAndRemoveClusterElement from './findAndRemoveClusterElement';
 import {getClusterRootTask} from './getClusterRootTask';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {removeTransitionsForNode} from './graph/graphTransitionMutations';
+import {resolveClusterRootId, resolveMainClusterRootName} from './resolveClusterRootId';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 import {forEachNestedTaskGroup} from './taskTraversalUtils';
@@ -64,6 +65,7 @@ export default function handleDeleteTask({
 
     let updatedTasks: Array<WorkflowTaskType>;
     let updatedTriggers: Array<WorkflowTrigger> | undefined;
+    let currentNodeMovedToClusterRoot = false;
 
     if (data.conditionData) {
         const parentConditionTask = TASK_DISPATCHER_CONFIG.condition.getTask({
