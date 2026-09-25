@@ -23,14 +23,15 @@ import com.bytechef.error.ExecutionError;
 import com.bytechef.exception.ExecutionException;
 import com.bytechef.platform.workflow.execution.exception.JobErrorType;
 import com.bytechef.platform.workflow.execution.exception.TaskExecutionErrorType;
+import java.util.List;
 import org.apache.commons.lang3.Validate;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Translates a completed job's terminal state into an {@link ExecutionException}, mirroring the error check the
- * embedded {@code JobSyncExecutor} performed after awaiting a synchronous job. A {@code STOPPED} job (e.g. a suspended
- * workflow) is not an error.
+ * Translates a completed job's terminal state into an {@link ExecutionException}. A {@code STOPPED} job (e.g. a
+ * suspended workflow) is not an error.
  *
  * @author Ivica Cardic
  */
@@ -42,17 +43,33 @@ public final class JobExecutionErrors {
     }
 
     public static void checkForError(Job job, TaskExecutionService taskExecutionService) {
+        long jobId = Validate.notNull(job.getId(), "id");
+
         TaskExecution taskExecution = taskExecutionService
-            .fetchLastJobTaskExecution(Validate.notNull(job.getId(), "id"))
+            .fetchLastJobTaskExecution(jobId)
             .orElse(null);
 
-        if (taskExecution != null && taskExecution.getStatus() == TaskExecution.Status.FAILED) {
+        boolean taskExecutionFailed =
+            taskExecution != null && taskExecution.getStatus() == TaskExecution.Status.FAILED;
+
+        if (taskExecutionFailed) {
             ExecutionError error = taskExecution.getError();
 
             if (error != null && error.getMessage() != null) {
                 throw new ExecutionException(error.getMessage(), TaskExecutionErrorType.TASK_EXECUTION_FAILED);
             }
+        }
 
+        if (taskExecutionFailed || job.getStatus() == Job.Status.FAILED) {
+            String errorMessage = findFailedTaskExecutionErrorMessage(
+                taskExecutionService.getJobTaskExecutions(jobId));
+
+            if (errorMessage != null) {
+                throw new ExecutionException(errorMessage, TaskExecutionErrorType.TASK_EXECUTION_FAILED);
+            }
+        }
+
+        if (taskExecutionFailed) {
             String message = "Task execution failed for job " + job.getId() + " but no error details are available.";
 
             if (log.isWarnEnabled()) {
@@ -79,5 +96,19 @@ public final class JobExecutionErrors {
 
             throw new ExecutionException(message, JobErrorType.JOB_FAILED);
         }
+    }
+
+    private static @Nullable String findFailedTaskExecutionErrorMessage(List<TaskExecution> taskExecutions) {
+        for (TaskExecution taskExecution : taskExecutions.reversed()) {
+            ExecutionError error = taskExecution.getError();
+
+            if (taskExecution.getStatus() == TaskExecution.Status.FAILED && error != null &&
+                error.getMessage() != null) {
+
+                return error.getMessage();
+            }
+        }
+
+        return null;
     }
 }
