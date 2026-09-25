@@ -111,6 +111,7 @@ function collectDisabledReferenceIssues(
             kind: 'DISABLED_REFERENCE',
             message: getDisabledReferenceMessage(disabledTaskName),
             nodeName,
+            referencedNodeName: disabledTaskName,
             severity: 'WARNING',
             source: 'SWEEP',
         });
