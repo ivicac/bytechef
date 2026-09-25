@@ -91,6 +91,18 @@ const enabledProperty = {
     type: 'BOOLEAN',
 } as PropertyAllType;
 
+const prioritySelectProperty = {
+    controlType: 'SELECT',
+    expressionEnabled: true,
+    label: 'Priority',
+    name: 'priority',
+    options: [
+        {label: 'One', value: '1'},
+        {label: 'Two', value: '2'},
+    ],
+    type: 'INTEGER',
+} as PropertyAllType;
+
 describe('controlled Formula switch', () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -168,6 +180,28 @@ describe('controlled Formula switch', () => {
         fireEvent.click(screen.getByRole('switch', {name: 'Formula'}));
 
         await waitFor(() => expect(formValues.enabled).toBe('=true'));
+    });
+
+    it('converts a BOOLEAN formula back into the selected string option', async () => {
+        render(<Wrapper property={enabledProperty} value="=true" />);
+
+        await settle();
+
+        fireEvent.click(screen.getByRole('switch', {name: 'Formula'}));
+
+        await waitFor(() => expect(formValues.enabled).toBe('true'));
+
+        expect(screen.getByText('True')).toBeInTheDocument();
+    });
+
+    it('converts an INTEGER select formula back into the string option value', async () => {
+        render(<Wrapper property={prioritySelectProperty} value="=2" />);
+
+        await settle();
+
+        fireEvent.click(screen.getByRole('switch', {name: 'Formula'}));
+
+        await waitFor(() => expect(formValues.priority).toBe('2'));
     });
 
     it('typing = into an empty number field enters formula mode', async () => {

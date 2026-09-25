@@ -1101,7 +1101,15 @@ export const useProperty = ({
             const toFormula = !(isFormulaMode || isStringToolExpression);
             const wasFromAi = controlledFromAi === true;
 
-            const convertedValue = toFormula ? toFormulaValue(fieldValue, type) : fromFormulaValue(fieldValue, type);
+            let convertedValue = toFormula ? toFormulaValue(fieldValue, type) : fromFormulaValue(fieldValue, type);
+
+            if (
+                !toFormula &&
+                controlType === 'SELECT' &&
+                (typeof convertedValue === 'boolean' || typeof convertedValue === 'number')
+            ) {
+                convertedValue = String(convertedValue);
+            }
 
             setIsFormulaMode(toFormula);
             setControlledFromAi(undefined);
@@ -1133,6 +1141,7 @@ export const useProperty = ({
             }
         },
         [
+            controlType,
             controlledFromAi,
             custom,
             isFormulaMode,
