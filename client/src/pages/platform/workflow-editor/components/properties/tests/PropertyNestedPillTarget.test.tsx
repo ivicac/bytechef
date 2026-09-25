@@ -47,6 +47,14 @@ const arrayProperty = {
     type: 'ARRAY',
 } as PropertyAllType;
 
+const schemaProperty = {
+    controlType: 'JSON_SCHEMA_BUILDER',
+    expressionEnabled: true,
+    label: 'Response',
+    name: 'schema',
+    type: 'STRING',
+} as PropertyAllType;
+
 const dataPillTransfer = (mentionId: string) => ({
     getData: () => JSON.stringify({mentionId}),
     types: ['application/bytechef-datapill'],
@@ -196,6 +204,33 @@ describe('pill target inside an object or array builder', () => {
 
         act(() => screen.getByRole('button', {name: /add array item/i}).focus());
 
+        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget);
+    });
+
+    it('focusing inside a JSON schema builder does not let a pill replace the whole schema', async () => {
+        const schemaValue = JSON.stringify({properties: {name: {type: 'string'}}, type: 'object'});
+
+        useWorkflowNodeDetailsPanelStore.setState({
+            currentNode: {name: 'node_1', parameters: {schema: schemaValue}, workflowNodeName: 'node_1'},
+        } as unknown as Partial<ReturnType<typeof useWorkflowNodeDetailsPanelStore.getState>>);
+
+        renderUncontrolled(schemaProperty);
+
+        await settle();
+
+        const previousTarget = {acceptsPill: () => true, insertPill: vi.fn(), owner: 'previous-field'};
+
+        useWorkflowNodeDetailsPanelStore.setState({pillTarget: previousTarget});
+
+        act(() => screen.getByRole('button', {name: /open response template/i}).focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.name'));
+
+        await settle();
+
+        expect(savedPaths()).not.toContain('schema');
         expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget);
     });
 
