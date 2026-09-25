@@ -453,7 +453,9 @@ export const useProperty = ({
                 hasControl: !!control,
                 isFromAi: !control && isFromAi,
                 pillEntry,
-                value: propertyParameterValue,
+                // A controlled field's propertyParameterValue is a mount-time snapshot the form never updates, so
+                // its `=` would pin Formula on; formulaModeState is seeded from the form values instead.
+                value: control ? undefined : propertyParameterValue,
             }),
         [control, controlType, formulaModeState, isFromAi, pillEntry, propertyParameterValue]
     );
