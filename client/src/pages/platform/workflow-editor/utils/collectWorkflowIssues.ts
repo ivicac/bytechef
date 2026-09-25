@@ -17,6 +17,7 @@ const NESTED_TASK_KEYS = new Set([
     'default',
     'iteratee',
     'main-branch',
+    'nodes',
     'on-error-branch',
     'tasks',
 ]);
@@ -105,6 +106,7 @@ function collectDisabledReferenceIssues(
             kind: 'DISABLED_REFERENCE',
             message: getDisabledReferenceMessage(disabledTaskName),
             nodeName,
+            referencedNodeName: disabledTaskName,
             severity: 'WARNING',
             source: 'SWEEP',
         });
