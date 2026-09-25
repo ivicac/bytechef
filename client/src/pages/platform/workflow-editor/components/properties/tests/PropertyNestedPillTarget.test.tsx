@@ -470,6 +470,96 @@ describe('pill target inside an object or array builder', () => {
         expect(screen.getByRole('button', {name: /add array item/i})).toBeInTheDocument();
     });
 
+    it('clicking the label of an empty array picks it as the pill target without adding an item', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        const labelElement = screen.getByText('Counts');
+
+        fireEvent.mouseDown(labelElement);
+        fireEvent.click(labelElement);
+
+        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget?.acceptsPill()).toBe(true);
+        expect(screen.getByText('Drop or click a data pill')).toHaveClass('ring-2');
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        clickPill('trigger_1.items');
+
+        await settle();
+
+        expect(savedPaths()).toEqual(['counts']);
+        expect(saveProperty).toHaveBeenCalledWith(expect.objectContaining({value: '${trigger_1.items}'}));
+        expect(container.querySelector('input[type=number]')).toBeNull();
+        expect(screen.queryByText('Drop or click a data pill')).toBeNull();
+    });
+
+    it('clicking the add item button of an empty array adds an item and leaves no accepting container target', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        const addItemButton = screen.getByRole('button', {name: /add array item/i});
+
+        fireEvent.mouseDown(addItemButton);
+        act(() => addItemButton.focus());
+        fireEvent.click(addItemButton);
+
+        await settle();
+
+        expect(container.querySelector('input[type=number]')).not.toBeNull();
+        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget?.acceptsPill() ?? false).toBe(false);
+    });
+
+    it('shows the data pill hint on an empty array and hides it once an item exists', async () => {
+        setParameters({counts: []});
+
+        renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        expect(screen.getByText('Drop or click a data pill')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', {name: /add array item/i}));
+
+        await settle();
+
+        expect(screen.queryByText('Drop or click a data pill')).toBeNull();
+    });
+
+    it('does not show the data pill hint on a non-empty array', async () => {
+        renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        expect(screen.queryByText('Drop or click a data pill')).toBeNull();
+    });
+
+    it('a click on a nested field of a non-empty object registers the nested field, not the object', async () => {
+        const {container} = renderUncontrolled(objectProperty);
+
+        await settle();
+
+        const nestedInput = container.querySelector('input[type=number]') as HTMLInputElement;
+
+        fireEvent.mouseDown(nestedInput);
+        act(() => nestedInput.focus());
+        fireEvent.click(nestedInput);
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        clickPill('trigger_1.count');
+
+        await settle();
+
+        expect(savedPaths()).toEqual(['settings.count']);
+    });
+
     it('a controlled array takes no pill, and no earlier field does, when its add item button is focused', async () => {
         render(<ControlledArrayWrapper />);
 

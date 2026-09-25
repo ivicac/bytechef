@@ -45,7 +45,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ArrayPropertyType, PropertyAllType, SelectOptionType} from '@/shared/types';
 import {UseQueryResult} from '@tanstack/react-query';
 import {CircleQuestionMarkIcon, SquareFunctionIcon, XIcon} from 'lucide-react';
-import {ReactNode, useCallback, useRef} from 'react';
+import {ReactNode, useCallback, useRef, useState} from 'react';
 import {Control, Controller, FieldValues, FormState} from 'react-hook-form';
 import {twMerge} from 'tailwind-merge';
 
@@ -183,6 +183,8 @@ const Property = ({
         toolsMode,
     });
 
+    const [containerHasLocalEntries, setContainerHasLocalEntries] = useState(false);
+
     const containerHasLocalEntriesRef = useRef(false);
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -229,7 +231,29 @@ const Property = ({
     // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
     const handleContainerLocalEntriesChange = useCallback((hasLocalEntries: boolean) => {
         containerHasLocalEntriesRef.current = hasLocalEntries;
+
+        setContainerHasLocalEntries(hasLocalEntries);
     }, []);
+
+    const showContainerPillHint =
+        isPillContainer &&
+        !control &&
+        expressionEnabled !== false &&
+        !isFromAi &&
+        !isFormulaMode &&
+        !containerHasLocalEntries &&
+        isPillContainerEmpty();
+
+    const containerPillHint = showContainerPillHint ? (
+        <p
+            className={twMerge(
+                'rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground',
+                nativePillTarget.isRegistered && 'ring-2 ring-ring'
+            )}
+        >
+            Drop or click a data pill
+        </p>
+    ) : null;
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
 
@@ -393,7 +417,11 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <div className="contents" {...nativePillTarget.targetProps}>
+                <div
+                    className="contents"
+                    {...nativePillTarget.targetProps}
+                    onMouseDown={isPillContainer && !control ? nativePillTarget.onContainerMouseDown : undefined}
+                >
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||
@@ -456,6 +484,8 @@ const Property = ({
                                 )}
                             </div>
                         )}
+
+                    {controlType !== 'JSON_SCHEMA_BUILDER' && containerPillHint}
 
                     {!control && controlType === 'ARRAY_BUILDER' && calculatedPath && (
                         <ArrayProperty
@@ -1077,10 +1107,9 @@ const Property = ({
                             onChange={(value) => {
                                 // The schema saves through a debounce; until it lands, the drafted schema is the
                                 // builder's content, so a pill must not replace it.
-                                containerHasLocalEntriesRef.current = !isEmptyPillContainerValue({
-                                    controlType: 'JSON_SCHEMA_BUILDER',
-                                    value,
-                                });
+                                handleContainerLocalEntriesChange(
+                                    !isEmptyPillContainerValue({controlType: 'JSON_SCHEMA_BUILDER', value})
+                                );
 
                                 handleJsonSchemaBuilderChange(value);
                             }}
@@ -1091,6 +1120,8 @@ const Property = ({
                             workflowNodeName={currentNode?.name}
                         />
                     )}
+
+                    {controlType === 'JSON_SCHEMA_BUILDER' && containerPillHint}
 
                     {!control && controlType === 'SELECT' && type !== 'BOOLEAN' && (
                         <PropertyComboBox

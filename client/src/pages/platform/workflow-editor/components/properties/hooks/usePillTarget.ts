@@ -1,7 +1,7 @@
 import {PillTargetI} from '@/pages/platform/workflow-editor/components/datapills/pillTarget';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import {DataPillDragPayloadType} from '@/shared/types';
-import {DragEvent, FocusEvent, SyntheticEvent, useCallback, useEffect, useRef} from 'react';
+import {DragEvent, FocusEvent, MouseEvent, SyntheticEvent, useCallback, useEffect, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 interface UsePillTargetPropsI {
@@ -30,6 +30,32 @@ function originatesInOwnTarget(event: SyntheticEvent<HTMLElement>): boolean {
     return !nearestPillTarget || nearestPillTarget === currentTarget;
 }
 
+const INTERACTIVE_ELEMENT_SELECTOR = [
+    'a',
+    'button',
+    'input',
+    'select',
+    'textarea',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="combobox"]',
+    '[role="switch"]',
+    '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function originatesOnInteractiveElement(event: SyntheticEvent<HTMLElement>): boolean {
+    const {currentTarget, target} = event;
+
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    const interactiveElement = target.closest(INTERACTIVE_ELEMENT_SELECTOR);
+
+    return !!interactiveElement && currentTarget.contains(interactiveElement);
+}
+
 /**
  * Makes a native property control a data pill target: a focus inside the wrapper registers it, so the pill panel
  * inserts here rather than into whichever editor was focused before, and a dropped pill replaces the value. Spread
@@ -50,32 +76,47 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
         }))
     );
 
+    const isRegistered = useWorkflowNodeDetailsPanelStore((state) => state.pillTarget?.owner === ownerTokenRef.current);
+
+    const register = useCallback(() => {
+        const ownerToken = ownerTokenRef.current;
+
+        // The registered callbacks read through refs, so an existing registration of this field is never stale.
+        if (useWorkflowNodeDetailsPanelStore.getState().pillTarget?.owner === ownerToken) {
+            return;
+        }
+
+        const pillTarget: PillTargetI = {
+            acceptsPill: () => acceptsPillRef.current(),
+            insertPill: (mentionId) => {
+                if (acceptsPillRef.current()) {
+                    insertPillRef.current(mentionId);
+                }
+            },
+            owner: ownerToken,
+        };
+
+        setPillTarget(pillTarget);
+    }, [setPillTarget]);
+
     const onFocusCapture = useCallback(
         (event: FocusEvent<HTMLElement>) => {
-            if (!originatesInOwnTarget(event)) {
-                return;
+            if (originatesInOwnTarget(event)) {
+                register();
             }
-
-            const ownerToken = ownerTokenRef.current;
-
-            // The registered callbacks read through refs, so an existing registration of this field is never stale.
-            if (useWorkflowNodeDetailsPanelStore.getState().pillTarget?.owner === ownerToken) {
-                return;
-            }
-
-            const pillTarget: PillTargetI = {
-                acceptsPill: () => acceptsPillRef.current(),
-                insertPill: (mentionId) => {
-                    if (acceptsPillRef.current()) {
-                        insertPillRef.current(mentionId);
-                    }
-                },
-                owner: ownerToken,
-            };
-
-            setPillTarget(pillTarget);
         },
-        [setPillTarget]
+        [register]
+    );
+
+    // A container has no control of its own to focus besides its add button, which adds an item. A press on its
+    // label or empty area picks it instead; buttons, inputs and nested fields keep their own behaviour.
+    const onContainerMouseDown = useCallback(
+        (event: MouseEvent<HTMLElement>) => {
+            if (originatesInOwnTarget(event) && !originatesOnInteractiveElement(event)) {
+                register();
+            }
+        },
+        [register]
     );
 
     const onDragOver = useCallback((event: DragEvent<HTMLElement>) => {
@@ -123,6 +164,8 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
     }, [clearPillTarget]);
 
     return {
+        isRegistered,
+        onContainerMouseDown,
         targetProps: {
             [PILL_TARGET_ATTRIBUTE]: '',
             onDragOver,
