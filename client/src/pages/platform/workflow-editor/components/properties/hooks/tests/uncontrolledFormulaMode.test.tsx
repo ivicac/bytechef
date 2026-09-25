@@ -10,7 +10,7 @@ import saveProperty from '@/pages/platform/workflow-editor/utils/saveProperty';
 import {PropertyAllType} from '@/shared/types';
 import {act, renderHook} from '@testing-library/react';
 import {ReactNode} from 'react';
-import {type Mock, beforeEach, describe, expect, it, vi} from 'vitest';
+import {type Mock, afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {useProperty} from '../useProperty';
 
@@ -184,5 +184,88 @@ describe('uncontrolled Text/Formula', () => {
 
         expect(result.current.isFormulaMode).toBe(false);
         expect(result.current.showFormulaSwitch).toBe(false);
+    });
+
+    describe('a saved formula on a root property', () => {
+        const renderRootCount = () =>
+            renderHook(() => useProperty({property: countProperty}), {
+                wrapper,
+            });
+
+        beforeEach(() => {
+            useWorkflowNodeDetailsPanelStore.setState({
+                currentNode: {name: 'math_1', parameters: {count: '=1 + 1'}, workflowNodeName: 'math_1'},
+            } as unknown as Partial<ReturnType<typeof useWorkflowNodeDetailsPanelStore.getState>>);
+
+            useWorkflowDataStore.setState({
+                workflow: {
+                    definition: JSON.stringify({tasks: [{name: 'math_1', parameters: {count: '=1 + 1'}}]}),
+                    id: 'wf-formula-test',
+                    nodeNames: [],
+                    tasks: [{name: 'math_1', parameters: {count: '=1 + 1'}}],
+                },
+            } as unknown as Partial<ReturnType<typeof useWorkflowDataStore.getState>>);
+        });
+
+        it('stays in Formula after the formula is emptied and the save echoes back', () => {
+            const {result} = renderRootCount();
+
+            expect(result.current.propertyParameterValue).toBe('=1 + 1');
+            expect(result.current.isFormulaMode).toBe(true);
+
+            act(() => result.current.handleMentionInputValueChange(''));
+
+            act(() => {
+                useWorkflowDataStore.setState({
+                    workflow: {
+                        definition: JSON.stringify({tasks: [{name: 'math_1', parameters: {count: null}}]}),
+                        id: 'wf-formula-test',
+                        nodeNames: [],
+                        tasks: [{name: 'math_1', parameters: {count: null}}],
+                    },
+                } as unknown as Partial<ReturnType<typeof useWorkflowDataStore.getState>>);
+            });
+
+            expect(result.current.propertyParameterValue).toBeNull();
+            expect(result.current.isFormulaMode).toBe(true);
+            expect(result.current.mentionInput).toBe(true);
+        });
+
+        it('leaves Formula on Backspace-exit although the stale formula is still the value', () => {
+            const {result} = renderRootCount();
+
+            act(() => result.current.handleMentionInputValueChange(''));
+
+            expect(result.current.propertyParameterValue).toBe('=1 + 1');
+
+            act(() => result.current.setIsFormulaMode(false));
+
+            expect(result.current.isFormulaMode).toBe(false);
+            expect(result.current.propertyParameterValue).toBe('');
+            expect(result.current.inputMode.renderer).toBe('native');
+        });
+    });
+
+    describe('a switch inside the save debounce', () => {
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('keeps the converted value when a typed constant is still waiting to be saved', () => {
+            vi.useFakeTimers();
+
+            const {result} = renderCount('');
+
+            act(() => result.current.handleInputChange({target: {value: '7'}} as never));
+
+            act(() => result.current.handleFormulaSwitch());
+
+            act(() => {
+                vi.advanceTimersByTime(1000);
+            });
+
+            expect(saveProperty).toHaveBeenLastCalledWith(expect.objectContaining({value: '=7'}));
+            expect(saveProperty).toHaveBeenCalledTimes(1);
+        });
     });
 });

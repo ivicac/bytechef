@@ -344,41 +344,71 @@ describe('non-string expression mode', () => {
         });
     });
 
-    describe('showInputTypeSwitchButton initialization', () => {
-        /**
-         * Replicates the useState initializer from useProperty.ts:
-         * !control && ((property.type !== 'STRING' && property.expressionEnabled) || false)
-         */
-        const computeShowInputTypeSwitchButton = (
-            hasControl: boolean,
-            propertyType: string,
-            expressionEnabled: boolean | undefined
-        ): boolean => {
-            return !hasControl && ((propertyType !== 'STRING' && !!expressionEnabled) || false);
-        };
+    describe('showFormulaSwitch', () => {
+        beforeEach(() => {
+            useWorkflowDataStore.setState({
+                workflow: {id: 'wf-show-formula-switch', nodeNames: []},
+            } as unknown as Partial<ReturnType<typeof useWorkflowDataStore.getState>>);
+
+            useWorkflowNodeDetailsPanelStore.setState({
+                currentNode: {name: 'math_1', parameters: {}, workflowNodeName: 'math_1'},
+            } as unknown as Partial<ReturnType<typeof useWorkflowNodeDetailsPanelStore.getState>>);
+        });
+
+        const renderShowFormulaSwitch = (property: Record<string, unknown>) =>
+            renderHook(
+                () =>
+                    useProperty({
+                        path: 'parameters.field',
+                        property: {name: 'field', ...property} as PropertyAllType,
+                    }),
+                {wrapper}
+            ).result.current.showFormulaSwitch;
 
         it('should show for non-STRING type with expressionEnabled in uncontrolled mode', () => {
-            expect(computeShowInputTypeSwitchButton(false, 'INTEGER', true)).toBe(true);
+            expect(renderShowFormulaSwitch({controlType: 'INTEGER', expressionEnabled: true, type: 'INTEGER'})).toBe(
+                true
+            );
         });
 
-        it('should NOT show for STRING type even with expressionEnabled', () => {
-            expect(computeShowInputTypeSwitchButton(false, 'STRING', true)).toBe(false);
+        it('should show for STRING type with expressionEnabled', () => {
+            expect(renderShowFormulaSwitch({controlType: 'TEXT', expressionEnabled: true, type: 'STRING'})).toBe(true);
         });
 
-        it('should NOT show when expressionEnabled is undefined', () => {
-            expect(computeShowInputTypeSwitchButton(false, 'INTEGER', undefined)).toBe(false);
+        it('should show when expressionEnabled is undefined', () => {
+            expect(renderShowFormulaSwitch({controlType: 'INTEGER', type: 'INTEGER'})).toBe(true);
         });
 
-        it('should NOT show in controlled mode', () => {
-            expect(computeShowInputTypeSwitchButton(true, 'INTEGER', true)).toBe(false);
+        it('should NOT show when expressionEnabled is false', () => {
+            expect(renderShowFormulaSwitch({controlType: 'INTEGER', expressionEnabled: false, type: 'INTEGER'})).toBe(
+                false
+            );
+        });
+
+        it('should NOT show for a STRING type with expressionEnabled false', () => {
+            expect(renderShowFormulaSwitch({controlType: 'TEXT', expressionEnabled: false, type: 'STRING'})).toBe(
+                false
+            );
         });
 
         it('should show for NUMBER type with expressionEnabled', () => {
-            expect(computeShowInputTypeSwitchButton(false, 'NUMBER', true)).toBe(true);
+            expect(renderShowFormulaSwitch({controlType: 'NUMBER', expressionEnabled: true, type: 'NUMBER'})).toBe(
+                true
+            );
         });
 
         it('should show for DATE type with expressionEnabled', () => {
-            expect(computeShowInputTypeSwitchButton(false, 'DATE', true)).toBe(true);
+            expect(renderShowFormulaSwitch({controlType: 'DATE', expressionEnabled: true, type: 'DATE'})).toBe(true);
+        });
+
+        it('should NOT show for FILE_ENTRY, NULL or CODE_EDITOR controls', () => {
+            expect(
+                renderShowFormulaSwitch({controlType: 'FILE_ENTRY', expressionEnabled: true, type: 'FILE_ENTRY'})
+            ).toBe(false);
+            expect(renderShowFormulaSwitch({controlType: 'NULL', expressionEnabled: true, type: 'NULL'})).toBe(false);
+            expect(renderShowFormulaSwitch({controlType: 'CODE_EDITOR', expressionEnabled: true, type: 'STRING'})).toBe(
+                false
+            );
         });
     });
 });

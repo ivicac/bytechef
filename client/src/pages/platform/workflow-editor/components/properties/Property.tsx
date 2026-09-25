@@ -100,6 +100,7 @@ const Property = ({
         description,
         displayCondition,
         editorFocusRequest,
+        editorPendingSaveCancelRef,
         editorRef,
         errorMessage,
         expressionEnabled,
@@ -268,6 +269,7 @@ const Property = ({
 
             {mentionInput && currentNode && type !== 'DYNAMIC_PROPERTIES' && controlType !== 'CODE_EDITOR' && (
                 <PropertyMentionsInput
+                    cancelPendingSaveRef={editorPendingSaveCancelRef}
                     controlType={controlType || 'TEXT'}
                     copilotAnchorRef={propertyCopilotAnchorRef}
                     defaultValue={parameterValue !== undefined ? parameterValue : defaultValue}

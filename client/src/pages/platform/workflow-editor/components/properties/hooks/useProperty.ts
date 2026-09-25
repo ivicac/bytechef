@@ -62,6 +62,9 @@ import {useDebouncedCallback} from 'use-debounce';
 import {getClusterRootTask} from '../../../utils/getClusterRootTask';
 import {computeFromAiToggle} from './fromAiToggle';
 
+const isSavedFormulaValue = (value: unknown): boolean =>
+    typeof value === 'string' && value.startsWith('=') && !value.startsWith('=fromAi(');
+
 type UsePropertyReturnType = {
     calculatedPath: string | undefined;
     controlledBlurError: string | undefined;
@@ -75,6 +78,7 @@ type UsePropertyReturnType = {
     description?: string;
     displayCondition?: string;
     editorFocusRequest: {initialInput?: string; token: number} | undefined;
+    editorPendingSaveCancelRef: RefObject<(() => void) | null>;
     editorRef: RefObject<Editor | null>;
     errorMessage: string;
     formattedOptions: Array<Option> | undefined;
@@ -180,11 +184,7 @@ export const useProperty = ({
             return true;
         }
 
-        return (
-            typeof parameterValue === 'string' &&
-            parameterValue.startsWith('=') &&
-            !parameterValue.startsWith('=fromAi(')
-        );
+        return isSavedFormulaValue(parameterValue);
     });
     const [hasError, setHasError] = useState(false);
     const [lookupDependsOnValues, setLookupDependsOnValues] = useState<Array<unknown> | undefined>();
@@ -213,6 +213,7 @@ export const useProperty = ({
 
     const controlledDynamicOnChangeRef = useRef<((value: string) => void) | null>(null);
     const controlledExpressionExitRef = useRef(false);
+    const editorPendingSaveCancelRef = useRef<(() => void) | null>(null);
     const editorRef = useRef<Editor>(null!);
 
     const inputRef = useRef<HTMLInputElement>(null!);
@@ -493,8 +494,12 @@ export const useProperty = ({
             }
 
             setFormulaModeState(value);
+
+            if (value === false && !mentionInputValue.trim()) {
+                dispatchValueAction({type: 'valueCleared'});
+            }
         },
-        [property.controlType]
+        [mentionInputValue, property.controlType]
     );
 
     const currentNodeName = currentNode?.name;
@@ -1017,6 +1022,10 @@ export const useProperty = ({
     );
 
     const handleFormulaSwitch = useCallback(() => {
+        saveInputValue.cancel();
+
+        editorPendingSaveCancelRef.current?.();
+
         const toFormula = !isFormulaMode;
 
         const convertedValue = toFormula ? toFormulaValue(liveValue, type) : fromFormulaValue(liveValue, type);
@@ -1048,7 +1057,16 @@ export const useProperty = ({
         } else {
             requestAnimationFrame(() => inputRef.current?.focus());
         }
-    }, [controlType, isFormulaMode, liveValue, requestEditorFocus, saveResolvedValue, setIsFormulaMode, type]);
+    }, [
+        controlType,
+        isFormulaMode,
+        liveValue,
+        requestEditorFocus,
+        saveInputValue,
+        saveResolvedValue,
+        setIsFormulaMode,
+        type,
+    ]);
 
     const insertPillValue = useCallback(
         (mentionId: string) => {
@@ -1362,6 +1380,10 @@ export const useProperty = ({
         if (Object.keys(parameters).length && (!propertyParameterValue || propertyParameterValue === defaultValue)) {
             if (parameterValue === undefined) {
                 if (!path || !encodedPath) {
+                    if (isSavedFormulaValue(parameters[name])) {
+                        setFormulaModeState(true);
+                    }
+
                     resolveParameterValue(parameters[name]);
 
                     return;
@@ -1370,8 +1392,16 @@ export const useProperty = ({
                 const valueFromDefinition = safeResolvePath(encodedParameters, encodedPath);
 
                 if (valueFromDefinition !== undefined && valueFromDefinition !== null) {
+                    if (isSavedFormulaValue(valueFromDefinition)) {
+                        setFormulaModeState(true);
+                    }
+
                     resolveParameterValue(valueFromDefinition);
                 } else {
+                    if (isSavedFormulaValue(encodedParameters[name])) {
+                        setFormulaModeState(true);
+                    }
+
                     resolveParameterValue(encodedParameters[name]);
                 }
             }
@@ -1443,6 +1473,10 @@ export const useProperty = ({
                 resolveParameterValue(effectiveValue.toString());
 
                 return;
+            }
+
+            if (isSavedFormulaValue(effectiveValue)) {
+                setFormulaModeState(true);
             }
 
             resolveParameterValue(effectiveValue);
@@ -1685,6 +1719,7 @@ export const useProperty = ({
         description,
         displayCondition,
         editorFocusRequest,
+        editorPendingSaveCancelRef,
         editorRef,
         errorMessage,
         expressionEnabled,

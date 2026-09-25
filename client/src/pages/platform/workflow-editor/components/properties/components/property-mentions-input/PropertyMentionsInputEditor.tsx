@@ -52,6 +52,7 @@ import {useEvaluatorFunctionDefinitions} from './useEvaluatorFunctionDefinitions
 
 interface PropertyMentionsInputEditorProps {
     autoFocus?: boolean;
+    cancelPendingSaveRef?: MutableRefObject<(() => void) | null>;
     className?: string;
     componentDefinitions: ComponentDefinitionBasic[];
     controlType?: string;
@@ -113,6 +114,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
     (
         {
             autoFocus,
+            cancelPendingSaveRef,
             className,
             componentDefinitions,
             controlType,
@@ -159,6 +161,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
         const setIsFormulaModeRef = useRef(setIsFormulaMode);
         const restoreFocusAfterExitRef = useRef(false);
         const appliedFocusTokenRef = useRef<number | undefined>(undefined);
+        const previousFormulaModeRef = useRef(isFormulaMode);
 
         editorValueRef.current = editorValue;
         isFormulaModeRef.current = isFormulaMode;
@@ -697,6 +700,8 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
 
             appliedFocusTokenRef.current = focusRequest.token;
 
+            saveMentionInputValue.cancel();
+
             const pendingValue = typeof value === 'string' && value.startsWith('=') ? value.substring(1) : value;
 
             if (typeof pendingValue === 'string' && pendingValue !== editorValueRef.current) {
@@ -806,6 +811,28 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
                 editor.setEditable(!isFromAi);
             }
         }, [currentNode?.metadata?.ui?.fromAi, editor, isFromAi, path]);
+
+        useEffect(() => {
+            if (previousFormulaModeRef.current === isFormulaMode) {
+                return;
+            }
+
+            previousFormulaModeRef.current = isFormulaMode;
+
+            saveMentionInputValue.cancel();
+        }, [isFormulaMode, saveMentionInputValue]);
+
+        useEffect(() => {
+            if (!cancelPendingSaveRef) {
+                return;
+            }
+
+            cancelPendingSaveRef.current = saveMentionInputValue.cancel;
+
+            return () => {
+                cancelPendingSaveRef.current = null;
+            };
+        }, [cancelPendingSaveRef, saveMentionInputValue]);
 
         // Cleanup function to save mention input value on unmount
         useEffect(() => {
