@@ -29,6 +29,7 @@ import {buildPropertyMentionsContent} from '@/pages/platform/workflow-editor/com
 import getControlledToolFieldState from '@/pages/platform/workflow-editor/components/properties/getControlledToolFieldState';
 import getPropertyInputPlaceholder from '@/pages/platform/workflow-editor/components/properties/getPropertyInputPlaceholder';
 import getPropertyKey from '@/pages/platform/workflow-editor/components/properties/getPropertyKey';
+import usePillTarget from '@/pages/platform/workflow-editor/components/properties/hooks/usePillTarget';
 import useProperty from '@/pages/platform/workflow-editor/components/properties/hooks/useProperty';
 import isDynamicPropertiesQueryEnabled from '@/pages/platform/workflow-editor/components/properties/isDynamicPropertiesQueryEnabled';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
@@ -128,6 +129,7 @@ const Property = ({
         inputMode,
         inputRef,
         inputValue,
+        insertPillValue,
         isFormulaMode,
         isFromAi,
         isLoadingDisplayCondition,
@@ -179,13 +181,18 @@ const Property = ({
         toolsMode,
     });
 
-    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
-
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
+
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
     const clusterElementContext = useClusterElementContext();
 
     const formDisplayConditions = useFormDisplayConditionsContext();
+
+    const nativePillTarget = usePillTarget({
+        acceptsPill: () => !control && expressionEnabled !== false && !isFromAi,
+        insertPill: insertPillValue,
+    });
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
 
@@ -324,7 +331,13 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <>
+                <div
+                    className="contents"
+                    onDragOver={nativePillTarget.onDragOver}
+                    onDrop={nativePillTarget.onDrop}
+                    onFocusCapture={nativePillTarget.onFocusCapture}
+                    ref={nativePillTarget.ref}
+                >
                     {!controlledDynamicMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||
@@ -1102,7 +1115,7 @@ const Property = ({
                     )}
 
                     {controlType === 'NULL' && <span>NULL</span>}
-                </>
+                </div>
             )}
 
             {type === 'DYNAMIC_PROPERTIES' && (currentNode || clusterElementContext) && (
