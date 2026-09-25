@@ -411,15 +411,18 @@ export const useProperty = ({
         dispatchValueAction({type: 'selectValueChanged', value});
     }, []);
 
-    const resolveParameterValue = useCallback((value: unknown, options?: {authoritativeValue?: unknown}) => {
-        dispatchValueAction({
-            authoritativeValue: options?.authoritativeValue,
-            context: parameterValueContextRef.current,
-            syncDisplayValues: !isSavingRef.current,
-            type: 'parameterValueResolved',
-            value,
-        });
-    }, []);
+    const resolveParameterValue = useCallback(
+        (value: unknown, options?: {authoritativeValue?: unknown; context?: Partial<ParameterValueContextI>}) => {
+            dispatchValueAction({
+                authoritativeValue: options?.authoritativeValue,
+                context: {...parameterValueContextRef.current, ...options?.context},
+                syncDisplayValues: !isSavingRef.current,
+                type: 'parameterValueResolved',
+                value,
+            });
+        },
+        []
+    );
 
     const typeIcon = useMemo(() => {
         if (controlType === 'MULTI_SELECT') {
@@ -1468,18 +1471,30 @@ export const useProperty = ({
 
         const effectiveValue = parameterValue !== undefined ? parameterValue : valueFromDefinition;
 
-        if (controlType !== 'FORMULA_MODE') {
-            setFormulaModeState(isSavedFormulaValue(effectiveValue));
-        }
+        const nextFormulaMode = controlType === 'FORMULA_MODE' || isSavedFormulaValue(effectiveValue);
+
+        setFormulaModeState(nextFormulaMode);
+
+        const getNextContext = (nextValue: unknown): Partial<ParameterValueContextI> => {
+            const nextMentionInput =
+                getPropertyInputMode({controlType, formulaMode: nextFormulaMode, isFromAi: false, value: nextValue})
+                    .renderer === 'mentions';
+
+            return {
+                formulaMode: nextFormulaMode,
+                isNumericalInput: !nextMentionInput && (controlType === 'INTEGER' || controlType === 'NUMBER'),
+                mentionInput: nextMentionInput,
+            };
+        };
 
         if (effectiveValue !== undefined && effectiveValue !== null) {
             if (type === 'BOOLEAN' && typeof effectiveValue === 'boolean') {
-                resolveParameterValue(effectiveValue.toString());
+                resolveParameterValue(effectiveValue.toString(), {context: getNextContext(effectiveValue.toString())});
 
                 return;
             }
 
-            resolveParameterValue(effectiveValue);
+            resolveParameterValue(effectiveValue, {context: getNextContext(effectiveValue)});
 
             return;
         }
@@ -1488,7 +1503,7 @@ export const useProperty = ({
 
         dispatchValueAction({type: 'valueCleared'});
 
-        resolveParameterValue(fallbackParameterValue);
+        resolveParameterValue(fallbackParameterValue, {context: getNextContext(fallbackParameterValue)});
     }, [
         control,
         controlType,

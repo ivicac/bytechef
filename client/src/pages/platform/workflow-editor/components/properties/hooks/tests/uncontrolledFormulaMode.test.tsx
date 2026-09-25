@@ -271,6 +271,7 @@ describe('uncontrolled Text/Formula', () => {
             expect(result.current.propertyParameterValue).toBe(5);
             expect(result.current.isFormulaMode).toBe(false);
             expect(result.current.inputMode.renderer).toBe('native');
+            expect(String(result.current.inputValue)).toBe('5');
         });
 
         it('leaves Formula when the new path holds no value', () => {
