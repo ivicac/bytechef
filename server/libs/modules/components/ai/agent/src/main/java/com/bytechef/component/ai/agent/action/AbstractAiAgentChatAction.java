@@ -43,6 +43,7 @@ import com.bytechef.component.ai.agent.tool.ConversationState;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
 import com.bytechef.component.ai.llm.ChatModel.ResponseFormat;
 import com.bytechef.component.ai.llm.advisor.ContextLoggerAdvisor;
+import com.bytechef.component.ai.llm.advisor.TextGenerationFirstAdvisor;
 import com.bytechef.component.ai.llm.converter.JsonSchemaStructuredOutputConverter;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.llm.tool.ClusterElementToolCallbacks;
@@ -351,6 +352,7 @@ public abstract class AbstractAiAgentChatAction {
                     createConversationCheckpointer(inputParameters, context),
                     inputParameters.getInteger(MAX_TOOL_CALLS), toolBoundaryMetrics))
             .advisors(getConversationAdvisor(conversationId))
+            .advisors(new TextGenerationFirstAdvisor())
             .messages(messages)
             .tools(
                 concatToolCallbacks(
