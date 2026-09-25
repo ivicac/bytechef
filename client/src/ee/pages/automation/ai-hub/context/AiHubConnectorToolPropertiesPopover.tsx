@@ -3,6 +3,7 @@ import {Form} from '@/components/ui/form';
 import {PopoverContent} from '@/components/ui/popover';
 import useAiHubConnectorToolPropertiesPopover from '@/ee/pages/automation/ai-hub/context/hooks/useAiHubConnectorToolPropertiesPopover';
 import {ClusterElementProvider} from '@/pages/platform/workflow-editor/components/properties/ClusterElementContext';
+import {FormulaEnabledProvider} from '@/pages/platform/workflow-editor/components/properties/FormulaEnabledContext';
 import Properties from '@/pages/platform/workflow-editor/components/properties/Properties';
 import {WorkflowReadOnlyProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
@@ -99,13 +100,15 @@ const AiHubConnectorToolPropertiesPopover = ({
                                             inputParameters: formValues,
                                         }}
                                     >
-                                        <Properties
-                                            control={control}
-                                            controlPath=""
-                                            formState={formState}
-                                            properties={properties}
-                                            toolsMode
-                                        />
+                                        <FormulaEnabledProvider value={false}>
+                                            <Properties
+                                                control={control}
+                                                controlPath=""
+                                                formState={formState}
+                                                properties={properties}
+                                                toolsMode
+                                            />
+                                        </FormulaEnabledProvider>
                                     </ClusterElementProvider>
                                 </WorkflowReadOnlyProvider>
                             </fieldset>
