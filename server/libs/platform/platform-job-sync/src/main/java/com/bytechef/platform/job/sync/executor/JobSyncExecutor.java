@@ -63,19 +63,16 @@ import com.bytechef.atlas.worker.task.handler.TaskDispatcherAdapterTaskHandlerRe
 import com.bytechef.atlas.worker.task.handler.TaskHandlerRegistry;
 import com.bytechef.atlas.worker.task.handler.TaskHandlerResolverChain;
 import com.bytechef.commons.util.CollectionUtils;
-import com.bytechef.error.ExecutionError;
 import com.bytechef.evaluator.Evaluator;
-import com.bytechef.exception.ExecutionException;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.message.broker.memory.MemoryMessageBroker;
 import com.bytechef.message.broker.memory.MemoryMessageBroker.Receiver;
 import com.bytechef.message.event.MessageEvent;
 import com.bytechef.message.route.MessageRoute;
-import com.bytechef.platform.job.sync.exception.JobErrorType;
-import com.bytechef.platform.job.sync.exception.TaskExecutionErrorType;
 import com.bytechef.platform.worker.task.CallableResponseTaskExecutionPostOutputProcessor;
 import com.bytechef.platform.worker.task.SuspendTaskExecutionPostOutputProcessor;
 import com.bytechef.platform.worker.task.WebhookResponseTaskExecutionPostOutputProcessor;
+import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.util.TenantCacheKeyUtils;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -379,7 +376,7 @@ public class JobSyncExecutor {
         Job job = jobService.getJob(jobId);
 
         if (checkForError) {
-            checkForError(job);
+            JobExecutionErrors.checkForError(job, taskExecutionService);
         }
 
         return job;
@@ -423,7 +420,7 @@ public class JobSyncExecutor {
         Job job = jobService.getJob(jobId);
 
         if (checkForError) {
-            checkForError(job);
+            JobExecutionErrors.checkForError(job, taskExecutionService);
         }
 
         return job;
@@ -563,7 +560,7 @@ public class JobSyncExecutor {
         Job job = jobService.getJob(jobId);
 
         if (checkForError) {
-            checkForError(job);
+            JobExecutionErrors.checkForError(job, taskExecutionService);
         }
 
         return job;
@@ -702,47 +699,6 @@ public class JobSyncExecutor {
         }
 
         taskWorker.onTaskExecutionEvent(taskExecutionEvent);
-    }
-
-    private void checkForError(Job job) {
-        TaskExecution taskExecution = taskExecutionService
-            .fetchLastJobTaskExecution(Validate.notNull(job.getId(), "id"))
-            .orElse(null);
-
-        if (taskExecution != null && taskExecution.getStatus() == TaskExecution.Status.FAILED) {
-            ExecutionError error = taskExecution.getError();
-
-            if (error != null && error.getMessage() != null) {
-                throw new ExecutionException(error.getMessage(), TaskExecutionErrorType.TASK_EXECUTION_FAILED);
-            }
-
-            String message =
-                "Task execution failed for job " + job.getId() + " but no error details are available.";
-
-            if (log.isWarnEnabled()) {
-                log.warn(
-                    "Detected FAILED task execution without error details for jobId={}, taskExecutionId={}",
-                    job.getId(), taskExecution.getId());
-            }
-
-            throw new ExecutionException(message, TaskExecutionErrorType.TASK_EXECUTION_FAILED);
-        }
-
-        if (job.getStatus() == Job.Status.FAILED) {
-            ExecutionError error = job.getError();
-
-            if (error != null && error.getMessage() != null) {
-                throw new ExecutionException(error.getMessage(), JobErrorType.JOB_FAILED);
-            }
-
-            String message = "Job " + job.getId() + " failed but no error details are available.";
-
-            if (log.isWarnEnabled()) {
-                log.warn("Detected FAILED job without error details for jobId={}", job.getId());
-            }
-
-            throw new ExecutionException(message, JobErrorType.JOB_FAILED);
-        }
     }
 
     private static <T> Cache<String, CopyOnWriteArrayList<T>> createCache() {
