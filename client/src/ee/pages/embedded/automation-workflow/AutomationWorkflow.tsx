@@ -204,13 +204,13 @@ const AutomationWorkflow = () => {
                             </WorkflowEditorProvider>
                         </ResizablePanel>
 
-                        <ResizableHandle className="bg-muted" />
+                        <ResizableHandle className="bg-transparent aria-[orientation=horizontal]:-top-1.5 aria-[orientation=horizontal]:h-0" />
 
                         <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
                             {(showBottomPanel || workflowIsRunning || workflowTestExecution) && (
                                 <div
                                     className={twMerge(
-                                        'm-3 flex flex-1 overflow-hidden rounded-lg bg-background',
+                                        'mx-3 mb-3 flex flex-1 overflow-hidden rounded-lg bg-background',
                                         leftSidebarOpen && 'ml-0',
                                         copilotLayoutShifted && 'mr-0'
                                     )}
