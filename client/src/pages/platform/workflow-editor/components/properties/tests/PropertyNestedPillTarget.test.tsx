@@ -9,7 +9,7 @@ import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/s
 import saveProperty from '@/pages/platform/workflow-editor/utils/saveProperty';
 import {PropertyAllType} from '@/shared/types';
 import {render} from '@/shared/util/test-utils';
-import {act, fireEvent, screen, waitFor} from '@testing-library/react';
+import {act, fireEvent, screen} from '@testing-library/react';
 import {FormProvider, useForm} from 'react-hook-form';
 import {type Mock, beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -109,6 +109,15 @@ const ControlledArrayWrapper = () => {
     );
 };
 
+// DataPill inserts only into a target that accepts the pill.
+const clickPill = (mentionId: string) => {
+    const pillTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+    if (pillTarget?.acceptsPill()) {
+        act(() => pillTarget.insertPill(mentionId));
+    }
+};
+
 const setParameters = (parameters: Record<string, unknown>) =>
     useWorkflowNodeDetailsPanelStore.setState({
         currentNode: {name: 'node_1', parameters, workflowNodeName: 'node_1'},
@@ -206,7 +215,7 @@ describe('pill target inside an object or array builder', () => {
         expect(savedPaths()).toEqual(['counts[0]']);
     });
 
-    it('focusing the add item button does not make the array the pill target', async () => {
+    it('focusing the add item button of a non-empty array replaces the previous target with one that rejects pills', async () => {
         renderUncontrolled(arrayProperty);
 
         await settle();
@@ -217,7 +226,10 @@ describe('pill target inside an object or array builder', () => {
 
         act(() => screen.getByRole('button', {name: /add array item/i}).focus());
 
-        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget);
+        const pillTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+        expect(pillTarget).not.toBe(previousTarget);
+        expect(pillTarget === null || pillTarget.acceptsPill() === false).toBe(true);
     });
 
     it('focusing inside a JSON schema builder does not let a pill replace the whole schema', async () => {
@@ -239,12 +251,12 @@ describe('pill target inside an object or array builder', () => {
 
         (saveProperty as unknown as Mock).mockClear();
 
-        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.name'));
+        clickPill('trigger_1.name');
 
         await settle();
 
         expect(savedPaths()).not.toContain('schema');
-        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget);
+        expect(previousTarget.insertPill).not.toHaveBeenCalled();
     });
 
     it('a pill clicked after focusing the add item button of an empty array becomes the whole array value', async () => {
@@ -369,7 +381,96 @@ describe('pill target inside an object or array builder', () => {
         expect(savedPaths()).not.toContain('counts');
     });
 
-    it('a controlled array does not become the pill target when its add item button is focused', async () => {
+    it('a pill clicked while the item just added to an empty array is still saving keeps the item', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        const addItemButton = screen.getByRole('button', {name: /add array item/i});
+
+        act(() => addItemButton.focus());
+
+        fireEvent.click(addItemButton);
+
+        await settle();
+
+        expect(container.querySelector('input[type=number]')).not.toBeNull();
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        clickPill('trigger_1.items');
+
+        fireEvent.drop(addItemButton, {dataTransfer: dataPillTransfer('trigger_1.items')});
+
+        await settle();
+
+        expect(saveProperty).not.toHaveBeenCalledWith(expect.objectContaining({value: '${trigger_1.items}'}));
+        expect(container.querySelector('input[type=number]')).not.toBeNull();
+        expect(container.querySelector('.ProseMirror')).toBeNull();
+    });
+
+    it('focusing the add item button of a non-empty array stops a pill from landing in the field focused before', async () => {
+        const scalarProperty = {...countProperty, label: 'Limit', name: 'limit'} as PropertyAllType;
+
+        setParameters({counts: [5], limit: 3});
+
+        const {container} = render(
+            <TooltipProvider>
+                <WorkflowEditorProvider value={workflowEditorProviderTestValue as never}>
+                    <Property parameterValue={3} path="limit" property={scalarProperty} />
+
+                    <Property path="counts" property={arrayProperty} />
+                </WorkflowEditorProvider>
+            </TooltipProvider>
+        );
+
+        await settle();
+
+        act(() => (container.querySelector('[aria-label="limit property"] input') as HTMLInputElement).focus());
+
+        act(() => screen.getByRole('button', {name: /add array item/i}).focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        clickPill('trigger_1.count');
+
+        await settle();
+
+        expect(savedPaths()).toEqual([]);
+    });
+
+    it('deleting the pill that holds a whole empty array brings the empty builder back', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        act(() => screen.getByRole('button', {name: /add array item/i}).focus());
+
+        clickPill('trigger_1.items');
+
+        await settle();
+
+        const editorElement = container.querySelector('.ProseMirror') as HTMLElement & {
+            editor: {commands: {clearContent: (emitUpdate: boolean) => void}};
+        };
+
+        expect(editorElement).not.toBeNull();
+
+        act(() => editorElement.focus());
+        act(() => editorElement.editor.commands.clearContent(true));
+        act(() => editorElement.blur());
+
+        await settle();
+
+        expect(container.querySelector('.ProseMirror')).toBeNull();
+        expect(screen.getByRole('button', {name: /add array item/i})).toBeInTheDocument();
+    });
+
+    it('a controlled array takes no pill, and no earlier field does, when its add item button is focused', async () => {
         render(<ControlledArrayWrapper />);
 
         await settle();
@@ -380,6 +481,11 @@ describe('pill target inside an object or array builder', () => {
 
         act(() => screen.getByRole('button', {name: /add item/i}).focus());
 
-        await waitFor(() => expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget));
+        clickPill('trigger_1.count');
+
+        await settle();
+
+        expect(previousTarget.insertPill).not.toHaveBeenCalled();
+        expect(savedPaths()).toEqual([]);
     });
 });

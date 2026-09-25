@@ -183,6 +183,7 @@ const Property = ({
         toolsMode,
     });
 
+    const containerHasLocalEntriesRef = useRef(false);
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
@@ -218,10 +219,17 @@ const Property = ({
 
     const nativePillTarget = usePillTarget({
         acceptsPill: () =>
-            !control && expressionEnabled !== false && !isFromAi && (!isPillContainer || isPillContainerEmpty()),
+            !control &&
+            expressionEnabled !== false &&
+            !isFromAi &&
+            (!isPillContainer || (!containerHasLocalEntriesRef.current && isPillContainerEmpty())),
         insertPill: insertPillValue,
-        registerOnlyWhenAccepting: isPillContainer,
     });
+
+    // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
+    const handleContainerLocalEntriesChange = useCallback((hasLocalEntries: boolean) => {
+        containerHasLocalEntriesRef.current = hasLocalEntries;
+    }, []);
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
 
@@ -452,6 +460,7 @@ const Property = ({
                     {!control && controlType === 'ARRAY_BUILDER' && calculatedPath && (
                         <ArrayProperty
                             onDeleteClick={handleDeleteCustomPropertyClick}
+                            onHasItemsChange={handleContainerLocalEntriesChange}
                             parentArrayItems={parentArrayItems}
                             path={calculatedPath}
                             property={property}
@@ -540,6 +549,7 @@ const Property = ({
                             arrayIndex={arrayIndex}
                             arrayName={arrayName}
                             onDeleteClick={handleDeleteCustomPropertyClick}
+                            onHasCustomEntriesChange={handleContainerLocalEntriesChange}
                             operationName={operationName}
                             path={calculatedPath}
                             property={property}
