@@ -36,7 +36,7 @@ class TypeValidator {
     static void validateType(
         JsonNode valueJsonNode, String expectedType, String propertyPath, StringBuilder errors) {
 
-        if (valueJsonNode.isString() && isDataPillExpression(valueJsonNode.asString())) {
+        if (valueJsonNode.isString() && isExpression(valueJsonNode.asString())) {
             return;
         }
 
@@ -76,6 +76,14 @@ class TypeValidator {
 
     static boolean isDataPillExpression(@Nullable String value) {
         return value != null && value.matches("\\$\\{[^}]+}");
+    }
+
+    /**
+     * Checks if a value is a data pill expression or a formula expression (a string starting with '='), either of which
+     * must be exempted from type validation.
+     */
+    static boolean isExpression(@Nullable String value) {
+        return isDataPillExpression(value) || (value != null && value.startsWith("="));
     }
 
     private static boolean isDateTimeType(String expectedType) {

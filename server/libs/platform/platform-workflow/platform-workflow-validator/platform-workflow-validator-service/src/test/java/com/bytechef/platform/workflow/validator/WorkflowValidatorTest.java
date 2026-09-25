@@ -1005,6 +1005,122 @@ class WorkflowValidatorTest {
     }
 
     @Test
+    void validateTaskParametersBooleanFormulaValueSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "active": "=true"
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo("active", "BOOLEAN", null, false, true, null, null));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersIntegerFormulaValueSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "age": "=1 + 2"
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo("age", "INTEGER", null, false, true, null, null));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersPlainStringOnBooleanStillAddsError() {
+        String taskParameters = """
+            {
+                "active": "abc"
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo("active", "BOOLEAN", null, false, true, null, null));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals(
+            "[testTask] Property 'active' has incorrect type. Expected: boolean, but got: string",
+            errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersArrayItemFormulaValueSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "items": [
+                    {
+                        "active": "=true"
+                    }
+                ]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "items", "ARRAY", null, false, true, null,
+                List.of(new PropertyInfo("active", "BOOLEAN", null, false, true, null, null))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersArrayItemPlainStringOnBooleanStillAddsError() {
+        String taskParameters = """
+            {
+                "items": [
+                    {
+                        "active": "abc"
+                    }
+                ]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "items", "ARRAY", null, false, true, null,
+                List.of(new PropertyInfo("active", "BOOLEAN", null, false, true, null, null))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals(
+            "[testTask] Property 'items[0].active' has incorrect type. Expected: boolean, but got: string",
+            errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
     void validateTaskParametersWrongTypeFormatAddsError() {
         String taskParameters = """
             {
