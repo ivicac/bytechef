@@ -23,7 +23,7 @@ interface GetPropertyInputModePropsI {
 
 const TEXT_MENTIONS: PropertyInputModeI = {legacyMixed: false, mode: 'text', renderer: 'mentions', singlePill: false};
 
-export function isSingleDataPill(value: unknown): value is string {
+export function isSingleDataPill(value: unknown): boolean {
     return typeof value === 'string' && SINGLE_DATA_PILL_REGEX.test(value);
 }
 
@@ -89,29 +89,27 @@ export function toFormulaValue(value: unknown, type?: string): string | undefine
         return undefined;
     }
 
-    const stringValue = value as string;
-
-    if (stringValue.startsWith('=')) {
-        return stringValue;
+    if (value.startsWith('=')) {
+        return value;
     }
 
-    if (isSingleDataPill(stringValue)) {
-        return `=${stringValue}`;
+    if (isSingleDataPill(value)) {
+        return `=${value}`;
     }
 
-    if (stringValue.includes('${')) {
+    if (value.includes('${')) {
         return undefined;
     }
 
     const isLiteralOfType =
-        ((type === 'INTEGER' || type === 'NUMBER') && NUMBER_LITERAL_REGEX.test(stringValue)) ||
-        (type === 'BOOLEAN' && (stringValue === 'true' || stringValue === 'false'));
+        ((type === 'INTEGER' || type === 'NUMBER') && NUMBER_LITERAL_REGEX.test(value)) ||
+        (type === 'BOOLEAN' && (value === 'true' || value === 'false'));
 
     if (isLiteralOfType) {
-        return `=${stringValue}`;
+        return `=${value}`;
     }
 
-    return `='${stringValue.replace(/'/g, "''")}'`;
+    return `='${value.replace(/'/g, "''")}'`;
 }
 
 export function fromFormulaValue(value: unknown, type?: string): unknown {
