@@ -687,11 +687,7 @@ const Property = ({
                                                 }
                                                 label={label || name}
                                                 leadingIcon={
-                                                    isExpressionMode || isFieldFromAi ? (
-                                                        <SquareFunctionIcon className="size-4" />
-                                                    ) : (
-                                                        typeIcon
-                                                    )
+                                                    isFieldFromAi ? <SquareFunctionIcon className="size-4" /> : typeIcon
                                                 }
                                                 max={maxValue}
                                                 maxLength={maxLength}
