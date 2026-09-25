@@ -1041,6 +1041,10 @@ export const useProperty = ({
         (mentionId: string) => {
             const pillValue = `\${${mentionId}}`;
 
+            // A constant typed a moment ago is still waiting in the native debounce; left alone it would land
+            // after the pill and overwrite it.
+            saveInputValue.cancel();
+
             setPillEntry(false);
 
             dispatchValueAction({type: 'pillValueSet', value: pillValue});
@@ -1049,7 +1053,7 @@ export const useProperty = ({
 
             requestEditorFocus();
         },
-        [requestEditorFocus, saveResolvedValue]
+        [requestEditorFocus, saveInputValue, saveResolvedValue]
     );
 
     const handleNativeKeyDown = useCallback(

@@ -98,6 +98,30 @@ describe('native pill target', () => {
         expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget?.owner).not.toBe('stale-editor');
     });
 
+    it('a pill clicked while a typed constant is still waiting to save is not overwritten by that save', () => {
+        vi.useFakeTimers({toFake: ['Date', 'setTimeout', 'clearTimeout']});
+
+        try {
+            const {container} = renderUncontrolled(countProperty, 5);
+
+            const input = container.querySelector('input')!;
+
+            fireEvent.focus(input);
+            fireEvent.change(input, {target: {value: '7'}});
+
+            act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.count'));
+
+            act(() => {
+                vi.advanceTimersByTime(700);
+            });
+
+            expect(saveProperty).toHaveBeenLastCalledWith(expect.objectContaining({value: '${trigger_1.count}'}));
+            expect(saveProperty).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('dropping a pill onto a native field replaces its value', async () => {
         const {container} = renderUncontrolled(countProperty, 5);
 
