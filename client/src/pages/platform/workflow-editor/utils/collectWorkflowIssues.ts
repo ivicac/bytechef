@@ -17,6 +17,7 @@ const NESTED_TASK_KEYS = new Set([
     'default',
     'iteratee',
     'main-branch',
+    'nodes',
     'on-error-branch',
     'tasks',
 ]);
