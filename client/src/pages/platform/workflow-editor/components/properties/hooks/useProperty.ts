@@ -96,6 +96,7 @@ type UsePropertyReturnType = {
     handleFromAiClick: ((fromAi: boolean) => void) | undefined;
     handleFormulaSwitch: () => void;
     handleFromAiToggle: (fromAi: boolean, fieldOnChange: (value: string) => void) => void;
+    handleControlledNativeFromAiClick: (fieldOnChange: (value: string) => void) => void;
     handleInputChange: (event: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLTextAreaElement>) => void;
     handleInputClear: () => void;
     handleJsonSchemaBuilderChange: (value?: SchemaRecordType) => void;
@@ -453,7 +454,9 @@ export const useProperty = ({
                 hasControl: !!control,
                 isFromAi: !control && isFromAi,
                 pillEntry,
-                value: propertyParameterValue,
+                // A controlled field's propertyParameterValue is a mount-time snapshot the form never updates, so
+                // its `=` would pin Formula on; formulaModeState is seeded from the form values instead.
+                value: control ? undefined : propertyParameterValue,
             }),
         [control, controlType, formulaModeState, isFromAi, pillEntry, propertyParameterValue]
     );
@@ -786,6 +789,17 @@ export const useProperty = ({
         ]
     );
 
+    // A controlled field shows fromAi only through its Formula editor, so turning fromAi on from a native Text-mode
+    // control enters Formula too; the editor then renders "Automatically defined by the model" without the switch.
+    const handleControlledNativeFromAiClick = useCallback(
+        (fieldOnChange: (value: string) => void) => {
+            setIsFormulaMode(true);
+
+            handleFromAiToggle(true, fieldOnChange);
+        },
+        [handleFromAiToggle, setIsFormulaMode]
+    );
+
     const handleJsonSchemaBuilderChange = useDebouncedCallback((value?: SchemaRecordType) => {
         if (
             !currentNode ||
@@ -1041,6 +1055,10 @@ export const useProperty = ({
         (mentionId: string) => {
             const pillValue = `\${${mentionId}}`;
 
+            // A constant typed a moment ago is still waiting in the native debounce; left alone it would land
+            // after the pill and overwrite it.
+            saveInputValue.cancel();
+
             setPillEntry(false);
 
             dispatchValueAction({type: 'pillValueSet', value: pillValue});
@@ -1049,7 +1067,7 @@ export const useProperty = ({
 
             requestEditorFocus();
         },
-        [requestEditorFocus, saveResolvedValue]
+        [requestEditorFocus, saveInputValue, saveResolvedValue]
     );
 
     const handleNativeKeyDown = useCallback(
@@ -1812,6 +1830,7 @@ export const useProperty = ({
         handleControlledBlur,
         handleControlledBuilderFormulaSwitch,
         handleControlledFormulaSwitch,
+        handleControlledNativeFromAiClick,
         handleControlledNativeKeyDown,
         handleDeleteCustomPropertyClick,
         handleFormulaSwitch,
