@@ -337,7 +337,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                 >
                     {leadingIcon && (
                         <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center rounded-l-md bg-surface-neutral-secondary px-3">
-                            {isFormulaMode ? <SquareFunctionIcon className="size-4" /> : leadingIcon}
+                            {isFormulaMode || isFromAi ? <SquareFunctionIcon className="size-4" /> : leadingIcon}
                         </span>
                     )}
 
