@@ -365,9 +365,9 @@ export default function useLayout({
     // version -- and stamped onto each read-only node's data below.
     const disabledTaskNames = useMemo(() => getEffectivelyDisabledTaskNames(tasks ?? []), [tasks]);
 
-    const {initializeWithCanvasWidth, setEdges, setNodes, setSavedPositionCrossAxisShift} = useWorkflowDataStore(
+    const {clearCanvas, setEdges, setNodes, setSavedPositionCrossAxisShift} = useWorkflowDataStore(
         useShallow((state) => ({
-            initializeWithCanvasWidth: state.initializeWithCanvasWidth,
+            clearCanvas: state.clearCanvas,
             setEdges: state.setEdges,
             setNodes: state.setNodes,
             setSavedPositionCrossAxisShift: state.setSavedPositionCrossAxisShift,
@@ -1295,10 +1295,10 @@ export default function useLayout({
     ]);
 
     useEffect(() => {
-        if (canvasWidth > 0 && !isWorkflowLoaded && !readOnlyWorkflow) {
-            initializeWithCanvasWidth(canvasWidth);
+        if (!isWorkflowLoaded && !readOnlyWorkflow) {
+            clearCanvas();
         }
-    }, [canvasWidth, initializeWithCanvasWidth, isWorkflowLoaded, readOnlyWorkflow]);
+    }, [clearCanvas, isWorkflowLoaded, readOnlyWorkflow]);
 
     return {autoPlacedGraphPositionsRef};
 }

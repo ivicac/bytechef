@@ -1,5 +1,4 @@
 /* eslint-disable sort-keys */
-import {DEFAULT_CANVAS_WIDTH} from '@/shared/constants';
 import {ComponentDefinitionBasic, TaskDispatcherDefinition, Workflow} from '@/shared/middleware/platform/configuration';
 import {DataPillType, WorkflowNodeType} from '@/shared/types';
 import {Edge, Node, OnEdgesChange, OnNodesChange, applyEdgeChanges, applyNodeChanges} from '@xyflow/react';
@@ -8,7 +7,7 @@ import {type TemporalState, type ZundoOptions, temporal} from 'zundo';
 import {StoreApi as StoreApiType, create, useStore} from 'zustand';
 import {devtools} from 'zustand/middleware';
 
-import {createDefaultEdges, createDefaultNodes} from '../utils/layoutUtils';
+import {createDefaultNodes} from '../utils/layoutUtils';
 import stringifyWorkflowDefinition from '../utils/stringifyWorkflowDefinition';
 import {forEachNestedTaskGroup} from '../utils/taskTraversalUtils';
 
@@ -56,7 +55,7 @@ export interface WorkflowDataStateI {
     setProjectName: (projectName: string) => void;
 
     reset: () => void;
-    initializeWithCanvasWidth: (canvasWidth: number) => void;
+    clearCanvas: () => void;
 
     taskDispatcherDefinitions: Array<TaskDispatcherDefinition>;
     setTaskDispatcherDefinitions: (taskDispatcherDefinitions: Array<TaskDispatcherDefinition>) => void;
@@ -209,7 +208,7 @@ function buildWorkflowDataState(
         sampleOutputs: {},
         setSampleOutputs: (sampleOutputs) => set((state) => ({...state, sampleOutputs})),
 
-        edges: createDefaultEdges(),
+        edges: [],
         setEdges: (edges) => {
             set({edges});
         },
@@ -238,7 +237,7 @@ function buildWorkflowDataState(
         setLatestComponentDefinition: (latestComponentDefinition) =>
             set((state) => ({...state, latestComponentDefinition})),
 
-        nodes: createDefaultNodes(DEFAULT_CANVAS_WIDTH),
+        nodes: [],
         setNodes: (nodes) => {
             set({nodes});
         },
@@ -253,19 +252,16 @@ function buildWorkflowDataState(
                 workflowNodes: [],
                 dataPills: [],
                 sampleOutputs: {},
-                edges: createDefaultEdges(),
+                edges: [],
                 isWorkflowLoaded: false,
-                nodes: createDefaultNodes(DEFAULT_CANVAS_WIDTH),
+                nodes: [],
                 workflow: {
                     actionNames: [],
                     nodeNames: ['trigger_1'],
                 },
             })),
 
-        initializeWithCanvasWidth: (canvasWidth: number) =>
-            set(() => ({
-                nodes: createDefaultNodes(canvasWidth),
-            })),
+        clearCanvas: () => set({edges: [], nodes: []}),
 
         taskDispatcherDefinitions: [],
         setTaskDispatcherDefinitions: (taskDispatcherDefinitions) =>

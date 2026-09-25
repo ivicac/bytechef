@@ -2126,12 +2126,3 @@ export const createDefaultNodes = (canvasWidth: number, direction: LayoutDirecti
         type: 'placeholder',
     },
 ];
-
-export const createDefaultEdges = (): Edge[] => [
-    {
-        id: `trigger_1=>${FINAL_PLACEHOLDER_NODE_ID}`,
-        source: 'trigger_1',
-        target: FINAL_PLACEHOLDER_NODE_ID,
-        type: 'placeholder',
-    },
-];
