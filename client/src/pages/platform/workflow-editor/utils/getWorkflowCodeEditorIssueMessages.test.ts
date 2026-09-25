@@ -10,7 +10,7 @@ const definition = JSON.stringify({
                 branches: [
                     [{name: 'firecrawl_7', parameters: {}, type: 'firecrawl/v1/scrape'}],
                     [
-                        {name: 'firecrawl_5', parameters: {}, type: 'firecrawl/v1/scrape'},
+                        {disabled: true, name: 'firecrawl_5', parameters: {}, type: 'firecrawl/v1/scrape'},
                         {
                             name: 'anthropic_2',
                             parameters: {
@@ -54,7 +54,9 @@ describe('getWorkflowCodeEditorIssueMessages', () => {
                 'Workflow has no label',
                 '[anthropic_2] userPrompt: "ghost_1" is missing from the workflow (referenced as ghost_1.data.html)',
             ],
-            warnings: [],
+            warnings: [
+                '[anthropic_2] topK: References disabled node firecrawl_5 — it will not run, so this value will not resolve',
+            ],
         });
     });
 
