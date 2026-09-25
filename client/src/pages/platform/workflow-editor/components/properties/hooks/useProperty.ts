@@ -220,10 +220,9 @@ export const useProperty = ({
     // prop while any of the rest still comes from the store is worse than either extreme. Removing
     // the assumption means threading an explicit node through `<Properties>`, `<Property>`, its
     // recursive children and `saveProperty` together.
-    const {currentNode, setFocusedInput, workflowNodeDetailsPanelOpen} = useWorkflowNodeDetailsPanelStore(
+    const {currentNode, workflowNodeDetailsPanelOpen} = useWorkflowNodeDetailsPanelStore(
         useShallow((state) => ({
             currentNode: state.currentNode,
-            setFocusedInput: state.setFocusedInput,
             workflowNodeDetailsPanelOpen: state.workflowNodeDetailsPanelOpen,
         }))
     );
@@ -799,8 +798,6 @@ export const useProperty = ({
                     editorRef.current.commands.setContent(expressionContent);
                     editorRef.current.commands.focus();
 
-                    setFocusedInput(editorRef.current);
-
                     if (workflowNodeDetailsPanelOpen) {
                         openDataPillPanel();
                     }
@@ -947,7 +944,7 @@ export const useProperty = ({
             });
 
             setTimeout(() => {
-                setFocusedInput(editorRef.current);
+                editorRef.current?.commands.focus();
             }, 50);
 
             if (
@@ -992,8 +989,6 @@ export const useProperty = ({
             }, 50);
         } else {
             setTimeout(() => {
-                setFocusedInput(editorRef.current);
-
                 editorRef.current?.commands.setContent('');
                 editorRef.current?.commands.focus();
 
@@ -1229,8 +1224,6 @@ export const useProperty = ({
                 editorRef.current?.commands.setContent(editorContent);
                 editorRef.current?.setEditable(true);
                 editorRef.current?.commands.focus();
-
-                setFocusedInput(editorRef.current);
             }
 
             if (savePayload) {
@@ -1248,7 +1241,6 @@ export const useProperty = ({
             custom,
             fromAiExpression,
             path,
-            setFocusedInput,
             setIsFormulaModeInternal,
             type,
             updateClusterElementParameterMutation,
