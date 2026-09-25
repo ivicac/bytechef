@@ -114,8 +114,13 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
         ref: ForwardedRef<Editor>
     ) => {
         const [isFocused, setIsFocused] = useState(false);
+
+        const acceptsPillRef = useRef(false);
         const isInitialLoadRef = useRef(true);
         const localEditorRef = useRef<Editor | null>(null);
+
+        // Read at pill time, not captured at focus time: the field can turn fromAi or lose expressions while registered.
+        acceptsPillRef.current = expressionEnabled !== false && !isFromAi;
 
         const {componentDefinitions, dataPills, taskDispatcherDefinitions, workflow} = useWorkflowDataStore(
             useShallow((state) => ({
@@ -144,12 +149,12 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
             (editor: Editor) =>
                 setPillTarget(
                     createEditorPillTarget({
-                        acceptsPill: () => expressionEnabled !== false && !isFromAi,
+                        acceptsPill: () => acceptsPillRef.current,
                         editor,
                         singlePill,
                     })
                 ),
-            [expressionEnabled, isFromAi, setPillTarget, singlePill]
+            [setPillTarget, singlePill]
         );
 
         const onFocus = (editor: Editor) => {
