@@ -1,5 +1,6 @@
 import {SchemaRecordType} from '@/components/JsonSchemaBuilder/utils/types';
 import {getClusterElementByName} from '@/pages/platform/cluster-element-editor/utils/clusterElementsUtils';
+import {useFormulaEnabledContext} from '@/pages/platform/workflow-editor/components/properties/FormulaEnabledContext';
 import getInitialControlledDynamicMode from '@/pages/platform/workflow-editor/components/properties/getInitialControlledDynamicMode';
 import {
     INPUT_PROPERTY_CONTROL_TYPES,
@@ -243,6 +244,7 @@ export const useProperty = ({
     // recursive children and `saveProperty` together.
     const currentNode = useWorkflowNodeDetailsPanelStore((state) => state.currentNode);
     const workflow = useWorkflowDataStore((state) => state.workflow);
+    const formulaEnabledOverride = useFormulaEnabledContext();
 
     const isToolsClusterElement = !hideFromAi && (toolsMode || currentNode?.clusterElementType === 'tools');
 
@@ -460,7 +462,10 @@ export const useProperty = ({
     const mentionInput = !control && inputMode.renderer === 'mentions';
     const isFormulaMode = inputMode.mode === 'formula';
 
+    const formulaEnabled = formulaEnabledOverride ?? (control ? isToolsClusterElement : true);
+
     const showFormulaSwitch =
+        formulaEnabled &&
         expressionEnabled !== false &&
         !isFromAi &&
         controlType !== 'FORMULA_MODE' &&

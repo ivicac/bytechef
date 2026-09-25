@@ -5,7 +5,7 @@ import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {CanvasPropertyEditorProvider} from '@/pages/platform/workflow-editor/components/properties/CanvasPropertyEditorContext';
 import Property from '@/pages/platform/workflow-editor/components/properties/Property';
-import PropertyInputTypeSwitch from '@/pages/platform/workflow-editor/components/properties/components/PropertyInputTypeSwitch';
+import PropertyFormulaSwitch from '@/pages/platform/workflow-editor/components/properties/components/PropertyFormulaSwitch';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
@@ -246,14 +246,14 @@ export default function GraphTransitionPopover({graphId, index}: GraphTransition
         saveTransitions((currentTransitions) => updateTransition(currentTransitions, index, {to: value}));
     }
 
-    // The same Dynamic switch every other property field carries, rather than a control of this
+    // The same Formula switch every other property field carries, rather than a control of this
     // popover's own: picking a member and writing an expression is the constant/dynamic choice the
     // rest of the editor already names that way, and a bespoke icon made it look like a different
     // kind of decision.
     const toModeToggle = (
-        <PropertyInputTypeSwitch
+        <PropertyFormulaSwitch
+            formulaMode={expressionMode}
             handleClick={() => setExpressionModeOverride(!expressionMode)}
-            mentionInput={expressionMode}
         />
     );
 
