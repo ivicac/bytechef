@@ -4,6 +4,7 @@ import {Label} from '@/components/ui/label';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipPortal, TooltipTrigger} from '@/components/ui/tooltip';
 import ArrayProperty from '@/pages/platform/workflow-editor/components/properties/ArrayProperty';
+import {useCanvasPropertyEditorContext} from '@/pages/platform/workflow-editor/components/properties/CanvasPropertyEditorContext';
 import {useClusterElementContext} from '@/pages/platform/workflow-editor/components/properties/ClusterElementContext';
 import {useFormDisplayConditionsContext} from '@/pages/platform/workflow-editor/components/properties/FormDisplayConditionsContext';
 import ObjectProperty from '@/pages/platform/workflow-editor/components/properties/ObjectProperty';
@@ -31,6 +32,10 @@ import getPropertyKey from '@/pages/platform/workflow-editor/components/properti
 import usePillTarget from '@/pages/platform/workflow-editor/components/properties/hooks/usePillTarget';
 import useProperty from '@/pages/platform/workflow-editor/components/properties/hooks/useProperty';
 import isDynamicPropertiesQueryEnabled from '@/pages/platform/workflow-editor/components/properties/isDynamicPropertiesQueryEnabled';
+import {isEmptyPillContainerValue} from '@/pages/platform/workflow-editor/components/properties/pillContainerValue';
+import useOpenDataPillPanel from '@/pages/platform/workflow-editor/hooks/useOpenDataPillPanel';
+import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
+import {encodeParameters, encodePath, safeResolvePath} from '@/pages/platform/workflow-editor/utils/encodingUtils';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
 import resolveExpressionValue from '@/pages/platform/workflow-editor/utils/resolveExpressionValue';
 import {ERROR_MESSAGES} from '@/shared/errorMessages';
@@ -43,7 +48,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ArrayPropertyType, PropertyAllType, SelectOptionType} from '@/shared/types';
 import {UseQueryResult} from '@tanstack/react-query';
 import {CircleQuestionMarkIcon, SquareFunctionIcon, XIcon} from 'lucide-react';
-import {ReactNode, useCallback, useRef} from 'react';
+import {MouseEvent, ReactNode, useCallback, useRef, useState} from 'react';
 import {Control, Controller, FieldValues, FormState} from 'react-hook-form';
 import {twMerge} from 'tailwind-merge';
 
@@ -181,22 +186,95 @@ const Property = ({
         toolsMode,
     });
 
+    const [containerHasLocalEntries, setContainerHasLocalEntries] = useState(false);
+
+    const containerHasLocalEntriesRef = useRef(false);
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+    const workflowNodeDetailsPanelOpen = useWorkflowNodeDetailsPanelStore(
+        (state) => state.workflowNodeDetailsPanelOpen
+    );
 
     const clusterElementContext = useClusterElementContext();
 
     const formDisplayConditions = useFormDisplayConditionsContext();
 
-    // An object or array holds other properties: a pill belongs in one of its fields, never over the container.
+    const canvasPropertyEditor = useCanvasPropertyEditorContext();
+
+    const openDataPillPanel = useOpenDataPillPanel();
+
+    // An object, array or schema builder holds other fields: a pill belongs in one of them. Only an empty container
+    // takes a pill as its whole value, and only from its own controls (the nested fields are targets of their own).
     const isPillContainer =
-        controlType === 'OBJECT_BUILDER' || controlType === 'ARRAY_BUILDER' || type === 'FILE_ENTRY';
+        controlType === 'OBJECT_BUILDER' ||
+        controlType === 'ARRAY_BUILDER' ||
+        controlType === 'JSON_SCHEMA_BUILDER' ||
+        type === 'FILE_ENTRY';
+
+    const isPillContainerEmpty = () => {
+        const parameters = currentNode?.parameters;
+
+        const containerValue =
+            parameters && calculatedPath
+                ? safeResolvePath(encodeParameters(parameters), encodePath(calculatedPath))
+                : undefined;
+
+        return isEmptyPillContainerValue({
+            controlType: type === 'FILE_ENTRY' ? 'FILE_ENTRY' : controlType,
+            definedPropertyNames: property.properties
+                ?.map((subProperty) => subProperty.name)
+                .filter((subPropertyName): subPropertyName is string => !!subPropertyName),
+            value: containerValue,
+        });
+    };
+
+    const acceptsNativePill = () =>
+        !control &&
+        expressionEnabled !== false &&
+        !isFromAi &&
+        (!isPillContainer || (!containerHasLocalEntriesRef.current && isPillContainerEmpty()));
 
     const nativePillTarget = usePillTarget({
-        acceptsPill: () => !control && !isPillContainer && expressionEnabled !== false && !isFromAi,
+        acceptsPill: acceptsNativePill,
         insertPill: insertPillValue,
     });
+
+    const handleContainerMouseDown = (event: MouseEvent<HTMLElement>) => {
+        const picked = nativePillTarget.onContainerMouseDown(event);
+
+        if (picked && acceptsNativePill() && workflowNodeDetailsPanelOpen && !canvasPropertyEditor) {
+            openDataPillPanel();
+        }
+    };
+
+    // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
+    const handleContainerLocalEntriesChange = useCallback((hasLocalEntries: boolean) => {
+        containerHasLocalEntriesRef.current = hasLocalEntries;
+
+        setContainerHasLocalEntries(hasLocalEntries);
+    }, []);
+
+    const showContainerPillHint =
+        isPillContainer &&
+        !control &&
+        expressionEnabled !== false &&
+        !isFromAi &&
+        !isFormulaMode &&
+        !containerHasLocalEntries &&
+        isPillContainerEmpty();
+
+    const containerPillHint = showContainerPillHint ? (
+        <p
+            className={twMerge(
+                'rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground',
+                controlType === 'JSON_SCHEMA_BUILDER' ? 'mt-2' : 'mb-2',
+                nativePillTarget.isRegistered && 'ring-2 ring-ring'
+            )}
+        >
+            Drop or click a data pill
+        </p>
+    ) : null;
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
 
@@ -360,7 +438,11 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <div className="contents" {...(isPillContainer ? {} : nativePillTarget.targetProps)}>
+                <div
+                    className="contents"
+                    {...nativePillTarget.targetProps}
+                    onMouseDown={isPillContainer && !control ? handleContainerMouseDown : undefined}
+                >
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||
@@ -424,9 +506,12 @@ const Property = ({
                             </div>
                         )}
 
+                    {controlType !== 'JSON_SCHEMA_BUILDER' && containerPillHint}
+
                     {!control && controlType === 'ARRAY_BUILDER' && calculatedPath && (
                         <ArrayProperty
                             onDeleteClick={handleDeleteCustomPropertyClick}
+                            onHasItemsChange={handleContainerLocalEntriesChange}
                             parentArrayItems={parentArrayItems}
                             path={calculatedPath}
                             property={property}
@@ -515,6 +600,7 @@ const Property = ({
                             arrayIndex={arrayIndex}
                             arrayName={arrayName}
                             onDeleteClick={handleDeleteCustomPropertyClick}
+                            onHasCustomEntriesChange={handleContainerLocalEntriesChange}
                             operationName={operationName}
                             path={calculatedPath}
                             property={property}
@@ -662,11 +748,7 @@ const Property = ({
                                                 }
                                                 label={label || name}
                                                 leadingIcon={
-                                                    isExpressionMode || isFieldFromAi ? (
-                                                        <SquareFunctionIcon className="size-4" />
-                                                    ) : (
-                                                        typeIcon
-                                                    )
+                                                    isFieldFromAi ? <SquareFunctionIcon className="size-4" /> : typeIcon
                                                 }
                                                 max={maxValue}
                                                 maxLength={maxLength}
@@ -1043,7 +1125,15 @@ const Property = ({
                             label={label || name}
                             leadingIcon={typeIcon}
                             name={name!}
-                            onChange={(value) => handleJsonSchemaBuilderChange(value)}
+                            onChange={(value) => {
+                                // The schema saves through a debounce; until it lands, the drafted schema is the
+                                // builder's content, so a pill must not replace it.
+                                handleContainerLocalEntriesChange(
+                                    !isEmptyPillContainerValue({controlType: 'JSON_SCHEMA_BUILDER', value})
+                                );
+
+                                handleJsonSchemaBuilderChange(value);
+                            }}
                             propertyPath={calculatedPath ?? name}
                             schema={inputValue ? JSON.parse(inputValue) : undefined}
                             title={label || name}
@@ -1051,6 +1141,8 @@ const Property = ({
                             workflowNodeName={currentNode?.name}
                         />
                     )}
+
+                    {controlType === 'JSON_SCHEMA_BUILDER' && containerPillHint}
 
                     {!control && controlType === 'SELECT' && type !== 'BOOLEAN' && (
                         <PropertyComboBox
