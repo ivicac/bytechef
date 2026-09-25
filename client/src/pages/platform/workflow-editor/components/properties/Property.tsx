@@ -4,6 +4,7 @@ import {Label} from '@/components/ui/label';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipPortal, TooltipTrigger} from '@/components/ui/tooltip';
 import ArrayProperty from '@/pages/platform/workflow-editor/components/properties/ArrayProperty';
+import {useCanvasPropertyEditorContext} from '@/pages/platform/workflow-editor/components/properties/CanvasPropertyEditorContext';
 import {useClusterElementContext} from '@/pages/platform/workflow-editor/components/properties/ClusterElementContext';
 import {useFormDisplayConditionsContext} from '@/pages/platform/workflow-editor/components/properties/FormDisplayConditionsContext';
 import ObjectProperty from '@/pages/platform/workflow-editor/components/properties/ObjectProperty';
@@ -32,6 +33,8 @@ import usePillTarget from '@/pages/platform/workflow-editor/components/propertie
 import useProperty from '@/pages/platform/workflow-editor/components/properties/hooks/useProperty';
 import isDynamicPropertiesQueryEnabled from '@/pages/platform/workflow-editor/components/properties/isDynamicPropertiesQueryEnabled';
 import {isEmptyPillContainerValue} from '@/pages/platform/workflow-editor/components/properties/pillContainerValue';
+import useOpenDataPillPanel from '@/pages/platform/workflow-editor/hooks/useOpenDataPillPanel';
+import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import {encodeParameters, encodePath, safeResolvePath} from '@/pages/platform/workflow-editor/utils/encodingUtils';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
 import resolveExpressionValue from '@/pages/platform/workflow-editor/utils/resolveExpressionValue';
@@ -45,7 +48,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ArrayPropertyType, PropertyAllType, SelectOptionType} from '@/shared/types';
 import {UseQueryResult} from '@tanstack/react-query';
 import {CircleQuestionMarkIcon, SquareFunctionIcon, XIcon} from 'lucide-react';
-import {ReactNode, useCallback, useRef, useState} from 'react';
+import {MouseEvent, ReactNode, useCallback, useRef, useState} from 'react';
 import {Control, Controller, FieldValues, FormState} from 'react-hook-form';
 import {twMerge} from 'tailwind-merge';
 
@@ -189,10 +192,17 @@ const Property = ({
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+    const workflowNodeDetailsPanelOpen = useWorkflowNodeDetailsPanelStore(
+        (state) => state.workflowNodeDetailsPanelOpen
+    );
 
     const clusterElementContext = useClusterElementContext();
 
     const formDisplayConditions = useFormDisplayConditionsContext();
+
+    const canvasPropertyEditor = useCanvasPropertyEditorContext();
+
+    const openDataPillPanel = useOpenDataPillPanel();
 
     // An object, array or schema builder holds other fields: a pill belongs in one of them. Only an empty container
     // takes a pill as its whole value, and only from its own controls (the nested fields are targets of their own).
@@ -219,14 +229,24 @@ const Property = ({
         });
     };
 
+    const acceptsNativePill = () =>
+        !control &&
+        expressionEnabled !== false &&
+        !isFromAi &&
+        (!isPillContainer || (!containerHasLocalEntriesRef.current && isPillContainerEmpty()));
+
     const nativePillTarget = usePillTarget({
-        acceptsPill: () =>
-            !control &&
-            expressionEnabled !== false &&
-            !isFromAi &&
-            (!isPillContainer || (!containerHasLocalEntriesRef.current && isPillContainerEmpty())),
+        acceptsPill: acceptsNativePill,
         insertPill: insertPillValue,
     });
+
+    const handleContainerMouseDown = (event: MouseEvent<HTMLElement>) => {
+        const picked = nativePillTarget.onContainerMouseDown(event);
+
+        if (picked && acceptsNativePill() && workflowNodeDetailsPanelOpen && !canvasPropertyEditor) {
+            openDataPillPanel();
+        }
+    };
 
     // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
     const handleContainerLocalEntriesChange = useCallback((hasLocalEntries: boolean) => {
@@ -248,6 +268,7 @@ const Property = ({
         <p
             className={twMerge(
                 'rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground',
+                controlType === 'JSON_SCHEMA_BUILDER' ? 'mt-2' : 'mb-2',
                 nativePillTarget.isRegistered && 'ring-2 ring-ring'
             )}
         >
@@ -420,7 +441,7 @@ const Property = ({
                 <div
                     className="contents"
                     {...nativePillTarget.targetProps}
-                    onMouseDown={isPillContainer && !control ? nativePillTarget.onContainerMouseDown : undefined}
+                    onMouseDown={isPillContainer && !control ? handleContainerMouseDown : undefined}
                 >
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||

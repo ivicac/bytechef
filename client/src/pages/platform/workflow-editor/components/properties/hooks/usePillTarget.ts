@@ -111,10 +111,14 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
     // A container has no control of its own to focus besides its add button, which adds an item. A press on its
     // label or empty area picks it instead; buttons, inputs and nested fields keep their own behaviour.
     const onContainerMouseDown = useCallback(
-        (event: MouseEvent<HTMLElement>) => {
-            if (originatesInOwnTarget(event) && !originatesOnInteractiveElement(event)) {
-                register();
+        (event: MouseEvent<HTMLElement>): boolean => {
+            if (!originatesInOwnTarget(event) || originatesOnInteractiveElement(event)) {
+                return false;
             }
+
+            register();
+
+            return true;
         },
         [register]
     );
