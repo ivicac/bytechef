@@ -717,7 +717,11 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
 
             const pendingValue = typeof value === 'string' && value.startsWith('=') ? value.substring(1) : value;
 
-            if (typeof pendingValue === 'string' && pendingValue !== editorValueRef.current) {
+            // A freshly mounted editor starts with an empty document and editorValue already equal to the value; the
+            // content sync that would fill it runs after this focus and skips a focused editor, so fill it here.
+            const documentIsStale = pendingValue !== editorValueRef.current || (pendingValue !== '' && editor.isEmpty);
+
+            if (typeof pendingValue === 'string' && documentIsStale) {
                 editor.commands.setContent(getContent(pendingValue) ?? '', {
                     emitUpdate: false,
                     parseOptions: {preserveWhitespace: 'full'},
