@@ -4,17 +4,19 @@ import SubPropertyPopover from '@/pages/platform/workflow-editor/components/prop
 import {useArrayProperty} from '@/pages/platform/workflow-editor/components/properties/hooks/useArrayProperty';
 import {ArrayPropertyType, PropertyAllType} from '@/shared/types';
 import {CircleAlertIcon, PlusIcon} from 'lucide-react';
-import {Fragment, useCallback} from 'react';
+import {Fragment, useCallback, useEffect} from 'react';
 import {twMerge} from 'tailwind-merge';
 
 interface ArrayPropertyProps {
     onDeleteClick: (path: string) => void;
+    /** Reports whether items are on screen, which runs ahead of the saved value while an added item saves. */
+    onHasItemsChange?: (hasItems: boolean) => void;
     parentArrayItems?: Array<ArrayPropertyType>;
     path: string;
     property: PropertyAllType;
 }
 
-const ArrayProperty = ({onDeleteClick, parentArrayItems, path, property}: ArrayPropertyProps) => {
+const ArrayProperty = ({onDeleteClick, onHasItemsChange, parentArrayItems, path, property}: ArrayPropertyProps) => {
     const {
         arrayConstraintHint,
         arrayItems,
@@ -37,6 +39,12 @@ const ArrayProperty = ({onDeleteClick, parentArrayItems, path, property}: ArrayP
         () => handleAddItemClick({name: '', type: defaultPropertyType ?? 'STRING'}),
         [defaultPropertyType, handleAddItemClick]
     );
+
+    const hasItems = !!arrayItems?.length;
+
+    useEffect(() => {
+        onHasItemsChange?.(hasItems);
+    }, [hasItems, onHasItemsChange]);
 
     return (
         <Fragment key={`${path}_${name}_arrayProperty`}>
