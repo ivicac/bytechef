@@ -151,7 +151,6 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             typeof value === 'string' && value.startsWith('=') ? value.substring(1) : value
         );
         const [isLocalUpdate, setIsLocalUpdate] = useState(false);
-        const [mentionOccurences, setMentionOccurences] = useState(0);
 
         const lastSavedRef = useRef<string | number | null | undefined>(undefined);
         const savingRef = useRef<Promise<void> | null>(null);
@@ -475,8 +474,6 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
                 if (onValueChange) {
                     onValueChange(value);
                 }
-
-                setMentionOccurences(countMentionNodes(editor));
             },
             [editorValue, onChange, onValueChange, saveMentionInputValue]
         );
@@ -586,7 +583,10 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
                 handleClick: (view, pos) => moveCursorToEnd(view, pos),
                 handleDrop,
                 handleKeyPress: (editorView: EditorView, event: KeyboardEvent) => {
-                    const isEditorEmpty = editorView.state.doc.textContent.length === 0 && mentionOccurences === 0;
+                    // Counted from the document itself, so a pill the field was loaded with counts before any edit.
+                    const mentionCount = countMentionNodes(editorView);
+
+                    const isEditorEmpty = editorView.state.doc.textContent.length === 0 && mentionCount === 0;
 
                     if ((event.key === '=' && isEditorEmpty && !singlePill) || isFormulaMode) {
                         return;
@@ -600,7 +600,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
 
                     const restrictsToOnePill = singlePill || type !== 'STRING';
 
-                    if (restrictsToOnePill && (mentionOccurences || event.key !== '$')) {
+                    if (restrictsToOnePill && (mentionCount || event.key !== '$')) {
                         event.preventDefault();
                     }
                 },
