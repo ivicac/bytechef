@@ -96,6 +96,7 @@ type UsePropertyReturnType = {
     handleFromAiClick: ((fromAi: boolean) => void) | undefined;
     handleFormulaSwitch: () => void;
     handleFromAiToggle: (fromAi: boolean, fieldOnChange: (value: string) => void) => void;
+    handleControlledNativeFromAiClick: (fieldOnChange: (value: string) => void) => void;
     handleInputChange: (event: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLTextAreaElement>) => void;
     handleInputClear: () => void;
     handleJsonSchemaBuilderChange: (value?: SchemaRecordType) => void;
@@ -786,6 +787,17 @@ export const useProperty = ({
             updateWorkflowNodeParameterMutation,
             workflow.id,
         ]
+    );
+
+    // A controlled field shows fromAi only through its Formula editor, so turning fromAi on from a native Text-mode
+    // control enters Formula too; the editor then renders "Automatically defined by the model" without the switch.
+    const handleControlledNativeFromAiClick = useCallback(
+        (fieldOnChange: (value: string) => void) => {
+            setIsFormulaMode(true);
+
+            handleFromAiToggle(true, fieldOnChange);
+        },
+        [handleFromAiToggle, setIsFormulaMode]
     );
 
     const handleJsonSchemaBuilderChange = useDebouncedCallback((value?: SchemaRecordType) => {
@@ -1818,6 +1830,7 @@ export const useProperty = ({
         handleControlledBlur,
         handleControlledBuilderFormulaSwitch,
         handleControlledFormulaSwitch,
+        handleControlledNativeFromAiClick,
         handleControlledNativeKeyDown,
         handleDeleteCustomPropertyClick,
         handleFormulaSwitch,
