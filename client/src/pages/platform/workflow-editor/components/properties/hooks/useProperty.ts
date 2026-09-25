@@ -1029,7 +1029,7 @@ export const useProperty = ({
             path,
             successCallback: () => {
                 dispatchValueAction({
-                    mentionInput,
+                    mentionInput: switchingToDynamic,
                     mentionInputValue: '',
                     propertyParameterValue: '',
                     type: 'inputTypeSwitched',
