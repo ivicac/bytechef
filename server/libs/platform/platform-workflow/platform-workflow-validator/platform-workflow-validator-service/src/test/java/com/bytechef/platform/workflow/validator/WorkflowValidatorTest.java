@@ -1121,6 +1121,112 @@ class WorkflowValidatorTest {
     }
 
     @Test
+    void validateTaskParametersBooleanArrayFormulaElementSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "flags": ["=true"]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "flags", "ARRAY", null, false, true, null,
+                List.of(new PropertyInfo(null, "BOOLEAN", null, false, true, null, null))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersBooleanArrayPlainStringStillAddsError() {
+        String taskParameters = """
+            {
+                "flags": ["abc"]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "flags", "ARRAY", null, false, true, null,
+                List.of(new PropertyInfo(null, "BOOLEAN", null, false, true, null, null))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals(
+            "[testTask] Value 'abc' has incorrect type in property 'flags'. Expected: boolean, but got: string",
+            errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersObjectArrayFormulaElementSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "items": [
+                    {
+                        "name": "John"
+                    },
+                    "=someExpr"
+                ]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "items", "ARRAY", null, false, true, null,
+                List.of(new PropertyInfo("name", "STRING", null, false, true, null, null))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
+    void validateTaskParametersUnionTypeObjectArrayFormulaElementSkipsTypeValidation() {
+        String taskParameters = """
+            {
+                "items": [
+                    {
+                        "name": "John"
+                    },
+                    "=someExpr"
+                ]
+            }
+            """;
+
+        List<PropertyInfo> taskDefinition = List.of(
+            new PropertyInfo(
+                "items", "ARRAY", null, false, true, null,
+                List.of(
+                    new PropertyInfo(
+                        "shapeA", "OBJECT", null, false, true, null,
+                        List.of(new PropertyInfo("name", "STRING", null, false, true, null, null))),
+                    new PropertyInfo(
+                        "shapeB", "OBJECT", null, false, true, null,
+                        List.of(new PropertyInfo("age", "INTEGER", null, false, true, null, null))))));
+
+        StringBuilder errors = new StringBuilder();
+        StringBuilder warnings = new StringBuilder();
+
+        TaskValidator.validateTaskParameters("testTask", taskParameters, taskDefinition, errors, warnings);
+
+        assertEquals("", errors.toString());
+        assertEquals("", warnings.toString());
+    }
+
+    @Test
     void validateTaskParametersWrongTypeFormatAddsError() {
         String taskParameters = """
             {
