@@ -53,18 +53,21 @@ interface PropertyMentionsInputProps {
     error?: boolean;
     errorMessage?: string;
     expressionEnabled?: boolean;
+    focusRequest?: {initialInput?: string; token: number};
     handleFromAiClick?: (fromAi: boolean) => void;
     handleInputTypeSwitchButtonClick?: () => void;
     isFromAi?: boolean;
     isFormulaMode?: boolean;
     label?: string;
     leadingIcon?: ReactNode;
+    onSinglePillAbandoned?: () => void;
     onValueChange?: (value: string | number) => void;
     path?: string;
     placeholder?: string;
     required?: boolean;
     setIsFormulaMode?: (isFormulaMode: boolean) => void;
     showInputTypeSwitchButton?: boolean;
+    singlePill?: boolean;
     toolProperty?: boolean;
     type?: string;
     validateBeforeSave?: (value: string | number) => boolean;
@@ -85,18 +88,21 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
             error,
             errorMessage,
             expressionEnabled,
+            focusRequest,
             handleFromAiClick,
             handleInputTypeSwitchButtonClick,
             isFormulaMode,
             isFromAi,
             label,
             leadingIcon,
+            onSinglePillAbandoned,
             onValueChange,
             path,
             placeholder,
             required = false,
             setIsFormulaMode,
             showInputTypeSwitchButton = false,
+            singlePill,
             toolProperty,
             type = 'STRING',
             validateBeforeSave,
@@ -137,9 +143,10 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                     createEditorPillTarget({
                         acceptsPill: () => expressionEnabled !== false && !isFromAi,
                         editor,
+                        singlePill,
                     })
                 ),
-            [expressionEnabled, isFromAi, setPillTarget]
+            [expressionEnabled, isFromAi, setPillTarget, singlePill]
         );
 
         const onFocus = (editor: Editor) => {
@@ -342,17 +349,20 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                             disableAutoSave={disableAutoSave}
                             elementId={elementId}
                             expressionEnabled={expressionEnabled}
+                            focusRequest={focusRequest}
                             handleFromAiClick={handleFromAiClick}
                             isFormulaMode={isFormulaMode}
                             isFromAi={isFromAi}
                             labelId={labelId}
                             onChange={(editorValue) => handleEditorValueChange(editorValue)}
                             onFocus={onFocus}
+                            onSinglePillAbandoned={onSinglePillAbandoned}
                             onValueChange={onValueChange}
                             path={path}
                             placeholder={placeholder}
                             ref={getPropertyMentionsInputEditorRef}
                             setIsFormulaMode={setIsFormulaMode}
+                            singlePill={singlePill}
                             taskDispatcherDefinitions={taskDispatcherDefinitions}
                             toolProperty={toolProperty}
                             type={type}
