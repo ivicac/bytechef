@@ -81,6 +81,9 @@ interface PropertyMentionsInputEditorProps {
     workflow: Workflow;
 }
 
+const isEditorContentMounted = (editor: Editor) =>
+    (editor as Editor & {isEditorContentInitialized?: boolean}).isEditorContentInitialized === true;
+
 const countMentionNodes = (editor: {
     state: {doc: {descendants: (callback: (node: {type: {name: string}}) => void) => void}};
 }) => {
@@ -606,6 +609,16 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             immediatelyRender: false,
             onBlur: ({editor: blurredEditor}) => {
                 isFocusedRef.current = false;
+
+                if (!isEditorContentMounted(blurredEditor)) {
+                    queueMicrotask(() => {
+                        if (!blurredEditor.isDestroyed && isEditorContentMounted(blurredEditor)) {
+                            blurredEditor.commands.focus();
+                        }
+                    });
+
+                    return;
+                }
 
                 if (singlePill && blurredEditor && countMentionNodes(blurredEditor) === 0) {
                     unsavedSuggestionValueRef.current = undefined;
