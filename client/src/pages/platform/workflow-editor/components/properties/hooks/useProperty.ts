@@ -1468,15 +1468,15 @@ export const useProperty = ({
 
         const effectiveValue = parameterValue !== undefined ? parameterValue : valueFromDefinition;
 
+        if (controlType !== 'FORMULA_MODE') {
+            setFormulaModeState(isSavedFormulaValue(effectiveValue));
+        }
+
         if (effectiveValue !== undefined && effectiveValue !== null) {
             if (type === 'BOOLEAN' && typeof effectiveValue === 'boolean') {
                 resolveParameterValue(effectiveValue.toString());
 
                 return;
-            }
-
-            if (isSavedFormulaValue(effectiveValue)) {
-                setFormulaModeState(true);
             }
 
             resolveParameterValue(effectiveValue);
@@ -1486,8 +1486,19 @@ export const useProperty = ({
 
         const fallbackParameterValue = parameterValue !== undefined ? parameterValue : defaultValue;
 
+        dispatchValueAction({type: 'valueCleared'});
+
         resolveParameterValue(fallbackParameterValue);
-    }, [control, currentNode?.parameters, defaultValue, parameterValue, path, resolveParameterValue, type]);
+    }, [
+        control,
+        controlType,
+        currentNode?.parameters,
+        defaultValue,
+        parameterValue,
+        path,
+        resolveParameterValue,
+        type,
+    ]);
 
     // set error state for mention input
     useEffect(() => {

@@ -246,6 +246,63 @@ describe('uncontrolled Text/Formula', () => {
         });
     });
 
+    describe('a reused field whose path changes', () => {
+        beforeEach(() => {
+            useWorkflowNodeDetailsPanelStore.setState({
+                currentNode: {
+                    name: 'math_1',
+                    parameters: {first: '=1 + 1', second: 5},
+                    workflowNodeName: 'math_1',
+                },
+            } as unknown as Partial<ReturnType<typeof useWorkflowNodeDetailsPanelStore.getState>>);
+        });
+
+        it('leaves Formula when the new path holds a plain constant', () => {
+            const {rerender, result} = renderHook(
+                ({path}: {path: string}) => useProperty({path, property: countProperty}),
+                {initialProps: {path: 'first'}, wrapper}
+            );
+
+            expect(result.current.propertyParameterValue).toBe('=1 + 1');
+            expect(result.current.isFormulaMode).toBe(true);
+
+            rerender({path: 'second'});
+
+            expect(result.current.propertyParameterValue).toBe(5);
+            expect(result.current.isFormulaMode).toBe(false);
+            expect(result.current.inputMode.renderer).toBe('native');
+        });
+
+        it('leaves Formula when the new path holds no value', () => {
+            const {rerender, result} = renderHook(
+                ({path}: {path: string}) => useProperty({path, property: countProperty}),
+                {initialProps: {path: 'first'}, wrapper}
+            );
+
+            expect(result.current.isFormulaMode).toBe(true);
+
+            rerender({path: 'missing'});
+
+            expect(result.current.isFormulaMode).toBe(false);
+            expect(result.current.inputMode.renderer).toBe('native');
+        });
+
+        it('keeps a FORMULA_MODE control in Formula on a plain value', () => {
+            const {rerender, result} = renderHook(
+                ({path}: {path: string}) =>
+                    useProperty({
+                        path,
+                        property: {...countProperty, controlType: 'FORMULA_MODE'} as PropertyAllType,
+                    }),
+                {initialProps: {path: 'first'}, wrapper}
+            );
+
+            rerender({path: 'second'});
+
+            expect(result.current.isFormulaMode).toBe(true);
+        });
+    });
+
     describe('a switch inside the save debounce', () => {
         afterEach(() => {
             vi.useRealTimers();
