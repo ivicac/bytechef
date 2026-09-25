@@ -10,7 +10,6 @@ import {useRun} from '@/pages/platform/workflow-editor/hooks/useRun';
 import {RequestI, WorkflowEditorProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useDataPillPanelStore from '@/pages/platform/workflow-editor/stores/useDataPillPanelStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
-import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import WorkflowTestRunLeaveDialog from '@/shared/components/WorkflowTestRunLeaveDialog';
@@ -57,7 +56,6 @@ const AutomationWorkflow = () => {
     const leftSidebarOpen = useAutomationWorkflowEditorSidebarStore((state) => state.leftSidebarOpen);
     const setDataPillPanelOpen = useDataPillPanelStore((state) => state.setDataPillPanelOpen);
     const setWorkflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.setWorkflowTestChatPanelOpen);
-    const showBottomPanel = useWorkflowEditorStore((state) => state.showBottomPanel);
 
     const bottomResizablePanelRef = useRef<PanelImperativeHandle>(null);
 
@@ -210,22 +208,20 @@ const AutomationWorkflow = () => {
 
                         <ResizableHandle className="bg-transparent aria-[orientation=horizontal]:-top-1.5 aria-[orientation=horizontal]:h-0" />
 
-                        <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
-                            {(showBottomPanel || workflowIsRunning || workflowTestExecution) && (
-                                <div
-                                    className={twMerge(
-                                        'm-3 flex flex-1 overflow-hidden rounded-lg bg-background',
-                                        leftSidebarOpen && 'ml-0',
-                                        copilotLayoutShifted && 'mr-0'
-                                    )}
-                                >
-                                    <WorkflowExecutionsTestOutput
-                                        onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
-                                        workflowIsRunning={workflowIsRunning}
-                                        workflowTestExecution={workflowTestExecution}
-                                    />
-                                </div>
+                        <ResizablePanel
+                            className={twMerge(
+                                'bg-surface-main px-3 pb-3',
+                                leftSidebarOpen && 'pl-0',
+                                copilotLayoutShifted && 'pr-0'
                             )}
+                            defaultSize={0}
+                            panelRef={bottomResizablePanelRef}
+                        >
+                            <WorkflowExecutionsTestOutput
+                                onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
+                                workflowIsRunning={workflowIsRunning}
+                                workflowTestExecution={workflowTestExecution}
+                            />
                         </ResizablePanel>
                     </ResizablePanelGroup>
                 </div>
