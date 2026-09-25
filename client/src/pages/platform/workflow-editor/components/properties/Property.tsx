@@ -1074,7 +1074,16 @@ const Property = ({
                             label={label || name}
                             leadingIcon={typeIcon}
                             name={name!}
-                            onChange={(value) => handleJsonSchemaBuilderChange(value)}
+                            onChange={(value) => {
+                                // The schema saves through a debounce; until it lands, the drafted schema is the
+                                // builder's content, so a pill must not replace it.
+                                containerHasLocalEntriesRef.current = !isEmptyPillContainerValue({
+                                    controlType: 'JSON_SCHEMA_BUILDER',
+                                    value,
+                                });
+
+                                handleJsonSchemaBuilderChange(value);
+                            }}
                             propertyPath={calculatedPath ?? name}
                             schema={inputValue ? JSON.parse(inputValue) : undefined}
                             title={label || name}
