@@ -81,6 +81,7 @@ import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../../stores/useWorkflowNodeDetailsPanelStore';
 import changeComponentVersion from '../../utils/changeComponentVersion';
+import findWorkflowIssueParameterPaths, {getParameterPathRoot} from '../../utils/findWorkflowIssueParameterPaths';
 import getDataPillPanelNodeOutputs from '../../utils/getDataPillPanelNodeOutputs';
 import getDataPillsFromProperties from '../../utils/getDataPillsFromProperties';
 import getNodeIssues from '../../utils/getNodeIssues';
@@ -752,7 +753,16 @@ export default function useWorkflowNodeDetailsPanel({
                 connections: currentWorkflowNodeConnections,
                 workflowTestConfigurationConnections,
             }),
-            ...getWorkflowIssueErrors(nodeIssues),
+            ...getWorkflowIssueErrors(nodeIssues, (nodeIssue) =>
+                findWorkflowIssueParameterPaths(nodeIssue, currentNode?.parameters).map((parameterPath) => {
+                    const propertyName = getParameterPathRoot(parameterPath);
+                    const property = currentOperationProperties.find(
+                        (operationProperty) => operationProperty.name === propertyName
+                    );
+
+                    return property?.label || propertyName;
+                })
+            ),
         ];
     }, [
         clusterElementMissingRequiredPropertiesData?.clusterElementMissingRequiredProperties,
@@ -761,7 +771,9 @@ export default function useWorkflowNodeDetailsPanel({
         currentNode?.clusterElementType,
         currentNode?.clusterRoot,
         currentNode?.isNestedClusterRoot,
+        currentNode?.parameters,
         currentNode?.workflowNodeName,
+        currentOperationProperties,
         currentWorkflowNodeConnections,
         workflowIssues,
         workflowNodeMissingRequiredPropertiesData?.workflowNodeMissingRequiredProperties,
