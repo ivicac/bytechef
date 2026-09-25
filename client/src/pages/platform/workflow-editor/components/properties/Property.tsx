@@ -112,6 +112,7 @@ const Property = ({
         handleControlledBlur,
         handleControlledBuilderFormulaSwitch,
         handleControlledFormulaSwitch,
+        handleControlledNativeFromAiClick,
         handleControlledNativeKeyDown,
         handleDeleteCustomPropertyClick,
         handleFormulaSwitch,
@@ -190,12 +191,41 @@ const Property = ({
 
     const formDisplayConditions = useFormDisplayConditionsContext();
 
+    // An object or array holds other properties: a pill belongs in one of its fields, never over the container.
+    const isPillContainer =
+        controlType === 'OBJECT_BUILDER' || controlType === 'ARRAY_BUILDER' || type === 'FILE_ENTRY';
+
     const nativePillTarget = usePillTarget({
-        acceptsPill: () => !control && expressionEnabled !== false && !isFromAi,
+        acceptsPill: () => !control && !isPillContainer && expressionEnabled !== false && !isFromAi,
         insertPill: insertPillValue,
     });
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
+
+    // A tool field offers fromAi in Text mode too, not only inside the Formula editor. Turning it on swaps the native
+    // control for the "Automatically defined by the model" rendering, so a native control only ever shows the "on" button.
+    const offersFromAi = !!isToolsClusterElement && expressionEnabled !== false;
+
+    const nativeFromAiButton =
+        !control && offersFromAi && handleFromAiClick ? (
+            <FromAiToggleButton isFromAi={false} onToggle={handleFromAiClick} />
+        ) : undefined;
+
+    const getControlledFromAiButton = (fieldOnChange: (value: string) => void) =>
+        control && offersFromAi ? (
+            <FromAiToggleButton isFromAi={false} onToggle={() => handleControlledNativeFromAiClick(fieldOnChange)} />
+        ) : undefined;
+
+    const withFromAiButton = (fromAiButton: ReactNode) =>
+        fromAiButton ? (
+            <>
+                {fromAiButton}
+
+                {deletePropertyButton}
+            </>
+        ) : (
+            deletePropertyButton
+        );
 
     const handleCopilotApply = useCallback(
         (value: string) => {
@@ -332,13 +362,7 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <div
-                    className="contents"
-                    onDragOver={nativePillTarget.onDragOver}
-                    onDrop={nativePillTarget.onDrop}
-                    onFocusCapture={nativePillTarget.onFocusCapture}
-                    ref={nativePillTarget.ref}
-                >
+                <div className="contents" {...(isPillContainer ? {} : nativePillTarget.targetProps)}>
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||
@@ -682,14 +706,16 @@ const Property = ({
                                                 showInputTypeSwitchButton={showFormulaSwitch}
                                                 title={type}
                                                 trailingAction={
-                                                    showFromAi && expressionEnabled !== false ? (
-                                                        <FromAiToggleButton
-                                                            isFromAi={!!isFieldFromAi}
-                                                            onToggle={(fromAi) =>
-                                                                handleFromAiToggle(fromAi, fieldOnChange)
-                                                            }
-                                                        />
-                                                    ) : undefined
+                                                    showFromAi
+                                                        ? expressionEnabled !== false && (
+                                                              <FromAiToggleButton
+                                                                  isFromAi={!!isFieldFromAi}
+                                                                  onToggle={(fromAi) =>
+                                                                      handleFromAiToggle(fromAi, fieldOnChange)
+                                                                  }
+                                                              />
+                                                          )
+                                                        : getControlledFromAiButton(fieldOnChange)
                                                 }
                                                 type={hidden ? 'hidden' : getInputHTMLType(controlType)}
                                                 value={isFieldFromAi ? strippedFromAiValue : strippedDisplayValue}
@@ -738,7 +764,7 @@ const Property = ({
                                 <PropertyComboBox
                                     arrayIndex={arrayIndex}
                                     defaultValue={defaultValue}
-                                    deletePropertyButton={deletePropertyButton}
+                                    deletePropertyButton={withFromAiButton(getControlledFromAiButton(onChange))}
                                     description={description}
                                     error={!!fieldState.error || hasError}
                                     errorMessage={fieldState.error?.message || errorMessage}
@@ -782,7 +808,7 @@ const Property = ({
                             name={calculatedPath}
                             render={({field: {name, onChange, value: fieldValue}}) => (
                                 <PropertySelect
-                                    deletePropertyButton={deletePropertyButton}
+                                    deletePropertyButton={withFromAiButton(getControlledFromAiButton(onChange))}
                                     description={description}
                                     handleInputTypeSwitchButtonClick={() =>
                                         handleControlledFormulaSwitch(fieldValue, onChange)
@@ -921,7 +947,7 @@ const Property = ({
                             render={({field: {onChange, value}}) => (
                                 <PropertyMultiSelect
                                     defaultValue={(value as string[]) || []}
-                                    deletePropertyButton={deletePropertyButton}
+                                    deletePropertyButton={withFromAiButton(getControlledFromAiButton(onChange))}
                                     handleInputTypeSwitchButtonClick={() =>
                                         handleControlledFormulaSwitch(value, onChange)
                                     }
@@ -974,15 +1000,21 @@ const Property = ({
                             trailingAction={
                                 // Chrome's <input type="time"> has no native clear button.
                                 controlType === 'TIME' && inputValue && !hidden ? (
-                                    <button
-                                        aria-label="Clear time"
-                                        className="flex items-center px-2 text-muted-foreground hover:text-foreground"
-                                        onClick={handleInputClear}
-                                        type="button"
-                                    >
-                                        <XIcon className="size-4" />
-                                    </button>
-                                ) : undefined
+                                    <>
+                                        <button
+                                            aria-label="Clear time"
+                                            className="flex items-center px-2 text-muted-foreground hover:text-foreground"
+                                            onClick={handleInputClear}
+                                            type="button"
+                                        >
+                                            <XIcon className="size-4" />
+                                        </button>
+
+                                        {nativeFromAiButton}
+                                    </>
+                                ) : (
+                                    nativeFromAiButton
+                                )
                             }
                             type={hidden ? 'hidden' : getInputHTMLType(controlType)}
                             value={inputValue}
@@ -1026,7 +1058,7 @@ const Property = ({
                         <PropertyComboBox
                             arrayIndex={arrayIndex}
                             defaultValue={defaultValue}
-                            deletePropertyButton={deletePropertyButton}
+                            deletePropertyButton={withFromAiButton(nativeFromAiButton)}
                             description={description}
                             error={hasError}
                             errorMessage={errorMessage}
@@ -1060,7 +1092,7 @@ const Property = ({
                     {!control && controlType === 'SELECT' && type === 'BOOLEAN' && (
                         <PropertySelect
                             defaultValue={defaultValue?.toString()}
-                            deletePropertyButton={deletePropertyButton}
+                            deletePropertyButton={withFromAiButton(nativeFromAiButton)}
                             description={description}
                             handleInputTypeSwitchButtonClick={handleFormulaSwitch}
                             label={label || name}
@@ -1095,7 +1127,7 @@ const Property = ({
                     {!control && controlType === 'MULTI_SELECT' && (
                         <PropertyMultiSelect
                             defaultValue={propertyParameterValue as string[]}
-                            deletePropertyButton={deletePropertyButton}
+                            deletePropertyButton={withFromAiButton(nativeFromAiButton)}
                             handleInputTypeSwitchButtonClick={handleFormulaSwitch}
                             leadingIcon={typeIcon}
                             lookupDependsOnPaths={optionsDataSource?.optionsLookupDependsOn?.map(
