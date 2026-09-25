@@ -3,6 +3,7 @@ import {buildLoginPath} from '@/shared/auth/login-redirect-utils';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {getCookie} from '@/shared/util/cookie-utils';
 import recordWorkflowNodeLookupResult from '@/shared/util/recordWorkflowNodeLookupResult';
+import {isInlineTestOutputGraphQlError, isInlineTestOutputUrl} from '@/shared/util/testOutputInlineErrors';
 import fetchIntercept from 'fetch-intercept';
 import {useEffect, useRef} from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -39,7 +40,8 @@ function isCsrfProtectedUrl(url: string): boolean {
  *    self-heals it (see sendPresence in inFlightRunClient.ts);
  *  - the AI Hub `/status` poll runs every few seconds for the focused chat and every 20s for the
  *    sidebar, and degrades a failed batch to "no statuses" on purpose (see probeStatusBatch);
- *    surfacing each failed tick would toast repeatedly for a condition the poll already recovers from.
+ *    surfacing each failed tick would toast repeatedly for a condition the poll already recovers from;
+ *  - a workflow node's Test / Reset shows its failure in the Output tab (see testOutputInlineErrors.ts).
  *
  * The AI Hub `/attach` stream needs no entry here: it is an EventSource, which never passes through
  * the patched window.fetch.
@@ -48,7 +50,8 @@ function handlesErrorInline(url: string): boolean {
     return (
         url.includes('/approval-form/') ||
         url.includes('/ai/chat/ai_hub/status') ||
-        /\/ai\/chat\/ai_hub\/[^/]+\/presence/.test(url)
+        /\/ai\/chat\/ai_hub\/[^/]+\/presence/.test(url) ||
+        isInlineTestOutputUrl(url)
     );
 }
 
@@ -62,6 +65,7 @@ const AUTHENTICATION_REQUIRED_ERROR_CODE = 'AUTHENTICATION_REQUIRED';
 interface GraphQlErrorI {
     extensions?: {errorCode?: string};
     message?: string;
+    path?: Array<string | number>;
 }
 
 function isAuthenticationError(error: GraphQlErrorI): boolean {
@@ -216,6 +220,10 @@ export default function useFetchInterceptor() {
                                 clearAuthentication();
                                 clearCurrentWorkspaceId();
 
+                                return;
+                            }
+
+                            if (errors.length && errors.every(isInlineTestOutputGraphQlError)) {
                                 return;
                             }
 
