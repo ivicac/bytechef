@@ -146,7 +146,7 @@ describe('controlled Formula switch', () => {
         const countsProperty = {
             controlType: 'ARRAY_BUILDER',
             expressionEnabled: true,
-            items: [{controlType: 'INTEGER', expressionEnabled: true, type: 'INTEGER'}],
+            items: [countProperty],
             label: 'Counts',
             name: 'counts',
             type: 'ARRAY',
