@@ -214,7 +214,7 @@ describe('GraphTransitionPopover', () => {
     it('switches the To field to the shared formula editor addressed at this transition', async () => {
         renderPopover([{from: 'task_1', to: 'task_2'}]);
 
-        await userEvent.click(screen.getByRole('switch', {name: 'Dynamic'}));
+        await userEvent.click(screen.getByRole('switch', {name: 'Formula'}));
 
         expect(screen.getByTestId('to-property')).toBeInTheDocument();
 
@@ -236,7 +236,7 @@ describe('GraphTransitionPopover', () => {
     it('keeps a saved expression when the To field is switched back to the member list', async () => {
         renderPopover([{from: 'task_1', to: '=nextStep'}]);
 
-        await userEvent.click(screen.getByRole('switch', {name: 'Dynamic'}));
+        await userEvent.click(screen.getByRole('switch', {name: 'Formula'}));
 
         expect(screen.getByRole('combobox', {name: 'To'})).toBeInTheDocument();
         expect(saveGraphTransitionsMock).not.toHaveBeenCalled();
