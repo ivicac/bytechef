@@ -10,7 +10,7 @@ import {PropertyAllType} from '@/shared/types';
 import {render} from '@/shared/util/test-utils';
 import {act} from '@testing-library/react';
 import {useForm} from 'react-hook-form';
-import {beforeEach, describe, expect, it} from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 const countProperty = {
     controlType: 'INTEGER',
