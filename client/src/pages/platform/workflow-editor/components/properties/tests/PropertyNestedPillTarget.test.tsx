@@ -55,6 +55,14 @@ const schemaProperty = {
     type: 'STRING',
 } as PropertyAllType;
 
+const customObjectProperty = {
+    controlType: 'OBJECT_BUILDER',
+    expressionEnabled: true,
+    label: 'Headers',
+    name: 'headers',
+    type: 'OBJECT',
+} as PropertyAllType;
+
 const dataPillTransfer = (mentionId: string) => ({
     getData: () => JSON.stringify({mentionId}),
     types: ['application/bytechef-datapill'],
@@ -100,6 +108,11 @@ const ControlledArrayWrapper = () => {
         </FormProvider>
     );
 };
+
+const setParameters = (parameters: Record<string, unknown>) =>
+    useWorkflowNodeDetailsPanelStore.setState({
+        currentNode: {name: 'node_1', parameters, workflowNodeName: 'node_1'},
+    } as unknown as Partial<ReturnType<typeof useWorkflowNodeDetailsPanelStore.getState>>);
 
 const savedPaths = () => (saveProperty as unknown as Mock).mock.calls.map(([request]) => request.path);
 
@@ -232,6 +245,128 @@ describe('pill target inside an object or array builder', () => {
 
         expect(savedPaths()).not.toContain('schema');
         expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(previousTarget);
+    });
+
+    it('a pill clicked after focusing the add item button of an empty array becomes the whole array value', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        act(() => screen.getByRole('button', {name: /add array item/i}).focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.items'));
+
+        await settle();
+
+        expect(saveProperty).toHaveBeenCalledWith(
+            expect.objectContaining({path: 'counts', value: '${trigger_1.items}'})
+        );
+        expect(container.querySelector('.ProseMirror')?.textContent).toContain('trigger_1.items');
+    });
+
+    it('a pill dropped on an empty array becomes the whole array value', async () => {
+        setParameters({counts: []});
+
+        const {container} = renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        fireEvent.drop(screen.getByRole('button', {name: /add array item/i}), {
+            dataTransfer: dataPillTransfer('trigger_1.items'),
+        });
+
+        await settle();
+
+        expect(savedPaths()).toEqual(['counts']);
+        expect(saveProperty).toHaveBeenCalledWith(expect.objectContaining({value: '${trigger_1.items}'}));
+        expect(container.querySelector('.ProseMirror')).not.toBeNull();
+    });
+
+    it('a pill clicked after focusing the add property button of an empty object becomes the whole object value', async () => {
+        setParameters({headers: {}});
+
+        const {container} = renderUncontrolled(customObjectProperty);
+
+        await settle();
+
+        act(() => screen.getByRole('button', {name: /add .*object property/i}).focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.headers'));
+
+        await settle();
+
+        expect(saveProperty).toHaveBeenCalledWith(
+            expect.objectContaining({path: 'headers', value: '${trigger_1.headers}'})
+        );
+        expect(container.querySelector('.ProseMirror')).not.toBeNull();
+    });
+
+    it('a pill dropped on an empty object becomes the whole object value', async () => {
+        setParameters({headers: {}});
+
+        renderUncontrolled(customObjectProperty);
+
+        await settle();
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        fireEvent.drop(screen.getByRole('button', {name: /add .*object property/i}), {
+            dataTransfer: dataPillTransfer('trigger_1.headers'),
+        });
+
+        await settle();
+
+        expect(savedPaths()).toEqual(['headers']);
+    });
+
+    it('a pill clicked after focusing a nested field of an empty object still lands in that field', async () => {
+        setParameters({settings: {count: null, text: ''}});
+
+        const {container} = renderUncontrolled(objectProperty);
+
+        await settle();
+
+        act(() => (container.querySelector('input[type=number]') as HTMLInputElement).focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget!.insertPill('trigger_1.count'));
+
+        await settle();
+
+        expect(savedPaths()).toEqual(['settings.count']);
+    });
+
+    it('a non-empty array keeps its value when a pill is clicked or dropped after its add item button', async () => {
+        renderUncontrolled(arrayProperty);
+
+        await settle();
+
+        const addItemButton = screen.getByRole('button', {name: /add array item/i});
+
+        act(() => addItemButton.focus());
+
+        (saveProperty as unknown as Mock).mockClear();
+
+        const pillTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+        if (pillTarget?.acceptsPill()) {
+            act(() => pillTarget.insertPill('trigger_1.items'));
+        }
+
+        fireEvent.drop(addItemButton, {dataTransfer: dataPillTransfer('trigger_1.items')});
+
+        await settle();
+
+        expect(savedPaths()).not.toContain('counts');
     });
 
     it('a controlled array does not become the pill target when its add item button is focused', async () => {

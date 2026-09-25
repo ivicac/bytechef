@@ -7,6 +7,8 @@ import {useShallow} from 'zustand/react/shallow';
 interface UsePillTargetPropsI {
     acceptsPill: () => boolean;
     insertPill: (mentionId: string) => void;
+    /** A container that rejects pills leaves the previous registration alone instead of replacing it. */
+    registerOnlyWhenAccepting?: boolean;
 }
 
 const DATA_PILL_MIME_TYPE = 'application/bytechef-datapill';
@@ -35,13 +37,19 @@ function originatesInOwnTarget(event: SyntheticEvent<HTMLElement>): boolean {
  * inserts here rather than into whichever editor was focused before, and a dropped pill replaces the value. Spread
  * `targetProps` onto the wrapper element.
  */
-export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPropsI) {
+export default function usePillTarget({
+    acceptsPill,
+    insertPill,
+    registerOnlyWhenAccepting = false,
+}: UsePillTargetPropsI) {
     const acceptsPillRef = useRef(acceptsPill);
     const insertPillRef = useRef(insertPill);
     const ownerTokenRef = useRef<object>({});
+    const registerOnlyWhenAcceptingRef = useRef(registerOnlyWhenAccepting);
 
     acceptsPillRef.current = acceptsPill;
     insertPillRef.current = insertPill;
+    registerOnlyWhenAcceptingRef.current = registerOnlyWhenAccepting;
 
     const {clearPillTarget, setPillTarget} = useWorkflowNodeDetailsPanelStore(
         useShallow((state) => ({
@@ -53,6 +61,10 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
     const onFocusCapture = useCallback(
         (event: FocusEvent<HTMLElement>) => {
             if (!originatesInOwnTarget(event)) {
+                return;
+            }
+
+            if (registerOnlyWhenAcceptingRef.current && !acceptsPillRef.current()) {
                 return;
             }
 

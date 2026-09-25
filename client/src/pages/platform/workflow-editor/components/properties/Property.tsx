@@ -31,6 +31,8 @@ import getPropertyKey from '@/pages/platform/workflow-editor/components/properti
 import usePillTarget from '@/pages/platform/workflow-editor/components/properties/hooks/usePillTarget';
 import useProperty from '@/pages/platform/workflow-editor/components/properties/hooks/useProperty';
 import isDynamicPropertiesQueryEnabled from '@/pages/platform/workflow-editor/components/properties/isDynamicPropertiesQueryEnabled';
+import {isEmptyPillContainerValue} from '@/pages/platform/workflow-editor/components/properties/pillContainerValue';
+import {encodeParameters, encodePath, safeResolvePath} from '@/pages/platform/workflow-editor/utils/encodingUtils';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
 import resolveExpressionValue from '@/pages/platform/workflow-editor/utils/resolveExpressionValue';
 import {ERROR_MESSAGES} from '@/shared/errorMessages';
@@ -189,16 +191,36 @@ const Property = ({
 
     const formDisplayConditions = useFormDisplayConditionsContext();
 
-    // An object, array or schema builder holds other fields: a pill belongs in one of them, never over the container.
+    // An object, array or schema builder holds other fields: a pill belongs in one of them. Only an empty container
+    // takes a pill as its whole value, and only from its own controls (the nested fields are targets of their own).
     const isPillContainer =
         controlType === 'OBJECT_BUILDER' ||
         controlType === 'ARRAY_BUILDER' ||
         controlType === 'JSON_SCHEMA_BUILDER' ||
         type === 'FILE_ENTRY';
 
+    const isPillContainerEmpty = () => {
+        const parameters = currentNode?.parameters;
+
+        const containerValue =
+            parameters && calculatedPath
+                ? safeResolvePath(encodeParameters(parameters), encodePath(calculatedPath))
+                : undefined;
+
+        return isEmptyPillContainerValue({
+            controlType: type === 'FILE_ENTRY' ? 'FILE_ENTRY' : controlType,
+            definedPropertyNames: property.properties
+                ?.map((subProperty) => subProperty.name)
+                .filter((subPropertyName): subPropertyName is string => !!subPropertyName),
+            value: containerValue,
+        });
+    };
+
     const nativePillTarget = usePillTarget({
-        acceptsPill: () => !control && !isPillContainer && expressionEnabled !== false && !isFromAi,
+        acceptsPill: () =>
+            !control && expressionEnabled !== false && !isFromAi && (!isPillContainer || isPillContainerEmpty()),
         insertPill: insertPillValue,
+        registerOnlyWhenAccepting: isPillContainer,
     });
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
@@ -363,7 +385,7 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <div className="contents" {...(isPillContainer ? {} : nativePillTarget.targetProps)}>
+                <div className="contents" {...nativePillTarget.targetProps}>
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||
