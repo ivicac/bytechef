@@ -697,6 +697,15 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
 
             appliedFocusTokenRef.current = focusRequest.token;
 
+            const pendingValue = typeof value === 'string' && value.startsWith('=') ? value.substring(1) : value;
+
+            if (typeof pendingValue === 'string' && pendingValue !== editorValueRef.current) {
+                editor.commands.setContent(getContent(pendingValue) ?? '', {
+                    emitUpdate: false,
+                    parseOptions: {preserveWhitespace: 'full'},
+                });
+            }
+
             editor.view.dom.focus({preventScroll: true});
 
             editor.commands.focus('end');
@@ -704,6 +713,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             if (focusRequest.initialInput) {
                 editor.commands.insertContent(focusRequest.initialInput);
             }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [editor, focusRequest]);
 
         useEffect(() => {
