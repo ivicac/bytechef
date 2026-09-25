@@ -9,8 +9,9 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 const hoisted = vi.hoisted(() => {
     const panelStoreState = {
+        clearPillTarget: vi.fn(),
         currentNode: {} as Record<string, unknown>,
-        setFocusedInput: vi.fn(),
+        setPillTarget: vi.fn(),
         workflowNodeDetailsPanelOpen: true,
     };
 
