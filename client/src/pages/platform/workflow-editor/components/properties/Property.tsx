@@ -180,7 +180,6 @@ const Property = ({
     });
 
     const propertyCopilotAnchorRef = useRef<HTMLDivElement>(null);
-    const controlledPillInsertRef = useRef<((mentionId: string) => void) | null>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
@@ -189,8 +188,8 @@ const Property = ({
     const formDisplayConditions = useFormDisplayConditionsContext();
 
     const nativePillTarget = usePillTarget({
-        acceptsPill: () => expressionEnabled !== false && !isFromAi,
-        insertPill: control ? (mentionId) => controlledPillInsertRef.current?.(mentionId) : insertPillValue,
+        acceptsPill: () => !control && expressionEnabled !== false && !isFromAi,
+        insertPill: insertPillValue,
     });
 
     const requiredRule = required ? ERROR_MESSAGES.PROPERTY.FIELD_REQUIRED : false;
@@ -557,8 +556,6 @@ const Property = ({
 
                                     const {onChange: fieldOnChange, ...fieldRest} = field;
 
-                                    controlledPillInsertRef.current = (mentionId) => fieldOnChange(`\${${mentionId}}`);
-
                                     let inputPlaceholder =
                                         placeholder || `Type ${isNumericalInput ? 'a number' : 'something'}...`;
 
@@ -734,50 +731,44 @@ const Property = ({
                                 render={({
                                     field: {name: fieldName, onBlur, onChange, value: fieldValue},
                                     fieldState,
-                                }) => {
-                                    controlledPillInsertRef.current = (mentionId) => onChange(`\${${mentionId}}`);
+                                }) => (
+                                    <PropertyComboBox
+                                        arrayIndex={arrayIndex}
+                                        defaultValue={defaultValue}
+                                        deletePropertyButton={deletePropertyButton}
+                                        description={description}
+                                        error={!!fieldState.error || hasError}
+                                        errorMessage={fieldState.error?.message || errorMessage}
+                                        handleInputTypeSwitchButtonClick={() => {
+                                            onChange('=');
+                                            handleControlledModeSwitch(true);
+                                        }}
+                                        label={label || fieldName}
+                                        leadingIcon={typeIcon}
+                                        lookupDependsOnPaths={optionsDataSource?.optionsLookupDependsOn?.map(
+                                            (optionLookupDependency) =>
+                                                optionLookupDependency.replace('[index]', `[${arrayIndex}]`)
+                                        )}
+                                        lookupDependsOnValues={lookupDependsOnValues}
+                                        name={fieldName}
+                                        onBlur={onBlur}
+                                        onValueChange={(value) => {
+                                            onChange(value);
 
-                                    return (
-                                        <PropertyComboBox
-                                            arrayIndex={arrayIndex}
-                                            defaultValue={defaultValue}
-                                            deletePropertyButton={deletePropertyButton}
-                                            description={description}
-                                            error={!!fieldState.error || hasError}
-                                            errorMessage={fieldState.error?.message || errorMessage}
-                                            handleInputTypeSwitchButtonClick={() => {
-                                                onChange('=');
-                                                handleControlledModeSwitch(true);
-                                            }}
-                                            label={label || fieldName}
-                                            leadingIcon={typeIcon}
-                                            lookupDependsOnPaths={optionsDataSource?.optionsLookupDependsOn?.map(
-                                                (optionLookupDependency) =>
-                                                    optionLookupDependency.replace('[index]', `[${arrayIndex}]`)
-                                            )}
-                                            lookupDependsOnValues={lookupDependsOnValues}
-                                            name={fieldName}
-                                            onBlur={onBlur}
-                                            onValueChange={(value) => {
-                                                onChange(value);
-
-                                                setSelectValue(value);
-                                            }}
-                                            options={(formattedOptions as Array<Option>) || []}
-                                            optionsDataSource={optionsDataSource}
-                                            optionsLoadedDynamically={optionsLoadedDynamically}
-                                            path={calculatedPath}
-                                            propertyName={name}
-                                            required={required}
-                                            showInputTypeSwitchButton={
-                                                isToolsClusterElement && expressionEnabled !== false
-                                            }
-                                            value={fieldValue !== undefined ? fieldValue : selectValue}
-                                            workflowId={workflow.id!}
-                                            workflowNodeName={currentNode?.name ?? ''}
-                                        />
-                                    );
-                                }}
+                                            setSelectValue(value);
+                                        }}
+                                        options={(formattedOptions as Array<Option>) || []}
+                                        optionsDataSource={optionsDataSource}
+                                        optionsLoadedDynamically={optionsLoadedDynamically}
+                                        path={calculatedPath}
+                                        propertyName={name}
+                                        required={required}
+                                        showInputTypeSwitchButton={isToolsClusterElement && expressionEnabled !== false}
+                                        value={fieldValue !== undefined ? fieldValue : selectValue}
+                                        workflowId={workflow.id!}
+                                        workflowNodeName={currentNode?.name ?? ''}
+                                    />
+                                )}
                                 rules={{required: requiredRule}}
                             />
                         )}
@@ -791,36 +782,30 @@ const Property = ({
                                 control={control}
                                 defaultValue={defaultValue}
                                 name={calculatedPath}
-                                render={({field: {name, onChange, value: fieldValue}}) => {
-                                    controlledPillInsertRef.current = (mentionId) => onChange(`\${${mentionId}}`);
+                                render={({field: {name, onChange, value: fieldValue}}) => (
+                                    <PropertySelect
+                                        deletePropertyButton={deletePropertyButton}
+                                        description={description}
+                                        handleInputTypeSwitchButtonClick={() => {
+                                            onChange('=');
+                                            handleControlledModeSwitch(true);
+                                        }}
+                                        label={label || name}
+                                        leadingIcon={typeIcon}
+                                        name={name}
+                                        onValueChange={(value) => {
+                                            onChange(value);
 
-                                    return (
-                                        <PropertySelect
-                                            deletePropertyButton={deletePropertyButton}
-                                            description={description}
-                                            handleInputTypeSwitchButtonClick={() => {
-                                                onChange('=');
-                                                handleControlledModeSwitch(true);
-                                            }}
-                                            label={label || name}
-                                            leadingIcon={typeIcon}
-                                            name={name}
-                                            onValueChange={(value) => {
-                                                onChange(value);
-
-                                                setSelectValue(value);
-                                            }}
-                                            options={[
-                                                {label: 'True', value: 'true'},
-                                                {label: 'False', value: 'false'},
-                                            ]}
-                                            showInputTypeSwitchButton={
-                                                isToolsClusterElement && expressionEnabled !== false
-                                            }
-                                            value={fieldValue !== undefined ? fieldValue : selectValue}
-                                        />
-                                    );
-                                }}
+                                            setSelectValue(value);
+                                        }}
+                                        options={[
+                                            {label: 'True', value: 'true'},
+                                            {label: 'False', value: 'false'},
+                                        ]}
+                                        showInputTypeSwitchButton={isToolsClusterElement && expressionEnabled !== false}
+                                        value={fieldValue !== undefined ? fieldValue : selectValue}
+                                    />
+                                )}
                                 rules={{required: requiredRule}}
                             />
                         )}
@@ -846,8 +831,6 @@ const Property = ({
                                 });
 
                                 const {onChange: fieldOnChange, ...fieldRest} = field;
-
-                                controlledPillInsertRef.current = (mentionId) => fieldOnChange(`\${${mentionId}}`);
 
                                 if (showFromAi && (isExpressionMode || isFieldFromAi)) {
                                     return (
@@ -934,33 +917,29 @@ const Property = ({
                             control={control}
                             defaultValue={defaultValue || []}
                             name={calculatedPath}
-                            render={({field: {onChange, value}}) => {
-                                controlledPillInsertRef.current = (mentionId) => onChange(`\${${mentionId}}`);
-
-                                return (
-                                    <PropertyMultiSelect
-                                        defaultValue={(value as string[]) || []}
-                                        deletePropertyButton={deletePropertyButton}
-                                        handleInputTypeSwitchButtonClick={() => {
-                                            handleControlledModeSwitch(true);
-                                        }}
-                                        leadingIcon={typeIcon}
-                                        lookupDependsOnPaths={optionsDataSource?.optionsLookupDependsOn?.map(
-                                            (optionLookupDependency) =>
-                                                optionLookupDependency.replace('[index]', `[${arrayIndex}]`)
-                                        )}
-                                        lookupDependsOnValues={lookupDependsOnValues}
-                                        onChange={onChange}
-                                        options={(formattedOptions as MultiSelectOptionType[]) || []}
-                                        optionsDataSource={optionsDataSource}
-                                        path={calculatedPath}
-                                        property={property}
-                                        showInputTypeSwitchButton={isToolsClusterElement && expressionEnabled !== false}
-                                        value={(value as string[]) || []}
-                                        workflowId={workflow.id!}
-                                    />
-                                );
-                            }}
+                            render={({field: {onChange, value}}) => (
+                                <PropertyMultiSelect
+                                    defaultValue={(value as string[]) || []}
+                                    deletePropertyButton={deletePropertyButton}
+                                    handleInputTypeSwitchButtonClick={() => {
+                                        handleControlledModeSwitch(true);
+                                    }}
+                                    leadingIcon={typeIcon}
+                                    lookupDependsOnPaths={optionsDataSource?.optionsLookupDependsOn?.map(
+                                        (optionLookupDependency) =>
+                                            optionLookupDependency.replace('[index]', `[${arrayIndex}]`)
+                                    )}
+                                    lookupDependsOnValues={lookupDependsOnValues}
+                                    onChange={onChange}
+                                    options={(formattedOptions as MultiSelectOptionType[]) || []}
+                                    optionsDataSource={optionsDataSource}
+                                    path={calculatedPath}
+                                    property={property}
+                                    showInputTypeSwitchButton={isToolsClusterElement && expressionEnabled !== false}
+                                    value={(value as string[]) || []}
+                                    workflowId={workflow.id!}
+                                />
+                            )}
                             rules={{required: requiredRule}}
                         />
                     )}

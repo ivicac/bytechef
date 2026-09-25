@@ -10,6 +10,7 @@ import saveProperty from '@/pages/platform/workflow-editor/utils/saveProperty';
 import {PropertyAllType} from '@/shared/types';
 import {render} from '@/shared/util/test-utils';
 import {act, fireEvent, waitFor} from '@testing-library/react';
+import {useForm} from 'react-hook-form';
 import {type Mock, beforeEach, describe, expect, it, vi} from 'vitest';
 
 const countProperty = {
@@ -36,6 +37,24 @@ const renderUncontrolled = (property: PropertyAllType, parameterValue?: unknown)
             </WorkflowEditorProvider>
         </TooltipProvider>
     );
+
+const ControlledWrapper = ({property}: {property: PropertyAllType}) => {
+    const form = useForm({defaultValues: {count: 5}});
+
+    return (
+        <TooltipProvider>
+            <WorkflowEditorProvider value={workflowEditorProviderTestValue as never}>
+                <Property
+                    control={form.control as never}
+                    controlPath=""
+                    formState={form.formState}
+                    property={property}
+                    toolsMode
+                />
+            </WorkflowEditorProvider>
+        </TooltipProvider>
+    );
+};
 
 describe('native pill target', () => {
     beforeEach(() => {
@@ -100,6 +119,16 @@ describe('native pill target', () => {
         container
             .querySelector('[aria-label="count property"]')
             ?.dispatchEvent(new FocusEvent('focusin', {bubbles: true}));
+
+        const pillTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+        expect(pillTarget === null || pillTarget.acceptsPill() === false).toBe(true);
+    });
+
+    it('a controlled field does not accept pills', () => {
+        const {container} = render(<ControlledWrapper property={countProperty} />);
+
+        fireEvent.focus(container.querySelector('input')!);
 
         const pillTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
 
