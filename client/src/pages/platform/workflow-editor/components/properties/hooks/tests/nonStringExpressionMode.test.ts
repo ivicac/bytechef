@@ -57,10 +57,12 @@ describe('non-string expression mode', () => {
                 {wrapper}
             );
 
-        const pressKey = (result: ReturnType<typeof renderField>['result'], key: string) => {
+        const pressKey = (result: ReturnType<typeof renderField>['result'], key: string, inputValue = '') => {
             const preventDefault = vi.fn();
 
-            act(() => result.current.handleNativeKeyDown({key, preventDefault} as never));
+            act(() =>
+                result.current.handleNativeKeyDown({currentTarget: {value: inputValue}, key, preventDefault} as never)
+            );
 
             return preventDefault;
         };
@@ -123,7 +125,7 @@ describe('non-string expression mode', () => {
         it('should NOT switch when the field already holds a value', () => {
             const {result} = renderField({expressionEnabled: true, parameterValue: 3});
 
-            const preventDefault = pressKey(result, '=');
+            const preventDefault = pressKey(result, '=', '3');
 
             expect(preventDefault).not.toHaveBeenCalled();
             expect(result.current.isFormulaMode).toBe(false);

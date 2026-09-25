@@ -107,7 +107,7 @@ describe('uncontrolled Text/Formula', () => {
 
         const preventDefault = vi.fn();
 
-        act(() => result.current.handleNativeKeyDown({key: '$', preventDefault} as never));
+        act(() => result.current.handleNativeKeyDown({currentTarget: {value: ''}, key: '$', preventDefault} as never));
 
         expect(preventDefault).toHaveBeenCalled();
         expect(result.current.inputMode).toMatchObject({renderer: 'mentions', singlePill: true});
@@ -117,7 +117,9 @@ describe('uncontrolled Text/Formula', () => {
     it('= on an empty number field enters formula mode', () => {
         const {result} = renderCount('');
 
-        act(() => result.current.handleNativeKeyDown({key: '=', preventDefault: vi.fn()} as never));
+        act(() =>
+            result.current.handleNativeKeyDown({currentTarget: {value: ''}, key: '=', preventDefault: vi.fn()} as never)
+        );
 
         expect(result.current.isFormulaMode).toBe(true);
         expect(result.current.editorFocusRequest).toBeDefined();
@@ -128,16 +130,31 @@ describe('uncontrolled Text/Formula', () => {
 
         const preventDefault = vi.fn();
 
-        act(() => result.current.handleNativeKeyDown({key: '$', preventDefault} as never));
+        act(() => result.current.handleNativeKeyDown({currentTarget: {value: '5'}, key: '$', preventDefault} as never));
 
         expect(preventDefault).not.toHaveBeenCalled();
         expect(result.current.inputMode.renderer).toBe('native');
     });
 
+    it('$ right after the saved constant is deleted opens pill entry before the save echoes back', () => {
+        const {result} = renderCount(5);
+
+        const preventDefault = vi.fn();
+
+        act(() => result.current.handleNativeKeyDown({currentTarget: {value: ''}, key: '$', preventDefault} as never));
+
+        expect(result.current.propertyParameterValue).toBe(5);
+        expect(preventDefault).toHaveBeenCalled();
+        expect(result.current.inputMode).toMatchObject({renderer: 'mentions', singlePill: true});
+        expect(result.current.editorFocusRequest?.initialInput).toBe('$');
+    });
+
     it('abandoning pill entry returns to the native control without saving', () => {
         const {result} = renderCount('');
 
-        act(() => result.current.handleNativeKeyDown({key: '$', preventDefault: vi.fn()} as never));
+        act(() =>
+            result.current.handleNativeKeyDown({currentTarget: {value: ''}, key: '$', preventDefault: vi.fn()} as never)
+        );
         act(() => result.current.handleSinglePillAbandoned());
 
         expect(result.current.inputMode.renderer).toBe('native');

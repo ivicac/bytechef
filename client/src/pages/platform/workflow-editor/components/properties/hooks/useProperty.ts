@@ -1067,7 +1067,7 @@ export const useProperty = ({
 
     const handleNativeKeyDown = useCallback(
         (event: KeyboardEvent<HTMLInputElement>) => {
-            const isEmpty = liveValue === '' || liveValue == null;
+            const isEmpty = (event.currentTarget as HTMLInputElement).value === '';
 
             if (
                 !isNumericalInput ||
@@ -1092,7 +1092,7 @@ export const useProperty = ({
 
             requestEditorFocus('$');
         },
-        [expressionEnabled, isNumericalInput, liveValue, requestEditorFocus, setIsFormulaMode]
+        [expressionEnabled, isNumericalInput, requestEditorFocus, setIsFormulaMode]
     );
 
     const handleSinglePillAbandoned = useCallback(() => {
