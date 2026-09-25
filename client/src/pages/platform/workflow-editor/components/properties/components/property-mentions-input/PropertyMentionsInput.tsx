@@ -148,6 +148,8 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
 
         const openDataPillPanel = useOpenDataPillPanel();
 
+        const canvasPropertyEditor = useCanvasPropertyEditorContext();
+
         const registerPillTarget = useCallback(
             (editor: Editor) =>
                 setPillTarget(
@@ -159,8 +161,6 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                 ),
             [setPillTarget, singlePill]
         );
-
-        const canvasPropertyEditor = useCanvasPropertyEditorContext();
 
         const onFocus = (editor: Editor) => {
             registerPillTarget(editor);
