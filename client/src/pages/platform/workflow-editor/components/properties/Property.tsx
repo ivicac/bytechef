@@ -188,8 +188,12 @@ const Property = ({
 
     const formDisplayConditions = useFormDisplayConditionsContext();
 
+    // An object or array holds other properties: a pill belongs in one of its fields, never over the container.
+    const isPillContainer =
+        controlType === 'OBJECT_BUILDER' || controlType === 'ARRAY_BUILDER' || type === 'FILE_ENTRY';
+
     const nativePillTarget = usePillTarget({
-        acceptsPill: () => !control && expressionEnabled !== false && !isFromAi,
+        acceptsPill: () => !control && !isPillContainer && expressionEnabled !== false && !isFromAi,
         insertPill: insertPillValue,
     });
 
@@ -330,13 +334,7 @@ const Property = ({
             )}
 
             {!mentionInput && (
-                <div
-                    className="contents"
-                    onDragOver={nativePillTarget.onDragOver}
-                    onDrop={nativePillTarget.onDrop}
-                    onFocusCapture={nativePillTarget.onFocusCapture}
-                    ref={nativePillTarget.ref}
-                >
+                <div className="contents" {...(isPillContainer ? {} : nativePillTarget.targetProps)}>
                     {!isFormulaMode &&
                         ((controlType === 'OBJECT_BUILDER' && name !== '__item') ||
                             controlType === 'ARRAY_BUILDER' ||

@@ -256,7 +256,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
         }, [value, defaultValue, expressionEnabled, setIsFormulaMode]);
 
         return (
-            <fieldset className={twMerge('w-full', label && 'space-y-1')}>
+            <fieldset className={twMerge('w-full', label && 'space-y-1')} data-pill-target="">
                 {(label || description || showInputTypeSwitchButton) && (
                     <div className={twMerge('flex w-full items-center justify-between', !label && 'justify-end')}>
                         {label && (

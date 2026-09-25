@@ -125,6 +125,48 @@ describe('native pill target', () => {
         expect(pillTarget === null || pillTarget.acceptsPill() === false).toBe(true);
     });
 
+    it('unmounting a field that registered after swapping back from the one-pill editor clears its registration', async () => {
+        const {container, unmount} = renderUncontrolled(countProperty, '${trigger_1.count}');
+
+        await waitFor(() => expect(container.querySelector('.ProseMirror')).not.toBeNull());
+
+        const editorElement = container.querySelector('.ProseMirror') as HTMLElement & {
+            editor: {commands: {clearContent: (emitUpdate: boolean) => void}};
+        };
+
+        act(() => editorElement.focus());
+        act(() => editorElement.editor.commands.clearContent(true));
+        act(() => editorElement.blur());
+
+        await waitFor(() => expect(container.querySelector('input[type=number]')).not.toBeNull());
+
+        fireEvent.focus(container.querySelector('input[type=number]')!);
+
+        const nativeTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+        expect(nativeTarget).not.toBeNull();
+        expect(nativeTarget!.acceptsPill()).toBe(true);
+
+        unmount();
+
+        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBeNull();
+    });
+
+    it('refocusing the field that is already the pill target keeps its registration', () => {
+        const {container} = renderUncontrolled(countProperty, 5);
+
+        const input = container.querySelector('input')!;
+
+        fireEvent.focus(input);
+
+        const firstTarget = useWorkflowNodeDetailsPanelStore.getState().pillTarget;
+
+        fireEvent.blur(input);
+        fireEvent.focus(input);
+
+        expect(useWorkflowNodeDetailsPanelStore.getState().pillTarget).toBe(firstTarget);
+    });
+
     it('a controlled field does not accept pills', () => {
         const {container} = render(<ControlledWrapper property={countProperty} />);
 
