@@ -7,6 +7,7 @@ import OutputTab from './OutputTab';
 
 const hoisted = vi.hoisted(() => ({
     clearTestOutputError: vi.fn(),
+    handleNoOutputNoticeDismiss: vi.fn(),
     outputTabState: {} as Record<string, unknown>,
 }));
 
@@ -15,8 +16,12 @@ vi.mock('./hooks/useOutputTab', () => ({
 }));
 
 vi.mock('@/pages/platform/workflow-editor/components/node-details-tabs/output-tab/OutputSchemaDisplay', () => ({
-    default: ({testErrorAlert}: {testErrorAlert?: ReactNode}) => (
-        <div data-testid="output-schema-display">{testErrorAlert}</div>
+    default: ({testErrorAlert, testNotice}: {testErrorAlert?: ReactNode; testNotice?: ReactNode}) => (
+        <div data-testid="output-schema-display">
+            {testErrorAlert}
+
+            {testNotice}
+        </div>
     ),
 }));
 
@@ -43,10 +48,12 @@ const renderOutputTab = () =>
 beforeEach(() => {
     hoisted.outputTabState = {
         clearTestOutputError: hoisted.clearTestOutputError,
+        handleNoOutputNoticeDismiss: hoisted.handleNoOutputNoticeDismiss,
         outputSchema: undefined,
         setShowUploadDialog: vi.fn(),
         showUploadDialog: false,
         testOutputError: undefined,
+        testReturnedNoOutput: false,
         testing: false,
         workflowNodeOutputIsFetching: false,
     };
@@ -91,5 +98,56 @@ describe('OutputTab', () => {
         await userEvent.click(screen.getByRole('button', {name: 'Dismiss error'}));
 
         expect(hoisted.clearTestOutputError).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the no-data notice above the creation controls when the node has no output schema', async () => {
+        hoisted.outputTabState.testReturnedNoOutput = true;
+
+        renderOutputTab();
+
+        expect(screen.getByRole('alert')).toHaveTextContent('The action ran successfully but returned no data.');
+        expect(screen.getByTestId('output-schema-creation-controls')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', {name: 'Dismiss notice'}));
+
+        expect(hoisted.handleNoOutputNoticeDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the no-data notice to the output schema display when the node has an output schema', async () => {
+        hoisted.outputTabState.outputSchema = outputSchema;
+        hoisted.outputTabState.testReturnedNoOutput = true;
+
+        renderOutputTab();
+
+        expect(screen.getByTestId('output-schema-display')).toHaveTextContent(
+            'The action ran successfully but returned no data.'
+        );
+
+        await userEvent.click(screen.getByRole('button', {name: 'Dismiss notice'}));
+
+        expect(hoisted.handleNoOutputNoticeDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('names a trigger in the no-data notice', () => {
+        hoisted.outputTabState.testReturnedNoOutput = true;
+
+        render(<OutputTab connectionMissing={false} currentNode={{...currentNode, trigger: true}} workflowId="wf-1" />);
+
+        expect(screen.getByRole('alert')).toHaveTextContent('The trigger ran successfully but returned no data.');
+    });
+
+    it('names a tool in the no-data notice', () => {
+        hoisted.outputTabState.testReturnedNoOutput = true;
+
+        render(
+            <OutputTab
+                clusterElementType="tools"
+                connectionMissing={false}
+                currentNode={currentNode}
+                workflowId="wf-1"
+            />
+        );
+
+        expect(screen.getByRole('alert')).toHaveTextContent('The tool ran successfully but returned no data.');
     });
 });
