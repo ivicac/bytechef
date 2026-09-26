@@ -71,9 +71,11 @@ public class CodeFenceStrippingAdvisor implements CallAdvisor {
                 continue;
             }
 
-            AssistantMessage.Builder<?> outputBuilder = output.mutate();
-
-            AssistantMessage strippedOutput = outputBuilder.content(strippedText)
+            AssistantMessage strippedOutput = AssistantMessage.builder()
+                .content(strippedText)
+                .properties(output.getMetadata())
+                .toolCalls(output.getToolCalls())
+                .media(output.getMedia())
                 .build();
 
             strippedGenerations.add(new Generation(strippedOutput, generation.getMetadata()));
