@@ -7,6 +7,7 @@ import DeleteIntegrationAlertDialog from '@/ee/pages/embedded/integration/compon
 import IntegrationTabButtons from '@/ee/pages/embedded/integration/components/integration-header/components/settings-menu/components/IntegrationTabButtons';
 import WorkflowTabButtons from '@/ee/pages/embedded/integration/components/integration-header/components/settings-menu/components/WorkflowTabButtons';
 import {useSettingsMenu} from '@/ee/pages/embedded/integration/components/integration-header/components/settings-menu/hooks/useSettingsMenu';
+import {useCreateIntegrationWorkflow} from '@/ee/pages/embedded/integration/hooks/useCreateIntegrationWorkflow';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import {Integration, Workflow} from '@/ee/shared/middleware/embedded/configuration';
 import {IntegrationWorkflowKeys} from '@/ee/shared/queries/embedded/integrationWorkflows.queries';
@@ -17,21 +18,31 @@ import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {useQueryClient} from '@tanstack/react-query';
 import {SettingsIcon} from 'lucide-react';
-import {useState} from 'react';
+import {ChangeEvent, RefObject, useRef, useState} from 'react';
+import {PanelImperativeHandle} from 'react-resizable-panels';
 import {useShallow} from 'zustand/react/shallow';
 
 interface IntegrationHeaderSettingsMenuProps {
+    bottomResizablePanelRef?: RefObject<PanelImperativeHandle | null>;
     integration: Integration;
     updateWorkflowMutation: UpdateWorkflowMutationType;
     workflow: Workflow;
 }
 
-const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: IntegrationHeaderSettingsMenuProps) => {
+const SettingsMenu = ({
+    bottomResizablePanelRef,
+    integration,
+    updateWorkflowMutation,
+    workflow,
+}: IntegrationHeaderSettingsMenuProps) => {
     const [openDropdownMenu, setOpenDropdownMenu] = useState(false);
+    const [showCreateWorkflowDialog, setShowCreateWorkflowDialog] = useState(false);
     const [showDeleteIntegrationAlertDialog, setShowDeleteIntegrationAlertDialog] = useState(false);
     const [showDeleteWorkflowAlertDialog, setShowDeleteWorkflowAlertDialog] = useState(false);
     const [showEditIntegrationDialog, setShowEditIntegrationDialog] = useState(false);
     const [showIntegrationVersionHistorySheet, setShowIntegrationVersionHistorySheet] = useState(false);
+
+    const workflowFileInputRef = useRef<HTMLInputElement>(null);
 
     const {setShowEditWorkflowDialog, showEditWorkflowDialog} = useWorkflowEditorStore(
         useShallow((state) => ({
@@ -39,6 +50,11 @@ const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: Integrati
             showEditWorkflowDialog: state.showEditWorkflowDialog,
         }))
     );
+
+    const createIntegrationWorkflowMutation = useCreateIntegrationWorkflow({
+        bottomResizablePanelRef,
+        integrationId: integration.id!,
+    });
 
     const queryClient = useQueryClient();
 
@@ -48,6 +64,16 @@ const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: Integrati
         handleDeleteWorkflowAlertDialogClick,
         handleImportWorkflow,
     } = useSettingsMenu({integration, workflow});
+
+    const handleWorkflowFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files?.length) {
+            handleImportWorkflow(await event.target.files[0].text());
+
+            if (workflowFileInputRef.current) {
+                workflowFileInputRef.current.value = '';
+            }
+        }
+    };
 
     return (
         <>
@@ -65,7 +91,7 @@ const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: Integrati
                     <TooltipContent>Integration and workflow settings</TooltipContent>
                 </Tooltip>
 
-                <DropdownMenuContent className="p-0">
+                <DropdownMenuContent align="end" className="p-0">
                     <Tabs aria-label="Settings menu" defaultValue="workflow">
                         <TabsList className="rounded-none">
                             <TabsTrigger
@@ -98,14 +124,33 @@ const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: Integrati
                             <IntegrationTabButtons
                                 onCloseDropdownMenuClick={() => setOpenDropdownMenu(false)}
                                 onDeleteIntegrationClick={() => setShowDeleteIntegrationAlertDialog(true)}
-                                onImportWorkflow={handleImportWorkflow}
+                                onImportWorkflowClick={() => workflowFileInputRef.current?.click()}
+                                onNewWorkflowClick={() => setShowCreateWorkflowDialog(true)}
                                 onShowEditIntegrationDialogClick={() => setShowEditIntegrationDialog(true)}
                                 onShowIntegrationVersionHistorySheet={() => setShowIntegrationVersionHistorySheet(true)}
+                                workflowCreationEnabled={!integration.codeWorkflow}
                             />
                         </TabsContent>
                     </Tabs>
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            <input
+                accept=".json,.yaml,.yml"
+                className="hidden"
+                onChange={handleWorkflowFileChange}
+                ref={workflowFileInputRef}
+                type="file"
+            />
+
+            {showCreateWorkflowDialog && (
+                <WorkflowDialog
+                    createWorkflowMutation={createIntegrationWorkflowMutation}
+                    onClose={() => setShowCreateWorkflowDialog(false)}
+                    parentId={integration.id}
+                    useGetWorkflowQuery={useGetWorkflowQuery}
+                />
+            )}
 
             {showDeleteIntegrationAlertDialog && (
                 <DeleteIntegrationAlertDialog

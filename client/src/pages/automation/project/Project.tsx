@@ -87,7 +87,6 @@ const Project = () => {
                 >
                     {sidebarLoaded && (
                         <ProjectsLeftSidebar
-                            bottomResizablePanelRef={bottomResizablePanelRef}
                             currentWorkflowId={workflow.id!}
                             onProjectClick={handleProjectClick}
                             projectId={projectId}

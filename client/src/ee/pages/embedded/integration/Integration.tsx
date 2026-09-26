@@ -75,7 +75,6 @@ const Integration = () => {
                 >
                     {sidebarLoaded && (
                         <IntegrationsLeftSidebar
-                            bottomResizablePanelRef={bottomResizablePanelRef}
                             currentWorkflowId={workflow.id!}
                             integrationId={integrationId}
                             onIntegrationClick={handleIntegrationClick}

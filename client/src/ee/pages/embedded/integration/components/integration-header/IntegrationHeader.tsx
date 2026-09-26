@@ -74,6 +74,15 @@ const IntegrationHeader = ({
     });
 
     const isOnline = onlineManager.isOnline();
+    const settingsMenuVisible = !integration?.codeWorkflow;
+
+    const loadingIndicator = (isFetching > 0 || !isOnline) && (
+        <LoadingIndicator
+            className="absolute -top-1 -right-1 size-5 rounded-full"
+            isFetching={isFetching}
+            isOnline={isOnline}
+        />
+    );
 
     if (!integration) {
         return <IntegrationSkeleton />;
@@ -107,21 +116,6 @@ const IntegrationHeader = ({
             <div className="flex items-center gap-1">
                 {integration?.codeWorkflow && <CodeWorkflowHeaderActions />}
 
-                <LoadingIndicator isFetching={isFetching} isOnline={isOnline} />
-
-                {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export); a code
-                 * workflow's workflows are defined by its source, so it is hidden. */}
-
-                {!integration?.codeWorkflow && (
-                    <SettingsMenu
-                        integration={integration}
-                        updateWorkflowMutation={updateWorkflowMutation}
-                        workflow={workflow as Workflow}
-                    />
-                )}
-
-                <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
-
                 <WorkflowActionsButton
                     chatTrigger={chatTrigger ?? false}
                     leadingAction={integration?.codeWorkflow ? <CodeWorkflowSaveButton /> : undefined}
@@ -135,6 +129,28 @@ const IntegrationHeader = ({
                     isPending={publishIntegrationMutationIsPending}
                     onPublishIntegrationSubmit={handlePublishIntegrationSubmit}
                 />
+
+                <div className="relative">
+                    <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
+
+                    {!settingsMenuVisible && loadingIndicator}
+                </div>
+
+                {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export); a code
+                 * workflow's workflows are defined by its source, so it is hidden. */}
+
+                {settingsMenuVisible && (
+                    <div className="relative">
+                        <SettingsMenu
+                            bottomResizablePanelRef={bottomResizablePanelRef}
+                            integration={integration}
+                            updateWorkflowMutation={updateWorkflowMutation}
+                            workflow={workflow as Workflow}
+                        />
+
+                        {loadingIndicator}
+                    </div>
+                )}
             </div>
         </header>
     );

@@ -1,14 +1,11 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {render, screen, waitFor, within} from '@testing-library/react';
 import React from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectsLeftSidebar from './ProjectsLeftSidebar';
-
-// Simple utility to flush promises
-const flushPromises = () => new Promise((r) => setTimeout(r, 0));
 
 // React Query test client setup
 const createTestQueryClient = () =>
@@ -102,32 +99,8 @@ vi.mock('@/pages/automation/project/components/projects-sidebar/components/Workf
     default: () => <div data-testid="skeleton">Loading...</div>,
 }));
 
-vi.mock('@/shared/components/workflow/WorkflowDialog', () => ({
-    default: () => <div role="dialog">WorkflowDialog</div>,
-}));
-
-const mockAgentDialog = vi.fn();
-vi.mock('@/pages/automation/agents/components/AgentDialog', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        mockAgentDialog(props);
-
-        return <div role="dialog">AgentDialog</div>;
-    },
-}));
-
 vi.mock('@/pages/automation/agents/components/AgentsLeftSidebarDropdownMenu', () => ({
     default: () => null,
-}));
-
-const mockDataSyncDialog = vi.fn();
-vi.mock('@/pages/automation/data-syncs/components/DataSyncDialog', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        mockDataSyncDialog(props);
-
-        return <div role="dialog">DataSyncDialog</div>;
-    },
 }));
 
 vi.mock('@/pages/automation/data-syncs/components/DataSyncsLeftSidebarDropdownMenu', () => ({
@@ -151,11 +124,6 @@ vi.mock('@/shared/queries/automation/projects.queries', async () => ({
     useGetWorkspaceProjectsQuery: (args: any) => mockGetWorkspaceProjectsQuery(args),
 }));
 
-const hasEnabledAiProviderMock = vi.fn();
-vi.mock('@/shared/hooks/useHasEnabledAiProvider', () => ({
-    useHasEnabledAiProvider: () => hasEnabledAiProviderMock(),
-}));
-
 vi.mock('@/shared/queries/automation/workflows.queries', () => ({
     useGetWorkflowQuery: vi.fn(),
 }));
@@ -163,7 +131,6 @@ vi.mock('@/shared/queries/automation/workflows.queries', () => ({
 vi.mock('@/pages/automation/project/components/projects-sidebar/hooks/useProjectsLeftSidebar', () => ({
     useProjectsLeftSidebar: () => ({
         calculateTimeDifference: vi.fn(),
-        createProjectWorkflowMutation: {mutate: vi.fn()},
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getFilteredWorkflows: (workflows: any[]) => workflows || [],
         getWorkflowsProjectId: () => vi.fn(),
@@ -175,15 +142,6 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: any) => selector({currentWorkspaceId: 10}),
 }));
 
-vi.mock('@/shared/mutations/automation/projects.mutations', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    useImportProjectMutation: (opts: any) => ({
-        mutate: vi.fn().mockImplementation(() => {
-            opts?.onSuccess?.();
-        }),
-    }),
-}));
-
 vi.mock('@/shared/mutations/automation/workflows.mutations', () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useCreateProjectWorkflowMutation: (opts: any) => ({
@@ -191,10 +149,6 @@ vi.mock('@/shared/mutations/automation/workflows.mutations', () => ({
             opts?.onSuccess?.();
         }),
     }),
-}));
-
-vi.mock('@/shared/hooks/useAnalytics', () => ({
-    useAnalytics: () => ({captureProjectWorkflowImported: vi.fn()}),
 }));
 
 vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
@@ -260,8 +214,6 @@ const setupQueries = ({
 };
 
 const baseProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bottomResizablePanelRef: {current: null} as any,
     currentWorkflowId: 'w1',
     onProjectClick: vi.fn(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,8 +234,6 @@ describe('ProjectsLeftSidebar', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         queryClient = createTestQueryClient();
-
-        hasEnabledAiProviderMock.mockReturnValue({hasEnabledAiProvider: true, isPending: false});
     });
 
     afterEach(() => {
@@ -318,54 +268,6 @@ describe('ProjectsLeftSidebar', () => {
 
         const items = await screen.findAllByTestId('workflow-item');
         expect(items).toHaveLength(workflows.length);
-    });
-
-    it('shows Workflow button and opens WorkflowDialog on click', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        // Button visible
-        expect(screen.getByText('New Workflow')).toBeInTheDocument();
-
-        // Click primary button to open dialog
-        fireEvent.click(screen.getByText('New Workflow'));
-
-        expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    });
-
-    it('calls import workflow mutation when selecting a file', async () => {
-        setupQueries({selectedProjectId: 3});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={3} />);
-
-        // Open dropdown (chevron) -> Import Workflow. Scoped to the Workflows tab's own creation button
-        // group, since the Agents tab now renders one too.
-        const workflowsTab = screen.getByTestId('tabs-content-workflows');
-        const buttons = within(workflowsTab).getAllByTestId('btn');
-        const chevronBtn = buttons[buttons.length - 1]; // the chevron is rendered after the primary button
-        fireEvent.click(chevronBtn);
-        fireEvent.click(screen.getByText(/Import Workflow/i));
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const input = screen.queryByAltText('file') as any;
-
-        // Fallback: query by selector if role not available due to hidden input
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fileInput = (input ?? (document.querySelector('input[type="file"]') as any)) as HTMLInputElement;
-
-        expect(fileInput).toBeTruthy();
-
-        const content = 'my-definition';
-        const file = new File([content], 'wf.json', {type: 'application/json'});
-
-        // Fire change event
-        fireEvent.change(fileInput, {target: {files: [file]}});
-
-        await flushPromises();
-
-        // onSuccess toast etc. are called within mutation; test by checking that input is reset to empty string
-        await waitFor(() => expect(fileInput.value).toBe(''));
     });
 
     it('updates selectedProjectId when projectId prop changes', async () => {
@@ -508,28 +410,6 @@ describe('ProjectsLeftSidebar', () => {
         expect(items).toHaveLength(projects.length);
     });
 
-    it('disables the Import n8n Workflow item when no AI provider is enabled', async () => {
-        hasEnabledAiProviderMock.mockReturnValue({hasEnabledAiProvider: false, isPending: false});
-        setupQueries({selectedProjectId: 5});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={5} />);
-
-        const menuItem = (await screen.findByText('Import n8n Workflow')).closest('[role="menuitem"]');
-
-        expect(menuItem).toHaveAttribute('aria-disabled', 'true');
-    });
-
-    it('keeps the Import n8n Workflow item enabled while the AI provider check is pending', async () => {
-        hasEnabledAiProviderMock.mockReturnValue({hasEnabledAiProvider: false, isPending: true});
-        setupQueries({selectedProjectId: 5});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={5} />);
-
-        const menuItem = (await screen.findByText('Import n8n Workflow')).closest('[role="menuitem"]');
-
-        expect(menuItem).not.toHaveAttribute('aria-disabled');
-    });
-
     it('shows an Agents tab with a count and lists a project agent when useAgents returns one for it', async () => {
         setupQueries({selectedProjectId: 7});
 
@@ -631,85 +511,18 @@ describe('ProjectsLeftSidebar', () => {
         );
     });
 
-    it('locks New Agent to the project browsed in the sidebar, not the page project', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-project-3'));
-
-        // The Agents tab's own creation button, not a menu item of the Workflows tab's button.
-        fireEvent.click(screen.getByText('New Agent'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(3);
-    });
-
-    it('falls back to the page project when the sidebar is browsing all projects', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-all-projects'));
-
-        fireEvent.click(screen.getByText('New Agent'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(9);
-    });
-
-    it('locks New Data Sync to the project browsed in the sidebar, not the page project', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-project-3'));
-
-        // The Data Syncs tab's own creation button, not a menu item of the Workflows tab's button.
-        fireEvent.click(screen.getByText('New Data Sync'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(3);
-    });
-
-    it('falls back to the page project for a new data sync when the sidebar is browsing all projects', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-all-projects'));
-
-        fireEvent.click(screen.getByText('New Data Sync'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(9);
-    });
-
-    it('opens the template pages with absolute routes', () => {
+    it('offers no creation actions in the sidebar', () => {
         setupQueries({selectedProjectId: 5});
 
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={5} />);
 
-        const templateItems = screen
-            .getAllByRole('menuitem')
-            .filter((menuItem) => /From Template/.test(menuItem.textContent ?? ''));
-
-        expect(templateItems).toHaveLength(2);
-
-        fireEvent.click(templateItems[0]);
-
-        expect(mockNavigate).toHaveBeenCalledWith('/automation/projects/templates');
-
-        fireEvent.click(templateItems[1]);
-
-        expect(mockNavigate).toHaveBeenCalledWith('/automation/projects/5/templates');
+        expect(screen.queryByLabelText('New project')).not.toBeInTheDocument();
+        expect(screen.queryByText('From Template')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import Workflow')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import n8n Workflow')).not.toBeInTheDocument();
+        expect(screen.queryByText('New Workflow')).not.toBeInTheDocument();
+        expect(screen.queryByText('New Agent')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import Agent')).not.toBeInTheDocument();
+        expect(screen.queryByText('New Data Sync')).not.toBeInTheDocument();
     });
 });
