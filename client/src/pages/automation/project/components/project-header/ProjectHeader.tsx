@@ -87,6 +87,15 @@ const ProjectHeader = ({
     });
 
     const isOnline = onlineManager.isOnline();
+    const settingsMenuVisible = !embedded && !codeWorkflow;
+
+    const loadingIndicator = (isFetching > 0 || !isOnline) && (
+        <LoadingIndicator
+            className="absolute -top-1 -right-1 size-5 rounded-full"
+            isFetching={isFetching}
+            isOnline={isOnline}
+        />
+    );
 
     if (!project) {
         return <ProjectSkeleton />;
@@ -142,21 +151,6 @@ const ProjectHeader = ({
             <div className="flex items-center gap-1">
                 {codeWorkflow && <CodeWorkflowHeaderActions />}
 
-                <LoadingIndicator isFetching={isFetching} isOnline={isOnline} />
-
-                {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export,
-                 * error handling); a code workflow's workflows are defined by its source, so it is hidden. */}
-
-                {!embedded && !codeWorkflow && (
-                    <SettingsMenu
-                        project={project}
-                        updateWorkflowMutation={updateWorkflowMutation}
-                        workflow={workflow}
-                    />
-                )}
-
-                <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
-
                 <WorkflowActionsButton
                     chatTrigger={chatTrigger ?? false}
                     leadingAction={codeWorkflow ? <CodeWorkflowSaveButton /> : undefined}
@@ -188,6 +182,28 @@ const ProjectHeader = ({
 
                         <DeployButton project={project} />
                     </ButtonGroup>
+                )}
+
+                <div className="relative">
+                    <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
+
+                    {!settingsMenuVisible && loadingIndicator}
+                </div>
+
+                {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export,
+                 * error handling); a code workflow's workflows are defined by its source, so it is hidden. */}
+
+                {settingsMenuVisible && (
+                    <div className="relative">
+                        <SettingsMenu
+                            bottomResizablePanelRef={bottomResizablePanelRef}
+                            project={project}
+                            updateWorkflowMutation={updateWorkflowMutation}
+                            workflow={workflow}
+                        />
+
+                        {loadingIndicator}
+                    </div>
                 )}
             </div>
         </header>

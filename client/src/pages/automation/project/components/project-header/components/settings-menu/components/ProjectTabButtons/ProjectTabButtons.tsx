@@ -1,6 +1,7 @@
 import '@/shared/styles/dropdownMenu.css';
 import Button from '@/components/Button/Button';
 import {Separator} from '@/components/ui/separator';
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import EEVersion from '@/shared/edition/EEVersion';
 import {useVisibilityFeatureEnabled} from '@/shared/hooks/useVisibilityFeatureEnabled';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
@@ -13,16 +14,27 @@ import {
     GitBranchIcon,
     GitPullRequestArrowIcon,
     HistoryIcon,
+    LayoutTemplateIcon,
     LockIcon,
+    PlusIcon,
     Share2Icon,
     Trash2Icon,
+    UploadIcon,
 } from 'lucide-react';
 import {MouseEvent} from 'react';
 
 const ProjectTabButtons = ({
+    importN8nWorkflowDisabled,
     onCloseDropdownMenuClick,
     onDeleteProjectClick,
     onDuplicateProjectClick,
+    onImportAgentClick,
+    onImportN8nWorkflowClick,
+    onImportWorkflowClick,
+    onNewAgentClick,
+    onNewDataSyncClick,
+    onNewWorkflowClick,
+    onNewWorkflowFromTemplateClick,
     onPullProjectFromGitClick,
     onShareProject,
     onShowEditProjectDialogClick,
@@ -32,10 +44,19 @@ const ProjectTabButtons = ({
     onShowVisibilityDialog,
     projectGitConfigurationEnabled,
     projectId,
+    workflowCreationEnabled,
 }: {
+    importN8nWorkflowDisabled: boolean;
     onCloseDropdownMenuClick: () => void;
     onDeleteProjectClick: () => void;
     onDuplicateProjectClick: () => void;
+    onImportAgentClick: () => void;
+    onImportN8nWorkflowClick: () => void;
+    onImportWorkflowClick: () => void;
+    onNewAgentClick: () => void;
+    onNewDataSyncClick: () => void;
+    onNewWorkflowClick: () => void;
+    onNewWorkflowFromTemplateClick: () => void;
     onPullProjectFromGitClick: () => void;
     onShareProject: () => void;
     onShowEditProjectDialogClick: () => void;
@@ -45,6 +66,7 @@ const ProjectTabButtons = ({
     onShowVisibilityDialog: () => void;
     projectGitConfigurationEnabled: boolean;
     projectId: number;
+    workflowCreationEnabled: boolean;
 }) => {
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.projects);
 
@@ -118,6 +140,90 @@ const ProjectTabButtons = ({
                 icon={<DownloadIcon />}
                 label="Export"
                 onClick={() => (window.location.href = `/api/automation/internal/projects/${projectId}/export`)}
+                variant="ghost"
+            />
+
+            <Separator />
+
+            {workflowCreationEnabled && (
+                <>
+                    <Button
+                        aria-label="New Workflow"
+                        className="dropdown-menu-item"
+                        icon={<PlusIcon />}
+                        label="New Workflow"
+                        onClick={onNewWorkflowClick}
+                        variant="ghost"
+                    />
+
+                    <Button
+                        aria-label="New Workflow from Template"
+                        className="dropdown-menu-item"
+                        icon={<LayoutTemplateIcon />}
+                        label="Workflow from Template"
+                        onClick={onNewWorkflowFromTemplateClick}
+                        variant="ghost"
+                    />
+
+                    <Button
+                        aria-label="Import Workflow"
+                        className="dropdown-menu-item"
+                        icon={<UploadIcon />}
+                        label="Import Workflow"
+                        onClick={onImportWorkflowClick}
+                        variant="ghost"
+                    />
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="block">
+                                <Button
+                                    aria-label="Import n8n Workflow"
+                                    className="dropdown-menu-item w-full"
+                                    disabled={importN8nWorkflowDisabled}
+                                    icon={<UploadIcon />}
+                                    label="Import n8n Workflow"
+                                    onClick={onImportN8nWorkflowClick}
+                                    variant="ghost"
+                                />
+                            </span>
+                        </TooltipTrigger>
+
+                        {importN8nWorkflowDisabled && (
+                            <TooltipContent>Enable an AI provider to import n8n workflows.</TooltipContent>
+                        )}
+                    </Tooltip>
+
+                    <Separator />
+                </>
+            )}
+
+            <Button
+                aria-label="New Agent"
+                className="dropdown-menu-item"
+                icon={<PlusIcon />}
+                label="New Agent"
+                onClick={onNewAgentClick}
+                variant="ghost"
+            />
+
+            <Button
+                aria-label="Import Agent"
+                className="dropdown-menu-item"
+                icon={<UploadIcon />}
+                label="Import Agent"
+                onClick={onImportAgentClick}
+                variant="ghost"
+            />
+
+            <Separator />
+
+            <Button
+                aria-label="New Data Sync"
+                className="dropdown-menu-item"
+                icon={<PlusIcon />}
+                label="New Data Sync"
+                onClick={onNewDataSyncClick}
                 variant="ghost"
             />
 

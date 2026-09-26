@@ -38,11 +38,17 @@ afterEach(() => {
 });
 
 const mockProps = {
-    hiddenFileInputRef: {current: null} as React.RefObject<HTMLInputElement | null>,
+    importN8nWorkflowDisabled: false,
     onCloseDropdownMenuClick: vi.fn(),
     onDeleteProjectClick: vi.fn(),
     onDuplicateProjectClick: vi.fn(),
-    onMembersClick: vi.fn(),
+    onImportAgentClick: vi.fn(),
+    onImportN8nWorkflowClick: vi.fn(),
+    onImportWorkflowClick: vi.fn(),
+    onNewAgentClick: vi.fn(),
+    onNewDataSyncClick: vi.fn(),
+    onNewWorkflowClick: vi.fn(),
+    onNewWorkflowFromTemplateClick: vi.fn(),
     onPullProjectFromGitClick: vi.fn(),
     onShareProject: vi.fn(),
     onShowEditProjectDialogClick: vi.fn(),
@@ -52,6 +58,7 @@ const mockProps = {
     onShowVisibilityDialog: vi.fn(),
     projectGitConfigurationEnabled: false,
     projectId: 123,
+    workflowCreationEnabled: true,
 };
 
 const renderProjectTabButtons = (props = mockProps) => {
@@ -212,5 +219,73 @@ describe('ProjectTabButtons Visibility Item', () => {
         // Anchor: the menu itself rendered, so the absence below is the edition gate and not a failed render.
         expect(screen.getByLabelText('Share ProjectButton')).toBeInTheDocument();
         expect(screen.queryByLabelText('Project Visibility Button')).not.toBeInTheDocument();
+    });
+});
+
+describe('ProjectTabButtons Workflow Creation Section', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        mockUseVisibilityFeatureEnabled.mockReturnValue({enabled: false, isAdmin: false, workspaceId: undefined});
+    });
+
+    it('should call the workflow creation handlers', async () => {
+        renderProjectTabButtons();
+
+        await userEvent.click(screen.getByText('New Workflow'));
+        expect(mockProps.onNewWorkflowClick).toHaveBeenCalled();
+
+        await userEvent.click(screen.getByText('Workflow from Template'));
+        expect(mockProps.onNewWorkflowFromTemplateClick).toHaveBeenCalled();
+
+        await userEvent.click(screen.getByText('Import Workflow'));
+        expect(mockProps.onImportWorkflowClick).toHaveBeenCalled();
+
+        await userEvent.click(screen.getByText('Import n8n Workflow'));
+        expect(mockProps.onImportN8nWorkflowClick).toHaveBeenCalled();
+    });
+
+    it('should disable Import n8n Workflow when no AI provider is enabled', () => {
+        renderProjectTabButtons({...mockProps, importN8nWorkflowDisabled: true});
+
+        expect(screen.getByLabelText('Import n8n Workflow')).toBeDisabled();
+    });
+
+    it('should hide the workflow creation section for a code project', () => {
+        renderProjectTabButtons({...mockProps, workflowCreationEnabled: false});
+
+        expect(screen.queryByText('New Workflow')).not.toBeInTheDocument();
+        expect(screen.queryByText('Workflow from Template')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import Workflow')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import n8n Workflow')).not.toBeInTheDocument();
+    });
+});
+
+describe('ProjectTabButtons Agent and Data Sync Sections', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        mockUseVisibilityFeatureEnabled.mockReturnValue({enabled: false, isAdmin: false, workspaceId: undefined});
+    });
+
+    it('should call the agent and data sync creation handlers', async () => {
+        renderProjectTabButtons();
+
+        await userEvent.click(screen.getByText('New Agent'));
+        expect(mockProps.onNewAgentClick).toHaveBeenCalled();
+
+        await userEvent.click(screen.getByText('Import Agent'));
+        expect(mockProps.onImportAgentClick).toHaveBeenCalled();
+
+        await userEvent.click(screen.getByText('New Data Sync'));
+        expect(mockProps.onNewDataSyncClick).toHaveBeenCalled();
+    });
+
+    it('should keep the agent and data sync sections for a code project', () => {
+        renderProjectTabButtons({...mockProps, workflowCreationEnabled: false});
+
+        expect(screen.getByText('New Agent')).toBeInTheDocument();
+        expect(screen.getByText('Import Agent')).toBeInTheDocument();
+        expect(screen.getByText('New Data Sync')).toBeInTheDocument();
     });
 });
