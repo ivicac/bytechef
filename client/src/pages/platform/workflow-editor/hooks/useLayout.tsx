@@ -577,13 +577,13 @@ export default function useLayout({
                     },
                 });
             } else if (componentName === 'parallel') {
-                const hasSubtasks = parameters?.tasks?.length > 0;
+                const hasMultipleLanes = parameters?.tasks?.length > 1;
 
                 allNodes = createParallelNode({
                     allNodes: [...allNodes, taskNode],
                     isNested,
                     options: {
-                        createLeftGhost: !hasSubtasks,
+                        createLeftGhost: !hasMultipleLanes,
                     },
                     parallelId: taskNode.id,
                 });
@@ -599,14 +599,16 @@ export default function useLayout({
                     },
                 });
             } else if (componentName === 'fork-join') {
-                const hasSubtasks = parameters?.branches?.length > 0;
+                const laneCount = ((parameters?.branches as WorkflowTask[][] | undefined) ?? []).filter(
+                    (branch) => Array.isArray(branch) && branch.length > 0
+                ).length;
 
                 allNodes = createForkJoinNode({
                     allNodes: [...allNodes, taskNode],
                     forkJoinId: taskNode.id,
                     isNested,
                     options: {
-                        createLeftGhost: !hasSubtasks,
+                        createLeftGhost: laneCount <= 1,
                     },
                 });
             } else if (componentName === 'graph') {
@@ -1035,9 +1037,20 @@ export default function useLayout({
             if (lastEdge && lastEdge.target === FINAL_PLACEHOLDER_NODE_ID) {
                 edges.pop();
             }
-
-            ({edges, nodes: layoutNodes} = removeTrailingBranchPlaceholders(layoutNodes, edges));
         }
+
+        // The add-a-branch "+" of a parallel or fork-join with lanes is not laid out as a lane of its
+        // own; the editor offers it as a chip on the last lane (AddBranchChip). The editor keeps the
+        // node in the store, hidden, because the component picker resolves the insert target from it.
+        const layoutWithoutTrailingBranchPlaceholders = removeTrailingBranchPlaceholders(layoutNodes, edges);
+
+        const keptLayoutNodeIds = new Set(layoutWithoutTrailingBranchPlaceholders.nodes.map((node) => node.id));
+
+        const hiddenTrailingBranchPlaceholderNodes: Node[] = readOnlyWorkflow
+            ? []
+            : layoutNodes.filter((node) => !keptLayoutNodeIds.has(node.id)).map((node) => ({...node, hidden: true}));
+
+        ({edges, nodes: layoutNodes} = layoutWithoutTrailingBranchPlaceholders);
 
         // Sync position metadata from the latest workflow definition into layout
         // nodes. storeTasks uses fingerprint equality that ignores position metadata,
@@ -1131,7 +1144,12 @@ export default function useLayout({
         // its edges out of the store for a frame before they flicker back. Graph members escape this
         // because they ARE in `layoutNodes`.
         const newNodeIds = new Set(
-            [...layoutNodes, ...stickyNoteNodes, ...Object.values(nodesByRootId).flat()].map((node) => node.id)
+            [
+                ...layoutNodes,
+                ...hiddenTrailingBranchPlaceholderNodes,
+                ...stickyNoteNodes,
+                ...Object.values(nodesByRootId).flat(),
+            ].map((node) => node.id)
         );
         const prunedNodes = frozenNodes.filter((node) => newNodeIds.has(node.id));
 
@@ -1210,7 +1228,11 @@ export default function useLayout({
                 // shapes and layout errors, so the selection alone is not authoritative.
                 useLayoutEngineStore.getState().setLastAppliedLayoutEngine(elements.engine);
 
-                const targetNodes: Node[] = [...elements.nodes, ...buildCurrentStickyNoteNodes()];
+                const targetNodes: Node[] = [
+                    ...elements.nodes,
+                    ...hiddenTrailingBranchPlaceholderNodes,
+                    ...buildCurrentStickyNoteNodes(),
+                ];
 
                 if (isInitialLayoutRef.current || readOnlyWorkflow) {
                     setNodes(targetNodes);
