@@ -86,6 +86,9 @@ describe('IntegrationMarketplaceView', () => {
         expect(postMessageSpy).not.toHaveBeenCalled();
     });
 
+    // The connect dialog belongs to the HOST page, so connecting or disconnecting happens where this
+    // catalog cannot see it — without the refresh message a disconnected integration keeps reading
+    // "Connected" until the host page is reloaded.
     it('refetches when the host reports the connect dialog changed something', async () => {
         renderView();
 
