@@ -141,17 +141,18 @@ class WorkflowNodeTestOutputApiControllerTest {
 
     @Test
     void testSaveWorkflowNodeTestOutputReturnsTheSavedOutput() {
+        authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
+
         WorkflowNodeTestOutput workflowNodeTestOutput = mock(WorkflowNodeTestOutput.class);
         WorkflowNodeTestOutputModel workflowNodeTestOutputModel = new WorkflowNodeTestOutputModel();
 
-        when(
-            workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput("workflow-1", "dataStorage_1", DEVELOPMENT_ORDINAL))
-                .thenReturn(workflowNodeTestOutput);
+        when(workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput("workflow-1", "node-1", DEVELOPMENT_ORDINAL))
+            .thenReturn(workflowNodeTestOutput);
         when(conversionService.convert(workflowNodeTestOutput, WorkflowNodeTestOutputModel.class))
             .thenReturn(workflowNodeTestOutputModel);
 
         ResponseEntity<WorkflowNodeTestOutputModel> responseEntity = controller.saveWorkflowNodeTestOutput(
-            "workflow-1", "dataStorage_1", DEVELOPMENT_ORDINAL);
+            "workflow-1", "node-1", DEVELOPMENT_ORDINAL);
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(responseEntity.getBody()).isSameAs(workflowNodeTestOutputModel);
@@ -159,12 +160,13 @@ class WorkflowNodeTestOutputApiControllerTest {
 
     @Test
     void testSaveWorkflowNodeTestOutputReturnsNoContentWhenTheTestProducedNoOutput() {
-        when(workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(
-            eq("workflow-1"), eq("dataStorage_1"), any(Long.class)))
-                .thenReturn(null);
+        authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
+
+        when(workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(anyString(), anyString(), anyLong()))
+            .thenReturn(null);
 
         ResponseEntity<WorkflowNodeTestOutputModel> responseEntity = controller.saveWorkflowNodeTestOutput(
-            "workflow-1", "dataStorage_1", DEVELOPMENT_ORDINAL);
+            "workflow-1", "node-1", DEVELOPMENT_ORDINAL);
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(responseEntity.getBody()).isNull();
