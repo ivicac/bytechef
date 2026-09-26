@@ -135,6 +135,7 @@ public interface WorkflowNodeTestOutputApi {
      * @param workflowNodeName The name of a workflow node for which to create test output objects. (required)
      * @param environmentId The id of an environment. (required)
      * @return The workflow node test output object. (status code 200)
+     *         or The test ran but produced no output, so nothing was saved. (status code 204)
      */
     @Operation(
         operationId = "saveWorkflowNodeTestOutput",
@@ -144,7 +145,8 @@ public interface WorkflowNodeTestOutputApi {
         responses = {
             @ApiResponse(responseCode = "200", description = "The workflow node test output object.", content = {
                 @Content(mediaType = "application/json", schema = @Schema(implementation = WorkflowNodeTestOutputModel.class))
-            })
+            }),
+            @ApiResponse(responseCode = "204", description = "The test ran but produced no output, so nothing was saved.")
         }
     )
     @RequestMapping(
