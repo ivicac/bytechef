@@ -47,14 +47,14 @@ final class CollectionItemKeyRewriter {
             return formula;
         }
 
-        StringBuilder sb = new StringBuilder(formula);
+        StringBuilder stringBuilder = new StringBuilder(formula);
         NavigableMap<Integer, Replacement> replacementMap = replacements.descendingMap();
 
         for (Replacement replacement : replacementMap.values()) {
-            sb.replace(replacement.start(), replacement.end(), replacement.text());
+            stringBuilder.replace(replacement.start(), replacement.end(), replacement.text());
         }
 
-        return sb.toString();
+        return stringBuilder.toString();
     }
 
     private static void collectCollectionBodies(
