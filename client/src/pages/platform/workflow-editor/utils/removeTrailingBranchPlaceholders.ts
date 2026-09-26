@@ -6,10 +6,10 @@ const PLACEHOLDER_NODE_TYPES = ['placeholder', 'readonlyPlaceholder'];
 
 /**
  * Removes the add-a-branch "+" of every parallel and fork-join, with the two edges that make it the
- * right side of the frame, for a canvas nothing can be added to. The frame then holds only its real
- * lanes, so the engine centres the dispatcher over them. A single lane is moved from the bar's left
- * end to its centre: its left-end placement only exists to draw the frame's left side opposite the
- * "+", and without the "+" it would leave the bar sideways and double back under the dispatcher.
+ * right side of the frame. The editor offers adding a branch from a chip on the last lane instead
+ * (AddBranchChip), and a read-only canvas offers nothing. The frame then holds only its real lanes,
+ * so the engine centres the dispatcher over them. A single lane keeps its box: it hangs from the
+ * bar's right end opposite the left rail, the way a one-task each does.
  *
  * A dispatcher without lanes keeps its "+", which is then the only thing closing its empty frame.
  */
@@ -17,7 +17,6 @@ export default function removeTrailingBranchPlaceholders(nodes: Node[], edges: E
     const nodesById = new Map(nodes.map((node) => [node.id, node]));
 
     const removedNodeIds = new Set<string>();
-    const singleLaneGhostIds = new Map<string, string>();
 
     edges.forEach((edge) => {
         if (!TOP_GHOST_PATTERN.test(edge.source) || edge.sourceHandle !== `${edge.source}-right`) {
@@ -42,32 +41,14 @@ export default function removeTrailingBranchPlaceholders(nodes: Node[], edges: E
         }
 
         removedNodeIds.add(placeholderNode.id);
-
-        if (laneEdges.length === 1) {
-            singleLaneGhostIds.set(edge.source, edge.source.replace(/-top-ghost$/, '-bottom-ghost'));
-        }
     });
 
     if (removedNodeIds.size === 0) {
         return {edges, nodes};
     }
 
-    const singleLaneBottomGhostIds = new Set(singleLaneGhostIds.values());
-
     return {
-        edges: edges
-            .filter((edge) => !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target))
-            .map((edge) => {
-                if (singleLaneGhostIds.has(edge.source)) {
-                    return {...edge, sourceHandle: `${edge.source}-bottom`};
-                }
-
-                if (singleLaneBottomGhostIds.has(edge.target) && edge.targetHandle) {
-                    return {...edge, targetHandle: `${edge.target}-top`};
-                }
-
-                return edge;
-            }),
+        edges: edges.filter((edge) => !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target)),
         nodes: nodes.filter((node) => !removedNodeIds.has(node.id)),
     };
 }
