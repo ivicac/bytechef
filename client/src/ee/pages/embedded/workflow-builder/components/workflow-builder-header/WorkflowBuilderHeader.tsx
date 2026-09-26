@@ -74,9 +74,17 @@ const WorkflowBuilderHeader = ({
     return (
         <header className="flex items-center justify-between bg-transparent px-3 py-2.5">
             <div className="flex items-center gap-2">
+                {/* Only the hub supplies this: inside the hub the builder is a route with nowhere
+                    else to go back to, and putting the control here rather than in a bar above
+                    keeps the workflow's name on screen once. */}
+
                 {hubBuilderContext?.onBack && (
                     <Button
                         aria-label="Back to automations"
+                        // Cancels the icon button's own 10px padding so the ARROW ITSELF starts
+                        // exactly where the canvas below it starts: header `px-3` and canvas `mx-3`
+                        // are the same 12px from the page gutter, and this removes the only
+                        // difference left between them. Holds at any gutter width.
                         className="-ml-2.5"
                         icon={<ArrowLeftIcon />}
                         onClick={hubBuilderContext.onBack}
