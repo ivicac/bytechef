@@ -5,10 +5,7 @@ import {ScrollArea} from '@/components/ui/scroll-area';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
-import AgentDialog from '@/pages/automation/agents/components/AgentDialog';
 import useAgents from '@/pages/automation/agents/hooks/useAgents';
-import useImportAiAgent from '@/pages/automation/agents/hooks/useImportAiAgent';
-import DataSyncDialog from '@/pages/automation/data-syncs/components/DataSyncDialog';
 import useDataSyncs from '@/pages/automation/data-syncs/hooks/useDataSyncs';
 import ProjectAgentsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectAgentsList';
 import ProjectDataSyncsList from '@/pages/automation/project/components/projects-sidebar/components/ProjectDataSyncsList';
@@ -68,8 +65,6 @@ const ProjectsLeftSidebar = ({
     const [sortBy, setSortBy] = useState('last-edited');
     const [searchValue, setSearchValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [showAgentDialog, setShowAgentDialog] = useState(false);
-    const [showDataSyncDialog, setShowDataSyncDialog] = useState(false);
     const [showProjectDialog, setShowProjectDialog] = useState(false);
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
     const [activeTab, setActiveTab] = useState(
@@ -136,14 +131,6 @@ const ProjectsLeftSidebar = ({
 
     const selectedProject = projects?.find((project) => project.id === selectedProjectId);
 
-    // New/imported agents target the project browsed in the sidebar, falling back to the page's own project
-    // when the sidebar is browsing all projects (selectedProjectId is then 0).
-    const agentTargetProjectId = selectedProjectId || projectId;
-
-    // Same rule for a new data sync: locked to whatever project the sidebar is browsing, falling back to the
-    // page's own project when browsing all projects.
-    const dataSyncTargetProjectId = selectedProjectId || projectId;
-
     const filteredWorkflowsList = useMemo(
         () => getFilteredWorkflows(workflows, sortBy, searchValue),
         [workflows, sortBy, searchValue, getFilteredWorkflows]
@@ -160,16 +147,6 @@ const ProjectsLeftSidebar = ({
         () => dataSyncs.filter((dataSync) => selectedProjectId === 0 || +dataSync.projectId === selectedProjectId),
         [dataSyncs, selectedProjectId]
     );
-
-    const {
-        fileInputRef: agentHiddenFileInputRef,
-        handleImportFileChange: handleImportAgentFileChange,
-        isImporting: isImportingAgent,
-        triggerImport: triggerAgentImport,
-    } = useImportAiAgent({
-        projectId: agentTargetProjectId,
-        workspaceId: currentWorkspaceId,
-    });
 
     useEffect(() => {
         setIsLoading(projectWorkflowsLoading || allProjectsWorkflowsLoading || projectsLoading);
@@ -405,43 +382,6 @@ const ProjectsLeftSidebar = ({
                         </TabsContent>
 
                         <TabsContent value="agents">
-                            <ButtonGroup className="mb-3 w-full">
-                                <Button
-                                    className="flex-1 [&_svg]:size-5"
-                                    icon={<PlusIcon />}
-                                    label="New Agent"
-                                    onClick={() => setShowAgentDialog(true)}
-                                    variant="secondary"
-                                />
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            className="data-[state=open]:border-stroke-brand-secondary data-[state=open]:bg-surface-brand-secondary data-[state=open]:text-content-brand-primary [&_svg]:size-5"
-                                            icon={
-                                                isImportingAgent ? (
-                                                    <LoaderCircleIcon className="animate-spin text-primary" />
-                                                ) : (
-                                                    <ChevronDownIcon />
-                                                )
-                                            }
-                                            size="icon"
-                                            variant="secondary"
-                                        />
-                                    </DropdownMenuTrigger>
-
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem
-                                            className="cursor-pointer"
-                                            disabled={isImportingAgent}
-                                            onClick={() => triggerAgentImport()}
-                                        >
-                                            <UploadIcon /> Import Agent
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </ButtonGroup>
-
                             <ul className="flex flex-col gap-4">
                                 <ProjectAgentsList
                                     calculateTimeDifference={calculateTimeDifference}
@@ -453,14 +393,6 @@ const ProjectsLeftSidebar = ({
                         </TabsContent>
 
                         <TabsContent value="dataSyncs">
-                            <Button
-                                className="mb-3 w-full [&_svg]:size-5"
-                                icon={<PlusIcon />}
-                                label="New Data Sync"
-                                onClick={() => setShowDataSyncDialog(true)}
-                                variant="secondary"
-                            />
-
                             <ul className="flex flex-col gap-4">
                                 <ProjectDataSyncsList
                                     calculateTimeDifference={calculateTimeDifference}
@@ -506,30 +438,6 @@ const ProjectsLeftSidebar = ({
                 className="hidden"
                 onChange={(event) => handleImportProject(event, currentWorkspaceId!, importProjectMutation)}
                 ref={projectFileInputRef}
-                type="file"
-            />
-
-            {showAgentDialog && (
-                <AgentDialog
-                    onOpenChange={setShowAgentDialog}
-                    open={showAgentDialog}
-                    projectId={agentTargetProjectId}
-                />
-            )}
-
-            {showDataSyncDialog && (
-                <DataSyncDialog
-                    onOpenChange={setShowDataSyncDialog}
-                    open={showDataSyncDialog}
-                    projectId={dataSyncTargetProjectId}
-                />
-            )}
-
-            <input
-                accept=".json"
-                className="hidden"
-                onChange={handleImportAgentFileChange}
-                ref={agentHiddenFileInputRef}
                 type="file"
             />
         </aside>
