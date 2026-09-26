@@ -2,6 +2,9 @@ import Button from '@/components/Button/Button';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import AgentDialog from '@/pages/automation/agents/components/AgentDialog';
+import useImportAiAgent from '@/pages/automation/agents/hooks/useImportAiAgent';
+import DataSyncDialog from '@/pages/automation/data-syncs/components/DataSyncDialog';
 import ErrorWorkflowDialog from '@/pages/automation/project/components/ErrorWorkflowDialog';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
 import ProjectVersionHistorySheet from '@/pages/automation/project/components/ProjectVersionHistorySheet';
@@ -61,7 +64,9 @@ const SettingsMenu = ({
     workflow,
 }: ProjectHeaderSettingsMenuProps) => {
     const [openDropdownMenu, setOpenDropdownMenu] = useState(false);
+    const [showAgentDialog, setShowAgentDialog] = useState(false);
     const [showCreateWorkflowDialog, setShowCreateWorkflowDialog] = useState(false);
+    const [showDataSyncDialog, setShowDataSyncDialog] = useState(false);
     const [showDeleteProjectAlertDialog, setShowDeleteProjectAlertDialog] = useState(false);
     const [showDeleteWorkflowAlertDialog, setShowDeleteWorkflowAlertDialog] = useState(false);
     const [showEditProjectDialog, setShowEditProjectDialog] = useState(false);
@@ -79,6 +84,13 @@ const SettingsMenu = ({
             showEditWorkflowDialog: state.showEditWorkflowDialog,
         }))
     );
+
+    const {
+        fileInputRef: agentFileInputRef,
+        handleImportFileChange: handleImportAgentFileChange,
+        isImporting: isImportingAgent,
+        triggerImport: triggerAgentImport,
+    } = useImportAiAgent({projectId: project.id!, workspaceId: project.workspaceId});
 
     const createProjectWorkflowMutation = useCreateProjectWorkflow({bottomResizablePanelRef, projectId: project.id!});
 
@@ -138,7 +150,7 @@ const SettingsMenu = ({
                             <Button
                                 aria-label="Settings"
                                 icon={
-                                    isImportingN8nWorkflow ? (
+                                    isImportingAgent || isImportingN8nWorkflow ? (
                                         <LoaderCircleIcon className="animate-spin text-primary" />
                                     ) : (
                                         <SettingsIcon />
@@ -187,8 +199,11 @@ const SettingsMenu = ({
                                 onCloseDropdownMenuClick={() => setOpenDropdownMenu(false)}
                                 onDeleteProjectClick={() => setShowDeleteProjectAlertDialog(true)}
                                 onDuplicateProjectClick={handleDuplicateProjectClick}
+                                onImportAgentClick={triggerAgentImport}
                                 onImportN8nWorkflowClick={() => n8nWorkflowFileInputRef.current?.click()}
                                 onImportWorkflowClick={() => workflowFileInputRef.current?.click()}
+                                onNewAgentClick={() => setShowAgentDialog(true)}
+                                onNewDataSyncClick={() => setShowDataSyncDialog(true)}
                                 onNewWorkflowClick={() => setShowCreateWorkflowDialog(true)}
                                 onNewWorkflowFromTemplateClick={() =>
                                     navigate(`/automation/projects/${project.id}/templates`)
@@ -202,6 +217,7 @@ const SettingsMenu = ({
                                 onShowVisibilityDialog={() => setShowProjectVisibilityDialog(true)}
                                 projectGitConfigurationEnabled={projectGitConfiguration?.enabled ?? false}
                                 projectId={project.id!}
+                                workflowCreationEnabled={!project.codeWorkflow}
                             />
                         </TabsContent>
                     </Tabs>
@@ -224,6 +240,18 @@ const SettingsMenu = ({
                 type="file"
             />
 
+            <input
+                accept=".json"
+                className="hidden"
+                onChange={handleImportAgentFileChange}
+                ref={agentFileInputRef}
+                type="file"
+            />
+
+            {showAgentDialog && (
+                <AgentDialog onOpenChange={setShowAgentDialog} open={showAgentDialog} projectId={project.id} />
+            )}
+
             {showCreateWorkflowDialog && (
                 <WorkflowDialog
                     createWorkflowMutation={createProjectWorkflowMutation}
@@ -231,6 +259,10 @@ const SettingsMenu = ({
                     parentId={project.id}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                 />
+            )}
+
+            {showDataSyncDialog && (
+                <DataSyncDialog onOpenChange={setShowDataSyncDialog} open={showDataSyncDialog} projectId={project.id} />
             )}
 
             {showDeleteProjectAlertDialog && (

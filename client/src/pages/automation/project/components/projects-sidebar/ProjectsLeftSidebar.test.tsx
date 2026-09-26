@@ -7,9 +7,6 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectsLeftSidebar from './ProjectsLeftSidebar';
 
-// Simple utility to flush promises
-const flushPromises = () => new Promise((r) => setTimeout(r, 0));
-
 // React Query test client setup
 const createTestQueryClient = () =>
     new QueryClient({
@@ -124,28 +121,8 @@ vi.mock('@/shared/components/workflow/WorkflowDialog', () => ({
     ),
 }));
 
-const mockAgentDialog = vi.fn();
-vi.mock('@/pages/automation/agents/components/AgentDialog', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        mockAgentDialog(props);
-
-        return <div role="dialog">AgentDialog</div>;
-    },
-}));
-
 vi.mock('@/pages/automation/agents/components/AgentsLeftSidebarDropdownMenu', () => ({
     default: () => null,
-}));
-
-const mockDataSyncDialog = vi.fn();
-vi.mock('@/pages/automation/data-syncs/components/DataSyncDialog', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    default: (props: any) => {
-        mockDataSyncDialog(props);
-
-        return <div role="dialog">DataSyncDialog</div>;
-    },
 }));
 
 vi.mock('@/pages/automation/data-syncs/components/DataSyncsLeftSidebarDropdownMenu', () => ({
@@ -164,6 +141,11 @@ vi.mock('@/pages/automation/project/hooks/useImportProjectWorkflow', () => ({
     useImportProjectWorkflow: (projectId: number) => mockUseImportProjectWorkflow(projectId),
 }));
 
+const mockCaptureProjectImported = vi.hoisted(() => vi.fn());
+vi.mock('@/shared/hooks/useAnalytics', () => ({
+    useAnalytics: () => ({captureProjectImported: mockCaptureProjectImported}),
+}));
+
 const mockGetProjectWorkflowsQuery = vi.fn();
 const mockGetWorkflowsQuery = vi.fn();
 vi.mock('@/shared/queries/automation/projectWorkflows.queries', () => ({
@@ -180,11 +162,6 @@ vi.mock('@/shared/queries/automation/projects.queries', async () => ({
     useGetWorkspaceProjectsQuery: (args: any) => mockGetWorkspaceProjectsQuery(args),
 }));
 
-const hasEnabledAiProviderMock = vi.fn();
-vi.mock('@/shared/hooks/useHasEnabledAiProvider', () => ({
-    useHasEnabledAiProvider: () => hasEnabledAiProviderMock(),
-}));
-
 vi.mock('@/shared/queries/automation/workflows.queries', () => ({
     useGetWorkflowQuery: vi.fn(),
 }));
@@ -192,7 +169,6 @@ vi.mock('@/shared/queries/automation/workflows.queries', () => ({
 vi.mock('@/pages/automation/project/components/projects-sidebar/hooks/useProjectsLeftSidebar', () => ({
     useProjectsLeftSidebar: () => ({
         calculateTimeDifference: vi.fn(),
-        createProjectWorkflowMutation: {mutate: vi.fn()},
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getFilteredWorkflows: (workflows: any[]) => workflows || [],
         getWorkflowsProjectId: () => vi.fn(),
@@ -223,10 +199,6 @@ vi.mock('@/shared/mutations/automation/workflows.mutations', () => ({
             opts?.onSuccess?.();
         }),
     }),
-}));
-
-vi.mock('@/shared/hooks/useAnalytics', () => ({
-    useAnalytics: () => ({captureProjectWorkflowImported: vi.fn()}),
 }));
 
 vi.mock('@/pages/automation/agents/hooks/useAgents', () => ({
@@ -306,8 +278,6 @@ const setupQueries = ({
 };
 
 const baseProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bottomResizablePanelRef: {current: null} as any,
     currentWorkflowId: 'w1',
     onProjectClick: vi.fn(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -328,8 +298,6 @@ describe('ProjectsLeftSidebar', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         queryClient = createTestQueryClient();
-
-        hasEnabledAiProviderMock.mockReturnValue({hasEnabledAiProvider: true, isPending: false});
 
         setupImportProjectWorkflow();
     });
@@ -402,7 +370,7 @@ describe('ProjectsLeftSidebar', () => {
         expect(await screen.findByRole('dialog')).toHaveTextContent('ProjectDialog');
     });
 
-    it('renders hidden file inputs for workflow, n8n workflow, project and agent imports', () => {
+    it('renders hidden file inputs for workflow, n8n workflow and project imports', () => {
         setupQueries({selectedProjectId: 9});
 
         renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
@@ -411,7 +379,7 @@ describe('ProjectsLeftSidebar', () => {
             input.getAttribute('accept')
         );
 
-        expect(acceptValues).toEqual(['.json,.yaml,.yml', '.json', '.zip', '.json']);
+        expect(acceptValues).toEqual(['.json,.yaml,.yml', '.json', '.zip']);
     });
 
     it('closes the WorkflowDialog and the ProjectDialog', async () => {
@@ -734,65 +702,13 @@ describe('ProjectsLeftSidebar', () => {
         );
     });
 
-    it('locks New Agent to the project browsed in the sidebar, not the page project', async () => {
-        setupQueries({selectedProjectId: 9});
+    it('offers no agent or data sync creation actions in the sidebar', () => {
+        setupQueries({selectedProjectId: 5});
 
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
+        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={5} />);
 
-        fireEvent.click(screen.getByText('switch-to-project-3'));
-
-        // The Agents tab's own creation button, not a menu item of the Workflows tab's button.
-        fireEvent.click(screen.getByText('New Agent'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(3);
-    });
-
-    it('falls back to the page project when the sidebar is browsing all projects', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-all-projects'));
-
-        fireEvent.click(screen.getByText('New Agent'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockAgentDialog.mock.calls[mockAgentDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(9);
-    });
-
-    it('locks New Data Sync to the project browsed in the sidebar, not the page project', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-project-3'));
-
-        // The Data Syncs tab's own creation button, not a menu item of the Workflows tab's button.
-        fireEvent.click(screen.getByText('New Data Sync'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(3);
-    });
-
-    it('falls back to the page project for a new data sync when the sidebar is browsing all projects', async () => {
-        setupQueries({selectedProjectId: 9});
-
-        renderWithProviders(<ProjectsLeftSidebar {...baseProps} projectId={9} />);
-
-        fireEvent.click(screen.getByText('switch-to-all-projects'));
-
-        fireEvent.click(screen.getByText('New Data Sync'));
-
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-
-        const lastCall = mockDataSyncDialog.mock.calls[mockDataSyncDialog.mock.calls.length - 1][0];
-        expect(lastCall.projectId).toBe(9);
+        expect(screen.queryByText('New Agent')).not.toBeInTheDocument();
+        expect(screen.queryByText('Import Agent')).not.toBeInTheDocument();
+        expect(screen.queryByText('New Data Sync')).not.toBeInTheDocument();
     });
 });
