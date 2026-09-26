@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
+import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -617,6 +618,7 @@ class AbstractAiAgentChatActionTest {
             ((DefaultChatClient.DefaultChatClientRequestSpec) chatClientRequestSpec).getAdvisors();
 
         assertThat(advisors).anyMatch(StructuredOutputValidationAdvisor.class::isInstance);
+        assertThat(advisors).anyMatch(CodeFenceStrippingAdvisor.class::isInstance);
     }
 
     @Test
@@ -636,6 +638,7 @@ class AbstractAiAgentChatActionTest {
             ((DefaultChatClient.DefaultChatClientRequestSpec) chatClientRequestSpec).getAdvisors();
 
         assertThat(advisors).noneMatch(StructuredOutputValidationAdvisor.class::isInstance);
+        assertThat(advisors).noneMatch(CodeFenceStrippingAdvisor.class::isInstance);
 
         // No JSON schema is read for a TEXT response, so the converter (and therefore context.json) is never touched.
         verifyNoInteractions(context);

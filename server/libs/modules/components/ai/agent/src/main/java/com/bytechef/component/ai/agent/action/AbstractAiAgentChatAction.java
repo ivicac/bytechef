@@ -42,6 +42,7 @@ import com.bytechef.component.ai.agent.tool.ConversationResume;
 import com.bytechef.component.ai.agent.tool.ConversationState;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
 import com.bytechef.component.ai.llm.ChatModel.ResponseFormat;
+import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
 import com.bytechef.component.ai.llm.advisor.ContextLoggerAdvisor;
 import com.bytechef.component.ai.llm.advisor.TextGenerationFirstAdvisor;
 import com.bytechef.component.ai.llm.converter.JsonSchemaStructuredOutputConverter;
@@ -828,7 +829,8 @@ public abstract class AbstractAiAgentChatAction {
         chatClientRequestSpec.advisors(
             StructuredOutputValidationAdvisor.builder()
                 .outputJsonSchema(converter.getJsonSchema())
-                .build());
+                .build(),
+            new CodeFenceStrippingAdvisor());
     }
 
     private static ToolCallback createSimulationAwareToolCallback(
