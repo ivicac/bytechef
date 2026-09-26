@@ -94,6 +94,9 @@ export const useAutomationWorkflowEditorHeader = ({
 
     const handleWorkflowValueChange = (workflowUuid: string) => {
         setWorkflowTestExecution(undefined);
+        // The run's node colors belong with the test output cleared above; left in the store they reappear
+        // on this workflow when switching back, with no output behind them.
+        useWorkflowEditorStore.getState().resetWorkflowTestNodeStates(undefined);
         setCurrentNode(undefined);
 
         navigate('/embedded/automation-workflows/' + workflowUuid + '/editor');

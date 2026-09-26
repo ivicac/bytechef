@@ -12,8 +12,24 @@ import {useQueryClient} from '@tanstack/react-query';
 import {useEffect} from 'react';
 import InlineSVG from 'react-inlinesvg';
 
+/**
+ * The catalog of integrations a connected user can connect their own account to: one card per
+ * integration, each saying whether that user already has an instance of it.
+ *
+ * Connecting is deliberately NOT done here. The connect dialog is rendered by the HOST page, not by
+ * this iframe, because its field-mapping configuration is made of functions — `executeAction`, and
+ * the `get` callbacks that list an integration's object types and fields — and a function cannot
+ * cross a postMessage boundary. So a click posts the integration's id to the parent frame and the
+ * SDK opens its own dialog, which keeps that configuration working exactly as it does for a host
+ * that renders this catalog itself.
+ */
 const CONNECT_MESSAGE_TYPE = 'EMBED_OPEN_CONNECT_DIALOG';
 
+/**
+ * Sent back by the SDK when its connect dialog closes. Connecting and DISCONNECTING both happen in
+ * the host page's dialog, where this catalog cannot see them — without this a disconnected
+ * integration keeps reading "Connected" until the host page is reloaded.
+ */
 const INTEGRATIONS_CHANGED_MESSAGE_TYPE = 'EMBED_INTEGRATIONS_CHANGED';
 
 const requestConnect = (integrationId: number) => {

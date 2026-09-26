@@ -18,6 +18,8 @@ const queryClient = new QueryClient();
 
 void applicationInfoStore.getState().getApplicationInfo();
 
+// Hash routing, like every other embedded entry: an extension-less `/embedded/...` URL falls back
+// to index.html in dev, whose session check bounces the iframe to /login. See CLAUDE.md.
 const router = createHashRouter([
     {
         children: [{element: <IntegrationMarketplaceGate />, path: 'marketplace'}],

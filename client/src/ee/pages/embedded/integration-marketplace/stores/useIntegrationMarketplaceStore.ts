@@ -8,6 +8,11 @@ interface IntegrationMarketplaceStateI {
     theme: AutomationHubThemeI;
 }
 
+/**
+ * The marketplace's slice of the EMBED_INIT handshake. It shares the hub's theme shape rather than
+ * declaring its own, because a vendor embedding both surfaces themes them once — two independent
+ * palettes for one product is a difference nobody asked for.
+ */
 export const useIntegrationMarketplaceStore = create<IntegrationMarketplaceStateI>()((set) => ({
     initialize: (params) =>
         set({

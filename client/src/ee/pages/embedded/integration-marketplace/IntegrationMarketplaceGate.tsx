@@ -6,6 +6,11 @@ import {useTheme} from '@/shared/providers/theme-provider';
 import {useEffect} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
+/**
+ * Holds the marketplace back until EMBED_INIT has landed. Rendering the catalog first would fire
+ * its request before `useFetchInterceptor` has the handshake's JWT and environment in session
+ * storage, so the first load would 401 and the user would see an error for a working install.
+ */
 const IntegrationMarketplaceGate = () => {
     const {initialized, theme} = useIntegrationMarketplaceStore(
         useShallow((state) => ({initialized: state.initialized, theme: state.theme}))

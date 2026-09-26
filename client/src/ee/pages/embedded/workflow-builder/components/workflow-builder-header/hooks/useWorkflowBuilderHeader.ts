@@ -77,6 +77,9 @@ export const useWorkflowBuilderHeader = ({bottomResizablePanelRef, chatTrigger, 
 
     const handleProjectWorkflowValueChange = (projectWorkflowId: number) => {
         setWorkflowTestExecution(undefined);
+        // The run's node colors belong with the test output cleared above; left in the store they reappear
+        // on this workflow when switching back, with no output behind them.
+        useWorkflowEditorStore.getState().resetWorkflowTestNodeStates(undefined);
         setCurrentNode(undefined);
 
         navigate(`/automation/projects/${projectId}/project-workflows/${projectWorkflowId}?${searchParams}`);

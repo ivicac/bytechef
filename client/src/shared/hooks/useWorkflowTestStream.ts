@@ -12,7 +12,7 @@ import {
     formatAskUserQuestionMessage,
 } from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 export interface UseWorkflowTestStreamProps {
@@ -53,6 +53,20 @@ function computeDurationMillis(startDate?: string, endDate?: string): number | u
     }
 
     return endMillis - startMillis;
+}
+
+/**
+ * Drops every node still marked RUNNING. A run that ends without a `result` event -- stopped by the user, aborted,
+ * or failed -- has no execution to backfill from, so its in-flight nodes would otherwise keep spinning.
+ */
+function clearRunningNodeStates() {
+    const {removeWorkflowTestNodeState, workflowTestNodeStates} = useWorkflowEditorStore.getState();
+
+    for (const [name, nodeState] of Object.entries(workflowTestNodeStates)) {
+        if (nodeState.status === 'RUNNING') {
+            removeWorkflowTestNodeState(name);
+        }
+    }
 }
 
 /**
@@ -105,14 +119,7 @@ function backfillNodeStatesFromResult(workflowTestExecution: WorkflowTestExecuti
             }
         }
     } else if (jobStatus === 'FAILED' || jobStatus === 'STOPPED' || jobStatus === 'CANCELLED') {
-        const {removeWorkflowTestNodeState, workflowTestNodeStates: currentNodeStates} =
-            useWorkflowEditorStore.getState();
-
-        for (const [name, nodeState] of Object.entries(currentNodeStates)) {
-            if (nodeState.status === 'RUNNING') {
-                removeWorkflowTestNodeState(name);
-            }
-        }
+        clearRunningNodeStates();
     }
 }
 
@@ -162,15 +169,13 @@ export function useWorkflowTestStream({
                 setWorkflowTestNodeState: state.setWorkflowTestNodeState,
             }))
         );
-    const {appendToLastAssistantMessage, setLastAssistantMessageContent, setMessage, setResumeUrl} =
-        useWorkflowTestChatStore(
-            useShallow((state) => ({
-                appendToLastAssistantMessage: state.appendToLastAssistantMessage,
-                setLastAssistantMessageContent: state.setLastAssistantMessageContent,
-                setMessage: state.setMessage,
-                setResumeUrl: state.setResumeUrl,
-            }))
-        );
+    const {appendToLastAssistantMessage, setLastAssistantMessageContent, setMessage} = useWorkflowTestChatStore(
+        useShallow((state) => ({
+            appendToLastAssistantMessage: state.appendToLastAssistantMessage,
+            setLastAssistantMessageContent: state.setLastAssistantMessageContent,
+            setMessage: state.setMessage,
+        }))
+    );
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflowId, currentEnvironmentId);
 
@@ -238,6 +243,7 @@ export function useWorkflowTestStream({
                 setLastAssistantMessageContent(`${formatAskUserQuestionMessage(questionEvent)}\n\n`);
             },
             error: (data) => {
+                clearRunningNodeStates();
                 setWorkflowIsRunning(false);
                 setWorkflowTestExecution(undefined);
                 setStreamRequest(null);
@@ -308,6 +314,8 @@ export function useWorkflowTestStream({
 
                     resetWorkflowTestNodeStates(workflowId);
 
+                    questionShownRef.current = false;
+
                     persistJobId(jobId);
 
                     if (onStart) {
@@ -364,12 +372,21 @@ export function useWorkflowTestStream({
                 }
             },
         },
+        onClose: () => {
+            setWorkflowIsRunning(false);
+            setStreamRequest(null);
+
+            if (onStreamEnd) {
+                onStreamEnd();
+            }
+        },
         onRequestError,
         onRequestSuccess,
     });
 
     const close = useCallback(() => {
         closeSSE();
+        clearRunningNodeStates();
         clearProgressSnapshot();
     }, [closeSSE]);
 
