@@ -1,7 +1,6 @@
 import {getClusterRootTask} from '@/pages/platform/workflow-editor/utils/getClusterRootTask';
 import {getTask} from '@/pages/platform/workflow-editor/utils/getTask';
 import {
-    CLUSTER_ELEMENT_TYPE_TOOLS,
     CONDITION_CASE_FALSE,
     CONDITION_CASE_TRUE,
     ON_ERROR_MAIN_BRANCH,
@@ -104,6 +103,7 @@ import isActionDefinitionFresh from './isActionDefinitionFresh';
 import {resolveDisplayConditionsQueryTarget} from './resolveDisplayConditionsQueryTarget';
 import {resolveMissingRequiredPropertiesRefetch} from './resolveMissingRequiredPropertiesRefetch';
 import resolveNodeConnectionFields from './resolveNodeConnectionFields';
+import resolveShowOutputTab from './resolveShowOutputTab';
 import useDisplayConditionsRefreshAfterOperationChange from './useDisplayConditionsRefreshAfterOperationChange';
 
 const TABS: Array<{label: string; name: TabNameType}> = [
@@ -524,31 +524,16 @@ export default function useWorkflowNodeDetailsPanel({
         currentTriggerDefinition?.outputFunctionDefined ||
         currentClusterElementDefinition?.outputFunctionDefined;
 
-    const showOutputTab = useMemo(() => {
-        if (currentNode?.clusterElementType && currentNode.clusterElementType !== CLUSTER_ELEMENT_TYPE_TOOLS) {
-            return false;
-        }
-
-        if (currentNode?.clusterElementType === CLUSTER_ELEMENT_TYPE_TOOLS && !mainClusterRootName) {
-            return false;
-        }
-
-        if (currentOperationDefinition && 'variablePropertiesDefined' in currentOperationDefinition) {
-            const taskDispatcher = currentOperationDefinition as TaskDispatcherDefinition;
-
-            if (!taskDispatcher.outputDefined && !taskDispatcher.variablePropertiesDefined) {
-                return false;
-            }
-        }
-
-        if (currentOperationDefinition) {
-            if (!currentOperationDefinition.outputDefined) {
-                return false;
-            }
-        }
-
-        return true;
-    }, [currentNode?.clusterElementType, currentOperationDefinition, mainClusterRootName]);
+    const showOutputTab = useMemo(
+        () =>
+            resolveShowOutputTab({
+                clusterElementType: currentNode?.clusterElementType,
+                clusterRootWorkflowNodeName: mainClusterRootName,
+                operationDefinition: currentOperationDefinition,
+                taskDispatcher: currentNode?.taskDispatcher,
+            }),
+        [currentNode?.clusterElementType, currentNode?.taskDispatcher, currentOperationDefinition, mainClusterRootName]
+    );
 
     const currentWorkflowTrigger = useMemo(
         () => workflow.triggers?.find((trigger) => trigger.name === currentNode?.workflowNodeName),
