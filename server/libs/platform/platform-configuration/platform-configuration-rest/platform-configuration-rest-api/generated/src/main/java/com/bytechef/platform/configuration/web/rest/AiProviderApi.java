@@ -73,7 +73,6 @@ public interface AiProviderApi {
 
     }
 
-
     String PATH_ENABLE_AI_PROVIDER = "/ai-providers/{id}/enable/{enable}";
     /**
      * PATCH /ai-providers/{id}/enable/{enable} : e
@@ -105,7 +104,6 @@ public interface AiProviderApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_AI_PROVIDERS = "/ai-providers";
     /**
@@ -146,7 +144,6 @@ public interface AiProviderApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_AI_PROVIDER = "/ai-providers/{id}";
     /**
