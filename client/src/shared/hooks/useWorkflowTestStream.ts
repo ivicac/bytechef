@@ -11,7 +11,7 @@ import {
     formatAskUserQuestionMessage,
 } from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 export interface UseWorkflowTestStreamProps {
@@ -51,6 +51,20 @@ function computeDurationMillis(startDate?: string, endDate?: string): number | u
     }
 
     return endMillis - startMillis;
+}
+
+/**
+ * Drops every node still marked RUNNING. A run that ends without a `result` event -- stopped by the user, aborted,
+ * or failed -- has no execution to backfill from, so its in-flight nodes would otherwise keep spinning.
+ */
+function clearRunningNodeStates() {
+    const {removeWorkflowTestNodeState, workflowTestNodeStates} = useWorkflowEditorStore.getState();
+
+    for (const [name, nodeState] of Object.entries(workflowTestNodeStates)) {
+        if (nodeState.status === 'RUNNING') {
+            removeWorkflowTestNodeState(name);
+        }
+    }
 }
 
 /**
@@ -106,14 +120,7 @@ function backfillNodeStatesFromResult(workflowTestExecution: WorkflowTestExecuti
             }
         }
     } else if (jobStatus === 'FAILED' || jobStatus === 'STOPPED' || jobStatus === 'CANCELLED') {
-        const {removeWorkflowTestNodeState, workflowTestNodeStates: currentNodeStates} =
-            useWorkflowEditorStore.getState();
-
-        for (const [name, nodeState] of Object.entries(currentNodeStates)) {
-            if (nodeState.status === 'RUNNING') {
-                removeWorkflowTestNodeState(name);
-            }
-        }
+        clearRunningNodeStates();
     }
 }
 
@@ -172,7 +179,11 @@ export function useWorkflowTestStream({
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflowId, currentEnvironmentId);
 
-    const {close, connectionState, error} = useSSE<WorkflowTestExecution>(streamRequest, {
+    const {
+        close: closeSSE,
+        connectionState,
+        error,
+    } = useSSE<WorkflowTestExecution>(streamRequest, {
         eventHandlers: {
             approval_request: (data) => {
                 if (typeof data !== 'object' || data === null || !('resumeId' in data)) {
@@ -226,6 +237,7 @@ export function useWorkflowTestStream({
                 setStreamRequest(null);
             },
             error: (data) => {
+                clearRunningNodeStates();
                 setWorkflowIsRunning(false);
                 setWorkflowTestExecution(undefined);
                 setStreamRequest(null);
@@ -336,6 +348,11 @@ export function useWorkflowTestStream({
         onRequestError,
         onRequestSuccess,
     });
+
+    const close = useCallback(() => {
+        closeSSE();
+        clearRunningNodeStates();
+    }, [closeSSE]);
 
     useEffect(() => {
         if (connectionState === 'CLOSED' || connectionState === 'ERROR') {

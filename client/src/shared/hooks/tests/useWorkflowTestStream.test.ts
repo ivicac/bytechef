@@ -166,10 +166,34 @@ describe('useWorkflowTestStream', () => {
         });
     });
 
-    it('should return close function from useSSE', () => {
+    it('should close the SSE connection and clear nodes left running on close', () => {
+        mockWorkflowTestNodeStates = {firecrawl_6: {status: 'COMPLETED'}, openAi_1: {status: 'RUNNING'}};
+
         const {result} = renderHook(() => useWorkflowTestStream({workflowId: 'workflow-123'}));
 
-        expect(result.current.close).toBe(mockClose);
+        act(() => {
+            result.current.close();
+        });
+
+        expect(mockClose).toHaveBeenCalled();
+        expect(mockRemoveWorkflowTestNodeState).toHaveBeenCalledWith('openAi_1');
+        expect(mockRemoveWorkflowTestNodeState).not.toHaveBeenCalledWith('firecrawl_6');
+    });
+
+    it('should clear nodes left running on error event', () => {
+        mockWorkflowTestNodeStates = {firecrawl_6: {status: 'COMPLETED'}, firecrawl_7: {status: 'RUNNING'}};
+
+        renderHook(() => useWorkflowTestStream({workflowId: 'workflow-123'}));
+
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const eventHandlers = (useSSE as any).mock.calls[0][1].eventHandlers;
+
+        act(() => {
+            eventHandlers.error('Aborted');
+        });
+
+        expect(mockRemoveWorkflowTestNodeState).toHaveBeenCalledWith('firecrawl_7');
+        expect(mockRemoveWorkflowTestNodeState).not.toHaveBeenCalledWith('firecrawl_6');
     });
 
     it('should return error from useSSE', () => {
