@@ -147,7 +147,6 @@ export default function useWorkflowNodeDetailsPanel({
     const [clusterElementComponentOperations, setClusterElementComponentOperations] = useState<Array<WorkflowNodeType>>(
         []
     );
-    const [errorsAccordionOpen, setErrorsAccordionOpen] = useState(false);
     const [errorsRefreshingAfterOperationChange, setErrorsRefreshingAfterOperationChange] = useState(false);
 
     const errorsLoadingArmedRef = useRef(false);
@@ -1656,7 +1655,6 @@ export default function useWorkflowNodeDetailsPanel({
         currentWorkflowNodeConnections,
         currentWorkflowNodeOperations,
         errors,
-        errorsAccordionOpen,
         errorsLoading,
         filteredClusterElementOperations,
         getNodeVersion,
@@ -1671,7 +1669,6 @@ export default function useWorkflowNodeDetailsPanel({
         propertiesLoading,
         rootClusterElementNodeData,
         setActiveTab,
-        setErrorsAccordionOpen,
         tabDataExists,
         workflow,
         workflowNodeDetailsPanelOpen,
