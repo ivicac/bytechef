@@ -918,4 +918,107 @@ class WorkflowNodeOutputFacadeTest {
         assertEquals(sampleOutput, result.sampleOutput());
         assertFalse(result.testOutputResponse());
     }
+
+    @Test
+    void testGetClusterElementOutputMarksDynamicOutputAsTestOutputResponse() {
+        when(workflowService.getWorkflow(TriggerClusterRootWorkflowFixture.WORKFLOW_ID))
+            .thenReturn(TriggerClusterRootWorkflowFixture.workflow());
+        when(clusterElementDefinitionService.getClusterElementType(
+            "browser", 1, TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME))
+                .thenReturn(new ClusterElementType("VOICE_AGENT", "voiceAgent", "Voice Agent"));
+
+        com.bytechef.platform.component.domain.ClusterElementDefinition clusterElementDefinition =
+            mock(com.bytechef.platform.component.domain.ClusterElementDefinition.class);
+
+        when(clusterElementDefinitionService.getClusterElementDefinition("deepgram", 1, "voiceAgent"))
+            .thenReturn(clusterElementDefinition);
+
+        Map<String, String> sampleOutput = Map.of("transcript", "hello");
+
+        when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID)).thenReturn(Optional.empty());
+        when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID)).thenReturn(List.of());
+        when(clusterElementDefinitionFacade.executeOutput(
+            eq("deepgram"), eq(1), eq("voiceAgent"), any(), any()))
+                .thenReturn(new OutputResponse(null, sampleOutput));
+
+        ClusterElementOutputDTO result = workflowNodeOutputFacade.getClusterElementOutput(
+            TriggerClusterRootWorkflowFixture.WORKFLOW_ID, TriggerClusterRootWorkflowFixture.TRIGGER_NAME,
+            TriggerClusterRootWorkflowFixture.VOICE_AGENT_TYPE_NAME, TriggerClusterRootWorkflowFixture.VOICE_AGENT_NAME,
+            ENVIRONMENT_ID);
+
+        assertNotNull(result);
+        assertEquals(sampleOutput, result.sampleOutput());
+        assertTrue(result.testOutputResponse());
+    }
+
+    @Test
+    void testGetWorkflowNodeOutputMarksDynamicOutputAsTestOutputResponse() {
+        WorkflowTask workflowTask = new WorkflowTask(Map.of("name", "var_1", "type", "var/v1/set"));
+
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
+        when(workflow.getTasks(true)).thenReturn(List.of(workflowTask));
+
+        ActionDefinition actionDefinition = mock(ActionDefinition.class);
+
+        when(actionDefinitionService.getActionDefinition("var", 1, "set")).thenReturn(actionDefinition);
+        when(actionDefinition.getOutputResponse()).thenReturn(null);
+        when(actionDefinitionService.isDynamicOutputDefined("var", 1, "set")).thenReturn(true);
+        when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(WORKFLOW_ID, "var_1", ENVIRONMENT_ID))
+            .thenReturn(Optional.empty());
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+            .thenReturn(Map.of());
+        when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
+            WORKFLOW_ID, "var_1", ENVIRONMENT_ID)).thenReturn(List.of());
+        when(evaluator.evaluate(any(), any(), anyBoolean()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(actionDefinitionFacade.executeOutput(eq("var"), eq(1), eq("set"), any(), any()))
+            .thenReturn(new OutputResponse(null, "pero"));
+
+        try (MockedStatic<WorkflowTrigger> workflowTriggerStatic = mockStatic(WorkflowTrigger.class)) {
+            workflowTriggerStatic.when(() -> WorkflowTrigger.of(workflow))
+                .thenReturn(List.of());
+
+            WorkflowNodeOutputDTO result = workflowNodeOutputFacade.getWorkflowNodeOutput(
+                WORKFLOW_ID, "var_1", ENVIRONMENT_ID);
+
+            assertNotNull(result);
+            assertEquals("pero", result.getSampleOutput());
+            assertTrue(result.testOutputResponse());
+        }
+    }
+
+    @Test
+    void testGetWorkflowNodeOutputDoesNotMarkDefinitionOutputAsTestOutputResponse() {
+        WorkflowTask workflowTask = new WorkflowTask(Map.of("name", "action_1", "type", "component/v1/action1"));
+
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
+        when(workflow.getTasks(true)).thenReturn(List.of(workflowTask));
+
+        ActionDefinition actionDefinition = mock(ActionDefinition.class);
+
+        when(actionDefinitionService.getActionDefinition("component", 1, "action1")).thenReturn(actionDefinition);
+        when(actionDefinition.getOutputResponse()).thenReturn(new OutputResponse(null, Map.of("id", "sample id")));
+        when(workflowNodeTestOutputService.fetchWorkflowTestNodeOutput(WORKFLOW_ID, "action_1", ENVIRONMENT_ID))
+            .thenReturn(Optional.empty());
+
+        try (MockedStatic<WorkflowTrigger> workflowTriggerStatic = mockStatic(WorkflowTrigger.class)) {
+            workflowTriggerStatic.when(() -> WorkflowTrigger.of(workflow))
+                .thenReturn(List.of());
+
+            WorkflowNodeOutputDTO result = workflowNodeOutputFacade.getWorkflowNodeOutput(
+                WORKFLOW_ID, "action_1", ENVIRONMENT_ID);
+
+            assertNotNull(result);
+            assertEquals(Map.of("id", "sample id"), result.getSampleOutput());
+            assertFalse(result.testOutputResponse());
+        }
+    }
 }
