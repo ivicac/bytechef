@@ -65,6 +65,8 @@ const OutputSchemaDisplay = ({
     const hasProperties = Boolean(outputSchema && 'properties' in outputSchema && outputSchema.properties);
     const hasItems = Boolean(outputSchema && 'items' in outputSchema && outputSchema.items);
 
+    const testable = !currentNode.taskDispatcher && !resumePerformFunctionDefined && !variablePropertiesDefined;
+
     return (
         <div className="h-full">
             {outputDefined && outputSchema && (
@@ -73,8 +75,7 @@ const OutputSchemaDisplay = ({
                         <h3 className="text-sm text-content-neutral-secondary">Output Schema</h3>
 
                         <ButtonGroup>
-                            {!resumePerformFunctionDefined &&
-                                !variablePropertiesDefined &&
+                            {testable &&
                                 (showClusterElementTestButton &&
                                 currentOperationProperties &&
                                 handleClusterElementTestSubmit ? (
@@ -95,15 +96,14 @@ const OutputSchemaDisplay = ({
                                     />
                                 ))}
 
-                            {(resumePerformFunctionDefined || (outputSchema && variablePropertiesDefined)) &&
-                                !isClusterElement && (
-                                    <Button
-                                        disabled={saveWorkflowNodeTestOutputMutation.isPending}
-                                        label="Upload Sample Output"
-                                        onClick={() => setShowUploadDialog(true)}
-                                        variant="outline"
-                                    />
-                                )}
+                            {!testable && !isClusterElement && (
+                                <Button
+                                    disabled={saveWorkflowNodeTestOutputMutation.isPending}
+                                    label="Upload Sample Output"
+                                    onClick={() => setShowUploadDialog(true)}
+                                    variant="outline"
+                                />
+                            )}
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -118,16 +118,14 @@ const OutputSchemaDisplay = ({
 
                                 <DropdownMenuContent align="end" className="w-52">
                                     <DropdownMenuGroup>
-                                        {!resumePerformFunctionDefined &&
-                                            !variablePropertiesDefined &&
-                                            !isClusterElement && (
-                                                <DropdownMenuItem
-                                                    className="cursor-pointer"
-                                                    onClick={() => setShowUploadDialog(true)}
-                                                >
-                                                    Upload Sample Output
-                                                </DropdownMenuItem>
-                                            )}
+                                        {testable && !isClusterElement && (
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={() => setShowUploadDialog(true)}
+                                            >
+                                                Upload Sample Output
+                                            </DropdownMenuItem>
+                                        )}
 
                                         <DropdownMenuItem
                                             className="cursor-pointer"
