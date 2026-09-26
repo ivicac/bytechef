@@ -23,11 +23,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.configuration.domain.WorkflowNodeTestOutput;
 import com.bytechef.platform.configuration.facade.WorkflowNodeTestOutputFacade;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
+import com.bytechef.platform.configuration.web.rest.model.WorkflowNodeTestOutputModel;
 import com.bytechef.platform.security.web.authentication.AbstractApiKeyAuthenticationToken;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -35,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -54,14 +58,14 @@ class WorkflowNodeTestOutputApiControllerTest {
     private static final long DEVELOPMENT_ORDINAL = 0L;
     private static final long PRODUCTION_ORDINAL = 2L;
 
+    private ConversionService conversionService;
     private WorkflowNodeTestOutputApiController controller;
     private WorkflowNodeTestOutputFacade workflowNodeTestOutputFacade;
     private WorkflowNodeTestOutputService workflowNodeTestOutputService;
 
     @BeforeEach
     void setUp() {
-        ConversionService conversionService = mock(ConversionService.class);
-
+        conversionService = mock(ConversionService.class);
         workflowNodeTestOutputFacade = mock(WorkflowNodeTestOutputFacade.class);
         workflowNodeTestOutputService = mock(WorkflowNodeTestOutputService.class);
         controller = new WorkflowNodeTestOutputApiController(
@@ -133,6 +137,41 @@ class WorkflowNodeTestOutputApiControllerTest {
             eq("workflow-1"), eq("node-1"), environmentIdCaptor.capture());
 
         assertThat(environmentIdCaptor.getValue()).isEqualTo(DEVELOPMENT_ORDINAL);
+    }
+
+    @Test
+    void testSaveWorkflowNodeTestOutputReturnsTheSavedOutput() {
+        authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
+
+        WorkflowNodeTestOutput workflowNodeTestOutput = mock(WorkflowNodeTestOutput.class);
+        WorkflowNodeTestOutputModel workflowNodeTestOutputModel = new WorkflowNodeTestOutputModel();
+
+        when(workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput("workflow-1", "node-1", DEVELOPMENT_ORDINAL))
+            .thenReturn(workflowNodeTestOutput);
+        when(conversionService.convert(workflowNodeTestOutput, WorkflowNodeTestOutputModel.class))
+            .thenReturn(workflowNodeTestOutputModel);
+
+        ResponseEntity<WorkflowNodeTestOutputModel> responseEntity = controller.saveWorkflowNodeTestOutput(
+            "workflow-1", "node-1", DEVELOPMENT_ORDINAL);
+
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(responseEntity.getBody()).isSameAs(workflowNodeTestOutputModel);
+    }
+
+    @Test
+    void testSaveWorkflowNodeTestOutputReturnsNoContentWhenTheTestProducedNoOutput() {
+        authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
+
+        when(workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(anyString(), anyString(), anyLong()))
+            .thenReturn(null);
+
+        ResponseEntity<WorkflowNodeTestOutputModel> responseEntity = controller.saveWorkflowNodeTestOutput(
+            "workflow-1", "node-1", DEVELOPMENT_ORDINAL);
+
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(responseEntity.getBody()).isNull();
+
+        verifyNoInteractions(conversionService);
     }
 
     @Test

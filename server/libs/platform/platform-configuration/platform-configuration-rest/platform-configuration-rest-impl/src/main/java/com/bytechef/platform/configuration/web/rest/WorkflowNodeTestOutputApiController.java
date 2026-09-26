@@ -17,6 +17,7 @@
 package com.bytechef.platform.configuration.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.platform.configuration.domain.WorkflowNodeTestOutput;
 import com.bytechef.platform.configuration.facade.WorkflowNodeTestOutputFacade;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.web.rest.model.CheckWorkflowNodeTestOutputExists200ResponseModel;
@@ -99,11 +100,16 @@ public class WorkflowNodeTestOutputApiController implements WorkflowNodeTestOutp
         // the save() this facade method delegates to.
         long effectiveEnvironmentId = resolveRequiredEnvironmentId(environmentId);
 
-        return ResponseEntity.ok(
-            conversionService.convert(
-                workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(
-                    workflowId, workflowNodeName, effectiveEnvironmentId),
-                WorkflowNodeTestOutputModel.class));
+        WorkflowNodeTestOutput workflowNodeTestOutput = workflowNodeTestOutputFacade.saveWorkflowNodeTestOutput(
+            workflowId, workflowNodeName, effectiveEnvironmentId);
+
+        if (workflowNodeTestOutput == null) {
+            return ResponseEntity
+                .noContent()
+                .build();
+        }
+
+        return ResponseEntity.ok(conversionService.convert(workflowNodeTestOutput, WorkflowNodeTestOutputModel.class));
     }
 
     @Override
