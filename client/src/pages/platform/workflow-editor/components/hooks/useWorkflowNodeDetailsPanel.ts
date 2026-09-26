@@ -532,12 +532,7 @@ export default function useWorkflowNodeDetailsPanel({
                 operationDefinition: currentOperationDefinition,
                 taskDispatcher: currentNode?.taskDispatcher,
             }),
-        [
-            currentNode?.clusterElementType,
-            currentNode?.taskDispatcher,
-            currentOperationDefinition,
-            mainClusterRootName,
-        ]
+        [currentNode?.clusterElementType, currentNode?.taskDispatcher, currentOperationDefinition, mainClusterRootName]
     );
 
     const currentWorkflowTrigger = useMemo(
