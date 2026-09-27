@@ -64,6 +64,8 @@ const ProjectDeploymentWorkflowExecutionsContent = ({
         (state) => state.setProjectDeploymentWorkflowSheetOpen
     );
 
+    // The sheet's open state lives in a store that outlives this page, so leaving with it open would reopen it on
+    // the way back.
     const closeSheets = useCallback(() => {
         setWorkflowExecutionSheetOpen(false);
         setProjectDeploymentWorkflowSheetOpen(false);

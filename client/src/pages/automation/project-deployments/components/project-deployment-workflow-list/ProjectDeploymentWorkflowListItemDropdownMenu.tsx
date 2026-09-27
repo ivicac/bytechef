@@ -6,6 +6,7 @@ import {EditIcon, EllipsisVerticalIcon, SquareArrowOutUpRightIcon} from 'lucide-
 
 interface ProjectDeploymentWorkflowListItemDropDownProps {
     onEditClick: () => void;
+    /** Omitted where the project editor is unreachable, which hides the item. */
     onOpenInProjectClick?: () => void;
     workflow: Workflow;
 }
