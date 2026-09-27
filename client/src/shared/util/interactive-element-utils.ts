@@ -13,6 +13,7 @@
  */
 const INTERACTIVE_SELECTORS = [
     '[data-interactive]',
+    '[role="menu"]',
     '[role="menuitem"]',
     '.dropdown-menu-item',
     '[data-radix-dropdown-menu-trigger]',

@@ -1,4 +1,3 @@
-import '@/shared/styles/dropdownMenu.css';
 import Button from '@/components/Button/Button';
 import {
     DropdownMenu,
@@ -6,9 +5,16 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/DropdownMenu/DropdownMenu';
 import EEVersion from '@/shared/edition/EEVersion';
-import {ArrowUpRightIcon, EditIcon, EllipsisVerticalIcon, RefreshCcwIcon, Trash2Icon} from 'lucide-react';
+import {
+    ArrowUpRightIcon,
+    EditIcon,
+    EllipsisVerticalIcon,
+    RefreshCcwIcon,
+    SquareArrowOutUpRightIcon,
+    Trash2Icon,
+} from 'lucide-react';
 
 interface ProjectDeploymentListItemDropdownMenuProps {
     /**
@@ -19,6 +25,7 @@ interface ProjectDeploymentListItemDropdownMenuProps {
     onChangeProjectVersionClick: () => void;
     onDeleteClick: () => void;
     onEditClick: () => void;
+    onOpenProjectClick?: () => void;
     /**
      * Not passed by the agent deployments list — an agent deployment's underlying ProjectDeployment is
      * promoted through its owning agent, not directly, so the item stays hidden there.
@@ -32,6 +39,7 @@ const ProjectDeploymentListItemDropdownMenu = ({
     onChangeProjectVersionClick,
     onDeleteClick,
     onEditClick,
+    onOpenProjectClick,
     onPromoteClick,
     showPromoteToEnvironment = false,
 }: ProjectDeploymentListItemDropdownMenuProps) => {
@@ -41,32 +49,36 @@ const ProjectDeploymentListItemDropdownMenu = ({
                 <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="p-0">
-                <DropdownMenuItem className="dropdown-menu-item" onClick={onEditClick}>
-                    <EditIcon /> Edit
-                </DropdownMenuItem>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem icon={<EditIcon />} label="Edit" onClick={onEditClick} />
 
-                <DropdownMenuItem className="dropdown-menu-item" onClick={onChangeProjectVersionClick}>
-                    <RefreshCcwIcon /> {changeVersionLabel}
-                </DropdownMenuItem>
+                {onOpenProjectClick && (
+                    <DropdownMenuItem
+                        icon={<SquareArrowOutUpRightIcon />}
+                        label="Open Project"
+                        onClick={onOpenProjectClick}
+                    />
+                )}
+
+                <DropdownMenuItem
+                    icon={<RefreshCcwIcon />}
+                    label={changeVersionLabel}
+                    onClick={onChangeProjectVersionClick}
+                />
 
                 {showPromoteToEnvironment && onPromoteClick && (
                     <EEVersion hidden={true}>
-                        <DropdownMenuItem className="dropdown-menu-item" onClick={onPromoteClick}>
-                            <ArrowUpRightIcon /> Promote to environment…
-                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            icon={<ArrowUpRightIcon />}
+                            label="Promote to environment…"
+                            onClick={onPromoteClick}
+                        />
                     </EEVersion>
                 )}
 
-                <DropdownMenuSeparator className="m-0" />
+                <DropdownMenuSeparator />
 
-                <DropdownMenuItem
-                    className="dropdown-menu-item-destructive"
-                    onClick={onDeleteClick}
-                    variant="destructive"
-                >
-                    <Trash2Icon /> Delete
-                </DropdownMenuItem>
+                <DropdownMenuItem icon={<Trash2Icon />} label="Delete" onClick={onDeleteClick} variant="destructive" />
             </DropdownMenuContent>
         </DropdownMenu>
     );

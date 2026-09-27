@@ -1,5 +1,6 @@
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
+import Button from '@/components/Button/Button';
 import LoadingIcon from '@/components/LoadingIcon';
 import Switch from '@/components/Switch/Switch';
 import {CollapsibleTrigger} from '@/components/ui/collapsible';
@@ -8,7 +9,6 @@ import ProjectDeploymentListItemDropdownMenu from '@/pages/automation/project-de
 import useOpenInProject from '@/pages/automation/project-deployments/hooks/useOpenInProject';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import {ENVIRONMENT_CONFIGS} from '@/shared/constants/environmentConfigs';
 import EEVersion from '@/shared/edition/EEVersion';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import {ProjectDeployment, Tag} from '@/shared/middleware/automation/configuration';
@@ -23,7 +23,7 @@ import {ProjectDeploymentKeys} from '@/shared/queries/automation/projectDeployme
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import isInteractiveElementClick from '@/shared/util/interactive-element-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon} from 'lucide-react';
+import {ChevronDownIcon, Layers3Icon, SquareArrowOutUpRightIcon} from 'lucide-react';
 import {Suspense, lazy, useCallback, useRef, useState} from 'react';
 
 import TagList from '../../../../../shared/components/TagList';
@@ -41,7 +41,6 @@ interface ProjectDeploymentListItemProps {
     hideOpenInProject?: boolean;
     projectDeployment: ProjectDeployment;
     remainingTags?: Tag[];
-    showEnvironment?: boolean;
     showTags?: boolean;
     /** How many ordinary workflows the deployment carries, leaving out the agents' and syncs' generated ones. */
     workflowCount?: number;
@@ -53,7 +52,6 @@ const ProjectDeploymentListItem = ({
     hideOpenInProject,
     projectDeployment,
     remainingTags,
-    showEnvironment,
     showTags = true,
     workflowCount = projectDeployment.projectDeploymentWorkflows?.length || 0,
 }: ProjectDeploymentListItemProps) => {
@@ -139,20 +137,15 @@ const ProjectDeploymentListItem = ({
     const isDeploymentSwitchDisabled =
         enableProjectDeploymentMutation.isPending || (enabledWorkflowCount < 1 && !projectDeployment.enabled);
 
-    const showOpenProject = !hideOpenInProject && projectDeployment.projectId != null;
+    const showPromoteToEnvironment = (environmentsQuery.data?.environments?.length ?? 0) >= 2;
 
-    const environmentConfig =
-        showEnvironment && projectDeployment.environmentId != null
-            ? ENVIRONMENT_CONFIGS[projectDeployment.environmentId]
-            : undefined;
-    const EnvironmentIcon = environmentConfig?.icon;
+    const showOpenProject = !hideOpenInProject && projectDeployment.projectId != null;
 
     const handleOpenProjectClick = () => {
         if (projectDeployment.projectId != null) {
             openProject(projectDeployment.projectId);
         }
     };
-    const showPromoteToEnvironment = (environmentsQuery.data?.environments?.length ?? 0) >= 2;
 
     return (
         <>
@@ -164,14 +157,10 @@ const ProjectDeploymentListItem = ({
                     <div className="flex-1">
                         <div className="flex min-h-8 items-center justify-between">
                             <div className="flex w-full items-center gap-2">
-                                {environmentConfig && EnvironmentIcon && (
-                                    <Badge
-                                        icon={<EnvironmentIcon className="size-3" />}
-                                        label={environmentConfig.shortLabel}
-                                        styleType={environmentConfig.styleType}
-                                        weight="semibold"
-                                    />
-                                )}
+                                <Layers3Icon
+                                    aria-hidden="true"
+                                    className="size-6 shrink-0 text-content-neutral-secondary"
+                                />
 
                                 {projectDeployment.description ? (
                                     <Tooltip>
@@ -183,6 +172,23 @@ const ProjectDeploymentListItem = ({
                                     </Tooltip>
                                 ) : (
                                     <span className="text-base font-semibold">{projectDeployment.name}</span>
+                                )}
+
+                                {showOpenProject && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                aria-label="Open project"
+                                                className="size-6"
+                                                icon={<SquareArrowOutUpRightIcon className="size-4" />}
+                                                onClick={handleOpenProjectClick}
+                                                size="icon"
+                                                variant="ghost"
+                                            />
+                                        </TooltipTrigger>
+
+                                        <TooltipContent>Open project</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
                         </div>
@@ -262,6 +268,7 @@ const ProjectDeploymentListItem = ({
                             onChangeProjectVersionClick={() => setShowChangeProjectVersionDialog(true)}
                             onDeleteClick={() => setShowDeleteDialog(true)}
                             onEditClick={() => setShowEditDialog(true)}
+                            onOpenProjectClick={showOpenProject ? handleOpenProjectClick : undefined}
                             onPromoteClick={() => setShowPromotionDialog(true)}
                             showPromoteToEnvironment={showPromoteToEnvironment}
                         />

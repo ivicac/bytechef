@@ -30,6 +30,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "A2A Agent Tool",
     "type": {
       "name": "TOOLS",

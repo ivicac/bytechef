@@ -95,12 +95,24 @@ vi.mock('@/components/ui/tooltip', () => ({
     TooltipTrigger: ({children}: {children: React.ReactNode}) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/dropdown-menu', () => ({
+vi.mock('@/components/DropdownMenu/DropdownMenu', () => ({
     DropdownMenu: ({children}: {children: React.ReactNode}) => <div>{children}</div>,
     DropdownMenuContent: ({children}: {children: React.ReactNode}) => <div>{children}</div>,
-    DropdownMenuItem: ({children, onClick}: {children?: React.ReactNode; onClick?: () => void}) => (
+    DropdownMenuItem: ({
+        children,
+        icon,
+        label,
+        onClick,
+    }: {
+        children?: React.ReactNode;
+        icon?: React.ReactNode;
+        label?: string;
+        onClick?: () => void;
+    }) => (
         <button onClick={onClick} type="button">
-            {children}
+            {icon}
+
+            {label ?? children}
         </button>
     ),
     DropdownMenuSeparator: () => <hr />,
@@ -266,6 +278,28 @@ describe('ProjectDeploymentListItem', () => {
         await user.click(screen.getByText('close'));
 
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens the project from the icon beside the name and from the menu', async () => {
+        const user = userEvent.setup();
+
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+
+        await user.click(screen.getByRole('button', {name: 'Open project'}));
+
+        expect(hoisted.openProjectMock).toHaveBeenLastCalledWith(7);
+
+        await user.click(screen.getByText('Open Project'));
+
+        expect(hoisted.openProjectMock).toHaveBeenCalledTimes(2);
+        expect(hoisted.openProjectMock).toHaveBeenLastCalledWith(7);
+    });
+
+    it('hides the open project controls when the deployment has no project', () => {
+        render(<ProjectDeploymentListItem projectDeployment={{...projectDeployment, projectId: undefined}} />);
+
+        expect(screen.queryByRole('button', {name: 'Open project'})).not.toBeInTheDocument();
+        expect(screen.queryByText('Open Project')).not.toBeInTheDocument();
     });
 
     it('invalidates the projectDeployments query when onPromoted fires', async () => {

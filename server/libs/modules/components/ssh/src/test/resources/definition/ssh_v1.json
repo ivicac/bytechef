@@ -364,6 +364,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Execute Shell Commands",
     "workflowNodeDescription": null
   } ],
@@ -722,6 +723,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Execute Shell Commands",
     "type": {
       "name": "TOOLS",
