@@ -11,6 +11,7 @@ import ProjectDeploymentListItem from './ProjectDeploymentListItem';
 // ---------------------------------------------------------------------------
 
 const hoisted = vi.hoisted(() => ({
+    canOpenInProject: true,
     deleteProjectDeploymentMock: vi.fn(),
     edition: 'EE',
     environmentsResult: {
@@ -24,7 +25,16 @@ const hoisted = vi.hoisted(() => ({
         data: {environments: {id: string; name: string}[]} | undefined;
     },
     invalidateQueriesMock: vi.fn(),
+    openProjectMock: vi.fn(),
     promotionDialogProps: [] as unknown[],
+}));
+
+vi.mock('@/pages/automation/project-deployments/hooks/useOpenInProject', () => ({
+    default: () => ({
+        canOpenInProject: hoisted.canOpenInProject,
+        openProject: hoisted.openProjectMock,
+        openProjectWorkflow: vi.fn(),
+    }),
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
@@ -113,14 +123,17 @@ const projectDeployment: ProjectDeployment = {
     id: 42,
     name: 'My Project Deployment',
     projectDeploymentWorkflows: [],
+    projectId: 7,
     projectVersion: 1,
     tags: [],
 };
 
 describe('ProjectDeploymentListItem', () => {
     beforeEach(() => {
+        hoisted.canOpenInProject = true;
         hoisted.deleteProjectDeploymentMock.mockReset();
         hoisted.edition = 'EE';
+        hoisted.openProjectMock.mockReset();
         hoisted.invalidateQueriesMock.mockReset();
         hoisted.promotionDialogProps.length = 0;
         hoisted.environmentsResult.data = {
@@ -227,6 +240,30 @@ describe('ProjectDeploymentListItem', () => {
         await user.click(screen.getByText('close'));
 
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens the project from the icon beside the name and from the menu', async () => {
+        const user = userEvent.setup();
+
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+
+        await user.click(screen.getByRole('button', {name: 'Open project'}));
+
+        expect(hoisted.openProjectMock).toHaveBeenLastCalledWith(7);
+
+        await user.click(screen.getByText('Open Project'));
+
+        expect(hoisted.openProjectMock).toHaveBeenCalledTimes(2);
+        expect(hoisted.openProjectMock).toHaveBeenLastCalledWith(7);
+    });
+
+    it('hides the open project controls where the project editor is unreachable', () => {
+        hoisted.canOpenInProject = false;
+
+        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+
+        expect(screen.queryByRole('button', {name: 'Open project'})).not.toBeInTheDocument();
+        expect(screen.queryByText('Open Project')).not.toBeInTheDocument();
     });
 
     it('invalidates the projectDeployments query when onPromoted fires', async () => {

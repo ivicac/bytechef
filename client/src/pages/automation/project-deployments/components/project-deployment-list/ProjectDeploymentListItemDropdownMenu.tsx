@@ -8,7 +8,14 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import EEVersion from '@/shared/edition/EEVersion';
-import {ArrowUpRightIcon, EditIcon, EllipsisVerticalIcon, RefreshCcwIcon, Trash2Icon} from 'lucide-react';
+import {
+    ArrowUpRightIcon,
+    EditIcon,
+    EllipsisVerticalIcon,
+    RefreshCcwIcon,
+    SquareArrowOutUpRightIcon,
+    Trash2Icon,
+} from 'lucide-react';
 
 interface ProjectDeploymentListItemDropdownMenuProps {
     /**
@@ -19,6 +26,11 @@ interface ProjectDeploymentListItemDropdownMenuProps {
     onChangeProjectVersionClick: () => void;
     onDeleteClick: () => void;
     onEditClick: () => void;
+    /**
+     * Omitted where the project editor is unreachable — outside Development, and in the agent deployments list,
+     * whose backing project the user never sees named — which hides the item.
+     */
+    onOpenProjectClick?: () => void;
     /**
      * Not passed by the agent deployments list — an agent deployment's underlying ProjectDeployment is
      * promoted through its owning agent, not directly, so the item stays hidden there.
@@ -32,6 +44,7 @@ const ProjectDeploymentListItemDropdownMenu = ({
     onChangeProjectVersionClick,
     onDeleteClick,
     onEditClick,
+    onOpenProjectClick,
     onPromoteClick,
     showPromoteToEnvironment = false,
 }: ProjectDeploymentListItemDropdownMenuProps) => {
@@ -45,6 +58,12 @@ const ProjectDeploymentListItemDropdownMenu = ({
                 <DropdownMenuItem className="dropdown-menu-item" onClick={onEditClick}>
                     <EditIcon /> Edit
                 </DropdownMenuItem>
+
+                {onOpenProjectClick && (
+                    <DropdownMenuItem className="dropdown-menu-item" onClick={onOpenProjectClick}>
+                        <SquareArrowOutUpRightIcon /> Open Project
+                    </DropdownMenuItem>
+                )}
 
                 <DropdownMenuItem className="dropdown-menu-item" onClick={onChangeProjectVersionClick}>
                     <RefreshCcwIcon /> {changeVersionLabel}

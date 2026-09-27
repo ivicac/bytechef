@@ -199,6 +199,7 @@ describe('ProjectDeploymentWorkflowExecutionsSheet', () => {
 
         renderSheet();
 
+        // The flex gap spaces the separator on screen; the text content carries no literal space.
         expect(document.querySelector('header')).toHaveTextContent('Subflow/workflow1/ V3');
 
         await user.click(screen.getByRole('button', {name: 'Subflow'}));
