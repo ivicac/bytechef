@@ -1,10 +1,12 @@
 import Badge from '@/components/Badge/Badge';
+import Button from '@/components/Button/Button';
 import LoadingIcon from '@/components/LoadingIcon';
 import Switch from '@/components/Switch/Switch';
 import {CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ProjectDeploymentListItemAlertDialog from '@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentListItemAlertDialog';
 import ProjectDeploymentListItemDropdownMenu from '@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentListItemDropdownMenu';
+import useOpenInProject from '@/pages/automation/project-deployments/hooks/useOpenInProject';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import EEVersion from '@/shared/edition/EEVersion';
@@ -20,7 +22,7 @@ import {ProjectDeploymentTagKeys} from '@/shared/queries/automation/projectDeplo
 import {ProjectDeploymentKeys} from '@/shared/queries/automation/projectDeployments.queries';
 import isInteractiveElementClick from '@/shared/util/interactive-element-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon} from 'lucide-react';
+import {ChevronDownIcon, SquareArrowOutUpRightIcon} from 'lucide-react';
 import {Suspense, lazy, useCallback, useRef, useState} from 'react';
 
 import TagList from '../../../../../shared/components/TagList';
@@ -62,6 +64,8 @@ const ProjectDeploymentListItem = ({
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
     const {captureProjectDeploymentEnabled} = useAnalytics();
+
+    const {canOpenInProject, openProject} = useOpenInProject();
 
     const queryClient = useQueryClient();
 
@@ -126,6 +130,14 @@ const ProjectDeploymentListItem = ({
 
     const showPromoteToEnvironment = (environmentsQuery.data?.environments?.length ?? 0) >= 2;
 
+    const showOpenProject = canOpenInProject && projectDeployment.projectId != null;
+
+    const handleOpenProjectClick = () => {
+        if (projectDeployment.projectId != null) {
+            openProject(projectDeployment.projectId);
+        }
+    };
+
     return (
         <>
             <div
@@ -146,6 +158,23 @@ const ProjectDeploymentListItem = ({
                                     </Tooltip>
                                 ) : (
                                     <span className="text-base font-semibold">{projectDeployment.name}</span>
+                                )}
+
+                                {showOpenProject && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                aria-label="Open project"
+                                                className="size-6"
+                                                icon={<SquareArrowOutUpRightIcon className="size-4" />}
+                                                onClick={handleOpenProjectClick}
+                                                size="icon"
+                                                variant="ghost"
+                                            />
+                                        </TooltipTrigger>
+
+                                        <TooltipContent>Open project</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
                         </div>
@@ -225,6 +254,7 @@ const ProjectDeploymentListItem = ({
                             onChangeProjectVersionClick={() => setShowChangeProjectVersionDialog(true)}
                             onDeleteClick={() => setShowDeleteDialog(true)}
                             onEditClick={() => setShowEditDialog(true)}
+                            onOpenProjectClick={showOpenProject ? handleOpenProjectClick : undefined}
                             onPromoteClick={() => setShowPromotionDialog(true)}
                             showPromoteToEnvironment={showPromoteToEnvironment}
                         />
