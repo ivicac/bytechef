@@ -8,6 +8,7 @@ import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {applyGraphMemberInsertion} from './graph/graphMemberInsertion';
 import placeInsertedTaskBetweenPinnedNeighbours from './placeInsertedTaskBetweenPinnedNeighbours';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
+import {getWorkflowNodeComponentName} from './workflowNodeNameUtils';
 
 interface InsertTaskDispatcherSubtaskProps {
     newTask: WorkflowTask;
@@ -27,7 +28,7 @@ export default function insertTaskDispatcherSubtask({
 }: InsertTaskDispatcherSubtaskProps): Array<WorkflowTask> {
     const taskDispatcherId = taskDispatcherContext.taskDispatcherId;
 
-    const componentName = taskDispatcherId?.split('_')[0] as keyof typeof TASK_DISPATCHER_CONFIG;
+    const componentName = getWorkflowNodeComponentName(taskDispatcherId ?? '') as keyof typeof TASK_DISPATCHER_CONFIG;
 
     const config = TASK_DISPATCHER_CONFIG[componentName];
 

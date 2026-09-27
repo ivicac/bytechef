@@ -1,4 +1,5 @@
 import {getGraphFrameId} from './graph/graphFrameGeometry';
+import {getWorkflowNodeComponentName} from './workflowNodeNameUtils';
 
 /**
  * Builds the bottom-ghost node id for a task dispatcher nested inside another
@@ -7,8 +8,8 @@ import {getGraphFrameId} from './graph/graphFrameGeometry';
  *
  * The ghost node ids created by createForkJoinNode / createOnErrorNode use
  * camelCase segments ('forkJoin', 'onError') rather than the kebab-case
- * componentNames ('fork-join', 'on-error'). Deriving the segment naively from
- * `taskNodeId.split('_')[0]` therefore produces `<id>-fork-join-bottom-ghost`,
+ * componentNames ('fork-join', 'on-error'). Using the componentName recovered
+ * from the node name verbatim would produce `<id>-fork-join-bottom-ghost`,
  * which matches no real node — the dagre edge is then dropped by the
  * missing-node filter, leaving the nested subtree disconnected at the bottom.
  * All other dispatchers (condition, loop, branch, each, map, parallel) use their
@@ -24,7 +25,7 @@ export function nestedDispatcherGhostSegment(componentName: string): string {
 }
 
 export function nestedBottomGhostIdForDispatcherTask(taskNodeId: string): string {
-    const componentName = taskNodeId.split('_')[0];
+    const componentName = getWorkflowNodeComponentName(taskNodeId);
 
     // A graph has no bottom bar — its frame is the node the enclosing chain leaves it from.
     if (componentName === 'graph') {

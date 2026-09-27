@@ -353,6 +353,24 @@ describe('insertTaskDispatcherSubtask — chain dispatchers', () => {
         expect(caseTrue[1].metadata?.ui?.nodePosition).toEqual({x: 300, y: 700});
     });
 
+    it('should insert into a fork-join branch whose node name is camelCased', () => {
+        const forkJoinTask = task({
+            name: 'forkJoin_1',
+            parameters: {branches: [[task({name: 'first_action'})]]},
+            type: 'fork-join/v1',
+        });
+
+        const updatedTasks = insertTaskDispatcherSubtask({
+            newTask: task({name: 'second_action'}),
+            taskDispatcherContext: {branchIndex: 0, index: 1, taskDispatcherId: 'forkJoin_1'},
+            tasks: [forkJoinTask],
+        });
+
+        const branches = updatedTasks[0].parameters?.branches as WorkflowTask[][];
+
+        expect(branches[0].map((subtask) => subtask.name)).toEqual(['first_action', 'second_action']);
+    });
+
     // A chain subtask's saved position is the user's own arrangement of an unlocked canvas, exactly
     // like a top-level task's. Inserting before it must leave both axes alone, or the hand-placed
     // subtask snaps back to the automatic layout's slot the moment its case grows.

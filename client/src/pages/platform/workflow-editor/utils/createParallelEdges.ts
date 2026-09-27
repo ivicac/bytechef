@@ -4,6 +4,7 @@ import {NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
 import {nestedBottomGhostIdForDispatcherTask} from './nestedBottomGhostId';
+import {getWorkflowNodeComponentName} from './workflowNodeNameUtils';
 
 /**
  * Creates edges for the left ghost node in a parallel task
@@ -73,7 +74,7 @@ function createParallelTaskEdges(
 ): Edge[] {
     const taskEdges: Edge[] = [];
     const taskId = task.name;
-    const taskComponentName = taskId.split('_')[0];
+    const taskComponentName = getWorkflowNodeComponentName(taskId);
     const topGhostId = `${parallelId}-parallel-top-ghost`;
     const bottomGhostId = `${parallelId}-parallel-bottom-ghost`;
 

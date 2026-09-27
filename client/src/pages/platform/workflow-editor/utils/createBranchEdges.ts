@@ -4,6 +4,7 @@ import {BranchCaseType, NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
 import {nestedBottomGhostIdForDispatcherTask} from './nestedBottomGhostId';
+import {getWorkflowNodeComponentName} from './workflowNodeNameUtils';
 
 /**
  * Creates the base Branch structure edges (branch -> top ghost -> placeholder -> bottom ghost)
@@ -90,7 +91,7 @@ function createEdgesForSingleCase(
             return;
         }
 
-        const sourceTaskComponentName = sourceTaskId.split('_')[0];
+        const sourceTaskComponentName = getWorkflowNodeComponentName(sourceTaskId);
 
         if (
             TASK_DISPATCHER_NAMES.includes(sourceTaskComponentName) &&
@@ -121,7 +122,7 @@ function createEdgesForSingleCase(
     });
 
     const lastTaskId = caseTasks[caseTasks.length - 1].name;
-    const lastTaskComponentName = lastTaskId.split('_')[0];
+    const lastTaskComponentName = getWorkflowNodeComponentName(lastTaskId);
 
     if (
         TASK_DISPATCHER_NAMES.includes(lastTaskComponentName) &&

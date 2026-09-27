@@ -32,6 +32,7 @@ import {
     hasConfiguredClusterElements,
     isNodePositioned,
 } from './postDagreConstraints';
+import {getWorkflowNodeComponentName} from './workflowNodeNameUtils';
 
 import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
@@ -1206,7 +1207,8 @@ export const getElkLayoutElements = async ({
                         // ON the ring's content side instead of on the spine
                         // (right in TB, top in LR)
                         const ringOffset = offsetRingDispatcherIds.has(dispatcherId)
-                            ? getRingContentSign(direction, dispatcherId.split('_')[0]) * RING_CONTENT_OFFSET
+                            ? getRingContentSign(direction, getWorkflowNodeComponentName(dispatcherId)) *
+                              RING_CONTENT_OFFSET
                             : 0;
 
                         if (direction === 'TB') {

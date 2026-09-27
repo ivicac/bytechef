@@ -19,6 +19,24 @@ describe('getFormattedName', () => {
         expect(getFormattedName('httpClient')).toBe('httpClient_1');
     });
 
+    it('camelCases a hyphenated component name', () => {
+        expect(getFormattedName('fork-join')).toBe('forkJoin_1');
+        expect(getFormattedName('on-error')).toBe('onError_1');
+    });
+
+    it('numbers past an existing camelCased dispatcher node', () => {
+        setWorkflowDefinition({
+            tasks: [{name: 'forkJoin_1', parameters: {branches: []}, type: 'fork-join/v1'}],
+            triggers: [],
+        });
+
+        useWorkflowDataStore.setState({
+            nodes: [{data: {name: 'forkJoin_1'}, id: 'forkJoin_1', position: {x: 0, y: 0}}],
+        } as unknown as Parameters<typeof useWorkflowDataStore.setState>[0]);
+
+        expect(getFormattedName('fork-join')).toBe('forkJoin_2');
+    });
+
     it('counts the element names inside a task cluster root', () => {
         setWorkflowDefinition({
             tasks: [
