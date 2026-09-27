@@ -348,7 +348,8 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
                 Objects.equals(workflowNodeType.name(), "map") ||
                 Objects.equals(workflowNodeType.name(), "condition") ||
                 Objects.equals(workflowNodeType.name(), "branch") ||
-                Objects.equals(workflowNodeType.name(), "fork-join")) {
+                Objects.equals(workflowNodeType.name(), "fork-join") ||
+                Objects.equals(workflowNodeType.name(), "graph")) {
 
                 List<WorkflowTask> childWorkflowTasks = getChildWorkflowTasks(workflowTask, workflowNodeType);
 
