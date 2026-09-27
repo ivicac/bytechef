@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -478,7 +477,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("branch", 1)).thenReturn(true);
         when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
-        when(evaluator.evaluate(any(), any(), anyBoolean()))
+        when(evaluator.evaluate(any(), any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         OutputResponse variableOutputResponse = new OutputResponse(null, Map.of("item", "value"), null);
@@ -532,7 +531,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("condition", 1)).thenReturn(true);
         when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
-        when(evaluator.evaluate(any(), any(), anyBoolean()))
+        when(evaluator.evaluate(any(), any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         OutputResponse variableOutputResponse = new OutputResponse(null, Map.of("item", "value"), null);
@@ -586,7 +585,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("fork-join", 1)).thenReturn(true);
         when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
-        when(evaluator.evaluate(any(), any(), anyBoolean()))
+        when(evaluator.evaluate(any(), any()))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         OutputResponse variableOutputResponse = new OutputResponse(null, Map.of("item", "value"), null);

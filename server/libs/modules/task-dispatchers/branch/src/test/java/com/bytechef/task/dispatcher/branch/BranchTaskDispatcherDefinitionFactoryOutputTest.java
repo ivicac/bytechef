@@ -101,6 +101,7 @@ public class BranchTaskDispatcherDefinitionFactoryOutputTest {
 
     private static List<String> propertyNames(ModifiableObjectProperty objectProperty) {
         return objectProperty.getProperties()
+            .orElseThrow()
             .stream()
             .map(Property::getName)
             .toList();
