@@ -7,6 +7,11 @@ import {getDataPillIconSource} from './getDataPillIconSource';
 
 const workflow = {} as Workflow;
 
+const taskDispatcherDefinitions = [
+    {icon: 'fork-join-icon', name: 'fork-join', outputDefined: true, version: 1},
+    {icon: 'on-error-icon', name: 'on-error', outputDefined: true, version: 1},
+];
+
 const variableIconDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
     renderToStaticMarkup(TYPE_ICONS.VARIABLE)
 )}`;
@@ -33,5 +38,24 @@ describe('getDataPillIconSource', () => {
         expect(getDataPillIconSource({mentionDisplay: 'varsomething_1_action', workflow})).toBe(
             defaultStringIconDataUri
         );
+    });
+
+    it('returns the dispatcher icon for a camelCased dispatcher node name', () => {
+        expect(
+            getDataPillIconSource({
+                mentionDisplay: '${forkJoin_1.branch_0.result}',
+                taskDispatcherDefinitions,
+                workflow,
+            })
+        ).toBe('fork-join-icon');
+        expect(getDataPillIconSource({mentionDisplay: '${onError_2}', taskDispatcherDefinitions, workflow})).toBe(
+            'on-error-icon'
+        );
+    });
+
+    it('returns the dispatcher icon for a hyphenated dispatcher node name', () => {
+        expect(
+            getDataPillIconSource({mentionDisplay: '${fork-join_1.branch_0}', taskDispatcherDefinitions, workflow})
+        ).toBe('fork-join-icon');
     });
 });

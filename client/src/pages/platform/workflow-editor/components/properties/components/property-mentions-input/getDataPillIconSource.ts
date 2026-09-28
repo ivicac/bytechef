@@ -1,4 +1,5 @@
 import {VARIABLES_NODE_NAME} from '@/pages/platform/workflow-editor/utils/getWorkflowInputAndVariableDataPills';
+import {getWorkflowNodeComponentName} from '@/pages/platform/workflow-editor/utils/workflowNodeNameUtils';
 import {TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {
     ComponentDefinitionBasic,
@@ -38,7 +39,7 @@ export function getDataPillIconSource({
         return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
     }
 
-    let componentName = mentionDisplay?.split('_')[0].replace('${', '');
+    let componentName = getWorkflowNodeComponentName(unwrappedMentionDisplay);
 
     if (componentName === 'trigger') {
         componentName = workflow.workflowTriggerComponentNames?.[0] || '';

@@ -6,6 +6,7 @@ import {MentionStorage} from '@/pages/platform/workflow-editor/components/proper
 import {getSuggestionOptions} from '@/pages/platform/workflow-editor/components/properties/components/property-mentions-input/propertyMentionsInputEditorSuggestionOptions';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
+import {getWorkflowNodeComponentName} from '@/pages/platform/workflow-editor/utils/workflowNodeNameUtils';
 import {aiChatDataComponents} from '@/shared/components/ai-chat/messages/aiChatDataComponents';
 import {TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {
@@ -235,7 +236,7 @@ const ComposerInput: FC<{hasAttachments: boolean}> = ({hasAttachments}) => {
 
     const getComponentIcon = useCallback(
         (mentionValue: string) => {
-            let componentName = mentionValue?.split('_')[0].replace('${', '');
+            let componentName = getWorkflowNodeComponentName(mentionValue?.replace('${', '') ?? '');
 
             if (componentName === 'trigger') {
                 componentName = workflow.workflowTriggerComponentNames?.[0] || '';
