@@ -26,6 +26,7 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigu
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationWorkflowService;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.service.EnvironmentService;
@@ -59,7 +60,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     classes = IntegrationWorkflowExecutionFacadeIntTest.Config.class,
     properties = "bytechef.edition=ee")
 @MockitoBean(types = {
-    ComponentDefinitionService.class, ContextService.class, EnvironmentService.class,
+    ComponentDefinitionService.class, ConnectedUserService.class, ContextService.class, EnvironmentService.class,
     Evaluator.class, IntegrationInstanceConfigurationService.class, IntegrationInstanceService.class,
     IntegrationService.class, IntegrationWorkflowFacade.class, IntegrationWorkflowService.class,
     TaskDispatcherDefinitionService.class, TaskFileStorage.class, TriggerExecutionService.class,

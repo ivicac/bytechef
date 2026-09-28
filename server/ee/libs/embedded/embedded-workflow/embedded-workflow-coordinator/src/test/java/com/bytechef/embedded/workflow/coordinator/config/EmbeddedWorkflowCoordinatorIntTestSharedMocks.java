@@ -8,6 +8,7 @@
 package com.bytechef.embedded.workflow.coordinator.config;
 
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.lang.annotation.ElementType;
@@ -24,7 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @MockitoBean(types = {
-    JobPrincipalAccessorRegistry.class, JobService.class, PrincipalJobService.class
+    IntegrationAuditPublisher.class, JobPrincipalAccessorRegistry.class, JobService.class, PrincipalJobService.class
 })
 public @interface EmbeddedWorkflowCoordinatorIntTestSharedMocks {
 }
