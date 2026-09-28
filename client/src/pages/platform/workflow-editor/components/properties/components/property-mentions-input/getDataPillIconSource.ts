@@ -39,7 +39,7 @@ export function getDataPillIconSource({
         return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
     }
 
-    let componentName = getWorkflowNodeComponentName(mentionDisplay?.replace('${', '') ?? '');
+    let componentName = getWorkflowNodeComponentName(unwrappedMentionDisplay);
 
     if (componentName === 'trigger') {
         componentName = workflow.workflowTriggerComponentNames?.[0] || '';
