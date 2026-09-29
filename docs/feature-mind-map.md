@@ -1453,7 +1453,6 @@ mindmap
     Code Workflow Loader
       IntegrationHandlerClassLoader isolated Java class loading
       IntegrationHandlerPolyglotEngine GraalVM guest-language h…
-      GuestSdkClasspath restricting what guest code can see
       Pairs with backend integration-api SDK and NewIntegration…
     Embedded Frontend SDK React
       ConnectDialog with dynamic form rendering, internal-only…
@@ -1593,10 +1592,9 @@ mindmap
     - RequestTriggerApiController — external systems invoke workflow HTTP triggers
     - AppEventTriggerApiController — SaaS app posts app events
     - Environment-scoped execution (EnvironmentModel parameter)
-- **Code Workflow Loader** [EE] — Loads customer-authored code-defined integrations/workflows at runtime (embedded-code-workflow-loader): IntegrationHandlerLoader with a dedicated classloader for JVM artifacts and a GraalVM polyglot engine for JS/Python/Ruby handlers, sandboxed via GuestSdkClasspath.
+- **Code Workflow Loader** [EE] — Loads customer-authored code-defined integrations/workflows at runtime (embedded-code-workflow-loader): IntegrationHandlerLoader with a dedicated classloader for JVM artifacts and a GraalVM polyglot engine for JS/Python/Ruby handlers.
     - IntegrationHandlerClassLoader (isolated Java class loading)
     - IntegrationHandlerPolyglotEngine (GraalVM guest-language handlers)
-    - GuestSdkClasspath restricting what guest code can see
     - Pairs with backend integration-api SDK and NewIntegrationCodeWorkflowDialog UI
 - **Embedded Frontend SDK (React)** [EE] — @bytechef/embedded React SDK (sdks/frontend/embedded) that customers drop into their SaaS UI: a ConnectDialog for end users to connect/configure integrations and an EmbeddedWorkflowBuilder component; ships with a Next.js test app including JWT generation.
     - ConnectDialog with dynamic form rendering, internal-only fields, field mapping (FieldMappingField)
@@ -3054,8 +3052,7 @@ mindmap
       Component bundle storage in dedicated file storage Custom…
       Dynamic handler registry CustomComponentDynamicComponentH…
       ComponentHandlerClassLoader for JVM-loaded handlers
-      ComponentHandlerPolyglotEngine / ComponentHandlerEspresso…
-      Guest bridge sandbox API GuestComponentBridge, GuestHttp,…
+      ComponentHandlerPolyglotEngine for sandboxed GraalVM exec…
       Audit events for custom component lifecycle CustomCompone…
     API Connector Builder
       Manual connector create/update/delete/enable via GraphQL
@@ -3256,13 +3253,12 @@ mindmap
     - Audit events for API collection changes (ApiCollectionAuditPublisher)
     - *Base path constant API_PLATFORM_BASE_PATH = /api/o*
     - *Endpoints referenced by projectDeploymentWorkflow; DTOs join collection + endpoints + tags*
-- **Custom Components** [EE] — Upload, manage, and execute tenant-authored custom components at runtime without a server rebuild (platform-custom-component). Handlers are loaded through a Java classloader or a GraalVM polyglot/Espresso sandbox with a guest-host bridge.
+- **Custom Components** [EE] — Upload, manage, and execute tenant-authored custom components at runtime without a server rebuild (platform-custom-component). Handlers are loaded through a Java classloader or a GraalVM polyglot sandbox.
     - Custom component CRUD via public REST API and GraphQL
     - Component bundle storage in dedicated file storage (CustomComponentFileStorage)
     - Dynamic handler registry (CustomComponentDynamicComponentHandlerRegistry) so custom components appear in the component registry
     - ComponentHandlerClassLoader for JVM-loaded handlers
-    - ComponentHandlerPolyglotEngine / ComponentHandlerEspressoEngine for sandboxed GraalVM execution
-    - Guest bridge sandbox API (GuestComponentBridge, GuestHttp, GuestParameters, GuestActionContext, HostBridge)
+    - ComponentHandlerPolyglotEngine for sandboxed GraalVM execution
     - Audit events for custom component lifecycle (CustomComponentAuditPublisher)
 - **API Connector Builder** [EE] — Generate new connectors from REST APIs three ways: manual definition, OpenAPI spec import, or AI-assisted generation that scrapes API documentation pages and synthesizes an OpenAPI spec (platform-api-connector). Generated connectors register as live components via a dynamic handler registry.
     - Manual connector create/update/delete/enable via GraphQL
@@ -3278,7 +3274,7 @@ mindmap
     - Dynamic component handler registry + ComponentDefinitionReader to serve generated connectors
 - **Code Workflows** [EE] — Define workflows in code (via the ByteChef SDK) and deploy them as code-workflow containers: platform-code-workflow stores CodeWorkflowContainer/CodeWorkflow entities and files, loaders execute the handlers, and the code-workflow component runs each task via a Perform action.
     - CodeWorkflowContainer + CodeWorkflow domain with dedicated file storage (CodeWorkflowFileStorage)
-    - Automation loader: ProjectHandlerLoader with classloader and GraalVM polyglot engines (GuestSdkClasspath)
+    - Automation loader: ProjectHandlerLoader with classloader and GraalVM polyglot engines
     - Embedded loader: IntegrationHandlerLoader with the same classloader/polyglot pair
     - Public REST deployment API (ProjectCodeWorkflowApi) to push code workflows into a project/workspace
     - ProjectCodeWorkflow linkage of containers to projects (automation-configuration EE)
@@ -3943,7 +3939,7 @@ mindmap
       MCP apikey auth, server API-key OAuth2, embedded OAuth2,…
       Security hardening centralized IDOR authorization, SSRF d…
       Embedded component-defined inputs groups, SDK, EE, permis…
-      Code workflows espresso loaders, custom-component sandbox…
+      Code workflows custom-component sandbox, code-workflow ed…
       Workflow editor ELK layout phases 1-4 loop, branch, paral…
       Platform connection visibility/audit to EE, credential st…
 ```
@@ -4114,7 +4110,7 @@ mindmap
     - MCP: apikey auth, server API-key OAuth2, embedded OAuth2, audience binding, tool authorization, tool enable/disable, dual transport, optional auth, management manager-subagents
     - Security hardening: centralized IDOR authorization, SSRF defenses, tenant-id validation, config-server lockdown, approval token signing, phase3 hardening, workspace scoping, permission evaluator, workspace role-to-scope RBAC, permission scope SPI
     - Embedded: component-defined inputs (groups, SDK, EE), permission expressions, field mapping, copilot parity, generate-from-chat, workflow-builder system prompt, component input options endpoint
-    - Code workflows: espresso loaders, custom-component sandbox, code-workflow editing (CW-A/B), custom component AI-hub tools (SP-A/B/C), code-workflow AI-hub copilot
+    - Code workflows: custom-component sandbox, code-workflow editing (CW-A/B), custom component AI-hub tools (SP-A/B/C), code-workflow AI-hub copilot
     - Workflow editor: ELK layout phases 1-4 (loop, branch, parallel/fork-join, each/map, onerror, cluster roots), sticky notes, multiple triggers, lock node movement, formula autocomplete
     - Platform: connection visibility/audit to EE, credential store + generalization, offline keygen licensing, external IdP tenant anchoring, identity-provider to EE, AI providers as virtual connections, central LLM provider registry, catalog embedding model, agent eval judge templates, storage limits, HMAC signed file tokens, session/S3 chat memory, resumable agent tool calls, durable subflow
     - *Spec filenames double as a shipped-feature changelog from 2026-03 to 2026-07*

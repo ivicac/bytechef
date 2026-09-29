@@ -548,10 +548,8 @@ explains, creates, and updates code workflows, and can open one in its right pan
 
 ### Hardening controls
 
-Administrators can restrict how Java code workflows are handled - the same pair of controls as
+Administrators can restrict how Java code workflows are handled - the same control as
 [custom components](/platform/settings/components/custom-components):
 
 - `BYTECHEF_WORKFLOW_CODE_WORKFLOW_JAVA_ENABLED=false` rejects new Java code-workflow uploads while
   script languages and previously uploaded artifacts keep working.
-- `BYTECHEF_WORKFLOW_CODE_WORKFLOW_JAVA_LOADER=ESPRESSO` executes Java code workflows inside a
-  sandboxed GraalVM Espresso guest JVM instead of an in-process class loader.

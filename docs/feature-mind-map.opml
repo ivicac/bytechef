@@ -705,10 +705,9 @@
           <outline text="AppEventTriggerApiController — SaaS app posts app events"/>
           <outline text="Environment-scoped execution (EnvironmentModel parameter)"/>
         </outline>
-        <outline text="Code Workflow Loader [EE]" _note="Loads customer-authored code-defined integrations/workflows at runtime (embedded-code-workflow-loader): IntegrationHandlerLoader with a dedicated classloader for JVM artifacts and a GraalVM polyglot engine for JS/Python/Ruby handlers, sandboxed via GuestSdkClasspath.">
+        <outline text="Code Workflow Loader [EE]" _note="Loads customer-authored code-defined integrations/workflows at runtime (embedded-code-workflow-loader): IntegrationHandlerLoader with a dedicated classloader for JVM artifacts and a GraalVM polyglot engine for JS/Python/Ruby handlers.">
           <outline text="IntegrationHandlerClassLoader (isolated Java class loading)"/>
           <outline text="IntegrationHandlerPolyglotEngine (GraalVM guest-language handlers)"/>
-          <outline text="GuestSdkClasspath restricting what guest code can see"/>
           <outline text="Pairs with backend integration-api SDK and NewIntegrationCodeWorkflowDialog UI"/>
         </outline>
         <outline text="Embedded Frontend SDK (React) [EE]" _note="@bytechef/embedded React SDK (sdks/frontend/embedded) that customers drop into their SaaS UI: a ConnectDialog for end users to connect/configure integrations and an EmbeddedWorkflowBuilder component; ships with a Next.js test app including JWT generation.">
@@ -1504,13 +1503,12 @@
           <outline text="Search integration (ApiCollection/ApiEndpoint SearchAssetProviders)"/>
           <outline text="Audit events for API collection changes (ApiCollectionAuditPublisher)"/>
         </outline>
-        <outline text="Custom Components [EE]" _note="Upload, manage, and execute tenant-authored custom components at runtime without a server rebuild (platform-custom-component). Handlers are loaded through a Java classloader or a GraalVM polyglot/Espresso sandbox with a guest-host bridge.">
+        <outline text="Custom Components [EE]" _note="Upload, manage, and execute tenant-authored custom components at runtime without a server rebuild (platform-custom-component). Handlers are loaded through a Java classloader or a GraalVM polyglot sandbox.">
           <outline text="Custom component CRUD via public REST API and GraphQL"/>
           <outline text="Component bundle storage in dedicated file storage (CustomComponentFileStorage)"/>
           <outline text="Dynamic handler registry (CustomComponentDynamicComponentHandlerRegistry) so custom components appear in the component registry"/>
           <outline text="ComponentHandlerClassLoader for JVM-loaded handlers"/>
-          <outline text="ComponentHandlerPolyglotEngine / ComponentHandlerEspressoEngine for sandboxed GraalVM execution"/>
-          <outline text="Guest bridge sandbox API (GuestComponentBridge, GuestHttp, GuestParameters, GuestActionContext, HostBridge)"/>
+          <outline text="ComponentHandlerPolyglotEngine for sandboxed GraalVM execution"/>
           <outline text="Audit events for custom component lifecycle (CustomComponentAuditPublisher)"/>
         </outline>
         <outline text="API Connector Builder [EE]" _note="Generate new connectors from REST APIs three ways: manual definition, OpenAPI spec import, or AI-assisted generation that scrapes API documentation pages and synthesizes an OpenAPI spec (platform-api-connector). Generated connectors register as live components via a dynamic handler registry.">
@@ -1528,7 +1526,7 @@
         </outline>
         <outline text="Code Workflows [EE]" _note="Define workflows in code (via the ByteChef SDK) and deploy them as code-workflow containers: platform-code-workflow stores CodeWorkflowContainer/CodeWorkflow entities and files, loaders execute the handlers, and the code-workflow component runs each task via a Perform action.">
           <outline text="CodeWorkflowContainer + CodeWorkflow domain with dedicated file storage (CodeWorkflowFileStorage)"/>
-          <outline text="Automation loader: ProjectHandlerLoader with classloader and GraalVM polyglot engines (GuestSdkClasspath)"/>
+          <outline text="Automation loader: ProjectHandlerLoader with classloader and GraalVM polyglot engines"/>
           <outline text="Embedded loader: IntegrationHandlerLoader with the same classloader/polyglot pair"/>
           <outline text="Public REST deployment API (ProjectCodeWorkflowApi) to push code workflows into a project/workspace"/>
           <outline text="ProjectCodeWorkflow linkage of containers to projects (automation-configuration EE)"/>
@@ -2079,7 +2077,7 @@
           <outline text="MCP: apikey auth, server API-key OAuth2, embedded OAuth2, audience binding, tool authorization, tool enable/disable, dual transport, optional auth, management manager-subagents"/>
           <outline text="Security hardening: centralized IDOR authorization, SSRF defenses, tenant-id validation, config-server lockdown, approval token signing, phase3 hardening, workspace scoping, permission evaluator, workspace role-to-scope RBAC, permission scope SPI"/>
           <outline text="Embedded: component-defined inputs (groups, SDK, EE), permission expressions, field mapping, copilot parity, generate-from-chat, workflow-builder system prompt, component input options endpoint"/>
-          <outline text="Code workflows: espresso loaders, custom-component sandbox, code-workflow editing (CW-A/B), custom component AI-hub tools (SP-A/B/C), code-workflow AI-hub copilot"/>
+          <outline text="Code workflows: custom-component sandbox, code-workflow editing (CW-A/B), custom component AI-hub tools (SP-A/B/C), code-workflow AI-hub copilot"/>
           <outline text="Workflow editor: ELK layout phases 1-4 (loop, branch, parallel/fork-join, each/map, onerror, cluster roots), sticky notes, multiple triggers, lock node movement, formula autocomplete"/>
           <outline text="Platform: connection visibility/audit to EE, credential store + generalization, offline keygen licensing, external IdP tenant anchoring, identity-provider to EE, AI providers as virtual connections, central LLM provider registry, catalog embedding model, agent eval judge templates, storage limits, HMAC signed file tokens, session/S3 chat memory, resumable agent tool calls, durable subflow"/>
         </outline>

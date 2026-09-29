@@ -81,10 +81,7 @@ Spec: `docs/superpowers/specs/2026-08-05-draft-publish-editors-design.md`.
   a component, not only to running one (a `while(true){}` at definition top level used to hang the
   loader thread forever). This works because the load path already reads guest data with
   `PolyglotValues.copyToJavaValue`, never `Value.as(Map/List/TypeLiteral)`; the remaining `as(...)`
-  calls target immutable types (`String`, `Integer`, `Number`), which CONSTRAINED permits. The
-  Espresso (`java`) paths — `getJavaContext`/`loadJava` — deliberately keep their own permissive
-  engine: they need `IOAccess.ALL`, native access and `java.Classpath` to boot a JAR, none of which
-  any policy above TRUSTED allows.
+  calls target immutable types (`String`, `Integer`, `Number`), which CONSTRAINED permits.
 - **Never map guest aggregates with `Value.as(Map.class)` / `as(List.class)` / `as(TypeLiteral)` on a
   perform path.** Those are host object mappings of mutable target types, which EVERY policy above
   TRUSTED rejects — the failure is a `ClassCastException: Unsupported target type`, not a policy
@@ -92,17 +89,6 @@ Spec: `docs/superpowers/specs/2026-08-05-draft-publish-editors-design.md`.
   does, and deliberately checks hash entries before members (a python dict reports both; its contents
   are the hash entries) and keeps executable values callable before members (a guest function reports
   both; walking its members silently yields an empty map where a caller expects a `perform`).
-- **Espresso boots ONE context per JVM** (`ESPRESSO-SINGLE-CONTEXT`). A second — concurrent or
-  sequential, any options, any engine — dies in guest `System.initPhase1` with `Object
-  'Lsun/nio/cs/UTF_8;' ... does not have the expected shape`, and closing the first afterwards can
-  SIGABRT the JVM. Since `loadJava` reads the definition in one context and closes it, and perform
-  opens another, **java code workflow tasks and custom component actions cannot currently perform**;
-  the three tests that covered it are `@Disabled`. Espresso itself works — the full production load
-  path succeeds as the first context, on darwin-aarch64 included, so the older
-  `ProjectHandlerPolyglotEngine` comment claiming the platform "cannot boot" Espresso is wrong, as is
-  `assumeEspressoAvailable()`'s skip message. Note that guard spends the JVM's one context on a
-  throwaway probe, so it makes the real load fail rather than detecting anything. The `CLASS_LOADER`
-  java loader is unaffected and passing.
 - **Script custom components**: `perform(inputParameters, connectionParameters, context)` where
   context = `{http, log}` ONLY — deliberately no component invocation. HTTP crosses the
   `HostContextBridge` as JSON.
@@ -113,11 +99,8 @@ Spec: `docs/superpowers/specs/2026-08-05-draft-publish-editors-design.md`.
   `ActionDefinitionService.executePerformForPolyglot` via `CodeWorkflowTaskContext` (which also
   implements `ComponentActionInvoker`). SDK: `TaskDefinition.PerformFunction.apply(TaskContext)`
   default-delegates to the zero-arg `apply()`, so legacy performs (JS `function () {}`, py/rb
-  splats) keep working — engines always pass exactly one argument. Java classloader path hands the
-  host `CodeWorkflowTaskContext` straight to user code; the Espresso path crosses a
-  `CodeWorkflowHostBridge` (host, per loader module) ↔ `GuestTaskContext` (guest, SDK module
-  `sdks/backend/java/workflow-guest-bridge`, on the guest classpath via the loaders' `guestSdk`
-  configuration) as JSON, binding name `byteChefCodeWorkflowHostBridge`.
+  splats) keep working — engines always pass exactly one argument. The Java classloader path hands
+  the host `CodeWorkflowTaskContext` straight to user code.
 - Spec: `docs/superpowers/specs/2026-08-05-code-perform-context-design.md`.
 
 ### Declared connections (code workflows & custom components, 2026-08-06)
@@ -135,8 +118,8 @@ Spec: `docs/superpowers/specs/2026-08-05-draft-publish-editors-design.md`.
   by-name connection-store lookup (an earlier self-wiring resolver was removed): a name that is
   not wired fails exactly like the script component's. `CodeWorkflowTaskContext` reads
   `environmentId` from `ActionContextAware` and forwards it into `executePerformForPolyglot`.
-  `TaskContext.connection(name)` returns a wired connection's parameters (all four
-  execution paths; Espresso crosses it as JSON) for tasks that build requests themselves.
+  `TaskContext.connection(name)` returns a wired connection's parameters (every
+  execution path) for tasks that build requests themselves.
   Sources may declare `connections` as a LIST of `{componentName, componentVersion?, name}` or as a MAP
   keyed by connection name — both parse (the map mirrors the emitted definition's shape).
   Client: the code workflow source editor's header carries a **Test Configuration** button
@@ -148,8 +131,6 @@ Spec: `docs/superpowers/specs/2026-08-05-draft-publish-editors-design.md`.
   apply?, properties?}], properties?}`), materialized host-side into a real `ConnectionDefinition`
   — all authorization types including OAuth2 (platform runs the flow). URL seams and `apply`
   accept guest functions, wrapped via the perform path's re-eval pattern; `apply` runs per
-  outbound request (opt-in cost). Espresso `describeComponent` serializes a connection's static
-  shape by invoking seams with null args — a dynamic lambda throws and the connection is reported
-  `unsupported` (functions can't cross the guest boundary). Connection-level `properties` attach
+  outbound request (opt-in cost). Connection-level `properties` attach
   to each authorization (or an implicit CUSTOM authorization when none declared).
 - Spec: `docs/superpowers/specs/2026-08-06-code-artifact-connections-design.md`.

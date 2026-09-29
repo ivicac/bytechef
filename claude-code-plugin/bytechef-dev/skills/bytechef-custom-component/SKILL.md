@@ -83,8 +83,7 @@ connection: {
 
 Every authorization type works, OAuth2 included — the platform runs the flow, refresh and callback.
 The URL seams and `apply` may be functions; `apply` then runs per outbound request, so declare it
-only when the credential placement is not standard. A function-valued seam cannot cross the Java
-(Espresso) boundary, so a Java-loaded component reports such a connection as unsupported.
+only when the credential placement is not standard.
 
 ### Polling triggers
 
