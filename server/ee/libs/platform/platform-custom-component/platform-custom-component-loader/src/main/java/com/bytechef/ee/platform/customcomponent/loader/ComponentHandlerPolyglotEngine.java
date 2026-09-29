@@ -131,7 +131,7 @@ class ComponentHandlerPolyglotEngine {
             connectionDefinition.baseUri((connectionParameters, context) -> baseUri);
         }
 
-        List<Property> connectionProperties = ComponentHandlerEspressoEngine.toProperties(
+        List<Property> connectionProperties = ComponentPropertyConverter.toProperties(
             (List<Map<String, ?>>) connectionMap.get("properties"));
 
         List<Map<String, Object>> authorizationMaps = (List<Map<String, Object>>) connectionMap.get("authorizations");
@@ -216,7 +216,7 @@ class ComponentHandlerPolyglotEngine {
                 languageId, script, authorizationIndex, connectionParameters));
         }
 
-        List<Property> authorizationProperties = ComponentHandlerEspressoEngine.toProperties(
+        List<Property> authorizationProperties = ComponentPropertyConverter.toProperties(
             (List<Map<String, ?>>) authorizationMap.get("properties"));
 
         if (!authorizationProperties.isEmpty()) {
@@ -504,7 +504,7 @@ class ComponentHandlerPolyglotEngine {
                 .description((String) trigger.get("description"))
                 .type(triggerType)
                 .properties(
-                    ComponentHandlerEspressoEngine
+                    ComponentPropertyConverter
                         .toProperties((List<Map<String, ?>>) trigger.get("properties"))
                         .toArray(Property[]::new));
 
@@ -547,11 +547,11 @@ class ComponentHandlerPolyglotEngine {
 
             if (outputMap != null && sampleOutput != null) {
                 triggerDefinition.output(
-                    ComponentDsl.outputSchema(ComponentHandlerEspressoEngine.toValueProperty(outputMap)),
+                    ComponentDsl.outputSchema(ComponentPropertyConverter.toValueProperty(outputMap)),
                     ComponentDsl.sampleOutput(PolyglotValues.copyFromPolyglotContext(sampleOutput)));
             } else if (outputMap != null) {
                 triggerDefinition.output(
-                    ComponentDsl.outputSchema(ComponentHandlerEspressoEngine.toValueProperty(outputMap)));
+                    ComponentDsl.outputSchema(ComponentPropertyConverter.toValueProperty(outputMap)));
             } else if (sampleOutput != null) {
                 triggerDefinition.output(
                     ComponentDsl.sampleOutput(PolyglotValues.copyFromPolyglotContext(sampleOutput)));
@@ -708,7 +708,7 @@ class ComponentHandlerPolyglotEngine {
             Object options = propertyMap.get("options");
 
             if (options == null || options instanceof List) {
-                properties.add(ComponentHandlerEspressoEngine.toValueProperty(propertyMap));
+                properties.add(ComponentPropertyConverter.toValueProperty(propertyMap));
 
                 continue;
             }
@@ -719,7 +719,7 @@ class ComponentHandlerPolyglotEngine {
 
             properties.add(
                 withDynamicOptions(
-                    ComponentHandlerEspressoEngine.toValueProperty(staticPropertyMap), actionName,
+                    ComponentPropertyConverter.toValueProperty(staticPropertyMap), actionName,
                     (String) propertyMap.get("name"), languageId, script));
         }
 
@@ -740,7 +740,7 @@ class ComponentHandlerPolyglotEngine {
             .properties(
                 (ActionDefinition.PropertiesFunction) (
                     inputParameters, connectionParameters, lookupDependsOnPaths,
-                    context) -> ComponentHandlerEspressoEngine.toProperties(
+                    context) -> ComponentPropertyConverter.toProperties(
                         (List<Map<String, ?>>) executePropertySeam(
                             languageId, script, actionName, propertyName, "properties", inputParameters,
                             connectionParameters))
@@ -891,7 +891,7 @@ class ComponentHandlerPolyglotEngine {
             return OutputDefinition.of(PolyglotValues.copyFromPolyglotContext(sampleOutput));
         }
 
-        ModifiableValueProperty<?, ?> outputSchema = ComponentHandlerEspressoEngine.toValueProperty(outputMap);
+        ModifiableValueProperty<?, ?> outputSchema = ComponentPropertyConverter.toValueProperty(outputMap);
 
         if (sampleOutput == null) {
             return OutputDefinition.of(outputSchema);

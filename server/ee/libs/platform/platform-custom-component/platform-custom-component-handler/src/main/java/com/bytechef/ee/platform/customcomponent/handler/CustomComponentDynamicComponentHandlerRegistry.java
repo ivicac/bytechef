@@ -11,7 +11,6 @@ import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDefinition;
-import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.service.CustomComponentService;
 import com.bytechef.ee.platform.customcomponent.file.storage.CustomComponentFileStorage;
@@ -44,28 +43,15 @@ public class CustomComponentDynamicComponentHandlerRegistry implements DynamicCo
     private final CacheManager cacheManager;
     private final CustomComponentFileStorage customComponentFileStorage;
     private final CustomComponentService customComponentService;
-    private final ComponentHandlerLoader.JavaLoader javaLoader;
 
     @SuppressFBWarnings("EI")
     public CustomComponentDynamicComponentHandlerRegistry(
-        ApplicationProperties applicationProperties, CacheManager cacheManager,
-        CustomComponentFileStorage customComponentFileStorage, CustomComponentService customComponentService) {
+        CacheManager cacheManager, CustomComponentFileStorage customComponentFileStorage,
+        CustomComponentService customComponentService) {
 
         this.cacheManager = cacheManager;
         this.customComponentFileStorage = customComponentFileStorage;
         this.customComponentService = customComponentService;
-        this.javaLoader = toLoaderJavaLoader(applicationProperties);
-    }
-
-    private static ComponentHandlerLoader.JavaLoader toLoaderJavaLoader(ApplicationProperties applicationProperties) {
-        ApplicationProperties.Component component = applicationProperties.getComponent();
-
-        ApplicationProperties.Component.CustomComponent customComponent = component.getCustomComponent();
-
-        return customComponent
-            .getJavaLoader() == ApplicationProperties.Component.CustomComponent.JavaLoader.CLASS_LOADER
-                ? ComponentHandlerLoader.JavaLoader.CLASS_LOADER
-                : ComponentHandlerLoader.JavaLoader.ESPRESSO;
     }
 
     /**
@@ -122,7 +108,7 @@ public class CustomComponentDynamicComponentHandlerRegistry implements DynamicCo
         URL url = customComponentFileStorage.getCustomComponentFileURL(customComponent.getComponent());
 
         ComponentHandler componentHandler = ComponentHandlerLoader.loadComponentHandler(
-            url, customComponent.getLanguage(), javaLoader,
+            url, customComponent.getLanguage(),
             EncodingUtils.base64EncodeToString(customComponent.toString()), cacheManager);
 
         ComponentDefinition componentDefinition = componentHandler.getDefinition();

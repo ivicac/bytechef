@@ -265,8 +265,7 @@ class IntegrationCodeWorkflowFacadeCreateEmptyTest {
 
         try {
             IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-                uri.toURL(), language, IntegrationHandlerLoader.JavaLoader.CLASS_LOADER,
-                uri + UUID.randomUUID()
+                uri.toURL(), language, uri + UUID.randomUUID()
                     .toString(),
                 mock(CacheManager.class));
 

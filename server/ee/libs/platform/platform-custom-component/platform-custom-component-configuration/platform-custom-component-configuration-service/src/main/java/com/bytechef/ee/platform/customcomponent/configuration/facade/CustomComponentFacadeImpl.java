@@ -13,7 +13,6 @@ import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.TriggerDefinition;
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.config.ApplicationProperties.Component.CustomComponent.JavaLoader;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent.Language;
 import com.bytechef.ee.platform.customcomponent.configuration.exception.CustomComponentErrorType;
@@ -56,7 +55,6 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     private final CustomComponentService customComponentService;
     private final CustomComponentFileStorage customComponentFileStorage;
     private final boolean javaEnabled;
-    private final ComponentHandlerLoader.JavaLoader javaLoader;
 
     @SuppressFBWarnings("EI")
     public CustomComponentFacadeImpl(
@@ -69,17 +67,6 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         this.javaEnabled = applicationProperties.getComponent()
             .getCustomComponent()
             .isJavaEnabled();
-        this.javaLoader = toLoaderJavaLoader(applicationProperties);
-    }
-
-    private static ComponentHandlerLoader.JavaLoader toLoaderJavaLoader(ApplicationProperties applicationProperties) {
-        ApplicationProperties.Component component = applicationProperties.getComponent();
-
-        ApplicationProperties.Component.CustomComponent customComponent = component.getCustomComponent();
-
-        return customComponent.getJavaLoader() == JavaLoader.CLASS_LOADER
-            ? ComponentHandlerLoader.JavaLoader.CLASS_LOADER
-            : ComponentHandlerLoader.JavaLoader.ESPRESSO;
     }
 
     @Override
@@ -143,7 +130,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         URL componentUrl = customComponentFileStorage.getCustomComponentFileURL(customComponent.getComponent());
 
         ComponentHandler componentHandler = ComponentHandlerLoader.loadComponentHandler(
-            componentUrl, customComponent.getLanguage(), javaLoader,
+            componentUrl, customComponent.getLanguage(),
             componentUrl.toString() + UUID.randomUUID(), cacheManager);
 
         ComponentDefinition componentDefinition = componentHandler.getDefinition();
@@ -367,7 +354,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
 
         try {
             ComponentHandler componentHandler = ComponentHandlerLoader.loadComponentHandler(
-                uri.toURL(), language, javaLoader, uri.toString() + UUID.randomUUID(), cacheManager);
+                uri.toURL(), language, uri.toString() + UUID.randomUUID(), cacheManager);
 
             return componentHandler.getDefinition();
         } finally {

@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ComponentDefinition;
-import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.service.CustomComponentService;
 import com.bytechef.ee.platform.customcomponent.file.storage.CustomComponentFileStorage;
@@ -40,9 +39,6 @@ import org.springframework.cache.CacheManager;
 class CustomComponentDynamicComponentHandlerRegistryTest {
 
     @Mock
-    private ApplicationProperties applicationProperties;
-
-    @Mock
     private CacheManager cacheManager;
 
     @Mock
@@ -55,18 +51,8 @@ class CustomComponentDynamicComponentHandlerRegistryTest {
 
     @BeforeEach
     void setUp() {
-        ApplicationProperties.Component component = new ApplicationProperties.Component();
-
-        ApplicationProperties.Component.CustomComponent customComponent =
-            new ApplicationProperties.Component.CustomComponent();
-        customComponent.setJavaLoader(ApplicationProperties.Component.CustomComponent.JavaLoader.CLASS_LOADER);
-
-        component.setCustomComponent(customComponent);
-
-        when(applicationProperties.getComponent()).thenReturn(component);
-
         registry = new CustomComponentDynamicComponentHandlerRegistry(
-            applicationProperties, cacheManager, customComponentFileStorage, customComponentService);
+            cacheManager, customComponentFileStorage, customComponentService);
     }
 
     @Test
@@ -123,11 +109,11 @@ class CustomComponentDynamicComponentHandlerRegistryTest {
         try (MockedStatic<ComponentHandlerLoader> componentHandlerLoader = mockStatic(ComponentHandlerLoader.class)) {
             componentHandlerLoader
                 .when(() -> ComponentHandlerLoader.loadComponentHandler(
-                    any(), eq(CustomComponent.Language.PYTHON), any(), any(), any()))
+                    any(), eq(CustomComponent.Language.PYTHON), any(), any()))
                 .thenThrow(new RuntimeException("language 'python' is not installed"));
             componentHandlerLoader
                 .when(() -> ComponentHandlerLoader.loadComponentHandler(
-                    any(), eq(CustomComponent.Language.JAVASCRIPT), any(), any(), any()))
+                    any(), eq(CustomComponent.Language.JAVASCRIPT), any(), any()))
                 .thenReturn(componentHandler);
 
             List<? extends ComponentHandler> componentHandlers = registry.getComponentHandlers();

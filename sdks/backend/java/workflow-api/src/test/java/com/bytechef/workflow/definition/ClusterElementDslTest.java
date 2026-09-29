@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The builders exist so a Java task composes the same literal a script task writes by hand — so what they build is
- * asserted as plain maps, which is exactly what crosses the Espresso bridge as JSON and what the host parses.
+ * asserted as plain maps, which is exactly what the host parses.
  *
  * @author Ivica Cardic
  */

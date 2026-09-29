@@ -11,8 +11,6 @@ import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
-import com.bytechef.config.ApplicationProperties;
-import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
 import com.bytechef.ee.component.codeworkflow.constant.CodeWorkflowConstants;
 import com.bytechef.ee.embedded.codeworkflow.loader.IntegrationHandlerLoader;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
@@ -52,14 +50,13 @@ public class CodeWorkflowTaskExecutor {
     private final CodeWorkflowContainerService codeWorkflowContainerService;
     private final CodeWorkflowFileStorage codeWorkflowFileStorage;
     private final ComponentDefinitionService componentDefinitionService;
-    private final CodeWorkflow.JavaLoader javaLoader;
 
     @SuppressFBWarnings({
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public CodeWorkflowTaskExecutor(
-        ActionDefinitionService actionDefinitionService, ApplicationProperties applicationProperties,
-        CacheManager cacheManager, CodeWorkflowContainerService codeWorkflowContainerService,
+        ActionDefinitionService actionDefinitionService, CacheManager cacheManager,
+        CodeWorkflowContainerService codeWorkflowContainerService,
         CodeWorkflowFileStorage codeWorkflowFileStorage, ComponentDefinitionService componentDefinitionService) {
 
         this.actionDefinitionService = actionDefinitionService;
@@ -67,12 +64,6 @@ public class CodeWorkflowTaskExecutor {
         this.codeWorkflowContainerService = codeWorkflowContainerService;
         this.codeWorkflowFileStorage = codeWorkflowFileStorage;
         this.componentDefinitionService = componentDefinitionService;
-
-        ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
-
-        CodeWorkflow codeWorkflow = workflow.getCodeWorkflow();
-
-        this.javaLoader = codeWorkflow.getJavaLoader();
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -169,9 +160,6 @@ public class CodeWorkflowTaskExecutor {
             ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
                 codeWorkflowFileStorage.getCodeWorkflowFileURL(codeWorkflowContainer.getWorkflows()),
                 codeWorkflowContainer.getLanguage(),
-                javaLoader == CodeWorkflow.JavaLoader.ESPRESSO
-                    ? ProjectHandlerLoader.JavaLoader.ESPRESSO
-                    : ProjectHandlerLoader.JavaLoader.CLASS_LOADER,
                 EncodingUtils.base64EncodeToString(codeWorkflowContainer.toString()), cacheManager);
 
             workflows = projectHandler.getWorkflows();
@@ -179,9 +167,6 @@ public class CodeWorkflowTaskExecutor {
             IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
                 codeWorkflowFileStorage.getCodeWorkflowFileURL(codeWorkflowContainer.getWorkflows()),
                 codeWorkflowContainer.getLanguage(),
-                javaLoader == CodeWorkflow.JavaLoader.ESPRESSO
-                    ? IntegrationHandlerLoader.JavaLoader.ESPRESSO
-                    : IntegrationHandlerLoader.JavaLoader.CLASS_LOADER,
                 EncodingUtils.base64EncodeToString(codeWorkflowContainer.toString()), cacheManager);
 
             workflows = integrationHandler.getWorkflows();

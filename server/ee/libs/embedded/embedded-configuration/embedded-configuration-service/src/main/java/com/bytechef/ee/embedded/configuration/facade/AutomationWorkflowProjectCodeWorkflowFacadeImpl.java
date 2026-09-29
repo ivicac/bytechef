@@ -14,7 +14,6 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.automation.project.definition.ProjectDefinition;
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
 import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.configuration.event.CatalogProjectPublishedEvent;
@@ -93,7 +92,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
     private final ProjectService projectService;
     private final ProjectWorkflowService projectWorkflowService;
     private final boolean javaEnabled;
-    private final ProjectHandlerLoader.JavaLoader javaLoader;
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectCodeWorkflowFacadeImpl(
@@ -118,11 +116,6 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         this.javaEnabled = applicationProperties.getWorkflow()
             .getCodeWorkflow()
             .isJavaEnabled();
-        this.javaLoader = applicationProperties.getWorkflow()
-            .getCodeWorkflow()
-            .getJavaLoader() == CodeWorkflow.JavaLoader.ESPRESSO
-                ? ProjectHandlerLoader.JavaLoader.ESPRESSO
-                : ProjectHandlerLoader.JavaLoader.CLASS_LOADER;
     }
 
     /**
@@ -297,7 +290,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
 
             try {
                 ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-                    uri.toURL(), language, javaLoader, uri + UUID.randomUUID()
+                    uri.toURL(), language, uri + UUID.randomUUID()
                         .toString(),
                     cacheManager);
 

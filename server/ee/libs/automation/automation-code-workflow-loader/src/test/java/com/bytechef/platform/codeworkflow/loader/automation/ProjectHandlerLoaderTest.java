@@ -106,7 +106,7 @@ class ProjectHandlerLoaderTest {
             tempDir, CONTEXT_JAVA_SOURCE, "ContextLoaderTestProjectHandler");
 
         ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-            toUrl(jarPath), Language.JAVA, ProjectHandlerLoader.JavaLoader.CLASS_LOADER, "context-cache-key",
+            toUrl(jarPath), Language.JAVA, "context-cache-key",
             new ConcurrentMapCacheManager());
 
         ProjectDefinition projectDefinition = projectHandler.getDefinition();
@@ -139,7 +139,7 @@ class ProjectHandlerLoaderTest {
         Files.writeString(scriptPath, JAVASCRIPT_SOURCE);
 
         ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-            toUrl(scriptPath), Language.JAVASCRIPT, ProjectHandlerLoader.JavaLoader.CLASS_LOADER, "js-cache-key",
+            toUrl(scriptPath), Language.JAVASCRIPT, "js-cache-key",
             new ConcurrentMapCacheManager());
 
         ProjectDefinition projectDefinition = projectHandler.getDefinition();
@@ -163,41 +163,12 @@ class ProjectHandlerLoaderTest {
     }
 
     @Test
-    void testLoadProjectHandlerFromJavaJar() throws IOException {
-        ProjectHandlerPolyglotEngineTest.assumeEspressoAvailable();
-
-        Path jarPath = ProjectHandlerPolyglotEngineTest.buildFixtureJar(
-            tempDir, JAVA_SOURCE, "LoaderTestProjectHandler");
-
-        ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-            toUrl(jarPath), Language.JAVA, ProjectHandlerLoader.JavaLoader.ESPRESSO, "espresso-cache-key",
-            new ConcurrentMapCacheManager());
-
-        ProjectDefinition projectDefinition = projectHandler.getDefinition();
-
-        assertEquals("loader-test-project", projectDefinition.getName());
-        assertEquals("2.0.0", projectDefinition.getVersion());
-
-        List<WorkflowDefinition> workflows = projectDefinition.getWorkflows();
-
-        WorkflowDefinition workflowDefinition = workflows.getFirst();
-
-        List<? extends WorkflowTaskDefinition> tasks = workflowDefinition.getTasks()
-            .orElseThrow();
-
-        TaskDefinition taskDefinition = (TaskDefinition) tasks.getFirst();
-
-        assertEquals("hello from java", taskDefinition.getPerform()
-            .apply());
-    }
-
-    @Test
     void testLoadProjectHandlerFromJavaJarWithClassLoader() throws IOException {
         Path jarPath = ProjectHandlerPolyglotEngineTest.buildFixtureJar(
             tempDir, JAVA_SOURCE, "LoaderTestProjectHandler");
 
         ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-            toUrl(jarPath), Language.JAVA, ProjectHandlerLoader.JavaLoader.CLASS_LOADER, "class-loader-cache-key",
+            toUrl(jarPath), Language.JAVA, "class-loader-cache-key",
             new ConcurrentMapCacheManager());
 
         ProjectDefinition projectDefinition = projectHandler.getDefinition();

@@ -1,5 +1,3 @@
-val guestBridge: Configuration by configurations.creating
-
 dependencies {
     api(project(":sdks:backend:java:component-api"))
 
@@ -19,30 +17,5 @@ dependencies {
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-component:platform-component-polyglot"))
 
-    guestBridge(project(":server:ee:libs:platform:platform-custom-component:platform-custom-component-guest-bridge"))
-
     testImplementation("org.mockito:mockito-core")
-}
-
-tasks.test {
-    // GraalVM Espresso's internal `assert` statements fire spuriously while the guest JVM boots when host
-    // assertions are enabled, and Gradle test tasks enable them by default.
-    enableAssertions = false
-}
-
-tasks.processResources {
-    from(guestBridge) {
-        into("META-INF/guest-sdk/custom-component")
-    }
-
-    doLast {
-        val guestBridgeDir = File(destinationDir, "META-INF/guest-sdk/custom-component")
-
-        val jarNames = guestBridgeDir.listFiles { file: File -> file.name.endsWith(".jar") }
-            .orEmpty()
-            .map { it.name }
-            .sorted()
-
-        File(guestBridgeDir, "index.txt").writeText(jarNames.joinToString("\n"))
-    }
 }

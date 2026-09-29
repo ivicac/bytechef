@@ -45,10 +45,8 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import org.graalvm.polyglot.PolyglotException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * @version ee
@@ -99,31 +97,6 @@ class ProjectHandlerPolyglotEngineTest {
                 .contains("CPU time limit"),
             polyglotException.getMessage());
     }
-
-    private static final String FIXTURE_SOURCE = """
-        import com.bytechef.automation.project.ProjectHandler;
-        import com.bytechef.automation.project.definition.ProjectDefinition;
-        import com.bytechef.automation.project.definition.ProjectDsl;
-        import com.bytechef.workflow.definition.WorkflowDsl;
-
-        public class TestProjectHandler implements ProjectHandler {
-
-            @Override
-            public ProjectDefinition getDefinition() {
-                return ProjectDsl.project("test-project")
-                    .version("1.2.3")
-                    .description("Test project")
-                    .workflows(
-                        WorkflowDsl.workflow("my-workflow")
-                            .label("My Workflow")
-                            .tasks(
-                                WorkflowDsl.task("my-task")
-                                    .label("My Task")
-                                    .connections(WorkflowDsl.connection("slack", "slack-prod"))
-                                    .perform(() -> "hello")));
-            }
-        }
-        """;
 
     private static final String CONTEXT_JAVASCRIPT_SOURCE = """
         ({
@@ -245,9 +218,6 @@ class ProjectHandlerPolyglotEngineTest {
             ]
         })
         """;
-
-    @TempDir
-    private Path tempDir;
 
     @Test
     @SuppressWarnings("unchecked")
@@ -809,141 +779,6 @@ class ProjectHandlerPolyglotEngineTest {
             .orElseThrow();
 
         return (TaskDefinition) tasks.getFirst();
-    }
-
-    @Test
-    void testLoadJava() throws IOException {
-        assumeEspressoAvailable();
-
-        Path jarPath = buildFixtureJar(tempDir, FIXTURE_SOURCE, "TestProjectHandler");
-
-        ProjectHandler projectHandler = ProjectHandlerPolyglotEngine.loadJava(jarPath);
-
-        ProjectDefinition projectDefinition = projectHandler.getDefinition();
-
-        assertEquals("test-project", projectDefinition.getName());
-        assertEquals("1.2.3", projectDefinition.getVersion());
-        assertEquals("Test project", projectDefinition.getDescription()
-            .orElse(null));
-
-        List<WorkflowDefinition> workflows = projectDefinition.getWorkflows();
-
-        assertEquals(1, workflows.size());
-
-        WorkflowDefinition workflowDefinition = workflows.getFirst();
-
-        assertEquals("my-workflow", workflowDefinition.getName());
-        assertEquals("My Workflow", workflowDefinition.getLabel()
-            .orElse(null));
-
-        List<? extends WorkflowTaskDefinition> tasks = workflowDefinition.getTasks()
-            .orElseThrow();
-
-        assertEquals(1, tasks.size());
-
-        TaskDefinition taskDefinition = (TaskDefinition) tasks.getFirst();
-
-        assertEquals("my-task", taskDefinition.getName());
-        assertEquals("hello", taskDefinition.getPerform()
-            .apply());
-
-        List<? extends ConnectionRequirement> connections = taskDefinition.getConnections()
-            .orElseThrow();
-
-        assertEquals(1, connections.size());
-
-        ConnectionRequirement connectionRequirement = connections.getFirst();
-
-        assertEquals("slack", connectionRequirement.getComponentName());
-        assertEquals(OptionalInt.empty(), connectionRequirement.getComponentVersion());
-        assertEquals("slack-prod", connectionRequirement.getName());
-    }
-
-    @Test
-    void testExecuteJavaPerformThreadsTaskContextThroughEspressoBridge() throws Exception {
-        assumeEspressoAvailable();
-
-        String contextFixtureSource = """
-            import com.bytechef.automation.project.ProjectHandler;
-            import com.bytechef.automation.project.definition.ProjectDefinition;
-            import com.bytechef.automation.project.definition.ProjectDsl;
-            import com.bytechef.workflow.definition.WorkflowDsl;
-            import java.util.Map;
-
-            public class ContextEspressoProjectHandler implements ProjectHandler {
-
-                @Override
-                public ProjectDefinition getDefinition() {
-                    return ProjectDsl.project("context-espresso-project")
-                        .version("1.0.0")
-                        .workflows(
-                            WorkflowDsl.workflow("my-workflow")
-                                .tasks(
-                                    WorkflowDsl.task("my-task")
-                                        .perform(context -> context.component(
-                                            "mock", "doIt", Map.of("x", 1), "conn"))));
-                }
-            }
-            """;
-
-        Path jarPath = buildFixtureJar(tempDir, contextFixtureSource, "ContextEspressoProjectHandler");
-
-        ProjectHandler projectHandler = ProjectHandlerPolyglotEngine.loadJava(jarPath);
-
-        ProjectDefinition projectDefinition = projectHandler.getDefinition();
-
-        List<WorkflowDefinition> workflows = projectDefinition.getWorkflows();
-
-        WorkflowDefinition workflowDefinition = workflows.getFirst();
-
-        List<? extends WorkflowTaskDefinition> tasks = workflowDefinition.getTasks()
-            .orElseThrow();
-
-        TaskDefinition taskDefinition = (TaskDefinition) tasks.getFirst();
-
-        RecordingTaskContext taskContext = new RecordingTaskContext("espresso result");
-
-        Object result = taskDefinition.getPerform()
-            .apply(taskContext);
-
-        assertEquals("espresso result", result);
-        assertEquals("mock", taskContext.getComponentName());
-        assertEquals("doIt", taskContext.getActionName());
-        assertEquals(Map.of("x", 1), taskContext.getInput());
-        assertEquals("conn", taskContext.getConnectionName());
-    }
-
-    @Test
-    void testLoadJavaFailsWithoutServiceRegistration() throws IOException {
-        Path jarPath = tempDir.resolve("no-service.jar");
-
-        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(jarPath))) {
-            jarOutputStream.putNextEntry(new JarEntry("placeholder.txt"));
-            jarOutputStream.write("placeholder".getBytes(StandardCharsets.UTF_8));
-            jarOutputStream.closeEntry();
-        }
-
-        IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class, () -> ProjectHandlerPolyglotEngine.loadJava(jarPath));
-
-        assertTrue(exception.getMessage()
-            .contains("META-INF/services/com.bytechef.automation.project.ProjectHandler"));
-    }
-
-    // ESPRESSO-SINGLE-CONTEXT: skips unconditionally. Embedded Espresso boots exactly ONE context per JVM
-    // process; a second one - concurrent or sequential, any options, any engine - fails guest
-    // System.initPhase1 with "Object 'Lsun/nio/cs/UTF_8;' ... does not have the expected shape", and closing
-    // the first afterwards can abort the JVM natively (SIGABRT). Loading a definition consumes one context
-    // and calling perform needs another, so these tests cannot pass however they are ordered; which of them
-    // failed used to depend on execution order, because the probe this method previously ran spent the JVM's
-    // one context in order to conclude that Espresso was "not available on this platform". It IS available -
-    // the production load path succeeds as the first context, darwin-aarch64 included. The underlying defect
-    // is in the product, not these tests: every java code workflow task and custom component action does the
-    // same load-then-perform. Re-enable together with a reworked Espresso context lifecycle (one long-lived
-    // context, a process per artifact, or an upstream Espresso fix). Grep ESPRESSO-SINGLE-CONTEXT.
-    static void assumeEspressoAvailable() {
-        Assumptions.assumeTrue(
-            false, "ESPRESSO-SINGLE-CONTEXT: embedded Espresso boots only one context per JVM process");
     }
 
     static Path buildFixtureJar(Path directory, String source, String className) throws IOException {

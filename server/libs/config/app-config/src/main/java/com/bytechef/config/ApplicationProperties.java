@@ -3741,30 +3741,12 @@ public class ApplicationProperties {
              */
             private boolean javaEnabled = true;
 
-            /**
-             * How Java custom component jars are loaded and executed: in-process via an isolating classloader
-             * (class-loader, default) or inside a sandboxed GraalVM Espresso guest JVM (espresso).
-             */
-            private JavaLoader javaLoader = JavaLoader.CLASS_LOADER;
-
             public boolean isJavaEnabled() {
                 return javaEnabled;
             }
 
             public void setJavaEnabled(boolean javaEnabled) {
                 this.javaEnabled = javaEnabled;
-            }
-
-            public JavaLoader getJavaLoader() {
-                return javaLoader;
-            }
-
-            public void setJavaLoader(JavaLoader javaLoader) {
-                this.javaLoader = javaLoader;
-            }
-
-            public enum JavaLoader {
-                CLASS_LOADER, ESPRESSO
             }
         }
 
@@ -6344,30 +6326,12 @@ public class ApplicationProperties {
              */
             private boolean javaEnabled = true;
 
-            /**
-             * How Java code workflow jars are loaded and executed: in-process via an isolating classloader
-             * (class-loader, default) or inside a sandboxed GraalVM Espresso guest JVM (espresso).
-             */
-            private JavaLoader javaLoader = JavaLoader.CLASS_LOADER;
-
             public boolean isJavaEnabled() {
                 return javaEnabled;
             }
 
             public void setJavaEnabled(boolean javaEnabled) {
                 this.javaEnabled = javaEnabled;
-            }
-
-            public JavaLoader getJavaLoader() {
-                return javaLoader;
-            }
-
-            public void setJavaLoader(JavaLoader javaLoader) {
-                this.javaLoader = javaLoader;
-            }
-
-            public enum JavaLoader {
-                CLASS_LOADER, ESPRESSO
             }
         }
 

@@ -16,7 +16,6 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.automation.project.definition.ProjectDefinition;
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
 import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.exception.CodeWorkflowErrorType;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
@@ -83,7 +82,6 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final boolean javaEnabled;
-    private final ProjectHandlerLoader.JavaLoader javaLoader;
 
     @SuppressFBWarnings("EI")
     public ProjectCodeWorkflowFacadeImpl(
@@ -107,17 +105,6 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         this.javaEnabled = applicationProperties.getWorkflow()
             .getCodeWorkflow()
             .isJavaEnabled();
-        this.javaLoader = toLoaderJavaLoader(applicationProperties);
-    }
-
-    private static ProjectHandlerLoader.JavaLoader toLoaderJavaLoader(ApplicationProperties applicationProperties) {
-        ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
-
-        CodeWorkflow codeWorkflow = workflow.getCodeWorkflow();
-
-        return codeWorkflow.getJavaLoader() == CodeWorkflow.JavaLoader.ESPRESSO
-            ? ProjectHandlerLoader.JavaLoader.ESPRESSO
-            : ProjectHandlerLoader.JavaLoader.CLASS_LOADER;
     }
 
     /**
@@ -556,7 +543,7 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
 
         try {
             ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-                uri.toURL(), language, javaLoader, uri.toString() + UUID.randomUUID(), cacheManager);
+                uri.toURL(), language, uri.toString() + UUID.randomUUID(), cacheManager);
 
             return projectHandler.getDefinition();
         } finally {

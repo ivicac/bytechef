@@ -259,8 +259,7 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
 
         try {
             ProjectHandler projectHandler = ProjectHandlerLoader.loadProjectHandler(
-                uri.toURL(), language, ProjectHandlerLoader.JavaLoader.CLASS_LOADER,
-                uri + UUID.randomUUID()
+                uri.toURL(), language, uri + UUID.randomUUID()
                     .toString(),
                 mock(CacheManager.class));
 

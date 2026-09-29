@@ -9,7 +9,6 @@ package com.bytechef.ee.embedded.configuration.facade;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
 import com.bytechef.ee.embedded.codeworkflow.loader.IntegrationHandlerLoader;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationCodeWorkflow;
@@ -79,7 +78,6 @@ public class IntegrationCodeWorkflowFacadeImpl implements IntegrationCodeWorkflo
     private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final boolean javaEnabled;
-    private final IntegrationHandlerLoader.JavaLoader javaLoader;
 
     @SuppressFBWarnings("EI")
     public IntegrationCodeWorkflowFacadeImpl(
@@ -104,17 +102,6 @@ public class IntegrationCodeWorkflowFacadeImpl implements IntegrationCodeWorkflo
         this.javaEnabled = applicationProperties.getWorkflow()
             .getCodeWorkflow()
             .isJavaEnabled();
-        this.javaLoader = toLoaderJavaLoader(applicationProperties);
-    }
-
-    private static IntegrationHandlerLoader.JavaLoader toLoaderJavaLoader(ApplicationProperties applicationProperties) {
-        ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
-
-        CodeWorkflow codeWorkflow = workflow.getCodeWorkflow();
-
-        return codeWorkflow.getJavaLoader() == CodeWorkflow.JavaLoader.ESPRESSO
-            ? IntegrationHandlerLoader.JavaLoader.ESPRESSO
-            : IntegrationHandlerLoader.JavaLoader.CLASS_LOADER;
     }
 
     /**
@@ -535,7 +522,7 @@ public class IntegrationCodeWorkflowFacadeImpl implements IntegrationCodeWorkflo
 
         try {
             IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-                uri.toURL(), language, javaLoader, uri + UUID.randomUUID()
+                uri.toURL(), language, uri + UUID.randomUUID()
                     .toString(),
                 cacheManager);
 

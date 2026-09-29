@@ -69,7 +69,6 @@ org-apache-activemq-artemis-jakarta-server = "org.apache.activemq:artemis-jakart
 org-apache-opennlp-opennlp-tools = { module = "org.apache.opennlp:opennlp-tools", version.ref = "opennlp" }
 org-apache-poi-poi-ooxml = "org.apache.poi:poi-ooxml:5.5.1"
 org-eclipse-jgit-org-eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r"
-org-graalvm-espresso-polyglot = { module = "org.graalvm.espresso:polyglot", version.ref = "graalvm" }
 org-graalvm-polyglot-java = { module = "org.graalvm.polyglot:java", version.ref = "graalvm" }
 org-graalvm-polyglot-js = { module = "org.graalvm.polyglot:js", version.ref = "graalvm" }
 org-graalvm-polyglot-polyglot = { module = "org.graalvm.polyglot:polyglot", version.ref = "graalvm" }

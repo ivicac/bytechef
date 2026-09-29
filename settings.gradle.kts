@@ -638,7 +638,6 @@ include("sdks:backend:java:component-api")
 include("sdks:backend:java:component-test")
 include("sdks:backend:java:definition-api")
 include("sdks:backend:java:workflow-api")
-include("sdks:backend:java:workflow-guest-bridge")
 
 include("sdks:backend:automation:project-api")
 
@@ -861,7 +860,6 @@ include("server:ee:libs:platform:platform-custom-component:platform-custom-compo
 include("server:ee:libs:platform:platform-custom-component:platform-custom-component-configuration:platform-custom-component-configuration-service")
 include("server:ee:libs:platform:platform-custom-component:platform-custom-component-file-storage:platform-custom-component-file-storage-api")
 include("server:ee:libs:platform:platform-custom-component:platform-custom-component-file-storage:platform-custom-component-file-storage-impl")
-include("server:ee:libs:platform:platform-custom-component:platform-custom-component-guest-bridge")
 include("server:ee:libs:platform:platform-custom-component:platform-custom-component-handler")
 include("server:ee:libs:platform:platform-custom-component:platform-custom-component-loader")
 include("server:ee:libs:platform:platform-data-storage:platform-data-storage-jdbc:platform-data-storage-jdbc-remote-rest")

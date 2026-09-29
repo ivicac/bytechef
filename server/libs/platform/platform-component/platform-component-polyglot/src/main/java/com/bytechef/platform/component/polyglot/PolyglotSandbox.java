@@ -57,7 +57,7 @@ public final class PolyglotSandbox {
      * Languages built under {@link SandboxPolicy#CONSTRAINED}.
      *
      * <p>
-     * Only the two Truffle languages whose sandboxing is exercised and supported. {@code java} (Espresso) and {@code R}
+     * Only the two Truffle languages whose sandboxing is exercised and supported. {@code java} and {@code R}
      * deliberately stay on {@code TRUSTED} - they keep every restriction below, they simply do not get the policy's
      * resource ceilings. A context permitting any language outside this set is built TRUSTED as a whole, because
      * GraalVM applies one policy per context.

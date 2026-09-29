@@ -15,11 +15,10 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.graalvm.polyglot.HostAccess;
 
 /**
- * Host callback object handed to the GraalVM Espresso guest through the polyglot bindings. The
- * {@code @HostAccess.Export} methods below are the ONLY host surface reachable from sandboxed custom component code —
+ * Host side of a script custom component's {@code context.http} and {@code context.log}: the guest-facing proxies hand
+ * every call here as JSON, so these methods are the ONLY host surface reachable from sandboxed custom component code —
  * keep this set minimal and treat every argument as attacker-controlled. HTTP requests execute through the live host
  * {@link ActionContext} so platform proxy/authorization behavior applies.
  *
@@ -39,7 +38,6 @@ public final class HostContextBridge {
         this.actionContext = actionContext;
     }
 
-    @HostAccess.Export
     @SuppressWarnings("unchecked")
     public String httpExecute(String requestJson) {
         try {
@@ -61,12 +59,6 @@ public final class HostContextBridge {
         }
     }
 
-    @HostAccess.Export
-    public boolean isEditorEnvironment() {
-        return actionContext.isEditorEnvironment();
-    }
-
-    @HostAccess.Export
     public void log(String level, String message, String exceptionMessage) {
         String fullMessage = exceptionMessage == null ? message : message + ": " + exceptionMessage;
 
@@ -171,7 +163,7 @@ public final class HostContextBridge {
                     : Http.Body.of(String.valueOf(content), mimeType);
             }
             case BINARY -> throw new UnsupportedOperationException(
-                "BINARY HTTP bodies are not supported in the Espresso custom component sandbox");
+                "BINARY HTTP bodies are not supported in the custom component sandbox");
         };
     }
 

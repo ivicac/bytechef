@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -122,7 +121,7 @@ class IntegrationHandlerLoaderTest {
         Path jarPath = buildFixtureJar(tempDir, CONTEXT_JAVA_SOURCE, "ContextTestIntegrationHandler");
 
         IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-            toUrl(jarPath), Language.JAVA, IntegrationHandlerLoader.JavaLoader.CLASS_LOADER, "context-cache-key",
+            toUrl(jarPath), Language.JAVA, "context-cache-key",
             new ConcurrentMapCacheManager());
 
         IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
@@ -156,7 +155,7 @@ class IntegrationHandlerLoaderTest {
         Files.writeString(scriptPath, JAVASCRIPT_SOURCE);
 
         IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-            toUrl(scriptPath), Language.JAVASCRIPT, IntegrationHandlerLoader.JavaLoader.CLASS_LOADER, "js-cache-key",
+            toUrl(scriptPath), Language.JAVASCRIPT, "js-cache-key",
             new ConcurrentMapCacheManager());
 
         IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
@@ -184,99 +183,11 @@ class IntegrationHandlerLoaderTest {
     }
 
     @Test
-    void testLoadIntegrationHandlerFromJavaJar() throws IOException {
-        assumeEspressoAvailable();
-
-        Path jarPath = buildFixtureJar(tempDir, JAVA_SOURCE, "TestIntegrationHandler");
-
-        IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-            toUrl(jarPath), Language.JAVA, IntegrationHandlerLoader.JavaLoader.ESPRESSO, "espresso-cache-key",
-            new ConcurrentMapCacheManager());
-
-        IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
-
-        assertEquals("test-component", integrationDefinition.getComponentName());
-        assertEquals(1, integrationDefinition.getComponentVersion());
-        assertEquals("Test integration", integrationDefinition.getDescription()
-            .orElse(null));
-
-        List<WorkflowDefinition> workflows = integrationDefinition.getWorkflows()
-            .orElseThrow();
-
-        WorkflowDefinition workflowDefinition = workflows.getFirst();
-
-        List<? extends WorkflowTaskDefinition> tasks = workflowDefinition.getTasks()
-            .orElseThrow();
-
-        TaskDefinition taskDefinition = (TaskDefinition) tasks.getFirst();
-
-        assertEquals("hello from java", taskDefinition.getPerform()
-            .apply());
-    }
-
-    @Test
-    void testExecuteJavaPerformThreadsTaskContextThroughEspressoBridge() throws Exception {
-        assumeEspressoAvailable();
-
-        String contextFixtureSource = """
-            import com.bytechef.embedded.integration.IntegrationHandler;
-            import com.bytechef.embedded.integration.definition.IntegrationDefinition;
-            import com.bytechef.embedded.integration.definition.IntegrationDsl;
-            import com.bytechef.workflow.definition.WorkflowDsl;
-            import java.util.Map;
-
-            public class ContextEspressoIntegrationHandler implements IntegrationHandler {
-
-                @Override
-                public IntegrationDefinition getDefinition() {
-                    return IntegrationDsl.integration("test-component", 1)
-                        .version("1.0.0")
-                        .workflows(
-                            WorkflowDsl.workflow("my-workflow")
-                                .tasks(
-                                    WorkflowDsl.task("my-task")
-                                        .perform(context -> context.component(
-                                            "mock", "doIt", Map.of("x", 1), "conn"))));
-                }
-            }
-            """;
-
-        Path jarPath = buildFixtureJar(tempDir, contextFixtureSource, "ContextEspressoIntegrationHandler");
-
-        IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-            toUrl(jarPath), Language.JAVA, IntegrationHandlerLoader.JavaLoader.ESPRESSO, "espresso-context-cache-key",
-            new ConcurrentMapCacheManager());
-
-        IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
-
-        List<WorkflowDefinition> workflows = integrationDefinition.getWorkflows()
-            .orElseThrow();
-
-        WorkflowDefinition workflowDefinition = workflows.getFirst();
-
-        List<? extends WorkflowTaskDefinition> tasks = workflowDefinition.getTasks()
-            .orElseThrow();
-
-        TaskDefinition taskDefinition = (TaskDefinition) tasks.getFirst();
-
-        RecordingTaskContext taskContext = new RecordingTaskContext("espresso result");
-
-        Object result = taskDefinition.getPerform()
-            .apply(taskContext);
-
-        assertEquals("espresso result", result);
-        assertEquals("mock", taskContext.getComponentName());
-        assertEquals("doIt", taskContext.getActionName());
-        assertEquals(Map.of("x", 1), taskContext.getInput());
-        assertEquals("conn", taskContext.getConnectionName());
-    }
-
-    @Test
     void testLoadIntegrationHandlerFromJavaJarWithClassLoader() throws IOException {
         Path jarPath = buildFixtureJar(tempDir, JAVA_SOURCE, "TestIntegrationHandler");
 
         IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
-            toUrl(jarPath), Language.JAVA, IntegrationHandlerLoader.JavaLoader.CLASS_LOADER, "class-loader-cache-key",
+            toUrl(jarPath), Language.JAVA, "class-loader-cache-key",
             new ConcurrentMapCacheManager());
 
         IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
@@ -296,22 +207,6 @@ class IntegrationHandlerLoaderTest {
 
         assertEquals("hello from java", taskDefinition.getPerform()
             .apply());
-    }
-
-    // ESPRESSO-SINGLE-CONTEXT: skips unconditionally. Embedded Espresso boots exactly ONE context per JVM
-    // process; a second one - concurrent or sequential, any options, any engine - fails guest
-    // System.initPhase1 with "Object 'Lsun/nio/cs/UTF_8;' ... does not have the expected shape", and closing
-    // the first afterwards can abort the JVM natively (SIGABRT). Loading a definition consumes one context
-    // and calling perform needs another, so these tests cannot pass however they are ordered; which of them
-    // failed used to depend on execution order, because the probe this method previously ran spent the JVM's
-    // one context in order to conclude that Espresso was "not available on this platform". It IS available -
-    // the production load path succeeds as the first context, darwin-aarch64 included. The underlying defect
-    // is in the product, not these tests: every java code workflow task and custom component action does the
-    // same load-then-perform. Re-enable together with a reworked Espresso context lifecycle (one long-lived
-    // context, a process per artifact, or an upstream Espresso fix). Grep ESPRESSO-SINGLE-CONTEXT.
-    private static void assumeEspressoAvailable() {
-        Assumptions.assumeTrue(
-            false, "ESPRESSO-SINGLE-CONTEXT: embedded Espresso boots only one context per JVM process");
     }
 
     private static Path buildFixtureJar(Path directory, String source, String className) throws IOException {

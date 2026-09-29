@@ -15,7 +15,6 @@ import com.bytechef.platform.component.polyglot.ComponentProxyObject;
 import com.bytechef.platform.component.polyglot.PolyglotSandbox;
 import com.bytechef.platform.component.polyglot.PolyglotValues;
 import com.bytechef.workflow.definition.CompositeTaskDefinition;
-import com.bytechef.workflow.definition.CompositeTaskDefinition.Type;
 import com.bytechef.workflow.definition.ConnectionRequirement;
 import com.bytechef.workflow.definition.Input;
 import com.bytechef.workflow.definition.Output;
@@ -25,12 +24,6 @@ import com.bytechef.workflow.definition.TriggerDefinition;
 import com.bytechef.workflow.definition.WorkflowDefinition;
 import com.bytechef.workflow.definition.WorkflowTaskDefinition;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -40,13 +33,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
-import org.graalvm.polyglot.PolyglotAccess;
 import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
@@ -56,11 +43,6 @@ import org.graalvm.polyglot.proxy.ProxyObject;
  * @author Ivica Cardic
  */
 class IntegrationHandlerPolyglotEngine {
-
-    private static final String HOST_BRIDGE_BINDING_NAME = "byteChefCodeWorkflowHostBridge";
-    private static final String GUEST_TASK_CONTEXT_CLASS_NAME = "com.bytechef.workflow.guest.GuestTaskContext";
-
-    private static Engine engine;
 
     /**
      * Evaluates the code workflow's definition script. The script is user-supplied and its top level runs in full here,
@@ -94,52 +76,6 @@ class IntegrationHandlerPolyglotEngine {
             return () -> new PolyglotIntegrationDefinition(
                 componentName, componentVersion, description, version, workflows);
         });
-    }
-
-    static IntegrationHandler loadJava(Path jarPath) {
-        if (engine == null) {
-            engine = Engine.create();
-        }
-
-        String implClassName = readServiceImplementationClassName(jarPath);
-
-        try (Context polyglotContext = getJavaContext(jarPath)) {
-            Value integrationHandler = newGuestInstance(polyglotContext, implClassName);
-
-            Value integrationDefinition = integrationHandler.invokeMember("getDefinition");
-
-            String componentName = Objects.requireNonNull(
-                asString(integrationDefinition.invokeMember("getComponentName")));
-
-            Value componentVersionValue = integrationDefinition.invokeMember("getComponentVersion");
-
-            int componentVersion = componentVersionValue.asInt();
-
-            String description = asString(unwrapOptional(integrationDefinition.invokeMember("getDescription")));
-            String version = asString(integrationDefinition.invokeMember("getVersion"));
-
-            List<WorkflowDefinition> workflows = new ArrayList<>();
-
-            Value workflowsValue = unwrapOptional(integrationDefinition.invokeMember("getWorkflows"));
-
-            if (workflowsValue != null) {
-                for (int workflowIndex = 0; workflowIndex < sizeOf(workflowsValue); workflowIndex++) {
-                    Value workflow = workflowsValue.invokeMember("get", workflowIndex);
-
-                    String workflowName = asString(workflow.invokeMember("getName"));
-
-                    workflows.add(
-                        new PolyglotWorkflowDefinition(
-                            workflowName, asString(unwrapOptional(workflow.invokeMember("getLabel"))),
-                            asString(unwrapOptional(workflow.invokeMember("getDescription"))),
-                            toJavaTaskDefinitions(workflowName, workflow, jarPath, implClassName),
-                            toJavaInputs(workflow), toJavaOutputs(workflow), toJavaTriggers(workflow)));
-                }
-            }
-
-            return () -> new PolyglotIntegrationDefinition(
-                componentName, componentVersion, description, version, workflows);
-        }
     }
 
     @SuppressWarnings("unchecked")
@@ -293,249 +229,6 @@ class IntegrationHandlerPolyglotEngine {
 
                     return null;
                 }));
-    }
-
-    private static Object executeJavaPerform(
-        Path jarPath, String implClassName, String workflowName, String taskName, TaskContext taskContext) {
-
-        try (Context polyglotContext = getJavaContext(jarPath)) {
-            Value polyglotBindings = polyglotContext.getPolyglotBindings();
-
-            polyglotBindings.putMember(HOST_BRIDGE_BINDING_NAME, new CodeWorkflowHostBridge(taskContext));
-
-            Value integrationHandler = newGuestInstance(polyglotContext, implClassName);
-
-            Value integrationDefinition = integrationHandler.invokeMember("getDefinition");
-
-            Value workflowsValue = unwrapOptional(integrationDefinition.invokeMember("getWorkflows"));
-
-            if (workflowsValue != null) {
-                for (int workflowIndex = 0; workflowIndex < sizeOf(workflowsValue); workflowIndex++) {
-                    Value workflow = workflowsValue.invokeMember("get", workflowIndex);
-
-                    if (!workflowName.equals(asString(workflow.invokeMember("getName")))) {
-                        continue;
-                    }
-
-                    Value tasksValue = unwrapOptional(workflow.invokeMember("getTasks"));
-
-                    if (tasksValue == null) {
-                        break;
-                    }
-
-                    Value task = findJavaTask(tasksValue, taskName);
-
-                    if (task != null) {
-                        Value performFunction = task.invokeMember("getPerform");
-
-                        Value guestTaskContext = newGuestInstance(polyglotContext, GUEST_TASK_CONTEXT_CLASS_NAME);
-
-                        return toHostValue(performFunction.invokeMember("apply", guestTaskContext));
-                    }
-                }
-            }
-
-            throw new IllegalArgumentException(
-                "Workflow name=%s, task name=%s not found".formatted(workflowName, taskName));
-        }
-    }
-
-    private static List<WorkflowTaskDefinition> toJavaTaskDefinitions(
-        String workflowName, Value workflow, Path jarPath, String implClassName) {
-
-        Value tasksValue = unwrapOptional(workflow.invokeMember("getTasks"));
-
-        if (tasksValue == null) {
-            return List.of();
-        }
-
-        List<WorkflowTaskDefinition> taskDefinitions = new ArrayList<>();
-
-        for (int taskIndex = 0; taskIndex < sizeOf(tasksValue); taskIndex++) {
-            Value task = tasksValue.invokeMember("get", taskIndex);
-
-            // Only a composite declares getBranches, so it discriminates the two entry kinds without the guest and
-            // host having to agree on a type string.
-            if (task.hasMember("getBranches")) {
-                taskDefinitions.add(toJavaCompositeTaskDefinition(workflowName, task, jarPath, implClassName));
-            } else {
-                taskDefinitions.add(toJavaTaskDefinition(workflowName, task, jarPath, implClassName));
-            }
-        }
-
-        return taskDefinitions;
-    }
-
-    private static CompositeTaskDefinition toJavaCompositeTaskDefinition(
-        String workflowName, Value task, Path jarPath, String implClassName) {
-
-        Type type = CompositeTaskDefinition.Type.valueOf(asString(task.invokeMember("getType")));
-
-        List<TaskDefinition> tasks = new ArrayList<>();
-        List<List<TaskDefinition>> branches = new ArrayList<>();
-
-        Value tasksValue = task.invokeMember("getTasks");
-
-        for (int taskIndex = 0; taskIndex < sizeOf(tasksValue); taskIndex++) {
-            tasks.add(
-                toJavaTaskDefinition(workflowName, tasksValue.invokeMember("get", taskIndex), jarPath, implClassName));
-        }
-
-        Value branchesValue = task.invokeMember("getBranches");
-
-        for (int branchIndex = 0; branchIndex < sizeOf(branchesValue); branchIndex++) {
-            Value branchValue = branchesValue.invokeMember("get", branchIndex);
-
-            List<TaskDefinition> branchTasks = new ArrayList<>();
-
-            for (int taskIndex = 0; taskIndex < sizeOf(branchValue); taskIndex++) {
-                branchTasks.add(
-                    toJavaTaskDefinition(
-                        workflowName, branchValue.invokeMember("get", taskIndex), jarPath, implClassName));
-            }
-
-            branches.add(branchTasks);
-        }
-
-        return new JavaCompositeTaskDefinition(
-            asString(task.invokeMember("getName")), asString(unwrapOptional(task.invokeMember("getLabel"))),
-            asString(unwrapOptional(task.invokeMember("getDescription"))), type, tasks, branches);
-    }
-
-    private static TaskDefinition toJavaTaskDefinition(
-        String workflowName, Value task, Path jarPath, String implClassName) {
-
-        return new JavaTaskDefinition(
-            workflowName, asString(task.invokeMember("getName")),
-            asString(unwrapOptional(task.invokeMember("getLabel"))),
-            asString(unwrapOptional(task.invokeMember("getDescription"))),
-            toJavaConnectionRequirements(unwrapOptional(task.invokeMember("getConnections"))), jarPath,
-            implClassName);
-    }
-
-    /**
-     * Finds a task by name among a workflow's entries, descending into groups. A group declares getBranches and no
-     * perform of its own, so only leaves match.
-     */
-    private static Value findJavaTask(Value tasksValue, String taskName) {
-        for (int taskIndex = 0; taskIndex < sizeOf(tasksValue); taskIndex++) {
-            Value task = tasksValue.invokeMember("get", taskIndex);
-
-            if (!task.hasMember("getBranches")) {
-                if (taskName.equals(asString(task.invokeMember("getName")))) {
-                    return task;
-                }
-
-                continue;
-            }
-
-            Value nestedTask = findJavaTask(task.invokeMember("getTasks"), taskName);
-
-            if (nestedTask != null) {
-                return nestedTask;
-            }
-
-            Value branchesValue = task.invokeMember("getBranches");
-
-            for (int branchIndex = 0; branchIndex < sizeOf(branchesValue); branchIndex++) {
-                Value branchTask = findJavaTask(branchesValue.invokeMember("get", branchIndex), taskName);
-
-                if (branchTask != null) {
-                    return branchTask;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private static List<ConnectionRequirement> toJavaConnectionRequirements(Value connectionsValue) {
-        if (connectionsValue == null) {
-            return null;
-        }
-
-        List<ConnectionRequirement> connectionRequirements = new ArrayList<>();
-
-        for (int connectionIndex = 0; connectionIndex < sizeOf(connectionsValue); connectionIndex++) {
-            Value connection = connectionsValue.invokeMember("get", connectionIndex);
-
-            Value componentVersionValue = connection.invokeMember("getComponentVersion");
-
-            Value isPresentValue = componentVersionValue.invokeMember("isPresent");
-
-            Integer componentVersion = isPresentValue.asBoolean()
-                ? componentVersionValue.invokeMember("getAsInt")
-                    .asInt()
-                : null;
-
-            connectionRequirements.add(
-                new PolyglotConnectionRequirement(
-                    asString(connection.invokeMember("getComponentName")), componentVersion,
-                    asString(connection.invokeMember("getName"))));
-        }
-
-        return connectionRequirements;
-    }
-
-    private static Context getJavaContext(Path jarPath) {
-        try {
-            // allowExperimentalOptions is required for java.Polyglot, which exposes the guest polyglot API the
-            // bridge uses to import the host callback object; it does not widen host access.
-            return Context.newBuilder("java")
-                .engine(engine)
-                .allowCreateThread(true)
-                .allowExperimentalOptions(true)
-                .allowNativeAccess(true)
-                .allowIO(IOAccess.ALL)
-                .allowPolyglotAccess(PolyglotAccess.ALL)
-                .option("java.Polyglot", "true")
-                .option("java.Classpath", jarPath + File.pathSeparator + GuestSdkClasspath.get())
-                .build();
-        } catch (RuntimeException e) {
-            throw new IllegalStateException(
-                "Failed to create a GraalVM Espresso context. Embedded Espresso (org.graalvm.polyglot:java) supports " +
-                    "linux (amd64, aarch64) and darwin-amd64 as of GraalVM 25; it cannot boot on this platform.",
-                e);
-        }
-    }
-
-    private static Value newGuestInstance(Context polyglotContext, String implClassName) {
-        Value bindings = polyglotContext.getBindings("java");
-
-        Value handlerClass = bindings.getMember(implClassName);
-
-        if (handlerClass == null) {
-            throw new IllegalStateException(
-                "Class %s is not present on the guest classpath".formatted(implClassName));
-        }
-
-        return handlerClass.newInstance();
-    }
-
-    private static String readServiceImplementationClassName(Path jarPath) {
-        String serviceEntryName = "META-INF/services/" + IntegrationHandler.class.getName();
-
-        try (JarFile jarFile = new JarFile(jarPath.toFile())) {
-            JarEntry jarEntry = jarFile.getJarEntry(serviceEntryName);
-
-            if (jarEntry == null) {
-                throw new IllegalArgumentException(
-                    "Jar %s is missing the service registration %s".formatted(jarPath, serviceEntryName));
-            }
-
-            try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
-                String serviceEntryContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-
-                return serviceEntryContent.lines()
-                    .map(String::trim)
-                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(
-                        "Service registration %s in jar %s is empty".formatted(serviceEntryName, jarPath)));
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static String getMember(Value value, String name) {
@@ -776,131 +469,6 @@ class IntegrationHandlerPolyglotEngine {
         }
     }
 
-    private static String asString(Value value) {
-        return value == null || value.isNull() ? null : value.asString();
-    }
-
-    private static int sizeOf(Value listValue) {
-        Value sizeValue = listValue.invokeMember("size");
-
-        return sizeValue.asInt();
-    }
-
-    private static Value unwrapOptional(Value optionalValue) {
-        if (optionalValue == null || optionalValue.isNull()) {
-            return null;
-        }
-
-        Value unwrapped = optionalValue.invokeMember("orElse", (Object) null);
-
-        return unwrapped == null || unwrapped.isNull() ? null : unwrapped;
-    }
-
-    private static Object toHostValue(Value value) {
-        if (value == null || value.isNull()) {
-            return null;
-        }
-
-        if (value.isBoolean()) {
-            return value.asBoolean();
-        }
-
-        if (value.isNumber()) {
-            return value.as(Number.class);
-        }
-
-        if (value.isString()) {
-            return value.asString();
-        }
-
-        throw new IllegalStateException(
-            "A Java code workflow perform must return null, a boolean, a number or a string, got: " + value);
-    }
-
-    @SuppressFBWarnings("EI")
-    private record JavaCompositeTaskDefinition(
-        String name, String label, String description, Type type, List<TaskDefinition> tasks,
-        List<List<TaskDefinition>> branches)
-        implements CompositeTaskDefinition {
-
-        @Override
-        public List<? extends List<? extends TaskDefinition>> getBranches() {
-            return branches;
-        }
-
-        @Override
-        public Optional<String> getDescription() {
-            return Optional.ofNullable(description);
-        }
-
-        @Override
-        public Optional<String> getLabel() {
-            return Optional.ofNullable(label);
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public List<? extends TaskDefinition> getTasks() {
-            return tasks;
-        }
-
-        @Override
-        public Type getType() {
-            return type;
-        }
-    }
-
-    private record JavaTaskDefinition(
-        String workflowName, String name, String label, String description,
-        List<ConnectionRequirement> connections, Path jarPath, String implClassName)
-        implements TaskDefinition {
-
-        @Override
-        public Optional<List<? extends ConnectionRequirement>> getConnections() {
-            return Optional.ofNullable(connections);
-        }
-
-        @Override
-        public Optional<String> getDescription() {
-            return Optional.ofNullable(description);
-        }
-
-        @Override
-        public Optional<String> getLabel() {
-            return Optional.ofNullable(label);
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public Optional<Map<String, ?>> getParameters() {
-            return Optional.empty();
-        }
-
-        @Override
-        public PerformFunction getPerform() {
-            return new PerformFunction() {
-
-                @Override
-                public Object apply() {
-                    return executeJavaPerform(jarPath, implClassName, workflowName, name, null);
-                }
-
-                @Override
-                public Object apply(TaskContext taskContext) {
-                    return executeJavaPerform(jarPath, implClassName, workflowName, name, taskContext);
-                }
-            };
-        }
-    }
-
     @SuppressFBWarnings("EI")
     private record PolyglotCompositeTaskDefinition(
         String name, String label, String description, Type type, List<TaskDefinition> tasks,
@@ -1082,52 +650,6 @@ class IntegrationHandlerPolyglotEngine {
         return outputDefinitions;
     }
 
-    private static List<Input> toJavaInputs(Value workflow) {
-        Value inputsValue = unwrapOptional(workflow.invokeMember("getInputs"));
-
-        if (inputsValue == null) {
-            return null;
-        }
-
-        List<Input> inputs = new ArrayList<>();
-
-        for (int inputIndex = 0; inputIndex < sizeOf(inputsValue); inputIndex++) {
-            Value input = inputsValue.invokeMember("get", inputIndex);
-
-            inputs.add(
-                new PolyglotInput(
-                    asString(input.invokeMember("getName")), asString(input.invokeMember("getLabel")),
-                    asString(input.invokeMember("getType")),
-                    input.invokeMember("isRequired")
-                        .asBoolean()));
-        }
-
-        return inputs;
-    }
-
-    private static List<Output> toJavaOutputs(Value workflow) {
-        Value outputsValue = unwrapOptional(workflow.invokeMember("getOutputs"));
-
-        if (outputsValue == null) {
-            return null;
-        }
-
-        List<Output> outputs = new ArrayList<>();
-
-        for (int outputIndex = 0; outputIndex < sizeOf(outputsValue); outputIndex++) {
-            Value output = outputsValue.invokeMember("get", outputIndex);
-
-            Value value = output.invokeMember("getValue");
-
-            outputs.add(
-                new PolyglotOutput(
-                    asString(output.invokeMember("getName")), asString(output.invokeMember("getTask")),
-                    value.isNull() ? null : value.as(Object.class)));
-        }
-
-        return outputs;
-    }
-
     @SuppressFBWarnings("EI")
     private record PolyglotInput(String name, String label, String type, boolean required) implements Input {
 
@@ -1199,28 +721,6 @@ class IntegrationHandlerPolyglotEngine {
         }
 
         return triggerDefinitions;
-    }
-
-    private static List<TriggerDefinition> toJavaTriggers(Value workflow) {
-        Value triggersValue = unwrapOptional(workflow.invokeMember("getTriggers"));
-
-        if (triggersValue == null) {
-            return null;
-        }
-
-        List<TriggerDefinition> triggers = new ArrayList<>();
-
-        for (int triggerIndex = 0; triggerIndex < sizeOf(triggersValue); triggerIndex++) {
-            Value trigger = triggersValue.invokeMember("get", triggerIndex);
-
-            triggers.add(
-                new PolyglotTrigger(
-                    asString(trigger.invokeMember("getName")), asString(trigger.invokeMember("getType")),
-                    trigger.invokeMember("getParameters")
-                        .as(Map.class)));
-        }
-
-        return triggers;
     }
 
     @SuppressFBWarnings("EI")

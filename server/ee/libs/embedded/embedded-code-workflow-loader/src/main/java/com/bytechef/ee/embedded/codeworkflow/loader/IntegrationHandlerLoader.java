@@ -29,26 +29,16 @@ import org.springframework.cache.CacheManager;
 public class IntegrationHandlerLoader {
 
     /**
-     * How Java code workflow jars are loaded: in-process via an isolating classloader or inside a sandboxed GraalVM
-     * Espresso guest JVM.
-     */
-    public enum JavaLoader {
-        CLASS_LOADER, ESPRESSO
-    }
-
-    /**
      * <b>Security Note:</b> Path traversal is intentional. The URL is derived from internal code workflow container
      * configuration, not from untrusted user input.
      */
     @SuppressFBWarnings("PATH_TRAVERSAL_IN")
     public static IntegrationHandler loadIntegrationHandler(
-        URL url, Language language, JavaLoader javaLoader, String cacheKey, CacheManager cacheManager) {
+        URL url, Language language, String cacheKey, CacheManager cacheManager) {
 
         try {
             return switch (language) {
-                case JAVA -> javaLoader == JavaLoader.ESPRESSO
-                    ? IntegrationHandlerPolyglotEngine.loadJava(toLocalPath(url))
-                    : loadJavaIntegrationHandler(url, cacheKey, cacheManager);
+                case JAVA -> loadJavaIntegrationHandler(url, cacheKey, cacheManager);
                 case JAVASCRIPT, PYTHON, RUBY -> IntegrationHandlerPolyglotEngine.load(
                     getLanguageId(language), Files.readString(toLocalPath(url)));
             };

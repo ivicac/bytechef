@@ -17,7 +17,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext;
-import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
@@ -227,7 +226,7 @@ class CodeWorkflowTaskExecutorTest {
         when(codeWorkflowFileStorage.getCodeWorkflowFileURL(any())).thenReturn(scriptUri.toURL());
 
         return new CodeWorkflowTaskExecutor(
-            actionDefinitionService, new ApplicationProperties(), mock(CacheManager.class),
+            actionDefinitionService, mock(CacheManager.class),
             codeWorkflowContainerService, codeWorkflowFileStorage, componentDefinitionService);
     }
 }
