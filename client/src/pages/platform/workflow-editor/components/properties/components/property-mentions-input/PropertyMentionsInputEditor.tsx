@@ -736,6 +736,18 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             return () => clearTimeout(timeoutId);
         }, [autoFocus, editor]);
 
+        // MentionStorage: suggestion list + NodeView controlType (icon sizing); dataPills also drive NodeView via store.
+        // Declared before the focus request below, which may type a `$` into a freshly mounted editor: the suggestion
+        // reads its items the moment the `$` lands, so storage must already hold the data pills by then.
+        useEffect(() => {
+            if (!editor) {
+                return;
+            }
+
+            editor.storage.MentionStorage.dataPills = dataPills;
+            editor.storage.MentionStorage.controlType = controlType;
+        }, [controlType, dataPills, editor]);
+
         useEffect(() => {
             if (!editor) {
                 return;
