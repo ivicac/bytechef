@@ -144,8 +144,9 @@ class TaskCoordinatorTest {
         TaskCoordinator resumingTaskCoordinator = new TaskCoordinator(
             List.of(), List.of(), mock(ApplicationEventPublisher.class),
             new JobExecutor(
-                contextService, SpelEvaluator.create(), taskDispatcher, taskExecutionService, taskFileStorage,
-                workflowService),
+                contextService, SpelEvaluator.create(), mock(ApplicationEventPublisher.class), jobService,
+                taskDispatcher,
+                taskExecutionService, taskFileStorage, workflowService),
             jobService, taskCompletionHandler, taskDispatcher, taskExecutionService);
 
         resumingTaskCoordinator.onResumeJobEvent(new ResumeJobEvent(4567L));
