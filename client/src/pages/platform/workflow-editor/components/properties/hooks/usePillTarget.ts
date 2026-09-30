@@ -1,7 +1,7 @@
 import {PillTargetI} from '@/pages/platform/workflow-editor/components/datapills/pillTarget';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import {DataPillDragPayloadType} from '@/shared/types';
-import {DragEvent, FocusEvent, MouseEvent, SyntheticEvent, useCallback, useEffect, useRef} from 'react';
+import {DragEvent, FocusEvent, KeyboardEvent, MouseEvent, SyntheticEvent, useCallback, useEffect, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 interface UsePillTargetPropsI {
@@ -54,6 +54,26 @@ function originatesOnInteractiveElement(event: SyntheticEvent<HTMLElement>): boo
     const interactiveElement = target.closest(INTERACTIVE_ELEMENT_SELECTOR);
 
     return !!interactiveElement && currentTarget.contains(interactiveElement);
+}
+
+const TEXT_ENTRY_ELEMENT_SELECTOR = [
+    'input',
+    'select',
+    'textarea',
+    '[contenteditable="true"]',
+    '[role="combobox"]',
+].join(', ');
+
+function originatesInTextEntry(event: SyntheticEvent<HTMLElement>): boolean {
+    const {currentTarget, target} = event;
+
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    const textEntryElement = target.closest(TEXT_ENTRY_ELEMENT_SELECTOR);
+
+    return !!textEntryElement && currentTarget.contains(textEntryElement);
 }
 
 /**
@@ -123,6 +143,14 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
         [register]
     );
 
+    // A key typed into a text field belongs to that field. One pressed on the container's own button or hint is a
+    // shortcut the container may take, the way an empty number field takes `$` and `=`.
+    const isContainerKeyDown = useCallback(
+        (event: KeyboardEvent<HTMLElement>): boolean =>
+            !event.defaultPrevented && originatesInOwnTarget(event) && !originatesInTextEntry(event),
+        []
+    );
+
     const onDragOver = useCallback((event: DragEvent<HTMLElement>) => {
         if (event.defaultPrevented || !originatesInOwnTarget(event)) {
             return;
@@ -168,6 +196,7 @@ export default function usePillTarget({acceptsPill, insertPill}: UsePillTargetPr
     }, [clearPillTarget]);
 
     return {
+        isContainerKeyDown,
         isRegistered,
         onContainerMouseDown,
         targetProps: {

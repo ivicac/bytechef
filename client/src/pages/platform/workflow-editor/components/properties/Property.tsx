@@ -48,7 +48,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ArrayPropertyType, PropertyAllType, SelectOptionType} from '@/shared/types';
 import {UseQueryResult} from '@tanstack/react-query';
 import {CircleQuestionMarkIcon, SquareFunctionIcon, XIcon} from 'lucide-react';
-import {MouseEvent, ReactNode, useCallback, useRef, useState} from 'react';
+import {KeyboardEvent, MouseEvent, ReactNode, useCallback, useRef, useState} from 'react';
 import {Control, Controller, FieldValues, FormState} from 'react-hook-form';
 import {twMerge} from 'tailwind-merge';
 
@@ -164,6 +164,7 @@ const Property = ({
         setLookupDependsOnValues,
         setSelectValue,
         showFormulaSwitch,
+        startPillEntry,
         type,
         typeIcon,
         validatePropertyValue,
@@ -248,6 +249,28 @@ const Property = ({
         }
     };
 
+    // An empty container has no text box to type `$` or `=` into, so its add button and hint take them instead.
+    const handleContainerKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+        if (
+            (event.key !== '$' && event.key !== '=') ||
+            !nativePillTarget.isContainerKeyDown(event) ||
+            !acceptsNativePill() ||
+            (event.key === '=' && !showFormulaSwitch)
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.key === '=') {
+            handleFormulaSwitch();
+
+            return;
+        }
+
+        startPillEntry();
+    };
+
     // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
     const handleContainerLocalEntriesChange = useCallback((hasLocalEntries: boolean) => {
         containerHasLocalEntriesRef.current = hasLocalEntries;
@@ -267,12 +290,13 @@ const Property = ({
     const containerPillHint = showContainerPillHint ? (
         <p
             className={twMerge(
-                'rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground',
+                'rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground outline-none',
                 controlType === 'JSON_SCHEMA_BUILDER' ? 'mt-2' : 'mb-2',
                 nativePillTarget.isRegistered && 'ring-2 ring-ring'
             )}
+            tabIndex={-1}
         >
-            Drop or click a data pill
+            Drop or click a data pill, or type $
         </p>
     ) : null;
 
@@ -441,6 +465,7 @@ const Property = ({
                 <div
                     className="contents"
                     {...nativePillTarget.targetProps}
+                    onKeyDown={isPillContainer && !control ? handleContainerKeyDown : undefined}
                     onMouseDown={isPillContainer && !control ? handleContainerMouseDown : undefined}
                 >
                     {!isFormulaMode &&
