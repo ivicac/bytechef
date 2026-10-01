@@ -104,6 +104,7 @@ type UsePropertyReturnType = {
     handleMultiSelectChange: (value: string[]) => void;
     handleNativeKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
     handleSelectChange: (value: string, name: string) => void;
+    handleSelectKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
     handleSinglePillAbandoned: () => void;
     expressionEnabled: boolean | undefined;
     hasError: boolean;
@@ -921,6 +922,16 @@ export const useProperty = ({
             setMentionInputValue(typeof value === 'number' ? String(value) : value);
 
             if (inputMode.singlePill) {
+                if (value === '' && pillEntry && controlType === 'SELECT') {
+                    // Only a pill replaces the selected option; erasing the `$` before choosing one keeps it, so
+                    // the editor's save of the empty document must not reach the server.
+                    editorPendingSaveCancelRef.current?.();
+
+                    setPillEntry(false);
+
+                    return;
+                }
+
                 if (value === '') {
                     setPillEntry(false);
 
@@ -968,10 +979,12 @@ export const useProperty = ({
             setErrorMessage(errorMessage);
         },
         [
+            controlType,
             INCORRECT_VALUE,
             inputMode.singlePill,
             maxLength,
             minLength,
+            pillEntry,
             regex,
             setMentionInputValue,
             VALUE_DOES_NOT_MATCH_PATTERN,
@@ -1105,13 +1118,37 @@ export const useProperty = ({
         [expressionEnabled, isNumericalInput, requestEditorFocus, setIsFormulaMode, startPillEntry]
     );
 
+    // A select can't hold a typed `$`, so the key always starts pill entry, replacing the selected option. Radix
+    // skips its type-ahead for a key whose default was prevented.
+    const handleSelectKeyDown = useCallback(
+        (event: KeyboardEvent<HTMLElement>) => {
+            if (event.key !== '$' || expressionEnabled === false) {
+                return;
+            }
+
+            event.preventDefault();
+
+            dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
+
+            setPillEntry(true);
+
+            requestEditorFocus('$');
+        },
+        [expressionEnabled, requestEditorFocus]
+    );
+
     const handleSinglePillAbandoned = useCallback(() => {
         setPillEntry(false);
+
+        // Leaving a select's pill entry without choosing a pill keeps the option it was about to replace.
+        if (pillEntry && controlType === 'SELECT') {
+            return;
+        }
 
         dispatchValueAction({type: 'valueCleared'});
 
         requestAnimationFrame(() => inputRef.current?.focus());
-    }, []);
+    }, [controlType, pillEntry]);
 
     const handleControlledFormulaSwitch = useCallback(
         (fieldValue: unknown, fieldOnChange: (value: unknown) => void) => {
@@ -1848,6 +1885,7 @@ export const useProperty = ({
         handleMultiSelectChange,
         handleNativeKeyDown,
         handleSelectChange,
+        handleSelectKeyDown,
         handleSinglePillAbandoned,
         hasError,
         hidden,

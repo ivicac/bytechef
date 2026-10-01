@@ -128,6 +128,7 @@ const Property = ({
         handleMultiSelectChange,
         handleNativeKeyDown,
         handleSelectChange,
+        handleSelectKeyDown,
         handleSinglePillAbandoned,
         hasError,
         hidden,
@@ -1185,6 +1186,7 @@ const Property = ({
                             )}
                             lookupDependsOnValues={lookupDependsOnValues}
                             name={name}
+                            onTriggerKeyDown={handleSelectKeyDown}
                             onValueChange={(value: string) => handleSelectChange(value, name!)}
                             options={(formattedOptions as Array<Option>) || []}
                             optionsDataSource={optionsDataSource}
@@ -1213,6 +1215,7 @@ const Property = ({
                             label={label || name}
                             leadingIcon={typeIcon}
                             name={name}
+                            onTriggerKeyDown={handleSelectKeyDown}
                             onValueChange={(value: string) => handleSelectChange(value, name!)}
                             options={[
                                 {label: 'True', value: 'true'},
