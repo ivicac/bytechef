@@ -217,12 +217,14 @@ class TaskCoordinatorTest {
 
         TaskDispatcher<? super Task> taskDispatcher = (TaskDispatcher<? super Task>) mock(TaskDispatcher.class);
 
+        JobService jobService = new JobServiceImpl(jobRepository);
+
         TaskCoordinator resumingTaskCoordinator = new TaskCoordinator(
             List.of(), List.of(), mock(ApplicationEventPublisher.class),
             new JobExecutor(
-                mock(ContextService.class), SpelEvaluator.create(), taskDispatcher, taskExecutionService,
-                taskFileStorage, workflowService),
-            new JobServiceImpl(jobRepository), taskCompletionHandler, taskDispatcher, taskExecutionService);
+                mock(ContextService.class), SpelEvaluator.create(), mock(ApplicationEventPublisher.class), jobService,
+                taskDispatcher, taskExecutionService, taskFileStorage, workflowService),
+            jobService, taskCompletionHandler, taskDispatcher, taskExecutionService);
 
         resumingTaskCoordinator.onResumeJobEvent(ResumeJobEvent.ofStartedJob(4567L));
 
