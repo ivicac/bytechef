@@ -69,8 +69,11 @@ and the other dialogs).
    field.
    - They are handled in `onKeyDown`, because INTEGER is `type="number"` and the browser discards both characters in
      `onChange`. Today's `=` shortcut silently fails for INTEGER for this reason.
-   - Selects, BOOLEAN, DATE/DATE_TIME/TIME and MULTI_SELECT take pills only by click or drag. Their only way into
-     Formula is the switch.
+   - A focused `SELECT` trigger (options combobox or BOOLEAN select) also takes `$`, even with an option selected,
+     since a select can't hold a typed `$`. It opens the empty one-pill editor; choosing a pill replaces the option,
+     while leaving or erasing the `$` without one keeps it. `=` is not handled there.
+   - DATE/DATE_TIME/TIME and MULTI_SELECT take pills only by click or drag. Selects and these controls reach Formula
+     only through the switch.
 4. **Keystroke and focus survive the handover.** The swap from native input to editor re-inserts the typed `$` or `=`
    into the editor and focuses it once the editor is created, not after a timer.
 5. **Toggling Formula keeps the value when nothing is lost, and clears it otherwise.**
