@@ -103,7 +103,7 @@ class IntegrationWorkflowExecutionFacadeIntTest {
         classes = MethodSecurityIntTest.Config.class,
         properties = "bytechef.edition=ee")
     @MockitoBean(types = {
-        ComponentDefinitionService.class, ContextService.class, EnvironmentService.class,
+        ComponentDefinitionService.class, ConnectedUserService.class, ContextService.class, EnvironmentService.class,
         Evaluator.class, IntegrationInstanceConfigurationService.class, IntegrationInstanceService.class,
         IntegrationService.class, IntegrationWorkflowFacade.class, IntegrationWorkflowService.class,
         TaskDispatcherDefinitionService.class, TaskFileStorage.class, TriggerExecutionService.class,
