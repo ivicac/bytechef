@@ -18,6 +18,7 @@ interface GetPropertyInputModePropsI {
     hasControl?: boolean;
     isFromAi: boolean;
     pillEntry?: boolean;
+    type?: string;
     value: unknown;
 }
 
@@ -36,6 +37,14 @@ function isTextLikeControlType(controlType: string | undefined, hasControl: bool
 }
 
 /**
+ * A STRING select's value is a string like any text field's, so once it holds pills it takes free text and any number
+ * of them; selects of other types keep the one-pill limit.
+ */
+export function isStringSelect(controlType: string | undefined, type: string | undefined): boolean {
+    return controlType === 'SELECT' && type === 'STRING';
+}
+
+/**
  * Text or Formula, and which control renders the value. See
  * docs/superpowers/specs/2026-09-25-formula-text-property-modes-design.md §1. The first matching rule wins.
  */
@@ -45,6 +54,7 @@ export function getPropertyInputMode({
     hasControl = false,
     isFromAi,
     pillEntry = false,
+    type,
     value,
 }: GetPropertyInputModePropsI): PropertyInputModeI {
     if (isFromAi) {
@@ -61,16 +71,18 @@ export function getPropertyInputMode({
         return TEXT_MENTIONS;
     }
 
+    const onePillLimit = !isStringSelect(controlType, type);
+
     if (isSingleDataPill(value)) {
-        return {legacyMixed: false, mode: 'text', renderer: 'mentions', singlePill: true};
+        return {legacyMixed: false, mode: 'text', renderer: 'mentions', singlePill: onePillLimit};
     }
 
     if (typeof value === 'string' && (value.includes('${') || value.includes('#{'))) {
-        return {legacyMixed: true, mode: 'text', renderer: 'mentions', singlePill: false};
+        return {legacyMixed: onePillLimit, mode: 'text', renderer: 'mentions', singlePill: false};
     }
 
     if (pillEntry) {
-        return {legacyMixed: false, mode: 'text', renderer: 'mentions', singlePill: true};
+        return {legacyMixed: false, mode: 'text', renderer: 'mentions', singlePill: onePillLimit};
     }
 
     return {legacyMixed: false, mode: 'text', renderer: 'native', singlePill: false};

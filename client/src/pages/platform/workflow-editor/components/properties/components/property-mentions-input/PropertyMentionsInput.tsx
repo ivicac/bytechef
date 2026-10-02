@@ -65,6 +65,8 @@ interface PropertyMentionsInputProps {
     onSinglePillAbandoned?: () => void;
     onValueChange?: (value: string | number) => void;
     path?: string;
+    /** Losing focus without a data pill abandons the entry, as in the one-pill editor, but text and more pills are allowed. */
+    pillRequired?: boolean;
     placeholder?: string;
     required?: boolean;
     setIsFormulaMode?: (isFormulaMode: boolean) => void;
@@ -101,6 +103,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
             onSinglePillAbandoned,
             onValueChange,
             path,
+            pillRequired,
             placeholder,
             required = false,
             setIsFormulaMode,
@@ -371,6 +374,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                             onSinglePillAbandoned={onSinglePillAbandoned}
                             onValueChange={onValueChange}
                             path={path}
+                            pillRequired={pillRequired}
                             placeholder={placeholder}
                             ref={getPropertyMentionsInputEditorRef}
                             setIsFormulaMode={setIsFormulaMode}
