@@ -70,8 +70,12 @@ and the other dialogs).
    - They are handled in `onKeyDown`, because INTEGER is `type="number"` and the browser discards both characters in
      `onChange`. Today's `=` shortcut silently fails for INTEGER for this reason.
    - A focused `SELECT` trigger (options combobox or BOOLEAN select) also takes `$`, even with an option selected,
-     since a select can't hold a typed `$`. It opens the empty one-pill editor; choosing a pill replaces the option,
-     while leaving or erasing the `$` without one keeps it. `=` is not handled there.
+     since a select can't hold a typed `$`. It opens an empty editor; choosing a pill replaces the option, while
+     leaving or erasing the `$` without one keeps it. `=` is not handled there.
+   - A STRING select's value is a string, so its editor has no one-pill limit: free text and any number of pills,
+     like a STRING field. It saves only values holding a pill (or a formula), stays up while being edited even with
+     every pill deleted, and gives way to the select when it loses focus without a pill. If a pill had already been
+     saved, that clears the field. Selects of other types keep the one-pill editor.
    - DATE/DATE_TIME/TIME and MULTI_SELECT take pills only by click or drag. Selects and these controls reach Formula
      only through the switch.
 4. **Keystroke and focus survive the handover.** The swap from native input to editor re-inserts the typed `$` or `=`
