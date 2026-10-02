@@ -13,6 +13,7 @@ import {
     fromFormulaValue,
     getPropertyInputMode,
     isSingleDataPill,
+    isStringSelect,
     shouldIncludeInMetadata,
     toFormulaValue,
 } from '@/pages/platform/workflow-editor/components/properties/propertyInputMode';
@@ -147,6 +148,7 @@ type UsePropertyReturnType = {
     showFormulaSwitch: boolean;
     type?: PropertyAllType['type'];
     typeIcon: ReactNode;
+    validateMentionInputValue: (value: string | number) => boolean;
     validatePropertyValue: (value: string | number) => boolean;
     workflow: Workflow;
 };
@@ -222,6 +224,8 @@ export const useProperty = ({
     const latestValueRef = useRef<string | number | undefined>(property.defaultValue || '');
     const isSavingRef = useRef(false);
     const parameterValueRef = useRef(parameterValue);
+    // Set by `$` on a select, cleared once a pill is in: until then leaving pill entry keeps the selected option.
+    const pillEntryKeepsOptionRef = useRef(false);
 
     parameterValueRef.current = parameterValue;
 
@@ -455,12 +459,15 @@ export const useProperty = ({
                 hasControl: !!control,
                 isFromAi: !control && isFromAi,
                 pillEntry,
+                type,
                 // A controlled field's propertyParameterValue is a mount-time snapshot the form never updates, so
                 // its `=` would pin Formula on; formulaModeState is seeded from the form values instead.
                 value: control ? undefined : propertyParameterValue,
             }),
-        [control, controlType, formulaModeState, isFromAi, pillEntry, propertyParameterValue]
+        [control, controlType, formulaModeState, isFromAi, pillEntry, propertyParameterValue, type]
     );
+
+    const stringSelect = isStringSelect(controlType, type);
 
     const mentionInput = !control && inputMode.renderer === 'mentions';
     const isFormulaMode = inputMode.mode === 'formula';
@@ -920,17 +927,31 @@ export const useProperty = ({
         (value: string | number) => {
             setMentionInputValue(typeof value === 'number' ? String(value) : value);
 
-            if (inputMode.singlePill) {
-                if (value === '' && pillEntry && controlType === 'SELECT') {
-                    // Only a pill replaces the selected option; erasing the `$` before choosing one keeps it, so
-                    // the editor's save of the empty document must not reach the server.
-                    editorPendingSaveCancelRef.current?.();
+            if (typeof value === 'string' && value.includes('${')) {
+                pillEntryKeepsOptionRef.current = false;
+            }
+
+            if (value === '' && pillEntryKeepsOptionRef.current) {
+                // Only a pill replaces the selected option; erasing the `$` before choosing one keeps it, so the
+                // editor's save of the empty document must not reach the server.
+                editorPendingSaveCancelRef.current?.();
+
+                if (inputMode.singlePill) {
+                    pillEntryKeepsOptionRef.current = false;
 
                     setPillEntry(false);
-
-                    return;
                 }
 
+                return;
+            }
+
+            // A STRING select's editor stays up while it is being edited, even with every pill deleted; it gives
+            // way to the select only when it loses focus without one.
+            if (stringSelect && !isFormulaMode) {
+                setPillEntry(true);
+            }
+
+            if (inputMode.singlePill) {
                 if (value === '') {
                     setPillEntry(false);
 
@@ -978,14 +999,14 @@ export const useProperty = ({
             setErrorMessage(errorMessage);
         },
         [
-            controlType,
             INCORRECT_VALUE,
             inputMode.singlePill,
+            isFormulaMode,
             maxLength,
             minLength,
-            pillEntry,
             regex,
             setMentionInputValue,
+            stringSelect,
             VALUE_DOES_NOT_MATCH_PATTERN,
         ]
     );
@@ -1023,6 +1044,8 @@ export const useProperty = ({
         editorPendingSaveCancelRef.current?.();
 
         const toFormula = !isFormulaMode;
+
+        pillEntryKeepsOptionRef.current = false;
 
         const convertedValue = toFormula ? toFormulaValue(liveValue, type) : fromFormulaValue(liveValue, type);
 
@@ -1071,6 +1094,8 @@ export const useProperty = ({
             // A constant typed a moment ago is still waiting in the native debounce; left alone it would land
             // after the pill and overwrite it.
             saveInputValue.cancel();
+
+            pillEntryKeepsOptionRef.current = false;
 
             setPillEntry(false);
 
@@ -1123,6 +1148,8 @@ export const useProperty = ({
 
             event.preventDefault();
 
+            pillEntryKeepsOptionRef.current = true;
+
             dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
 
             setPillEntry(true);
@@ -1136,14 +1163,35 @@ export const useProperty = ({
         setPillEntry(false);
 
         // Leaving a select's pill entry without choosing a pill keeps the option it was about to replace.
-        if (pillEntry && controlType === 'SELECT') {
+        if (pillEntryKeepsOptionRef.current) {
+            pillEntryKeepsOptionRef.current = false;
+
             return;
         }
 
         dispatchValueAction({type: 'valueCleared'});
 
+        if (stringSelect) {
+            // Text left without a pill was never saved (validateMentionInputValue), so the stored value may still
+            // hold the last pill.
+            saveResolvedValue(null);
+
+            return;
+        }
+
         requestAnimationFrame(() => inputRef.current?.focus());
-    }, [controlType, pillEntry]);
+    }, [saveResolvedValue, stringSelect]);
+
+    // A select's options are its constants, so its editor saves only values that hold a pill or a formula.
+    const validateMentionInputValue = useCallback(
+        (value: string | number) => {
+            const holdsNoPill =
+                stringSelect && typeof value === 'string' && !value.startsWith('=') && !value.includes('${');
+
+            return !holdsNoPill && validatePropertyValue(value);
+        },
+        [stringSelect, validatePropertyValue]
+    );
 
     const handleControlledFormulaSwitch = useCallback(
         (fieldValue: unknown, fieldOnChange: (value: unknown) => void) => {
@@ -1921,6 +1969,7 @@ export const useProperty = ({
         showFormulaSwitch,
         type,
         typeIcon,
+        validateMentionInputValue,
         validatePropertyValue,
         workflow,
     };
