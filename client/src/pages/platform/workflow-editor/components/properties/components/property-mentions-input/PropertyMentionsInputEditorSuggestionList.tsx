@@ -53,6 +53,8 @@ const PropertyMentionsInputEditorSuggestionList = forwardRef<
 
     const selectedIndex = useSuggestionListNavigation(items, ref, selectItem, listRef);
 
+    // A press in the menu must not take focus from the editor: a one-pill editor treats losing focus without a pill
+    // as abandoning the entry and unmounts before the click lands.
     return (
         <ul
             className="property-mentions-suggestion-menu max-h-96 gap-y-1 overflow-y-auto"
