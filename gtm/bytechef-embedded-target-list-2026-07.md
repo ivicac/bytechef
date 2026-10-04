@@ -1,6 +1,6 @@
 # ByteChef Embedded — Outbound Target List (first cut)
 
-**Date:** July 28, 2026 (Croatia segment added October 4, 2026) · **Companies:** 100 across 5 segments · **Purpose:** GTM strategy §7.3 — the 90-day embedded validation sprint's outreach list.
+**Date:** July 28, 2026 (Croatia segment added October 4, 2026) · **Companies:** 101 across 5 segments · **Purpose:** GTM strategy §7.3 — the 90-day embedded validation sprint's outreach list.
 
 ## How this list was built
 
@@ -16,7 +16,7 @@ Four parallel research passes (EU vertical SaaS · US/RoW vertical SaaS · dev t
 
 ## Score distribution and wave plan
 
-Counts below cover the original 73 companies. The Croatia segment (27, at the end of this file) has its own wave plan.
+Counts below cover the original 73 companies. The Croatia segment (28, at the end of this file) has its own wave plan.
 
 | Score | Count | Wave |
 |---|---|---|
@@ -198,7 +198,7 @@ Excluded as competitors: Merge, Finch, Kombo, Apideck, Chift. Excluded over-stag
 
 ---
 
-# Segment: Croatia (27 companies)
+# Segment: Croatia (28 companies)
 
 **Added:** October 4, 2026, from three parallel research passes: Croatian vertical SaaS · Croatian horizontal B2B, HR and fin-ops SaaS · the Fiskalizacija 2.0 e-invoicing and SMB-ERP market. Selection criteria and exclusions are the same as the rest of the list. Scoring uses the same rubric: Stage 0–2, Size 0–2, Pain 0–3, Vertical 0–2, EU +1. Croatia is in the EU-27, so a Croatian HQ earns the +1 without the UK caveat. OptimoRoute (US HQ) and Ascalia (UK HQ) do not get it.
 
@@ -242,7 +242,7 @@ Excluded as competitors: Merge, Finch, Kombo, Apideck, Chift. Excluded over-stag
 | Treblle | treblle.com | Croatia (Zagreb) | Dev tools (API observability) | API monitoring, analytics, security and docs | $8.4M total incl. $7M from Nauta ([Techloy](https://www.techloy.com/croatian-treblle-raises-7-million/)) | 22+ ([about](https://treblle.com/about-us)) | API-gateway connectors shipped one at a time: AWS, Azure APIM, Kong, MuleSoft, WSO2, Traefik, Apigee ([docs](https://docs.treblle.com/integrate-treblle/api-gateways/kong)); no evidence of alerting or ITSM connectors | 2/2/1/1/1 | **7** | "You've built gateway plugins one by one. An embedded connector layer could carry Treblle's API insights into Jira, ServiceNow and PagerDuty without a new team for each target." |
 | Legit (Data Privacy Manager) | legit.eu | Croatia (Zagreb) | Privacy / compliance | Privacy automation: ROPA, data discovery, DSARs, removal orchestration | €650K, Vesna Deeptech ([Legit](https://legit.eu/news/legit-secures-investment-from-vesna-deeptech-vc-fund-to-accelerate-growth-of-data-privacy-manager-solution/)) | unknown; 200+ customers | Indirect: sells "Data Removal Orchestration" across customer systems but publishes no named connectors ([DPM](https://legit.eu/news/data-privacy-manager/)) | 2/1/2/1/1 | **7** | "Removal orchestration is only as good as the systems it reaches. Open-source, embeddable connectors to CRMs, HRIS and SaaS would let DPM fulfil DSARs end to end." |
 
-## Fiskalizacija 2.0: e-invoicing and SMB ERP (8)
+## Fiskalizacija 2.0: e-invoicing and SMB ERP (9)
 
 | Company | URL | Country | Category | One-line description | Stage/funding (source) | Est. size (source) | Pain evidence (source) | Score | Total | Suggested first-line hook |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -254,6 +254,7 @@ Excluded as competitors: Merge, Finch, Kombo, Apideck, Chift. Excluded over-stag
 | Pupilla (Synesis) | pupilla.hr | Croatia (Zagreb) | Accounting / ERP | Long-running small-business accounting program | Private, sole founder ([Fina](https://infobiz.fina.hr/tvrtka/pupilla-d-o-o/OIB-00343110335)) | 9; €2.91M revenue ([Fina](https://infobiz.fina.hr/tvrtka/pupilla-d-o-o/OIB-00343110335)) | Built 5 separate e-invoice channels: mojeRačun, FINA B2G, FINA B2B, ePoslovanje, Redok ([Synesis eRačun](https://www.pupilla.hr/synesis/efaktura/)) | 2/1/3/1/1 | **8** | "Synesis already maintains five eInvoice channel integrations. We could turn that into a white-label connector catalogue covering every intermediary, so each new one is configuration, not a release." |
 | Pondi (ePoslovanje) | eposlovanje.hr | Croatia (Split) | Intermediary | Low-cost, API-first intermediary (API v2, OpenAPI, codegen) | Private, founder-led ([Fina](https://infobiz.fina.hr/tvrtka/pondi-d-o-o/OIB-62781739468)) | 5 (below band); €730k revenue, +74% ([Fina](https://infobiz.fina.hr/tvrtka/pondi-d-o-o/OIB-62781739468)) | Hand-lists about 50 compatible ERPs and offers to help implement in the rest ([services](https://eposlovanje.hr/usluge/)) | 2/0/3/2/1 | **8** | "You've hand-listed about 50 compatible ERPs and still offer to help implement the rest. An embedded integration platform could let a 5-person team ship and maintain those connectors as white-label integrations." |
 | 4th Dimension (4D Wand) | 4d.hr | Croatia (Zagreb) | Accounting / ERP | 4D Wand ERP (e-invoicing since 2014), with a 4D Web webshop spin-off | Private ([Fina](https://infobiz.fina.hr/tvrtka/4th-dimension-d-o-o/OIB-20706921230)) | 19; €2.12M revenue ([Fina](https://infobiz.fina.hr/tvrtka/4th-dimension-d-o-o/OIB-20706921230)) | Single intermediary (Moj eRačun) ([mer case](http://media.moj-eracun.hr/cms/4D-wand-TEXO.pdf)); hiring programmers ([job](https://www.4d.hr/info/18)) | 2/2/1/1/1 | **7** | "4D Wand relies on one intermediary and a custom 4D Web shop. We could let your customers connect any intermediary or third-party webshop from inside Wand, white-labelled, without more hires." |
+| BillKO (Kupuj Online d.o.o.) | billko.eu | Croatia (Rijeka) | Invoicing / fiscalization and intermediary | Invoicing, quotes, fiscal POS and B2C/B2B/B2G e-invoices in one system, for sole traders, SMBs, webshops, hosts, accounting firms and integrators | Private, founder-owned; sole member Emir Dizdarević, who founded Web Studio (WSPay), sold to Asseco/Payten in 2021 ([fininfo](https://www.fininfo.hr/Poduzece/Pregled/kupuj-online/Detaljno/93375), [Lider](https://lidermedia.hr/poslovna-scena/hrvatska/poslovni-putopis-zasto-su-pioniri-hrvatske-e-prodaje-svoj-web-studio-prodali-assecu-141050)) | 7 (below band); €292k revenue 2025, −30% ([fininfo](https://www.fininfo.hr/Poduzece/Pregled/kupuj-online/Detaljno/93375)) | Registered intermediary ([Porezna list](https://porezna-uprava.gov.hr/hr/popis-informacijskih-posrednika/8019)); webshop integrations shipped one at a time: a WooCommerce plugin, a Shopify webhook integration, and API docs for "any CMS" ([webshop guide](https://web.billko.eu/kako-izraditi-fiskalni-racun-za-webshop-vodic-za-pocetnike/)); markets "Integrations and API" to payment gateways, POS and e-commerce, and names integrators as an audience ([billko.eu](https://www.billko.eu/en/)) | 2/0/2/2/1 | **7** | "BillKO already ships a WooCommerce plugin and a Shopify webhook, one integration at a time. With the 2027 wave bringing every non-VAT business onto eRačun, an embedded integration layer would let you offer every webshop, POS and payment gateway your customers run as white-label connectors, without growing the team." |
 
 ## Suggested contacts
 
@@ -299,9 +300,10 @@ LinkedIn URLs only where a search result surfaced them. **Verify every name and 
 | Pupilla (Synesis) | Krunoslav Lisac | Founder and director | not captured |
 | Pondi (ePoslovanje) | Domagoj Bikić | Founder and director | not captured |
 | 4th Dimension | Edin Čahtarević | Director | not captured |
+| BillKO (Kupuj Online) | Emir Dizdarević | Founder, sole member and board member (Web Studio / WSPay founder) | not captured |
 
 ## Low-confidence entries
-- **Sizes and HQ:** **Nokumo** (about 9 named people; conflicting headcount and founding year), **Pondi** (5 employees, below the band, kept for the strongest pain evidence in the segment), **Pupilla** (9), **E-RAČUNI** (Slovenian HQ, with a Croatian entity and customer base; the horizontal pass excluded it on HQ, the e-invoicing pass kept it).
+- **Sizes and HQ:** **BillKO** (7 employees and revenue down 30% in 2025; added on request because of the founder's track record and the 2027 non-VAT wave), **Nokumo** (about 9 named people; conflicting headcount and founding year), **Pondi** (5 employees, below the band, kept for the strongest pain evidence in the segment), **Pupilla** (9), **E-RAČUNI** (Slovenian HQ, with a Croatian entity and customer base; the horizontal pass excluded it on HQ, the e-invoicing pass kept it).
 - **Indirect pain evidence:** MMK Systems, NauSYS, Ascalia, Hypefy, Legit, Treblle, RIS. Mostly third-party or search-summary evidence.
 - **Worth a look but not scored:** Phobs (Dubrovnik channel manager; Sandberg/ARX took a majority stake in May 2025, so stage fit is poor, about 6); OptimIT/EDInet (24 employees; possibly partly a services shop, about 8); MyRent (built 3 intermediary connectors one by one, but about 9 staff or fewer); EasyBusy (clinic software with CEZIH and e-invoicing, size unknown); FIRA and Solo/monoform (micro, but relevant as 2027-wave partners); Memgraph (open-source affinity, but little business-app integration demand, about 5).
 - **Fetch failures:** the Booking Manager support page, Seedtable and EU-Startups returned 403; OptimoRoute /integrations returned 404; Treblle's docs integrations page returned 500.
@@ -310,5 +312,5 @@ LinkedIn URLs only where a search result surfaced them. **Verify every name and 
 - **Acquired or owned by large groups:** Repsly (Cuadrilla Capital 2025), Mobilisis (SICK AG), Remaris and Monri (Payten), mer / moj-eRačun (Visma), Amodo (Cambridge Mobile Telematics), SysKit (Redgate), Minimax HR (Seyfor), Datalab HR / Pantheon (listed Datalab group), Neoinfo / Adeo POS (Printec), PostLink / Sveračun (Hrvatska pošta), Omnizon (Megatrend Redok).
 - **Competitor or adjacent:** Robotiq.ai (RPA), Mindsmiths (autonomous-systems platform), Fonoa (tax-compliance API, Dublin, $60M Series B), Shoutem (no-code app builder, Brooklyn HQ).
 - **Wrong shape:** PlanRadar (Vienna HQ, over-stage), Sedna System (French HQ), Ingemark and Tri M (services), Codemap (talent marketplace), Sportening (consumer), Lasken AI (sold to pharma), Daytona, Wasp and rmBug (dev infra, no end-customer integration demand), All Eyes On Screens (no pain evidence), FMLC / HT fleet (resellers).
-- **Too small (0–7 employees per Fina):** DB informatika, Zlatni račun, HREFS, GrowIT, MAXKO, Billko, Relago, Arges ERP, Blagajna.hr, Luppa (€275K, too early).
+- **Too small (0–7 employees per Fina):** DB informatika, Zlatni račun, HREFS, GrowIT, MAXKO, Relago, Arges ERP, Blagajna.hr, Luppa (€275K, too early).
 - **No qualifying candidates found** in Croatian legal, education or energy SaaS.
