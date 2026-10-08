@@ -10,6 +10,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {AutomationToolInvocations} from './AutomationToolInvocations';
 
 const hoisted = vi.hoisted(() => ({
+    useAppsQueryMock: vi.fn(),
     useToolInvocationLogsQueryMock: vi.fn(),
     useWorkspaceMcpServersQueryMock: vi.fn(),
     useWorkspaceToolInvocationLogsQueryMock: vi.fn(),
@@ -17,6 +18,7 @@ const hoisted = vi.hoisted(() => ({
 
 vi.mock('@/shared/middleware/graphql', () => ({
     PlatformType: {Automation: 'AUTOMATION', Embedded: 'EMBEDDED'},
+    useAppsQuery: hoisted.useAppsQueryMock,
     useEnvironmentsQuery: () => ({data: undefined}),
     useToolInvocationLogsQuery: hoisted.useToolInvocationLogsQueryMock,
     useWorkspaceMcpServersQuery: hoisted.useWorkspaceMcpServersQueryMock,
@@ -34,9 +36,11 @@ vi.mock('@/pages/automation/tool-invocations/ToolInvocations', () => ({
         mcpServerOptions: Array<{label: string; value: string}>;
     } & Parameters<typeof useToolInvocations>[0]) => {
         const {
+            filterAppId,
             filterMcpServerId,
             filterOutcome,
             filterPageNumber,
+            handleAppChange,
             handleMcpServerChange,
             handleOutcomeChange,
             handlePaginationClick,
@@ -45,8 +49,10 @@ vi.mock('@/pages/automation/tool-invocations/ToolInvocations', () => ({
         return (
             <div>
                 <span data-testid="filters">
-                    {`mcp=${filterMcpServerId ?? ''};outcome=${filterOutcome ?? ''};page=${filterPageNumber}`}
+                    {`app=${filterAppId ?? ''};mcp=${filterMcpServerId ?? ''};outcome=${filterOutcome ?? ''};page=${filterPageNumber}`}
                 </span>
+
+                <button onClick={() => handleAppChange({label: 'Support', value: '5'})}>pick app</button>
 
                 <button onClick={() => handleMcpServerChange({label: 'Server', value: '9'})}>pick server</button>
 
@@ -85,6 +91,8 @@ const renderPage = () =>
 
 describe('AutomationToolInvocations', () => {
     beforeEach(() => {
+        hoisted.useAppsQueryMock.mockReset();
+        hoisted.useAppsQueryMock.mockReturnValue({data: undefined});
         hoisted.useToolInvocationLogsQueryMock.mockReset();
         hoisted.useToolInvocationLogsQueryMock.mockReturnValue(emptyQueryResult());
         hoisted.useWorkspaceMcpServersQueryMock.mockReset();
@@ -104,13 +112,15 @@ describe('AutomationToolInvocations', () => {
         async (_scope, switchScope, environmentId, workspaceId) => {
             renderPage();
 
+            await userEvent.click(screen.getByRole('button', {name: 'pick app'}));
             await userEvent.click(screen.getByRole('button', {name: 'pick server'}));
             await userEvent.click(screen.getByRole('button', {name: 'pick outcome'}));
             await userEvent.click(screen.getByRole('button', {name: 'next pages'}));
 
-            expect(screen.getByTestId('filters')).toHaveTextContent('mcp=9;outcome=ERROR;page=3');
+            expect(screen.getByTestId('filters')).toHaveTextContent('app=5;mcp=9;outcome=ERROR;page=3');
             expect(hoisted.useWorkspaceToolInvocationLogsQueryMock).toHaveBeenLastCalledWith(
                 expect.objectContaining({
+                    appId: 5,
                     environmentId: '2',
                     mcpServerId: 9,
                     outcome: 'ERROR',
@@ -125,9 +135,10 @@ describe('AutomationToolInvocations', () => {
                 switchScope();
             });
 
-            expect(screen.getByTestId('filters')).toHaveTextContent('mcp=;outcome=;page=0');
+            expect(screen.getByTestId('filters')).toHaveTextContent('app=;mcp=;outcome=;page=0');
             expect(hoisted.useWorkspaceToolInvocationLogsQueryMock).toHaveBeenLastCalledWith(
                 expect.objectContaining({
+                    appId: undefined,
                     environmentId,
                     mcpServerId: undefined,
                     outcome: undefined,

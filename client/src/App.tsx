@@ -24,6 +24,7 @@ import {
 import {isDevelopmentOnlyHref} from '@/shared/navigation/developmentOnlyRoutes';
 import {isStandaloneRoute} from '@/shared/navigation/standaloneRoutes';
 import {useDevelopmentOnlyRouteGuard} from '@/shared/navigation/useDevelopmentOnlyRouteGuard';
+import useAppSidebarStore from '@/shared/stores/useAppSidebarStore';
 import {EditionType, useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -41,6 +42,8 @@ const CommandBarDialog = lazy(() => import('@/components/CommandBar/CommandBarDi
 const NO_NAVIGATION_ITEMS: NavigationItemI[] = [];
 
 function App() {
+    const sidebarOpen = useAppSidebarStore((state) => state.open);
+    const setSidebarOpen = useAppSidebarStore((state) => state.setOpen);
     const commandBarOpen = useCommandBarStore((state) => state.open);
     const setCommandBarOpen = useCommandBarStore((state) => state.setOpen);
 
@@ -107,6 +110,10 @@ function App() {
             return ff_1023;
         }
 
+        if (navItem.href === '/automation/apps') {
+            return edition === EditionType.EE;
+        }
+
         // '/automation/chats' is deliberately not filtered: the Chats surface is CE functionality
         // (workspaceChatWorkflows lives in automation-configuration-graphql), so the nav item stays
         // visible in every edition.
@@ -119,8 +126,17 @@ function App() {
             return ff_4855 && edition === EditionType.EE && contextStoreEnabled;
         }
 
+        // The route is EEVersion-wrapped, so in CE the nav item would lead to a blank page.
+        if (navItem.href === '/automation/executions/tool-invocations') {
+            return edition === EditionType.EE;
+        }
+
         if (navItem.href === '/automation/ai-hub') {
             return edition === EditionType.EE && ai.hub.enabled;
+        }
+
+        if (navItem.href === '/automation/ai/gateway') {
+            return edition === EditionType.EE && ai.gateway.enabled;
         }
 
         return true;
@@ -249,7 +265,7 @@ function App() {
                 block scoped to this element, so they render below the banner instead of
                 anchoring to the viewport top and overlapping it. */}
 
-            <SidebarProvider className="min-h-0 flex-1 transform-gpu" defaultOpen={false}>
+            <SidebarProvider className="min-h-0 flex-1 transform-gpu" onOpenChange={setSidebarOpen} open={sidebarOpen}>
                 {!standaloneRoute && <AppSidebar navigation={navigation} />}
 
                 <SidebarInset className="flex h-full min-w-0 flex-col">

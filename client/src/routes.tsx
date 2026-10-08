@@ -49,9 +49,9 @@ const AutomationToolInvocationsPage = lazy(() =>
         default: module.AutomationToolInvocations,
     }))
 );
-const ToolInvocationsPage = lazy(() =>
-    import('@/pages/automation/tool-invocations/ToolInvocations').then((module) => ({
-        default: module.ToolInvocations,
+const EmbeddedToolInvocationsPage = lazy(() =>
+    import('@/ee/pages/embedded/tool-invocations/EmbeddedToolInvocations').then((module) => ({
+        default: module.EmbeddedToolInvocations,
     }))
 );
 const AutomationWorkflowExecutions = lazy(() =>
@@ -65,6 +65,8 @@ const Home = lazy(() => import('@/pages/home/Home'));
 const KnowledgeBase = lazy(() => import('@/pages/automation/knowledge-base/KnowledgeBase'));
 const KnowledgeBases = lazy(() => import('@/pages/automation/knowledge-bases/KnowledgeBases'));
 const McpServer = lazy(() => import('@/pages/settings/platform/mcp-server/McpServer'));
+const AppDetail = lazy(() => import('@/pages/automation/apps/App'));
+const Apps = lazy(() => import('@/pages/automation/apps/Apps'));
 const A2aServers = lazy(() => import('@/pages/automation/a2a-servers/A2aServers'));
 const McpServers = lazy(() => import('@/pages/automation/mcp-servers/McpServers'));
 const Notifications = lazy(() => import('@/pages/settings/platform/notifications/Notifications'));
@@ -129,11 +131,6 @@ const EmbeddedConnections = lazy(() =>
     import('@/ee/pages/embedded/connections/Connections').then((module) => ({default: module.Connections}))
 );
 const EmbeddedMcpServers = lazy(() => import('@/ee/pages/embedded/mcp-servers/McpServers'));
-const EmbeddedToolInvocations = lazy(() =>
-    import('@/ee/pages/embedded/tool-invocations/EmbeddedToolInvocations').then((module) => ({
-        default: module.EmbeddedToolInvocations,
-    }))
-);
 const EmbeddedIntegrationWorkflowExecutions = lazy(() =>
     import('@/ee/pages/embedded/workflow-executions/WorkflowExecutions').then((module) => ({
         default: module.WorkflowExecutions,
@@ -1092,7 +1089,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <AutomationToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1154,7 +1151,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <ContextStores />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1166,7 +1163,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <ContextStoreSources />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1178,7 +1175,31 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
+                                                    <Apps />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'apps',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper>
+                                                    <AppDetail />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'apps/:id',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper>
                                                     <AiHub />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1190,7 +1211,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <AiHub />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1202,7 +1223,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <AiHubScheduledAgents />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1214,7 +1235,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <AiAutoMemoriesPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1288,7 +1309,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                 {
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
+                                            <LazyLoadWrapper>
                                                 <AssetFiles />
                                             </LazyLoadWrapper>
                                         </PrivateRoute>
@@ -1298,7 +1319,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                 {
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
+                                            <LazyLoadWrapper>
                                                 <AssetFiles />
                                             </LazyLoadWrapper>
                                         </PrivateRoute>
@@ -1309,7 +1330,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
+                                                <LazyLoadWrapper>
                                                     <AiGateway />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
@@ -1512,8 +1533,8 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper hasLeftSidebar>
-                                                    <ToolInvocationsPage />
+                                                <LazyLoadWrapper>
+                                                    <EmbeddedToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>
