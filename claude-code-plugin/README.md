@@ -29,7 +29,10 @@ Rules:
 
 - `uses:` is **required** on `mcp` and `cli` fences (optional on `local`). List every tool name or
   CLI command path the block depends on — including ones only mentioned in prose, like `configure`
-  above.
+  above. One exception: an `edition: ee` `mcp` fence keyed on EE-only tools may name CE tools in
+  prose without listing them, so that a CE server, which registers those CE tools but none of the EE
+  ones, never receives the section (`bytechef-app-builder`'s workflow fence names `createProject`,
+  `buildWorkflow` and `publishProject` this way).
 - Each entry must match **exactly**: an `mcp` entry must be a tool name actually registered on the
   management MCP server; a `cli` entry must match a `@Command(name = "...")` literal under
   `cli/commands/**/*Command.java` (a multi-word command path, e.g. `embedded code-workflow deploy`,

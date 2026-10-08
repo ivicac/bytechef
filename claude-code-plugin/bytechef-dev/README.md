@@ -1,6 +1,6 @@
 # bytechef-dev Plugin
 
-Development tools for ByteChef — one plugin, five capabilities:
+Development tools for ByteChef — one plugin, six capabilities:
 
 | Skill | What it does |
 |---|---|
@@ -9,6 +9,7 @@ Development tools for ByteChef — one plugin, five capabilities:
 | **ByteChef Code Workflow Builder** | Author whole projects (automation) and integrations (embedded) as code and **deploy** them |
 | **ByteChef Management MCP Setup** | Connect Claude to a running instance's Management MCP server so it can build workflows live |
 | **ByteChef Workflow Builder** | Create/build/import/publish workflows **live**, over the Management MCP server, against a connected instance |
+| **ByteChef App Builder** | Create an app from the `create-bytechef-app` template's directory, write its key to `.env.local`, bind connections, and build, deploy and bind its workflows (DEVELOPMENT only) |
 
 The upload/deploy/MCP skills use a configured instance: set `BYTECHEF_BASE_URL` and `BYTECHEF_API_KEY` (admin API key) in the environment, or the skill will ask.
 
@@ -72,6 +73,23 @@ covered by this skill.
 
 Ask: "Build a workflow in ByteChef that..." / "Create a project and workflow for X" / "Import this
 n8n workflow into ByteChef".
+
+### ByteChef App Builder
+
+The coding-agent loop for an app made from the `create-bytechef-app` template, DEVELOPMENT only. It prefers API
+Platform endpoints for the app's logic, then Call-workflow bindings (long-running, approval and background runs), then
+direct actions or tools, then the proxy, and builds scheduled workflows that write to a data table when the app needs
+periodic work. The CLI manages the app (`bytechef automation app create|link|list|status|bind connection|bind
+workflow|bind api-collection|unbind connection|unbind workflow|unbind api-collection|key rotate`,
+`bytechef automation connection list`), writing the app key straight into `.env.local` so it never passes through the
+model. The management MCP server builds workflows (`buildWorkflow` with `kind` `API_ENDPOINT`, `SCHEDULED` or
+`APP_CALLABLE`), publishes them (`publishProject`), creates API collections and endpoints (`createAppApiCollection`,
+`createAppApiEndpoint`, `updateAppApiCollectionVersion`, `listAppApiCollections`), data tables
+(`createAppDataTable`) and deploys (`deployProject`), all EE. Needs an automation API key and an admin API key, both
+created in DEVELOPMENT.
+
+Ask: "Create a ByteChef app for this project and bind my HubSpot connection" / "Give my app an endpoint that lists
+open orders" / "Refresh this report every hour" / "Give my app a workflow that onboards a customer".
 
 ## Installation
 

@@ -32,6 +32,7 @@ Auth model:
 - The `{SECRET_KEY}` path segment is always required — it identifies and (when `authenticationRequired=false`) alone authorizes the connection.
 - When `authenticationRequired=true` (the default), ALSO send `Authorization: Bearer <admin API key>` — the key must be an admin platform API key matching the environment.
 - Optional `X-ENVIRONMENT` header selects the environment (defaults to `PRODUCTION`).
+- The app loop (the **ByteChef App Builder** skill) needs an admin API key created in DEVELOPMENT and `X-ENVIRONMENT: DEVELOPMENT`.
 
 ## Claude Code configuration
 
