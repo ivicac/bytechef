@@ -12,6 +12,29 @@ valid ids in its `workspaces` field — retry the same call with one of those as
 applies uniformly across ordinary CRUD tools; no special handling is needed when the account has
 exactly one workspace.
 
+## tools: deployProject, listConnections, listAppCallableWorkflows
+An app calls a ByteChef workflow only when the workflow is app-callable: its trigger is the Call-workflow trigger
+(`workflow/v1/newWorkflowCall`) with an `inputSchema` (a string holding a JSON Schema) describing every value the app
+sends. A final `workflow/v1/responseToWorkflowCall` task with an `outputSchema` (also a string holding a JSON Schema)
+describes what the app gets back; without it the app receives the job outputs. The app loop runs in DEVELOPMENT only:
+the MCP client sends `X-ENVIRONMENT: DEVELOPMENT` with an admin API key created in DEVELOPMENT, and these tools refuse
+any other `environment`.
+
+1. Create the project with `createProject`, always passing `workspaceId`.
+2. Build each workflow with `buildWorkflow` and `appCallable: true`. It reports each saved `workflowId` as app-callable
+   or names what is missing; then call it again naming that `workflowId`.
+3. Publish with `publishProject`. `deployProject` refuses a project with unpublished changes.
+4. Deploy with `deployProject`. It keeps one DEVELOPMENT deployment per project, picks a connection for each slot
+   when exactly one usable candidate exists and otherwise lists the candidates (pass them in `connections`;
+   `listConnections` shows every connection with `usable` and `aiProvider`), and enables the app-callable workflows.
+   Its result gives, per app-callable workflow, the `bytechef automation app bind workflow` command to run in the
+   app's directory, and the `draftWorkflowId` for the next change.
+5. To change a workflow: `buildWorkflow` naming the `draftWorkflowId` → `publishProject` → `deployProject`. The
+   app's binding stays valid. `listAppCallableWorkflows` lists what is deployed and callable.
+
+If `buildWorkflow` is not registered, a ByteChef admin must set `bytechef.ai.copilot.enabled: true` with a chat model
+provider (optionally chosen with `bytechef.ai.copilot.provider`).
+
 ## tools: listProjects, createProject, createProjectWorkflow
 Check whether the target project already exists with `listProjects`. If not, create it with
 `createProject`. Either way, create the workflow inside it with `createProjectWorkflow` — its

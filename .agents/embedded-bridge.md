@@ -120,7 +120,7 @@ sibling templates' running jobs. Only a version change (rollout, below) sends th
 `updateProjectDeployment`. Connection candidates come only from
 `ConnectedUserConnectionFacade.getConnections(connectedUserId, componentName, List.of())`, never the tenant-wide
 `ConnectionService.getConnections(PlatformType.EMBEDDED)` -- the tenant-wide list would let one connected user's
-reference wire to another's connection. Slots come from `WorkflowConnectionSlots` over every trigger and every
+reference wire to another's connection. Slots come from `ComponentConnectionFacade.getWorkflowComponentConnections` over every trigger and every
 task including nested ones (`Workflow.getTasks(true)`, cluster elements included via
 `ComponentConnectionFacade`). For each slot, in order: the connection requested in the provision body (not
 entitled, or named without an id ⇒ 400) → the connection currently wired on the row for that component, if still entitled → the user's

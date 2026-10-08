@@ -551,22 +551,26 @@ stores or router hooks via factory-injected mocks.
     - Resolve collection dependencies via `context.beanProvider(Class).orderedStream().toList()` (replaces `beanFactory.getBeansOfType()`)
     - Resolve named beans via `context.bean("beanName", Class)` in supplier
     - Test `BeanRegistrar` specs by capturing `Consumer<Spec<T>>` with `ArgumentCaptor`, applying to mock `Spec`, and verifying fluent calls
-- **Four executors, no queues.** `AsyncConfiguration` defines `taskExecutor` (default `@Async`, limit
+- **Five executors, no queues.** `AsyncConfiguration` defines `taskExecutor` (default `@Async`, limit
   `bytechef.async.concurrency-limit`), `workerExecutor` (task handlers + trigger executions, limit
   `bytechef.worker.task.subscriptions.default`), `syncWorkerExecutor` (the API-Platform sync path and the editor's
-  Test button, limit `bytechef.worker.task.sync-concurrency-limit`) and `messageEventExecutor` (Spring-event→broker
-  bridge, unbounded). The sync lane is a bulkhead, not extra capacity: without it a burst of scheduled runs
-  saturates the worker lane and an interactive caller blocks on a permit while holding a request thread.
-  All are queue-less `SimpleAsyncTaskExecutor`s: a submitter waits for a permit. Anything that runs component code
-  or blocks on I/O goes on `workerExecutor`, never the default. Virtual threads change only the thread factory —
-  they do not lift a limit, which is why these are not `ThreadPoolTaskExecutor`s. The bridge stays unbounded
+  Test button, limit `bytechef.worker.task.sync-concurrency-limit`), `appExecutor` (the actions, tools and proxy calls
+  Apps request, limit `bytechef.app.execution.concurrency-limit`; registered only when that property is set, which only
+  `server-app`'s `application-bytechef.yml` does) and `messageEventExecutor` (Spring-event→broker bridge, unbounded).
+  The sync lane is a bulkhead, not extra capacity: without it a burst of scheduled runs saturates the worker lane and
+  an interactive caller blocks on a permit while holding a request thread. The app lane is the same bulkhead one step
+  further: apps are external, machine-driven callers, and on the sync lane a burst from them would starve the editor's
+  Test button and the API-Platform sync path. App workflow runs do not use it — they go through the job path on
+  `workerExecutor`. All are queue-less `SimpleAsyncTaskExecutor`s: a submitter waits for a permit. Anything that runs
+  component code or blocks on I/O goes on `workerExecutor`, never the default. Virtual threads change only the thread
+  factory — they do not lift a limit, which is why these are not `ThreadPoolTaskExecutor`s. The bridge stays unbounded
   because it only hands messages to the broker: starving it stalls every workflow, while the real work is already
   bounded at `workerExecutor` (and DB connections at Hikari's `maximum-pool-size`). Don't bound
   `AsyncMessageBroker`'s own dispatch executor either — it carries work-initiating and completion events together,
   and each `JobSyncExecutor` builds a private instance whose latch waits on events from it, so a bound there can
   wedge the API-Platform sync path and the editor's Test button. Its per-route ordered executors (single thread,
   bounded queue, blocking put) are a separate, deliberate case and stay bounded. `AsyncConfigurationTest`
-  enumerates them, so it catches the decorator being dropped from `createExecutor` — a fourth executor built
+  enumerates them, so it catches the decorator being dropped from `createExecutor` — a sixth executor built
   outside that factory isn't covered; every executor must go through `createExecutor`. The one deliberate exception is
   `WorkflowSubflowSyncExecutorConfiguration`, which builds its own unbounded executor: subflows nest through a
   `SubflowTaskDispatcher`, so a parent holds a permit while its child needs one, and a shared bounded lane would
@@ -598,6 +602,7 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/component-wrappers.md` | Component wrapper patterns |
 | `.agents/component-rules.md` | Component Rules: agent tool governance, approval, observe mode, strict, risk levels |
 | `.agents/voice.md` | Browser voice: engine outside Atlas, Voice Agent cluster element, stage contract, tool policy path, no HITL in a call, `sessionId` protocol, node-affinity gap |
+| `.agents/apps.md` | Apps (EE): governed AI-built apps, app secret key + `/api/app/v1` auth, execution lane, flat tool names, the connection proxy, connection-delete guard SPI |
 
 Design rationale for most of the above lives in `docs/superpowers/specs/`.
 
@@ -620,8 +625,9 @@ These are the parts that apply outside their own area, so they stay here:
   and the waiting node times out (`SSE_STREAM_EVENTS` is the canonical case). Redis maps
   `CONTROL` to pub/sub and `MESSAGE` to a consumer-group stream read with a blocking `XREADGROUP`
   (no poll sleep); AMQP to an anonymous per-listener queue on the topic exchange vs a shared durable
-  queue on the direct exchange; Kafka to a per-instance consumer group; JMS to the topic domain. Every
-  delegate registered for a route in one JVM receives every message that JVM receives.
+  queue on the direct exchange; Kafka to a per-instance consumer group; JMS to the topic domain. On a
+  `CONTROL` route every delegate registered in one JVM receives every message that JVM receives; on a `MESSAGE`
+  route each message goes to a single delegate (round-robin).
   `RedisMessageBrokerIntTest` and `AmqpMessageBrokerIntTest` pin both semantics against real brokers.
 - **Never add notification, admission, or approval logic under `server/libs/atlas/`** — the engine
   stays agnostic; those concerns live in `platform-coordinator` and the platform modules.
