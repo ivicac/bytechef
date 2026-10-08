@@ -7,11 +7,15 @@ import TablePagination from '@/components/TablePagination';
 import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ToolInvocationsTable from '@/pages/automation/tool-invocations/components/ToolInvocationsTable';
-import {useToolInvocations} from '@/pages/automation/tool-invocations/hooks/useToolInvocations';
+import {
+    ToolInvocationsWorkspaceScopeI,
+    useToolInvocations,
+} from '@/pages/automation/tool-invocations/hooks/useToolInvocations';
 import Footer from '@/shared/layout/Footer';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {ActivityIcon, RefreshCwIcon} from 'lucide-react';
+import {useMemo} from 'react';
 import {twMerge} from 'tailwind-merge';
 
 const ANY_FILTER_OPTION = {label: 'Any', value: ''};
@@ -34,20 +38,37 @@ const surfaceOptions = [
     {label: 'Embedded API (Action)', value: 'EMBEDDED_API_ACTION'},
     {label: 'Embedded API (Tool)', value: 'EMBEDDED_API_TOOL'},
     {label: 'AI Agent', value: 'AI_AGENT'},
+    {label: 'App action', value: 'AUTOMATION_APP_ACTION'},
+    {label: 'App API', value: 'AUTOMATION_APP_API'},
+    {label: 'App tool', value: 'AUTOMATION_APP_TOOL'},
+    {label: 'App proxy', value: 'AUTOMATION_APP_PROXY'},
+    {label: 'App workflow', value: 'AUTOMATION_APP_WORKFLOW'},
 ];
 
+const NON_WORKSPACE_SURFACES = new Set(['EMBEDDED_API_ACTION', 'EMBEDDED_API_TOOL', 'MCP_EMBEDDED', 'MCP_MANAGEMENT']);
+
 interface ToolInvocationsProps {
+    appOptions?: Array<ComboBoxItemType>;
+    environmentId?: number;
     mcpServerOptions?: Array<ComboBoxItemType>;
+    workspaceScope?: ToolInvocationsWorkspaceScopeI;
 }
 
-export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
+export const ToolInvocations = ({
+    appOptions,
+    environmentId,
+    mcpServerOptions,
+    workspaceScope,
+}: ToolInvocationsProps) => {
     const {
+        filterAppId,
         filterEndDate,
         filterMcpServerId,
         filterOutcome,
         filterPageNumber,
         filterStartDate,
         filterSurface,
+        handleAppChange,
         handleEndDateChange,
         handleMcpServerChange,
         handleOutcomeChange,
@@ -60,7 +81,15 @@ export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
         toolInvocationLogsError,
         toolInvocationLogsIsFetching,
         toolInvocationLogsIsLoading,
-    } = useToolInvocations();
+    } = useToolInvocations(workspaceScope, environmentId);
+
+    const visibleSurfaceOptions = useMemo(
+        () =>
+            workspaceScope === undefined
+                ? surfaceOptions
+                : surfaceOptions.filter((surfaceOption) => !NON_WORKSPACE_SURFACES.has(surfaceOption.value)),
+        [workspaceScope]
+    );
 
     return (
         <LayoutContainer
@@ -113,7 +142,7 @@ export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
                     <div className="flex flex-col space-y-2">
                         <Label>Surface</Label>
 
-                        <ComboBox items={surfaceOptions} onChange={handleSurfaceChange} value={filterSurface} />
+                        <ComboBox items={visibleSurfaceOptions} onChange={handleSurfaceChange} value={filterSurface} />
                     </div>
 
                     <div className="flex flex-col space-y-2">
@@ -130,6 +159,18 @@ export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
                                 items={[ANY_FILTER_OPTION, ...mcpServerOptions]}
                                 onChange={handleMcpServerChange}
                                 value={filterMcpServerId}
+                            />
+                        </div>
+                    )}
+
+                    {appOptions && appOptions.length > 0 && (
+                        <div className="flex flex-col space-y-2">
+                            <Label>App</Label>
+
+                            <ComboBox
+                                items={[ANY_FILTER_OPTION, ...appOptions]}
+                                onChange={handleAppChange}
+                                value={filterAppId}
                             />
                         </div>
                     )}

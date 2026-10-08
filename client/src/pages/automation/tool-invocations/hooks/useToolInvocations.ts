@@ -1,16 +1,40 @@
 import {ComboBoxItemType} from '@/components/ComboBox/ComboBox';
-import {ToolInvocationLogsQuery, useToolInvocationLogsQuery} from '@/shared/middleware/graphql';
+import {parseAppId} from '@/pages/automation/tool-invocations/utils/parseAppId';
+import {
+    ToolInvocationLogsQuery,
+    ToolInvocationLogsQueryVariables,
+    useToolInvocationLogsQuery,
+    useWorkspaceToolInvocationLogsQuery,
+} from '@/shared/middleware/graphql';
 import {useState} from 'react';
+import {useSearchParams} from 'react-router-dom';
 
 type ToolInvocationLogItemType = ToolInvocationLogsQuery['toolInvocationLogs']['content'][number];
 
+export interface ToolInvocationsWorkspaceScopeI {
+    environmentId: number | undefined;
+    workspaceId: number | undefined;
+}
+
+interface ToolInvocationsFiltersI {
+    appId: string | undefined;
+    endDate: Date | undefined;
+    mcpServerId: string | undefined;
+    outcome: string | undefined;
+    pageNumber: number;
+    startDate: Date | undefined;
+    surface: string | undefined;
+}
+
 interface UseToolInvocationsI {
+    filterAppId: string | undefined;
     filterEndDate: Date | undefined;
     filterMcpServerId: string | undefined;
     filterOutcome: string | undefined;
     filterPageNumber: number;
     filterStartDate: Date | undefined;
     filterSurface: string | undefined;
+    handleAppChange: (item?: ComboBoxItemType) => void;
     handleEndDateChange: (date: Date | undefined) => void;
     handleMcpServerChange: (item?: ComboBoxItemType) => void;
     handleOutcomeChange: (item?: ComboBoxItemType) => void;
@@ -25,7 +49,32 @@ interface UseToolInvocationsI {
     toolInvocationLogsIsLoading: boolean;
 }
 
-export const useToolInvocations = (): UseToolInvocationsI => {
+const toFilterVariables = (filters: ToolInvocationsFiltersI): ToolInvocationLogsQueryVariables => ({
+    appId: parseAppId(filters.appId),
+    fromDate: filters.startDate ? filters.startDate.getTime() : undefined,
+    mcpServerId: filters.mcpServerId ? Number(filters.mcpServerId) : undefined,
+    outcome: filters.outcome || undefined,
+    page: filters.pageNumber,
+    surface: filters.surface || undefined,
+    toDate: filters.endDate ? filters.endDate.getTime() : undefined,
+});
+
+/**
+ * With a workspace scope the hook reads that workspace's log in that environment and never the tenant-wide log, even
+ * while the scope is incomplete; without one it reads the tenant-wide log, which the server allows tenant admins only,
+ * narrowed to `environmentId` when one is given.
+ */
+export const useToolInvocations = (
+    workspaceScope?: ToolInvocationsWorkspaceScopeI,
+    environmentId?: number
+): UseToolInvocationsI => {
+    const [searchParams] = useSearchParams();
+
+    const [filterAppId, setFilterAppId] = useState<string | undefined>(() => {
+        const appId = parseAppId(searchParams.get('appId'));
+
+        return appId === undefined ? undefined : String(appId);
+    });
     const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
     const [filterMcpServerId, setFilterMcpServerId] = useState<string | undefined>(undefined);
     const [filterOutcome, setFilterOutcome] = useState<string | undefined>(undefined);
@@ -33,20 +82,42 @@ export const useToolInvocations = (): UseToolInvocationsI => {
     const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
     const [filterSurface, setFilterSurface] = useState<string | undefined>(undefined);
 
-    const {
-        data,
-        error: toolInvocationLogsError,
-        isFetching: toolInvocationLogsIsFetching,
-        isLoading: toolInvocationLogsIsLoading,
-        refetch,
-    } = useToolInvocationLogsQuery({
-        fromDate: filterStartDate ? filterStartDate.getTime() : undefined,
-        mcpServerId: filterMcpServerId ? Number(filterMcpServerId) : undefined,
-        outcome: filterOutcome || undefined,
-        page: filterPageNumber,
-        surface: filterSurface || undefined,
-        toDate: filterEndDate ? filterEndDate.getTime() : undefined,
+    const filterVariables = toFilterVariables({
+        appId: filterAppId,
+        endDate: filterEndDate,
+        mcpServerId: filterMcpServerId,
+        outcome: filterOutcome,
+        pageNumber: filterPageNumber,
+        startDate: filterStartDate,
+        surface: filterSurface,
     });
+    const workspaceScoped = workspaceScope !== undefined;
+
+    const tenantQuery = useToolInvocationLogsQuery(
+        {...filterVariables, environmentId: environmentId == null ? undefined : String(environmentId)},
+        {enabled: !workspaceScoped}
+    );
+
+    const workspaceQuery = useWorkspaceToolInvocationLogsQuery(
+        {
+            ...filterVariables,
+            environmentId: String(workspaceScope?.environmentId),
+            workspaceId: String(workspaceScope?.workspaceId),
+        },
+        {enabled: workspaceScope?.environmentId != null && workspaceScope?.workspaceId != null}
+    );
+
+    const activeQuery = workspaceScoped ? workspaceQuery : tenantQuery;
+    const toolInvocationLogPage = workspaceScoped
+        ? workspaceQuery.data?.workspaceToolInvocationLogs
+        : tenantQuery.data?.toolInvocationLogs;
+
+    const handleAppChange = (item?: ComboBoxItemType) => {
+        const appId = parseAppId(item?.value ? String(item.value) : undefined);
+
+        setFilterAppId(appId === undefined ? undefined : String(appId));
+        setFilterPageNumber(0);
+    };
 
     const handleEndDateChange = (date: Date | undefined) => {
         setFilterEndDate(date);
@@ -76,23 +147,25 @@ export const useToolInvocations = (): UseToolInvocationsI => {
     };
 
     return {
+        filterAppId,
         filterEndDate,
         filterMcpServerId,
         filterOutcome,
         filterPageNumber,
         filterStartDate,
         filterSurface,
+        handleAppChange,
         handleEndDateChange,
         handleMcpServerChange,
         handleOutcomeChange,
         handlePaginationClick,
         handleStartDateChange,
         handleSurfaceChange,
-        refetchToolInvocations: refetch,
-        toolInvocationLogPage: data?.toolInvocationLogs,
-        toolInvocationLogs: data?.toolInvocationLogs.content ?? [],
-        toolInvocationLogsError: (toolInvocationLogsError as Error | null) ?? null,
-        toolInvocationLogsIsFetching,
-        toolInvocationLogsIsLoading,
+        refetchToolInvocations: activeQuery.refetch,
+        toolInvocationLogPage,
+        toolInvocationLogs: toolInvocationLogPage?.content ?? [],
+        toolInvocationLogsError: (activeQuery.error as Error | null) ?? null,
+        toolInvocationLogsIsFetching: activeQuery.isFetching,
+        toolInvocationLogsIsLoading: activeQuery.isLoading,
     };
 };

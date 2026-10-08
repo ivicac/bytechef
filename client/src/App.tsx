@@ -99,6 +99,10 @@ function App() {
             return ff_1023;
         }
 
+        if (navItem.href === '/automation/apps') {
+            return edition === EditionType.EE;
+        }
+
         // The standalone Chats page is the CE chat surface; in EE that role belongs to AI Hub
         // (whose own gate below is the mirror of this one), so the two nav items are mutually
         // exclusive per edition.
