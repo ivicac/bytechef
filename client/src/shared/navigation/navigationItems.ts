@@ -1,5 +1,6 @@
 import {
     ActivityIcon,
+    AppWindowIcon,
     BoxesIcon,
     DatabaseIcon,
     FileTextIcon,
@@ -71,6 +72,12 @@ export const automationNavigation: NavigationItemI[] = [
         href: '/automation/a2a-servers',
         icon: NetworkIcon,
         name: 'A2A Servers',
+    },
+    {
+        group: 'Deploy',
+        href: '/automation/apps',
+        icon: AppWindowIcon,
+        name: 'Apps',
     },
     {
         group: 'Monitor',

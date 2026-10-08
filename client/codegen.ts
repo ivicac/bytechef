@@ -116,6 +116,7 @@ const config: CodegenConfig = {
         '../server/ee/libs/platform/platform-notification/platform-notification-workspace/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-ai/automation-ai-agent/automation-ai-agent-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-data-sync/automation-data-sync-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/automation/automation-app/automation-app-graphql/src/main/resources/graphql/*.graphqls',
     ],
 };
 

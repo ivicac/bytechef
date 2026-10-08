@@ -26,6 +26,13 @@ describe('automationNavigation', () => {
         expect(names[projectsIndex + 1]).toBe('Connections');
     });
 
+    it('lists Apps in the Deploy group', () => {
+        const appsItem = automationNavigation.find((item) => item.href === '/automation/apps');
+
+        expect(appsItem?.name).toBe('Apps');
+        expect(appsItem?.group).toBe('Deploy');
+    });
+
     it('points at no standalone data sync surface', () => {
         expect(automationNavigation.filter((item) => item.href.startsWith('/automation/data-sync'))).toEqual([]);
     });
