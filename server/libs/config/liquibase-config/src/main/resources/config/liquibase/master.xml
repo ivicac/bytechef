@@ -53,6 +53,11 @@
     -->
     <includeAll path="classpath:config/liquibase/changelog/automation/workflow_alert" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
     <!--
+        automation/app holds the Apps registry (AI-built apps calling actions, tools and a connection proxy through
+        ByteChef). app_connection references connection(id), so this loads after platform/connection.
+    -->
+    <includeAll path="classpath:config/liquibase/changelog/automation/app" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
+    <!--
         platform/ai/llm/usage holds the shared ai_llm_usage table — single canonical LLM bookkeeping store for
         every agent surface. Loaded BEFORE automation/ai_gateway/ because the gateway's later
         ai_gateway_custom_property table has a request_log_id column referencing ai_llm_usage(id), and the
@@ -165,13 +170,6 @@
         because the bulk of ai_hub tables (task, memory, usage) are still
         configuration-tier — only the join table touches asset_file.
     -->
-    <!--
-        platform/ai/auto/memory holds the shared ai_auto_memory table — extracted from CC's ai_hub_memory
-        so any agent surface (AI Hub today, the future AI agent runtime) can reuse the same auto-curated
-        long-term memory store.
-    -->
-    <includeAll path="classpath:config/liquibase/changelog/platform/ai/auto/memory" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
-
     <includeAll path="classpath:config/liquibase/changelog/automation/aihub" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or configuration or multitenant" />
 
     <!--
