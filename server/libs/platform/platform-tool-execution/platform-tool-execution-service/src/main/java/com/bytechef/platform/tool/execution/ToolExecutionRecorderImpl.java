@@ -20,7 +20,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,15 +53,26 @@ public class ToolExecutionRecorderImpl implements ToolExecutionRecorder {
     }
 
     @Override
-    public <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution) {
+    public <V> V record(
+        ToolExecutionEvent.Builder builder, Supplier<V> execution, Function<V, @Nullable String> errorMessageOf) {
+
         long startNanos = System.nanoTime();
 
         try {
             V result = execution.get();
 
+            String errorMessage = errorMessageOf.apply(result);
+
+            if (errorMessage == null) {
+                builder.outcome(ToolExecutionOutcome.SUCCESS);
+            } else {
+                builder
+                    .outcome(ToolExecutionOutcome.ERROR)
+                    .errorMessage(errorMessage);
+            }
+
             emit(
                 builder
-                    .outcome(ToolExecutionOutcome.SUCCESS)
                     .durationMs(elapsedMs(startNanos))
                     .build());
 

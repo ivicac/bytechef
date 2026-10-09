@@ -75,9 +75,31 @@ class ToolInvocationLogEventListenerTest {
         assertThat(toolInvocationLog.getExternalUserId()).isEqualTo("user-1");
         assertThat(toolInvocationLog.getIntegrationInstanceId()).isEqualTo(9L);
         assertThat(toolInvocationLog.getMcpServerId()).isEqualTo(3L);
+        assertThat(toolInvocationLog.getAppId()).isNull();
         assertThat(toolInvocationLog.getOutcome()).isEqualTo(ToolExecutionOutcome.SUCCESS);
         assertThat(toolInvocationLog.getDurationMs()).isEqualTo(42);
         assertThat(toolInvocationLog.getCreatedDate()).isNotNull();
+    }
+
+    @Test
+    void testMapsAppIdToLogRow() {
+        ToolExecutionEvent event = ToolExecutionEvent
+            .builder(ToolExecutionSurface.AUTOMATION_APP_PROXY, ToolExecutionKind.HTTP_PROXY, "SALES_SLACK")
+            .tenantId("tenant1")
+            .appId(11L)
+            .build();
+
+        toolInvocationLogEventListener.onToolExecutionEvent(event);
+
+        ArgumentCaptor<ToolInvocationLog> captor = ArgumentCaptor.forClass(ToolInvocationLog.class);
+
+        verify(toolInvocationLogService).create(captor.capture());
+
+        ToolInvocationLog toolInvocationLog = captor.getValue();
+
+        assertThat(toolInvocationLog.getAppId()).isEqualTo(11L);
+        assertThat(toolInvocationLog.getSurface()).isEqualTo(ToolExecutionSurface.AUTOMATION_APP_PROXY);
+        assertThat(toolInvocationLog.getKind()).isEqualTo(ToolExecutionKind.HTTP_PROXY);
     }
 
     @Test

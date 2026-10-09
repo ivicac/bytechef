@@ -272,7 +272,7 @@ class ProjectDeploymentFacadeChatWorkflowTest {
             List.of(), projectDeploymentService,
             projectDeploymentWorkflowService, projectService, createProjectVisibilityFilter(lowestVisibleRung),
             projectWorkflowService, null, triggerDefinitionService, null, null, applicationProperties, null,
-            workflowService);
+            workflowService, null, null, null, null, null);
     }
 
     /**

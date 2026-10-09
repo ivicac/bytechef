@@ -17,6 +17,7 @@
 package com.bytechef.ai.copilot.tool.ask;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.commons.util.JsonUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -26,50 +27,13 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Wraps one intelligent delegate {@code ToolCallback} so a question its specialist raised mid-delegation comes back as
- * <b>this delegate's own tool result</b> — which is what puts it on the parent agent's stream, because a delegate tool
- * result IS a main-agent tool result.
- *
- * <p>
- * Applied once, in {@code IntelligentToolCatalog}, to every callback the catalog builds. Wiring it there rather than
- * inside each of the delegate callback classes is the point: every intelligent delegate gains the capability from one
- * edit, and one added later inherits it instead of having to remember.
- * </p>
- *
- * <p>
- * {@link #getToolDefinition()} returns the wrapped callback's definition verbatim — name, description and input schema
- * alike. Anything else would advertise a name the catalog does not know the delegate by, and the model would call a
- * tool that never resolves.
- * </p>
- *
- * <p>
- * The specialist's own text summary is discarded whenever a question was raised. That is by design: the summary is a
- * one-line "I asked the user something", and rendering it beside the question card would restate the question in prose.
- * The check runs before the null-result guard for the same reason — a specialist that asked has already produced the
- * thing the user needs to see, whether or not it also managed a summary.
- * </p>
- *
- * <p>
- * An <em>error</em>-shaped result is not a summary, though, and dropping one silently is a real failure: a specialist
- * that asks and then hits an {@code AccessDeniedException} from an admin-guarded facade would return only the question,
- * the user would answer it, and the re-delegation would be denied again with nothing ever explaining why. Such a result
- * is therefore always logged at WARN against the delegate's name, and — on the
- * {@link SubAgentQuestionRenderer#PLAIN_TEXT} surfaces — appended to the rendered question so the caller sees it. It is
- * deliberately NOT appended under {@link SubAgentQuestionRenderer#JSON}: that payload is parsed by the client as the
- * {@code ask-user-question} envelope, and trailing prose would make the parse fail and cost the user the choice card
- * entirely.
- * </p>
- *
  * @author Ivica Cardic
  */
 public final class SubAgentAskRelayToolCallback implements ToolCallback {
 
     private static final Logger log = LoggerFactory.getLogger(SubAgentAskRelayToolCallback.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     private final ToolCallback delegate;
     private final SubAgentAskRelay askRelay;
@@ -107,6 +71,8 @@ public final class SubAgentAskRelayToolCallback implements ToolCallback {
         String toolName = toolDefinition.name();
 
         if (pendingQuestion != null) {
+            SubAgentPendingQuestionSignal.markPending(toolContext);
+
             return renderQuestion(toolName, pendingQuestion, result);
         }
 
@@ -117,11 +83,6 @@ public final class SubAgentAskRelayToolCallback implements ToolCallback {
         return result;
     }
 
-    /**
-     * Renders a raised question, keeping an error-shaped result from vanishing with the discarded summary. Under
-     * {@link SubAgentQuestionRenderer#JSON} the envelope must stay byte-identical for the client's parser, so the error
-     * reaches the operator through the log only.
-     */
     private String renderQuestion(String toolName, String pendingQuestion, @Nullable String result) {
         String errorResult = errorResultOrNull(result);
 
@@ -146,11 +107,6 @@ public final class SubAgentAskRelayToolCallback implements ToolCallback {
             + errorResult;
     }
 
-    /**
-     * The result when it is a {@link ToolErrors}-shaped {@code {"error": ...}} payload, {@code null} otherwise. Matched
-     * structurally rather than by substring so an ordinary result that merely mentions the word "error" is not
-     * misreported as a failure.
-     */
     private static @Nullable String errorResultOrNull(@Nullable String result) {
         if (result == null) {
             return null;
@@ -163,7 +119,7 @@ public final class SubAgentAskRelayToolCallback implements ToolCallback {
         }
 
         try {
-            JsonNode resultJsonNode = JSON_MAPPER.readTree(trimmedResult);
+            JsonNode resultJsonNode = JsonUtils.readTree(trimmedResult);
 
             JsonNode errorJsonNode = resultJsonNode.get("error");
 

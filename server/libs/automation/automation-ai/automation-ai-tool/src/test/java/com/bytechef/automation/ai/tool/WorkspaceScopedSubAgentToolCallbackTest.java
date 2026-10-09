@@ -17,42 +17,50 @@
 package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.agent.tool.CoreAgentType;
+import com.bytechef.ai.copilot.tool.ask.SubAgentPendingQuestionSignal;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
-import com.bytechef.automation.configuration.service.WorkspaceService;
-import com.bytechef.platform.user.domain.User;
-import com.bytechef.platform.user.service.UserService;
+import com.bytechef.automation.configuration.workflow.CallableWorkflowCheck;
+import com.bytechef.automation.configuration.workflow.CallableWorkflowChecker;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import tools.jackson.databind.exc.MismatchedInputException;
 
 /**
  * @author Ivica Cardic
  */
 class WorkspaceScopedSubAgentToolCallbackTest {
 
+    private static final String CAPTURE_KEY = "bytechef.workflowEditor.persistedWorkflows";
+
     private ContextCapturingDelegate delegate;
-    private AccessibleWorkspaceResolver accessibleWorkspaceResolver;
     private WorkspaceScopedSubAgentToolCallback toolCallback;
+    private final WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
 
     @BeforeEach
     void beforeEach() {
-        delegate = new ContextCapturingDelegate();
-        accessibleWorkspaceResolver = mock(AccessibleWorkspaceResolver.class);
-        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, accessibleWorkspaceResolver);
+        when(workspaceFacade.getMyWorkspaces()).thenReturn(
+            List.of(new Workspace(42L, "Workspace 42"), new Workspace(43L, "Workspace 43")));
 
-        when(accessibleWorkspaceResolver.isAccessible(anyLong())).thenReturn(true);
+        delegate = new ContextCapturingDelegate();
+
+        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, workspaceFacade);
     }
 
     @Test
@@ -68,8 +76,9 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     void testBlankRequestReturnsError() {
         String result = toolCallback.call("{\"request\": \" \"}");
 
-        assertThat(result).contains("error");
-        assertThat(result).contains("request is required");
+        assertThat(result)
+            .contains("error")
+            .contains("request is required");
         assertThat(delegate.capturedContext).isNull();
     }
 
@@ -84,26 +93,6 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         assertThat(delegate.capturedInput).contains("list servers");
     }
 
-    /**
-     * No delegate wrapped by this class reads {@code sourceOrdinal} anymore — the one that did,
-     * {@code asset_file_agent}, was dissolved (ticket 732, CRUD-delegate-unwind Task 4) in favour of flat asset-file
-     * tools wrapped by {@link WorkspaceScopedFlatToolCallback} instead, which now owns that write (see this class's
-     * Javadoc).
-     */
-    @Test
-    void testDoesNotForwardSourceOrdinal() {
-        toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
-
-        assertThat(delegate.capturedContext)
-            .doesNotContainKey(AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY);
-    }
-
-    /**
-     * Without an explicit environment, {@code resolveEnvironmentOrDefault} treats a missing key as DEVELOPMENT — but
-     * this wrapper must write that default explicitly rather than leaving the key absent, or a caller building
-     * {@link AutomationToolInvocationContext} straight from the forwarded map (rather than through the defaulting
-     * accessor) would see no environment at all.
-     */
     @Test
     void testDefaultsEnvironmentToDevelopmentWhenOmitted() {
         toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
@@ -154,31 +143,11 @@ class WorkspaceScopedSubAgentToolCallbackTest {
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 42L);
     }
 
-    /**
-     * The management MCP surface must keep running every delegate on its default {@code ChatModel}: it never carries an
-     * AI Hub composer or Copilot panel model pick, so this wrapper must not fabricate one. This is what makes "MCP
-     * keeps the default model" hold structurally rather than merely by omission — a future change that starts writing
-     * these keys here would silently make {@code SubAgentChatModelResolver} start re-targeting MCP delegate calls too.
-     */
     @Test
-    void testDoesNotForwardLlmProviderOrModelKeys() {
-        toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
-
-        assertThat(delegate.capturedContext)
-            .doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_LLM_PROVIDER_KEY)
-            .doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_LLM_MODEL_KEY);
-    }
-
-    @Test
-    void testSingleWorkspaceIsAutoSelected() {
-        Workspace workspace = new Workspace();
-
-        workspace.setId(7L);
-        workspace.setName("Main");
-
-        when(accessibleWorkspaceResolver.getAccessibleWorkspaces()).thenReturn(List.of(workspace));
-
-        String result = toolCallback.call("{\"request\": \"list servers\"}");
+    void testChatWorkspaceIsUsedWhenNoWorkspaceIdIsGiven() {
+        String result = toolCallback.call(
+            "{\"request\": \"list servers\"}",
+            new ToolContext(Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L)));
 
         assertThat(result).isEqualTo("done");
         assertThat(delegate.capturedContext)
@@ -187,25 +156,20 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     }
 
     @Test
-    void testMultipleWorkspacesReturnCandidateList() {
-        Workspace firstWorkspace = new Workspace();
+    void testExplicitWorkspaceIdTheCallerIsNotAMemberOfIsRejected() {
+        String result = toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 99}");
 
-        firstWorkspace.setId(1L);
-        firstWorkspace.setName("Alpha");
+        assertThat(result).contains("error")
+            .contains("Workspace 99 is not accessible to the caller.");
+        assertThat(delegate.capturedContext).isNull();
+    }
 
-        Workspace secondWorkspace = new Workspace();
-
-        secondWorkspace.setId(2L);
-        secondWorkspace.setName("Beta");
-
-        when(accessibleWorkspaceResolver.getAccessibleWorkspaces())
-            .thenReturn(List.of(firstWorkspace, secondWorkspace));
-
+    @Test
+    void testMissingWorkspacePointsToListWorkspaces() {
         String result = toolCallback.call("{\"request\": \"list servers\"}");
 
-        assertThat(result).contains("workspace_required");
-        assertThat(result).contains("Alpha");
-        assertThat(result).contains("Beta");
+        assertThat(result).contains("error")
+            .contains("listWorkspaces");
         assertThat(delegate.capturedContext).isNull();
     }
 
@@ -214,9 +178,9 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         PlainCopilotDelegate copilotDelegate = new PlainCopilotDelegate();
 
         WorkspaceScopedSubAgentToolCallback copilotToolCallback =
-            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, accessibleWorkspaceResolver);
+            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, workspaceFacade);
 
-        String result = copilotToolCallback.call("{\"request\": \"list tables\", \"workspaceId\": 9}");
+        String result = copilotToolCallback.call("{\"request\": \"list tables\", \"workspaceId\": 43}");
 
         assertThat(result).isEqualTo("delegated");
         assertThat(copilotToolCallback.getToolDefinition()
@@ -224,44 +188,191 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         assertThat(copilotToolCallback.getToolDefinition()
             .inputSchema()).contains("workspaceId");
         assertThat(copilotDelegate.capturedContext)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 9L)
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 9L);
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L)
+            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L);
     }
 
-    /**
-     * Fake delegate that records the forwarded input and ToolContext and answers directly, so the wrapper's behaviour
-     * is observable without stubbing a real specialist's ChatClient chain. Implements {@link ToolCallback} directly
-     * rather than extending a real delegate class — the automation-owned {@code SubAgentToolCallback} this used to
-     * extend was removed (ticket 732, CRUD-delegate unwind Task 9b) once its last consumer,
-     * {@code project_deployment_agent}, was dissolved.
-     */
+    @Nested
+    class AppCallable {
 
-    @Test
-    void testExplicitWorkspaceIdTheCallerCannotReachIsRefused() {
-        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+        private CallableWorkflowChecker callableWorkflowChecker;
+        private FakeSpecialist fakeSpecialist;
 
-        String result = toolCallback.call("{\"request\": \"do it\", \"workspaceId\": 99}");
+        @BeforeEach
+        void beforeEach() {
+            callableWorkflowChecker = mock(CallableWorkflowChecker.class);
+            fakeSpecialist = new FakeSpecialist();
+        }
 
-        assertThat(result)
-            .as("the management MCP key binds the caller to no workspace, so an unchecked id here reached tools "
-                + "whose facade has no authorization of its own")
-            .contains("not accessible");
-        assertThat(delegate.capturedContext)
-            .as("the delegate must not run at all for a workspace the caller cannot reach")
-            .isNull();
-    }
+        @Test
+        void testWithoutACheckerTheSchemaHasNoAppCallable() {
+            WorkspaceScopedSubAgentToolCallback toolCallback = new WorkspaceScopedSubAgentToolCallback(
+                fakeSpecialist, workspaceFacade);
 
-    @Test
-    void testRefusalDoesNotRevealWhetherTheWorkspaceExists() {
-        when(accessibleWorkspaceResolver.isAccessible(99L)).thenReturn(false);
+            ToolDefinition toolDefinition = toolCallback.getToolDefinition();
 
-        String result = toolCallback.call("{\"request\": \"do it\", \"workspaceId\": 99}");
+            assertThat(toolDefinition.inputSchema()).doesNotContain("appCallable");
+        }
 
-        assertThat(result)
-            .as("a distinguishable 'no such workspace' would let a caller probe which ids are real")
-            .doesNotContain("99")
-            .doesNotContain("not found")
-            .doesNotContain("does not exist");
+        @Test
+        void testWithACheckerTheSchemaOffersAppCallable() {
+            ToolDefinition toolDefinition = appCallableToolCallback().getToolDefinition();
+
+            assertThat(toolDefinition.inputSchema()).contains("appCallable");
+        }
+
+        @Test
+        void testAppCallableAppendsTheInstructionAndFlagsTheForwardedContextButForwardsOnlyTheRequest() {
+            appCallableToolCallback().call(input(true));
+
+            assertThat(fakeSpecialist.capturedInput)
+                .startsWith("{\"request\":\"Build a greeting workflow")
+                .contains("workflow/v1/newWorkflowCall")
+                .contains("workflow/v1/responseToWorkflowCall")
+                .contains("an inputSchema parameter that is a string holding a JSON Schema")
+                .contains("an outputSchema parameter that is a string holding a JSON Schema")
+                .doesNotContain("appCallable")
+                .doesNotContain("workspaceId");
+            assertThat(fakeSpecialist.capturedContext)
+                .containsEntry(AppCallableDraftGuard.APP_CALLABLE_KEY, true)
+                .containsKey(CAPTURE_KEY);
+        }
+
+        @Test
+        void testWithoutAppCallableTheRequestAndContextAreUnchanged() {
+            String result = appCallableToolCallback().call(input(false));
+
+            assertThat(result).isEqualTo("Built it.");
+            assertThat(fakeSpecialist.capturedInput).isEqualTo("{\"request\":\"Build a greeting workflow\"}");
+            assertThat(fakeSpecialist.capturedContext).doesNotContainKey(AppCallableDraftGuard.APP_CALLABLE_KEY);
+        }
+
+        @Test
+        void testACallableWorkflowPassesAndIsMarked() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1");
+
+            when(callableWorkflowChecker.check("wf-1")).thenReturn(new CallableWorkflowCheck(List.of(), "{}"));
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result)
+                .startsWith("Built it.")
+                .contains("App-callable: wf-1.")
+                .contains("call deployProject");
+        }
+
+        @Test
+        void testAManualTriggerFailsNamingTheWorkflowWhichStaysSaved() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1");
+
+            when(callableWorkflowChecker.check("wf-1")).thenReturn(
+                new CallableWorkflowCheck(
+                    List.of("no Call-workflow trigger: the trigger must be workflow/v1/newWorkflowCall"), null));
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result)
+                .contains("\"error\"")
+                .contains("The workflow was saved but an app cannot call it")
+                .contains("workflowId wf-1: no Call-workflow trigger")
+                .contains("Call buildWorkflow again");
+        }
+
+        @Test
+        void testAnUnreadableSchemaFailsNamingTheWorkflow() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1");
+
+            when(callableWorkflowChecker.check("wf-1")).thenReturn(
+                new CallableWorkflowCheck(List.of("unreadable inputSchema: The schema is not valid JSON"),
+                    "{not json"));
+
+            assertThat(appCallableToolCallback().call(input(true)))
+                .contains("workflowId wf-1: unreadable inputSchema");
+        }
+
+        @Test
+        void testNothingPersistedPassesTheReplyThrough() {
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result).isEqualTo("Built it.");
+        }
+
+        @Test
+        void testEachDistinctCapturedWorkflowIsCheckedOnceAndOnlyFailuresAreNamed() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1", "wf-1", "wf-2");
+
+            when(callableWorkflowChecker.check("wf-1")).thenReturn(new CallableWorkflowCheck(List.of(), "{}"));
+            when(callableWorkflowChecker.check("wf-2")).thenReturn(
+                new CallableWorkflowCheck(
+                    List.of("no Call-workflow trigger: the trigger must be workflow/v1/newWorkflowCall"), null));
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result)
+                .contains("workflowId wf-2")
+                .doesNotContain("workflowId wf-1");
+
+            verify(callableWorkflowChecker, times(1)).check("wf-1");
+            verify(callableWorkflowChecker, times(1)).check("wf-2");
+        }
+
+        @Test
+        void testACheckerFailingWithAJacksonExceptionIsReportedAsNotCheckedWithoutItsText() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1");
+
+            when(callableWorkflowChecker.check("wf-1")).thenThrow(
+                MismatchedInputException.from(
+                    null, String.class, "Cannot deserialize value of type `java.lang.String` from Object value"));
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result)
+                .contains("The workflow was saved but an app cannot call it")
+                .contains("workflowId wf-1: could not be checked")
+                .contains("Call buildWorkflow again")
+                .doesNotContain("Invalid tool input")
+                .doesNotContain("Cannot deserialize");
+        }
+
+        @Test
+        void testACheckerFailingForOneWorkflowStillChecksTheOthers() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1", "wf-2");
+
+            when(callableWorkflowChecker.check("wf-1"))
+                .thenThrow(new IllegalStateException("connection refused: db-7"));
+            when(callableWorkflowChecker.check("wf-2")).thenReturn(new CallableWorkflowCheck(List.of(), "{}"));
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result)
+                .contains("workflowId wf-1: could not be checked")
+                .doesNotContain("workflowId wf-2")
+                .doesNotContain("connection refused");
+
+            verify(callableWorkflowChecker, times(1)).check("wf-2");
+        }
+
+        @Test
+        void testAPendingSpecialistQuestionPassesThroughWithoutTheCheck() {
+            fakeSpecialist.persistedWorkflowIds = List.of("wf-1");
+            fakeSpecialist.question = "The buildWorkflow agent needs a decision before continuing: Which project?";
+
+            String result = appCallableToolCallback().call(input(true));
+
+            assertThat(result).isEqualTo(fakeSpecialist.question);
+
+            verifyNoInteractions(callableWorkflowChecker);
+        }
+
+        private WorkspaceScopedSubAgentToolCallback appCallableToolCallback() {
+            return new WorkspaceScopedSubAgentToolCallback(
+                fakeSpecialist, workspaceFacade, callableWorkflowChecker);
+        }
+
+        private static String input(boolean appCallable) {
+            return "{\"request\": \"Build a greeting workflow\", \"workspaceId\": 42, \"appCallable\": " + appCallable +
+                "}";
+        }
     }
 
     private static final class ContextCapturingDelegate implements ToolCallback {
@@ -316,6 +427,57 @@ class WorkspaceScopedSubAgentToolCallbackTest {
             capturedContext = toolContext == null ? null : toolContext.getContext();
 
             return "delegated";
+        }
+    }
+
+    private static final class FakeSpecialist implements ToolCallback {
+
+        private Map<String, Object> capturedContext;
+        private String capturedInput;
+        private List<String> persistedWorkflowIds = List.of();
+        private @Nullable String question;
+
+        @Override
+        public ToolDefinition getToolDefinition() {
+            return ToolDefinition.builder()
+                .name("buildWorkflow")
+                .description("Builds workflows.")
+                .inputSchema(
+                    "{\"type\": \"object\", \"properties\": {\"request\": {\"type\": \"string\"}}, " +
+                        "\"required\": [\"request\"]}")
+                .build();
+        }
+
+        @Override
+        public String call(String toolInput) {
+            return call(toolInput, null);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public String call(String toolInput, @Nullable ToolContext toolContext) {
+            capturedInput = toolInput;
+            capturedContext = toolContext == null ? Map.of() : toolContext.getContext();
+
+            Object holder = capturedContext.get(CAPTURE_KEY);
+
+            if (holder instanceof List<?> captures) {
+                for (String workflowId : persistedWorkflowIds) {
+                    Map<String, Object> entry = new HashMap<>();
+
+                    entry.put("workflowId", workflowId);
+
+                    ((List<Map<String, Object>>) captures).add(entry);
+                }
+            }
+
+            if (question != null) {
+                SubAgentPendingQuestionSignal.markPending(toolContext);
+
+                return question;
+            }
+
+            return "Built it.";
         }
     }
 }

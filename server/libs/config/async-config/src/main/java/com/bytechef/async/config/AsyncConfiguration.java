@@ -23,6 +23,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.aop.interceptor.SimpleAsyncUncaughtExceptionHandler;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.task.TaskExecutionProperties;
 import org.springframework.boot.thread.Threading;
 import org.springframework.context.annotation.Bean;
@@ -47,11 +48,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableScheduling
 public class AsyncConfiguration implements AsyncConfigurer {
 
+    public static final String APP_EXECUTOR = "appExecutor";
     public static final String MESSAGE_EVENT_EXECUTOR = "messageEventExecutor";
     public static final String TASK_EXECUTOR = "taskExecutor";
     public static final String WORKER_EXECUTOR = "workerExecutor";
     public static final String SYNC_WORKER_EXECUTOR = "syncWorkerExecutor";
 
+    private static final String APP_CONCURRENCY_PROPERTY = "bytechef.app.execution.concurrency-limit";
     private static final int DEFAULT_SYNC_WORKER_CONCURRENCY = 5;
     private static final int DEFAULT_WORKER_CONCURRENCY = 10;
     private static final String SYNC_WORKER_CONCURRENCY_PROPERTY = "bytechef.worker.task.sync-concurrency-limit";
@@ -85,6 +88,23 @@ public class AsyncConfiguration implements AsyncConfigurer {
         return createExecutor(
             taskExecutionProperties.getThreadNamePrefix(),
             concurrencyLimit == null ? SimpleAsyncTaskExecutor.UNBOUNDED_CONCURRENCY : concurrencyLimit);
+    }
+
+    /**
+     * The lane of the actions, tools and proxy calls apps request. Registered only when its limit is configured, so the
+     * deployments (Spring Boot applications) that never run them do not need the property.
+     */
+    @Bean(name = APP_EXECUTOR)
+    @ConditionalOnProperty(APP_CONCURRENCY_PROPERTY)
+    AsyncTaskExecutor appExecutor() {
+        int concurrencyLimit = environment.getRequiredProperty(APP_CONCURRENCY_PROPERTY, Integer.class);
+
+        if (concurrencyLimit < 1) {
+            throw new IllegalStateException(
+                APP_CONCURRENCY_PROPERTY + " must be a positive number, but was " + concurrencyLimit);
+        }
+
+        return createExecutor("app-", concurrencyLimit);
     }
 
     @Bean(name = MESSAGE_EVENT_EXECUTOR)

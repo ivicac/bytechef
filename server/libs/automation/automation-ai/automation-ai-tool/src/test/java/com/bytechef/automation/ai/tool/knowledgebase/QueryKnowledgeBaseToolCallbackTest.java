@@ -30,8 +30,8 @@ import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
+import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
@@ -81,7 +81,7 @@ class QueryKnowledgeBaseToolCallbackTest {
     void testToolDefinitionExposesQueryKnowledgeBaseName() {
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
             mock(WorkspaceKnowledgeBaseFacade.class), mock(KnowledgeBaseFacade.class),
-            mock(KnowledgeBaseDocumentService.class));
+            mock(KnowledgeBaseDocumentFacade.class));
 
         ToolDefinition definition = callback.getToolDefinition();
 
@@ -95,7 +95,7 @@ class QueryKnowledgeBaseToolCallbackTest {
     void testCallReturnsCitationEnvelopeWithResolvedTitles() throws Exception {
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade = mock(WorkspaceKnowledgeBaseFacade.class);
         KnowledgeBaseFacade knowledgeBaseFacade = mock(KnowledgeBaseFacade.class);
-        KnowledgeBaseDocumentService knowledgeBaseDocumentService = mock(KnowledgeBaseDocumentService.class);
+        KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade = mock(KnowledgeBaseDocumentFacade.class);
 
         KnowledgeBaseDocument document = new KnowledgeBaseDocument();
 
@@ -105,10 +105,10 @@ class QueryKnowledgeBaseToolCallbackTest {
             .thenReturn(List.of(knowledgeBase(KNOWLEDGE_BASE_ID, "Company Docs")));
         when(knowledgeBaseFacade.searchKnowledgeBase(eq(KNOWLEDGE_BASE_ID), any(), isNull()))
             .thenReturn(List.of(chunk(7L, "Spring AI supports vector stores for semantic search.", 0.92f)));
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(7L)).thenReturn(document);
+        when(knowledgeBaseDocumentFacade.getKnowledgeBaseDocument(7L)).thenReturn(document);
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, knowledgeBaseDocumentService);
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, knowledgeBaseDocumentFacade);
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"42\",\"question\":\"vector stores\"}", toolContext(WORKSPACE_ID));
@@ -143,17 +143,17 @@ class QueryKnowledgeBaseToolCallbackTest {
     void testCallOmitsTitleWhenDocumentLookupFails() throws Exception {
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade = mock(WorkspaceKnowledgeBaseFacade.class);
         KnowledgeBaseFacade knowledgeBaseFacade = mock(KnowledgeBaseFacade.class);
-        KnowledgeBaseDocumentService knowledgeBaseDocumentService = mock(KnowledgeBaseDocumentService.class);
+        KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade = mock(KnowledgeBaseDocumentFacade.class);
 
         when(workspaceKnowledgeBaseFacade.getWorkspaceKnowledgeBases(WORKSPACE_ID, 0L))
             .thenReturn(List.of(knowledgeBase(KNOWLEDGE_BASE_ID, "Company Docs")));
         when(knowledgeBaseFacade.searchKnowledgeBase(eq(KNOWLEDGE_BASE_ID), any(), isNull()))
             .thenReturn(List.of(chunk(7L, "Some content", 0.8f)));
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(7L))
+        when(knowledgeBaseDocumentFacade.getKnowledgeBaseDocument(7L))
             .thenThrow(new RuntimeException("document row gone"));
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, knowledgeBaseDocumentService);
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, knowledgeBaseDocumentFacade);
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"42\",\"question\":\"anything\"}", toolContext(WORKSPACE_ID));
@@ -181,7 +181,7 @@ class QueryKnowledgeBaseToolCallbackTest {
             .thenReturn(List.of());
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentService.class));
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentFacade.class));
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"42\",\"question\":\"nothing here\"}", toolContext(WORKSPACE_ID));
@@ -204,7 +204,7 @@ class QueryKnowledgeBaseToolCallbackTest {
             .thenReturn(List.of(chunk(1L, "Some content", 0.8f)));
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentService.class));
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentFacade.class));
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"42\",\"question\":\"test\",\"limit\":" + QueryKnowledgeBaseToolCallback.MAX_LIMIT
@@ -225,7 +225,7 @@ class QueryKnowledgeBaseToolCallbackTest {
             .thenReturn(List.of(knowledgeBase(KNOWLEDGE_BASE_ID, "Company Docs")));
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentService.class));
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentFacade.class));
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"999\",\"question\":\"anything\"}", toolContext(WORKSPACE_ID));
@@ -247,7 +247,7 @@ class QueryKnowledgeBaseToolCallbackTest {
             .thenThrow(new IllegalStateException("connection pool exhausted"));
 
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
-            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentService.class));
+            workspaceKnowledgeBaseFacade, knowledgeBaseFacade, mock(KnowledgeBaseDocumentFacade.class));
 
         String result = callback.call(
             "{\"knowledgeBaseId\":\"42\",\"question\":\"anything\"}", toolContext(WORKSPACE_ID));
@@ -261,7 +261,7 @@ class QueryKnowledgeBaseToolCallbackTest {
     void testCallReturnsErrorWhenQuestionMissing() throws Exception {
         QueryKnowledgeBaseToolCallback callback = new QueryKnowledgeBaseToolCallback(
             mock(WorkspaceKnowledgeBaseFacade.class), mock(KnowledgeBaseFacade.class),
-            mock(KnowledgeBaseDocumentService.class));
+            mock(KnowledgeBaseDocumentFacade.class));
 
         String result = callback.call("{\"knowledgeBaseId\":\"42\",\"question\":\"\"}");
 

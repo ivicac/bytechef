@@ -17,25 +17,30 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
-import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
-import com.bytechef.automation.configuration.domain.Workspace;
-import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.ai.copilot.tool.ask.SubAgentPendingQuestionSignal;
+import com.bytechef.ai.copilot.tool.util.WorkflowPersistCaptureUtils;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.automation.configuration.workflow.CallableWorkflowCheck;
+import com.bytechef.automation.configuration.workflow.CallableWorkflowChecker;
+import com.bytechef.commons.util.JsonUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
  */
 public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceScopedSubAgentToolCallback.class);
 
     private static final String INPUT_SCHEMA =
         """
@@ -48,42 +53,81 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                     },
                     "workspaceId": {
                         "type": "integer",
-                        "description": "Target workspace id. Optional when the account has exactly one workspace; otherwise required — an error response lists the candidates."
+                        "description": "Target workspace id. Optional inside a Copilot chat, which defaults to the chat's workspace; otherwise required - call listWorkspaces to find it."
                     },
                     "environment": {
                         "type": "string",
-                        "description": "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional — defaults to DEVELOPMENT when omitted."
+                        "description": "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional - defaults to the chat's environment, or DEVELOPMENT."
                     }
                 },
                 "required": ["request"]
             }""";
 
-    // Deliberately does not distinguish "no such workspace" from "exists but you cannot reach it", so a caller cannot
-    // use the tool's own error to probe which workspace ids are real. Mirrors WorkspaceAccessGuard's wording.
-    private static final String INACCESSIBLE_WORKSPACE_MESSAGE = "Workspace is not accessible to the current user";
+    private static final String APP_CALLABLE_INPUT_SCHEMA =
+        """
+            {
+                "type": "object",
+                "properties": {
+                    "request": {
+                        "type": "string",
+                        "description": "The task for the specialist, plus any ids or decisions already resolved."
+                    },
+                    "workspaceId": {
+                        "type": "integer",
+                        "description": "Target workspace id. Optional inside a Copilot chat, which defaults to the chat's workspace; otherwise required - call listWorkspaces to find it."
+                    },
+                    "environment": {
+                        "type": "string",
+                        "description": "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional - defaults to the chat's environment, or DEVELOPMENT."
+                    },
+                    "appCallable": {
+                        "type": "boolean",
+                        "description": "Build or change the workflow so an app can call it: a workflow/v1/newWorkflowCall trigger with an inputSchema and a closing workflow/v1/responseToWorkflowCall task. Only DRAFT workflows are edited, and the result says whether every saved workflow is app-callable."
+                    }
+                },
+                "required": ["request"]
+            }""";
+
+    private static final String APP_CALLABLE_INSTRUCTION =
+        "\n\nApp-callable requirements: the workflow's trigger is workflow/v1/newWorkflowCall with an inputSchema " +
+            "parameter that is a string holding a JSON Schema that describes every value the caller supplies. The " +
+            "workflow ends with a workflow/v1/responseToWorkflowCall task carrying an outputSchema parameter that " +
+            "is a string holding a JSON Schema of the result. Edit only workflows of the project's DRAFT version.";
 
     private final ToolCallback delegate;
-    private final AccessibleWorkspaceResolver accessibleWorkspaceResolver;
-    private final JsonMapper jsonMapper = new JsonMapper();
+    private final @Nullable CallableWorkflowChecker callableWorkflowChecker;
+    private final WorkspaceFacade workspaceFacade;
+
+    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate, WorkspaceFacade workspaceFacade) {
+        this(delegate, workspaceFacade, null);
+    }
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate,
-        AccessibleWorkspaceResolver accessibleWorkspaceResolver) {
+    public WorkspaceScopedSubAgentToolCallback(
+        ToolCallback delegate, WorkspaceFacade workspaceFacade,
+        @Nullable CallableWorkflowChecker callableWorkflowChecker) {
+
         this.delegate = delegate;
-        this.accessibleWorkspaceResolver = accessibleWorkspaceResolver;
+        this.callableWorkflowChecker = callableWorkflowChecker;
+        this.workspaceFacade = workspaceFacade;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         ToolDefinition delegateToolDefinition = delegate.getToolDefinition();
 
+        String description = delegateToolDefinition.description() +
+            " Supply workspaceId outside a Copilot chat (call listWorkspaces to find it). Supply environment" +
+            " (DEVELOPMENT, STAGING, or PRODUCTION) to target another environment.";
+
+        if (callableWorkflowChecker != null) {
+            description += " Set appCallable to true to build a workflow an app can call.";
+        }
+
         return ToolDefinition.builder()
             .name(delegateToolDefinition.name())
-            .description(
-                delegateToolDefinition.description() +
-                    " Supply workspaceId when the account has more than one workspace. Supply environment" +
-                    " (DEVELOPMENT, STAGING, or PRODUCTION) to target something other than DEVELOPMENT.")
-            .inputSchema(INPUT_SCHEMA)
+            .description(description)
+            .inputSchema(callableWorkflowChecker == null ? INPUT_SCHEMA : APP_CALLABLE_INPUT_SCHEMA)
             .build();
     }
 
@@ -95,89 +139,111 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            WorkspaceScopedInput input = jsonMapper.readValue(toolInput, WorkspaceScopedInput.class);
+            WorkspaceScopedInput input = JsonUtils.read(toolInput, WorkspaceScopedInput.class);
 
             String request = input.request();
 
             if (request == null || request.isBlank()) {
-                return ToolErrors.toolError(jsonMapper, "request is required and must not be blank");
+                return ToolErrors.toolError("request is required and must not be blank");
             }
 
-            Long workspaceId = input.workspaceId();
+            CallableWorkflowChecker appCallableWorkflowChecker = Boolean.TRUE.equals(input.appCallable())
+                ? callableWorkflowChecker : null;
+
+            Long workspaceId;
+
+            try {
+                workspaceId = AutomationToolInvocationContext.resolveWorkspaceId(
+                    input.workspaceId(), toolContext, workspaceFacade);
+            } catch (IllegalArgumentException exception) {
+                return ToolErrors.toolError(exception.getMessage());
+            }
 
             if (workspaceId == null) {
-                List<Workspace> workspaces = accessibleWorkspaceResolver.getAccessibleWorkspaces();
-
-                if (workspaces.size() == 1) {
-                    Workspace workspace = workspaces.getFirst();
-
-                    workspaceId = workspace.getId();
-                } else {
-                    return jsonMapper.writeValueAsString(
-                        Map.of(
-                            "error", "workspace_required",
-                            "message",
-                            "No single workspace could be auto-selected — retry with an explicit workspaceId " +
-                                "from the list.",
-                            "workspaces", workspaces.stream()
-                                .map(workspace -> Map.of("id", workspace.getId(), "name", workspace.getName()))
-                                .toList()));
-                }
-            } else if (!accessibleWorkspaceResolver.isAccessible(workspaceId)) {
-                return ToolErrors.toolError(jsonMapper, INACCESSIBLE_WORKSPACE_MESSAGE);
+                return ToolErrors.toolError("workspaceId is required - call listWorkspaces to find the workspace id.");
             }
 
-            String requestedEnvironment = input.environment();
-            long environmentOrdinal = Environment.DEVELOPMENT.ordinal();
+            long environmentId;
 
-            if (requestedEnvironment != null && !requestedEnvironment.isBlank()) {
-                try {
-                    environmentOrdinal = Environment.valueOf(requestedEnvironment.toUpperCase(Locale.ROOT))
-                        .ordinal();
-                } catch (IllegalArgumentException exception) {
-                    return ToolErrors.toolError(
-                        jsonMapper,
-                        "Unknown environment '" + requestedEnvironment
-                            + "'. Supported: DEVELOPMENT, STAGING, PRODUCTION");
-                }
+            try {
+                environmentId = AutomationToolInvocationContext.resolveEnvironmentId(
+                    input.environment(), toolContext);
+            } catch (IllegalArgumentException exception) {
+                return ToolErrors.toolError(
+                    "Unknown environment '" + input.environment() + "'. Supported: DEVELOPMENT, STAGING, PRODUCTION");
             }
 
-            Map<String, Object> forwardedContext = new HashMap<>();
+            Map<String, Object> forwardedContext = AutomationToolInvocationContext.toForwardedContext(
+                toolContext, workspaceId, environmentId);
 
-            if (toolContext != null) {
-                forwardedContext.putAll(toolContext.getContext());
+            if (appCallableWorkflowChecker != null) {
+                forwardedContext = SubAgentPendingQuestionSignal.withSignal(
+                    WorkflowPersistCaptureUtils.withCaptureHolder(forwardedContext));
+
+                forwardedContext.put(AppCallableDraftGuard.APP_CALLABLE_KEY, true);
             }
 
-            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
-            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentOrdinal);
+            String delegateInput = JsonUtils.write(
+                Map.of("request", appCallableWorkflowChecker == null ? request : request + APP_CALLABLE_INSTRUCTION));
 
-            // Two workspace-id key families exist: automation/asset-file tools read
-            // AutomationToolInvocationContext's key, while the data-table, knowledge-base and
-            // context-store tools read AgentToolInvocationContext's. The AI Hub chat surface
-            // populates both (see AiHubSpringAIAgent#toolContext), and this surface must too or
-            // those delegates still fail with "Workspace context unavailable". The same applies to
-            // environmentId — without it, resolveEnvironmentOrDefault silently pins every read to DEVELOPMENT.
-            forwardedContext.putAll(
-                AgentToolInvocationContext.builder()
-                    .workspaceId(workspaceId)
-                    .environmentId(environmentOrdinal)
-                    .build()
-                    .toToolContext());
+            String result = delegate.call(delegateInput, new ToolContext(forwardedContext));
 
-            String delegateInput = jsonMapper.writeValueAsString(Map.of("request", request));
+            if (appCallableWorkflowChecker == null || SubAgentPendingQuestionSignal.isPending(forwardedContext)) {
+                return result;
+            }
 
-            return delegate.call(delegateInput, new ToolContext(forwardedContext));
+            return checkAppCallable(
+                result, WorkflowPersistCaptureUtils.getCapturedWorkflowIds(forwardedContext),
+                appCallableWorkflowChecker);
         } catch (JacksonException exception) {
-            return ToolErrors.toolError(jsonMapper, "Invalid tool input: " + exception.getMessage());
+            return ToolErrors.toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             ToolDefinition toolDefinition = delegate.getToolDefinition();
 
-            return ToolErrors.runtimeFailure(
-                jsonMapper, WorkspaceScopedSubAgentToolCallback.class, toolDefinition.name(), exception);
+            return ToolErrors.runtimeFailure(WorkspaceScopedSubAgentToolCallback.class, toolDefinition.name(),
+                exception);
         }
     }
 
+    private static String checkAppCallable(
+        String result, List<String> workflowIds, CallableWorkflowChecker appCallableWorkflowChecker) {
+
+        if (workflowIds.isEmpty()) {
+            return result;
+        }
+
+        List<String> failures = new ArrayList<>();
+
+        for (String workflowId : workflowIds) {
+            CallableWorkflowCheck callableWorkflowCheck;
+
+            try {
+                callableWorkflowCheck = appCallableWorkflowChecker.check(workflowId);
+            } catch (RuntimeException exception) {
+                log.warn("Checking whether workflow {} is app-callable failed", workflowId, exception);
+
+                failures.add("workflowId " + workflowId + ": could not be checked");
+
+                continue;
+            }
+
+            if (!callableWorkflowCheck.callable()) {
+                failures.add("workflowId " + workflowId + ": " + String.join("; ", callableWorkflowCheck.problems()));
+            }
+        }
+
+        if (failures.isEmpty()) {
+            return result + "\n\nApp-callable: " + String.join(", ", workflowIds) +
+                ". Publish the project, then call deployProject.";
+        }
+
+        return ToolErrors.toolError(
+            "The workflow was saved but an app cannot call it. " + String.join(" | ", failures) +
+                ". Call buildWorkflow again with appCallable true, naming the workflowId, to fix it.");
+    }
+
     public record WorkspaceScopedInput(
-        @Nullable String request, @Nullable Long workspaceId, @Nullable String environment) {
+        @Nullable String request, @Nullable Long workspaceId, @Nullable String environment,
+        @Nullable Boolean appCallable) {
     }
 }

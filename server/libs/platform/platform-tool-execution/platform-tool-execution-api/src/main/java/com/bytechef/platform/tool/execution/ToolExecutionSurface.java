@@ -17,6 +17,9 @@
 package com.bytechef.platform.tool.execution;
 
 /**
+ * The surface a direct tool/action execution was invoked through. Persisted by ordinal; append new values at the end
+ * (pinned by an enum ordinal stability test).
+ *
  * @author Ivica Cardic
  */
 public enum ToolExecutionSurface {
@@ -26,5 +29,9 @@ public enum ToolExecutionSurface {
     MCP_MANAGEMENT,
     EMBEDDED_API_ACTION,
     EMBEDDED_API_TOOL,
-    AI_AGENT
+    AI_AGENT,
+    AUTOMATION_APP_ACTION,
+    AUTOMATION_APP_TOOL,
+    AUTOMATION_APP_PROXY,
+    AUTOMATION_APP_WORKFLOW
 }

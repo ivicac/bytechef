@@ -17,6 +17,7 @@
 package com.bytechef.automation.configuration.domain;
 
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Naming convention for <em>system projects</em> — projects a feature auto-provisions to own workflows it generates on
@@ -96,10 +97,17 @@ public final class SystemProjects {
     private SystemProjects() {
     }
 
+    /**
+     * Whether the given project is auto-provisioned by a feature and should therefore stay out of user-facing project,
+     * deployment, and search listings.
+     */
     public static boolean isSystemProject(Project project) {
         return project != null && isSystemProjectName(project.getName());
     }
 
+    /**
+     * Name-based variant of {@link #isSystemProject(Project)}, for callers holding only the name.
+     */
     public static boolean isSystemProjectName(String name) {
         if (name == null) {
             return false;
@@ -112,6 +120,17 @@ public final class SystemProjects {
         }
 
         return false;
+    }
+
+    /**
+     * Whether a project deployment name carries one of the deployment markers
+     * ({@link #API_COLLECTION_DEPLOYMENT_NAME_PREFIX}, {@link #MCP_SERVER_DEPLOYMENT_NAME_PREFIX},
+     * {@link #A2A_SERVER_DEPLOYMENT_NAME_PREFIX}): a deployment a feature created for itself, which no deployment
+     * picker or app may treat as the user's own.
+     */
+    public static boolean isSystemDeploymentName(@Nullable String name) {
+        return name != null && (name.startsWith(API_COLLECTION_DEPLOYMENT_NAME_PREFIX) ||
+            name.startsWith(MCP_SERVER_DEPLOYMENT_NAME_PREFIX) || name.startsWith(A2A_SERVER_DEPLOYMENT_NAME_PREFIX));
     }
 
     /**

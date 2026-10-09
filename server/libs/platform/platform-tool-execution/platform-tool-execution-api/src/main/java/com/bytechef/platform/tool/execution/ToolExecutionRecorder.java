@@ -16,7 +16,9 @@
 
 package com.bytechef.platform.tool.execution;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Entry point every direct tool/action execution call site uses to record its invocation. Recording is fire-and-forget
@@ -31,7 +33,16 @@ public interface ToolExecutionRecorder {
      * measured duration and the resolved outcome ({@code SUCCESS}, or {@code TIMEOUT} / {@code ERROR} when the
      * execution throws). The original return value is returned and any thrown exception is rethrown unchanged.
      */
-    <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution);
+    default <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution) {
+        return record(builder, execution, result -> null);
+    }
+
+    /**
+     * Like {@link #record(ToolExecutionEvent.Builder, Supplier)}, but a returned value for which {@code errorMessageOf}
+     * answers a non-null message is recorded as {@code ERROR} with that message; the value is still returned.
+     */
+    <V> V record(
+        ToolExecutionEvent.Builder builder, Supplier<V> execution, Function<V, @Nullable String> errorMessageOf);
 
     /**
      * Emits a fully-built event directly, for terminal outcomes that are not produced by running an execution (e.g.

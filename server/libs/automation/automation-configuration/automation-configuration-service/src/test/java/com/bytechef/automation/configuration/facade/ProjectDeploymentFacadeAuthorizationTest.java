@@ -25,6 +25,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -33,9 +34,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
  * resolve the owning workspace via the {@code ProjectDeployment:ResourceRole} token (deployment &rarr; project &rarr;
  * workspace); create keys on the project via {@code ProjectScope}; the workspace listing keys on the workspace id.
  * <p>
- * The embedded-only overloads (used by {@code ConnectedUserProjectFacadeImpl} under an embedded principal with no
- * platform workspace) and the internal base overloads MUST stay ungated -- gating them would fail closed for embedded.
- * Negative assertions below lock that in.
+ * The entity overloads carry the project's {@code DEPLOYMENT_PUSH} gate that {@code ProjectDeploymentService} carried
+ * before authorization moved onto the facades; embedded callers reach them under {@code @SkipAutomationAuthorization}
+ * or the connected-user membership resolver. Only the environment-keyed enable overload stays ungated.
  *
  * @author Ivica Cardic
  */
@@ -49,7 +50,8 @@ class ProjectDeploymentFacadeAuthorizationTest {
         // through as itself -- the three-argument form casts its first argument to Serializable, which this record is
         // not. Changing either half silently reverts the check to the source environment.
         assertExpression(
-            "hasPermission(#projectDeploymentDTO, 'WORKFLOW_EDIT')",
+            "hasPermission(#projectDeploymentDTO, 'WORKFLOW_EDIT') and " +
+                "hasPermission(#projectDeploymentDTO, 'DEPLOYMENT_PUSH')",
             "createProjectDeployment", ProjectDeploymentDTO.class);
     }
 
@@ -58,6 +60,17 @@ class ProjectDeploymentFacadeAuthorizationTest {
         assertExpression(
             "hasPermission(#id, 'ProjectDeployment', 'DEPLOYMENT_EDIT')",
             "createProjectDeploymentWorkflowJob", Long.class, String.class);
+    }
+
+    @Test
+    void testDeployProjectRequiresWorkflowEditInDevelopmentAndDeploymentEditWhenUpdating() {
+        assertExpression(
+            "hasResourceScopeInEnvironment(#projectId, 'Project', 'WORKFLOW_EDIT', " +
+                "T(com.bytechef.platform.configuration.domain.Environment).DEVELOPMENT) and " +
+                "(#projectDeploymentId == null or hasPermission(#projectDeploymentId, 'ProjectDeployment', " +
+                "'DEPLOYMENT_EDIT')) and hasResourceScopeInEnvironment(#projectId, 'Project', 'DEPLOYMENT_PUSH', " +
+                "T(com.bytechef.platform.configuration.domain.Environment).DEVELOPMENT)",
+            "deployProject", long.class, Long.class, List.class, List.class, Map.class);
     }
 
     @Test
@@ -163,7 +176,8 @@ class ProjectDeploymentFacadeAuthorizationTest {
     @Test
     void testUpdateProjectDeploymentRequiresEditor() {
         assertExpression(
-            "hasPermission(#projectDeploymentDTO.id, 'ProjectDeployment', 'DEPLOYMENT_EDIT')",
+            "hasPermission(#projectDeploymentDTO.id, 'ProjectDeployment', 'DEPLOYMENT_EDIT') and " +
+                "hasPermission(#projectDeploymentDTO, 'DEPLOYMENT_PUSH')",
             "updateProjectDeployment", ProjectDeploymentDTO.class);
     }
 
@@ -182,14 +196,23 @@ class ProjectDeploymentFacadeAuthorizationTest {
     }
 
     @Test
-    void testEmbeddedCreateOverloadIsNotGated() {
-        assertNotGated("createProjectDeployment", ProjectDeployment.class, String.class, List.class);
+    void testCreateOverloadsRequireDeploymentPush() {
+        assertExpression(
+            "hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')",
+            "createProjectDeployment", ProjectDeployment.class, String.class, List.class);
+        assertExpression(
+            "hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')",
+            "createProjectDeployment", ProjectDeployment.class, List.class, List.class);
     }
 
     @Test
-    void testEmbeddedUpdateOverloadIsNotGated() {
-        assertNotGated(
+    void testUpdateOverloadsRequireDeploymentPush() {
+        assertExpression(
+            "hasPermission(#projectId, 'Project', 'DEPLOYMENT_PUSH')",
             "updateProjectDeployment", long.class, int.class, String.class, List.class, Long.class);
+        assertExpression(
+            "hasPermission(#projectDeployment.projectId, 'Project', 'DEPLOYMENT_PUSH')",
+            "updateProjectDeployment", ProjectDeployment.class, List.class, List.class);
     }
 
     @Test

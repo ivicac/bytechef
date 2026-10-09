@@ -167,7 +167,8 @@ class ProjectDeploymentFacadeWorkflowBindingTest {
         return new ProjectDeploymentFacadeImpl(
             null, null, null, null, null, null, null, null, null, List.of(), null,
             projectDeploymentWorkflowService,
-            null, null, null, null, null, null, null, Mockito.mock(ApplicationProperties.class), null, null);
+            null, null, null, null, null, null, null, Mockito.mock(ApplicationProperties.class), null, null, null, null,
+            null, null, null);
     }
 
     /**

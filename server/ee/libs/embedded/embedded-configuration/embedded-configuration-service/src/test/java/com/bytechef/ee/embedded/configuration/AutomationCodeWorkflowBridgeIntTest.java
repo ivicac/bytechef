@@ -127,14 +127,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * {@code ProjectDeploymentFacadeImpl} are mocked -- they are execution-time concerns (trigger enable/disable, job
  * dispatch) that the deploy/redeploy/dangling/reference seam under test never touches (our fixture workflows declare no
  * triggers). {@link ComponentConnectionFacade} drives which slots {@code ConnectedUserWorkflowConnectionResolver} (via
- * {@code WorkflowConnectionSlots}) sees for the fixture's single task, and {@link ConnectedUserConnectionFacade} drives
- * which connections the connected user is entitled to for that slot's component -- together they are what let the
- * connection round-trip test (priority 3) and the D6 cross-user test exercise {@link MissingConnectionException}
- * without a real component registry. {@link ComponentDefinitionService} is mocked mainly because other beans in this
- * Spring context need one to exist -- the current resolver never consults it -- but the connection round-trip and D6
- * tests still override it to {@code null} so the SAME fixture also exercises the pre-fix resolver's "unknown component,
- * might require a connection" branch when its production files are temporarily reverted to prove a regression.
- * Everything else -- {@code ProjectService}/{@code ProjectWorkflowService}/{@code ProjectDeploymentService}/
+ * {@code ComponentConnectionFacade.getWorkflowComponentConnections}) sees for the fixture's single task, and
+ * {@link ConnectedUserConnectionFacade} drives which connections the connected user is entitled to for that slot's
+ * component -- together they are what let the connection round-trip test (priority 3) and the D6 cross-user test
+ * exercise {@link MissingConnectionException} without a real component registry. {@link ComponentDefinitionService} is
+ * mocked mainly because other beans in this Spring context need one to exist -- the current resolver never consults it
+ * -- but the connection round-trip and D6 tests still override it to {@code null} so the SAME fixture also exercises
+ * the pre-fix resolver's "unknown component, might require a connection" branch when its production files are
+ * temporarily reverted to prove a regression. Everything else --
+ * {@code ProjectService}/{@code ProjectWorkflowService}/{@code ProjectDeploymentService}/
  * {@code ProjectDeploymentWorkflowService}, {@code ProjectCodeWorkflowService}, {@code CodeWorkflowContainerService}/
  * {@code CodeWorkflowContainerFacade}, {@code ConnectedUserService}, and the whole embedded-configuration facade layer
  * -- is real, backed by the Testcontainers Postgres instance. See
@@ -405,6 +406,9 @@ class AutomationCodeWorkflowBridgeIntTest {
         when(componentConnectionFacade.getComponentConnections(any(WorkflowTask.class)))
             .thenReturn(List.of(
                 new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
+        when(componentConnectionFacade.getWorkflowComponentConnections(anyString()))
+            .thenReturn(List.of(
+                new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
         when(connectedUserConnectionFacade.getConnections(anyLong(), eq(CODE_WORKFLOW_COMPONENT_NAME), eq(List.of())))
             .thenReturn(List.of());
 
@@ -501,6 +505,9 @@ class AutomationCodeWorkflowBridgeIntTest {
                 .getUuidAsString();
 
         when(componentConnectionFacade.getComponentConnections(any(WorkflowTask.class)))
+            .thenReturn(List.of(
+                new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
+        when(componentConnectionFacade.getWorkflowComponentConnections(anyString()))
             .thenReturn(List.of(
                 new ComponentConnection(CODE_WORKFLOW_COMPONENT_NAME, 1, "task1", CODE_WORKFLOW_COMPONENT_NAME, true)));
         Connection anotherUsersConnection = connectionOwnedByAnotherUser(555L, CODE_WORKFLOW_COMPONENT_NAME);

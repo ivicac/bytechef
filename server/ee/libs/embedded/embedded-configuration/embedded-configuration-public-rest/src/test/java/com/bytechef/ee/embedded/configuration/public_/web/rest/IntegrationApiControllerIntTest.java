@@ -96,8 +96,8 @@ class IntegrationApiControllerIntTest {
     @WithMockUser(username = EXTERNAL_USER_ID)
     void testGetIntegrationReturnsOkWhenIntegrationVisible() {
         IntegrationDTO integrationDTO = new IntegrationDTO(
-            null, "slack", 1, null, null, "Slack integration", "slack-icon", INTEGRATION_ID, List.of(), List.of(),
-            null, null, null, null, 2, true, "slack", null, List.of(), "Slack", 0);
+            null, false, null, "slack", 1, null, null, "Slack integration", "slack-icon", INTEGRATION_ID, List.of(),
+            List.of(), null, null, null, null, 2, true, "slack", null, List.of(), "Slack", 0);
 
         IntegrationInstanceConfigurationDTO integrationInstanceConfigurationDTO =
             IntegrationInstanceConfigurationDTO.builder()

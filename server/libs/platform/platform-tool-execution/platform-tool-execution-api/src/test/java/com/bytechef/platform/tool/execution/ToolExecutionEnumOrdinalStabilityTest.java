@@ -36,7 +36,8 @@ class ToolExecutionEnumOrdinalStabilityTest {
             .toList())
                 .containsExactly(
                     "MCP_AUTOMATION", "MCP_EMBEDDED", "MCP_MANAGEMENT", "EMBEDDED_API_ACTION", "EMBEDDED_API_TOOL",
-                    "AI_AGENT");
+                    "AI_AGENT", "AUTOMATION_APP_ACTION", "AUTOMATION_APP_TOOL", "AUTOMATION_APP_PROXY",
+                    "AUTOMATION_APP_WORKFLOW");
     }
 
     @Test
@@ -44,7 +45,7 @@ class ToolExecutionEnumOrdinalStabilityTest {
         assertThat(Arrays.stream(ToolExecutionKind.values())
             .map(Enum::name)
             .toList())
-                .containsExactly("COMPONENT", "WORKFLOW", "CONTRIBUTED", "MANAGEMENT_TOOL");
+                .containsExactly("COMPONENT", "WORKFLOW", "CONTRIBUTED", "MANAGEMENT_TOOL", "HTTP_PROXY");
     }
 
     @Test

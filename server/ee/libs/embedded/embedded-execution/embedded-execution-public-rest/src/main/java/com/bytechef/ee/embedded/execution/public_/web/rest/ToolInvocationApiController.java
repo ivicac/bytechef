@@ -80,7 +80,7 @@ public class ToolInvocationApiController implements ToolInvocationApi {
         Page<ToolInvocationLog> toolInvocationLogsPage = toolInvocationLogService.getToolInvocationLogs(
             environment.ordinal(), surface == null ? null : ToolExecutionSurface.valueOf(surface.name()),
             outcome == null ? null : ToolExecutionOutcome.valueOf(outcome.name()), null, connectedUser.getId(), null,
-            toInstant(startDate), toInstant(endDate), pageNumber == null ? 0 : pageNumber);
+            null, toInstant(startDate), toInstant(endDate), pageNumber == null ? 0 : pageNumber);
 
         return ResponseEntity.ok(toolInvocationLogsPage.map(this::toModel));
     }

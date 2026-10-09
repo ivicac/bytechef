@@ -27,6 +27,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
@@ -87,9 +88,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     ConnectionLifecycleFacade.class, ConnectionService.class, EnvironmentService.class, Evaluator.class,
     JobFacade.class, JobService.class, PreBuiltTemplateService.class, PrincipalJobFacade.class,
     PrincipalJobService.class, ProjectDeploymentService.class,
-    ProjectDeploymentWorkflowService.class, ProjectService.class, ProjectWorkflowService.class,
-    SharedTemplateFileStorage.class, SharedTemplateService.class, TagService.class, TriggerDefinitionService.class,
-    TriggerExecutionService.class, TriggerLifecycleFacade.class, WorkflowCacheManager.class, WorkflowFacade.class,
+    ProjectDeploymentWorkflowService.class, ProjectService.class, ProjectVisibilityFilter.class,
+    ProjectWorkflowService.class, SharedTemplateFileStorage.class, SharedTemplateService.class, TagService.class,
+    TriggerDefinitionService.class, TriggerExecutionService.class, TriggerLifecycleFacade.class,
+    WorkflowCacheManager.class, WorkflowFacade.class,
     WorkflowNodeTestOutputService.class, WorkflowService.class, WorkflowTestConfigurationService.class,
     WorkflowValidatorFacade.class, WorkspaceConnectionService.class, WorkspaceService.class
 })

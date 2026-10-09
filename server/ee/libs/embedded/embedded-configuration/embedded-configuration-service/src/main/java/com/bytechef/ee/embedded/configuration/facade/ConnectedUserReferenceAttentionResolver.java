@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnEEVersion
-public class ConnectedUserReferenceAttentionResolver {
+class ConnectedUserReferenceAttentionResolver {
 
     static final String INPUT_REQUIRED_PREFIX = "INPUT_REQUIRED:";
     static final String MISSING_CONNECTION_PREFIX = "MISSING_CONNECTION:";
@@ -39,21 +39,17 @@ public class ConnectedUserReferenceAttentionResolver {
     private static final Logger log = LoggerFactory.getLogger(ConnectedUserReferenceAttentionResolver.class);
 
     private final ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager;
-    private final WorkflowConnectionSlots workflowConnectionSlots;
+    private final WorkflowConnectionSlot workflowConnectionSlot;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserReferenceAttentionResolver(
         ConnectedUserReferenceDeploymentManager connectedUserReferenceDeploymentManager,
-        WorkflowConnectionSlots workflowConnectionSlots) {
+        WorkflowConnectionSlot workflowConnectionSlot) {
 
         this.connectedUserReferenceDeploymentManager = connectedUserReferenceDeploymentManager;
-        this.workflowConnectionSlots = workflowConnectionSlots;
+        this.workflowConnectionSlot = workflowConnectionSlot;
     }
 
-    /**
-     * Never throws once the row is read: a reason that cannot be derived is reported as none, logged in one line at
-     * warn (the listing that asks runs often, so the stack trace is kept for debug).
-     */
     public ReferenceState resolve(ConnectedUserProjectWorkflow reference) {
         Long projectDeploymentId = reference.getProjectDeploymentId();
 
@@ -72,7 +68,7 @@ public class ConnectedUserReferenceAttentionResolver {
 
         Optional<String> workflowId = connectedUserReferenceDeploymentManager.fetchWorkflowId(
             projectDeployment.getProjectId(), projectDeployment.getProjectVersion(),
-            reference.getCatalogWorkflowUuid());
+            reference.getAutomationWorkflowUuid());
 
         Optional<ProjectDeploymentWorkflow> row = workflowId.flatMap(
             id -> connectedUserReferenceDeploymentManager.fetchWorkflowRow(projectDeploymentId, id));
@@ -113,13 +109,14 @@ public class ConnectedUserReferenceAttentionResolver {
 
         List<ProjectDeploymentWorkflowConnection> connections = projectDeploymentWorkflow.getConnections();
 
-        for (ComponentConnection slot : workflowConnectionSlots.getSlots(workflowId.get())) {
+        for (ComponentConnection componentConnection : workflowConnectionSlot.getSlots(workflowId.get())) {
             boolean wired = connections.stream()
-                .anyMatch(connection -> Objects.equals(connection.getWorkflowNodeName(), slot.workflowNodeName()) &&
-                    Objects.equals(connection.getWorkflowConnectionKey(), slot.key()));
+                .anyMatch(connection -> Objects.equals(
+                    connection.getWorkflowNodeName(), componentConnection.workflowNodeName()) &&
+                    Objects.equals(connection.getWorkflowConnectionKey(), componentConnection.key()));
 
-            if (slot.required() && !wired) {
-                return MISSING_CONNECTION_PREFIX + slot.componentName();
+            if (componentConnection.required() && !wired) {
+                return MISSING_CONNECTION_PREFIX + componentConnection.componentName();
             }
         }
 

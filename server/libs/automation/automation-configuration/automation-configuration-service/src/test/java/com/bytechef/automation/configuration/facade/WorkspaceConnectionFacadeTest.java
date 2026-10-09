@@ -410,7 +410,7 @@ class WorkspaceConnectionFacadeTest {
     }
 
     @Test
-    void testDeleteRethrowsOriginalExceptionAndDoesNotDeleteConnection() {
+    void testDeleteRethrowsScheduledRefreshFailureAndDoesNotPublishDeletedEvent() {
         ConfigurationException scheduledRefreshFailure = new ConfigurationException(
             "scheduler down", ConnectionErrorType.INVALID_CONNECTION);
 
@@ -421,28 +421,41 @@ class WorkspaceConnectionFacadeTest {
         assertThatThrownBy(() -> workspaceConnectionFacade.delete(10L))
             .isSameAs(scheduledRefreshFailure);
 
-        verify(workspaceConnectionService, never()).deleteWorkspaceConnection(10L);
-        verify(connectionFacade, never()).delete(10L);
         verify(applicationEventPublisher, never()).publishEvent(any(ConnectionDeletedEvent.class));
     }
 
     @Test
-    void testDeleteCancelsScheduledRefreshBeforeDeletingConnection() {
-        // Pin the call ordering: scheduled-refresh cancellation MUST happen BEFORE the workspace-connection /
-        // connection-facade deletes. A refactor that reorders these would leave a scheduler firing for a
-        // deleted connection id indefinitely (the failure path is already pinned by
-        // testDeleteRethrowsOriginalExceptionAndDoesNotDeleteConnection; this test pins the success path).
+    void testDeleteDoesNotCancelScheduledRefreshWhenConnectionDeleteIsRefused() {
+        ConfigurationException refusal = new ConfigurationException(
+            "Connection id=10 is used by app 'crm-dashboard' (binding 'crm')", ConnectionErrorType.CONNECTION_IS_USED);
+
+        org.mockito.Mockito.doThrow(refusal)
+            .when(connectionFacade)
+            .delete(10L);
+
+        assertThatThrownBy(() -> workspaceConnectionFacade.delete(10L))
+            .isSameAs(refusal);
+
+        verify(connectionLifecycleFacade, never()).deleteScheduledConnectionRefresh(any(), any());
+        verify(applicationEventPublisher, never()).publishEvent(any(ConnectionDeletedEvent.class));
+    }
+
+    @Test
+    void testDeleteCancelsScheduledRefreshOnceAfterConnectionDeleteIsAccepted() {
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(
             connectionLifecycleFacade, workspaceConnectionService, connectionFacade);
 
         workspaceConnectionFacade.delete(10L);
 
-        inOrder.verify(connectionLifecycleFacade)
-            .deleteScheduledConnectionRefresh(eq(10L), any());
         inOrder.verify(workspaceConnectionService)
             .deleteWorkspaceConnection(10L);
         inOrder.verify(connectionFacade)
             .delete(10L);
+        inOrder.verify(connectionLifecycleFacade)
+            .deleteScheduledConnectionRefresh(eq(10L), any());
+
+        verify(connectionLifecycleFacade, org.mockito.Mockito.times(1)).deleteScheduledConnectionRefresh(eq(10L),
+            any());
 
         // CE no longer audits directly — it publishes a plain domain event that an EE listener audits.
         verify(applicationEventPublisher).publishEvent(new ConnectionDeletedEvent(10L));
@@ -482,10 +495,16 @@ class WorkspaceConnectionFacadeTest {
 
             when(emptyProvider.getIfAvailable()).thenReturn(null);
 
+            @SuppressWarnings("unchecked")
+            ObjectProvider<com.bytechef.platform.connection.usage.ConnectionUsageChecker> noUsageCheckerProvider =
+                mock(ObjectProvider.class);
+
+            when(noUsageCheckerProvider.orderedStream()).thenAnswer(invocation -> java.util.stream.Stream.empty());
+
             com.bytechef.platform.connection.facade.ConnectionFacadeImpl realConnectionFacade =
                 new com.bytechef.platform.connection.facade.ConnectionFacadeImpl(
                     connectionDefinitionService, realDepConnectionService, "CE", jobPrincipalAccessorRegistry,
-                    oAuth2Service, localTagService, testConfigService, emptyProvider);
+                    oAuth2Service, localTagService, testConfigService, emptyProvider, noUsageCheckerProvider);
 
             // Capture the Connection passed to the persistence layer — that's the moment of truth.
             // The real ConnectionFacadeImpl.create call path writes connection.setVisibility(PRIVATE)

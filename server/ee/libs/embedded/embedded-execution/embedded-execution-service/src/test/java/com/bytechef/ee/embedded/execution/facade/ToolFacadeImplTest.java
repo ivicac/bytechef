@@ -42,6 +42,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -195,7 +196,10 @@ class ToolFacadeImplTest {
         private ToolExecutionEvent.@Nullable Builder builder;
 
         @Override
-        public <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution) {
+        public <V> V record(
+            ToolExecutionEvent.Builder builder, Supplier<V> execution,
+            Function<V, @Nullable String> errorMessageOf) {
+
             this.builder = builder;
 
             return execution.get();

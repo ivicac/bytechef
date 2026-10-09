@@ -73,6 +73,24 @@ class ToolExecutionRecorderTest {
     }
 
     @Test
+    void testRecordReturnedValueWithErrorMessagePublishesErrorEventAndReturnsTheValue() {
+        Object output = new Object();
+
+        Object result = toolExecutionRecorder.record(
+            ToolExecutionEvent.builder(
+                ToolExecutionSurface.AUTOMATION_APP_PROXY, ToolExecutionKind.HTTP_PROXY, "GET /items"),
+            () -> output, value -> "upstream 503");
+
+        assertThat(result).isSameAs(output);
+
+        ToolExecutionEvent event = capturePublishedEvent();
+
+        assertThat(event.outcome()).isEqualTo(ToolExecutionOutcome.ERROR);
+        assertThat(event.errorMessage()).isEqualTo("upstream 503");
+        assertThat(event.errorType()).isNull();
+    }
+
+    @Test
     void testRecordErrorPublishesErrorEventAndRethrows() {
         IllegalStateException failure = new IllegalStateException("boom");
 

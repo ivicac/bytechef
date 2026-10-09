@@ -32,12 +32,13 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.connection.usage.ConnectionUsageChecker;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.oauth2.service.OAuth2Service;
 import com.bytechef.platform.security.constant.AuthorityConstants;
-import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.security.domain.ResourceVisibility;
+import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
@@ -56,9 +57,9 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +74,7 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
     private final ConnectionDefinitionService connectionDefinitionService;
     private final ConnectionService connectionService;
+    private final List<ConnectionUsageChecker> connectionUsageCheckers;
     private final boolean eeEdition;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
     private final MeterRegistry meterRegistry;
@@ -88,10 +90,13 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
         @Value("${bytechef.edition:CE}") String edition,
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, OAuth2Service oAuth2Service, TagService tagService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
-        ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        ObjectProvider<MeterRegistry> meterRegistryProvider,
+        ObjectProvider<ConnectionUsageChecker> connectionUsageCheckerProvider) {
 
         this.connectionDefinitionService = connectionDefinitionService;
         this.connectionService = connectionService;
+        this.connectionUsageCheckers = connectionUsageCheckerProvider.orderedStream()
+            .toList();
         validateEdition(edition);
         this.eeEdition = "EE".equalsIgnoreCase(edition);
         this.jobPrincipalAccessorRegistry = jobPrincipalAccessorRegistry;
@@ -175,9 +180,16 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
     public void delete(Long id) {
         Connection connection = connectionService.getConnection(id);
 
-        if (isConnectionUsed(id, connection.getType())) {
+        validateOwnerOrAdmin(connection);
+
+        List<String> usages = describeUsages(id);
+
+        if (!usages.isEmpty() || isUsedByWorkflows(id, connection.getType())) {
             throw new ConfigurationException(
-                "Connection id=%s is used".formatted(id), ConnectionErrorType.CONNECTION_IS_USED);
+                usages.isEmpty()
+                    ? "Connection id=%s is used".formatted(id)
+                    : "Connection id=%s is used by %s".formatted(id, String.join(", ", usages)),
+                ConnectionErrorType.CONNECTION_IS_USED);
         }
 
         connectionService.delete(id);
@@ -189,6 +201,8 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
     @Override
     public void replaceAuthorizationParameters(long id, Map<String, ?> parameters) {
+        validateOwnerOrAdmin(connectionService.getConnection(id));
+
         Connection connection = getConnectionWithReplacedAuthorizationParameters(id, parameters);
 
         resolveOAuth2AuthorizationCode(connection);
@@ -409,6 +423,10 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
     }
 
     private boolean isConnectionUsed(long connectionId, PlatformType type) {
+        return isUsedByWorkflows(connectionId, type) || !describeUsages(connectionId).isEmpty();
+    }
+
+    private boolean isUsedByWorkflows(long connectionId, PlatformType type) {
         boolean connectionUsed;
 
         JobPrincipalAccessor jobPrincipalAccessor = jobPrincipalAccessorRegistry.getJobPrincipalAccessor(type);
@@ -420,6 +438,13 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
         }
 
         return connectionUsed;
+    }
+
+    private List<String> describeUsages(long connectionId) {
+        return connectionUsageCheckers.stream()
+            .flatMap(connectionUsageChecker -> connectionUsageChecker.describeUsages(connectionId)
+                .stream())
+            .toList();
     }
 
     private List<Tag> filterTags(List<Tag> tags, Connection connection) {
@@ -460,7 +485,17 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
                     return toConnectionDTO(
                         isConnectionUsed(Validate.notNull(connectionId, "id"), connection.getType()), connection,
                         filterTags(tags, connection));
-                } catch (IllegalStateException | IllegalArgumentException | NoSuchElementException exception) {
+                } catch (IllegalStateException | IllegalArgumentException
+                    | NoSuchElementException exception) {
+                    // Narrowed from a blanket `catch (Exception)` to the set that actually represents a
+                    // DTO-mapping failure (missing component/connection definition, bad ordinal, invalid
+                    // parameter). Spring security failures (AccessDeniedException) and data-access
+                    // failures (DataAccessException) propagate so they are not silently hidden as
+                    // "broken row" — those indicate systemic issues that deserve to surface to the
+                    // caller rather than be metered-away. The full throwable is logged (dropping the
+                    // stack trace via log.error(message) would have been forbidden), and the
+                    // bytechef_connection_list_dto_failed counter lets operators alert on a rising
+                    // skip rate rather than chasing individual log lines.
                     if (log.isDebugEnabled()) {
                         log.debug(
                             "Failed to build ConnectionDTO for connection id={} componentName={}; "
@@ -502,10 +537,11 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
      * credential material to a list surface that normally filters it through the component definition.
      */
     private static ConnectionDTO buildDegradedConnectionDTO(Connection connection, List<Tag> tags, Throwable cause) {
-        // The Builder hardcodes authorizationParameters and connectionParameters to Map.of() in its
-        // build() step, which is exactly what we want here — a corrupted row must not leak raw
-        // credential material to a list surface that normally filters it through the component
-        // definition. `parameters` is also left null (the Builder's default) for the same reason.
+        // The Builder defaults authorizationParameters and connectionParameters to Map.of() when their
+        // setters are never called, which is exactly what we want here — a corrupted row must not leak
+        // raw credential material to a list surface that normally filters it through the component
+        // definition. This call site deliberately never calls those setters. `parameters` is also left
+        // null (the Builder's default) for the same reason.
         return ConnectionDTO.builder()
             .active(false)
             .authorizationType(null)
@@ -527,10 +563,13 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
             .build();
     }
 
+    /**
+     * Annotates the connection name with a short suffix so operators visually distinguish a degraded row from a healthy
+     * one in the listing, without changing the persisted name. Kept short to avoid blowing up table layouts.
+     */
     private static String degradedName(Connection connection, Throwable cause) {
-        Class<? extends Throwable> causeClass = cause.getClass();
-
-        String suffix = " [unavailable: " + causeClass.getSimpleName() + "]";
+        String suffix = " [unavailable: " + cause.getClass()
+            .getSimpleName() + "]";
         String name = connection.getName();
 
         return name == null ? suffix.trim() : name + suffix;

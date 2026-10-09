@@ -19,11 +19,15 @@ package com.bytechef.automation.configuration.facade;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
+import com.bytechef.automation.configuration.dto.DeployProjectResultDTO;
+import com.bytechef.automation.configuration.dto.DeploymentConnectionChoiceDTO;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import java.util.List;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Ivica Cardic
@@ -42,6 +46,18 @@ public interface ProjectDeploymentFacade {
     long createProjectDeploymentWorkflowJob(Long id, String workflowId);
 
     void deleteProjectDeployment(long id);
+
+    /**
+     * Creates or updates the project's single DEVELOPMENT deployment at its latest published version, leaving it
+     * disabled; the caller arms it with {@link #enableProjectDeployment(long, boolean)}. Workflows are named by uuid.
+     * Every workflow of the version gets a row: listed uuids are enabled, the others keep their current state and a new
+     * row starts disabled. Connections and inputs not given keep the current row's value; a slot with exactly one
+     * usable candidate gets it. Nothing is written when an enabled workflow has an unresolved required slot or a
+     * missing required input; the result lists them.
+     */
+    DeployProjectResultDTO deployProject(
+        long projectId, @Nullable Long projectDeploymentId, List<String> enabledWorkflowUuids,
+        List<DeploymentConnectionChoiceDTO> connections, Map<String, Map<String, ?>> inputs);
 
     /**
      * Asks every authorization question {@link #enableProjectDeployment(long, boolean)} would ask for the same

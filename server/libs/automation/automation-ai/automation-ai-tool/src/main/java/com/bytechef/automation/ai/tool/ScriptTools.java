@@ -16,12 +16,10 @@
 
 package com.bytechef.automation.ai.tool;
 
-import com.bytechef.automation.ai.tool.exception.ScriptToolErrorType;
 import com.bytechef.automation.ai.tool.model.WorkflowInfo;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
+import com.bytechef.automation.configuration.exception.ProjectWorkflowErrorType;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
-import com.bytechef.automation.configuration.service.ProjectService;
-import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.exception.ExecutionException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -41,20 +39,13 @@ import tools.jackson.databind.node.ObjectNode;
 public class ScriptTools {
     private static final Logger log = LoggerFactory.getLogger(ScriptTools.class);
 
-    private final ProjectService projectService;
+    private final AppCallableDraftGuard appCallableDraftGuard;
     private final ProjectWorkflowFacade projectWorkflowFacade;
-    private final ProjectWorkflowService projectWorkflowService;
-    private final WorkspaceScopeResolver workspaceScopeResolver;
 
     @SuppressFBWarnings("EI")
-    public ScriptTools(
-        ProjectService projectService, ProjectWorkflowFacade projectWorkflowFacade,
-        ProjectWorkflowService projectWorkflowService, WorkspaceScopeResolver workspaceScopeResolver) {
-
-        this.projectService = projectService;
+    public ScriptTools(AppCallableDraftGuard appCallableDraftGuard, ProjectWorkflowFacade projectWorkflowFacade) {
+        this.appCallableDraftGuard = appCallableDraftGuard;
         this.projectWorkflowFacade = projectWorkflowFacade;
-        this.projectWorkflowService = projectWorkflowService;
-        this.workspaceScopeResolver = workspaceScopeResolver;
     }
 
     @Tool(
@@ -63,17 +54,12 @@ public class ScriptTools {
         @ToolParam(description = "The ID of the workflow to update") String workflowId,
         @ToolParam(description = "The new code") String code,
         @ToolParam(description = "The name of the script node") String scriptName,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
         ToolContext toolContext) {
-
-        ProjectWorkspaceScope.checkWorkspaceWorkflow(
-            projectService, projectWorkflowService, workflowId,
-            ProjectWorkspaceScope.resolveWorkspaceId(
-                workspaceScopeResolver, workspaceId, toolContext, ScriptToolErrorType.UPDATE_SCRIPT),
-            ScriptToolErrorType.UPDATE_SCRIPT);
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
+
+            appCallableDraftGuard.checkDraft(toolContext, workflowId);
 
             String workflowDefinition = projectWorkflowDTO.getDefinition();
 
@@ -125,7 +111,7 @@ public class ScriptTools {
                 scriptName, workflowId, e);
 
             throw new ExecutionException(
-                "Failed to update workflow: " + e.getMessage(), e, ScriptToolErrorType.UPDATE_SCRIPT);
+                "Failed to update workflow: " + e.getMessage(), e, ProjectWorkflowErrorType.UPDATE_SCRIPT);
         }
     }
 }

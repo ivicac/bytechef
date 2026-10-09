@@ -17,9 +17,11 @@
 package com.bytechef.platform.security.web.authentication;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
 /**
@@ -29,6 +31,7 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
 
     private long environmentId;
     private boolean environmentIdPresent;
+    private Object principal;
     private String tenantId;
     private User user;
 
@@ -45,10 +48,9 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
     }
 
     @SuppressFBWarnings("EI")
-    public AbstractApiKeyAuthenticationToken(long environmentId, User user) {
+    public AbstractApiKeyAuthenticationToken(User user) {
         super(user.getAuthorities());
 
-        this.environmentId = environmentId;
         this.user = user;
 
         setAuthenticated(true);
@@ -74,6 +76,24 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
         setDetails(user);
     }
 
+    /**
+     * Authenticated, and retaining the environment the pre-authentication token was built for, with a non-{@code User}
+     * principal. Apps authenticate with their own key, and the principal is an app, not a user.
+     */
+    protected AbstractApiKeyAuthenticationToken(
+        long environmentId, String tenantId, Object principal, Collection<? extends GrantedAuthority> authorities) {
+
+        super(authorities);
+
+        this.environmentId = environmentId;
+        this.environmentIdPresent = true;
+        this.principal = principal;
+        this.tenantId = tenantId;
+
+        setAuthenticated(true);
+        setDetails(principal);
+    }
+
     @Override
     public Object getCredentials() {
         return null;
@@ -82,7 +102,7 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
     @Override
     @SuppressFBWarnings("EI")
     public Object getPrincipal() {
-        return user;
+        return principal != null ? principal : user;
     }
 
     public String getTenantId() {

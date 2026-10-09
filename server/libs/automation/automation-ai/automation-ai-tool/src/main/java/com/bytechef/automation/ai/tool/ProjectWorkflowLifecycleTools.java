@@ -67,9 +67,12 @@ public class ProjectWorkflowLifecycleTools {
         description = "Full-text search across workflows in projects. Returns a list of workflows matching the search query in name or description.")
     public List<WorkflowInfo> searchWorkflows(
         @ToolParam(description = "The search query to match against workflow names and descriptions") String query,
-        @ToolParam(required = false, description = "The ID of the project") Long projectId) {
+        @ToolParam(required = false, description = "The ID of the project") Long projectId,
+        @ToolParam(
+            required = false, description = AutomationToolInvocationContext.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
+        ToolContext toolContext) {
 
-        return delegate.searchWorkflows(query, projectId);
+        return delegate.searchWorkflows(query, projectId, workspaceId, toolContext);
     }
 
     @Tool(
@@ -87,7 +90,7 @@ public class ProjectWorkflowLifecycleTools {
     public String deleteWorkflow(
         @ToolParam(description = "The ID of the workflow to delete") String workflowId) {
 
-        return delegate.deleteWorkflow(workflowId);
+        return delegate.deleteWorkflow(workflowId, null);
     }
 
     @Tool(

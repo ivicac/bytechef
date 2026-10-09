@@ -286,7 +286,8 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
                 principalJobService, jobFacade, jobService, List.<ProjectDeploymentDeleteEventListener>of(),
                 projectDeploymentService, projectDeploymentWorkflowService, projectService, projectVisibilityFilter,
                 projectWorkflowService, tagService, triggerDefinitionService, triggerExecutionService,
-                triggerLifecycleFacade, applicationProperties, componentConnectionFacade, workflowService);
+                triggerLifecycleFacade, applicationProperties, componentConnectionFacade, workflowService, null, null,
+                null, null, null);
         }
 
         @Bean

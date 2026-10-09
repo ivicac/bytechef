@@ -19,6 +19,7 @@ package com.bytechef.ai.copilot.tool.ask;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import java.util.Map;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -90,6 +91,34 @@ class SubAgentAskRelayToolCallbackTest {
             .contains("call configureMcpServer again, restating the original request together with the chosen"
                 + " answer")
             .contains("this agent does not carry anything over from the call that asked");
+    }
+
+    @Test
+    void testARaisedQuestionMarksThePendingQuestionSignal() {
+        FakeDelegate delegate = new FakeDelegate("buildWorkflow", "I asked the user something");
+
+        SubAgentAskRelayToolCallback toolCallback = new SubAgentAskRelayToolCallback(
+            delegate, new FakeRelay(QUESTION_ENVELOPE), SubAgentQuestionRenderer.PLAIN_TEXT);
+
+        Map<String, Object> context = SubAgentPendingQuestionSignal.withSignal(Map.of());
+
+        toolCallback.call("{\"request\":\"go\"}", new ToolContext(context));
+
+        assertThat(SubAgentPendingQuestionSignal.isPending(context)).isTrue();
+    }
+
+    @Test
+    void testAnAnsweredCallLeavesThePendingQuestionSignalUnset() {
+        FakeDelegate delegate = new FakeDelegate("buildWorkflow", "the specialist's answer");
+
+        SubAgentAskRelayToolCallback toolCallback = new SubAgentAskRelayToolCallback(
+            delegate, new FakeRelay(null), SubAgentQuestionRenderer.PLAIN_TEXT);
+
+        Map<String, Object> context = SubAgentPendingQuestionSignal.withSignal(Map.of());
+
+        toolCallback.call("{\"request\":\"go\"}", new ToolContext(context));
+
+        assertThat(SubAgentPendingQuestionSignal.isPending(context)).isFalse();
     }
 
     @Test
