@@ -97,6 +97,34 @@ class WorkflowPersistCaptureUtilsTest {
             .contains("name=\"Second\"");
     }
 
+    @Test
+    void testWithCaptureHolderKeepsAHolderThatIsAlreadyPresent() {
+        Map<String, Object> outer = WorkflowPersistCaptureUtils.withCaptureHolder(Map.of());
+
+        Map<String, Object> inner = WorkflowPersistCaptureUtils.withCaptureHolder(outer);
+
+        capture(inner, "wf-uuid-1", 7L, 55L, "Inner");
+
+        assertThat(inner.get(CAPTURE_KEY)).isSameAs(outer.get(CAPTURE_KEY));
+        assertThat(WorkflowPersistCaptureUtils.getCapturedWorkflowIds(outer)).containsExactly("wf-uuid-1");
+    }
+
+    @Test
+    void testGetCapturedWorkflowIdsIsDistinctInCaptureOrder() {
+        Map<String, Object> context = WorkflowPersistCaptureUtils.withCaptureHolder(Map.of());
+
+        capture(context, "wf-2", 7L, 56L, "Second");
+        capture(context, "wf-1", 7L, 55L, "First");
+        capture(context, "wf-2", 7L, 56L, "Second again");
+
+        assertThat(WorkflowPersistCaptureUtils.getCapturedWorkflowIds(context)).containsExactly("wf-2", "wf-1");
+    }
+
+    @Test
+    void testGetCapturedWorkflowIdsWithoutAHolderIsEmpty() {
+        assertThat(WorkflowPersistCaptureUtils.getCapturedWorkflowIds(new HashMap<>())).isEmpty();
+    }
+
     // Mirrors what ProjectWorkflowTools.capturePersistedWorkflow writes into the holder at persist time.
     @SuppressWarnings("unchecked")
     private static void capture(

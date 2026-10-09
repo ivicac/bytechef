@@ -30,4 +30,5 @@ dependencies {
     testImplementation(project(":server:ee:libs:platform:platform-resource-grant:platform-resource-grant-api"))
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:test:test-int-support"))
+    testImplementation(project(":server:libs:test:test-support"))
 }

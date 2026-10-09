@@ -28,18 +28,13 @@ import com.bytechef.plugintools.TransportFence;
 import com.bytechef.server.ServerApplication;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,22 +84,6 @@ class PluginSkillTagDriftIntTest {
     @Autowired
     private ManagementMcpServerConfiguration managementMcpServerConfiguration;
 
-    private static Path repositoryRoot() {
-        Path directory = Path.of("")
-            .toAbsolutePath();
-
-        while (directory != null && !Files.exists(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-
-        if (directory == null) {
-            throw new IllegalStateException("Could not locate the repository root from " + Path.of("")
-                .toAbsolutePath());
-        }
-
-        return directory;
-    }
-
     private Set<String> registeredMcpToolNames() {
         ToolCallbackProvider toolCallbackProvider = managementMcpServerConfiguration.toolCallbackProvider();
 
@@ -122,34 +101,9 @@ class PluginSkillTagDriftIntTest {
         return names;
     }
 
-    private static Set<String> cliCommandNames() throws IOException {
-        Pattern pattern = Pattern.compile("@Command\\(\\s*name\\s*=\\s*\"([^\"]+)\"");
-
-        try (Stream<Path> paths = Files.walk(repositoryRoot().resolve("cli/commands"))) {
-            return paths.filter(path -> path.toString()
-                .endsWith("Command.java"))
-                .filter(path -> !path.toString()
-                    .contains("/build/"))
-                .flatMap(path -> {
-                    try {
-                        Matcher matcher = pattern.matcher(Files.readString(path));
-                        List<String> names = new ArrayList<>();
-
-                        while (matcher.find()) {
-                            names.add(matcher.group(1));
-                        }
-
-                        return names.stream();
-                    } catch (IOException ioException) {
-                        throw new UncheckedIOException(ioException);
-                    }
-                })
-                .collect(Collectors.toSet());
-        }
-    }
-
     private static List<SkillDocument> skillDocuments() throws IOException {
-        return SkillDocumentParser.parseAll(repositoryRoot().resolve("claude-code-plugin/bytechef-dev/skills"));
+        return SkillDocumentParser.parseAll(CliCommandInventory.repositoryRoot()
+            .resolve("claude-code-plugin/bytechef-dev/skills"));
     }
 
     @Test
@@ -184,7 +138,7 @@ class PluginSkillTagDriftIntTest {
 
     @Test
     void testEveryCliTagNamesAnExistingCommand() throws IOException {
-        Set<String> existingCommandNames = cliCommandNames();
+        Set<String> existingCommandNames = CliCommandInventory.commandNames(CliCommandInventory.repositoryRoot());
         List<String> failures = new ArrayList<>();
 
         for (SkillDocument skillDocument : skillDocuments()) {
@@ -233,7 +187,7 @@ class PluginSkillTagDriftIntTest {
 
     @Test
     void testTheCliInventoryIsNotEmpty() throws IOException {
-        Set<String> commandNames = cliCommandNames();
+        Set<String> commandNames = CliCommandInventory.commandNames(CliCommandInventory.repositoryRoot());
 
         assertFalse(commandNames.isEmpty());
         assertTrue(commandNames.contains("component deploy"));

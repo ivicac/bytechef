@@ -21,7 +21,6 @@ import static org.mockito.Mockito.mock;
 
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class DeleteKnowledgeBaseDocumentToolCallbackTest {
 
     private final DeleteKnowledgeBaseDocumentToolCallback toolCallback = new DeleteKnowledgeBaseDocumentToolCallback(
-        mock(KnowledgeBaseDocumentFacade.class), mock(KnowledgeBaseDocumentService.class),
+        mock(KnowledgeBaseDocumentFacade.class),
         mock(WorkspaceKnowledgeBaseFacade.class));
 
     @Test

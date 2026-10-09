@@ -223,9 +223,9 @@ class ResourceEnvironmentResolverCoverageTest {
         // negative control for that path uses a type outside this set (DataTable/ApiKey), see task-8-report.md.
         assertTrue(
             resolvedResourceTypes.containsAll(
-                List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection")),
-            "Expected to discover the four known ResourceEnvironmentResolver implementations (Connection, "
-                + "ProjectDeployment, McpServer, ApiCollection) by scanning source files; found "
+                List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection", "App")),
+            "Expected to discover the five known ResourceEnvironmentResolver implementations (Connection, "
+                + "ProjectDeployment, McpServer, ApiCollection, App) by scanning source files; found "
                 + resolvedResourceTypes
                 + " instead. If this list shrank, the file-based discovery mechanism itself is broken, which would "
                 + "make the assertion below pass vacuously for every type.");

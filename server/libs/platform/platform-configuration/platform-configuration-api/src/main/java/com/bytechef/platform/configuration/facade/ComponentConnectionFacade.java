@@ -39,5 +39,14 @@ public interface ComponentConnectionFacade {
 
     List<ComponentConnection> getComponentConnections(WorkflowTrigger workflowTrigger);
 
+    /**
+     * Every connection slot of a workflow: its triggers, every task including those nested inside task dispatchers, and
+     * the cluster elements the cluster-root connection factory adds. The embedded connected-user resolvers and the app
+     * loop's {@code deployProject} enumerate slots through it; some older deployment paths still walk the workflow
+     * themselves. Callers authorize: it is deliberately unguarded because the embedded connected-user resolvers call it
+     * without a workspace principal.
+     */
+    List<ComponentConnection> getWorkflowComponentConnections(String workflowId);
+
     List<ComponentConnection> getWorkflowNodeComponentConnections(String workflowId, String workflowNodeName);
 }

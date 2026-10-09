@@ -62,6 +62,11 @@ public class ApplicationProperties {
     private Analytics analytics = new Analytics();
 
     /**
+     * Apps (EE) configuration
+     */
+    private App app = new App();
+
+    /**
      * Default @Async executor configuration
      */
     private Async async = new Async();
@@ -121,8 +126,6 @@ public class ApplicationProperties {
      */
     private Edition edition = Edition.EE;
 
-    private Embedded embedded = new Embedded();
-
     /**
      * Optional environment override (DEVELOPMENT, STAGING, PRODUCTION)
      */
@@ -141,6 +144,7 @@ public class ApplicationProperties {
     /**
      * File storage provider configuration
      */
+    private Embedded embedded = new Embedded();
     private FileStorage fileStorage = new FileStorage();
 
     /**
@@ -260,6 +264,10 @@ public class ApplicationProperties {
 
     public Analytics getAnalytics() {
         return analytics;
+    }
+
+    public App getApp() {
+        return app;
     }
 
     public Async getAsync() {
@@ -430,6 +438,10 @@ public class ApplicationProperties {
         this.analytics = analytics;
     }
 
+    public void setApp(App app) {
+        this.app = app;
+    }
+
     public void setAsync(Async async) {
         this.async = async;
     }
@@ -588,6 +600,19 @@ public class ApplicationProperties {
 
     public void setWorkflow(Workflow workflow) {
         this.workflow = workflow;
+    }
+
+    public static class Embedded {
+
+        private List<String> allowedParentOrigins = List.of();
+
+        public List<String> getAllowedParentOrigins() {
+            return allowedParentOrigins;
+        }
+
+        public void setAllowedParentOrigins(List<String> allowedParentOrigins) {
+            this.allowedParentOrigins = allowedParentOrigins;
+        }
     }
 
     /**
@@ -927,25 +952,6 @@ public class ApplicationProperties {
             this.vectorstore = vectorstore;
         }
 
-        public static class AutoMemory {
-
-            public enum Provider {
-                AWS,
-                FILESYSTEM,
-                JDBC
-            }
-
-            private Provider provider;
-
-            public Provider getProvider() {
-                return provider;
-            }
-
-            public void setProvider(Provider provider) {
-                this.provider = provider;
-            }
-        }
-
         /**
          * Auto-memory storage configuration.
          */
@@ -1214,19 +1220,6 @@ public class ApplicationProperties {
             }
         }
 
-        public static class Hub {
-
-            private boolean enabled;
-
-            public boolean isEnabled() {
-                return enabled;
-            }
-
-            public void setEnabled(boolean enabled) {
-                this.enabled = enabled;
-            }
-        }
-
         /**
          * AI Hub properties.
          */
@@ -1337,6 +1330,10 @@ public class ApplicationProperties {
                  */
                 private Provider provider;
 
+                /**
+                 * The API key used to authenticate with the Copilot embedding provider. Applies only to the OpenAI
+                 * provider; Ollama runs locally and does not require a key.
+                 */
                 private String apiKey;
 
                 public Provider getProvider() {
@@ -3771,6 +3768,188 @@ public class ApplicationProperties {
     }
 
     /**
+     * Apps (EE) configuration: the app-facing execution, HTTP proxy and workflow run surfaces. Defaults live in
+     * application-bytechef.yml.
+     */
+    public static class App {
+
+        /**
+         * Action and tool execution limits
+         */
+        private Execution execution = new Execution();
+
+        /**
+         * HTTP proxy limits
+         */
+        private Proxy proxy = new Proxy();
+
+        /**
+         * Limits of an app running a bound workflow
+         */
+        private WorkflowRun workflow = new WorkflowRun();
+
+        public Execution getExecution() {
+            return execution;
+        }
+
+        public Proxy getProxy() {
+            return proxy;
+        }
+
+        public WorkflowRun getWorkflow() {
+            return workflow;
+        }
+
+        public void setExecution(Execution execution) {
+            this.execution = execution;
+        }
+
+        public void setProxy(Proxy proxy) {
+            this.proxy = proxy;
+        }
+
+        public void setWorkflow(WorkflowRun workflow) {
+            this.workflow = workflow;
+        }
+
+        /**
+         * Limits of an app calling an action or a tool.
+         */
+        public static class Execution {
+
+            /**
+             * Concurrent action, tool and proxy calls requested by apps. They run on their own executor so a burst from
+             * apps cannot take permits from the editor's Test button or the API Platform sync path
+             */
+            private int concurrencyLimit;
+
+            /**
+             * Maximum time an action or tool execution requested by an app may run
+             */
+            private Duration timeout;
+
+            public int getConcurrencyLimit() {
+                return concurrencyLimit;
+            }
+
+            public Duration getTimeout() {
+                return timeout;
+            }
+
+            public void setConcurrencyLimit(int concurrencyLimit) {
+                this.concurrencyLimit = concurrencyLimit;
+            }
+
+            public void setTimeout(Duration timeout) {
+                this.timeout = timeout;
+            }
+        }
+
+        /**
+         * Limits of an app calling a bound connection's API through the proxy.
+         */
+        public static class Proxy {
+
+            /**
+             * Maximum size, in bytes, of a proxied request body
+             */
+            private long maxRequestBytes;
+
+            /**
+             * Maximum size, in bytes, of a proxied response body
+             */
+            private long maxResponseBytes;
+
+            /**
+             * Maximum time a proxied request may run
+             */
+            private Duration timeout;
+
+            public long getMaxRequestBytes() {
+                return maxRequestBytes;
+            }
+
+            public long getMaxResponseBytes() {
+                return maxResponseBytes;
+            }
+
+            public Duration getTimeout() {
+                return timeout;
+            }
+
+            public void setMaxRequestBytes(long maxRequestBytes) {
+                this.maxRequestBytes = maxRequestBytes;
+            }
+
+            public void setMaxResponseBytes(long maxResponseBytes) {
+                this.maxResponseBytes = maxResponseBytes;
+            }
+
+            public void setTimeout(Duration timeout) {
+                this.timeout = timeout;
+            }
+        }
+
+        /**
+         * Limits of an app running a bound workflow.
+         */
+        public static class WorkflowRun {
+
+            /**
+             * How long a workflow run requested by an app is waited for when the request names no wait
+             */
+            private Duration defaultWait;
+
+            /**
+             * The longest wait an app may request for a workflow run
+             */
+            private Duration maxWait;
+
+            /**
+             * How many days an app's workflow run records are kept before the retention job deletes them
+             */
+            private long runRetentionDays;
+
+            /**
+             * Cron expression of the daily app workflow run retention sweep
+             */
+            private String runRetentionCron;
+
+            public Duration getDefaultWait() {
+                return defaultWait;
+            }
+
+            public Duration getMaxWait() {
+                return maxWait;
+            }
+
+            public long getRunRetentionDays() {
+                return runRetentionDays;
+            }
+
+            public String getRunRetentionCron() {
+                return runRetentionCron;
+            }
+
+            public void setDefaultWait(Duration defaultWait) {
+                this.defaultWait = defaultWait;
+            }
+
+            public void setMaxWait(Duration maxWait) {
+                this.maxWait = maxWait;
+            }
+
+            public void setRunRetentionDays(long runRetentionDays) {
+                this.runRetentionDays = runRetentionDays;
+            }
+
+            public void setRunRetentionCron(String runRetentionCron) {
+                this.runRetentionCron = runRetentionCron;
+            }
+        }
+    }
+
+    /**
      * Configuration of the default {@code @Async} executor, which carries mail, notifications and other background
      * work. Workflow task and trigger execution are bounded separately by the worker task properties.
      */
@@ -4702,19 +4881,6 @@ public class ApplicationProperties {
         }
     }
 
-    public static class Embedded {
-
-        private List<String> allowedParentOrigins = List.of();
-
-        public List<String> getAllowedParentOrigins() {
-            return allowedParentOrigins;
-        }
-
-        public void setAllowedParentOrigins(List<String> allowedParentOrigins) {
-            this.allowedParentOrigins = allowedParentOrigins;
-        }
-    }
-
     /**
      * File storage configuration for storing files and attachments.
      */
@@ -5486,82 +5652,6 @@ public class ApplicationProperties {
 
         public void setRedirectUri(String redirectUri) {
             this.redirectUri = redirectUri;
-        }
-
-        public static class ResourceServer {
-
-            private List<Issuer> issuers = new ArrayList<>();
-
-            public List<Issuer> getIssuers() {
-                return issuers;
-            }
-
-            public void setIssuers(List<Issuer> issuers) {
-                this.issuers = issuers;
-            }
-
-            public static class Issuer {
-
-                private String uri;
-
-                private String tenantClaim;
-
-                private String authoritiesClaim;
-
-                private List<String> authorities = new ArrayList<>();
-
-                private boolean self;
-
-                private String audience;
-
-                public String getUri() {
-                    return uri;
-                }
-
-                public String getTenantClaim() {
-                    return tenantClaim;
-                }
-
-                public String getAuthoritiesClaim() {
-                    return authoritiesClaim;
-                }
-
-                public List<String> getAuthorities() {
-                    return authorities;
-                }
-
-                public boolean isSelf() {
-                    return self;
-                }
-
-                public String getAudience() {
-                    return audience;
-                }
-
-                public void setUri(String uri) {
-                    this.uri = uri;
-                }
-
-                public void setTenantClaim(String tenantClaim) {
-                    this.tenantClaim = tenantClaim;
-                }
-
-                public void setAuthoritiesClaim(String authoritiesClaim) {
-                    this.authoritiesClaim = authoritiesClaim;
-                }
-
-                public void setAuthorities(List<String> authorities) {
-                    this.authorities = authorities;
-                }
-
-                public void setSelf(boolean self) {
-                    this.self = self;
-                }
-
-                public void setAudience(String audience) {
-                    this.audience = audience;
-                }
-            }
         }
 
         /**

@@ -8,9 +8,13 @@
 package com.bytechef.ee.embedded.configuration.web.rest;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.ee.embedded.configuration.facade.AppEventFacade;
@@ -32,6 +36,8 @@ import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
@@ -60,6 +66,8 @@ import org.springframework.test.web.servlet.client.MockMvcWebTestClient;
 @WebMvcTest(ConnectedUserProjectWorkflowApiController.class)
 @EmbeddedConfigurationRestConfigurationSharedMocks
 class ConnectedUserProjectWorkflowApiControllerIntTest {
+
+    private static final String EXTERNAL_USER_ID = "externalUser1";
 
     private static final String LOGIN = "connected-user-1";
     private static final String WORKFLOW_UUID = "workflow-uuid-1";
@@ -99,6 +107,58 @@ class ConnectedUserProjectWorkflowApiControllerIntTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "development", "Development", " development "
+    })
+    void testGetConnectedUserProjectWorkflowAcceptsAnyCaseOfTheEnvironmentHeader(String requestEnvironment)
+        throws Exception {
+
+        when(environmentService.getEnvironment("DEVELOPMENT")).thenReturn(Environment.DEVELOPMENT);
+
+        mockMvc
+            .perform(
+                get("/internal/connected-user-project-workflows/{workflowUuid}", WORKFLOW_UUID)
+                    .header("X-Environment", requestEnvironment)
+                    .with(user(EXTERNAL_USER_ID)))
+            .andExpect(status().isOk());
+
+        verify(connectedUserProjectFacade).getConnectedUserProjectWorkflow(
+            EXTERNAL_USER_ID, WORKFLOW_UUID, (long) Environment.DEVELOPMENT.ordinal());
+    }
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "", "   "
+    })
+    void testGetConnectedUserProjectWorkflowTreatsABlankEnvironmentHeaderAsAbsent(String requestEnvironment)
+        throws Exception {
+
+        when(environmentService.getEnvironment((String) null)).thenReturn(Environment.PRODUCTION);
+
+        mockMvc
+            .perform(
+                get("/internal/connected-user-project-workflows/{workflowUuid}", WORKFLOW_UUID)
+                    .header("X-Environment", requestEnvironment)
+                    .with(user(EXTERNAL_USER_ID)))
+            .andExpect(status().isOk());
+
+        verify(connectedUserProjectFacade).getConnectedUserProjectWorkflow(
+            EXTERNAL_USER_ID, WORKFLOW_UUID, (long) Environment.PRODUCTION.ordinal());
+    }
+
+    @Test
+    void testGetConnectedUserProjectWorkflowRejectsAnUnknownEnvironmentHeader() throws Exception {
+        mockMvc
+            .perform(
+                get("/internal/connected-user-project-workflows/{workflowUuid}", WORKFLOW_UUID)
+                    .header("X-Environment", "staging-x")
+                    .with(user(EXTERNAL_USER_ID)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(connectedUserProjectFacade, environmentService);
+    }
 
     private WebTestClient webTestClient;
 

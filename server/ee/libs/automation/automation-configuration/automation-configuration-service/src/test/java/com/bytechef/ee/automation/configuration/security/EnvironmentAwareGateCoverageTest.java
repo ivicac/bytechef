@@ -67,7 +67,7 @@ import org.junit.jupiter.api.Timeout;
  * {@code hasWorkspaceScopeInEnvironmentId(...)}, {@code hasWorkflowScopeInEnvironment(...)},
  * {@code hasWorkspaceScopeInEveryEnvironment(...)} -- shares the substring {@link #ENVIRONMENT_AWARE_MARKER}. A
  * {@code hasPermission(id, 'ResourceType', scope)} expression is also treated as environment-aware when
- * {@code ResourceType} is one of the four types a {@link ResourceEnvironmentResolver} is actually registered for
+ * {@code ResourceType} is one of the five types a {@link ResourceEnvironmentResolver} is actually registered for
  * ({@link #RESOLVED_RESOURCE_TYPES}) -- {@code hasResourceScope} resolves the environment itself in that case, even
  * though the annotation text carries no {@code InEnvironment} marker. Getting this wrong in the narrow direction
  * (treating a resolved type as unaware) would have produced false positives on already-correct call sites such as
@@ -178,12 +178,12 @@ class EnvironmentAwareGateCoverageTest {
         List.of("hasPermission(", "isResourceOwner(");
 
     /**
-     * The four resource types {@code hasResourceScope} can resolve an environment for without an "InEnvironment" marker
+     * The five resource types {@code hasResourceScope} can resolve an environment for without an "InEnvironment" marker
      * in the annotation text -- see {@code ResourceEnvironmentResolverCoverageTest} for how this set is itself kept
      * honest.
      */
     private static final List<String> RESOLVED_RESOURCE_TYPES =
-        List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection", "ApiCollectionEndpoint");
+        List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection", "ApiCollectionEndpoint", "App");
 
     private static final Pattern RESOLVED_TYPE_HAS_PERMISSION_PATTERN = Pattern.compile(
         "hasPermission\\([^,]*,\\s*'(" + String.join("|", RESOLVED_RESOURCE_TYPES) + ")'");
@@ -243,6 +243,14 @@ class EnvironmentAwareGateCoverageTest {
                 + "'ProjectDeploymentFacadeImpl#updateProjectDeployment(long,int,String,List,Long)'): its only "
                 + "production caller is the embedded ConnectedUserProjectFacadeImpl.publishProjectWorkflow, on no "
                 + "automation HTTP or GraphQL surface, for the same reason as enableProjectDeploymentWorkflow above.");
+
+        exempt.put(
+            "AppFacadeImpl#requireAppInEnvironment",
+            "Deliberately unguarded (see the method's javadoc): it is the environment check itself, run by the "
+                + "management API's by-id app routes before any permission check, so an app of another environment "
+                + "is answered APP_NOT_FOUND exactly like a missing id instead of leaking its existence through a "
+                + "403. Its only answers are returning and APP_NOT_FOUND, and the guarded facade call that follows "
+                + "authorizes in the app's environment.");
 
         return Map.copyOf(exempt);
     }

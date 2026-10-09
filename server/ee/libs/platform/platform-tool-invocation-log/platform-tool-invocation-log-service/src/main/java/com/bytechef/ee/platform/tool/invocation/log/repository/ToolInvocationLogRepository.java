@@ -28,37 +28,45 @@ public interface ToolInvocationLogRepository extends ListCrudRepository<ToolInvo
     // "could not determine data type of parameter". The other bounds are typed by their equality comparison.
     @Query("""
         SELECT * FROM tool_invocation_log
-        WHERE (:surface IS NULL OR surface = :surface)
+        WHERE (:workspaceId IS NULL OR workspace_id = :workspaceId)
+            AND (:environment IS NULL OR environment = :environment)
+            AND (:surface IS NULL OR surface = :surface)
             AND (:outcome IS NULL OR outcome = :outcome)
             AND (:mcpServerId IS NULL OR mcp_server_id = :mcpServerId)
             AND (:connectedUserId IS NULL OR connected_user_id = :connectedUserId)
             AND (:integrationInstanceId IS NULL OR integration_instance_id = :integrationInstanceId)
+            AND (:appId IS NULL OR app_id = :appId)
             AND (CAST(:startDate AS TIMESTAMP) IS NULL OR created_date >= CAST(:startDate AS TIMESTAMP))
             AND (CAST(:endDate AS TIMESTAMP) IS NULL OR created_date <= CAST(:endDate AS TIMESTAMP))
         ORDER BY created_date DESC
         LIMIT :limit OFFSET :offset
         """)
     List<ToolInvocationLog> findFiltered(
+        @Param("workspaceId") @Nullable Long workspaceId, @Param("environment") @Nullable Integer environment,
         @Param("surface") @Nullable Integer surface, @Param("outcome") @Nullable Integer outcome,
         @Param("mcpServerId") @Nullable Long mcpServerId, @Param("connectedUserId") @Nullable Long connectedUserId,
-        @Param("integrationInstanceId") @Nullable Long integrationInstanceId,
+        @Param("integrationInstanceId") @Nullable Long integrationInstanceId, @Param("appId") @Nullable Long appId,
         @Param("startDate") @Nullable Instant startDate, @Param("endDate") @Nullable Instant endDate,
         @Param("limit") int limit, @Param("offset") long offset);
 
     @Query("""
         SELECT COUNT(*) FROM tool_invocation_log
-        WHERE (:surface IS NULL OR surface = :surface)
+        WHERE (:workspaceId IS NULL OR workspace_id = :workspaceId)
+            AND (:environment IS NULL OR environment = :environment)
+            AND (:surface IS NULL OR surface = :surface)
             AND (:outcome IS NULL OR outcome = :outcome)
             AND (:mcpServerId IS NULL OR mcp_server_id = :mcpServerId)
             AND (:connectedUserId IS NULL OR connected_user_id = :connectedUserId)
             AND (:integrationInstanceId IS NULL OR integration_instance_id = :integrationInstanceId)
+            AND (:appId IS NULL OR app_id = :appId)
             AND (CAST(:startDate AS TIMESTAMP) IS NULL OR created_date >= CAST(:startDate AS TIMESTAMP))
             AND (CAST(:endDate AS TIMESTAMP) IS NULL OR created_date <= CAST(:endDate AS TIMESTAMP))
         """)
     long countFiltered(
+        @Param("workspaceId") @Nullable Long workspaceId, @Param("environment") @Nullable Integer environment,
         @Param("surface") @Nullable Integer surface, @Param("outcome") @Nullable Integer outcome,
         @Param("mcpServerId") @Nullable Long mcpServerId, @Param("connectedUserId") @Nullable Long connectedUserId,
-        @Param("integrationInstanceId") @Nullable Long integrationInstanceId,
+        @Param("integrationInstanceId") @Nullable Long integrationInstanceId, @Param("appId") @Nullable Long appId,
         @Param("startDate") @Nullable Instant startDate, @Param("endDate") @Nullable Instant endDate);
 
     @Modifying

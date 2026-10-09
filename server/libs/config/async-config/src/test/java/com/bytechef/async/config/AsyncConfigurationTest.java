@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bytechef.tenant.TenantContext;
@@ -55,6 +56,7 @@ class AsyncConfigurationTest {
     void setUp() {
         environment = new MockEnvironment();
 
+        environment.setProperty("bytechef.app.execution.concurrency-limit", "4");
         environment.setProperty("bytechef.worker.task.subscriptions.default", "3");
         environment.setProperty("bytechef.worker.task.sync-concurrency-limit", "2");
         environment.setProperty("spring.threads.virtual.enabled", "true");
@@ -112,6 +114,65 @@ class AsyncConfigurationTest {
                 assertEquals(3, workerExecutor.getConcurrencyLimit());
                 assertEquals(2, syncWorkerExecutor.getConcurrencyLimit());
             });
+    }
+
+    @Test
+    void testAppExecutorLimitMatchesAppConcurrencyProperty() {
+        SimpleAsyncTaskExecutor appExecutor = (SimpleAsyncTaskExecutor) asyncConfiguration.appExecutor();
+
+        assertEquals(4, appExecutor.getConcurrencyLimit());
+    }
+
+    @Test
+    void testAppExecutorIsADistinctBeanWithItsOwnLimit() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AsyncConfiguration.class)
+            .withBean(ContextPropagatingTaskDecorator.class, ContextPropagatingTaskDecorator::new)
+            .withBean(TaskExecutionProperties.class, TaskExecutionProperties::new)
+            .withPropertyValues(
+                "bytechef.app.execution.concurrency-limit=4",
+                "bytechef.worker.task.subscriptions.default=3",
+                "bytechef.worker.task.sync-concurrency-limit=2",
+                "spring.threads.virtual.enabled=true")
+            .run(context -> {
+                assertNull(context.getStartupFailure(), "context failed to start");
+
+                SimpleAsyncTaskExecutor appExecutor = context.getBean("appExecutor", SimpleAsyncTaskExecutor.class);
+                SimpleAsyncTaskExecutor syncWorkerExecutor = context.getBean(
+                    "syncWorkerExecutor", SimpleAsyncTaskExecutor.class);
+
+                assertNotSame(
+                    appExecutor, syncWorkerExecutor,
+                    "apps must have their own lane, or a burst from apps starves the editor's Test button");
+                assertEquals(4, appExecutor.getConcurrencyLimit());
+                assertEquals(2, syncWorkerExecutor.getConcurrencyLimit());
+            });
+    }
+
+    @Test
+    void testAppExecutorIsNotRegisteredWithoutItsConcurrencyLimit() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AsyncConfiguration.class)
+            .withBean(ContextPropagatingTaskDecorator.class, ContextPropagatingTaskDecorator::new)
+            .withBean(TaskExecutionProperties.class, TaskExecutionProperties::new)
+            .withPropertyValues(
+                "bytechef.worker.task.subscriptions.default=3",
+                "spring.threads.virtual.enabled=true")
+            .run(context -> {
+                assertNull(context.getStartupFailure(), "context failed to start");
+                assertFalse(context.containsBean("appExecutor"));
+            });
+    }
+
+    @Test
+    void testAppExecutorRejectsANonPositiveLimit() {
+        environment.setProperty("bytechef.app.execution.concurrency-limit", "0");
+
+        IllegalStateException exception = assertThrows(
+            IllegalStateException.class, () -> asyncConfiguration.appExecutor());
+
+        assertTrue(exception.getMessage()
+            .contains("bytechef.app.execution.concurrency-limit"));
     }
 
     @Test
@@ -218,7 +279,8 @@ class AsyncConfigurationTest {
     void testEveryExecutorPropagatesTenantId() throws Exception {
         List<TaskExecutor> executors = List.of(
             asyncConfiguration.getAsyncExecutor(), asyncConfiguration.messageEventExecutor(),
-            asyncConfiguration.syncWorkerExecutor(), asyncConfiguration.workerExecutor());
+            asyncConfiguration.syncWorkerExecutor(), asyncConfiguration.workerExecutor(),
+            asyncConfiguration.appExecutor());
 
         for (TaskExecutor executor : executors) {
             CompletableFuture<String> tenantIdSeenByTask = new CompletableFuture<>();
@@ -236,6 +298,7 @@ class AsyncConfigurationTest {
     void testContextPropagatingTaskDecoratorAppliedByEveryExecutor() throws Exception {
         MockEnvironment recordingEnvironment = new MockEnvironment();
 
+        recordingEnvironment.setProperty("bytechef.app.execution.concurrency-limit", "4");
         recordingEnvironment.setProperty("bytechef.worker.task.subscriptions.default", "3");
         recordingEnvironment.setProperty("spring.threads.virtual.enabled", "true");
 
@@ -247,7 +310,8 @@ class AsyncConfigurationTest {
 
         List<TaskExecutor> executors = List.of(
             recordingAsyncConfiguration.getAsyncExecutor(), recordingAsyncConfiguration.messageEventExecutor(),
-            recordingAsyncConfiguration.syncWorkerExecutor(), recordingAsyncConfiguration.workerExecutor());
+            recordingAsyncConfiguration.syncWorkerExecutor(), recordingAsyncConfiguration.workerExecutor(),
+            recordingAsyncConfiguration.appExecutor());
 
         for (TaskExecutor executor : executors) {
             CompletableFuture<Boolean> taskRan = new CompletableFuture<>();
@@ -257,7 +321,7 @@ class AsyncConfigurationTest {
             assertTrue(taskRan.get(5, TimeUnit.SECONDS));
         }
 
-        assertEquals(4, recordingContextPropagatingTaskDecorator.decorateCount.get());
+        assertEquals(5, recordingContextPropagatingTaskDecorator.decorateCount.get());
     }
 
     @Test

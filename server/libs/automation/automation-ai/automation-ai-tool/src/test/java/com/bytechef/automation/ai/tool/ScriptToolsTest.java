@@ -18,17 +18,16 @@ package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.ScopedConnectionGuard;
 import com.bytechef.ai.copilot.tool.context.ScopedProjectToolContext;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.automation.ai.tool.model.WorkflowInfo;
-import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
@@ -36,7 +35,6 @@ import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.exception.ExecutionException;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,7 +50,6 @@ class ScriptToolsTest {
 
     private static final long FOREIGN_PROJECT_ID = 9L;
     private static final long OWN_PROJECT_ID = 7L;
-    private static final long WORKSPACE_ID = 1L;
 
     @Mock
     private ProjectService projectService;
@@ -69,9 +66,6 @@ class ScriptToolsTest {
     @Mock
     private ToolContext toolContext;
 
-    @Mock
-    private WorkspaceScopeResolver workspaceScopeResolver;
-
     @Nested
     class ScopedProjectTest {
 
@@ -83,46 +77,30 @@ class ScriptToolsTest {
             ScriptTools scriptTools = newTools();
 
             assertThatCode(
-                () -> scriptTools.updateScriptComponentCode("wf-uuid-1", "code", "script_1", null, scopedToolContext()))
+                () -> scriptTools.updateScriptComponentCode("wf-uuid-1", "code", "script_1", scopedToolContext()))
                     .isInstanceOf(ExecutionException.class)
                     .hasMessageContaining("was not found in this chat's project");
 
             verify(projectWorkflowFacade, never()).getProjectWorkflow(anyString());
-            verify(workspaceScopeResolver, never()).resolveWorkspace(any(), any());
         }
     }
 
     @Nested
-    class WorkspaceScopeTest {
+    class UnscopedTest {
 
         @Test
-        void testUpdateScriptComponentCodeRejectsAWorkflowOfAnotherWorkspace() {
-            mockWorkflowInWorkspace(2L);
-
-            ScriptTools scriptTools = newTools();
-
-            assertThatCode(
-                () -> scriptTools.updateScriptComponentCode("wf-uuid-1", "code", "script_1", null, toolContext))
-                    .isInstanceOf(ExecutionException.class)
-                    .hasMessageContaining("not found in workspace " + WORKSPACE_ID);
-
-            verify(projectWorkflowFacade, never()).getProjectWorkflow(anyString());
-        }
-
-        @Test
-        void testUpdateScriptComponentCodeReadsAWorkflowOfTheWorkspace() {
-            mockWorkflowInWorkspace(WORKSPACE_ID);
-
+        void testUpdateScriptComponentCodeLeavesAnUnscopedRunToTheFacade() {
             Workflow workflow = new Workflow("wf-uuid-1", "{\"tasks\": []}", Workflow.Format.JSON);
 
             when(projectWorkflowFacade.getProjectWorkflow("wf-uuid-1"))
                 .thenReturn(new ProjectWorkflowDTO(workflow, new ProjectWorkflow(55L), false));
 
             WorkflowInfo workflowInfo = newTools().updateScriptComponentCode(
-                "wf-uuid-1", "code", "script_1", null, toolContext);
+                "wf-uuid-1", "code", "script_1", toolContext);
 
             assertThat(workflowInfo).isNull();
             verify(projectWorkflowFacade).getProjectWorkflow("wf-uuid-1");
+            verifyNoInteractions(projectWorkflowService);
         }
     }
 
@@ -130,24 +108,9 @@ class ScriptToolsTest {
         return new ToolContext(Map.of(ScopedProjectToolContext.TOOL_CONTEXT_SCOPED_PROJECT_ID_KEY, OWN_PROJECT_ID));
     }
 
-    private void mockWorkflowInWorkspace(long workspaceId) {
-        when(workspaceScopeResolver.resolveWorkspace(null, toolContext))
-            .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
-        when(projectWorkflowService.getWorkflowProjectWorkflow("wf-uuid-1"))
-            .thenReturn(new ProjectWorkflow(7L, 1, "wf-uuid-1"));
-        when(projectService.fetchProject(7L)).thenReturn(
-            Optional.of(
-                Project.builder()
-                    .id(7L)
-                    .name("project")
-                    .workspaceId(workspaceId)
-                    .build()));
-    }
-
     private ScriptTools newTools() {
         return new ScriptTools(
-            projectWorkflowFacade,
-            new ScopedProjectGuard(
-                projectService, projectWorkflowService, scopedConnectionGuard, workspaceScopeResolver));
+            new AppCallableDraftGuard(projectService, projectWorkflowService), projectWorkflowFacade,
+            new ScopedProjectGuard(projectWorkflowService, scopedConnectionGuard));
     }
 }

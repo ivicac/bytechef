@@ -157,6 +157,7 @@ class VisibilityBearingSurfaceAuditTest {
         "com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection",
         "com.bytechef.automation.configuration.domain.ProjectVersion",
         "com.bytechef.automation.configuration.domain.ProjectWorkflow",
+        "com.bytechef.automation.configuration.dto.DeployProjectResultDTO",
         "com.bytechef.automation.configuration.dto.ProjectDTO",
         "com.bytechef.automation.configuration.dto.ProjectDeploymentDTO",
         "com.bytechef.automation.configuration.dto.ProjectDeploymentWorkflowDTO",
@@ -169,6 +170,8 @@ class VisibilityBearingSurfaceAuditTest {
      * asserts this partition is total, so a DTO added to that package fails the test until it is classified.
      */
     private static final Map<String, String> NON_VISIBILITY_BEARING_DTOS = Map.of(
+        "DeploymentConnectionChoiceDTO",
+        "An input only: the workflow uuid, node name, key and connection id the caller chose; returns nothing.",
         "ProjectTemplateDTO",
         "Template catalogue entry — an exported, publishable artefact identified by a template id, not a project row.",
         "WorkflowTemplateDTO",

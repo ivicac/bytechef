@@ -47,14 +47,15 @@ import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
-import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -202,7 +203,7 @@ class AutomationMcpToolFacadeWorkflowToolsTest {
         when(mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(10L))
             .thenReturn(List.of(mappedMcpProjectWorkflow));
         when(mcpServerService.getMcpServer(30L)).thenReturn(
-            new McpServer("test-server", PlatformType.AUTOMATION, Environment.DEVELOPMENT, true));
+            new McpServer("test-server", PlatformType.AUTOMATION, Environment.PRODUCTION, true));
         when(principalJobFacade.createJob(any(), anyLong(), any())).thenReturn(5L);
         when(toolExecutionRecorder.record(any(), any(Supplier.class))).thenReturn(Map.of("ok", true));
 
@@ -227,6 +228,17 @@ class AutomationMcpToolFacadeWorkflowToolsTest {
             assertThat(jobParametersDTO.getInputs())
                 .containsEntry(JobInputConstants.TRIGGER_NAME_INPUT, "newWorkflowCall_1")
                 .containsKey("newWorkflowCall_1");
+
+            ArgumentCaptor<ToolExecutionEvent.Builder> builderArgumentCaptor =
+                ArgumentCaptor.forClass(ToolExecutionEvent.Builder.class);
+
+            verify(toolExecutionRecorder).record(builderArgumentCaptor.capture(), any(Supplier.class));
+
+            ToolExecutionEvent.Builder builder = builderArgumentCaptor.getValue();
+
+            ToolExecutionEvent toolExecutionEvent = builder.build();
+
+            assertThat(toolExecutionEvent.environment()).isEqualTo(Environment.PRODUCTION.ordinal());
         }
     }
 
@@ -243,6 +255,8 @@ class AutomationMcpToolFacadeWorkflowToolsTest {
         long projectDeploymentWorkflowId, Map<String, Object> parameters) {
 
         McpProjectWorkflow mcpProjectWorkflow = mock(McpProjectWorkflow.class);
+
+        when(mcpProjectWorkflow.isEnabled()).thenReturn(true);
 
         when(mcpProjectWorkflow.getProjectDeploymentWorkflowId()).thenReturn(projectDeploymentWorkflowId);
         doReturn(parameters).when(mcpProjectWorkflow)

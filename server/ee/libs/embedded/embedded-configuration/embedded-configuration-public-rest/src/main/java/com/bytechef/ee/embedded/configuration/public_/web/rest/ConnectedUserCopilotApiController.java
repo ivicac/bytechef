@@ -18,7 +18,6 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.platform.ai.tool.TaskTools;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -36,9 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -92,13 +89,6 @@ public class ConnectedUserCopilotApiController {
         State state = agUiParameters.getState();
         Map<String, Object> stateMap = state.getState();
 
-        // Rebuilt from scratch rather than overwritten in place: a connected user's JWT reaches this state map
-        // directly, so every key this run needs must be an explicit, reviewed grant. Overwriting a fixed list of
-        // keys instead would fail open for any key nobody thought to name here -- STATE_AUTHENTICATED_USER_ID once
-        // slipped through exactly that way, and WorkflowEditorSpringAIAgent gives a non-null userId precedence over
-        // the carried Authentication, so a client-supplied id there is a full privilege swap, not merely a forged id
-        // reaching a check. A connected user has no platform user id and no workspace, so neither
-        // STATE_AUTHENTICATED_USER_ID nor STATE_WORKSPACE_ID is ever accepted from, or derivable for, this surface.
         String additionalSystemPrompt = sanitizeAdditionalSystemPrompt(
             stateMap.get(CopilotConstants.STATE_ADDITIONAL_SYSTEM_PROMPT));
 
@@ -113,12 +103,6 @@ public class ConnectedUserCopilotApiController {
             String.join(":", "embedded", TenantContext.getCurrentTenantId(), externalUserId, workflowUuid));
         stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, (long) environment.ordinal());
         stateMap.put(CopilotConstants.STATE_SCOPED_PROJECT_ID, context.projectId());
-
-        // Scopes the agent's environment context (CopilotSpringAIAgent#runWithEnvironment) and AI provider
-        // resolution (CopilotChatClientResolver, WorkflowEditorSpringAIAgent#advisorParams) to the environment this
-        // request was authorized against -- resolved server-side from the X-Environment header above, never from
-        // client state.
-        stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, (long) environment.ordinal());
 
         Authentication authentication = SecurityContextHolder.getContext()
             .getAuthentication();
@@ -148,11 +132,6 @@ public class ConnectedUserCopilotApiController {
         return agUiService.runAgent(localAgent, agUiParameters);
     }
 
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
-    }
-
     private static @Nullable String sanitizeAdditionalSystemPrompt(@Nullable Object additionalSystemPromptValue) {
         if (!(additionalSystemPromptValue instanceof String additionalSystemPrompt)
             || additionalSystemPrompt.isBlank()) {
@@ -171,26 +150,5 @@ public class ConnectedUserCopilotApiController {
 
     private Environment getEnvironment(@Nullable EnvironmentModel xEnvironment) {
         return environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
-    }
-
-    /**
-     * Trims and length-caps the client-supplied additional system prompt. The result is rendered by
-     * {@code WorkflowEditorSpringAIAgent} as an advisory block that is explicitly subordinated to the agent's build
-     * rules, so a hostile value cannot escalate beyond steering the conversation.
-     */
-    private static @Nullable String sanitizeAdditionalSystemPrompt(@Nullable Object additionalSystemPromptValue) {
-        if (!(additionalSystemPromptValue instanceof String additionalSystemPrompt)
-            || additionalSystemPrompt.isBlank()) {
-
-            return null;
-        }
-
-        String trimmed = additionalSystemPrompt.strip();
-
-        if (trimmed.length() > CopilotConstants.ADDITIONAL_SYSTEM_PROMPT_MAX_LENGTH) {
-            trimmed = trimmed.substring(0, CopilotConstants.ADDITIONAL_SYSTEM_PROMPT_MAX_LENGTH);
-        }
-
-        return trimmed;
     }
 }

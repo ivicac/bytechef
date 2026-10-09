@@ -50,26 +50,31 @@ public class ProjectWorkflowLifecycleTools {
     @Tool(
         description = "Get comprehensive information about a specific workflow. Returns detailed project information including id, name, description, version, definition, project workflow id, created date, last modified date.")
     public WorkflowInfo getWorkflow(
-        @ToolParam(description = "The ID of the workflow to retrieve") String workflowId) {
+        @ToolParam(description = "The ID of the workflow to retrieve") String workflowId,
+        ToolContext toolContext) {
 
-        return delegate.getWorkflow(workflowId);
+        return delegate.getWorkflow(workflowId, toolContext);
     }
 
     @Tool(
         description = "List all workflows in a project. Returns a list of workflows with their basic information including id, name and description")
     public List<WorkflowInfo> listWorkflows(
-        @ToolParam(description = "The ID of the project") long projectId) {
+        @ToolParam(description = "The ID of the project") long projectId,
+        ToolContext toolContext) {
 
-        return delegate.listWorkflows(projectId);
+        return delegate.listWorkflows(projectId, toolContext);
     }
 
     @Tool(
         description = "Full-text search across workflows in projects. Returns a list of workflows matching the search query in name or description.")
     public List<WorkflowInfo> searchWorkflows(
         @ToolParam(description = "The search query to match against workflow names and descriptions") String query,
-        @ToolParam(required = false, description = "The ID of the project") Long projectId) {
+        @ToolParam(required = false, description = "The ID of the project") Long projectId,
+        @ToolParam(
+            required = false, description = AutomationToolInvocationContext.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
+        ToolContext toolContext) {
 
-        return delegate.searchWorkflows(query, projectId);
+        return delegate.searchWorkflows(query, projectId, workspaceId, toolContext);
     }
 
     @Tool(
@@ -87,7 +92,7 @@ public class ProjectWorkflowLifecycleTools {
     public String deleteWorkflow(
         @ToolParam(description = "The ID of the workflow to delete") String workflowId) {
 
-        return delegate.deleteWorkflow(workflowId);
+        return delegate.deleteWorkflow(workflowId, null);
     }
 
     @Tool(

@@ -48,7 +48,6 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
-import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
@@ -59,7 +58,6 @@ import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
-import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -266,9 +264,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 throw new ConfigurationException("MCP server is disabled", McpServerErrorType.MCP_SERVER_DISABLED);
             }
 
-            // Re-checked per call rather than trusting the listing: a client with a stale tools/list cache must not
-            // execute a tool that has been disabled or deleted since. A missing row fails closed.
-            boolean toolEnabled = mcpToolService.fetchMcpTool(mcpToolId)
+            boolean toolEnabled = readMcpServerConfiguration(() -> mcpToolService.fetchMcpTool(mcpToolId))
                 .map(McpTool::isEnabled)
                 .orElse(false);
 
@@ -289,6 +285,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                     .componentVersion(componentVersion)
                     .operationName(clusterElementName)
                     .connectionId(connectionId)
+                    .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
                     .mcpServerId(mcpServerId)
                     .workspaceId(workspaceId),
                 () -> clusterElementDefinitionFacade.executeTool(
@@ -339,30 +336,62 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             return toolExecutionRecorder.record(
                 ToolExecutionEvent
                     .builder(ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW, toolName)
+                    .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
                     .mcpServerId(mcpServerId)
                     .workspaceId(workspaceId)
                     .jobId(jobId),
-                () -> {
-                    Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
-                        .join();
-
-                    // A STOPPED run with a stored resume id is paused on a human approval, not finished — return a
-                    // clear pointer to the hosted form instead of an empty result. Full MCP elicitation remains
-                    // future work.
-                    if (job.getStatus() == Job.Status.STOPPED) {
-                        return describePendingApproval(job);
-                    }
-
-                    JobExecutionErrors.checkForError(job, taskExecutionService);
-
-                    if (job.getOutputs() == null) {
-                        return null;
-                    }
-
-                    return getCallableResponseOutput(job)
-                        .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
-                });
+                () -> getWorkflowRunResult(
+                    jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
+                        .join()));
         };
+    }
+
+    private @Nullable Object getWorkflowRunResult(Job job) {
+        if (isPausedOnApproval(job)) {
+            return describePendingApproval(job);
+        }
+
+        if (isPausedOnWait(job)) {
+            return describePendingWait(job);
+        }
+
+        JobExecutionErrors.checkForError(job, taskExecutionService);
+        JobExecutionErrors.checkCompleted(job);
+
+        if (job.getOutputs() == null) {
+            return null;
+        }
+
+        return getCallableResponseOutput(job)
+            .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
+    }
+
+    private static boolean isPausedOnApproval(Job job) {
+        return isSuspended(job) && Boolean.TRUE.equals(job.getMetadata(MetadataConstants.APPROVAL_RESUME));
+    }
+
+    private static boolean isPausedOnWait(Job job) {
+        return isSuspended(job) && !Boolean.TRUE.equals(job.getMetadata(MetadataConstants.APPROVAL_RESUME));
+    }
+
+    private static boolean isSuspended(Job job) {
+        return job.getStatus() == Job.Status.STOPPED && job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null;
+    }
+
+    private static Map<String, Object> describePendingWait(Job job) {
+        Map<String, Object> result = new HashMap<>();
+
+        result.put("status", "waiting");
+        result.put(
+            "message",
+            "The workflow run is paused at a wait step and continues on its own when the wait ends; no action " +
+                "is required.");
+
+        if (job.getId() != null) {
+            result.put("jobId", job.getId());
+        }
+
+        return result;
     }
 
     private Map<String, Object> describePendingApproval(Job job) {
@@ -389,9 +418,6 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             result.put("formUrl", formUrl);
         }
 
-        // The signed resume token is carried independently of formUrl so form-mode elicitation works on deployments
-        // without a configured public URL (where formUrl is absent) — the hosted form is what needs a public URL, an
-        // inline approval decision only needs the token.
         ApprovalFormUrls.buildResumeToken(jobResumeIdString, approvalTokens)
             .ifPresent(resumeToken -> result.put("resumeToken", resumeToken));
 
@@ -402,37 +428,20 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         return result;
     }
 
-    /**
-     * Returns the server-authoritative signed resume token for a run that is genuinely paused on a human approval
-     * (STOPPED with a stored resume id), or empty otherwise. Re-derived from the run's OWN state — like
-     * {@link #resolvePendingApprovalFormUrl} — rather than trusting a token echoed in tool output, and available even
-     * when no public URL is configured so form-mode elicitation still functions.
-     */
     public Optional<String> resolvePendingApprovalResumeToken(long jobId) {
         Job job = jobService.fetchJob(jobId)
             .orElse(null);
 
-        if (job == null || job.getStatus() != Job.Status.STOPPED) {
+        if (job == null || !isPausedOnApproval(job)) {
             return Optional.empty();
         }
 
-        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-        if (jobResumeId == null) {
-            return Optional.empty();
-        }
+        Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
 
         return ApprovalFormUrls.buildResumeToken(
             jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
     }
 
-    /**
-     * Verifies that {@code jobId}'s workflow is one this MCP server actually exposes, so the approval-elicitation
-     * decorator never resolves or returns the outputs of a run this server has no business seeing. Tenant scoping alone
-     * is insufficient: a genuinely-paused run in another workspace of the same tenant would otherwise be readable by id
-     * through a crafted {@code approval_required} descriptor. Fail-closed — an unresolvable job, or one whose workflow
-     * is not in this server's exposed set, returns {@code false}.
-     */
     public boolean isJobWorkflowExposedByMcpServer(long jobId, long mcpServerId) {
         String workflowId = jobService.fetchJob(jobId)
             .map(Job::getWorkflowId)
@@ -442,7 +451,10 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             return false;
         }
 
-        for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
+        List<McpProject> mcpProjects = readMcpServerConfiguration(
+            () -> mcpProjectService.getMcpServerMcpProjects(mcpServerId));
+
+        for (McpProject mcpProject : mcpProjects) {
             for (McpProjectWorkflow mcpProjectWorkflow : mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(
                 mcpProject.getId())) {
 
@@ -454,14 +466,17 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                     if (workflowId.equals(projectDeploymentWorkflow.getWorkflowId())) {
                         return true;
                     }
-                } catch (Exception exception) {
-                    // A stale mcp_project_workflow row (its deployment workflow deleted) must not fail the approval
-                    // tool call — skip it, staying fail-closed: an entry that cannot be resolved does not expose a job.
+                } catch (NoSuchElementException noSuchElementException) {
                     if (log.isDebugEnabled()) {
                         log.debug(
                             "Skipping unresolvable project-deployment-workflow {} while checking MCP exposure: {}",
-                            mcpProjectWorkflow.getProjectDeploymentWorkflowId(), exception.getMessage());
+                            mcpProjectWorkflow.getProjectDeploymentWorkflowId(), noSuchElementException.getMessage());
                     }
+                } catch (RuntimeException runtimeException) {
+                    log.warn(
+                        "Skipping project-deployment-workflow {} while checking MCP exposure: {}",
+                        mcpProjectWorkflow.getProjectDeploymentWorkflowId(), runtimeException.getMessage(),
+                        runtimeException);
                 }
             }
         }
@@ -469,48 +484,27 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         return false;
     }
 
-    /**
-     * Returns the server-authoritative hosted approval-form URL for a run that is genuinely paused on a human approval
-     * (STOPPED with a stored resume id), or empty otherwise. The MCP elicitation decorator uses this instead of
-     * trusting a {@code formUrl} echoed in tool-output text: a workflow could otherwise emit a crafted
-     * {@code approval_required} descriptor as its normal output and point the reviewer at an attacker-controlled URL
-     * (or name another run's job id). The job is resolved under the current tenant context, so it can only ever name
-     * this tenant's own runs.
-     */
     public Optional<String> resolvePendingApprovalFormUrl(long jobId) {
         Job job = jobService.fetchJob(jobId)
             .orElse(null);
 
-        if (job == null || job.getStatus() != Job.Status.STOPPED) {
+        if (job == null || !isPausedOnApproval(job)) {
             return Optional.empty();
         }
 
-        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-        if (jobResumeId == null) {
-            return Optional.empty();
-        }
+        Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
 
         return ApprovalFormUrls.buildFormUrl(
             publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
     }
 
-    /**
-     * Re-awaits a workflow run whose initial synchronous wait ended on a pending approval, after the human has been
-     * pointed at the hosted form (via MCP URL elicitation). The completion awaiter treats STOPPED as terminal — it IS
-     * terminal for an un-resumed run — so a plain await would hand back the still-paused job the instant a client
-     * acknowledges the elicitation before the human actually resolves the form. Instead this polls until the job leaves
-     * STOPPED (the resume flips it to STARTED) or the sync deadline passes, then awaits real completion. Returns the
-     * run's outputs on completion, another pending-approval descriptor if the run is still (or again) paused, or throws
-     * on a failed run — mirroring the initial call's semantics.
-     */
     public @Nullable Object awaitApprovedWorkflowRun(long jobId) {
         Instant deadline = Instant.now()
             .plus(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
 
         Job job = jobService.getJob(jobId);
 
-        while (job.getStatus() == Job.Status.STOPPED && Instant.now()
+        while (isPausedOnApproval(job) && Instant.now()
             .isBefore(deadline)) {
 
             try {
@@ -525,7 +519,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             job = jobService.getJob(jobId);
         }
 
-        if (job.getStatus() == Job.Status.STOPPED) {
+        if (isPausedOnApproval(job)) {
             return describePendingApproval(job);
         }
 
@@ -534,27 +528,9 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         job = jobCompletionAwaiter.await(jobId, remaining.isNegative() ? Duration.ofSeconds(1) : remaining)
             .join();
 
-        if (job.getStatus() == Job.Status.STOPPED) {
-            return describePendingApproval(job);
-        }
-
-        Job completedJob = job;
-
-        JobExecutionErrors.checkForError(completedJob, taskExecutionService);
-
-        if (completedJob.getOutputs() == null) {
-            return null;
-        }
-
-        return getCallableResponseOutput(completedJob)
-            .orElseGet(() -> taskFileStorage.readJobOutputs(completedJob.getOutputs()));
+        return getWorkflowRunResult(job);
     }
 
-    /**
-     * Resolves a pending approval directly with the decision collected through MCP FORM elicitation (approved +
-     * optional comment) and then awaits the resumed run. A resume that is no longer possible (already resolved,
-     * expired, or an invalid token) returns an {@code approval_unavailable} descriptor instead of throwing.
-     */
     public @Nullable Object resolveApprovalAndAwait(String resumeToken, Map<String, Object> data, long jobId) {
         JobResumeFacade.JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeToken, data);
 

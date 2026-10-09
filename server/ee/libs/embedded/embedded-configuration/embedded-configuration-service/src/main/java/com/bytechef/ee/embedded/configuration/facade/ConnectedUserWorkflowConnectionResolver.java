@@ -23,20 +23,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
- * Resolves the per-slot connection wiring for a connected user's reference to a shared catalog workflow. Candidates
- * come ONLY from the connected user's own entitled connections ({@link ConnectedUserConnectionFacade}) -- never from
- * the tenant-wide {@code ConnectionService} -- so two connected users referencing the same workflow can never end up
- * wired to each other's connections. Slots are enumerated by {@link WorkflowConnectionSlots}, the same enumeration
- * {@code ProjectDeploymentFacadeImpl} uses to check that required connections are set.
- *
- * <p>
- * For each slot, a connection is chosen in this order: the caller-requested connection for that component (rejected
- * with {@link ConnectionNotEntitledException} if the connected user is not entitled to it), then the connection
- * currently wired to that component (if the connected user is still entitled to it), then the connected user's first
- * entitled connection for that component. A required slot with no entitled connection is reported in
- * {@link ResolvedWorkflowConnections#missingComponentNames()} rather than failing outright, so a partially resolvable
- * workflow can still surface which component is missing.
- *
  * @version ee
  *
  * @author Ivica Cardic
@@ -46,25 +32,23 @@ import org.springframework.stereotype.Component;
 public class ConnectedUserWorkflowConnectionResolver {
 
     private final ConnectedUserConnectionFacade connectedUserConnectionFacade;
-    private final WorkflowConnectionSlots workflowConnectionSlots;
+    private final WorkflowConnectionSlot workflowConnectionSlot;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserWorkflowConnectionResolver(
-        ConnectedUserConnectionFacade connectedUserConnectionFacade, WorkflowConnectionSlots workflowConnectionSlots) {
-
+        ConnectedUserConnectionFacade connectedUserConnectionFacade, WorkflowConnectionSlot workflowConnectionSlot) {
         this.connectedUserConnectionFacade = connectedUserConnectionFacade;
-        this.workflowConnectionSlots = workflowConnectionSlots;
+        this.workflowConnectionSlot = workflowConnectionSlot;
     }
 
     public ResolvedWorkflowConnections resolve(
         String workflowId, long connectedUserId, Map<String, Long> requestedConnectionIds,
         List<ProjectDeploymentWorkflowConnection> currentConnections) {
-
         Map<String, List<Long>> entitledConnectionIdsByComponentName = new HashMap<>();
         List<ProjectDeploymentWorkflowConnection> connections = new ArrayList<>();
         Set<String> missingComponentNames = new LinkedHashSet<>();
 
-        for (ComponentConnection slot : workflowConnectionSlots.getSlots(workflowId)) {
+        for (ComponentConnection slot : workflowConnectionSlot.getSlots(workflowId)) {
             String componentName = slot.componentName();
 
             List<Long> entitledConnectionIds = entitledConnectionIdsByComponentName.computeIfAbsent(
@@ -99,7 +83,6 @@ public class ConnectedUserWorkflowConnectionResolver {
     private static Long selectConnectionId(
         String componentName, List<Long> entitledConnectionIds, @Nullable Long requestedConnectionId,
         List<ProjectDeploymentWorkflowConnection> currentConnections) {
-
         if (requestedConnectionId != null) {
             if (!entitledConnectionIds.contains(requestedConnectionId)) {
                 throw new ConnectionNotEntitledException(componentName, requestedConnectionId);

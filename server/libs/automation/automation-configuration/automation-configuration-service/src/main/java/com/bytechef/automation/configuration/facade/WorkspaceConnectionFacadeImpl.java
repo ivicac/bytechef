@@ -186,15 +186,11 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     @Override
     @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_DELETE')")
     public void delete(long connectionId) {
-        // Cancel any pending OAuth refresh job before deleting any rows. If this fails, abort: a leftover
-        // scheduled refresh that fires against a deleted connection wakes up the scheduler with no row to
-        // refresh, which the production listener (ConnectionAfterSaveEventListener#onBeforeDelete) cannot
-        // recover from once we've already torn down the workspace mapping.
-        connectionLifecycleFacade.deleteScheduledConnectionRefresh(connectionId, TenantContext.getCurrentTenantId());
-
         workspaceConnectionService.deleteWorkspaceConnection(connectionId);
 
         connectionFacade.delete(connectionId);
+
+        connectionLifecycleFacade.deleteScheduledConnectionRefresh(connectionId, TenantContext.getCurrentTenantId());
 
         // Plain CE domain event; EE audits it after commit (see ConnectionCreatedEvent emission above).
         applicationEventPublisher.publishEvent(new ConnectionDeletedEvent(connectionId));

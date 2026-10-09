@@ -16,9 +16,9 @@
 
 package com.bytechef.automation.ai.tool;
 
-import com.bytechef.automation.ai.tool.exception.ScriptToolErrorType;
 import com.bytechef.automation.ai.tool.model.WorkflowInfo;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
+import com.bytechef.automation.configuration.exception.ProjectWorkflowErrorType;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.exception.ExecutionException;
@@ -39,11 +39,16 @@ import tools.jackson.databind.node.ObjectNode;
 public class ScriptTools {
     private static final Logger log = LoggerFactory.getLogger(ScriptTools.class);
 
+    private final AppCallableDraftGuard appCallableDraftGuard;
     private final ProjectWorkflowFacade projectWorkflowFacade;
     private final ScopedProjectGuard scopedProjectGuard;
 
     @SuppressFBWarnings("EI")
-    public ScriptTools(ProjectWorkflowFacade projectWorkflowFacade, ScopedProjectGuard scopedProjectGuard) {
+    public ScriptTools(
+        AppCallableDraftGuard appCallableDraftGuard, ProjectWorkflowFacade projectWorkflowFacade,
+        ScopedProjectGuard scopedProjectGuard) {
+
+        this.appCallableDraftGuard = appCallableDraftGuard;
         this.projectWorkflowFacade = projectWorkflowFacade;
         this.scopedProjectGuard = scopedProjectGuard;
     }
@@ -54,13 +59,14 @@ public class ScriptTools {
         @ToolParam(description = "The ID of the workflow to update") String workflowId,
         @ToolParam(description = "The new code") String code,
         @ToolParam(description = "The name of the script node") String scriptName,
-        @ToolParam(required = false, description = ProjectWorkspaceScope.WORKSPACE_ID_DESCRIPTION) Long workspaceId,
         ToolContext toolContext) {
 
-        scopedProjectGuard.checkWorkflow(workflowId, workspaceId, toolContext, ScriptToolErrorType.UPDATE_SCRIPT);
+        scopedProjectGuard.checkWorkflow(workflowId, toolContext, ProjectWorkflowErrorType.UPDATE_SCRIPT);
 
         try {
             ProjectWorkflowDTO projectWorkflowDTO = projectWorkflowFacade.getProjectWorkflow(workflowId);
+
+            appCallableDraftGuard.checkDraft(toolContext, workflowId);
 
             String workflowDefinition = projectWorkflowDTO.getDefinition();
 
@@ -112,7 +118,7 @@ public class ScriptTools {
                 scriptName, workflowId, e);
 
             throw new ExecutionException(
-                "Failed to update workflow: " + e.getMessage(), e, ScriptToolErrorType.UPDATE_SCRIPT);
+                "Failed to update workflow: " + e.getMessage(), e, ProjectWorkflowErrorType.UPDATE_SCRIPT);
         }
     }
 }

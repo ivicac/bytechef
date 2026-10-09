@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
 import com.bytechef.automation.configuration.service.PermissionService;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import java.util.List;
@@ -41,7 +42,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     classes = PermissionServiceIntTest.Config.class, properties = "bytechef.edition=ee")
 @MockitoBean(types = {
     CurrentUserResolver.class, PermissionScopeRegistry.class, ProjectRepository.class,
-    WorkspaceScopeCacheService.class, WorkspaceUserRepository.class
+    ResourceVisibilityResolver.class, WorkspaceScopeCacheService.class, WorkspaceUserRepository.class
 })
 class PermissionServiceIntTest {
 

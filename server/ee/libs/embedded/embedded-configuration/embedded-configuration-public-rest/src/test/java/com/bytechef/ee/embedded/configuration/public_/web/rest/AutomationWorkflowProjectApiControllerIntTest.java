@@ -10,7 +10,10 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
@@ -20,8 +23,11 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedCo
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import java.util.List;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -81,51 +87,45 @@ class AutomationWorkflowProjectApiControllerIntTest {
 
         AutomationWorkflowProjectDTO projectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID, "Onboarding Project", "New user onboarding automations", null, List.of(), true, 1, 1,
-            List.of(workflowDTO), null, false);
+            List.of(workflowDTO), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(projectDTO));
 
-        try {
-            webTestClient
-                .get()
-                .uri("/v1/automation/projects")
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus()
-                .isOk()
-                .expectBody()
-                .jsonPath("$[0].id")
-                .isEqualTo(PROJECT_ID)
-                .jsonPath("$[0].name")
-                .isEqualTo("Onboarding Project")
-                .jsonPath("$[0].description")
-                .isEqualTo("New user onboarding automations")
-                .jsonPath("$[0].workflowTemplates[0].id")
-                .isEqualTo(WORKFLOW_UUID)
-                .jsonPath("$[0].workflowTemplates[0].label")
-                .isEqualTo("Welcome Email Workflow")
-                .jsonPath("$[0].workflowTemplates[0].components[0].name")
-                .isEqualTo("gmail")
-                .jsonPath("$[0].workflowTemplates[0].components[0].title")
-                .isEqualTo("Gmail")
-                .jsonPath("$[0].workflowTemplates[0].components[0].icon")
-                .isEqualTo("gmail-icon-svg")
-                .jsonPath("$[0].kind")
-                .isEqualTo("COPY");
-        } catch (Exception exception) {
-            Assertions.fail(exception);
-        }
+        webTestClient
+            .get()
+            .uri("/v1/automation/projects")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath("$[0].id")
+            .isEqualTo(PROJECT_ID)
+            .jsonPath("$[0].name")
+            .isEqualTo("Onboarding Project")
+            .jsonPath("$[0].description")
+            .isEqualTo("New user onboarding automations")
+            .jsonPath("$[0].workflowTemplates[0].id")
+            .isEqualTo(WORKFLOW_UUID)
+            .jsonPath("$[0].workflowTemplates[0].label")
+            .isEqualTo("Welcome Email Workflow")
+            .jsonPath("$[0].workflowTemplates[0].components[0].name")
+            .isEqualTo("gmail")
+            .jsonPath("$[0].workflowTemplates[0].components[0].title")
+            .isEqualTo("Gmail")
+            .jsonPath("$[0].workflowTemplates[0].components[0].icon")
+            .isEqualTo("gmail-icon-svg");
     }
 
     @Test
-    @WithMockUser(username = "user@example.com")
+    @WithMockUser(username = EXTERNAL_USER_ID)
     public void testGetFrontendProjectsReturnsReferenceKindForCodeWorkflowProject() {
         AutomationWorkflowProjectDTO projectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID, "Code Workflow Project", "A project backed by a code workflow", null, List.of(), true, 1, 1,
-            List.of(), null, true);
+            List.of(), null, true, true);
 
-        when(automationWorkflowProjectFacade.getPublishedProjects())
+        when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(projectDTO));
 
         try {
@@ -157,7 +157,7 @@ class AutomationWorkflowProjectApiControllerIntTest {
             List.of(slackComponent, gmailComponent), List.of(), null);
 
         AutomationWorkflowProjectDTO projectDTO = new AutomationWorkflowProjectDTO(
-            PROJECT_ID, "Slack Project", null, null, List.of(), true, 1, 1, List.of(workflowDTO), null, true);
+            PROJECT_ID, "Slack Project", null, null, List.of(), true, 1, 1, List.of(workflowDTO), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(projectDTO));
@@ -205,7 +205,7 @@ class AutomationWorkflowProjectApiControllerIntTest {
     void testGetFrontendProjectsUnpublishedProjectHasEmptyWorkflows() {
         AutomationWorkflowProjectDTO unpublishedProjectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID + 1, "Draft Project", "A project with no published version", null, List.of(), false, 1, null,
-            List.of(), null, false);
+            List.of(), null, false, true);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(unpublishedProjectDTO));
@@ -233,11 +233,11 @@ class AutomationWorkflowProjectApiControllerIntTest {
     void testFrontendProjectsKeepHiddenProjectsAndUseThePermissionFilter() {
         AutomationWorkflowProjectDTO visibleProjectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID, "Visible Project", "Shown in the hub", null, List.of(), true, 1, 1, List.of(), null,
-            true);
+            false, true);
 
         AutomationWorkflowProjectDTO hiddenProjectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID + 1, "Hidden Project", "Not shown in the hub", null, List.of(), true, 1, 1, List.of(), null,
-            false);
+            false, false);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(visibleProjectDTO, hiddenProjectDTO));
@@ -269,11 +269,11 @@ class AutomationWorkflowProjectApiControllerIntTest {
     void testApiKeyProjectsKeepHiddenProjects() {
         AutomationWorkflowProjectDTO visibleProjectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID, "Visible Project", "Shown in the hub", null, List.of(), true, 1, 1, List.of(), null,
-            true);
+            false, true);
 
         AutomationWorkflowProjectDTO hiddenProjectDTO = new AutomationWorkflowProjectDTO(
             PROJECT_ID + 1, "Hidden Project", "Not shown in the hub", null, List.of(), true, 1, 1, List.of(), null,
-            false);
+            false, false);
 
         when(automationWorkflowProjectFacade.getPublishedProjects(EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(List.of(visibleProjectDTO, hiddenProjectDTO));
@@ -292,5 +292,51 @@ class AutomationWorkflowProjectApiControllerIntTest {
             .isEqualTo(PROJECT_ID)
             .jsonPath("$[1].id")
             .isEqualTo(PROJECT_ID + 1);
+    }
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "development", "Development", " development "
+    })
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testGetFrontendProjectsAcceptsAnyCaseOfTheEnvironmentHeader(String requestEnvironment)
+        throws Exception {
+
+        mockMvc
+            .perform(
+                get("/v1/automation/projects")
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isOk());
+
+        verify(environmentService).getEnvironment("DEVELOPMENT");
+    }
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "", "   "
+    })
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testGetFrontendProjectsTreatsABlankEnvironmentHeaderAsAbsent(String requestEnvironment)
+        throws Exception {
+
+        mockMvc
+            .perform(
+                get("/v1/automation/projects")
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isOk());
+
+        verify(environmentService).getEnvironment((String) null);
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testGetFrontendProjectsRejectsAnUnknownEnvironmentHeader() throws Exception {
+        mockMvc
+            .perform(
+                get("/v1/automation/projects")
+                    .header("X-Environment", "staging-x"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(automationWorkflowProjectFacade, environmentService);
     }
 }

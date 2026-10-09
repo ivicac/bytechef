@@ -11,7 +11,6 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectionModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateConnectionRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
@@ -33,10 +32,7 @@ import java.util.Set;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -68,15 +64,8 @@ public class ConnectionApiController implements ConnectionApi {
     }
 
     @Override
-    @PreAuthorize("#externalUserId == authentication.name")
     public ResponseEntity<List<ConnectionModel>> getConnections(
         String externalUserId, String componentName, EnvironmentModel xEnvironment, List<Long> connectionIds) {
-
-        SecurityUtils.checkCurrentUserLogin(externalUserId);
-
-        // The authenticated embedded principal's name IS the connected user's externalId (see
-        // EmbeddedApiKeyAuthenticationProvider). The path externalUserId must match it, otherwise a caller
-        // authenticated for one end user could read another end user's connections (IDOR).
         Environment environment = getEnvironment(xEnvironment);
 
         Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(
@@ -84,14 +73,12 @@ public class ConnectionApiController implements ConnectionApi {
 
         Set<Long> sharedConnectionIds = connectedUserConnectionFacade.getSharedConnectionIds();
 
-        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
-
         return ResponseEntity.ok(
             connectedUserConnectionFacade
                 .getConnectedUserConnections(
                     externalUserId, environment, componentName, connectionIds == null ? List.of() : connectionIds)
                 .stream()
-                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds, sharedConnectionIds))
                 .toList());
     }
 
@@ -100,15 +87,15 @@ public class ConnectionApiController implements ConnectionApi {
         String componentName, EnvironmentModel xEnvironment, List<Long> connectionIds) {
         ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
-        ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
-
         Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
+
+        Set<Long> sharedConnectionIds = connectedUserConnectionFacade.getSharedConnectionIds();
 
         return ResponseEntity.ok(
             connectedUserConnectionFacade
                 .getConnections(connectedUser.getId(), componentName, connectionIds == null ? List.of() : connectionIds)
                 .stream()
-                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds, sharedConnectionIds))
                 .toList());
     }
 
@@ -118,29 +105,22 @@ public class ConnectionApiController implements ConnectionApi {
 
         Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
 
+        Set<Long> sharedConnectionIds = connectedUserConnectionFacade.getSharedConnectionIds();
+
         return ResponseEntity.ok(
             connectedUserConnectionFacade.getConnections(connectedUser.getId(), null, List.of())
                 .stream()
-                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds))
+                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds, sharedConnectionIds))
                 .toList());
     }
 
-    /**
-     * Reports the two facts a client needs, which are independent of each other and were briefly conflated here:
-     * {@code shared} is the tenant admin's own flag on the connection, and {@code editable} is whether THIS connected
-     * user owns it.
-     * <p>
-     * Deriving {@code shared} from "not owned" made a connection that is both owned AND shared report itself as not
-     * shared -- the admin ticked Shared and the end user's list said otherwise. {@code editable} carries the ownership
-     * half instead: {@code ConnectedUserConnectionFacadeImpl.requireOwned} refuses to reauthorize or delete a
-     * connection the user does not own, and without this the client offers actions the server then rejects.
-     */
-    private ConnectionModel toConnectionModel(ConnectionDTO connectionDTO, Set<Long> ownedConnectionIds) {
+    private ConnectionModel toConnectionModel(
+        ConnectionDTO connectionDTO, Set<Long> ownedConnectionIds, Set<Long> sharedConnectionIds) {
         ConnectionModel connectionModel = conversionService.convert(connectionDTO, ConnectionModel.class);
 
         if (connectionModel != null) {
-            connectionModel.setShared(connectionDTO.shared());
             connectionModel.setEditable(ownedConnectionIds.contains(connectionDTO.id()));
+            connectionModel.setShared(sharedConnectionIds.contains(connectionDTO.id()));
         }
 
         return connectionModel;
@@ -201,11 +181,6 @@ public class ConnectionApiController implements ConnectionApi {
     public ResponseEntity<Object> handleConnectionInUseException() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(Map.of("reason", "CONNECTION_IS_USED"));
-    }
-
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private ConnectedUser getCurrentConnectedUser(EnvironmentModel xEnvironment) {
