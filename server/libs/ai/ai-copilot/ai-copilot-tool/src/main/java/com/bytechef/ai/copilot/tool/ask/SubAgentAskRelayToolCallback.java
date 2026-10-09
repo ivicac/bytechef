@@ -107,6 +107,8 @@ public final class SubAgentAskRelayToolCallback implements ToolCallback {
         String toolName = toolDefinition.name();
 
         if (pendingQuestion != null) {
+            SubAgentPendingQuestionSignal.markPending(toolContext);
+
             return renderQuestion(toolName, pendingQuestion, result);
         }
 

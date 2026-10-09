@@ -18,7 +18,6 @@ import com.bytechef.ee.embedded.configuration.exception.MissingInputException;
 import com.bytechef.ee.embedded.configuration.exception.ProvidedValueLockedException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserWorkflowReferenceFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectedUserProjectWorkflowModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowFromPromptRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowRequestModel;
@@ -42,10 +41,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -581,11 +578,6 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(Map.of(propertyName, providedValueLockedException.getName()));
-    }
-
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private Environment getEnvironment(EnvironmentModel xEnvironment) {

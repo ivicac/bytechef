@@ -32,12 +32,13 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.connection.usage.ConnectionUsageChecker;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.oauth2.service.OAuth2Service;
 import com.bytechef.platform.security.constant.AuthorityConstants;
-import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.security.domain.ResourceVisibility;
+import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
@@ -56,9 +57,9 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +74,7 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
     private final ConnectionDefinitionService connectionDefinitionService;
     private final ConnectionService connectionService;
+    private final List<ConnectionUsageChecker> connectionUsageCheckers;
     private final boolean eeEdition;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
     private final MeterRegistry meterRegistry;
@@ -88,10 +90,13 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
         @Value("${bytechef.edition:CE}") String edition,
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, OAuth2Service oAuth2Service, TagService tagService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
-        ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        ObjectProvider<MeterRegistry> meterRegistryProvider,
+        ObjectProvider<ConnectionUsageChecker> connectionUsageCheckerProvider) {
 
         this.connectionDefinitionService = connectionDefinitionService;
         this.connectionService = connectionService;
+        this.connectionUsageCheckers = connectionUsageCheckerProvider.orderedStream()
+            .toList();
         validateEdition(edition);
         this.eeEdition = "EE".equalsIgnoreCase(edition);
         this.jobPrincipalAccessorRegistry = jobPrincipalAccessorRegistry;
@@ -177,9 +182,14 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
         validateOwnerOrAdmin(connection);
 
-        if (isConnectionUsed(id, connection.getType())) {
+        List<String> usages = describeUsages(id);
+
+        if (!usages.isEmpty() || isUsedByWorkflows(id, connection.getType())) {
             throw new ConfigurationException(
-                "Connection id=%s is used".formatted(id), ConnectionErrorType.CONNECTION_IS_USED);
+                usages.isEmpty()
+                    ? "Connection id=%s is used".formatted(id)
+                    : "Connection id=%s is used by %s".formatted(id, String.join(", ", usages)),
+                ConnectionErrorType.CONNECTION_IS_USED);
         }
 
         connectionService.delete(id);
@@ -409,6 +419,10 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
     }
 
     private boolean isConnectionUsed(long connectionId, PlatformType type) {
+        return isUsedByWorkflows(connectionId, type) || !describeUsages(connectionId).isEmpty();
+    }
+
+    private boolean isUsedByWorkflows(long connectionId, PlatformType type) {
         boolean connectionUsed;
 
         JobPrincipalAccessor jobPrincipalAccessor = jobPrincipalAccessorRegistry.getJobPrincipalAccessor(type);
@@ -420,6 +434,13 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
         }
 
         return connectionUsed;
+    }
+
+    private List<String> describeUsages(long connectionId) {
+        return connectionUsageCheckers.stream()
+            .flatMap(connectionUsageChecker -> connectionUsageChecker.describeUsages(connectionId)
+                .stream())
+            .toList();
     }
 
     private List<Tag> filterTags(List<Tag> tags, Connection connection) {

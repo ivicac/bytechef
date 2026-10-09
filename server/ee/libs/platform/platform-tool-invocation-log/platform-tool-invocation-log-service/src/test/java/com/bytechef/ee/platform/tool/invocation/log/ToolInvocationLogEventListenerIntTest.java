@@ -83,6 +83,7 @@ class ToolInvocationLogEventListenerIntTest {
             .integrationInstanceId(9L)
             .mcpServerId(3L)
             .jobId(11L)
+            .appId(12L)
             .outcome(ToolExecutionOutcome.ERROR)
             .errorType("IllegalStateException")
             .errorMessage("failed")
@@ -113,6 +114,7 @@ class ToolInvocationLogEventListenerIntTest {
         assertThat(toolInvocationLog.getIntegrationInstanceId()).isEqualTo(9L);
         assertThat(toolInvocationLog.getMcpServerId()).isEqualTo(3L);
         assertThat(toolInvocationLog.getJobId()).isEqualTo(11L);
+        assertThat(toolInvocationLog.getAppId()).isEqualTo(12L);
         assertThat(toolInvocationLog.getOutcome()).isEqualTo(ToolExecutionOutcome.ERROR);
         assertThat(toolInvocationLog.getErrorType()).isEqualTo("IllegalStateException");
         assertThat(toolInvocationLog.getErrorMessage()).isEqualTo("failed");

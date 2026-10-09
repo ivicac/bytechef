@@ -26,6 +26,7 @@ import com.bytechef.component.definition.Authorization;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.Help;
 import com.bytechef.component.definition.Property;
+import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.component.domain.ConnectionDefinition;
 import com.bytechef.platform.component.service.ConnectionDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -35,6 +36,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.repository.ConnectionRepository;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.connection.usage.ConnectionUsageChecker;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.tag.domain.Tag;
@@ -45,6 +47,7 @@ import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.Validate;
 import org.assertj.core.api.Assertions;
@@ -98,8 +101,8 @@ class ConnectionFacadeIntTest {
     }
 
     @BeforeEach
-    public void beforeEach() {
-        when(connectionDefinitionService.getConnectionConnectionDefinition(eq("componentName"), eq(1)))
+    void beforeEach() {
+        when(connectionDefinitionService.getConnectionConnectionDefinition("componentName", 1))
             .thenReturn(
                 new ConnectionDefinition(new MockConnectionDefinition(), "componentName", "componentTitle", null));
     }
@@ -162,6 +165,37 @@ class ConnectionFacadeIntTest {
             .isEqualTo(0);
         Assertions.assertThat(tagRepository.count())
             .isEqualTo(1);
+    }
+
+    @Test
+    public void testDeleteIsRefusedWhileAUsageCheckerReportsUsages() {
+        ConnectionDTO connectionDTO = ConnectionDTO.builder()
+            .authorizationType(AuthorizationType.BASIC_AUTH)
+            .componentName("componentName")
+            .connectionVersion(1)
+            .environmentId(Environment.STAGING.ordinal())
+            .name("bound")
+            .build();
+
+        long connectionId = connectionFacade.create(connectionDTO, PlatformType.AUTOMATION);
+
+        ConnectionFacadeIntTestConfiguration.USAGES.set(List.of("app 'crm-dashboard' (binding 'crm')"));
+
+        Assertions.assertThat(connectionFacade.getConnection(connectionId)
+            .active())
+            .isTrue();
+        Assertions.assertThatThrownBy(() -> connectionFacade.delete(connectionId))
+            .isInstanceOf(ConfigurationException.class)
+            .hasMessageContaining("app 'crm-dashboard' (binding 'crm')");
+        Assertions.assertThat(connectionRepository.count())
+            .isEqualTo(1);
+
+        ConnectionFacadeIntTestConfiguration.USAGES.set(List.of());
+
+        connectionFacade.delete(connectionId);
+
+        Assertions.assertThat(connectionRepository.count())
+            .isEqualTo(0);
     }
 
     @Test
@@ -457,6 +491,13 @@ class ConnectionFacadeIntTest {
     })
     @TestConfiguration
     public static class ConnectionFacadeIntTestConfiguration {
+
+        static final AtomicReference<List<String>> USAGES = new AtomicReference<>(List.of());
+
+        @Bean
+        ConnectionUsageChecker connectionUsageChecker() {
+            return connectionId -> USAGES.get();
+        }
 
         @Bean
         JobPrincipalAccessor jobPrincipalAccessor() {

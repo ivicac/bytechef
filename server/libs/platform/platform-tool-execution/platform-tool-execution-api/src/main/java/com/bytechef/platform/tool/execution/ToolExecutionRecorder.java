@@ -18,6 +18,7 @@ package com.bytechef.platform.tool.execution;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Entry point every direct tool/action execution call site uses to record its invocation. Recording is fire-and-forget
@@ -32,7 +33,38 @@ public interface ToolExecutionRecorder {
      * measured duration and the resolved outcome ({@code SUCCESS}, or {@code TIMEOUT} / {@code ERROR} when the
      * execution throws). The original return value is returned and any thrown exception is rethrown unchanged.
      */
-    <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution);
+    default <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution) {
+        return record(builder, execution, result -> ToolExecutionOutcome.SUCCESS);
+    }
+
+    /**
+     * Like {@link #record(ToolExecutionEvent.Builder, Supplier)}, but the outcome of a returned value is answered by
+     * {@code outcomeResolver} (e.g. {@code SUSPENDED} or {@code APPROVAL_REQUIRED} for a paused workflow run).
+     */
+    <V> V record(
+        ToolExecutionEvent.Builder builder, Supplier<V> execution,
+        Function<? super V, ToolExecutionOutcome> outcomeResolver);
+
+    /**
+     * Like {@link #record(ToolExecutionEvent.Builder, Supplier)}, but a returned value for which {@code errorMessageOf}
+     * answers a non-null message is recorded as {@code ERROR} with that message; the value is still returned.
+     */
+    default <V> V recordWithErrorMessage(
+        ToolExecutionEvent.Builder builder, Supplier<V> execution,
+        Function<? super V, @Nullable String> errorMessageOf) {
+
+        return record(builder, execution, result -> {
+            String errorMessage = errorMessageOf.apply(result);
+
+            if (errorMessage == null) {
+                return ToolExecutionOutcome.SUCCESS;
+            }
+
+            builder.errorMessage(errorMessage);
+
+            return ToolExecutionOutcome.ERROR;
+        });
+    }
 
     /**
      * Emits a fully-built event directly, for terminal outcomes that are not produced by running an execution (e.g.

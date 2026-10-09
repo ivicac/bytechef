@@ -59,7 +59,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
-import com.bytechef.platform.workflow.JobInputConstants;
+import com.bytechef.platform.tool.execution.WorkflowToolRunResult;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -267,9 +267,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 throw new ConfigurationException("MCP server is disabled", McpServerErrorType.MCP_SERVER_DISABLED);
             }
 
-            // Re-checked per call rather than trusting the listing: a client with a stale tools/list cache must not
-            // execute a tool that has been disabled or deleted since. A missing row fails closed.
-            boolean toolEnabled = mcpToolService.fetchMcpTool(mcpToolId)
+            boolean toolEnabled = readMcpServerConfiguration(() -> mcpToolService.fetchMcpTool(mcpToolId))
                 .map(McpTool::isEnabled)
                 .orElse(false);
 
@@ -335,29 +333,20 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             inputs.put(triggerName, resolvedTriggerInputs);
             inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, triggerName);
 
-            ToolExecutionEvent.Builder eventBuilder = ToolExecutionEvent
-                .builder(PlatformType.AUTOMATION, ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW,
-                    toolName)
-                .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
-                .mcpServerId(mcpServerId)
-                .workspaceId(workspaceId);
+            long jobId = principalJobFacade.createJob(
+                new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
+                projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
 
-            WorkflowToolRunResult workflowToolRunResult = toolExecutionRecorder.record(
-                eventBuilder,
-                () -> {
-                    long jobId = principalJobFacade.createJob(
-                        new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
-                        projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
-
-                    eventBuilder.jobId(jobId);
-
-                    return getWorkflowRunResult(
-                        jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
-                            .join());
-                },
-                WorkflowToolRunResult::getOutcome);
-
-            return workflowToolRunResult.result();
+            return toolExecutionRecorder.record(
+                ToolExecutionEvent
+                    .builder(ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW, toolName)
+                    .environment(Math.toIntExact(mcpServer.getEnvironmentId()))
+                    .mcpServerId(mcpServerId)
+                    .workspaceId(workspaceId)
+                    .jobId(jobId),
+                () -> getWorkflowRunResult(
+                    jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
+                        .join()));
         };
     }
 

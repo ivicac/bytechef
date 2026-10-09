@@ -65,4 +65,25 @@ class McpInstructionAssemblyTest {
 
         assertTrue(instructions.contains("ByteChef management server"));
     }
+
+    @Test
+    void testTheAppLoopSectionIsOmittedOnACeToolSet() {
+        Set<String> toolNames = Set.of(
+            "listProjects", "createProject", "createProjectWorkflow", "buildWorkflow", "publishProject", "getWorkflow");
+
+        String instructions = ManagementMcpServerConfiguration.buildInstructions(toolNames);
+
+        assertFalse(instructions.contains("deployProject"));
+        assertFalse(instructions.contains("APP_CALLABLE"));
+        assertFalse(instructions.contains("createAppApiCollection"));
+    }
+
+    @Test
+    void testTheAppLoopSectionIsIncludedWhenAnAppLoopToolIsRegistered() {
+        String instructions = ManagementMcpServerConfiguration.buildInstructions(Set.of("deployProject"));
+
+        assertTrue(instructions.contains("workflow/v1/newWorkflowCall"));
+        assertTrue(instructions.contains("bytechef.ai.copilot.enabled"));
+        assertTrue(instructions.contains("X-ENVIRONMENT: DEVELOPMENT"));
+    }
 }

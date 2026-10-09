@@ -38,8 +38,10 @@ import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerLifecycleFacade;
+import com.bytechef.platform.workflow.execution.facade.TriggerStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
+import com.bytechef.platform.workflow.execution.service.TriggerStateService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -65,7 +67,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
     ConnectionFacade.class, ConnectionLifecycleFacade.class, ConnectionService.class, EnvironmentService.class,
     GitHubProxyClient.class, JobFacade.class, JobService.class, PrincipalJobFacade.class, PrincipalJobService.class,
     TaskExecutionService.class, TriggerDefinitionService.class, TriggerExecutionService.class,
-    TriggerLifecycleFacade.class, UserService.class, WorkflowCacheManager.class, WorkflowNodeParameterFacade.class,
+    TriggerLifecycleFacade.class, TriggerStateFacade.class, TriggerStateService.class, UserService.class,
+    WorkflowCacheManager.class,
+    WorkflowNodeParameterFacade.class,
     WorkflowNodeTestOutputService.class, WorkflowTemplateProxyClient.class
 })
 @MockitoSpyBean(types = PermissionService.class)

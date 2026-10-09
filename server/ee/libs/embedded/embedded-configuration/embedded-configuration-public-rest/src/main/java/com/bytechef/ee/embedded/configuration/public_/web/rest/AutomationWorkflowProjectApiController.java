@@ -10,7 +10,6 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.mapper.AutomationWorkflowProjectMapper;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowTemplateModel;
@@ -24,9 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -115,11 +112,6 @@ public class AutomationWorkflowProjectApiController implements AutomationWorkflo
             .map(ResponseEntity::ok)
             .orElseGet(() -> ResponseEntity.notFound()
                 .build());
-    }
-
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private Environment getEnvironment(EnvironmentModel xEnvironment) {

@@ -1,11 +1,27 @@
 extend type Query {
     toolInvocationLogs(
+        type: PlatformType!
         environmentId: ID
         surface: String
         outcome: String
         mcpServerId: Long
         connectedUserId: Long
         integrationInstanceId: Long
+        appId: Long
+        fromDate: Long
+        toDate: Long
+        page: Int = 0
+    ): ToolInvocationLogPageType!
+    workspaceToolInvocationLogs(
+        type: PlatformType!
+        workspaceId: ID!
+        environmentId: ID!
+        surface: String
+        outcome: String
+        mcpServerId: Long
+        connectedUserId: Long
+        integrationInstanceId: Long
+        appId: Long
         fromDate: Long
         toDate: Long
         page: Int = 0
@@ -29,6 +45,7 @@ type ToolInvocationLogType {
     mcpServerId: Long
     jobId: Long
     workflowName: String
+    appId: Long
     outcome: String!
     errorType: String
     errorMessage: String

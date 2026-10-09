@@ -18,7 +18,6 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.platform.ai.tool.TaskTools;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -36,9 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -114,12 +111,6 @@ public class ConnectedUserCopilotApiController {
         stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, (long) environment.ordinal());
         stateMap.put(CopilotConstants.STATE_SCOPED_PROJECT_ID, context.projectId());
 
-        // Scopes the agent's environment context (CopilotSpringAIAgent#runWithEnvironment) and AI provider
-        // resolution (CopilotChatClientResolver, WorkflowEditorSpringAIAgent#advisorParams) to the environment this
-        // request was authorized against -- resolved server-side from the X-Environment header above, never from
-        // client state.
-        stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, (long) environment.ordinal());
-
         Authentication authentication = SecurityContextHolder.getContext()
             .getAuthentication();
 
@@ -148,31 +139,6 @@ public class ConnectedUserCopilotApiController {
         return agUiService.runAgent(localAgent, agUiParameters);
     }
 
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
-    }
-
-    private static @Nullable String sanitizeAdditionalSystemPrompt(@Nullable Object additionalSystemPromptValue) {
-        if (!(additionalSystemPromptValue instanceof String additionalSystemPrompt)
-            || additionalSystemPrompt.isBlank()) {
-
-            return null;
-        }
-
-        String trimmed = additionalSystemPrompt.strip();
-
-        if (trimmed.length() > CopilotConstants.ADDITIONAL_SYSTEM_PROMPT_MAX_LENGTH) {
-            trimmed = trimmed.substring(0, CopilotConstants.ADDITIONAL_SYSTEM_PROMPT_MAX_LENGTH);
-        }
-
-        return trimmed;
-    }
-
-    private Environment getEnvironment(@Nullable EnvironmentModel xEnvironment) {
-        return environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
-    }
-
     /**
      * Trims and length-caps the client-supplied additional system prompt. The result is rendered by
      * {@code WorkflowEditorSpringAIAgent} as an advisory block that is explicitly subordinated to the agent's build
@@ -192,5 +158,9 @@ public class ConnectedUserCopilotApiController {
         }
 
         return trimmed;
+    }
+
+    private Environment getEnvironment(@Nullable EnvironmentModel xEnvironment) {
+        return environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
     }
 }

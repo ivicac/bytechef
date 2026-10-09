@@ -16,6 +16,7 @@
 
 package com.bytechef.automation.configuration.facade;
 
+import com.bytechef.automation.configuration.audit.WorkspaceConnectionAuditEvents;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
@@ -27,6 +28,8 @@ import com.bytechef.automation.configuration.service.WorkspaceConnectionService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnCEVersion;
+import com.bytechef.platform.audit.AuditData;
+import com.bytechef.platform.audit.Audited;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.domain.Connection;
@@ -186,15 +189,11 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     @Override
     @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_DELETE')")
     public void delete(long connectionId) {
-        // Cancel any pending OAuth refresh job before deleting any rows. If this fails, abort: a leftover
-        // scheduled refresh that fires against a deleted connection wakes up the scheduler with no row to
-        // refresh, which the production listener (ConnectionAfterSaveEventListener#onBeforeDelete) cannot
-        // recover from once we've already torn down the workspace mapping.
-        connectionLifecycleFacade.deleteScheduledConnectionRefresh(connectionId, TenantContext.getCurrentTenantId());
-
         workspaceConnectionService.deleteWorkspaceConnection(connectionId);
 
         connectionFacade.delete(connectionId);
+
+        connectionLifecycleFacade.deleteScheduledConnectionRefresh(connectionId, TenantContext.getCurrentTenantId());
 
         // Plain CE domain event; EE audits it after commit (see ConnectionCreatedEvent emission above).
         applicationEventPublisher.publishEvent(new ConnectionDeletedEvent(connectionId));

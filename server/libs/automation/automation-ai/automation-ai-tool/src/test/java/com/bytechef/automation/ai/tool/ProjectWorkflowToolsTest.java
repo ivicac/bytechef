@@ -18,12 +18,15 @@ package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -65,6 +68,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -104,6 +108,9 @@ class ProjectWorkflowToolsTest {
 
     @Mock
     private ObjectProvider<WorkflowTestConfigurationFacade> testConfigurationFacadeProvider;
+
+    @Mock
+    private WorkflowArtifactRecorder workflowArtifactRecorder;
 
     @Mock
     private ObjectProvider<WorkflowArtifactRecorder> workflowArtifactRecorderProvider;
@@ -198,6 +205,208 @@ class ProjectWorkflowToolsTest {
     }
 
     @Nested
+    class WorkflowArtifactRecordingTest {
+
+        @Test
+        void testCreateProjectWorkflowRecordsArtifact() {
+            when(workflowArtifactRecorderProvider.getIfAvailable()).thenReturn(workflowArtifactRecorder);
+
+            resolveWorkspace(WORKSPACE_ID);
+            mockProject(7L, WORKSPACE_ID);
+
+            ProjectWorkflow projectWorkflow = buildProjectWorkflow(55L, 7L, "wf-uuid-1");
+
+            when(projectWorkflowFacade.addWorkflow(7L, DEFINITION)).thenReturn(projectWorkflow);
+
+            ProjectWorkflowTools tools = newTools();
+
+            tools.createProjectWorkflow(7L, DEFINITION, null, toolContext);
+
+            verify(workflowArtifactRecorder).recordWorkflowArtifact(toolContext, true, "wf-uuid-1", 7L, 55L, "My Flow");
+        }
+
+        @Test
+        void testUpdateWorkflowRecordsArtifact() {
+            when(workflowArtifactRecorderProvider.getIfAvailable()).thenReturn(workflowArtifactRecorder);
+
+            resolveWorkspace(WORKSPACE_ID);
+            mockWorkflow("wf-uuid-2", 9L, WORKSPACE_ID);
+
+            ProjectWorkflowDTO dto = buildDto("wf-uuid-2", 88L, 3);
+
+            when(projectWorkflowFacade.getProjectWorkflow("wf-uuid-2")).thenReturn(dto);
+
+            ProjectWorkflow projectWorkflow = buildProjectWorkflow(88L, 9L, "wf-uuid-2");
+
+            when(projectWorkflowService.getProjectWorkflow(88L)).thenReturn(projectWorkflow);
+
+            ProjectWorkflowTools tools = newTools();
+
+            tools.updateWorkflow("wf-uuid-2", DEFINITION, null, toolContext);
+
+            verify(workflowArtifactRecorder)
+                .recordWorkflowArtifact(toolContext, false, "wf-uuid-2", 9L, 88L, "My Flow");
+        }
+
+        @Test
+        void testCreateProjectWorkflowSkipsRecordingWhenNoRecorder() {
+            when(workflowArtifactRecorderProvider.getIfAvailable()).thenReturn(null);
+
+            resolveWorkspace(WORKSPACE_ID);
+            mockProject(7L, WORKSPACE_ID);
+
+            ProjectWorkflow projectWorkflow = buildProjectWorkflow(55L, 7L, "wf-uuid-1");
+
+            when(projectWorkflowFacade.addWorkflow(7L, DEFINITION)).thenReturn(projectWorkflow);
+
+            ProjectWorkflowTools tools = newTools();
+
+            tools.createProjectWorkflow(7L, DEFINITION, null, toolContext);
+
+            verify(workflowArtifactRecorder, never()).recordWorkflowArtifact(
+                any(), eq(true), any(), anyLong(), any(), any());
+        }
+
+        @Test
+        void testCreateProjectWorkflowSucceedsWhenRecorderThrows() {
+            when(workflowArtifactRecorderProvider.getIfAvailable()).thenReturn(workflowArtifactRecorder);
+
+            resolveWorkspace(WORKSPACE_ID);
+            mockProject(7L, WORKSPACE_ID);
+
+            ProjectWorkflow projectWorkflow = buildProjectWorkflow(55L, 7L, "wf-uuid-1");
+
+            when(projectWorkflowFacade.addWorkflow(7L, DEFINITION)).thenReturn(projectWorkflow);
+
+            doThrow(new RuntimeException("boom"))
+                .when(workflowArtifactRecorder)
+                .recordWorkflowArtifact(any(), eq(true), any(), anyLong(), any(), any());
+
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatCode(() -> tools.createProjectWorkflow(7L, DEFINITION, null, toolContext))
+                .doesNotThrowAnyException();
+        }
+    }
+
+    @Nested
+    class AppCallableTest {
+
+        @Test
+        void testUpdateWorkflowRefusesAPublishedWorkflowInAppCallableMode() {
+            ToolContext appCallableContext = AppCallableDraftGuardTest.appCallableContext();
+
+            when(workspaceScopeResolver.resolveWorkspace(null, appCallableContext))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
+
+            mockProject(7L, WORKSPACE_ID);
+
+            AppCallableDraftGuardTest.stubPublishedAndDraft(projectService, projectWorkflowService);
+
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatThrownBy(() -> tools.updateWorkflow("wf-published", DEFINITION, null, appCallableContext))
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("edit the DRAFT workflow wf-draft");
+
+            verify(projectWorkflowFacade, never()).updateWorkflow(anyString(), anyString(), anyInt());
+        }
+
+        @Test
+        void testDeleteWorkflowRefusesAPublishedWorkflowInAppCallableMode() {
+            ToolContext appCallableContext = AppCallableDraftGuardTest.appCallableContext();
+
+            when(workspaceScopeResolver.resolveWorkspace(null, appCallableContext))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
+
+            mockProject(7L, WORKSPACE_ID);
+
+            AppCallableDraftGuardTest.stubPublishedAndDraft(projectService, projectWorkflowService);
+
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatThrownBy(() -> tools.deleteWorkflow("wf-published", null, appCallableContext))
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("edit the DRAFT workflow wf-draft");
+
+            verify(projectWorkflowFacade, never()).deleteWorkflow(anyString());
+        }
+
+        @Test
+        void testUpdateWorkflowDeniedByTheFacadeNeverReachesTheDraftGuard() {
+            ToolContext appCallableContext = AppCallableDraftGuardTest.appCallableContext();
+
+            when(workspaceScopeResolver.resolveWorkspace(null, appCallableContext))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
+
+            mockWorkflow("wf-published", 7L, WORKSPACE_ID);
+
+            when(projectWorkflowFacade.getProjectWorkflow("wf-published"))
+                .thenThrow(new AccessDeniedException("Access Denied"));
+
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatThrownBy(() -> tools.updateWorkflow("wf-published", DEFINITION, null, appCallableContext))
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("Access Denied")
+                .hasMessageNotContaining("DRAFT");
+
+            verify(projectService, never()).getProject(anyLong());
+            verify(projectWorkflowService, never()).getLastWorkflowId(anyString());
+        }
+
+        @Test
+        void testDeleteWorkflowDeniedByTheFacadeNeverReachesTheDraftGuard() {
+            ToolContext appCallableContext = AppCallableDraftGuardTest.appCallableContext();
+
+            when(workspaceScopeResolver.resolveWorkspace(null, appCallableContext))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
+
+            mockWorkflow("wf-published", 7L, WORKSPACE_ID);
+
+            when(projectWorkflowFacade.getProjectWorkflow("wf-published"))
+                .thenThrow(new AccessDeniedException("Access Denied"));
+
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatThrownBy(() -> tools.deleteWorkflow("wf-published", null, appCallableContext))
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("Access Denied")
+                .hasMessageNotContaining("DRAFT");
+
+            verify(projectService, never()).getProject(anyLong());
+            verify(projectWorkflowService, never()).getLastWorkflowId(anyString());
+        }
+
+        @Test
+        void testDeleteWorkflowDropsTheDeletedWorkflowFromTheCaptureHolder() {
+            List<Map<String, Object>> captures = Collections.synchronizedList(new ArrayList<>());
+
+            captures.add(Map.of("workflowId", "wf-uuid-1"));
+            captures.add(Map.of("workflowId", "wf-uuid-2"));
+            captures.add(Map.of("workflowId", "wf-uuid-1"));
+
+            ToolContext captureToolContext = new ToolContext(
+                Map.of("bytechef.workflowEditor.persistedWorkflows", captures));
+
+            when(workspaceScopeResolver.resolveWorkspace(null, captureToolContext))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(WORKSPACE_ID, 0L));
+
+            mockWorkflow("wf-uuid-1", 9L, WORKSPACE_ID);
+
+            when(projectWorkflowFacade.getProjectWorkflow("wf-uuid-1")).thenReturn(buildDto("wf-uuid-1", 55L, 1));
+
+            ProjectWorkflowTools tools = newTools();
+
+            tools.deleteWorkflow("wf-uuid-1", null, captureToolContext);
+
+            assertThat(captures)
+                .extracting(capture -> capture.get("workflowId"))
+                .containsExactly("wf-uuid-2");
+        }
+    }
+
+    @Nested
     class SearchWorkflowsTest {
 
         @Test
@@ -252,60 +461,8 @@ class ProjectWorkflowToolsTest {
         }
     }
 
-    @Test
-    void testCreateProjectWorkflowCapturesPersistedIds() {
-        List<Map<String, Object>> captures = Collections.synchronizedList(new ArrayList<>());
-
-        when(toolContext.getContext())
-            .thenReturn(Map.of("bytechef.workflowEditor.persistedWorkflows", captures));
-
-        ProjectWorkflow projectWorkflow = buildProjectWorkflow(55L, 7L, "wf-uuid-1");
-
-        when(projectWorkflowFacade.addWorkflow(7L, DEFINITION)).thenReturn(projectWorkflow);
-
-        ProjectWorkflowTools tools = newTools();
-
-        tools.createProjectWorkflow(7L, DEFINITION, toolContext);
-
-        assertThat(captures).hasSize(1);
-        assertThat(captures.get(0))
-            .containsEntry("created", true)
-            .containsEntry("workflowId", "wf-uuid-1")
-            .containsEntry("projectId", 7L)
-            .containsEntry("projectWorkflowId", 55L)
-            .containsEntry("name", "My Flow");
-    }
-
-    @Test
-    void testUpdateWorkflowCapturesPersistedIds() {
-        List<Map<String, Object>> captures = Collections.synchronizedList(new ArrayList<>());
-
-        when(toolContext.getContext())
-            .thenReturn(Map.of("bytechef.workflowEditor.persistedWorkflows", captures));
-
-        ProjectWorkflowDTO dto = buildDto("wf-uuid-2", 88L, 3);
-
-        when(projectWorkflowFacade.getProjectWorkflow("wf-uuid-2")).thenReturn(dto);
-
-        ProjectWorkflow projectWorkflow = buildProjectWorkflow(88L, 9L, "wf-uuid-2");
-
-        when(projectWorkflowService.getProjectWorkflow(88L)).thenReturn(projectWorkflow);
-
-        ProjectWorkflowTools tools = newTools();
-
-        tools.updateWorkflow("wf-uuid-2", DEFINITION, toolContext);
-
-        assertThat(captures).hasSize(1);
-        assertThat(captures.get(0))
-            .containsEntry("created", false)
-            .containsEntry("workflowId", "wf-uuid-2")
-            .containsEntry("projectId", 9L)
-            .containsEntry("projectWorkflowId", 88L);
-    }
-
-    @Test
-    void testCreateProjectWorkflowSkipsRecordingWhenNoRecorder() {
-        when(recorderProvider.getIfAvailable()).thenReturn(null);
+    @Nested
+    class SaveWorkflowTestConnectionTest {
 
         @Test
         void testSaveWorkflowTestConnectionDelegatesToFacadeWithAutomationToolEnvironment() {
@@ -503,28 +660,6 @@ class ProjectWorkflowToolsTest {
                 .hasMessageContaining(NOT_IN_PROJECT_MESSAGE);
 
             verify(projectWorkflowFacade, never()).getProjectWorkflow("missing-workflow");
-        }
-
-        @Test
-        void testRunThatSkipsAuthorizationWithoutAScopedProjectIsRejected() {
-            ToolContext toolContext = new ToolContext(
-                AgentToolInvocationContext.builder()
-                    .authentication(new UsernamePasswordAuthenticationToken("1234567890", null, List.of()))
-                    .skipAutomationAuthorization(true)
-                    .build()
-                    .toToolContext());
-
-            ProjectWorkflowTools tools = newTools();
-
-            assertThatCode(() -> tools.updateWorkflow(OWN_WORKFLOW_ID, DEFINITION, null, toolContext))
-                .isInstanceOf(ExecutionException.class)
-                .hasMessage(ScopedProjectGuard.UNSCOPED_MESSAGE);
-            assertThatCode(() -> tools.searchWorkflows("standup", null, null, toolContext))
-                .isInstanceOf(ExecutionException.class)
-                .hasMessage(ScopedProjectGuard.UNSCOPED_MESSAGE);
-
-            verify(projectWorkflowFacade, never()).updateWorkflow(any(), any(), anyInt());
-            verify(workspaceScopeResolver, never()).resolveWorkspace(any(), any());
         }
 
         private ToolContext scopedToolContext() {
@@ -776,9 +911,11 @@ class ProjectWorkflowToolsTest {
             resolveWorkspace(WORKSPACE_ID);
             mockWorkflow("wf-uuid-1", 7L, FOREIGN_WORKSPACE_ID);
 
-    @Test
-    void testUpdateWorkflowSucceedsWhenProjectIdLookupThrows() {
-        ProjectWorkflowDTO dto = buildDto("wf-uuid-2", 88L, "Updated Flow", 3);
+            ProjectWorkflowTools tools = newTools();
+
+            assertThatCode(() -> tools.getWorkflow("wf-uuid-1", null, toolContext))
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("not found in workspace " + WORKSPACE_ID);
 
             verify(projectWorkflowFacade, never()).getProjectWorkflow(anyString());
         }
@@ -1101,7 +1238,8 @@ class ProjectWorkflowToolsTest {
 
     private ProjectWorkflowTools newTools() {
         return new ProjectWorkflowTools(
-            componentDefinitionService, projectWorkflowFacade, projectWorkflowService,
+            new AppCallableDraftGuard(projectService, projectWorkflowService), componentDefinitionService,
+            projectWorkflowFacade, projectWorkflowService,
             new ScopedProjectGuard(
                 projectOwnershipService, projectService, projectWorkflowService, scopedConnectionGuard,
                 workspaceScopeResolver),

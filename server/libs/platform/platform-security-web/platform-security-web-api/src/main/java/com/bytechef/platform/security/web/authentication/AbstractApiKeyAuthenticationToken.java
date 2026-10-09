@@ -18,9 +18,12 @@ package com.bytechef.platform.security.web.authentication;
 
 import com.bytechef.platform.constant.PlatformType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
 /**
@@ -31,8 +34,9 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
     private @Nullable Long apiKeyId;
     private long environmentId;
     private boolean environmentIdPresent;
-    private String tenantId;
-    private User user;
+    private @Nullable Object principal;
+    private @Nullable String tenantId;
+    private @Nullable User user;
 
     public AbstractApiKeyAuthenticationToken() {
         super(List.of());
@@ -46,16 +50,10 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
         this.tenantId = tenantId;
     }
 
-    public AbstractApiKeyAuthenticationToken(long environmentId, User user) {
-        this(environmentId, user, null);
-    }
-
     @SuppressFBWarnings("EI")
-    public AbstractApiKeyAuthenticationToken(long environmentId, User user, @Nullable Long apiKeyId) {
+    public AbstractApiKeyAuthenticationToken(User user) {
         super(user.getAuthorities());
 
-        this.apiKeyId = apiKeyId;
-        this.environmentId = environmentId;
         this.user = user;
 
         setAuthenticated(true);
@@ -69,16 +67,39 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
      * way to producing its authenticated token yields a principal that silently claims to be in DEVELOPMENT. Providers
      * whose environment matters downstream should use this instead.
      */
-    @SuppressFBWarnings("EI")
     public AbstractApiKeyAuthenticationToken(long environmentId, User user) {
+        this(environmentId, user, null);
+    }
+
+    @SuppressFBWarnings("EI")
+    public AbstractApiKeyAuthenticationToken(long environmentId, User user, @Nullable Long apiKeyId) {
         super(user.getAuthorities());
 
+        this.apiKeyId = apiKeyId;
         this.environmentId = environmentId;
         this.environmentIdPresent = true;
         this.user = user;
 
         setAuthenticated(true);
         setDetails(user);
+    }
+
+    /**
+     * Authenticated, and retaining the environment the pre-authentication token was built for, with a non-{@code User}
+     * principal. Apps authenticate with their own key, and the principal is an app, not a user.
+     */
+    protected AbstractApiKeyAuthenticationToken(
+        long environmentId, String tenantId, Object principal, Collection<? extends GrantedAuthority> authorities) {
+
+        super(authorities);
+
+        this.environmentId = environmentId;
+        this.environmentIdPresent = true;
+        this.principal = principal;
+        this.tenantId = tenantId;
+
+        setAuthenticated(true);
+        setDetails(principal);
     }
 
     @Override
@@ -88,7 +109,7 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
 
     @Override
     public String getName() {
-        if (user == null) {
+        if (user == null && principal == null) {
             return UnresolvedCredentialAuthenticationToken.PRINCIPAL;
         }
 
@@ -98,12 +119,20 @@ public abstract class AbstractApiKeyAuthenticationToken extends AbstractAuthenti
     @Override
     @SuppressFBWarnings("EI")
     public @Nullable Object getPrincipal() {
-        return user;
+        return principal != null ? principal : user;
     }
 
-    public abstract CredentialType getCredentialType();
+    /**
+     * The kind of credential this token authenticates with, or {@code null} for a token that does not declare one (the
+     * audit listener then derives a name from the token class).
+     */
+    public @Nullable CredentialType getCredentialType() {
+        return null;
+    }
 
-    public abstract @Nullable PlatformType getPlatformType();
+    public @Nullable PlatformType getPlatformType() {
+        return null;
+    }
 
     public @Nullable Long getApiKeyId() {
         return apiKeyId;

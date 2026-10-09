@@ -26,12 +26,12 @@ import org.jspecify.annotations.Nullable;
  * @author Ivica Cardic
  */
 public record ToolExecutionEvent(
-    @Nullable String tenantId, ToolExecutionSurface surface, ToolExecutionKind kind, String toolName,
-    @Nullable String componentName, @Nullable Integer componentVersion, @Nullable String operationName,
-    @Nullable Long connectionId, @Nullable Integer environment, @Nullable Long workspaceId,
-    @Nullable String externalUserId, @Nullable Long connectedUserId, @Nullable Long integrationInstanceId,
-    @Nullable Long mcpServerId, @Nullable Long jobId, ToolExecutionOutcome outcome, @Nullable String errorType,
-    @Nullable String errorMessage, long durationMs) {
+    PlatformType type, @Nullable String tenantId, ToolExecutionSurface surface, ToolExecutionKind kind,
+    String toolName, @Nullable String componentName, @Nullable Integer componentVersion,
+    @Nullable String operationName, @Nullable Long connectionId, @Nullable Integer environment,
+    @Nullable Long workspaceId, @Nullable String externalUserId, @Nullable Long connectedUserId,
+    @Nullable Long integrationInstanceId, @Nullable Long mcpServerId, @Nullable Long jobId, @Nullable Long appId,
+    ToolExecutionOutcome outcome, @Nullable String errorType, @Nullable String errorMessage, long durationMs) {
 
     public static final int ERROR_MESSAGE_MAX_LENGTH = 512;
 
@@ -41,6 +41,10 @@ public record ToolExecutionEvent(
         return new Builder(type, surface, kind, toolName);
     }
 
+    /**
+     * Mutable builder for {@link ToolExecutionEvent}. Identity fields are set at the call site; outcome, error and
+     * duration are filled in by the {@link ToolExecutionRecorder} once the execution completes.
+     */
     public static final class Builder {
 
         private final PlatformType type;
@@ -60,6 +64,7 @@ public record ToolExecutionEvent(
         private @Nullable Long integrationInstanceId;
         private @Nullable Long mcpServerId;
         private @Nullable Long jobId;
+        private @Nullable Long appId;
         private ToolExecutionOutcome outcome = ToolExecutionOutcome.SUCCESS;
         private @Nullable String errorType;
         private @Nullable String errorMessage;
@@ -144,6 +149,12 @@ public record ToolExecutionEvent(
             return this;
         }
 
+        public Builder appId(@Nullable Long appId) {
+            this.appId = appId;
+
+            return this;
+        }
+
         public Builder outcome(ToolExecutionOutcome outcome) {
             this.outcome = outcome;
 
@@ -174,9 +185,9 @@ public record ToolExecutionEvent(
 
         public ToolExecutionEvent build() {
             return new ToolExecutionEvent(
-                tenantId, surface, kind, toolName, componentName, componentVersion, operationName, connectionId,
+                type, tenantId, surface, kind, toolName, componentName, componentVersion, operationName, connectionId,
                 environment, workspaceId, externalUserId, connectedUserId, integrationInstanceId, mcpServerId, jobId,
-                outcome, errorType, errorMessage, durationMs);
+                appId, outcome, errorType, errorMessage, durationMs);
         }
     }
 }

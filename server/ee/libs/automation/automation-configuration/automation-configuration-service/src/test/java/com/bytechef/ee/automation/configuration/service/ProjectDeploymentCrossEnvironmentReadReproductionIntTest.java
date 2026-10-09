@@ -33,6 +33,7 @@ import com.bytechef.automation.configuration.security.WorkspaceOwnershipResolver
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
+import com.bytechef.automation.configuration.service.ProjectOwnershipService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
@@ -284,9 +285,11 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
                 applicationEventPublisher, connectionService, evaluator, environmentScopeFilter, environmentService,
                 principalJobFacade,
                 principalJobService, jobFacade, jobService, List.<ProjectDeploymentDeleteEventListener>of(),
-                projectDeploymentService, projectDeploymentWorkflowService, projectService, projectVisibilityFilter,
+                projectDeploymentService, projectDeploymentWorkflowService, mock(ProjectOwnershipService.class),
+                projectService, projectVisibilityFilter,
                 projectWorkflowService, tagService, triggerDefinitionService, triggerExecutionService,
-                triggerLifecycleFacade, applicationProperties, componentConnectionFacade, workflowService);
+                triggerLifecycleFacade, applicationProperties, componentConnectionFacade, workflowService, null, null,
+                null, null, null);
         }
 
         @Bean
@@ -344,7 +347,7 @@ class ProjectDeploymentCrossEnvironmentReadReproductionIntTest {
             user.setId(USER_ID);
             user.setLogin(LOGIN);
 
-            when(userService.getUser(LOGIN)).thenReturn(user);
+            when(userService.fetchUserByLogin(LOGIN)).thenReturn(Optional.of(user));
 
             return userService;
         }

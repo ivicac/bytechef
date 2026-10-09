@@ -52,6 +52,7 @@ class SystemProjectsTest {
         assertFalse(SystemProjects.isSystemProjectName(""));
         assertFalse(SystemProjects.isSystemProjectName(null));
 
+        // The allow-list is deliberately narrower than a bare "__" test, so a user may still name a project this way.
         assertFalse(SystemProjects.isSystemProjectName("__scratch"));
         assertFalse(SystemProjects.isSystemProjectName("__MY_PROJECT__"));
     }
@@ -127,5 +128,21 @@ class SystemProjectsTest {
         assertEquals(
             "AND " + SystemProjects.notLikeCondition("project.name", SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX),
             SystemProjects.notLikePredicate("project.name", SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX));
+    }
+
+    @Test
+    void testDeploymentMarkersAreRecognized() {
+        assertTrue(
+            SystemProjects.isSystemDeploymentName(SystemProjects.API_COLLECTION_DEPLOYMENT_NAME_PREFIX + "orders"));
+        assertTrue(SystemProjects.isSystemDeploymentName(SystemProjects.MCP_SERVER_DEPLOYMENT_NAME_PREFIX + "orders"));
+        assertTrue(SystemProjects.isSystemDeploymentName(SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX + "orders"));
+    }
+
+    @Test
+    void testUserDeploymentNamesAreNotSystemDeployments() {
+        assertFalse(SystemProjects.isSystemDeploymentName("Orders"));
+        assertFalse(
+            SystemProjects.isSystemDeploymentName("orders " + SystemProjects.MCP_SERVER_DEPLOYMENT_NAME_PREFIX));
+        assertFalse(SystemProjects.isSystemDeploymentName(null));
     }
 }

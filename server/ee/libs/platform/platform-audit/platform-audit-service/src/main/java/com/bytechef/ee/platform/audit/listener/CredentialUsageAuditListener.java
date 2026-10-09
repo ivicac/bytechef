@@ -208,7 +208,9 @@ public class CredentialUsageAuditListener implements ApplicationListener<Credent
         if (authentication instanceof AbstractApiKeyAuthenticationToken abstractApiKeyAuthenticationToken) {
             CredentialType credentialType = abstractApiKeyAuthenticationToken.getCredentialType();
 
-            return credentialType.getValue();
+            if (credentialType != null) {
+                return credentialType.getValue();
+            }
         }
 
         Class<? extends Authentication> authenticationClass = authentication.getClass();

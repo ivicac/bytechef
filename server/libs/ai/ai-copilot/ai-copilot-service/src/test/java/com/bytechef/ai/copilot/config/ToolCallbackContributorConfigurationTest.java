@@ -17,9 +17,9 @@
 package com.bytechef.ai.copilot.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,30 +27,34 @@ import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolContributor;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
+import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.ai.mcp.facade.McpProjectFacade;
+import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
-import com.bytechef.automation.ai.mcp.service.McpProjectService;
-import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.WorkspaceScopeResolver;
 import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
+import com.bytechef.automation.configuration.workflow.WorkflowKind;
+import com.bytechef.automation.configuration.workflow.WorkflowKindChecker;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.mcp.domain.McpServer;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -59,6 +63,7 @@ import org.springframework.beans.factory.ObjectProvider;
 /**
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 class ToolCallbackContributorConfigurationTest {
 
     private final ToolCallbackContributorConfiguration configuration =
@@ -72,7 +77,7 @@ class ToolCallbackContributorConfigurationTest {
             intelligentDefinition("debugWorkflowExecution"), intelligentDefinition("importWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), intelligentToolCatalog, mock(WorkspaceScopeResolver.class));
+            emptyProvider(), intelligentToolCatalog, emptyProvider(), mock(WorkspaceScopeResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .extracting(toolCallback -> toolCallback.getToolDefinition()
@@ -85,7 +90,7 @@ class ToolCallbackContributorConfigurationTest {
     @Test
     void contributesNothingWhenAllAbsent() {
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), catalogOf(), mock(WorkspaceScopeResolver.class));
+            emptyProvider(), catalogOf(), emptyProvider(), mock(WorkspaceScopeResolver.class));
 
         assertThat(contributor.getToolCallbacks()).isEmpty();
     }
@@ -98,11 +103,38 @@ class ToolCallbackContributorConfigurationTest {
             intelligentDefinition("debugWorkflowExecution"), intelligentDefinition("importWorkflow"));
 
         McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
-            emptyProvider(), intelligentToolCatalog, mock(WorkspaceScopeResolver.class));
+            emptyProvider(), intelligentToolCatalog, emptyProvider(), mock(WorkspaceScopeResolver.class));
 
         assertThat(contributor.getToolCallbacks())
             .allSatisfy(toolCallback -> assertThat(toolCallback.getToolDefinition()
                 .inputSchema()).contains("workspaceId"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void onlyBuildWorkflowOffersTheKindsOfTheRegisteredCheckers() {
+        IntelligentToolCatalog intelligentToolCatalog = catalogOf(
+            intelligentDefinition("buildWorkflow"), intelligentDefinition("writeScript"));
+
+        WorkflowKindChecker scheduledChecker = mock(WorkflowKindChecker.class);
+
+        when(scheduledChecker.kind()).thenReturn(WorkflowKind.SCHEDULED);
+
+        ObjectProvider<WorkflowKindChecker> workflowKindCheckerProvider = mock(ObjectProvider.class);
+
+        when(workflowKindCheckerProvider.orderedStream()).thenAnswer(invocation -> Stream.of(scheduledChecker));
+
+        McpServerToolCallbackContributor contributor = configuration.copilotAgentToolCallbackContributor(
+            emptyProvider(), intelligentToolCatalog, workflowKindCheckerProvider, mock(WorkspaceScopeResolver.class));
+
+        Map<String, String> inputSchemas = contributor.getToolCallbacks()
+            .stream()
+            .map(ToolCallback::getToolDefinition)
+            .collect(Collectors.toMap(ToolDefinition::name, ToolDefinition::inputSchema));
+
+        assertThat(inputSchemas.get("buildWorkflow")).contains("\"kind\"")
+            .contains("\"SCHEDULED\"");
+        assertThat(inputSchemas.get("writeScript")).doesNotContain("\"kind\"");
     }
 
     @Test
@@ -204,7 +236,7 @@ class ToolCallbackContributorConfigurationTest {
     @Nested
     class McpServerCrudContributorTest {
 
-        private final McpProjectService mcpProjectService = mock(McpProjectService.class);
+        private final McpProjectWorkflowFacade mcpProjectWorkflowFacade = mock(McpProjectWorkflowFacade.class);
         private final WorkspaceMcpServerFacade workspaceMcpServerFacade = mock(WorkspaceMcpServerFacade.class);
         private final WorkspaceScopeResolver workspaceScopeResolver = mock(WorkspaceScopeResolver.class);
 
@@ -217,39 +249,26 @@ class ToolCallbackContributorConfigurationTest {
         }
 
         @Test
-        void testListMcpProjectWorkflowsRejectsAnMcpServerOutsideTheResolvedWorkspace() {
-            McpServer workspaceMcpServer = mock(McpServer.class);
+        void testListMcpProjectWorkflowsListsThroughTheFacadeWithTheGivenWorkspace() {
+            when(workspaceScopeResolver.resolveWorkspace(eq(7L), any()))
+                .thenReturn(new WorkspaceScopeResolver.Resolved(7L, 0L));
+            when(mcpProjectWorkflowFacade.getMcpServerMcpProjectWorkflows(5L)).thenReturn(List.of());
 
-            when(workspaceMcpServer.getId()).thenReturn(6L);
-            when(workspaceMcpServerFacade.getWorkspaceMcpServers(7L)).thenReturn(List.of(workspaceMcpServer));
-            when(workspaceScopeResolver.resolve(7L, null)).thenReturn(new WorkspaceScopeResolver.Resolved(7L, 0L));
+            McpServer mcpServer = mock(McpServer.class);
 
-            String result = getListMcpProjectWorkflowsToolCallback().call("{\"mcpServerId\": 5, \"workspaceId\": 7}");
-
-            assertThat(result).contains("MCP server 5 not found in the current workspace");
-            verify(mcpProjectService, never()).getMcpServerMcpProjects(anyLong());
-        }
-
-        @Test
-        void testListMcpProjectWorkflowsListsAnMcpServerOfTheResolvedWorkspace() {
-            McpServer workspaceMcpServer = mock(McpServer.class);
-
-            when(workspaceMcpServer.getId()).thenReturn(5L);
-            when(workspaceMcpServerFacade.getWorkspaceMcpServers(7L)).thenReturn(List.of(workspaceMcpServer));
-            when(workspaceScopeResolver.resolve(7L, null)).thenReturn(new WorkspaceScopeResolver.Resolved(7L, 0L));
-            when(mcpProjectService.getMcpServerMcpProjects(5L)).thenReturn(List.of());
+            when(mcpServer.getId()).thenReturn(5L);
+            when(workspaceMcpServerFacade.getWorkspaceMcpServers(7L)).thenReturn(List.of(mcpServer));
 
             String result = getListMcpProjectWorkflowsToolCallback().call("{\"mcpServerId\": 5, \"workspaceId\": 7}");
 
             assertThat(result).isEqualTo("[]");
-            verify(mcpProjectService).getMcpServerMcpProjects(5L);
+            verify(mcpProjectWorkflowFacade).getMcpServerMcpProjectWorkflows(5L);
         }
 
         @SuppressWarnings("unchecked")
         private ToolCallback getListMcpProjectWorkflowsToolCallback() {
             McpServerToolCallbacksFactory mcpServerToolCallbacksFactory = new McpServerToolCallbacksFactory(
-                mock(McpProjectFacade.class), mcpProjectService, mock(McpProjectWorkflowService.class),
-                mock(ProjectDeploymentWorkflowService.class), mock(WorkflowService.class), workspaceMcpServerFacade);
+                mock(McpProjectFacade.class), mcpProjectWorkflowFacade, workspaceMcpServerFacade);
 
             ObjectProvider<McpServerToolCallbacksFactory> provider = mock(ObjectProvider.class);
 
@@ -312,7 +331,7 @@ class ToolCallbackContributorConfigurationTest {
                 .build());
 
         return new FakeIntelligentToolDefinition(
-            name, Map.of(IntelligentToolVariant.BUILD, (IntelligentToolChatClientFactory) () -> chatClient),
+            name, Map.of(IntelligentToolVariant.BUILD, (IntelligentToolChatClientFactory) chatModel -> chatClient),
             toolCallback);
     }
 
@@ -356,6 +375,16 @@ class ToolCallbackContributorConfigurationTest {
         @Override
         public String name() {
             return name;
+        }
+
+        @Override
+        public String agentTypeKey() {
+            return name;
+        }
+
+        @Override
+        public Set<IntelligentToolScope> panelScopes() {
+            return Set.of();
         }
 
         @Override

@@ -270,9 +270,9 @@ class ProjectDeploymentFacadeChatWorkflowTest {
         return new ProjectDeploymentFacadeImpl(
             null, null, null, Mockito.mock(EnvironmentScopeFilter.class), environmentService, null, null, null, null,
             List.of(), projectDeploymentService,
-            projectDeploymentWorkflowService, projectService, createProjectVisibilityFilter(lowestVisibleRung),
+            projectDeploymentWorkflowService, null, projectService, createProjectVisibilityFilter(lowestVisibleRung),
             projectWorkflowService, null, triggerDefinitionService, null, null, applicationProperties, null,
-            workflowService);
+            workflowService, null, null, null, null, null);
     }
 
     /**

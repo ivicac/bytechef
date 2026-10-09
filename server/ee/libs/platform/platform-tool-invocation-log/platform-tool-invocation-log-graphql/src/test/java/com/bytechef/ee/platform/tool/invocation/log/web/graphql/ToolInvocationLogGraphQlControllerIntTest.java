@@ -68,8 +68,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
         when(
             toolInvocationLogFacade.getWorkspaceToolInvocationLogs(
                 eq(PlatformType.AUTOMATION), eq(7L), eq(2L), eq(ToolExecutionSurface.MCP_AUTOMATION), isNull(), eq(5L),
-                isNull(), isNull(),
-                isNull(), isNull(), eq(0)))
+                isNull(), isNull(), eq(9L), isNull(), isNull(), eq(0)))
                     .thenReturn(new PageImpl<>(List.of(toolInvocationLogDTO()), PageRequest.of(0, 50), 1));
 
         graphQlTester
@@ -77,13 +76,14 @@ class ToolInvocationLogGraphQlControllerIntTest {
                 query {
                     workspaceToolInvocationLogs(
                         type: AUTOMATION, workspaceId: "7", environmentId: "2", surface: "MCP_AUTOMATION",
-                        mcpServerId: 5
+                        mcpServerId: 5, appId: 9
                     ) {
                         content {
                             surface
                             kind
                             outcome
                             mcpServerId
+                            appId
                             workspaceId
                             workflowName
                             createdDate
@@ -99,6 +99,9 @@ class ToolInvocationLogGraphQlControllerIntTest {
             .path("workspaceToolInvocationLogs.content[0].mcpServerId")
             .entity(Long.class)
             .isEqualTo(5L)
+            .path("workspaceToolInvocationLogs.content[0].appId")
+            .entity(Long.class)
+            .isEqualTo(9L)
             .path("workspaceToolInvocationLogs.content[0].workspaceId")
             .entity(Long.class)
             .isEqualTo(7L)
@@ -113,7 +116,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
             .isEqualTo(1);
 
         verify(toolInvocationLogFacade, never()).getToolInvocationLogs(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt());
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt());
     }
 
     @Test
@@ -121,7 +124,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
         when(
             toolInvocationLogFacade.getToolInvocationLogs(
                 eq(PlatformType.EMBEDDED), isNull(), isNull(), isNull(), isNull(), eq(3L), isNull(), isNull(), isNull(),
-                eq(0)))
+                isNull(), eq(0)))
                     .thenReturn(new PageImpl<>(List.of()));
 
         graphQlTester
@@ -138,7 +141,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
             .isEqualTo(0);
 
         verify(toolInvocationLogFacade, never()).getWorkspaceToolInvocationLogs(
-            any(), anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), any(), anyInt());
+            any(), anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt());
     }
 
     @Test
@@ -147,7 +150,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
             toolInvocationLogFacade.getToolInvocationLogs(
                 eq(PlatformType.AUTOMATION), eq(2L), eq(ToolExecutionSurface.MCP_AUTOMATION), isNull(), isNull(),
                 isNull(), isNull(), isNull(),
-                isNull(), eq(0)))
+                isNull(), isNull(), eq(0)))
                     .thenReturn(new PageImpl<>(List.of(toolInvocationLogDTO()), PageRequest.of(0, 50), 1));
 
         graphQlTester
@@ -189,6 +192,7 @@ class ToolInvocationLogGraphQlControllerIntTest {
         toolInvocationLog.setOutcome(ToolExecutionOutcome.SUCCESS);
         toolInvocationLog.setDurationMs(42);
         toolInvocationLog.setMcpServerId(5L);
+        toolInvocationLog.setAppId(9L);
         toolInvocationLog.setWorkspaceId(7L);
         toolInvocationLog.setEnvironment(2);
         toolInvocationLog.setCreatedDate(Instant.ofEpochMilli(1_000L));

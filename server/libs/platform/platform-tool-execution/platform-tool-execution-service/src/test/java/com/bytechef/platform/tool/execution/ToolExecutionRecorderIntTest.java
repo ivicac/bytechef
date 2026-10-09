@@ -68,7 +68,8 @@ class ToolExecutionRecorderIntTest {
         Object result = toolExecutionRecorder.record(
             ToolExecutionEvent.builder(
                 PlatformType.AUTOMATION, ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.COMPONENT,
-                "slack_sendMessage"),
+                "slack_sendMessage")
+                .tenantId("tenant1"),
             () -> output);
 
         assertThat(result).isSameAs(output);
@@ -80,6 +81,26 @@ class ToolExecutionRecorderIntTest {
         assertThat(event.kind()).isEqualTo(ToolExecutionKind.COMPONENT);
         assertThat(event.toolName()).isEqualTo("slack_sendMessage");
         assertThat(event.type()).isEqualTo(PlatformType.AUTOMATION);
+        assertThat(event.tenantId()).isEqualTo("tenant1");
+        assertThat(event.errorType()).isNull();
+    }
+
+    @Test
+    void testRecordReturnedValueWithErrorMessagePublishesErrorEventAndReturnsTheValue() {
+        Object output = new Object();
+
+        Object result = toolExecutionRecorder.recordWithErrorMessage(
+            ToolExecutionEvent.builder(
+                PlatformType.AUTOMATION, ToolExecutionSurface.AUTOMATION_APP_PROXY, ToolExecutionKind.HTTP_PROXY,
+                "GET /items"),
+            () -> output, value -> "upstream 503");
+
+        assertThat(result).isSameAs(output);
+
+        ToolExecutionEvent event = getPublishedEvent();
+
+        assertThat(event.outcome()).isEqualTo(ToolExecutionOutcome.ERROR);
+        assertThat(event.errorMessage()).isEqualTo("upstream 503");
         assertThat(event.errorType()).isNull();
     }
 

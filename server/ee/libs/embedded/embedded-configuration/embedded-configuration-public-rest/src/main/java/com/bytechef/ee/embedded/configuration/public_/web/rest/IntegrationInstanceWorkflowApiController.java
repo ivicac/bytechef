@@ -10,9 +10,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.exception.EmbeddedIntegrationNotVisibleException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserIntegrationInstanceFacade;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ComponentInputOptionsRequestModel;
-import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.OptionModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.UpdateFrontendIntegrationInstanceWorkflowRequestModel;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -23,10 +21,8 @@ import java.util.Map;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -159,11 +155,6 @@ public class IntegrationInstanceWorkflowApiController implements IntegrationInst
     public ResponseEntity<Void> handleEmbeddedIntegrationNotVisibleException() {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .build();
-    }
-
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private List<OptionModel> resolveComponentInputOptions(

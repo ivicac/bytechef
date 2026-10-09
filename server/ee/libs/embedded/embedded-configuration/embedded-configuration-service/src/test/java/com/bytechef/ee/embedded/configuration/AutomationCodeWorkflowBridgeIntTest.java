@@ -43,6 +43,7 @@ import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurati
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
 import com.bytechef.ee.embedded.codeworkflowbridge.AutomationCodeWorkflowBridgeIntTestConfiguration;
+import com.bytechef.ee.embedded.configuration.domain.AutomationWorkflowProjectConfiguration;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCodeWorkflowFacade;
@@ -50,9 +51,9 @@ import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFa
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceRolloutManager;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserWorkflowReferenceFacade;
-import com.bytechef.ee.embedded.configuration.listener.AutomationWorkflowProjectPublishedEventListener;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
+import com.bytechef.ee.embedded.configuration.service.AutomationWorkflowProjectConfigurationService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -91,6 +92,7 @@ import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerLifecycleFacade;
+import com.bytechef.platform.workflow.execution.facade.TriggerStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
 import com.bytechef.platform.workflow.execution.service.TriggerStateService;
@@ -100,6 +102,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -165,7 +168,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     PrincipalJobFacade.class, PrincipalJobService.class, ProjectFacade.class,
     TaskDispatcherDefinitionService.class, TaskExecutionService.class,
     TriggerDefinitionFacade.class, TriggerDefinitionService.class, TriggerExecutionService.class,
-    TriggerLifecycleFacade.class, TriggerStateService.class, UserService.class, WorkflowCacheManager.class,
+    TriggerLifecycleFacade.class, TriggerStateFacade.class, TriggerStateService.class, UserService.class,
+    WorkflowCacheManager.class,
     WorkflowNodeParameterFacade.class,
     WorkflowNodeTestOutputService.class, WorkflowTestConfigurationFacade.class, WorkflowTestConfigurationService.class,
     WorkspaceConnectionFacade.class, WorkspaceFacade.class
@@ -180,9 +184,8 @@ class AutomationCodeWorkflowBridgeIntTest {
     @Autowired
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
-    // Publishing would otherwise run the reference rollout from the after-commit listener; rollout has its own tests.
-    @MockitoBean
-    private AutomationWorkflowProjectPublishedEventListener automationWorkflowProjectPublishedEventListener;
+    @Autowired
+    private AutomationWorkflowProjectConfigurationService automationWorkflowProjectConfigurationService;
 
     @Autowired
     private ComponentConnectionFacade componentConnectionFacade;
@@ -271,6 +274,8 @@ class AutomationCodeWorkflowBridgeIntTest {
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("lifecycle-project")
             .orElseThrow();
 
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         int publishedV1 = publishedVersion(projectId);
 
         ProjectWorkflow workflowARowV1 = findProjectWorkflowByLabel(projectId, publishedV1, "workflowA");
@@ -290,7 +295,9 @@ class AutomationCodeWorkflowBridgeIntTest {
         automationWorkflowProjectCodeWorkflowFacade.save(
             projectSource("lifecycle-project", "workflowA", "workflowC"), Language.JAVASCRIPT);
 
-        connectedUserReferenceRolloutManager.rollOut(projectId);
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
+        connectedUserReferenceRolloutManager.rollOut(projectId, Environment.PRODUCTION.ordinal());
 
         int publishedV2 = publishedVersion(projectId);
 
@@ -339,8 +346,13 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectAId = automationWorkflowProjectFacade.fetchProjectIdByName("cross-project-a")
             .orElseThrow();
+
+        pinToPublishedVersion(projectAId, Environment.PRODUCTION);
+
         long projectBId = automationWorkflowProjectFacade.fetchProjectIdByName("cross-project-b")
             .orElseThrow();
+
+        pinToPublishedVersion(projectBId, Environment.PRODUCTION);
 
         String workflowAUuid = findProjectWorkflowByLabel(projectAId, publishedVersion(projectAId), "onlyWorkflow")
             .getUuidAsString();
@@ -357,7 +369,9 @@ class AutomationCodeWorkflowBridgeIntTest {
         automationWorkflowProjectCodeWorkflowFacade.save(
             projectSource("cross-project-a", "renamedWorkflow"), Language.JAVASCRIPT);
 
-        connectedUserReferenceRolloutManager.rollOut(projectAId);
+        pinToPublishedVersion(projectAId, Environment.PRODUCTION);
+
+        connectedUserReferenceRolloutManager.rollOut(projectAId, Environment.PRODUCTION.ordinal());
 
         ConnectedUserProjectWorkflow reloadedReferenceToA = connectedUserProjectWorkflowRepository
             .findById(referenceToA.getId())
@@ -399,6 +413,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("connection-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         String workflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion(projectId), "connectedWorkflow")
             .getUuidAsString();
 
@@ -496,6 +513,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long automationWorkflowProjectId = automationWorkflowProjectFacade.fetchProjectIdByName("cross-user-project")
             .orElseThrow();
+
+        pinToPublishedVersion(automationWorkflowProjectId, Environment.PRODUCTION);
+
         String automationWorkflowUuid = findProjectWorkflowByLabel(
             automationWorkflowProjectId, publishedVersion(automationWorkflowProjectId), "crossUserWorkflow")
                 .getUuidAsString();
@@ -546,6 +566,10 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("multi-env-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+        pinToPublishedVersion(projectId, Environment.DEVELOPMENT);
+
         String workflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion(projectId), "envWorkflow")
             .getUuidAsString();
 
@@ -574,6 +598,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("dangling-delete-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         String removedWorkflowUuid =
             findProjectWorkflowByLabel(projectId, publishedVersion(projectId), "removedWorkflow")
                 .getUuidAsString();
@@ -584,7 +611,9 @@ class AutomationCodeWorkflowBridgeIntTest {
         automationWorkflowProjectCodeWorkflowFacade.save(
             projectSource("dangling-delete-project", "keptWorkflow"), Language.JAVASCRIPT);
 
-        connectedUserReferenceRolloutManager.rollOut(projectId);
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
+        connectedUserReferenceRolloutManager.rollOut(projectId, Environment.PRODUCTION.ordinal());
 
         assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId()))
             .get()
@@ -594,8 +623,7 @@ class AutomationCodeWorkflowBridgeIntTest {
         connectedUserWorkflowReferenceFacade.deleteReference(
             "userDanglingDelete", removedWorkflowUuid, Environment.PRODUCTION);
 
-        assertThat(projectDeploymentService.fetchProjectDeploymentByName(
-            projectId, "__EMBEDDED__userDanglingDelete__PRODUCTION")).isEmpty();
+        assertThat(fetchProjectDeploymentByName(projectId, "__EMBEDDED__userDanglingDelete__PRODUCTION")).isEmpty();
         assertThat(connectedUserProjectWorkflowRepository.findById(reference.getId())).isEmpty();
     }
 
@@ -614,6 +642,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("dangling-disable-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         int publishedVersion = publishedVersion(projectId);
 
         ProjectWorkflow keptProjectWorkflow = findProjectWorkflowByLabel(projectId, publishedVersion, "keptWorkflow");
@@ -629,7 +660,9 @@ class AutomationCodeWorkflowBridgeIntTest {
         automationWorkflowProjectCodeWorkflowFacade.save(
             projectSource("dangling-disable-project", "keptWorkflow"), Language.JAVASCRIPT);
 
-        connectedUserReferenceRolloutManager.rollOut(projectId);
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
+        connectedUserReferenceRolloutManager.rollOut(projectId, Environment.PRODUCTION.ordinal());
 
         connectedUserWorkflowReferenceFacade.enableReference(
             "userDanglingDisable", removedWorkflowUuid, false, Environment.PRODUCTION);
@@ -665,6 +698,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("redeploy-rollout-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         int firstVersion = publishedVersion(projectId);
 
         String keptWorkflowUuid = findProjectWorkflowByLabel(projectId, firstVersion, "keptWorkflow")
@@ -682,7 +718,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         int secondVersion = publishedVersion(projectId);
 
-        connectedUserReferenceRolloutManager.rollOut(projectId);
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
+        connectedUserReferenceRolloutManager.rollOut(projectId, Environment.PRODUCTION.ordinal());
 
         long projectDeploymentId = keptReference.getProjectDeploymentId();
 
@@ -715,6 +753,9 @@ class AutomationCodeWorkflowBridgeIntTest {
 
         long projectId = automationWorkflowProjectFacade.fetchProjectIdByName("concurrent-project")
             .orElseThrow();
+
+        pinToPublishedVersion(projectId, Environment.PRODUCTION);
+
         int publishedVersion = publishedVersion(projectId);
 
         String firstWorkflowUuid = findProjectWorkflowByLabel(projectId, publishedVersion, "firstWorkflow")
@@ -776,10 +817,19 @@ class AutomationCodeWorkflowBridgeIntTest {
     }
 
     private long deploymentIdFor(long automationWorkflowProjectId, String externalUserId) {
-        return projectDeploymentService
-            .fetchProjectDeploymentByName(automationWorkflowProjectId, "__EMBEDDED__" + externalUserId + "__PRODUCTION")
-            .orElseThrow()
-            .getId();
+        return fetchProjectDeploymentByName(automationWorkflowProjectId,
+            "__EMBEDDED__" + externalUserId + "__PRODUCTION")
+                .orElseThrow()
+                .getId();
+    }
+
+    private Optional<ProjectDeployment> fetchProjectDeploymentByName(long projectId, String name) {
+        List<ProjectDeployment> projectDeployments = projectDeploymentService.getProjectDeployments(
+            true, null, projectId, null, null);
+
+        return projectDeployments.stream()
+            .filter(projectDeployment -> name.equals(projectDeployment.getName()))
+            .findFirst();
     }
 
     private static Connection connectionOwnedByAnotherUser(long id, String componentName) {
@@ -800,6 +850,24 @@ class AutomationCodeWorkflowBridgeIntTest {
         when(connectionDTO.componentName()).thenReturn(componentName);
 
         return connectionDTO;
+    }
+
+    private void pinToPublishedVersion(long projectId, Environment environment) {
+        int projectVersion = publishedVersion(projectId);
+
+        List<AutomationWorkflowProjectConfiguration> configurations =
+            automationWorkflowProjectConfigurationService.getConfigurations(projectId, environment.ordinal());
+
+        if (configurations.isEmpty()) {
+            automationWorkflowProjectConfigurationService.create(
+                projectId, environment.ordinal(), "Default", null, projectVersion, true, true);
+        } else {
+            AutomationWorkflowProjectConfiguration configuration = configurations.getFirst();
+
+            automationWorkflowProjectConfigurationService.update(
+                configuration.getId(), configuration.getName(), configuration.getPermissionExpression(),
+                projectVersion, true, true);
+        }
     }
 
     private int publishedVersion(long projectId) {

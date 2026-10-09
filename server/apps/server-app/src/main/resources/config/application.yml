@@ -59,6 +59,8 @@ info:
     customerPortalUrl: ${billing.stripe.customer-portal-url:}
   application:
     edition: ${bytechef.edition:}
+  audit:
+    enabled: ${bytechef.audit.enabled:false}
   component:
     customComponent:
       javaEnabled: ${bytechef.component.custom-component.java-enabled:true}
@@ -172,6 +174,7 @@ management:
 openapi:
   openAPIDefinition:
     base-path:
+      app: /api/app
       automation: /api/automation
       embedded: /api/embedded
       platform: /api/platform

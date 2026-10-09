@@ -17,10 +17,15 @@
 package com.bytechef.platform.tool.execution;
 
 /**
+ * The kind of thing a direct tool/action execution invoked. Persisted by ordinal; append new values at the end (pinned
+ * by an enum ordinal stability test).
+ *
  * @author Ivica Cardic
  */
 public enum ToolExecutionKind {
 
     COMPONENT,
-    WORKFLOW
+    WORKFLOW,
+    CONTRIBUTED,
+    HTTP_PROXY
 }

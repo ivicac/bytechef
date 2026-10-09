@@ -131,12 +131,12 @@ class ResourceEnvironmentResolverCoverageTest {
         String noEnvironmentFieldReason =
             "No environment field on the underlying domain type -- it is a sub-element or projection scoped "
                 + "entirely by its already-resolved parent (an AiAgent, a Job's own execution record, an "
-                + "already-environment-scoped McpServer/McpProject, or a Project/ProjectWorkflow, which carries no "
+                + "already-environment-scoped McpServer/McpProject or A2aServer, or a Project/ProjectWorkflow, which carries no "
                 + "environment for the same reason 'Project' above does not). Nothing for a resolver to answer with.";
 
         for (String noEnvironmentType : List.of(
-            "AiAgent", "AiAgentChannel", "AiAgentElement", "Job", "McpComponent", "McpProject", "McpProjectWorkflow",
-            "McpTool", "ProjectWorkflow")) {
+            "A2aProject", "A2aProjectWorkflow", "AiAgent", "AiAgentChannel", "AiAgentElement", "Job", "McpComponent",
+            "McpProject", "McpProjectWorkflow", "McpTool", "ProjectWorkflow")) {
 
             reasons.put(noEnvironmentType, noEnvironmentFieldReason);
         }
@@ -223,9 +223,9 @@ class ResourceEnvironmentResolverCoverageTest {
         // negative control for that path uses a type outside this set (DataTable/ApiKey), see task-8-report.md.
         assertTrue(
             resolvedResourceTypes.containsAll(
-                List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection")),
-            "Expected to discover the four known ResourceEnvironmentResolver implementations (Connection, "
-                + "ProjectDeployment, McpServer, ApiCollection) by scanning source files; found "
+                List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection", "App")),
+            "Expected to discover the five known ResourceEnvironmentResolver implementations (Connection, "
+                + "ProjectDeployment, McpServer, ApiCollection, App) by scanning source files; found "
                 + resolvedResourceTypes
                 + " instead. If this list shrank, the file-based discovery mechanism itself is broken, which would "
                 + "make the assertion below pass vacuously for every type.");

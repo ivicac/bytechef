@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,7 +31,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.hamcrest.Matchers;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
@@ -212,6 +216,51 @@ class ToolInvocationApiControllerIntTest {
         }
     }
 
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "development", "Development", " development "
+    })
+    void testGetToolInvocationsPageAcceptsAnyCaseOfTheEnvironmentHeader(String requestEnvironment) throws Exception {
+        mockToolInvocationsInEnvironment("DEVELOPMENT", Environment.DEVELOPMENT);
+
+        mockMvc
+            .perform(
+                get("/v1/{externalUserId}/tool-invocations", EXTERNAL_USER_ID)
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isOk());
+
+        verify(toolInvocationFacade).getToolInvocations(
+            eq(EXTERNAL_USER_ID), eq(Environment.DEVELOPMENT), isNull(), isNull(), isNull(), isNull(), eq(0));
+    }
+
+    @ParameterizedTest(name = "X-Environment [{0}]")
+    @ValueSource(strings = {
+        "", "   "
+    })
+    void testGetToolInvocationsPageTreatsABlankEnvironmentHeaderAsAbsent(String requestEnvironment) throws Exception {
+        mockToolInvocationsInEnvironment(null, Environment.PRODUCTION);
+
+        mockMvc
+            .perform(
+                get("/v1/{externalUserId}/tool-invocations", EXTERNAL_USER_ID)
+                    .header("X-Environment", requestEnvironment))
+            .andExpect(status().isOk());
+
+        verify(toolInvocationFacade).getToolInvocations(
+            eq(EXTERNAL_USER_ID), eq(Environment.PRODUCTION), isNull(), isNull(), isNull(), isNull(), eq(0));
+    }
+
+    @Test
+    void testGetToolInvocationsPageRejectsAnUnknownEnvironmentHeader() throws Exception {
+        mockMvc
+            .perform(
+                get("/v1/{externalUserId}/tool-invocations", EXTERNAL_USER_ID)
+                    .header("X-Environment", "staging-x"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(environmentService, toolInvocationFacade);
+    }
+
     private ToolInvocationLog createToolInvocationLog(
         ToolExecutionSurface surface, ToolExecutionKind kind, ToolExecutionOutcome outcome) {
 
@@ -237,5 +286,11 @@ class ToolInvocationApiControllerIntTest {
             toolInvocationFacade.getToolInvocations(
                 eq(EXTERNAL_USER_ID), eq(Environment.PRODUCTION), isNull(), isNull(), isNull(), isNull(), eq(0)))
                     .thenReturn(new PageImpl<>(toolInvocationLogs, PageRequest.of(0, 20), toolInvocationLogs.size()));
+    }
+
+    private void mockToolInvocationsInEnvironment(@Nullable String environmentName, Environment environment) {
+        when(environmentService.getEnvironment(environmentName)).thenReturn(environment);
+        when(toolInvocationFacade.getToolInvocations(any(), any(), any(), any(), any(), any(), anyInt()))
+            .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
     }
 }

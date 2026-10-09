@@ -13,7 +13,6 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.Context.Http;
 import com.bytechef.ee.embedded.execution.facade.ActionFacade;
-import com.bytechef.ee.embedded.execution.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ExecuteActionRequestModel;
 import com.bytechef.file.storage.domain.FileEntry;
@@ -26,8 +25,6 @@ import java.util.Map;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
-import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -105,11 +102,6 @@ public class ActionApiController implements ActionApi {
                 actionFacade.executeAction(
                     externalUserId, componentName, componentVersion, actionName, inputParameters, xInstanceId,
                     environment)));
-    }
-
-    @InitBinder
-    public void initBinder(WebDataBinder dataBinder) {
-        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private static final class FileEntryImpl implements com.bytechef.component.definition.FileEntry {

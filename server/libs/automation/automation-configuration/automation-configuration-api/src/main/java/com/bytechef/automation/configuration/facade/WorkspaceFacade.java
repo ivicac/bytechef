@@ -24,5 +24,10 @@ import java.util.List;
  */
 public interface WorkspaceFacade {
 
+    /**
+     * Returns the workspaces the current user is a member of.
+     */
+    List<Workspace> getMyWorkspaces();
+
     List<Workspace> getUserWorkspaces(long id);
 }

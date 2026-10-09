@@ -103,9 +103,9 @@ public class ToolExecutionRecorderImpl implements ToolExecutionRecorder {
 
             if (log.isDebugEnabled()) {
                 log.debug(
-                    "Tool invocation surface={} kind={} tool={} outcome={} durationMs={} tenant={}",
-                    event.surface(), event.kind(), event.toolName(), event.outcome(), event.durationMs(),
-                    event.tenantId());
+                    "Tool invocation type={} surface={} kind={} tool={} outcome={} durationMs={} tenant={}",
+                    event.type(), event.surface(), event.kind(), event.toolName(), event.outcome(),
+                    event.durationMs(), event.tenantId());
             }
 
             applicationEventPublisher.publishEvent(event);

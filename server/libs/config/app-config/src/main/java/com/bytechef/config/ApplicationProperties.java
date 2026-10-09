@@ -65,6 +65,11 @@ public class ApplicationProperties {
     private Approval approval = new Approval();
 
     /**
+     * Apps (EE) configuration
+     */
+    private App app = new App();
+
+    /**
      * Default @Async executor configuration
      */
     private Async async = new Async();
@@ -292,8 +297,8 @@ public class ApplicationProperties {
         return analytics;
     }
 
-    public Approval getApproval() {
-        return approval;
+    public App getApp() {
+        return app;
     }
 
     public Async getAsync() {
@@ -488,8 +493,8 @@ public class ApplicationProperties {
         this.analytics = analytics;
     }
 
-    public void setApproval(Approval approval) {
-        this.approval = approval;
+    public void setApp(App app) {
+        this.app = app;
     }
 
     public void setAsync(Async async) {
@@ -1023,169 +1028,6 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI Agent Utils tools configuration. Isolates the file and shell tools of each agent in its own workspace.
-         */
-        public static class AgentUtils {
-
-            /**
-             * Hosts the web fetch and A2A agent tools may reach even though they resolve to a private or loopback
-             * address.
-             */
-            private List<String> allowedPrivateHosts;
-
-            private Shell shell = new Shell();
-            private Workspace workspace = new Workspace();
-
-            public List<String> getAllowedPrivateHosts() {
-                return allowedPrivateHosts;
-            }
-
-            public Shell getShell() {
-                return shell;
-            }
-
-            public Workspace getWorkspace() {
-                return workspace;
-            }
-
-            public void setAllowedPrivateHosts(List<String> allowedPrivateHosts) {
-                this.allowedPrivateHosts = allowedPrivateHosts;
-            }
-
-            public void setShell(Shell shell) {
-                this.shell = shell;
-            }
-
-            public void setWorkspace(Workspace workspace) {
-                this.workspace = workspace;
-            }
-
-            /**
-             * Shell Tools configuration. The tool is only offered when explicitly enabled; its commands run in a Docker
-             * container unless running them on the server is allowed.
-             */
-            public static class Shell {
-
-                /**
-                 * Whether a Shell Tools element may run commands directly on the server instead of in a Docker
-                 * container
-                 */
-                private boolean allowLocal;
-
-                private Docker docker = new Docker();
-                private boolean enabled;
-
-                public Docker getDocker() {
-                    return docker;
-                }
-
-                public boolean isAllowLocal() {
-                    return allowLocal;
-                }
-
-                public boolean isEnabled() {
-                    return enabled;
-                }
-
-                public void setAllowLocal(boolean allowLocal) {
-                    this.allowLocal = allowLocal;
-                }
-
-                public void setDocker(Docker docker) {
-                    this.docker = docker;
-                }
-
-                public void setEnabled(boolean enabled) {
-                    this.enabled = enabled;
-                }
-
-                /**
-                 * Docker sandbox for shell commands. Each agent workspace gets its own container with the workspace
-                 * bind-mounted at the same path.
-                 */
-                public static class Docker {
-
-                    /**
-                     * Docker-compatible CLI used to manage the containers, e.g. docker or podman
-                     */
-                    private String command;
-
-                    /**
-                     * How long a container may stay unused before it is removed
-                     */
-                    private Duration idleTimeout;
-
-                    /**
-                     * Container image; it must provide /bin/bash and sleep
-                     */
-                    private String image;
-
-                    public String getCommand() {
-                        return command;
-                    }
-
-                    public Duration getIdleTimeout() {
-                        return idleTimeout;
-                    }
-
-                    public String getImage() {
-                        return image;
-                    }
-
-                    public void setCommand(String command) {
-                        this.command = command;
-                    }
-
-                    public void setIdleTimeout(Duration idleTimeout) {
-                        this.idleTimeout = idleTimeout;
-                    }
-
-                    public void setImage(String image) {
-                        this.image = image;
-                    }
-                }
-            }
-
-            /**
-             * Agent workspace configuration.
-             */
-            public static class Workspace {
-
-                /**
-                 * Base directory under which each tenant's agents get their own workspace directory
-                 */
-                private String basedir;
-
-                public String getBasedir() {
-                    return basedir;
-                }
-
-                public void setBasedir(String basedir) {
-                    this.basedir = basedir;
-                }
-            }
-        }
-
-        public static class AutoMemory {
-
-            public enum Provider {
-                AWS,
-                FILESYSTEM,
-                JDBC
-            }
-
-            private Provider provider;
-
-            public Provider getProvider() {
-                return provider;
-            }
-
-            public void setProvider(Provider provider) {
-                this.provider = provider;
-            }
-        }
-
-        /**
          * Auto-memory storage configuration.
          */
         public static class AutoMemory {
@@ -1453,19 +1295,6 @@ public class ApplicationProperties {
             }
         }
 
-        public static class Hub {
-
-            private boolean enabled;
-
-            public boolean isEnabled() {
-                return enabled;
-            }
-
-            public void setEnabled(boolean enabled) {
-                this.enabled = enabled;
-            }
-        }
-
         /**
          * AI Hub properties.
          */
@@ -1576,6 +1405,10 @@ public class ApplicationProperties {
                  */
                 private Provider provider;
 
+                /**
+                 * The API key used to authenticate with the Copilot embedding provider. Applies only to the OpenAI
+                 * provider; Ollama runs locally and does not require a key.
+                 */
                 private String apiKey;
 
                 public Provider getProvider() {
@@ -4089,6 +3922,189 @@ public class ApplicationProperties {
     }
 
     /**
+     * Apps (EE) configuration: the app-facing execution, HTTP proxy and workflow run surfaces. Defaults live in
+     * application-bytechef.yml.
+     */
+    public static class App {
+
+        /**
+         * Action and tool execution limits
+         */
+        private Execution execution = new Execution();
+
+        /**
+         * HTTP proxy limits
+         */
+        private Proxy proxy = new Proxy();
+
+        /**
+         * Limits of an app running a bound workflow
+         */
+        private WorkflowRun workflow = new WorkflowRun();
+
+        public Execution getExecution() {
+            return execution;
+        }
+
+        public Proxy getProxy() {
+            return proxy;
+        }
+
+        public WorkflowRun getWorkflow() {
+            return workflow;
+        }
+
+        public void setExecution(Execution execution) {
+            this.execution = execution;
+        }
+
+        public void setProxy(Proxy proxy) {
+            this.proxy = proxy;
+        }
+
+        public void setWorkflow(WorkflowRun workflow) {
+            this.workflow = workflow;
+        }
+
+        /**
+         * Limits of an app calling an action or a tool.
+         */
+        public static class Execution {
+
+            /**
+             * Concurrent action, tool and proxy calls requested by apps. They run on their own executor so a burst from
+             * apps cannot take permits from the editor's Test button or the API Platform sync path
+             */
+            private int concurrencyLimit;
+
+            /**
+             * Maximum time an action or tool execution requested by an app may run
+             */
+            private Duration timeout;
+
+            public int getConcurrencyLimit() {
+                return concurrencyLimit;
+            }
+
+            public Duration getTimeout() {
+                return timeout;
+            }
+
+            public void setConcurrencyLimit(int concurrencyLimit) {
+                this.concurrencyLimit = concurrencyLimit;
+            }
+
+            public void setTimeout(Duration timeout) {
+                this.timeout = timeout;
+            }
+        }
+
+        /**
+         * Limits of an app calling a bound connection's API through the proxy.
+         */
+        public static class Proxy {
+
+            /**
+             * Maximum size, in bytes, of a proxied request body
+             */
+            private long maxRequestBytes;
+
+            /**
+             * Maximum size, in bytes, of a proxied response body
+             */
+            private long maxResponseBytes;
+
+            /**
+             * Maximum time a proxied request may run
+             */
+            private Duration timeout;
+
+            public long getMaxRequestBytes() {
+                return maxRequestBytes;
+            }
+
+            public long getMaxResponseBytes() {
+                return maxResponseBytes;
+            }
+
+            public Duration getTimeout() {
+                return timeout;
+            }
+
+            public void setMaxRequestBytes(long maxRequestBytes) {
+                this.maxRequestBytes = maxRequestBytes;
+            }
+
+            public void setMaxResponseBytes(long maxResponseBytes) {
+                this.maxResponseBytes = maxResponseBytes;
+            }
+
+            public void setTimeout(Duration timeout) {
+                this.timeout = timeout;
+            }
+        }
+
+        /**
+         * Limits of an app running a bound workflow.
+         */
+        public static class WorkflowRun {
+
+            /**
+             * How long a workflow run requested by an app is waited for when the request names no wait
+             */
+            private Duration defaultWait;
+
+            /**
+             * The longest wait an app may request for a workflow run
+             */
+            private Duration maxWait;
+
+            /**
+             * How many days an app's workflow run records are kept before the retention job deletes them
+             */
+            private long runRetentionDays;
+
+            /**
+             * Cron expression of the daily app workflow run retention sweep
+             */
+            private String runRetentionCron;
+
+            public Duration getDefaultWait() {
+                return defaultWait;
+            }
+
+            public Duration getMaxWait() {
+                return maxWait;
+            }
+
+            public long getRunRetentionDays() {
+                return runRetentionDays;
+            }
+
+            public String getRunRetentionCron() {
+                return runRetentionCron;
+            }
+
+            public void setDefaultWait(Duration defaultWait) {
+                this.defaultWait = defaultWait;
+            }
+
+            public void setMaxWait(Duration maxWait) {
+                this.maxWait = maxWait;
+            }
+
+            public void setRunRetentionDays(long runRetentionDays) {
+                this.runRetentionDays = runRetentionDays;
+            }
+
+            public void setRunRetentionCron(String runRetentionCron) {
+                this.runRetentionCron = runRetentionCron;
+            }
+        }
+    }
+
+
+    /**
      * Configuration of the default {@code @Async} executor, which carries mail, notifications and other background
      * work. Workflow task and trigger execution are bounded separately by the worker task properties.
      */
@@ -5982,102 +5998,6 @@ public class ApplicationProperties {
 
         public void setRedirectUri(String redirectUri) {
             this.redirectUri = redirectUri;
-        }
-
-        /**
-         * Embedded OAuth2 authorization server configuration. When disabled (the default), the authorization server
-         * endpoints are not exposed.
-         */
-        public static class AuthorizationServer {
-
-            /**
-             * Whether the embedded OAuth2 authorization server is enabled.
-             */
-            private boolean enabled;
-
-            public boolean isEnabled() {
-                return enabled;
-            }
-
-            public void setEnabled(boolean enabled) {
-                this.enabled = enabled;
-            }
-        }
-
-        public static class ResourceServer {
-
-            private List<Issuer> issuers = new ArrayList<>();
-
-            public List<Issuer> getIssuers() {
-                return issuers;
-            }
-
-            public void setIssuers(List<Issuer> issuers) {
-                this.issuers = issuers;
-            }
-
-            public static class Issuer {
-
-                private String uri;
-
-                private String tenantClaim;
-
-                private String authoritiesClaim;
-
-                private List<String> authorities = new ArrayList<>();
-
-                private boolean self;
-
-                private String audience;
-
-                public String getUri() {
-                    return uri;
-                }
-
-                public String getTenantClaim() {
-                    return tenantClaim;
-                }
-
-                public String getAuthoritiesClaim() {
-                    return authoritiesClaim;
-                }
-
-                public List<String> getAuthorities() {
-                    return authorities;
-                }
-
-                public boolean isSelf() {
-                    return self;
-                }
-
-                public String getAudience() {
-                    return audience;
-                }
-
-                public void setUri(String uri) {
-                    this.uri = uri;
-                }
-
-                public void setTenantClaim(String tenantClaim) {
-                    this.tenantClaim = tenantClaim;
-                }
-
-                public void setAuthoritiesClaim(String authoritiesClaim) {
-                    this.authoritiesClaim = authoritiesClaim;
-                }
-
-                public void setAuthorities(List<String> authorities) {
-                    this.authorities = authorities;
-                }
-
-                public void setSelf(boolean self) {
-                    this.self = self;
-                }
-
-                public void setAudience(String audience) {
-                    this.audience = audience;
-                }
-            }
         }
 
         /**

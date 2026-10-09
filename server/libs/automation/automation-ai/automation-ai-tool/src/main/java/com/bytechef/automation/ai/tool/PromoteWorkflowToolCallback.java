@@ -48,7 +48,9 @@ public class PromoteWorkflowToolCallback implements ToolCallback {
         user says "promote my customer-support workflow to production" or "deploy v3 of my workflow to staging."
         Pass projectId (numeric, from listWorkflows), projectVersion (a PUBLISHED version — not the current
         DRAFT), targetEnvironment (one of: %s), and optionally enable (default false) to toggle the deployment
-        on in one step. Returns {projectDeploymentId, projectId, projectVersion, environment, enabled}.""".formatted(
+        on in one step. Returns {projectDeploymentId, projectId, projectVersion, environment, enabled}.
+        When the deployProject tool is available, use it instead for a DEVELOPMENT deployment an app will
+        call.""".formatted(
         SUPPORTED_ENVIRONMENTS);
 
     private static final String INPUT_SCHEMA =

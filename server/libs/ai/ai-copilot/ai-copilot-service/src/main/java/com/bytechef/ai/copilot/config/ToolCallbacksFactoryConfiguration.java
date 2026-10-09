@@ -16,16 +16,13 @@
 
 package com.bytechef.ai.copilot.config;
 
-import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.ai.mcp.facade.McpProjectFacade;
+import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
-import com.bytechef.automation.ai.mcp.service.McpProjectService;
-import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.tool.DeploymentToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.McpServerToolCallbacksFactory;
 import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
@@ -63,17 +60,12 @@ public class ToolCallbacksFactoryConfiguration {
 
     @Bean
     @ConditionalOnBean({
-        McpProjectFacade.class, McpProjectService.class, McpProjectWorkflowService.class,
-        ProjectDeploymentWorkflowService.class, WorkflowService.class, WorkspaceMcpServerFacade.class
+        McpProjectFacade.class, McpProjectWorkflowFacade.class, WorkspaceMcpServerFacade.class
     })
     McpServerToolCallbacksFactory mcpServerToolCallbacksFactory(
-        McpProjectFacade mcpProjectFacade, McpProjectService mcpProjectService,
-        McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService,
+        McpProjectFacade mcpProjectFacade, McpProjectWorkflowFacade mcpProjectWorkflowFacade,
         WorkspaceMcpServerFacade workspaceMcpServerFacade) {
 
-        return new McpServerToolCallbacksFactory(
-            mcpProjectFacade, mcpProjectService, mcpProjectWorkflowService, projectDeploymentWorkflowService,
-            workflowService, workspaceMcpServerFacade);
+        return new McpServerToolCallbacksFactory(mcpProjectFacade, mcpProjectWorkflowFacade, workspaceMcpServerFacade);
     }
 }
