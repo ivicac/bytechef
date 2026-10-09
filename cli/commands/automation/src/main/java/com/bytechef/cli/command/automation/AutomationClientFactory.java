@@ -23,6 +23,10 @@ import com.bytechef.cli.client.automation.api.ProjectGitApi;
 import com.bytechef.cli.client.automation.api.WorkflowExecutionApi;
 import com.bytechef.cli.client.automationapiplatform.api.ApiCollectionApi;
 import com.bytechef.cli.client.automationapiplatform.api.ApiCollectionEndpointApi;
+import com.bytechef.cli.client.automationapp.api.AppApi;
+import com.bytechef.cli.client.automationapp.api.AppApiCollectionBindingApi;
+import com.bytechef.cli.client.automationapp.api.AppWorkflowBindingApi;
+import com.bytechef.cli.client.automationapp.api.WorkspaceConnectionApi;
 import com.bytechef.cli.client.automationdatatable.api.DataTableApi;
 import com.bytechef.cli.client.automationdatatable.api.DataTableRowApi;
 import com.bytechef.cli.core.config.CliConfig;
@@ -40,6 +44,10 @@ import java.util.Objects;
  * @author Ivica Cardic
  */
 final class AutomationClientFactory {
+
+    static final String MANAGE_APPS_FORBIDDEN_HINT = "Managing apps needs the workspace admin role in DEVELOPMENT.";
+    static final String BIND_CONNECTION_FORBIDDEN_HINT =
+        "Binding a connection needs the workspace admin role in DEVELOPMENT and permission to use the connection.";
 
     private static final String NEUTRAL_FORBIDDEN_HINT =
         "Your role in DEVELOPMENT does not allow this; ask a workspace admin.";
@@ -94,6 +102,35 @@ final class AutomationClientFactory {
     }
 
     /**
+     * The generated app client's {@code ApiClient} is a distinct type per generated package, like the data-table one.
+     */
+    static com.bytechef.cli.client.automationapp.ApiClient appApiClient(CliConfig config) {
+        com.bytechef.cli.client.automationapp.ApiClient apiClient =
+            new com.bytechef.cli.client.automationapp.ApiClient();
+
+        apiClient.updateBaseUri(AuthInterceptor.baseUri(config, AUTOMATION_API_PATH));
+        apiClient.setRequestInterceptor(new AuthInterceptor(config));
+
+        return apiClient;
+    }
+
+    static AppApi appApi(CliConfig config) {
+        return new AppApi(appApiClient(config));
+    }
+
+    static AppApiCollectionBindingApi appApiCollectionBindingApi(CliConfig config) {
+        return new AppApiCollectionBindingApi(appApiClient(config));
+    }
+
+    static AppWorkflowBindingApi appWorkflowBindingApi(CliConfig config) {
+        return new AppWorkflowBindingApi(appApiClient(config));
+    }
+
+    static WorkspaceConnectionApi workspaceConnectionApi(CliConfig config) {
+        return new WorkspaceConnectionApi(appApiClient(config));
+    }
+
+    /**
      * The generated API Platform client's {@code ApiClient} is a distinct type per generated package, like the app one.
      */
     static com.bytechef.cli.client.automationapiplatform.ApiClient apiPlatformApiClient(CliConfig config) {
@@ -120,6 +157,26 @@ final class AutomationClientFactory {
 
     static CliException toCliException(com.bytechef.cli.client.automationdatatable.ApiException exception) {
         return toCliException(exception.getCode());
+    }
+
+    /**
+     * Maps an app client failure onto the CLI's exit codes, carrying the server's {@code {code, message}} error body
+     * and the next step, so a coding agent can correct itself. Status 0 is the generated client's code for an I/O
+     * failure, which includes a 2xx reply it could not read.
+     */
+    static CliException toCliException(com.bytechef.cli.client.automationapp.ApiException exception) {
+        return toCliException(exception, NEUTRAL_FORBIDDEN_HINT);
+    }
+
+    /**
+     * Like {@link #toCliException(com.bytechef.cli.client.automationapp.ApiException)}, with the command's own remedy
+     * for HTTP 403.
+     */
+    static CliException toCliException(
+        com.bytechef.cli.client.automationapp.ApiException exception, String forbiddenHint) {
+
+        return toCliException(
+            exception.getCode(), exception.getMessage(), exception.getResponseBody(), forbiddenHint);
     }
 
     /**

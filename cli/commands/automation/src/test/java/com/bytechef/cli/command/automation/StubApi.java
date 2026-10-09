@@ -32,10 +32,10 @@ final class StubApi implements AutoCloseable {
 
     private final HttpServer server;
 
-    private String lastPath;
-    private String lastAuthorization;
-    private String lastEnvironment;
-    private String lastBody;
+    private volatile String lastPath;
+    private volatile String lastAuthorization;
+    private volatile String lastEnvironment;
+    private volatile String lastBody;
 
     private StubApi(HttpServer server) {
         this.server = server;
