@@ -12,6 +12,7 @@ import {twMerge} from 'tailwind-merge';
 
 interface PropertyJsonSchemaBuilderProps {
     description?: string;
+    dynamicSwitch?: ReactNode;
     environmentId?: number;
     error?: boolean;
     errorMessage?: string;
@@ -32,6 +33,7 @@ const PropertyJsonSchemaBuilder = forwardRef<HTMLButtonElement, PropertyJsonSche
     (
         {
             description,
+            dynamicSwitch,
             environmentId,
             error,
             errorMessage,
@@ -77,12 +79,16 @@ const PropertyJsonSchemaBuilder = forwardRef<HTMLButtonElement, PropertyJsonSche
                                 )}
                             </div>
 
-                            {handleInputTypeSwitchButtonClick && (
-                                <PropertyFormulaSwitch
-                                    formulaMode={false}
-                                    handleClick={handleInputTypeSwitchButtonClick}
-                                />
-                            )}
+                            <div className="flex items-center">
+                                {dynamicSwitch}
+
+                                {handleInputTypeSwitchButtonClick && (
+                                    <PropertyFormulaSwitch
+                                        formulaMode={false}
+                                        handleClick={handleInputTypeSwitchButtonClick}
+                                    />
+                                )}
+                            </div>
                         </div>
                     )}
 

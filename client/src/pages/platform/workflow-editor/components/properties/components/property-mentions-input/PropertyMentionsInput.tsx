@@ -52,6 +52,7 @@ interface PropertyMentionsInputProps {
     deletePropertyButton?: ReactNode;
     description?: string;
     disableAutoSave?: boolean;
+    dynamicSwitch?: ReactNode;
     error?: boolean;
     errorMessage?: string;
     expressionEnabled?: boolean;
@@ -90,6 +91,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
             deletePropertyButton,
             description,
             disableAutoSave,
+            dynamicSwitch,
             error,
             errorMessage,
             expressionEnabled,
@@ -265,7 +267,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
 
         return (
             <fieldset className={twMerge('w-full', label && 'space-y-1')} data-pill-target="">
-                {(label || description || showInputTypeSwitchButton) && (
+                {(label || description || showInputTypeSwitchButton || dynamicSwitch) && (
                     <div className={twMerge('flex w-full items-center justify-between', !label && 'justify-end')}>
                         {label && (
                             <div className="flex items-center">
@@ -311,6 +313,8 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
                                     />
                                 </Suspense>
                             )}
+
+                            {dynamicSwitch}
 
                             {showInputTypeSwitchButton && handleInputTypeSwitchButtonClick && (
                                 <PropertyFormulaSwitch
