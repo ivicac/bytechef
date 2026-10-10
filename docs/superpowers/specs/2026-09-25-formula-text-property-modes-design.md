@@ -71,16 +71,20 @@ and the other dialogs).
      `onChange`. Today's `=` shortcut silently fails for INTEGER for this reason.
    - A focused `SELECT` trigger (options combobox or BOOLEAN select) also takes `$`, even with an option selected,
      since a select can't hold a typed `$`. It opens an empty editor; choosing a pill replaces the option, while
-     leaving or erasing the `$` without one keeps it. `=` is not handled there.
+     erasing the `$` or leaving without one keeps it. `=` is not handled there.
    - A STRING select's value is a string, so its editor has no one-pill limit: free text and any number of pills,
-     like a STRING field. It saves only values holding a pill (or a formula), stays up while being edited even with
-     every pill deleted, and gives way to the select when it loses focus without a pill. If a pill had already been
-     saved, that clears the field. Selects of other types keep the one-pill editor.
+     like a STRING field. It saves only values holding a pill (or a formula); losing focus with text but no pill
+     drops the text and, if a pill had already been saved, clears the field. Selects of other types keep the one-pill
+     editor.
    - Selects and empty object, array and JSON-schema builders also carry a **Dynamic** switch beside Formula, since
      nothing on screen invites a `$` there. On the builders it replaces the "Drop or click a data pill, or type $"
-     hint, which stays only on an array item's object (no label row to hold a switch). Turning it on does what `$`
-     does; turning it off returns to the native control, keeping a select's option when no pill was chosen yet and
-     otherwise clearing the field. It is hidden in Formula mode, on `fromAi` fields and in controlled forms.
+     hint, which stays only on an array item's object (no label row to hold a switch). Turning it on opens an empty,
+     focused editor, so a pill can be typed after `$` or picked from the data pill panel. On these fields the
+     editor then stays up until the switch is turned off, whether it is emptied or loses focus; picking from the
+     panel moves focus away, so anything less would close the editor under the click. Turning it off returns to the
+     native control, keeping a select's option when no pill was chosen yet and otherwise clearing the field. It is
+     hidden in Formula mode, on `fromAi` fields and in controlled forms. Fields without the switch (NUMBER,
+     INTEGER) still give way to the native control as soon as the pill entry is emptied or left.
    - DATE/DATE_TIME/TIME and MULTI_SELECT take pills only by click or drag. Selects and these controls reach Formula
      only through the switch.
 4. **Keystroke and focus survive the handover.** The swap from native input to editor re-inserts the typed `$` or `=`
