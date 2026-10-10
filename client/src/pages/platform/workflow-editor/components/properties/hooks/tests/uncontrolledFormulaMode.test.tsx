@@ -363,6 +363,74 @@ describe('uncontrolled Text/Formula', () => {
             });
         });
 
+        describe('the Dynamic switch', () => {
+            it.each([
+                ['a BOOLEAN select', enabledProperty, true],
+                ['a STRING select', methodProperty, 'GET'],
+            ])('on %s opens the editor with $ typed', (_, property, parameterValue) => {
+                const {result} = renderSelect(property, parameterValue);
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(result.current.inputMode.renderer).toBe('mentions');
+                expect(result.current.mentionInputValue).toBe('');
+                expect(result.current.editorFocusRequest?.initialInput).toBe('$');
+            });
+
+            it('turned off before a pill is chosen keeps the option without saving', () => {
+                const {result} = renderSelect(methodProperty, 'GET');
+
+                act(() => result.current.handleDynamicSwitch());
+
+                const cancelPendingSave = vi.fn();
+
+                result.current.editorPendingSaveCancelRef.current = cancelPendingSave;
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(cancelPendingSave).toHaveBeenCalled();
+                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.selectValue).toBe('GET');
+                expect(saveProperty).not.toHaveBeenCalled();
+            });
+
+            it('turned off over a pill clears the field and saves the clear', () => {
+                const {result} = renderSelect(enabledProperty, '${trigger_1.enabled}');
+
+                expect(result.current.inputMode.renderer).toBe('mentions');
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.propertyParameterValue).toBe('');
+                expect(saveProperty).toHaveBeenLastCalledWith(expect.objectContaining({value: null}));
+            });
+
+            it('on an empty builder opens the one-pill editor, and turned off saves nothing', () => {
+                const {result} = renderSelect(
+                    {
+                        controlType: 'ARRAY_BUILDER',
+                        expressionEnabled: true,
+                        name: 'tags',
+                        type: 'ARRAY',
+                    } as PropertyAllType,
+                    undefined
+                );
+
+                expect(result.current.inputMode.renderer).toBe('native');
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(result.current.inputMode).toMatchObject({renderer: 'mentions', singlePill: true});
+                expect(result.current.editorFocusRequest?.initialInput).toBe('$');
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(result.current.inputMode.renderer).toBe('native');
+                expect(saveProperty).not.toHaveBeenCalled();
+            });
+        });
+
         it('ignores other keys', () => {
             const {result} = renderSelect(methodProperty, 'GET');
 

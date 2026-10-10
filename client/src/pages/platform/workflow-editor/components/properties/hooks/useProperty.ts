@@ -94,6 +94,7 @@ type UsePropertyReturnType = {
         fieldOnChange: (value: unknown) => void
     ) => void;
     handleDeleteCustomPropertyClick: (path: string) => void;
+    handleDynamicSwitch: () => void;
     handleFromAiClick: ((fromAi: boolean) => void) | undefined;
     handleFormulaSwitch: () => void;
     handleFromAiToggle: (fromAi: boolean, fieldOnChange: (value: string) => void) => void;
@@ -1110,10 +1111,17 @@ export const useProperty = ({
     );
 
     const startPillEntry = useCallback(() => {
+        if (controlType === 'SELECT') {
+            // A select always holds an option, which the pill entry replaces only once a pill is chosen.
+            pillEntryKeepsOptionRef.current = true;
+
+            dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
+        }
+
         setPillEntry(true);
 
         requestEditorFocus('$');
-    }, [requestEditorFocus]);
+    }, [controlType, requestEditorFocus]);
 
     const handleNativeKeyDown = useCallback(
         (event: KeyboardEvent<HTMLInputElement>) => {
@@ -1153,15 +1161,9 @@ export const useProperty = ({
 
             event.preventDefault();
 
-            pillEntryKeepsOptionRef.current = true;
-
-            dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
-
-            setPillEntry(true);
-
-            requestEditorFocus('$');
+            startPillEntry();
         },
-        [expressionEnabled, requestEditorFocus]
+        [expressionEnabled, startPillEntry]
     );
 
     const handleSinglePillAbandoned = useCallback(() => {
@@ -1186,6 +1188,31 @@ export const useProperty = ({
 
         requestAnimationFrame(() => inputRef.current?.focus());
     }, [saveResolvedValue, stringSelect]);
+
+    const handleDynamicSwitch = useCallback(() => {
+        if (!mentionInput) {
+            startPillEntry();
+
+            return;
+        }
+
+        editorPendingSaveCancelRef.current?.();
+
+        setPillEntry(false);
+
+        if (pillEntryKeepsOptionRef.current) {
+            pillEntryKeepsOptionRef.current = false;
+
+            return;
+        }
+
+        // Back to the native control: a pill (or text around one) has no constant to turn into.
+        dispatchValueAction({type: 'valueCleared'});
+
+        if (typeof propertyParameterValue === 'string' && propertyParameterValue !== '') {
+            saveResolvedValue(null);
+        }
+    }, [mentionInput, propertyParameterValue, saveResolvedValue, startPillEntry]);
 
     // A select's options are its constants, so its editor saves only values that hold a pill or a formula.
     const validateMentionInputValue = useCallback(
@@ -1923,6 +1950,7 @@ export const useProperty = ({
         handleControlledNativeFromAiClick,
         handleControlledNativeKeyDown,
         handleDeleteCustomPropertyClick,
+        handleDynamicSwitch,
         handleFormulaSwitch,
         handleFromAiClick: hideFromAi ? undefined : handleFromAiClick,
         handleFromAiToggle,
