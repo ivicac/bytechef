@@ -441,7 +441,7 @@ describe('pill target inside an object or array builder', () => {
         expect(savedPaths()).toEqual([]);
     });
 
-    it('deleting the pill that holds a whole empty array brings the empty builder back', async () => {
+    it('deleting the pill that holds a whole empty array keeps the editor until Dynamic is turned off', async () => {
         setParameters({counts: []});
 
         const {container} = renderUncontrolled(arrayProperty);
@@ -463,6 +463,13 @@ describe('pill target inside an object or array builder', () => {
         act(() => editorElement.focus());
         act(() => editorElement.editor.commands.clearContent(true));
         act(() => editorElement.blur());
+
+        await settle();
+
+        expect(container.querySelector('.ProseMirror')).not.toBeNull();
+        expect(screen.getByRole('switch', {name: 'Dynamic'})).toBeChecked();
+
+        fireEvent.click(screen.getByRole('switch', {name: 'Dynamic'}));
 
         await settle();
 

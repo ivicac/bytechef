@@ -133,6 +133,7 @@ const Property = ({
         handleSelectChange,
         handleSelectKeyDown,
         handleSinglePillAbandoned,
+        hasDynamicSwitch,
         hasError,
         hidden,
         inputMode,
@@ -273,7 +274,7 @@ const Property = ({
             return;
         }
 
-        startPillEntry();
+        startPillEntry('$');
     };
 
     // The builders report the items and entries on screen; the saved value lags an add by a server round trip.
@@ -292,18 +293,8 @@ const Property = ({
         !containerHasLocalEntries &&
         isPillContainerEmpty();
 
-    // A select or a builder has nothing on screen to type `$` into, so a Dynamic switch swaps it for the pill editor.
-    // An array item's object has no label row to hold one and keeps the hint.
-    const isDynamicSwitchControl =
-        controlType === 'SELECT' ||
-        controlType === 'ARRAY_BUILDER' ||
-        controlType === 'JSON_SCHEMA_BUILDER' ||
-        (controlType === 'OBJECT_BUILDER' && name !== '__item');
-
     const showDynamicSwitch =
-        isDynamicSwitchControl &&
-        !control &&
-        expressionEnabled !== false &&
+        hasDynamicSwitch &&
         !isFromAi &&
         !isFormulaMode &&
         (controlType === 'SELECT' || mentionInput || (!containerHasLocalEntries && isPillContainerEmpty()));
@@ -312,8 +303,9 @@ const Property = ({
         <PropertyDynamicSwitch dynamic={mentionInput} handleClick={handleDynamicSwitch} />
     ) : undefined;
 
+    // An array item's object has no label row to hold a Dynamic switch, so it keeps the hint.
     const containerPillHint =
-        showContainerPillHint && !isDynamicSwitchControl ? (
+        showContainerPillHint && !hasDynamicSwitch ? (
             <p
                 className={twMerge(
                     'mb-2 rounded-md border border-dashed border-stroke-neutral-secondary px-3 py-2 text-xs text-muted-foreground outline-none',

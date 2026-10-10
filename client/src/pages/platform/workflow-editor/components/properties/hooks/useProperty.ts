@@ -95,6 +95,7 @@ type UsePropertyReturnType = {
     ) => void;
     handleDeleteCustomPropertyClick: (path: string) => void;
     handleDynamicSwitch: () => void;
+    hasDynamicSwitch: boolean;
     handleFromAiClick: ((fromAi: boolean) => void) | undefined;
     handleFormulaSwitch: () => void;
     handleFromAiToggle: (fromAi: boolean, fieldOnChange: (value: string) => void) => void;
@@ -147,7 +148,7 @@ type UsePropertyReturnType = {
     setLookupDependsOnValues: Dispatch<SetStateAction<Array<unknown> | undefined>>;
     setSelectValue: (value: string) => void;
     showFormulaSwitch: boolean;
-    startPillEntry: () => void;
+    startPillEntry: (initialInput?: string) => void;
     type?: PropertyAllType['type'];
     typeIcon: ReactNode;
     validateMentionInputValue: (value: string | number) => boolean;
@@ -470,6 +471,16 @@ export const useProperty = ({
     );
 
     const stringSelect = isStringSelect(controlType, type);
+
+    // A select or a builder has nothing on screen to type `$` into, so it carries a Dynamic switch, and its pill
+    // editor stays up until that switch is turned off. An array item's object has no label row to hold the switch.
+    const hasDynamicSwitch =
+        !control &&
+        expressionEnabled !== false &&
+        (controlType === 'SELECT' ||
+            controlType === 'ARRAY_BUILDER' ||
+            controlType === 'JSON_SCHEMA_BUILDER' ||
+            (controlType === 'OBJECT_BUILDER' && name !== '__item'));
 
     const mentionInput = !control && inputMode.renderer === 'mentions';
     const isFormulaMode = inputMode.mode === 'formula';
@@ -933,29 +944,26 @@ export const useProperty = ({
                 pillEntryKeepsOptionRef.current = false;
             }
 
+            const keepsEditor = hasDynamicSwitch && !isFormulaMode;
+
+            // Emptied, the editor of a field with a Dynamic switch stays up: only the switch takes it down.
+            if (keepsEditor) {
+                setPillEntry(true);
+            }
+
             if (value === '' && pillEntryKeepsOptionRef.current) {
                 // Only a pill replaces the selected option; erasing the `$` before choosing one keeps it, so the
                 // editor's save of the empty document must not reach the server.
                 editorPendingSaveCancelRef.current?.();
 
-                if (inputMode.singlePill) {
-                    pillEntryKeepsOptionRef.current = false;
-
-                    setPillEntry(false);
-                }
-
                 return;
-            }
-
-            // A STRING select's editor stays up while it is being edited, even with every pill deleted; it gives
-            // way to the select only when it loses focus without one.
-            if (stringSelect && !isFormulaMode) {
-                setPillEntry(true);
             }
 
             if (inputMode.singlePill) {
                 if (value === '') {
-                    setPillEntry(false);
+                    if (!keepsEditor) {
+                        setPillEntry(false);
+                    }
 
                     dispatchValueAction({type: 'valueCleared'});
 
@@ -963,7 +971,9 @@ export const useProperty = ({
                 }
 
                 if (typeof value === 'string' && isSingleDataPill(value)) {
-                    setPillEntry(false);
+                    if (!keepsEditor) {
+                        setPillEntry(false);
+                    }
 
                     dispatchValueAction({type: 'pillValueSet', value});
 
@@ -1001,6 +1011,7 @@ export const useProperty = ({
             setErrorMessage(errorMessage);
         },
         [
+            hasDynamicSwitch,
             INCORRECT_VALUE,
             inputMode.singlePill,
             isFormulaMode,
@@ -1008,7 +1019,6 @@ export const useProperty = ({
             minLength,
             regex,
             setMentionInputValue,
-            stringSelect,
             VALUE_DOES_NOT_MATCH_PATTERN,
         ]
     );
@@ -1110,18 +1120,22 @@ export const useProperty = ({
         [requestEditorFocus, saveInputValue, saveResolvedValue]
     );
 
-    const startPillEntry = useCallback(() => {
-        if (controlType === 'SELECT') {
-            // A select always holds an option, which the pill entry replaces only once a pill is chosen.
-            pillEntryKeepsOptionRef.current = true;
+    // `$` typed into a field carries over into the editor; the Dynamic switch opens it empty, for a pill from the panel.
+    const startPillEntry = useCallback(
+        (initialInput?: string) => {
+            if (controlType === 'SELECT') {
+                // A select always holds an option, which the pill entry replaces only once a pill is chosen.
+                pillEntryKeepsOptionRef.current = true;
 
-            dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
-        }
+                dispatchValueAction({type: 'mentionInputSyncedFromValue', value: ''});
+            }
 
-        setPillEntry(true);
+            setPillEntry(true);
 
-        requestEditorFocus('$');
-    }, [controlType, requestEditorFocus]);
+            requestEditorFocus(initialInput);
+        },
+        [controlType, requestEditorFocus]
+    );
 
     const handleNativeKeyDown = useCallback(
         (event: KeyboardEvent<HTMLInputElement>) => {
@@ -1146,7 +1160,7 @@ export const useProperty = ({
                 return;
             }
 
-            startPillEntry();
+            startPillEntry('$');
         },
         [expressionEnabled, isNumericalInput, requestEditorFocus, setIsFormulaMode, startPillEntry]
     );
@@ -1161,33 +1175,37 @@ export const useProperty = ({
 
             event.preventDefault();
 
-            startPillEntry();
+            startPillEntry('$');
         },
         [expressionEnabled, startPillEntry]
     );
 
+    // The editor lost focus without a pill and dropped whatever text it held.
     const handleSinglePillAbandoned = useCallback(() => {
-        setPillEntry(false);
+        if (hasDynamicSwitch && !isFormulaMode) {
+            // The editor stays up until the Dynamic switch is turned off; focus moves away when a pill is picked from
+            // the panel, too. A select keeps its option until a pill replaces it.
+            if (pillEntryKeepsOptionRef.current) {
+                return;
+            }
 
-        // Leaving a select's pill entry without choosing a pill keeps the option it was about to replace.
-        if (pillEntryKeepsOptionRef.current) {
-            pillEntryKeepsOptionRef.current = false;
+            dispatchValueAction({type: 'valueCleared'});
+
+            // Text left without a pill is never saved (validateMentionInputValue), so the stored value may still
+            // hold the last pill.
+            if (typeof propertyParameterValue === 'string' && propertyParameterValue !== '') {
+                saveResolvedValue(null);
+            }
 
             return;
         }
+
+        setPillEntry(false);
 
         dispatchValueAction({type: 'valueCleared'});
 
-        if (stringSelect) {
-            // Text left without a pill was never saved (validateMentionInputValue), so the stored value may still
-            // hold the last pill.
-            saveResolvedValue(null);
-
-            return;
-        }
-
         requestAnimationFrame(() => inputRef.current?.focus());
-    }, [saveResolvedValue, stringSelect]);
+    }, [hasDynamicSwitch, isFormulaMode, propertyParameterValue, saveResolvedValue]);
 
     const handleDynamicSwitch = useCallback(() => {
         if (!mentionInput) {
@@ -1963,6 +1981,7 @@ export const useProperty = ({
         handleSelectChange,
         handleSelectKeyDown,
         handleSinglePillAbandoned,
+        hasDynamicSwitch,
         hasError,
         hidden,
         inputMode,

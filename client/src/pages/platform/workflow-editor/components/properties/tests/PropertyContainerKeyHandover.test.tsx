@@ -78,7 +78,7 @@ describe('keyboard handover from an empty container', () => {
         } as unknown as Partial<ReturnType<typeof useWorkflowDataStore.getState>>);
     });
 
-    it('the Dynamic switch of an empty array swaps to the one-pill editor with $ typed', async () => {
+    it('the Dynamic switch of an empty array swaps to an empty one-pill editor', async () => {
         setParameters({counts: []});
 
         const {container} = renderProperty(arrayProperty);
@@ -92,7 +92,7 @@ describe('keyboard handover from an empty container', () => {
         const editorElement = container.querySelector('.ProseMirror');
 
         expect(editorElement).not.toBeNull();
-        expect(editorElement!.textContent).toBe('$');
+        expect(editorElement!.textContent).toBe('');
         expect(document.activeElement).toBe(editorElement);
         expect(screen.getByRole('switch', {name: 'Dynamic'})).toBeChecked();
         expect(screen.queryByRole('button', {name: /add array item/i})).toBeNull();

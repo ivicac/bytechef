@@ -9,7 +9,7 @@ import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/s
 import saveProperty from '@/pages/platform/workflow-editor/utils/saveProperty';
 import {PropertyAllType} from '@/shared/types';
 import {render} from '@/shared/util/test-utils';
-import {act, fireEvent, screen} from '@testing-library/react';
+import {act, fireEvent, screen, waitFor} from '@testing-library/react';
 import {StrictMode} from 'react';
 import {type Mock, afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -200,7 +200,7 @@ describe('keyboard handover from a select holding an option', () => {
         ['an options combobox', methodProperty, 'GET', 'GET'],
         ['a BOOLEAN select', enabledProperty, true, 'True'],
     ])(
-        'leaving %s pill entry without a pill brings the option back',
+        'leaving %s pill entry without a pill keeps the editor, and turning Dynamic off brings the option back',
         async (_, property, parameterValue, optionLabel) => {
             const {container} = renderSelect(property, parameterValue);
 
@@ -214,6 +214,13 @@ describe('keyboard handover from a select holding an option', () => {
             const editorElement = container.querySelector('.ProseMirror') as HTMLElement;
 
             act(() => editorElement.blur());
+
+            await settle();
+
+            expect(container.querySelector('.ProseMirror')).not.toBeNull();
+            expect(screen.getByRole('switch', {name: 'Dynamic'})).toBeChecked();
+
+            fireEvent.click(screen.getByRole('switch', {name: 'Dynamic'}));
 
             await settle();
 
@@ -259,7 +266,7 @@ describe('the Dynamic switch', () => {
         ['an options combobox', methodProperty, 'GET'],
         ['a BOOLEAN select', enabledProperty, true],
         ['an empty array builder', tagsProperty, undefined],
-    ])('on %s opens the editor with $ typed', async (_, property, parameterValue) => {
+    ])('on %s opens an empty editor', async (_, property, parameterValue) => {
         const {container} = renderSelect(property, parameterValue);
 
         const dynamicSwitch = screen.getByRole('switch', {name: 'Dynamic'});
@@ -274,8 +281,30 @@ describe('the Dynamic switch', () => {
         const editorElement = container.querySelector('.ProseMirror');
 
         expect(editorElement).not.toBeNull();
-        expect(editorElement!.textContent).toBe('$');
+        expect(editorElement!.textContent).toBe('');
         expect(screen.getByRole('switch', {name: 'Dynamic'})).toBeChecked();
+    });
+
+    it('keeps the editor when focus moves to the data pill panel, and takes the pill picked there', async () => {
+        const {container} = renderSelect(enabledProperty, true);
+
+        fireEvent.click(screen.getByRole('switch', {name: 'Dynamic'}));
+
+        await settle();
+
+        act(() => (container.querySelector('.ProseMirror') as HTMLElement).blur());
+
+        await settle();
+
+        expect(container.querySelector('.ProseMirror')).not.toBeNull();
+
+        act(() => useWorkflowNodeDetailsPanelStore.getState().pillTarget?.insertPill('trigger_1.flag'));
+
+        await waitFor(() =>
+            expect(saveProperty).toHaveBeenCalledWith(expect.objectContaining({value: '${trigger_1.flag}'}))
+        );
+
+        expect(container.querySelector('.ProseMirror [data-id="trigger_1.flag"]')).not.toBeNull();
     });
 
     it('is not offered in Formula mode', () => {

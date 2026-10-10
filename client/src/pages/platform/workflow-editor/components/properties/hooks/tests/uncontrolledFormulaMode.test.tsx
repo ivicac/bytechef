@@ -228,20 +228,20 @@ describe('uncontrolled Text/Formula', () => {
                 expect(result.current.inputMode).toMatchObject({renderer: 'mentions', singlePill: true});
             });
 
-            it('keeps the option when pill entry is left without a pill', () => {
+            it('keeps the editor and the option when pill entry loses focus without a pill', () => {
                 const {result} = renderSelect(enabledProperty, true);
 
                 pressDollar(result);
 
                 act(() => result.current.handleSinglePillAbandoned());
 
-                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.propertyParameterValue).toBe(true);
                 expect(result.current.selectValue).toBe('true');
                 expect(saveProperty).not.toHaveBeenCalled();
             });
 
-            it('keeps the option and drops the pending save when the $ is erased', () => {
+            it('keeps the editor and the option, and drops the pending save, when the $ is erased', () => {
                 const {result} = renderSelect(enabledProperty, true);
 
                 pressDollar(result);
@@ -253,12 +253,12 @@ describe('uncontrolled Text/Formula', () => {
                 act(() => result.current.handleMentionInputValueChange(''));
 
                 expect(cancelPendingSave).toHaveBeenCalled();
-                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.propertyParameterValue).toBe(true);
                 expect(result.current.selectValue).toBe('true');
             });
 
-            it('clears the field when the chosen pill is deleted afterwards', () => {
+            it('clears the field but keeps the editor when the chosen pill is deleted afterwards', () => {
                 const {result} = renderSelect(enabledProperty, true);
 
                 pressDollar(result);
@@ -266,7 +266,7 @@ describe('uncontrolled Text/Formula', () => {
                 act(() => result.current.handleMentionInputValueChange('${trigger_1.enabled}'));
                 act(() => result.current.handleMentionInputValueChange(''));
 
-                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.propertyParameterValue).toBe('');
             });
         });
@@ -310,7 +310,7 @@ describe('uncontrolled Text/Formula', () => {
                 expect(result.current.validatePropertyValue('GET')).toBe(true);
             });
 
-            it('keeps the option when pill entry is left without a pill', () => {
+            it('keeps the editor and the option when pill entry loses focus without a pill', () => {
                 const {result} = renderSelect(methodProperty, 'GET');
 
                 pressDollar(result);
@@ -318,7 +318,7 @@ describe('uncontrolled Text/Formula', () => {
                 act(() => result.current.handleMentionInputValueChange('$GE'));
                 act(() => result.current.handleSinglePillAbandoned());
 
-                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.propertyParameterValue).toBe('GET');
                 expect(result.current.selectValue).toBe('GET');
                 expect(saveProperty).not.toHaveBeenCalled();
@@ -340,12 +340,16 @@ describe('uncontrolled Text/Formula', () => {
 
                 act(() => result.current.handleSinglePillAbandoned());
 
+                expect(result.current.inputMode.renderer).toBe('mentions');
+
+                act(() => result.current.handleDynamicSwitch());
+
                 expect(result.current.inputMode.renderer).toBe('native');
                 expect(result.current.selectValue).toBe('GET');
                 expect(saveProperty).not.toHaveBeenCalled();
             });
 
-            it('stays in the editor while every pill is deleted, and clears the field when left without one', () => {
+            it('stays in the editor while every pill is deleted, and clears the field when it loses focus without one', () => {
                 const {result} = renderSelect(methodProperty, 'GET');
 
                 pressDollar(result);
@@ -357,9 +361,13 @@ describe('uncontrolled Text/Formula', () => {
 
                 act(() => result.current.handleSinglePillAbandoned());
 
-                expect(result.current.inputMode.renderer).toBe('native');
+                expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.propertyParameterValue).toBe('');
                 expect(saveProperty).toHaveBeenLastCalledWith(expect.objectContaining({value: null}));
+
+                act(() => result.current.handleDynamicSwitch());
+
+                expect(result.current.inputMode.renderer).toBe('native');
             });
         });
 
@@ -367,14 +375,15 @@ describe('uncontrolled Text/Formula', () => {
             it.each([
                 ['a BOOLEAN select', enabledProperty, true],
                 ['a STRING select', methodProperty, 'GET'],
-            ])('on %s opens the editor with $ typed', (_, property, parameterValue) => {
+            ])('on %s opens an empty editor', (_, property, parameterValue) => {
                 const {result} = renderSelect(property, parameterValue);
 
                 act(() => result.current.handleDynamicSwitch());
 
                 expect(result.current.inputMode.renderer).toBe('mentions');
                 expect(result.current.mentionInputValue).toBe('');
-                expect(result.current.editorFocusRequest?.initialInput).toBe('$');
+                expect(result.current.editorFocusRequest).toBeDefined();
+                expect(result.current.editorFocusRequest?.initialInput).toBeUndefined();
             });
 
             it('turned off before a pill is chosen keeps the option without saving', () => {
@@ -422,7 +431,11 @@ describe('uncontrolled Text/Formula', () => {
                 act(() => result.current.handleDynamicSwitch());
 
                 expect(result.current.inputMode).toMatchObject({renderer: 'mentions', singlePill: true});
-                expect(result.current.editorFocusRequest?.initialInput).toBe('$');
+                expect(result.current.editorFocusRequest?.initialInput).toBeUndefined();
+
+                act(() => result.current.handleSinglePillAbandoned());
+
+                expect(result.current.inputMode.renderer).toBe('mentions');
 
                 act(() => result.current.handleDynamicSwitch());
 
