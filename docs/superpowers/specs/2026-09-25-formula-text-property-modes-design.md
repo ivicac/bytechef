@@ -76,6 +76,11 @@ and the other dialogs).
      like a STRING field. It saves only values holding a pill (or a formula), stays up while being edited even with
      every pill deleted, and gives way to the select when it loses focus without a pill. If a pill had already been
      saved, that clears the field. Selects of other types keep the one-pill editor.
+   - Selects and empty object, array and JSON-schema builders also carry a **Dynamic** switch beside Formula, since
+     nothing on screen invites a `$` there. On the builders it replaces the "Drop or click a data pill, or type $"
+     hint, which stays only on an array item's object (no label row to hold a switch). Turning it on does what `$`
+     does; turning it off returns to the native control, keeping a select's option when no pill was chosen yet and
+     otherwise clearing the field. It is hidden in Formula mode, on `fromAi` fields and in controlled forms.
    - DATE/DATE_TIME/TIME and MULTI_SELECT take pills only by click or drag. Selects and these controls reach Formula
      only through the switch.
 4. **Keystroke and focus survive the handover.** The swap from native input to editor re-inserts the typed `$` or `=`
