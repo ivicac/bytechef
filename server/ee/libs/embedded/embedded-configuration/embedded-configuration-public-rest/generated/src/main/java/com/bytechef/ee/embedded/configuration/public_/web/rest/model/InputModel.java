@@ -183,7 +183,7 @@ public class InputModel {
    * The static options an input value is chosen from
    * @return options
    */
-  
+  @Valid 
   @Schema(name = "options", description = "The static options an input value is chosen from", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("options")
   public List<@Valid OptionModel> getOptions() {
