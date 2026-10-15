@@ -173,4 +173,5 @@ dependencies {
     implementation(project(":server:ee:libs:config:observability-config"))
 
     testImplementation(project(":server:libs:test:test-int-support"))
+    testImplementation(project(":server:libs:test:test-support"))
 }
