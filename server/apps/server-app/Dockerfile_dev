@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.gradle/caches \
     --mount=type=cache,target=/root/.gradle/wrapper \
     ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/graalvm/graalvm-community:25.2.4
+FROM ghcr.io/graalvm/graalvm-community:25i2-25.0.4
 
 WORKDIR /opt
 
