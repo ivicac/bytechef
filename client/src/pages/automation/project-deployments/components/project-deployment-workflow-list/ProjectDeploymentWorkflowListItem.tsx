@@ -215,7 +215,7 @@ const ProjectDeploymentWorkflowListItem = ({
                                     </span>
                                 </TooltipTrigger>
 
-                                <TooltipContent>Last Execution Date</TooltipContent>
+                                <TooltipContent side="left">Last Execution Date</TooltipContent>
                             </Tooltip>
                         ) : (
                             <span className="flex items-center text-xs text-content-neutral-secondary">
@@ -255,7 +255,7 @@ const ProjectDeploymentWorkflowListItem = ({
                                 </span>
                             </TooltipTrigger>
 
-                            <TooltipContent>Last Execution Date</TooltipContent>
+                            <TooltipContent side="left">Last Execution Date</TooltipContent>
                         </Tooltip>
                     ) : (
                         <span className="text-xs">No executions</span>
