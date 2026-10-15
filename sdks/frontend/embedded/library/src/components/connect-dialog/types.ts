@@ -72,11 +72,12 @@ export interface IntegrationWorkflowType {
 }
 
 export interface PropertyType {
+    defaultValue?: string;
     name: string;
     label: string;
     type: 'string' | 'number' | 'boolean' | 'object' | 'array';
     required?: boolean;
-    options?: string[];
+    options?: OptionType[];
     placeholder?: string;
 }
 
