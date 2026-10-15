@@ -15,6 +15,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.component.definition.Authorization.AuthorizationType;
+import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.Property.Type;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserIntegrationDTO;
 import com.bytechef.ee.embedded.configuration.dto.IntegrationInstanceConfigurationWorkflowDTO;
@@ -30,6 +32,8 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.model.Integration
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.McpIntegrationInstanceToolModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.McpToolModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.OAuth2Model;
+import com.bytechef.ee.embedded.configuration.public_.web.rest.model.OptionModel;
+import com.bytechef.platform.component.domain.Option;
 import com.bytechef.platform.component.domain.OptionsDataSource;
 import com.bytechef.platform.component.domain.PropertyGroup;
 import com.bytechef.platform.component.domain.StringProperty;
@@ -168,6 +172,37 @@ class ConnectedUserIntegrationMapperTest {
         assertEquals(1, componentReference.getComponentVersion());
         assertEquals("channel", componentReference.getGroupName());
         assertNull(componentReference.getGroup());
+    }
+
+    @Test
+    void testConnectionInputMapsDefaultValueAndStaticOptions() {
+        StringProperty addToProperty = mock(StringProperty.class);
+
+        when(addToProperty.getName()).thenReturn("addTo");
+        when(addToProperty.getLabel()).thenReturn("Add to");
+        when(addToProperty.getType()).thenReturn(Type.STRING);
+        when(addToProperty.getRequired()).thenReturn(true);
+        when(addToProperty.getDefaultValue()).thenReturn("HEADER");
+        when(addToProperty.getOptions()).thenReturn(
+            List.of(
+                new Option(ComponentDsl.option("Header", "HEADER")),
+                new Option(ComponentDsl.option("QueryParams", "QUERY_PARAMETERS"))));
+
+        ConnectedUserIntegrationDTO.ConnectionConfig connectionConfig =
+            new ConnectedUserIntegrationDTO.ConnectionConfig(
+                AuthorizationType.API_KEY, null, List.of(addToProperty));
+
+        ConnectedUserIntegrationMapper.ConnectedUserIntegrationToIntegrationMapper generatedMapper =
+            new ConnectedUserIntegrationMapper$ConnectedUserIntegrationToIntegrationMapperImpl();
+
+        InputModel inputModel = generatedMapper.map(connectionConfig.inputs()
+            .getFirst());
+
+        assertEquals("addTo", inputModel.getName());
+        assertEquals("HEADER", inputModel.getDefaultValue());
+        assertEquals(
+            List.of(new OptionModel("Header", "HEADER"), new OptionModel("QueryParams", "QUERY_PARAMETERS")),
+            inputModel.getOptions());
     }
 
     @Test
