@@ -3391,7 +3391,7 @@ export type AutomationWorkflowProjectVersionsQueryVariables = Exact<{
 }>;
 
 
-export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProjectVersions: Array<{ version: number, status: string, publishedDate: string | null }> };
+export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProjectVersions: Array<{ version: number, status: string, publishedDate: string | null, description: string | null }> };
 
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3465,6 +3465,7 @@ export type DeleteAutomationWorkflowProjectWorkflowMutation = { deleteAutomation
 
 export type PublishAutomationWorkflowProjectMutationVariables = Exact<{
   id: string | number;
+  description?: string | null | undefined;
 }>;
 
 
@@ -16982,6 +16983,7 @@ export const AutomationWorkflowProjectVersionsDocument = new TypedDocumentString
     version
     status
     publishedDate
+    description
   }
 }
     `);
@@ -17214,8 +17216,8 @@ export const useDeleteAutomationWorkflowProjectWorkflowMutation = <
     )};
 
 export const PublishAutomationWorkflowProjectDocument = new TypedDocumentString(`
-    mutation publishAutomationWorkflowProject($id: ID!) {
-  publishAutomationWorkflowProject(id: $id)
+    mutation publishAutomationWorkflowProject($id: ID!, $description: String) {
+  publishAutomationWorkflowProject(id: $id, description: $description)
 }
     `);
 
