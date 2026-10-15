@@ -59,7 +59,11 @@ public interface AutomationWorkflowProjectFacade {
 
     List<AutomationWorkflowProjectDTO> getPublishedProjects(String externalUserId, Environment environment);
 
-    void publishProject(long projectId);
+    default void publishProject(long projectId) {
+        publishProject(projectId, null);
+    }
+
+    void publishProject(long projectId, @Nullable String description);
 
     void updateProject(
         long projectId, String name, String description, String category, List<String> tags,
