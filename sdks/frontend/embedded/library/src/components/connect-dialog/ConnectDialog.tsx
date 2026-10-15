@@ -202,6 +202,12 @@ const ConnectDialog = ({
                     </main>
                 )}
 
+                {integration && !loading && saveError && (
+                    <p className={styles.saveError} role="alert">
+                        {saveError}
+                    </p>
+                )}
+
                 <DialogFooter
                     handleClick={handleClick}
                     isOAuth2={isOAuth2}
