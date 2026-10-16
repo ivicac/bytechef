@@ -183,7 +183,7 @@ class EnvironmentAwareGateCoverageTest {
      * honest.
      */
     private static final List<String> RESOLVED_RESOURCE_TYPES =
-        List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection");
+        List.of("Connection", "ProjectDeployment", "McpServer", "ApiCollection", "ApiCollectionEndpoint");
 
     private static final Pattern RESOLVED_TYPE_HAS_PERMISSION_PATTERN = Pattern.compile(
         "hasPermission\\([^,]*,\\s*'(" + String.join("|", RESOLVED_RESOURCE_TYPES) + ")'");

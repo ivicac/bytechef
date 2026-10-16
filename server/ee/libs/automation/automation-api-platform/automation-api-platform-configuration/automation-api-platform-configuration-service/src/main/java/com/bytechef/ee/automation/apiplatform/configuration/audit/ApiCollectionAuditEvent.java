@@ -29,5 +29,10 @@ public enum ApiCollectionAuditEvent {
      * An API collection was deleted. Payload: no additional keys required; {@code apiCollectionId} identifies the
      * now-removed row.
      */
-    API_COLLECTION_DELETED
+    API_COLLECTION_DELETED,
+
+    /**
+     * An endpoint of an API collection was deleted. Payload: {@code name}, {@code path}, {@code httpMethod}.
+     */
+    API_COLLECTION_ENDPOINT_DELETED
 }

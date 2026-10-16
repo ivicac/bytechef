@@ -10,6 +10,8 @@ package com.bytechef.ee.automation.apiplatform.configuration.config;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
@@ -32,8 +34,10 @@ import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerLifecycleFacade;
+import com.bytechef.platform.workflow.execution.facade.TriggerStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
+import com.bytechef.platform.workflow.execution.service.TriggerStateService;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -53,9 +57,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     ConnectionService.class, EnvironmentService.class, GitHubProxyClient.class, JobFacade.class, JobService.class,
     PermissionService.class, PrincipalJobFacade.class, PrincipalJobService.class, SharedTemplateFileStorage.class,
     TaskExecutionService.class,
-    TriggerDefinitionService.class, TriggerExecutionService.class, TriggerLifecycleFacade.class, UserService.class,
+    TriggerDefinitionService.class, TriggerExecutionService.class, TriggerLifecycleFacade.class,
+    TriggerStateFacade.class, TriggerStateService.class, UserService.class,
     WorkflowCacheManager.class, WorkflowNodeParameterFacade.class, WorkflowNodeTestOutputService.class,
-    WorkflowTemplateProxyClient.class, WorkflowTestConfigurationService.class, WorkspaceService.class
+    WorkflowTemplateProxyClient.class, WorkflowTestConfigurationService.class, WorkspaceConnectionFacade.class,
+    WorkspaceFacade.class,
+    WorkspaceService.class
 })
 public @interface ApiCollectionIntTestConfigurationSharedMocks {
 }
