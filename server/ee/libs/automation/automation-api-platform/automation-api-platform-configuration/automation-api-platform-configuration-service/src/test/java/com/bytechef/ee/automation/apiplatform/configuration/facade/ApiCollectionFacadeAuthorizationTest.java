@@ -147,6 +147,13 @@ class ApiCollectionFacadeAuthorizationTest {
     }
 
     @Test
+    void testUpdateApiCollectionProjectVersionRequiresEdit() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("updateApiCollectionProjectVersion", long.class, int.class, boolean.class),
+            "hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')");
+    }
+
+    @Test
     void testUpdateApiCollectionEndpointWorkflowRequiresEdit() throws NoSuchMethodException {
         assertPreAuthorize(
             method("updateApiCollectionEndpointWorkflow", long.class, List.class, Map.class),

@@ -28,11 +28,13 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint.HttpMethod;
+import com.bytechef.ee.automation.apiplatform.configuration.exception.ApiCollectionErrorType;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionEndpointService;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionService;
 import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
+import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.exception.UserNotFoundException;
@@ -310,6 +312,57 @@ class ApiCollectionFacadeIntTest {
                         .isInstanceOf(AccessDeniedException.class);
 
             verify(projectDeploymentFacade, never()).updateProjectDeploymentWorkflow(any());
+        }
+    }
+
+    @Nested
+    class UpdateApiCollectionProjectVersion {
+
+        @Test
+        void testEditorPassesTheGate() {
+            ApiCollection apiCollection = new ApiCollection();
+
+            apiCollection.setId(API_COLLECTION);
+            apiCollection.setProjectDeploymentId(PROJECT_DEPLOYMENT);
+
+            when(apiCollectionService.getApiCollection(API_COLLECTION)).thenReturn(apiCollection);
+
+            ProjectDeployment projectDeployment = new ProjectDeployment();
+
+            projectDeployment.setId(PROJECT_DEPLOYMENT);
+            projectDeployment.setProjectId(PROJECT);
+            projectDeployment.setProjectVersion(2);
+
+            when(projectDeploymentService.getProjectDeployment(PROJECT_DEPLOYMENT)).thenReturn(projectDeployment);
+            when(projectService.getProject(PROJECT)).thenReturn(new Project());
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(() -> apiCollectionFacade.updateApiCollectionProjectVersion(API_COLLECTION, 3, false))
+                .isInstanceOf(ConfigurationException.class)
+                .extracting(exception -> ((ConfigurationException) exception).getErrorKey())
+                .isEqualTo(ApiCollectionErrorType.PROJECT_VERSION_INVALID.getErrorKey());
+        }
+
+        @Test
+        void testViewerIsDeniedUpdateProjectVersion() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(() -> apiCollectionFacade.updateApiCollectionProjectVersion(API_COLLECTION, 3, false))
+                .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionService, never()).getApiCollection(anyLong());
+            verify(projectDeploymentFacade, never()).updateProjectDeployment(any(), any(), any());
+        }
+
+        @Test
+        void testMemberOfAnotherWorkspaceIsDeniedUpdateProjectVersion() {
+            authenticate(OUTSIDER);
+
+            assertThatThrownBy(() -> apiCollectionFacade.updateApiCollectionProjectVersion(API_COLLECTION, 3, false))
+                .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionService, never()).getApiCollection(anyLong());
         }
     }
 

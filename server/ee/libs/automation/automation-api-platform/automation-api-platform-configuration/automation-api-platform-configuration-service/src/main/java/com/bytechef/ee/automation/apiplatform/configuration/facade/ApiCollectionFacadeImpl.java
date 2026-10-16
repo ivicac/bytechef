@@ -13,6 +13,8 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
+import com.bytechef.automation.configuration.domain.ProjectVersion;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -27,12 +29,17 @@ import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionEndpointDTO;
+import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionVersionUpdateDTO;
+import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionVersionUpdateDTO.MissingConnection;
+import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionVersionUpdateDTO.MissingInput;
 import com.bytechef.ee.automation.apiplatform.configuration.exception.ApiCollectionErrorType;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionEndpointService;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionService;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.configuration.domain.ComponentConnection;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.configuration.facade.ComponentConnectionFacade;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.tag.domain.Tag;
@@ -56,11 +63,15 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +90,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
 
     private final ApiCollectionService apiCollectionService;
     private final ApiCollectionEndpointService apiCollectionEndpointService;
+    private final ComponentConnectionFacade componentConnectionFacade;
     private final EnvironmentService environmentService;
     private final ProjectDeploymentFacade projectDeploymentFacade;
     private final ProjectDeploymentService projectDeploymentService;
@@ -91,7 +103,8 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     @SuppressFBWarnings("EI")
     public ApiCollectionFacadeImpl(
         ApiCollectionAuditPublisher apiCollectionAuditPublisher, ApiCollectionService apiCollectionService,
-        ApiCollectionEndpointService apiCollectionEndpointService, EnvironmentService environmentService,
+        ApiCollectionEndpointService apiCollectionEndpointService,
+        ComponentConnectionFacade componentConnectionFacade, EnvironmentService environmentService,
         ProjectDeploymentFacade projectDeploymentFacade,
         ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
@@ -100,6 +113,7 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
         this.apiCollectionAuditPublisher = apiCollectionAuditPublisher;
         this.apiCollectionService = apiCollectionService;
         this.apiCollectionEndpointService = apiCollectionEndpointService;
+        this.componentConnectionFacade = componentConnectionFacade;
         this.environmentService = environmentService;
         this.projectDeploymentFacade = projectDeploymentFacade;
         this.projectDeploymentService = projectDeploymentService;
@@ -430,6 +444,148 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
 
     @Override
     @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')")
+    public ApiCollectionVersionUpdateDTO updateApiCollectionProjectVersion(
+        long id, int projectVersion, boolean removeMissingEndpoints) {
+
+        ApiCollection apiCollection = apiCollectionService.getApiCollection(id);
+
+        long projectDeploymentId =
+            Objects.requireNonNull(apiCollection.getProjectDeploymentId(), "projectDeploymentId");
+
+        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
+
+        int currentProjectVersion = projectDeployment.getProjectVersion();
+        long projectId = projectDeployment.getProjectId();
+
+        checkProjectVersion(projectId, currentProjectVersion, projectVersion);
+
+        Map<String, String> workflowUuidsByCurrentWorkflowId = new HashMap<>();
+
+        for (ProjectWorkflow projectWorkflow : projectWorkflowService.getProjectWorkflows(
+            projectId, currentProjectVersion)) {
+
+            workflowUuidsByCurrentWorkflowId.put(projectWorkflow.getWorkflowId(), projectWorkflow.getUuidAsString());
+        }
+
+        List<ProjectWorkflow> newProjectWorkflows =
+            projectWorkflowService.getProjectWorkflows(projectId, projectVersion);
+
+        Set<String> newWorkflowUuids = newProjectWorkflows.stream()
+            .map(ProjectWorkflow::getUuidAsString)
+            .collect(Collectors.toSet());
+
+        Map<Long, ProjectDeploymentWorkflow> projectDeploymentWorkflowsById = new HashMap<>();
+        Map<String, ProjectDeploymentWorkflow> projectDeploymentWorkflowsByUuid = new HashMap<>();
+
+        for (ProjectDeploymentWorkflow projectDeploymentWorkflow : projectDeploymentWorkflowService
+            .getProjectDeploymentWorkflows(projectDeploymentId)) {
+
+            projectDeploymentWorkflowsById.put(projectDeploymentWorkflow.getId(), projectDeploymentWorkflow);
+
+            String workflowUuid = workflowUuidsByCurrentWorkflowId.get(projectDeploymentWorkflow.getWorkflowId());
+
+            if (workflowUuid != null) {
+                projectDeploymentWorkflowsByUuid.put(workflowUuid, projectDeploymentWorkflow);
+            }
+        }
+
+        List<KeptEndpoint> keptEndpoints = new ArrayList<>();
+        List<ApiCollectionEndpoint> removedApiCollectionEndpoints = new ArrayList<>();
+
+        for (ApiCollectionEndpoint apiCollectionEndpoint : apiCollectionEndpointService.getApiEndpoints(id)) {
+            ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowsById.get(
+                apiCollectionEndpoint.getProjectDeploymentWorkflowId());
+
+            String workflowUuid = projectDeploymentWorkflow == null
+                ? null : workflowUuidsByCurrentWorkflowId.get(projectDeploymentWorkflow.getWorkflowId());
+
+            if (workflowUuid != null && newWorkflowUuids.contains(workflowUuid)) {
+                keptEndpoints.add(new KeptEndpoint(apiCollectionEndpoint, workflowUuid));
+            } else {
+                removedApiCollectionEndpoints.add(apiCollectionEndpoint);
+            }
+        }
+
+        List<String> removedEndpointNames = removedApiCollectionEndpoints.stream()
+            .map(ApiCollectionFacadeImpl::getEndpointName)
+            .toList();
+
+        if (!removedApiCollectionEndpoints.isEmpty() && !removeMissingEndpoints) {
+            throw new ConfigurationException(
+                "Project version %s no longer contains the workflows of endpoints %s".formatted(
+                    projectVersion, removedEndpointNames),
+                Map.of("endpointNames", removedEndpointNames), ApiCollectionErrorType.ENDPOINT_WORKFLOW_REMOVED);
+        }
+
+        for (ApiCollectionEndpoint removedApiCollectionEndpoint : removedApiCollectionEndpoints) {
+            deleteApiCollectionEndpoint(Objects.requireNonNull(removedApiCollectionEndpoint.getId(), "id"));
+        }
+
+        Map<String, CarriedWorkflow> carriedWorkflowsByUuid = new LinkedHashMap<>();
+
+        for (ProjectWorkflow newProjectWorkflow : newProjectWorkflows) {
+            String workflowUuid = newProjectWorkflow.getUuidAsString();
+
+            carriedWorkflowsByUuid.put(
+                workflowUuid,
+                carryWorkflow(
+                    projectDeploymentId, newProjectWorkflow, projectDeploymentWorkflowsByUuid.get(workflowUuid)));
+        }
+
+        projectDeployment.setProjectVersion(projectVersion);
+
+        projectDeploymentFacade.updateProjectDeployment(
+            projectDeployment,
+            carriedWorkflowsByUuid.values()
+                .stream()
+                .map(CarriedWorkflow::projectDeploymentWorkflow)
+                .toList(),
+            List.of());
+
+        List<String> disabledEndpointNames = new ArrayList<>();
+        List<MissingConnection> missingConnections = new ArrayList<>();
+        List<MissingInput> missingInputs = new ArrayList<>();
+
+        for (KeptEndpoint keptEndpoint : keptEndpoints) {
+            ApiCollectionEndpoint apiCollectionEndpoint = keptEndpoint.apiCollectionEndpoint();
+
+            ProjectDeploymentWorkflow projectDeploymentWorkflow = resolveProjectDeploymentWorkflow(
+                projectDeploymentId, keptEndpoint.workflowUuid());
+
+            apiCollectionEndpoint.setProjectDeploymentWorkflowId(projectDeploymentWorkflow.getId());
+
+            apiCollectionEndpointService.update(apiCollectionEndpoint);
+
+            CarriedWorkflow carriedWorkflow = carriedWorkflowsByUuid.get(keptEndpoint.workflowUuid());
+            String endpointName = getEndpointName(apiCollectionEndpoint);
+
+            if (carriedWorkflow.disabled()) {
+                disabledEndpointNames.add(endpointName);
+            }
+
+            for (ComponentConnection componentConnection : carriedWorkflow.missingConnectionSlots()) {
+                missingConnections.add(
+                    new MissingConnection(
+                        endpointName, componentConnection.workflowNodeName(), componentConnection.key(),
+                        componentConnection.componentName()));
+            }
+
+            for (String inputName : carriedWorkflow.missingInputNames()) {
+                missingInputs.add(new MissingInput(endpointName, inputName));
+            }
+        }
+
+        apiCollectionAuditPublisher.publish(
+            ApiCollectionAuditEvent.API_COLLECTION_PROJECT_VERSION_UPDATED, id,
+            Map.of("from", currentProjectVersion, "to", projectVersion));
+
+        return new ApiCollectionVersionUpdateDTO(
+            toApiCollectionDTO(apiCollectionService.getApiCollection(id)), removedEndpointNames, disabledEndpointNames,
+            missingConnections, missingInputs);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public void updateApiCollectionTags(long id, List<Tag> tags) {
         tags = checkTags(tags);
 
@@ -476,6 +632,92 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
             });
     }
 
+    /**
+     * Builds the new version's row for one workflow from the row it replaces. A connection is kept only where its slot
+     * still exists for the same component; a workflow that was enabled but now lacks a required connection or input is
+     * carried disabled, since enabling it would fail validation.
+     */
+    private CarriedWorkflow carryWorkflow(
+        long projectDeploymentId, ProjectWorkflow newProjectWorkflow,
+        @Nullable ProjectDeploymentWorkflow currentProjectDeploymentWorkflow) {
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setProjectDeploymentId(projectDeploymentId);
+        projectDeploymentWorkflow.setWorkflowId(newProjectWorkflow.getWorkflowId());
+
+        if (currentProjectDeploymentWorkflow == null) {
+            return new CarriedWorkflow(projectDeploymentWorkflow, false, List.of(), List.of());
+        }
+
+        List<ComponentConnection> currentSlots = componentConnectionFacade.getWorkflowComponentConnections(
+            currentProjectDeploymentWorkflow.getWorkflowId());
+        List<ComponentConnection> newSlots = componentConnectionFacade.getWorkflowComponentConnections(
+            newProjectWorkflow.getWorkflowId());
+
+        List<ProjectDeploymentWorkflowConnection> carriedConnections = currentProjectDeploymentWorkflow.getConnections()
+            .stream()
+            .filter(connection -> {
+                ComponentConnection currentSlot = findSlot(currentSlots, connection);
+                ComponentConnection newSlot = findSlot(newSlots, connection);
+
+                return currentSlot != null && newSlot != null &&
+                    Objects.equals(currentSlot.componentName(), newSlot.componentName());
+            })
+            .toList();
+
+        List<ComponentConnection> missingConnectionSlots = newSlots.stream()
+            .filter(ComponentConnection::required)
+            .filter(newSlot -> carriedConnections.stream()
+                .noneMatch(connection -> isSlot(newSlot, connection)))
+            .toList();
+
+        Map<String, ?> inputs = currentProjectDeploymentWorkflow.getInputs();
+
+        Workflow newWorkflow = workflowService.getWorkflow(newProjectWorkflow.getWorkflowId());
+
+        List<String> missingInputNames = newWorkflow.getInputs()
+            .stream()
+            .filter(Workflow.Input::required)
+            .map(Workflow.Input::name)
+            .filter(inputName -> isBlank(inputs.get(inputName)))
+            .toList();
+
+        boolean disabled = currentProjectDeploymentWorkflow.isEnabled() &&
+            (!missingConnectionSlots.isEmpty() || !missingInputNames.isEmpty());
+
+        projectDeploymentWorkflow.setConnections(carriedConnections);
+        projectDeploymentWorkflow.setEnabled(currentProjectDeploymentWorkflow.isEnabled() && !disabled);
+        projectDeploymentWorkflow.setInputs(inputs);
+
+        return new CarriedWorkflow(projectDeploymentWorkflow, disabled, missingConnectionSlots, missingInputNames);
+    }
+
+    private static String getEndpointName(ApiCollectionEndpoint apiCollectionEndpoint) {
+        String name = apiCollectionEndpoint.getName();
+
+        return name == null ? apiCollectionEndpoint.getHttpMethod() + " " + apiCollectionEndpoint.getPath() : name;
+    }
+
+    @Nullable
+    private static ComponentConnection findSlot(
+        List<ComponentConnection> slots, ProjectDeploymentWorkflowConnection connection) {
+
+        return slots.stream()
+            .filter(slot -> isSlot(slot, connection))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private static boolean isBlank(@Nullable Object value) {
+        return value == null || (value instanceof String string && string.isBlank());
+    }
+
+    private static boolean isSlot(ComponentConnection slot, ProjectDeploymentWorkflowConnection connection) {
+        return Objects.equals(slot.workflowNodeName(), connection.getWorkflowNodeName()) &&
+            Objects.equals(slot.key(), connection.getWorkflowConnectionKey());
+    }
+
     private void buildPathItem(
         PathItem pathItem, HttpMethod httpMethod, String path, String description,
         ApiCollectionEndpoint apiCollectionEndpoint, Map<String, ?> parameters) {
@@ -500,6 +742,32 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
             throw new ConfigurationException(
                 "API collection with name '%s' already exists in environment %s".formatted(name, environment),
                 ApiCollectionErrorType.NAME_ALREADY_EXISTS);
+        }
+    }
+
+    /**
+     * A collection only moves forward, and only onto a version that was published: a draft can still change under the
+     * endpoints that would serve it.
+     */
+    private void checkProjectVersion(long projectId, int currentProjectVersion, int projectVersion) {
+        if (projectVersion <= currentProjectVersion) {
+            throw new ConfigurationException(
+                "Project version %s is not newer than the current version %s".formatted(
+                    projectVersion, currentProjectVersion),
+                ApiCollectionErrorType.PROJECT_VERSION_INVALID);
+        }
+
+        Project project = projectService.getProject(projectId);
+
+        boolean published = project.getProjectVersions()
+            .stream()
+            .anyMatch(curProjectVersion -> curProjectVersion.getVersion() == projectVersion &&
+                curProjectVersion.getStatus() == ProjectVersion.Status.PUBLISHED);
+
+        if (!published) {
+            throw new ConfigurationException(
+                "Project version %s is not a published version".formatted(projectVersion),
+                ApiCollectionErrorType.PROJECT_VERSION_INVALID);
         }
     }
 
@@ -671,5 +939,13 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
         return new ApiCollectionEndpointDTO(
             apiCollectionEndpoint, projectDeploymentWorkflow.getConnections(), projectDeploymentWorkflow.isEnabled(),
             projectDeploymentWorkflow.getInputs(), workflowUuid);
+    }
+
+    private record CarriedWorkflow(
+        ProjectDeploymentWorkflow projectDeploymentWorkflow, boolean disabled,
+        List<ComponentConnection> missingConnectionSlots, List<String> missingInputNames) {
+    }
+
+    private record KeptEndpoint(ApiCollectionEndpoint apiCollectionEndpoint, String workflowUuid) {
     }
 }
