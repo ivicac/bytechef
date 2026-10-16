@@ -192,11 +192,15 @@ components at all (`build`, `libs`). For the current number, count the generated
 
 Two disjoint primitives: **Approval** (a decision; a comment is valid on BOTH outcomes) and
 **AskUserQuestion** (LLM clarification). Typing in chat NEVER resolves an approval. Delivery fans out
-best-effort over a dozen channels (chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, email, WhatsApp,
-SMS, approval task), failing the step only when every configured channel fails; five of them resolve in
-place. A `requiresApproval: true` TOOLS entry wraps the callback in `ApprovalGateToolCallback`, which
-suspends via the sentinel protocol. Expiry, reminders, and escalation each run a 15-minute
-platform-coordinator sweep. Never add notification logic under `server/libs/atlas/`.
+best-effort over 15 channel elements (chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail,
+Outlook 365, SMTP email, WhatsApp via Meta/Twilio/Infobip, SMS via Twilio/Infobip, approval task), failing the
+step only when every configured channel fails. Besides the chat card, five resolve in place through a signed
+interactivity callback: Slack, Discord, Telegram, WhatsApp (Meta) and Mattermost. The gate is the
+`aiAgentUtils/v1/approvalGateTool` cluster element: every tool nested in it is wrapped in
+`ApprovalGateToolCallback`, which suspends via the sentinel protocol. On Agents, a TOOL row with
+`requiresApproval: true` is generated into that gate, and only when the agent also has an `APPROVAL_GATE` row.
+Expiry, reminders, and escalation each run a 15-minute platform-coordinator sweep. Never add notification logic
+under `server/libs/atlas/`.
 See `.agents/hitl-approvals.md`. The AI Hub chat has a separate, unrelated tool approval gate — see
 `.agents/ai-hub.md`'s "Tool approval gate" section.
 
