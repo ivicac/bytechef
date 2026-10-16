@@ -7,20 +7,28 @@
 
 package com.bytechef.ee.automation.apiplatform.configuration.facade;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
+import com.bytechef.automation.configuration.repository.ProjectDeploymentRepository;
+import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
@@ -28,6 +36,7 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint.HttpMethod;
+import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionEndpointDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.exception.ApiCollectionErrorType;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionEndpointService;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionService;
@@ -36,6 +45,8 @@ import com.bytechef.ee.automation.configuration.repository.WorkspaceUserReposito
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.exception.UserNotFoundException;
 import com.bytechef.platform.user.service.UserService;
@@ -46,6 +57,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.access.AccessDeniedException;
@@ -57,8 +69,9 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * Runs the {@code ApiCollectionEndpoint} guards on {@link ApiCollectionFacadeImpl} through real Spring method security,
  * the production expression root and permission evaluator, the EE {@code PermissionServiceImpl} and the production API
- * collection and endpoint resolvers (see {@link ApiCollectionFacadeIntTestConfiguration}). Every denial is paired with
- * an allowance on the same guard.
+ * collection and endpoint resolvers (see {@link ApiCollectionFacadeIntTestConfiguration}). Enabling an endpoint and
+ * setting its connections also cross the gates of the real {@code ProjectDeploymentFacadeImpl}. Every denial is paired
+ * with an allowance on the same guard.
  *
  * @version ee
  *
@@ -73,8 +86,17 @@ class ApiCollectionFacadeIntTest {
     private static final long OTHER_WORKSPACE = 2L;
     private static final long API_COLLECTION = 10L;
     private static final long API_COLLECTION_ENDPOINT = 30L;
+    private static final long CONNECTION = 70L;
+    private static final long EDITABLE_FOREIGN_API_COLLECTION = 12L;
+    private static final long EDITABLE_FOREIGN_API_COLLECTION_ENDPOINT = 42L;
+    private static final long EDITABLE_FOREIGN_PROJECT_DEPLOYMENT = 220L;
+    private static final long OTHER_WORKSPACE_API_COLLECTION = 11L;
+    private static final long OTHER_WORKSPACE_API_COLLECTION_ENDPOINT = 41L;
+    private static final long OTHER_WORKSPACE_PROJECT = 310L;
+    private static final long OTHER_WORKSPACE_PROJECT_DEPLOYMENT = 210L;
     private static final long PROJECT = 300L;
     private static final long PROJECT_DEPLOYMENT = 200L;
+    private static final long PROJECT_DEPLOYMENT_WORKFLOW = 901L;
 
     private static final String EDITOR = "editor";
     private static final String OUTSIDER = "outsider";
@@ -96,13 +118,22 @@ class ApiCollectionFacadeIntTest {
     private ApiCollectionService apiCollectionService;
 
     @Autowired
+    private ConnectionService connectionService;
+
+    @Autowired
     private ProjectDeploymentFacade projectDeploymentFacade;
+
+    @Autowired
+    private ProjectDeploymentRepository projectDeploymentRepository;
 
     @Autowired
     private ProjectDeploymentService projectDeploymentService;
 
     @Autowired
     private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     @Autowired
     private ProjectService projectService;
@@ -112,6 +143,9 @@ class ApiCollectionFacadeIntTest {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private WorkflowService workflowService;
 
     @Autowired
     private WorkspaceUserRepository workspaceUserRepository;
@@ -164,6 +198,7 @@ class ApiCollectionFacadeIntTest {
         projectDeployment.setId(PROJECT_DEPLOYMENT);
         projectDeployment.setProjectId(PROJECT);
 
+        when(projectDeploymentRepository.findById(PROJECT_DEPLOYMENT)).thenReturn(Optional.of(projectDeployment));
         when(projectDeploymentService.fetchProjectDeployment(PROJECT_DEPLOYMENT))
             .thenReturn(Optional.of(projectDeployment));
 
@@ -172,6 +207,7 @@ class ApiCollectionFacadeIntTest {
         project.setId(PROJECT);
         project.setWorkspaceId(WORKSPACE);
 
+        when(projectRepository.findById(PROJECT)).thenReturn(Optional.of(project));
         when(projectService.fetchProject(PROJECT)).thenReturn(Optional.of(project));
 
         ApiCollectionEndpoint apiCollectionEndpoint = new ApiCollectionEndpoint();
@@ -258,36 +294,94 @@ class ApiCollectionFacadeIntTest {
     }
 
     @Nested
+    class EnableApiCollectionEndpoint {
+
+        @BeforeEach
+        void beforeEach() {
+            stubProjectDeploymentWorkflow();
+
+            Workflow workflow = mock(Workflow.class);
+
+            when(workflow.getExtensions(anyString(), any(), any())).thenReturn(List.of());
+            when(workflow.getTasks(true)).thenReturn(List.of());
+            when(workflowService.getWorkflow("workflow-1")).thenReturn(workflow);
+        }
+
+        @Test
+        void testEditorCanEnableEndpointThroughTheDeploymentGate() {
+            authenticate(EDITOR);
+
+            assertThatCode(() -> apiCollectionFacade.enableApiCollectionEndpoint(API_COLLECTION_ENDPOINT, true))
+                .doesNotThrowAnyException();
+
+            verify(projectDeploymentWorkflowService).updateEnabled(PROJECT_DEPLOYMENT_WORKFLOW, true);
+        }
+
+        @Test
+        void testViewerIsDeniedEnableEndpoint() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(() -> apiCollectionFacade.enableApiCollectionEndpoint(API_COLLECTION_ENDPOINT, true))
+                .isInstanceOf(AccessDeniedException.class);
+
+            verify(projectDeploymentWorkflowService, never()).updateEnabled(anyLong(), eq(true));
+        }
+
+        @Test
+        void testViewerIsDeniedTheDeploymentGateItself() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(
+                () -> projectDeploymentFacade.enableProjectDeploymentWorkflow(PROJECT_DEPLOYMENT, "workflow-1", true))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(projectDeploymentWorkflowService, never()).updateEnabled(anyLong(), eq(true));
+        }
+    }
+
+    @Nested
     class UpdateApiCollectionEndpointWorkflow {
 
         @BeforeEach
         void beforeEach() {
-            ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(
-                API_COLLECTION_ENDPOINT);
-
-            apiCollectionEndpoint.setProjectDeploymentWorkflowId(901L);
-
-            ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
-
-            projectDeploymentWorkflow.setId(901L);
-            projectDeploymentWorkflow.setProjectDeploymentId(PROJECT_DEPLOYMENT);
-            projectDeploymentWorkflow.setWorkflowId("workflow-1");
-
-            when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(901L))
-                .thenReturn(projectDeploymentWorkflow);
-            when(projectWorkflowService.getProjectWorkflowUuid(PROJECT_DEPLOYMENT, "workflow-1")).thenReturn("uuid");
+            stubProjectDeploymentWorkflow();
         }
 
         @Test
-        void testEditorCanUpdateEndpointWorkflow() {
+        void testEditorCanSetEndpointConnectionThroughTheDeploymentGate() {
+            stubConnection(Environment.PRODUCTION);
+
             authenticate(EDITOR);
 
             assertThatCode(
                 () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
-                    API_COLLECTION_ENDPOINT, List.of(), Map.of()))
+                    API_COLLECTION_ENDPOINT, List.of(connection()), Map.of()))
                         .doesNotThrowAnyException();
 
-            verify(projectDeploymentFacade).updateProjectDeploymentWorkflow(any());
+            ArgumentCaptor<ProjectDeploymentWorkflow> projectDeploymentWorkflowArgumentCaptor =
+                ArgumentCaptor.forClass(ProjectDeploymentWorkflow.class);
+
+            verify(projectDeploymentWorkflowService).update(projectDeploymentWorkflowArgumentCaptor.capture());
+
+            ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowArgumentCaptor.getValue();
+
+            assertThat(projectDeploymentWorkflow.getConnections())
+                .extracting(ProjectDeploymentWorkflowConnection::getConnectionId)
+                .containsExactly(CONNECTION);
+        }
+
+        @Test
+        void testEditorIsRefusedAConnectionFromAnotherEnvironment() {
+            stubConnection(Environment.DEVELOPMENT);
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
+                    API_COLLECTION_ENDPOINT, List.of(connection()), Map.of()))
+                        .isInstanceOf(ConfigurationException.class);
+
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
         }
 
         @Test
@@ -296,10 +390,23 @@ class ApiCollectionFacadeIntTest {
 
             assertThatThrownBy(
                 () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
-                    API_COLLECTION_ENDPOINT, List.of(), Map.of()))
+                    API_COLLECTION_ENDPOINT, List.of(connection()), Map.of()))
                         .isInstanceOf(AccessDeniedException.class);
 
-            verify(projectDeploymentFacade, never()).updateProjectDeploymentWorkflow(any());
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+        }
+
+        @Test
+        void testViewerIsDeniedTheDeploymentGateItself() {
+            authenticate(VIEWER);
+
+            ProjectDeploymentWorkflow projectDeploymentWorkflow =
+                projectDeploymentWorkflowService.getProjectDeploymentWorkflow(PROJECT_DEPLOYMENT_WORKFLOW);
+
+            assertThatThrownBy(() -> projectDeploymentFacade.updateProjectDeploymentWorkflow(projectDeploymentWorkflow))
+                .isInstanceOf(AccessDeniedException.class);
+
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
         }
 
         @Test
@@ -311,7 +418,168 @@ class ApiCollectionFacadeIntTest {
                     API_COLLECTION_ENDPOINT, List.of(), Map.of()))
                         .isInstanceOf(AccessDeniedException.class);
 
-            verify(projectDeploymentFacade, never()).updateProjectDeploymentWorkflow(any());
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+        }
+
+        private static ProjectDeploymentWorkflowConnection connection() {
+            return new ProjectDeploymentWorkflowConnection(CONNECTION, "connection", "trigger_1");
+        }
+
+        private void stubConnection(Environment environment) {
+            Connection connection = new Connection();
+
+            connection.setEnvironmentId(environment.ordinal());
+            connection.setId(CONNECTION);
+            connection.setName("connection");
+
+            when(connectionService.getConnection(CONNECTION)).thenReturn(connection);
+        }
+    }
+
+    @Nested
+    class CreateApiCollectionEndpoint {
+
+        @Test
+        void testEditorPassesTheGate() {
+            ApiCollection apiCollection = new ApiCollection();
+
+            apiCollection.setId(API_COLLECTION);
+            apiCollection.setProjectDeploymentId(PROJECT_DEPLOYMENT);
+
+            when(apiCollectionService.getApiCollection(API_COLLECTION)).thenReturn(apiCollection);
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.createApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(ConfigurationException.class)
+                    .extracting(exception -> ((ConfigurationException) exception).getErrorKey())
+                    .isEqualTo(ApiCollectionErrorType.WORKFLOW_NOT_FOUND.getErrorKey());
+        }
+
+        @Test
+        void testViewerIsDeniedCreateEndpoint() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.createApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).create(any());
+        }
+
+        @Test
+        void testMemberOfAnotherWorkspaceIsDeniedCreateEndpoint() {
+            authenticate(OUTSIDER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.createApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).create(any());
+        }
+
+        private static ApiCollectionEndpointDTO endpointDTO() {
+            return new ApiCollectionEndpointDTO(
+                API_COLLECTION, null, null, false, HttpMethod.GET, null, null, null, "list", "items", 0L, 0, "uuid");
+        }
+    }
+
+    @Nested
+    class UpdateApiCollectionEndpoint {
+
+        @Test
+        void testEditorPassesTheGate() {
+            ApiCollection apiCollection = new ApiCollection();
+
+            apiCollection.setId(API_COLLECTION);
+            apiCollection.setProjectDeploymentId(PROJECT_DEPLOYMENT);
+
+            when(apiCollectionService.getApiCollection(API_COLLECTION)).thenReturn(apiCollection);
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(ConfigurationException.class)
+                    .extracting(exception -> ((ConfigurationException) exception).getErrorKey())
+                    .isEqualTo(ApiCollectionErrorType.WORKFLOW_NOT_FOUND.getErrorKey());
+        }
+
+        @Test
+        void testViewerIsDeniedUpdateEndpoint() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).update(any());
+        }
+
+        @Test
+        void testMemberOfAnotherWorkspaceIsDeniedUpdateEndpoint() {
+            authenticate(OUTSIDER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(endpointDTO(), List.of(), Map.of()))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).update(any());
+        }
+
+        @Test
+        void testEditorIsDeniedAnEndpointOfAnotherWorkspaceNamedUnderAnEditableCollection() {
+            stubEndpoint(
+                OTHER_WORKSPACE_API_COLLECTION_ENDPOINT, OTHER_WORKSPACE_API_COLLECTION,
+                OTHER_WORKSPACE_PROJECT_DEPLOYMENT, OTHER_WORKSPACE_PROJECT, OTHER_WORKSPACE);
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(
+                    foreignEndpointDTO(OTHER_WORKSPACE_API_COLLECTION_ENDPOINT)))
+                        .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(
+                    foreignEndpointDTO(OTHER_WORKSPACE_API_COLLECTION_ENDPOINT), List.of(), Map.of()))
+                        .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).update(any());
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+        }
+
+        @Test
+        void testEditorIsDeniedAnEndpointOfAnotherEditableCollectionNamedUnderThisCollection() {
+            stubEndpoint(
+                EDITABLE_FOREIGN_API_COLLECTION_ENDPOINT, EDITABLE_FOREIGN_API_COLLECTION,
+                EDITABLE_FOREIGN_PROJECT_DEPLOYMENT, PROJECT, WORKSPACE);
+
+            authenticate(EDITOR);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(
+                    foreignEndpointDTO(EDITABLE_FOREIGN_API_COLLECTION_ENDPOINT)))
+                        .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpoint(
+                    foreignEndpointDTO(EDITABLE_FOREIGN_API_COLLECTION_ENDPOINT), List.of(), Map.of()))
+                        .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).update(any());
+            verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+        }
+
+        private static ApiCollectionEndpointDTO endpointDTO() {
+            return new ApiCollectionEndpointDTO(
+                API_COLLECTION, null, null, false, HttpMethod.GET, API_COLLECTION_ENDPOINT, null, null, "list",
+                "items", 0L, 0, "uuid");
+        }
+
+        private static ApiCollectionEndpointDTO foreignEndpointDTO(long apiCollectionEndpointId) {
+            return new ApiCollectionEndpointDTO(
+                API_COLLECTION, null, null, false, HttpMethod.GET, apiCollectionEndpointId, null, null, "hijacked",
+                "hijacked", 0L, 0, null);
         }
     }
 
@@ -352,7 +620,6 @@ class ApiCollectionFacadeIntTest {
                 .isInstanceOf(AccessDeniedException.class);
 
             verify(apiCollectionService, never()).getApiCollection(anyLong());
-            verify(projectDeploymentFacade, never()).updateProjectDeployment(any(), any(), any());
         }
 
         @Test
@@ -364,6 +631,83 @@ class ApiCollectionFacadeIntTest {
 
             verify(apiCollectionService, never()).getApiCollection(anyLong());
         }
+    }
+
+    private void stubProjectDeploymentWorkflow() {
+        ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(
+            API_COLLECTION_ENDPOINT);
+
+        apiCollectionEndpoint.setProjectDeploymentWorkflowId(PROJECT_DEPLOYMENT_WORKFLOW);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setId(PROJECT_DEPLOYMENT_WORKFLOW);
+        projectDeploymentWorkflow.setProjectDeploymentId(PROJECT_DEPLOYMENT);
+        projectDeploymentWorkflow.setWorkflowId("workflow-1");
+
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(PROJECT_DEPLOYMENT_WORKFLOW))
+            .thenReturn(projectDeploymentWorkflow);
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(PROJECT_DEPLOYMENT, "workflow-1"))
+            .thenReturn(projectDeploymentWorkflow);
+
+        ProjectDeployment projectDeployment = projectDeploymentService.fetchProjectDeployment(PROJECT_DEPLOYMENT)
+            .orElseThrow();
+
+        when(projectDeploymentService.getProjectDeployment(PROJECT_DEPLOYMENT)).thenReturn(projectDeployment);
+        when(projectWorkflowService.getProjectWorkflowUuid(PROJECT_DEPLOYMENT, "workflow-1")).thenReturn("uuid");
+    }
+
+    private void stubEndpoint(
+        long apiCollectionEndpointId, long apiCollectionId, long projectDeploymentId, long projectId,
+        long workspaceId) {
+
+        ApiCollection apiCollection = new ApiCollection();
+
+        apiCollection.setId(apiCollectionId);
+        apiCollection.setProjectDeploymentId(projectDeploymentId);
+
+        when(apiCollectionService.fetchApiCollection(apiCollectionId)).thenReturn(Optional.of(apiCollection));
+        when(apiCollectionService.getApiCollection(apiCollectionId)).thenReturn(apiCollection);
+
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setEnvironment(Environment.PRODUCTION);
+        projectDeployment.setId(projectDeploymentId);
+        projectDeployment.setProjectId(projectId);
+
+        when(projectDeploymentService.fetchProjectDeployment(projectDeploymentId))
+            .thenReturn(Optional.of(projectDeployment));
+
+        Project project = new Project();
+
+        project.setId(projectId);
+        project.setWorkspaceId(workspaceId);
+
+        when(projectService.fetchProject(projectId)).thenReturn(Optional.of(project));
+
+        ApiCollectionEndpoint apiCollectionEndpoint = new ApiCollectionEndpoint();
+
+        apiCollectionEndpoint.setApiCollectionId(apiCollectionId);
+        apiCollectionEndpoint.setHttpMethod(HttpMethod.GET);
+        apiCollectionEndpoint.setId(apiCollectionEndpointId);
+        apiCollectionEndpoint.setName("foreign");
+        apiCollectionEndpoint.setPath("foreign");
+        apiCollectionEndpoint.setProjectDeploymentWorkflowId(apiCollectionEndpointId + 1000);
+
+        when(apiCollectionEndpointService.fetchApiCollectionEndpoint(apiCollectionEndpointId))
+            .thenReturn(Optional.of(apiCollectionEndpoint));
+        when(apiCollectionEndpointService.getOpenApiEndpoint(apiCollectionEndpointId))
+            .thenReturn(apiCollectionEndpoint);
+        when(apiCollectionEndpointService.update(any())).thenReturn(apiCollectionEndpoint);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setId(apiCollectionEndpointId + 1000);
+        projectDeploymentWorkflow.setProjectDeploymentId(projectDeploymentId);
+        projectDeploymentWorkflow.setWorkflowId("foreign-workflow");
+
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(apiCollectionEndpointId + 1000))
+            .thenReturn(projectDeploymentWorkflow);
     }
 
     private static void authenticate(String login) {

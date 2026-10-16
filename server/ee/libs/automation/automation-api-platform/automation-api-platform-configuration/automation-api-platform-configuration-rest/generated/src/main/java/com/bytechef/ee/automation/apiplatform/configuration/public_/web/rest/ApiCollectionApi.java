@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T22:10:51.319773+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T23:47:40.009564+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 @Validated
 @Tag(name = "api-collection", description = "The Automation API Collection Public API")
 public interface ApiCollectionApi {
@@ -52,7 +52,7 @@ public interface ApiCollectionApi {
     String PATH_CREATE_API_COLLECTION = "/workspaces/{workspaceId}/api-collections";
     /**
      * POST /workspaces/{workspaceId}/api-collections : Create an API collection
-     * Create an API collection in an environment from a published project version.
+     * Create an API collection in an environment from a published project version. The API collection is created in the workspace the project belongs to.
      *
      * @param workspaceId The id of a workspace. (required)
      * @param apiCollectionInputModel  (required)
@@ -68,7 +68,7 @@ public interface ApiCollectionApi {
     @Operation(
         operationId = "createApiCollection",
         summary = "Create an API collection",
-        description = "Create an API collection in an environment from a published project version.",
+        description = "Create an API collection in an environment from a published project version. The API collection is created in the workspace the project belongs to.",
         tags = { "api-collection" },
         responses = {
             @ApiResponse(responseCode = "201", description = "The created API collection.", content = {
