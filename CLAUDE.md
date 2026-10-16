@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ByteChef is an open-source, low-code API integration and workflow automation platform built on Spring Boot. It serves as both an automation solution and an embedded iPaaS (Integration Platform as a Service) for SaaS products.
 
-**Maintaining this file:** it is loaded into every session, so it stays a working guide — commands,
+**Maintaining this file:** client-only conventions live in `client/CLAUDE.md` and CLI usage in `cli/CLAUDE.md`, both
+loaded only when working under those directories. This file is loaded into every session, so it stays a working guide — commands,
 conventions, and cross-cutting gotchas. Feature deep-dives belong in `.agents/` with a one-line
 pointer in the deep-dive index below; design rationale belongs in `docs/superpowers/specs/`.
 When a landed feature produces a page of narrative detail, write it to `.agents/`, not here.
@@ -38,34 +39,6 @@ cd ..
 ./gradlew generateDocumentation
 ```
 
-### Client Development
-
-Client commands should be run from the `client/` directory:
-
-```bash
-# Install dependencies
-npm install
-
-# Development server
-npm run dev
-
-# Code formatting
-npm run format
-
-# Linting and type checking
-npm run lint
-npm run typecheck
-
-# Full check (lint + typecheck)
-npm run check
-
-# Build for production
-npm run build
-
-# Run tests
-npm run test
-```
-
 ### Infrastructure Setup
 
 ```bash
@@ -80,75 +53,16 @@ docker compose -f docker-compose.dev.server.yml up -d
 ## Architecture Overview
 
 ### Core Technology Stack
-- **Backend**: Java 25 with Spring Boot 4.0.7
-- **Frontend**: React 19.2 with TypeScript 6.0, Vite 8, TailwindCSS 4.3 (v4 — Vite plugin, not PostCSS)
-- **Database**: PostgreSQL 15+ with Liquibase migrations
-- **Message Broker**: Memory(default), Redis, RabbitMQ, Kafka, JMS, AMQP, AWS SQS
-- **Build System**: Gradle 9.7 with Kotlin DSL
-- **Code Execution**: GraalVM Polyglot 25.0.3 (Java, JavaScript, Python, Ruby)
-- **Testing**: JUnit 5, Vitest 4, Testcontainers
-- **Node.js**: Version 24+ required for client development
-- **Additional Tools**: MapStruct 1.6.3, Jackson 2.19 (transitioning to 3.x — both `com.fasterxml.jackson` and `tools.jackson` packages currently appear in deps), SpringDoc OpenAPI 3.0.3
-
-### Main Server Module Structure
-
-#### Core Modules (`server/libs/`)
-- **`atlas/`** - Workflow engine core
-    - `atlas-coordinator/` - Orchestrates workflow execution
-    - `atlas-execution/` - Manages workflow execution lifecycle
-    - `atlas-worker/` - Task execution workers
-    - `atlas-configuration/` - Workflow configuration management
-
-- **`automation/`** - iPaaS automation implementation
-    - `automation-ai/` - AI-powered automation features, including `automation-ai-mcp-*` (MCP / Model Context Protocol integration)
-    - `automation-configuration/` - Project and workflow configuration
-    - `automation-data-table/` - Data table management
-    - `automation-knowledge-base/` - Knowledge base integration
-    - `automation-search/` - Search services for automation entities
-    - `automation-openapi/` - OpenAPI (Scalar) surface for automation APIs
-    - `automation-task/` - Task management services
-    - `automation-workflow/` - Workflow coordination and execution
-
-- **`platform/`** - Core infrastructure services
-    - `platform-component/` - Component definition and management
-    - `platform-connection/` - Connection handling
-    - `platform-workflow/` - Workflow management
-    - `platform-scheduler/` - Scheduling services
-    - `platform-oauth2/` - OAuth2 authentication
-    - `platform-webhook/` - Webhook handling
-    - `platform-ai/` - AI integration services
-
-- **`core/`** - Foundational utilities
-    - `evaluator/` - Expression evaluation
-    - `file-storage/` - File storage abstraction
-    - `encryption/` - Encryption services
-    - `message/` - Message broker abstraction
-
-#### Component System
-Components are located in `server/libs/modules/components/` and follow this pattern:
-- Each component has a `ComponentHandler` class with `@AutoService` annotation
-- Components define actions (operations) and triggers (event initiators)
-- Connection definitions handle authentication and configuration
-- OpenAPI specifications are often included for API-based components
+Versions live in `gradle/libs.versions.toml` and `client/package.json`. Two things they do not say: Jackson is
+mid-transition to 3.x, so both `com.fasterxml.jackson` and `tools.jackson` packages appear in deps; and
+TailwindCSS is v4 through the Vite plugin, not PostCSS.
 
 ### Enterprise Edition (EE) Microservices
-The `server/ee/` directory contains microservices for distributed deployment:
+The `server/ee/` directory contains the microservices for distributed deployment.
 
 **EE Code Conventions:**
 - Use ByteChef Enterprise license header (not Apache 2.0) for all files under `server/ee/`
 - Add `@version ee` Javadoc tag to all classes under `server/ee/`
-- `api-gateway-app/` - API Gateway with routing
-- `ai-gateway-app/` - AI gateway service for routing model traffic
-- `ai-copilot-app/` - AI Copilot service for workflow assistance
-- `config-server-app/` - Spring Cloud Config server
-- `configuration-app/` - Configuration management service
-- `connection-app/` - Connection management service
-- `coordinator-app/` - Workflow coordination service
-- `execution-app/` - Workflow execution service
-- `scheduler-app/` - Scheduling service
-- `webhook-app/` - Webhook handling service
-- `worker-app/` - Task execution workers
-- `runtime-job-app/` - Runtime job execution
 
 ### Available Components
 ByteChef ships built-in components in `server/libs/modules/components/` covering CRM, project
@@ -158,67 +72,7 @@ folders holding many components each (`google` holds 18, `microsoft` 7) and a fe
 components at all (`build`, `libs`). For the current number, count the generated reference pages:
 `ls docs/content/docs/reference/components | wc -l`.
 
-## Development Patterns
-
-### Component Development
-When working on components in `server/libs/modules/components/`:
-
-1. **Component Definition Pattern**:
-```java
-@AutoService(ComponentHandler.class)
-public class ExampleComponentHandler implements ComponentHandler {
-    private static final ComponentDefinition COMPONENT_DEFINITION = component("example")
-        .title("Example Component")
-        .connection(CONNECTION_DEFINITION)
-        .actions(/* actions */)
-        .triggers(/* triggers */);
-}
-```
-
-2. **Testing Pattern**:
-    - Component tests are in `./src/test/java/com/bytechef/component/`
-    - Running tests auto-generates `.json` definition files in `./src/test/resources/definition/`
-    - Delete existing `.json` files AND `build/resources/test/definition/` before running tests to regenerate them
-
-3. **Documentation**:
-    - Component documentation goes in `./src/main/resources/README.md`
-    - Run `./gradlew generateDocumentation` to update docs
-
-### Code Quality Requirements
-- **Spotless**: Code formatting is enforced. Run `./gradlew spotlessApply` before commits
-- **Checkstyle, PMD, SpotBugs**: Static analysis tools are configured
-- **Tests**: All new code should include appropriate tests
-- **Documentation**: Update component documentation when adding features
-
-### File Structure Guidelines
-- Configuration files are in `server/libs/config/`
-- SDK components are in `sdks/backend/java/`
-- CLI tools are in `cli/`
-- Documentation source is in `docs/`
-
 ## Code Style and Best Practices
-
-### Client ESLint sort-keys Rule
-- Object keys must be in natural ascending (alphabetical) order in client code
-- Applies to mock objects, hoisted state, test data, and component props
-- ESLint `--fix` does NOT auto-fix sort-keys - must be fixed manually
-- Example: `{content: 'x', id: 'y'}` not `{id: 'y', content: 'x'}`
-
-### Client Interface Naming Convention
-- Interface names must end with `I` or `Props` (enforced by `@typescript-eslint/naming-convention`)
-- Example: `EnvironmentConfigI`, `BadgePropsType` — not `EnvironmentConfig`
-
-### Client Import Destructure Sort Order
-- Named imports must be sorted alphabetically within `{}` (enforced by `bytechef/sort-import-destructures`)
-- `type` keyword imports sort by their name, not grouped separately
-- Example: `import {BoxIcon, CheckIcon, type LucideIcon, WrenchIcon} from 'lucide-react'`
-
-### Non-null Assertion on Optional Chain (Client)
-- `@typescript-eslint/no-non-null-asserted-optional-chain` forbids `obj?.prop!`
-- Instead, filter nulls first, then assert: `.filter((item) => item?.id != null).map((item) => { const id = item!.id!; ... })`
-
-### Ref Name Suffix (Client)
-- `useRef` variables must end with `Ref` suffix (enforced by `bytechef/ref-name-suffix`) — e.g., `fileInputRef`, `totalToUploadRef`
 
 ### Variable Naming
 - Do not use short or cryptic variable names on both the server and client sides; prefer clear, descriptive names that communicate intent.
@@ -239,46 +93,6 @@ public class ExampleComponentHandler implements ComponentHandler {
   // Good
   for (Order order : orders) { ... }
   ```
-
-### Lucide Icon Imports (Client)
-- Always import icons with the `Icon` suffix: `SearchIcon`, `DatabaseIcon`, `Loader2Icon`
-- Not: `Search`, `Database`, `Loader2`
-
-### List row rhythm (Client)
-
-Every `*ListItem` row is two columns (title/tags on the left, version-or-switch + date on the right)
-centred against each other with `items-center`. The two columns only line up if they are the **same
-height**, so all 16 of them share one rhythm: first row `min-h-8`, an 8px gap (`gap-y-2` on the right
-column, the left column's long-standing `mt-2`), second row `min-h-7`. Changing one column's gap or
-dropping a `min-h` silently offsets that list's second row against its neighbour — the failure is
-invisible in the file you edited and only shows on screen.
-
-### CSS Class Merging (Client)
-- Use `twMerge` from `tailwind-merge` for conditional class merging
-- Do not use `cn()` utility
-
-### React Patterns (Client)
-- Use `fieldset` (with `border-0`) for semantic form grouping instead of `div`
-- Use `useMemo` for computed values instead of IIFEs in JSX
-- Prefer `||` over `??` for JSX fallbacks (e.g., `trigger || defaultTrigger`)
-
-### Zustand subscriptions (Client)
-- Never call a store hook without a selector (`useWorkflowDataStore()`) in the workflow editor tree. A bare
-  call re-renders on every write to that store, and the editor's node details panel writes `sampleOutputs`
-  from an effect whose input is recomputed on each render. In the embedded builder root that pairing was a
-  "Maximum update depth exceeded" loop the moment a node was added. Select what you need through `useShallow`,
-  or a single field with `(state) => state.field`.
-
-### React Hook Ordering (Client)
-- Order hooks in components/custom hooks: `useState` → `useRef` → custom store hooks → other custom hooks → derived values/`useMemo`/`useCallback` → `useEffect` → `return`
-- All `useEffect` calls go last, immediately before the `return` statement
-- Group multiple declarations of the same hook type consecutively (e.g., all `useRef` calls together, then `.current` assignments in a separate block)
-
-### Client Error Handling
-- `useFetchInterceptor.ts` provides centralized error handling for all fetch requests including GraphQL
-- GraphQL errors are automatically parsed and displayed as toast notifications
-- Individual `onError` handlers on mutations are therefore not necessary for basic error display
-- Only add per-mutation `onError` if you need custom behavior beyond the global toast (e.g., resetting form state)
 
 ### GraphQL Conventions
 - Enum values must use SCREAMING_SNAKE_CASE (e.g., `DELETE`, `GET`, `QUERY`, `PATH`)
@@ -356,11 +170,6 @@ invisible in the file you edited and only shows on screen.
   - Keep declarative chains (queries, reactive pipelines) as one logical block; prefer one operation per line
   - Avoid chaining when side effects are involved or intermediate values deserve names for clarity/debugging
 
-### Temporal Dead Zone (TDZ) with Synchronous Callbacks
-- `const x = fn(callback)` — if `fn` calls `callback` synchronously, `x` is not yet assigned inside `callback`
-- Accessing `x` inside such a callback throws `ReferenceError: Cannot access 'x' before initialization`
-- Fix: defer access to `x` via `setTimeout` or store in a mutable ref before the call
-
 ### Code Quality Tool Patterns
 
 **SpotBugs**:
@@ -391,60 +200,6 @@ platform-coordinator sweep. Never add notification logic under `server/libs/atla
 See `.agents/hitl-approvals.md`. The AI Hub chat has a separate, unrelated tool approval gate — see
 `.agents/ai-hub.md`'s "Tool approval gate" section.
 
-### Variables (workspace / embedded organization, EE)
-
-`server/ee/libs/platform/platform-variable/` (`-api`/`-service`/`-graphql`). One `Property` row per variable:
-key `variable.<NAME>`, value `{"value": …}`, `Scope.WORKSPACE`/workspaceId (automation) or `Scope.EMBEDDED`/null
-(embedded — its first use), `environment` always set; listed via `PropertyService.getPropertiesByKeyPrefix`. No
-new table — variables reuse the existing `property` table. One changelog exists:
-`20260825000001_platform_configuration_property_unique_null_scope_id.xml` adds a partial unique index on
-`property (key, scope, environment) WHERE scope_id IS NULL`, because `uk_property_key_scope_scope_id_environment`
-(non-partial, includes `scope_id`) never fires for `Scope.EMBEDDED` rows — Postgres treats every NULL `scope_id`
-as distinct, so two concurrent embedded creates of the same name both inserted before this index existed.
-`VariableServiceImpl.create`/`update` catch the resulting `DataIntegrityViolationException` and translate it to
-`VARIABLE_NAME_ALREADY_EXISTS`. `VariableServiceImpl` re-lists the scope on every by-id operation rather than
-trusting the id alone, so a variable id from another scope is indistinguishable from a missing one — ids never
-leak across scopes.
-Name/value validation (`^[A-Za-z_][A-Za-z0-9_]{0,49}$`, 4096-char value cap) is a static, unconditional
-`VariableNameValidator`, deliberately not a Spring bean so it can't be silently disabled by a conditional.
-
-Runtime: `PrincipalJobFacadeImpl` (all four create methods) and `TestWorkflowExecutorImpl` seed the resolved map
-into `Job.inputs` under `JobInputConstants.VARIABLES_INPUT` (`"vars"`) through the CE `WorkflowVariablesResolver`
-seam (`platform-api`, resolved via `ObjectProvider#getIfAvailable`), implemented by `WorkflowVariablesResolverImpl`
-— fail-open, WARN once per JVM on a genuine resolution failure. That WARN is real defence-in-depth (it fires if the
-resolver bean exists and the store it reaches misbehaves), but it does **not** cover the actual distributed-EE gap:
-only `server-app` and `configuration-app` carry `platform-variable-*`, and of the distributed apps only
-`execution-app` runs `PrincipalJobFacadeImpl` at all (`coordinator-app`/`webhook-app`/`connection-app`/
-`scheduler-app` depend on `platform-workflow-execution-remote-client`, not the `-service` module that hosts the
-facade). `execution-app` has no `platform-variable-*` on its classpath, so `WorkflowVariablesResolverImpl` never
-registers there; `getIfAvailable()` simply returns null, `Job.inputs` is left untouched, and nothing is ever
-attempted — so no WARN is ever logged for this case. Because `Job.inputs` IS the initial workflow context, this
-gives snapshot semantics for free at the top level: a top-level run resolves `vars` once at job creation and keeps
-that same map for its whole lifetime, so editing a variable mid-run never affects an already-created job's own
-inputs. `createChildJob` re-runs the seeding for subflows, though, so a subflow started mid-run resolves its own
-`vars` snapshot afresh and can observe a value edited after the parent run started. Scope comes from per-`PlatformType`
-`VariableScopeProvider`s (`ProjectVariableScopeProvider` in EE automation-configuration-service,
-`IntegrationVariableScopeProvider` in embedded-configuration-instance-impl).
-Editor previews get `vars` through `WorkflowEvaluationInputsFacade` — the ONE place that merges test-configuration
-inputs with `vars`; never call `getWorkflowTestConfigurationInputs` directly from a preview facade. `vars` is
-reserved as a workflow input name and a node name (`WorkflowValidatorFacade` + client) — this guards the top-level
-`vars.*` namespace in the flat execution context, not individual variable names; a variable literally named `vars`
-is fine and resolves as `${vars.vars}`.
-
-Variables are **not secrets**: values are shown in clear on the settings page, in the editor's data-pill panel, and
-(via `Job.inputs`) on the execution detail page of any run that used them. Storage is encrypted at rest only because
-`Property.value` always is — that's incidental, not a security boundary. There is no `set` action; variables are
-read-only from workflows.
-
-Client: CE editor reads variables through `shared/edition/variables/variablesApi.ts`; pages
-`ee/pages/settings/{automation,embedded}/variables` (routes `/automation/settings/variables` under the "Current
-Workspace" nav group, member-or-admin-reachable but mutation controls gated on the `VARIABLE_MANAGE` scope; and
-`/embedded/settings/variables`, admin-only), shared `ee/shared/components/variables`. The workflow editor surfaces
-variables as their own **Variables** section in the Data Pill Panel (`DataPillPanelBodyVariablesItem`), fed by
-`getWorkflowInputAndVariableDataPills`/`useWorkflowVariables`.
-
-Spec: `docs/superpowers/specs/2026-08-17-custom-variables-design.md`.
-
 ### Component Rules (EE)
 
 `server/ee/libs/platform/platform-component-rule/`, sibling to `platform-component-policy`. Governs **AI agent tool
@@ -468,80 +223,6 @@ plain project deployment to its counterpart in another environment, matched by a
 than by name. **Monolith only** (`server-app`). Re-promotion syncs ONLY the exposed surface; name, tags,
 enabled flags, auth settings, secret keys and existing connection bindings are environment-local. A
 created counterpart is always disabled. See `.agents/environment-promotion.md`.
-
-### Sidebar navigation groups (Client)
-
-Nav arrays live in `client/src/shared/navigation/navigationItems.ts` (App.tsx only feature-flag
-filters them). `NavigationItemI` has an optional `group`; `AppSidebar` folds CONSECUTIVE items
-sharing a `group` into one section at the position of their first item — non-adjacent items with the
-same group form SEPARATE sections, so keep group members adjacent in the arrays. Flag filtering runs
-before grouping, so a group renders with whatever members survive their flags.
-
-Expanded, a labeled section renders as a `Collapsible` + `SidebarMenuSub` whose parent row carries an
-icon from `NAVIGATION_GROUP_ICONS` — including a group of one, whose label is the only thing saying
-where the item belongs. On the collapsed icon rail there is no label to show, so a one-item group
-flattens to its own link and only multi-item groups become hover flyouts
-(`AppSidebarCollapsedGroup`). Exactly one group is open at a time: the group holding the current
-route opens itself, and a manual toggle wins until the route changes — `manuallyOpenedGroup` is
-`string | null | undefined`, and collapsing that tri-state to `string | null` makes closing the group
-you are standing in indistinguishable from having no preference, so it springs straight back open.
-
-The active row is the LONGEST matching href, not merely a matching one: nav entries nest (Tool
-Invocations lives under `/automation/executions`), and a plain prefix test lights up parent and child
-at once.
-
-Current groups: automation Deploy / Monitor / AI / Resources; embedded Build / Configure /
-Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
-Approval Tasks, Projects and Connections; embedded Connections alone.
-
-The embedded Build group and the automation Projects row are Development-only.
-`shared/navigation/developmentOnlyRoutes.ts` is the one list
-pairing each authoring surface with the deployed one that replaces it (Projects — including the Agents and
-Data Syncs tabs and the agents and data syncs inside a project — → Deployments, Integrations and
-Automations → Integration Instances); `App.tsx` hides the rows
-outside DEVELOPMENT and `useDevelopmentOnlyRouteGuard` redirects anyone standing on one. Both rules
-must come from that list — a row you cannot reach and a page you cannot leave are the same bug from
-opposite ends, and splitting them is how Projects once got the redirect while Agents got neither.
-Switching environment changes a store and navigates nowhere, so a route loader alone cannot see it;
-the loaders on `projects` and the embedded index exist only to spare the most common entry a flash.
-No edition test is needed — CE has no environment selector and never leaves DEVELOPMENT.
-
-### Graph dispatcher canvas (Client)
-
-A `graph/v1` dispatcher renders as a free-form `graphFrame` box, not as a chain. `layoutGraphFrames`
-is a PRE-PASS: it lays each frame's members out first, hands the outer engine one sized leaf node,
-and re-appends members and their routes afterwards — so nothing the outer layout does can disturb
-them, and a nested graph must be processed innermost-first. Member positions are FRAME-relative
-(`metadata.ui.nodePosition`); `toFrameChildPosition`/`fromFrameChildPosition` in `graphFrameGeometry`
-are the only sanctioned crossing to canvas coordinates — open-coding the header offset flings the
-group. Routing is an explicit `parameters.transitions: [{from, to, condition?}]` list, never a
-per-node `next`: declaration order within a `from` IS conditional priority, so a transition's index
-is its identity. `graphTransition`/`graphStart` edges are free-form routes, not chain links — a
-cyclic pair would corrupt dagre's and ELK's ranking, so both engines strip them, and chain walkers
-(`collectChainSuccessorNodes`) must skip them. `onConnect` is scoped by handle suffix
-(`resolveGraphConnection`): only graph transition handles connect, and only within one graph.
-
-### Vitest mock factory hoisting (Client)
-
-`vi.mock(...)` calls hoist to the top of the file, so module-scope `const` declarations are NOT yet
-initialised when the factory runs. Referencing `setStateMock` (or any module-scope ref) inside a
-`vi.mock` factory crashes with `Cannot access X before initialization`.
-
-Use `vi.hoisted(() => ({...}))` to declare the refs alongside the mocks. Example:
-
-```ts
-const {navigateMock, setStateMock} = vi.hoisted(() => ({
-    navigateMock: vi.fn(),
-    setStateMock: vi.fn(),
-}));
-
-vi.mock('@/shared/components/copilot/stores/useCopilotStore', () => ({
-    useCopilotStore: {setState: setStateMock},
-}));
-```
-
-This pattern shows up in `Agents.test.tsx` and any test that mocks Zustand
-stores or router hooks via factory-injected mocks.
 
 ### Spring Boot Project Conventions
 
@@ -603,6 +284,8 @@ relevant file before working in that area** — each records invariants whose vi
 | `.agents/component-rules.md` | Component Rules: agent tool governance, approval, observe mode, strict, risk levels |
 | `.agents/voice.md` | Browser voice: engine outside Atlas, Voice Agent cluster element, stage contract, tool policy path, no HITL in a call, `sessionId` protocol, node-affinity gap |
 | `.agents/apps.md` | Apps (EE): governed AI-built apps, app secret key + `/api/app/v1` auth, execution lane, flat tool names, the connection proxy, connection-delete guard SPI |
+| `.agents/variables.md` | Variables (EE): `property`-row storage, runtime seeding into `Job.inputs`, the distributed-EE gap, why they are not secrets |
+| `.agents/fast-startup.md` | `fastStartup`: fast IntelliJ `server-app` startup with pre-built module JARs |
 
 Design rationale for most of the above lives in `docs/superpowers/specs/`.
 
@@ -685,12 +368,6 @@ Moving authorization down into a facade also changes its HTTP status silently: a
 5. Add documentation in README.md
 6. Run `./gradlew generateDocumentation`
 
-### Working with Workflows
-- Workflows are defined in JSON format
-- Visual editor is available in the client application
-- Workflow execution is handled by the Atlas engine
-- Test workflows through the UI or API endpoints
-
 ### Database Changes
 - Use Liquibase for schema migrations
 - Migration files are in `server/libs/config/liquibase-config/`
@@ -730,26 +407,6 @@ Moving authorization down into a facade also changes its HTTP status silently: a
 - Run `cd client && npx graphql-codegen` to regenerate `src/shared/middleware/graphql.ts`
 - Commit operations and generated file separately
 
-### Running Integration Tests
-Integration tests use Testcontainers to spin up real services:
-```bash
-# Run all integration tests
-./gradlew testIntegration
-
-# Run integration tests for a specific module
-./gradlew :server:libs:platform:platform-workflow:platform-workflow-service:testIntegration
-
-# Run with specific Docker image versions (recommended)
-# Integration tests automatically use Testcontainers with PostgreSQL 15
-```
-
-### Debugging Workflows
-1. **Enable Debug Logging**: Set logging level to DEBUG for specific packages in `application.yml`
-2. **Use Workflow Test Mode**: Test workflows in the UI with step-by-step execution
-3. **Check Execution Logs**: View workflow execution logs in the UI or database
-4. **Inspect Variables**: Use the workflow editor to inspect variable values at each step
-5. **Test Actions Individually**: Use the component test feature to test individual actions
-
 ### Commit Message Convention
 - Client-side changes: `<ticket_number> client - <description>`
 - Server-side changes: `<ticket_number> <description>`
@@ -778,35 +435,7 @@ npm run format           # Format code
 npm run check            # Run lint, typecheck, and tests
 ```
 
-### CLI
-ByteChef includes a CLI (`cli/`, Spring Boot + Spring Shell) that scaffolds custom components and
-calls the public REST API (automation and embedded). It uses the `application` plugin. Build a
-`bytechef` binary with `installDist` — this is the normal way to use it, since the binary runs from
-your current working directory so relative paths behave as expected:
-```bash
-# Build the distribution; binary lands at cli/cli-app/build/install/bytechef/bin/bytechef
-./gradlew :cli:cli-app:installDist
-
-# Scaffold a component from an OpenAPI spec
-bytechef component init --name my-component --open-api-path ./openapi.yaml --output-path .
-
-# Public API commands (store a profile first)
-bytechef configure --host https://app.bytechef.io --token <public-api-token> --environment PRODUCTION --workspace-id 1
-bytechef automation execution list --output table
-bytechef embedded integration list --external-user-id user-42
-```
-For a quick dev invocation without building the distribution, use the `run` task — but note its
-working directory is `cli/cli-app`, so pass **absolute** paths:
-```bash
-./gradlew :cli:cli-app:run --args="component init --name my-component --open-api-path /abs/openapi.yaml --output-path /abs/out"
-```
-See `cli/README.md` for the full command reference.
-
-Regenerate the CLI's OpenAPI clients with each project's **`generateClient`** task — not the plugin's
-default `openApiGenerate`, which is unconfigured and fails with "generator name must be specified".
-Generated Java sources are committed and deliberately not wired to `compileJava`; regenerate manually
-when an `openapi.yaml` changes. The surrounding `docs/`, `gradlew`, `pom.xml` scaffolding is gitignored.
-
+### Generated REST sources
 **REST models must not carry field-level `@JsonInclude` / `@JsonSetter(nulls = ...)`.** Both would
 change the wire format for reasons unrelated to any schema change — the first drops explicit
 `"field": null` from every response, the second makes an incoming explicit null leave a field's default
@@ -838,68 +467,15 @@ management MCP server's `instructions` are generated from the `mcp` fences. See
 
 ## Build and Deployment
 
-### Fast IntelliJ Dev Startup (`fastStartup`)
-- `server-app` startup from IntelliJ is slow because IntelliJ puts every module dependency on the
-  classpath as an exploded output directory (hundreds of dirs → slow ServiceLoader/DevTools scans).
-- Set `fastStartup=true` in `gradle.properties` (alias: the deprecated `useComponentJars`) to present
-  **all** bytechef library + component modules to IntelliJ as pre-built JARs instead. Everything then
-  loads in a single base classloader — fast startup, and no Spring DevTools base/restart classloader
-  split (the split is what made the old component-only jar swap fail with `NoClassDefFoundError`).
-- Mechanism (`server/apps/server-app/build.gradle.kts`): a resolvable `fastStartupRuntime` configuration
-  forces the runtime-JAR variant and carries each module's **full transitive closure**, then feeds it
-  back onto `implementation` as one `files(...)` entry. Plain `files(jarTask)` would drop transitives —
-  that was the old breakage.
-- Workflow: `fastStartup=true` → `./gradlew -PfastStartup=true :server:apps:server-app:buildModuleJars --parallel`
-  → refresh Gradle in IntelliJ → run. Trade-off: DevTools still hot-reloads server-app's own code, but
-  library modules (now JARs) don't hot-reload — edit a lib, re-run `buildModuleJars` + restart (or use
-  IntelliJ HotSwap for method bodies). Zero-prebuild alternative: IntelliJ "Build and run using: Gradle"
-  (bootRun's `runtimeClasspath` already yields JARs). `fastStartup=false` (default) keeps full library
-  hot-reload and is byte-for-byte the previous behavior.
-
-### Docker
-- `Dockerfile` for server application
-- `docker-compose.yml` for full stack
-- `docker-compose.dev.infra.yml` for development infrastructure
-- `docker-compose.dev.server.yml` for server-only development
-
-### Kubernetes
-- The Helm chart is in `kubernetes/helm/bytechef/` — one chart, deploying the single-node application
-- Supports both monolith and microservices deployments
-
-### CI/CD
-- GitHub Actions workflows for build and test
-- Automated component documentation generation
-- Code quality checks are enforced
-
 ## Testing Strategies
 
 ### Unit Testing
-- Write unit tests for all business logic in service classes
-- Mock external dependencies using Mockito
-- Test component actions and triggers in isolation
-- Aim for high code coverage (target: 80%+)
 - Unit test class names must end with `Test` suffix only (NOT `IntTest`) — e.g., `KnowledgeBaseFileStorageTest`
 - Drop `Impl` from test class names — test the interface contract, not the implementation detail
 
 ### Integration Testing
 - All integration test classes must end with `IntTest` suffix
-- Use `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)`
-- Leverage Testcontainers for real service dependencies
 - Test configuration: `src/test/resources/config/application-testint.yml`
-- Example integration test structure:
-```java
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("testint")
-class WorkflowServiceIntTest {
-    @Autowired
-    private WorkflowService workflowService;
-
-    @Test
-    void testWorkflowExecution() {
-        // Test implementation
-    }
-}
-```
 
 ### Component Testing
 - Component tests auto-generate JSON definition files in `src/test/resources/definition/`
@@ -938,128 +514,6 @@ class WorkflowServiceIntTest {
 - Component integration tests use `@ComponentIntTest` → `ComponentTestIntConfiguration` in `platform-component-test-int-support`
 - `ComponentTestIntConfiguration` only scans `com.bytechef.platform.component` — beans from other packages (e.g., `com.bytechef.file.storage`) must be manually registered
 - `Base64FileStorageService.getType()` returns `"JDBC"`, so test property `bytechef.file-storage.provider=jdbc` must be set to match
-
-### Client-Side Testing
-```bash
-cd client
-
-# Run tests in watch mode during development
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run all quality checks (includes tests)
-npm run check
-```
-
-#### Zustand Store Testing
-- Reset store state in `beforeEach` via `store.setState({...initial...})` — avoids cross-test leakage
-- Access store imperatively via `store.getState()` for assertions (no hook needed)
-- Export stores (e.g., `export const featureFlagsStore`) to enable direct state manipulation in tests
-- Use `renderHook` from `@testing-library/react` for hooks that wrap stores
-- **Never flush async store updates with a fixed sleep** (`await act(async () => { await new Promise(r => setTimeout(r, 10)); })`).
-  A fixed delay races an async chain whose latency is unbounded under parallel vitest workers: it passes in
-  isolation and fails intermittently in full runs, on a different test each time. Wait for the condition instead:
-  `await waitFor(() => { expect(store.getState().someFlag).toBe(expected); }, {interval: 5, timeout: 5000})`.
-  The timeout is a ceiling paid only on genuine failure, not a delay every test waits out.
-- A test that kicks off an async store update **must wait for it to settle before it ends**, even when the
-  assertion only covers intermediate state — otherwise its pending `setTimeout` callbacks fire during a later
-  test and mutate the shared store there (`beforeEach` reset cannot help; the timer outlives the reset).
-
-#### PostHog Mock
-- Global mock in `.vitest/setup.ts` — `onFeatureFlags: vi.fn()`, `isFeatureEnabled: vi.fn().mockReturnValue(false)`
-- `onFeatureFlags` returns `() => void` (unsubscribe); mock overrides must return a function: `return () => {}`
-- `import('posthog-js')` dynamic imports resolve to the same mock; multiple synchronous calls share one Promise
-- `useFeatureFlagsStore` resolves a flag through a four-hop chain: `import('posthog-js')` → promise microtask →
-  `onFeatureFlags` callback → `setTimeout(…, 0)`. Tests must wait on the resulting store state (or on the
-  `onFeatureFlags` subscription), never on elapsed time — see the Zustand note above.
-- Test files are isolated (vitest `forks` pool, `isolate: true`), so `featureFlagsStore` and the PostHog mock
-  **cannot** leak between files; contamination is always within a single file.
-
-### End-to-End Testing
-- Test complete workflows through the UI
-- Verify trigger activation and workflow execution
-- Test with real connections to external services (in staging)
-- Validate data transformations and error handling
-
-### CI/CD Testing
-GitHub Actions workflows automatically run:
-- Server tests: `./gradlew check jacocoTestReport sonar`
-- Client tests: `npm run check` (lint + typecheck + tests)
-- SonarCloud analysis for code quality
-- Integration tests with Testcontainers
-
-## Debugging Tips
-
-### Server-Side Debugging
-
-#### Enable Debug Logging
-Edit `application.yml` or set environment variables:
-```yaml
-logging:
-  level:
-    com.bytechef: DEBUG
-    com.bytechef.platform.workflow: TRACE
-    org.springframework.web: DEBUG
-```
-
-#### Remote Debugging
-Start the server with debug enabled:
-```bash
-./gradlew -p server/apps/server-app bootRun --debug-jvm
-# Connects on port 5005 by default
-```
-
-In IntelliJ IDEA:
-1. Run → Edit Configurations
-2. Add New Configuration → Remote JVM Debug
-3. Set port to 5005
-4. Start debugging
-
-#### Common Debugging Scenarios
-
-**Workflow Execution Issues:**
-- Check `atlas-execution` logs for execution details
-- Inspect workflow JSON definition for syntax errors
-- Verify component connections are properly configured
-- Check if triggers are enabled and properly configured
-
-**Component Action Failures:**
-- Enable DEBUG logging for `com.bytechef.component`
-- Verify input parameters match action definitions
-- Check connection credentials and permissions
-- Review component-specific logs in the execution logs
-
-**Database Issues:**
-- Check Liquibase changelog execution: `SELECT * FROM databasechangelog`
-- Verify connection pool settings if seeing connection timeouts
-- Check for transaction rollbacks in logs
-- Use `spring.jpa.show-sql=true` to see SQL queries (dev only)
-
-**Authentication/Authorization:**
-- Check JWT token validity and expiration
-- Verify user roles and permissions in database
-- Review Spring Security filter chain execution
-- Check CORS configuration for client-server communication
-
-
-## Troubleshooting
-
-**Database schema issues**
-- Reset database: `docker compose -f server/docker-compose.dev.infra.yml down -v`
-- Check Liquibase logs for migration errors
-- Manually run migrations: `./gradlew liquibaseUpdate`
-
-**Workflow execution failures**
-- Check Atlas worker logs for task execution errors
-- Verify component connections are active
-- Check Redis connectivity for message broker
-- Review component-specific documentation for required parameters
-
-**Integration test failures**
-- Ensure Docker is running (required for Testcontainers)
-- Review test logs in `build/test-results/`
 
 ## Agent skills
 
