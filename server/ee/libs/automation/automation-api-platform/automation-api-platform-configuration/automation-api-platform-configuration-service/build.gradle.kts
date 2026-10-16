@@ -18,7 +18,14 @@ dependencies {
 
     implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-configuration:automation-api-platform-configuration-api"))
 
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.data:spring-data-jdbc")
+    testImplementation("org.springframework.security:spring-security-config")
+    testImplementation(project(":server:libs:automation:automation-configuration:automation-configuration-service"))
+    testImplementation(project(":server:libs:platform:platform-connection:platform-connection-api"))
+    testImplementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
+    testImplementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-service"))
+    testImplementation(project(":server:ee:libs:platform:platform-resource-grant:platform-resource-grant-api"))
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:test:test-int-support"))
 }

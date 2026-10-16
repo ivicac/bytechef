@@ -117,6 +117,27 @@ class ApiCollectionFacadeAuthorizationTest {
         assertPreAuthorize(method("updateApiCollectionEndpoint", ApiCollectionEndpointDTO.class), expected);
     }
 
+    @Test
+    void testGetApiCollectionEndpointRequiresView() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("getApiCollectionEndpoint", long.class),
+            "hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_VIEW')");
+    }
+
+    @Test
+    void testDeleteApiCollectionEndpointRequiresEdit() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("deleteApiCollectionEndpoint", long.class),
+            "hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')");
+    }
+
+    @Test
+    void testEnableApiCollectionEndpointRequiresEdit() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("enableApiCollectionEndpoint", long.class, boolean.class),
+            "hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')");
+    }
+
     /**
      * The assertion the individual pins above cannot make: that a method added later is gated at all. Each pin fails
      * only if an expression it names changes; none of them notices a twelfth method appearing with no annotation, which

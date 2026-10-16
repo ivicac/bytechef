@@ -11,6 +11,7 @@ import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
 import com.bytechef.ee.automation.apiplatform.configuration.repository.ApiEndpointRepository;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -44,6 +45,12 @@ public class ApiCollectionEndpointServiceImpl implements ApiCollectionEndpointSe
     @Override
     public void delete(long id) {
         apiEndpointRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ApiCollectionEndpoint> fetchApiCollectionEndpoint(long id) {
+        return apiEndpointRepository.findById(id);
     }
 
     @Override

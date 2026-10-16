@@ -196,9 +196,47 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')")
+    public void deleteApiCollectionEndpoint(long id) {
+        ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(id);
+
+        apiCollectionEndpointService.delete(id);
+
+        Map<String, Object> data = new HashMap<>();
+
+        data.put("httpMethod", apiCollectionEndpoint.getHttpMethod());
+        data.put("name", apiCollectionEndpoint.getName());
+        data.put("path", apiCollectionEndpoint.getPath());
+
+        apiCollectionAuditPublisher.publish(
+            ApiCollectionAuditEvent.API_COLLECTION_ENDPOINT_DELETED, apiCollectionEndpoint.getApiCollectionId(),
+            data);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')")
+    public ApiCollectionEndpointDTO enableApiCollectionEndpoint(long id, boolean enable) {
+        ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(id);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
+            .getProjectDeploymentWorkflow(apiCollectionEndpoint.getProjectDeploymentWorkflowId());
+
+        projectDeploymentFacade.enableProjectDeploymentWorkflow(
+            projectDeploymentWorkflow.getProjectDeploymentId(), projectDeploymentWorkflow.getWorkflowId(), enable);
+
+        return toApiCollectionEndpointDTO(apiCollectionEndpoint);
+    }
+
+    @Override
     @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_VIEW')")
     public ApiCollectionDTO getApiCollection(long id) {
         return toApiCollectionDTO(apiCollectionService.getApiCollection(id));
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_VIEW')")
+    public ApiCollectionEndpointDTO getApiCollectionEndpoint(long id) {
+        return toApiCollectionEndpointDTO(apiCollectionEndpointService.getOpenApiEndpoint(id));
     }
 
     @Override
