@@ -15,6 +15,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -135,6 +136,13 @@ class ApiCollectionFacadeAuthorizationTest {
     void testEnableApiCollectionEndpointRequiresEdit() throws NoSuchMethodException {
         assertPreAuthorize(
             method("enableApiCollectionEndpoint", long.class, boolean.class),
+            "hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')");
+    }
+
+    @Test
+    void testUpdateApiCollectionEndpointWorkflowRequiresEdit() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("updateApiCollectionEndpointWorkflow", long.class, List.class, Map.class),
             "hasPermission(#id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')");
     }
 

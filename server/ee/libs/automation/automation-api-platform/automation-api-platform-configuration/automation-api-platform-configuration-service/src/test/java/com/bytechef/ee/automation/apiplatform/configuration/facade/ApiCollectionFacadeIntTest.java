@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.apiplatform.configuration.facade;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -18,8 +19,12 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint.HttpMethod;
@@ -89,10 +94,19 @@ class ApiCollectionFacadeIntTest {
     private ApiCollectionService apiCollectionService;
 
     @Autowired
+    private ProjectDeploymentFacade projectDeploymentFacade;
+
+    @Autowired
     private ProjectDeploymentService projectDeploymentService;
 
     @Autowired
+    private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
+
+    @Autowired
     private ProjectService projectService;
+
+    @Autowired
+    private ProjectWorkflowService projectWorkflowService;
 
     @Autowired
     private UserService userService;
@@ -216,6 +230,64 @@ class ApiCollectionFacadeIntTest {
 
             assertThatThrownBy(() -> apiCollectionFacade.deleteApiCollectionEndpoint(999L))
                 .isInstanceOf(AccessDeniedException.class);
+        }
+    }
+
+    @Nested
+    class UpdateApiCollectionEndpointWorkflow {
+
+        @BeforeEach
+        void beforeEach() {
+            ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(
+                API_COLLECTION_ENDPOINT);
+
+            apiCollectionEndpoint.setProjectDeploymentWorkflowId(901L);
+
+            ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+            projectDeploymentWorkflow.setId(901L);
+            projectDeploymentWorkflow.setProjectDeploymentId(PROJECT_DEPLOYMENT);
+            projectDeploymentWorkflow.setWorkflowId("workflow-1");
+
+            when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(901L))
+                .thenReturn(projectDeploymentWorkflow);
+            when(projectWorkflowService.getProjectWorkflowUuid(PROJECT_DEPLOYMENT, "workflow-1")).thenReturn("uuid");
+        }
+
+        @Test
+        void testEditorCanUpdateEndpointWorkflow() {
+            authenticate(EDITOR);
+
+            assertThatCode(
+                () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
+                    API_COLLECTION_ENDPOINT, List.of(), Map.of()))
+                        .doesNotThrowAnyException();
+
+            verify(projectDeploymentFacade).updateProjectDeploymentWorkflow(any());
+        }
+
+        @Test
+        void testViewerIsDeniedUpdateEndpointWorkflow() {
+            authenticate(VIEWER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
+                    API_COLLECTION_ENDPOINT, List.of(), Map.of()))
+                        .isInstanceOf(AccessDeniedException.class);
+
+            verify(projectDeploymentFacade, never()).updateProjectDeploymentWorkflow(any());
+        }
+
+        @Test
+        void testMemberOfAnotherWorkspaceIsDeniedUpdateEndpointWorkflow() {
+            authenticate(OUTSIDER);
+
+            assertThatThrownBy(
+                () -> apiCollectionFacade.updateApiCollectionEndpointWorkflow(
+                    API_COLLECTION_ENDPOINT, List.of(), Map.of()))
+                        .isInstanceOf(AccessDeniedException.class);
+
+            verify(projectDeploymentFacade, never()).updateProjectDeploymentWorkflow(any());
         }
     }
 

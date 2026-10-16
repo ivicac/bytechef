@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -390,6 +392,75 @@ class ApiCollectionFacadeTest {
 
         assertThat(apiCollectionEndpointDTO.name()).isEqualTo("list-invoices");
         assertThat(apiCollectionEndpointDTO.workflowUuid()).isEqualTo("uuid-1");
+    }
+
+    @Test
+    void testGetApiCollectionEndpointReturnsConnectionsAndInputs() {
+        stubEndpointWorkflow(false, 4);
+
+        ApiCollectionEndpointDTO apiCollectionEndpointDTO = apiCollectionFacade.getApiCollectionEndpoint(7L);
+
+        assertThat(apiCollectionEndpointDTO.connections()).hasSize(1);
+        assertThat(apiCollectionEndpointDTO.connections()
+            .get(0)
+            .getConnectionId()).isEqualTo(61L);
+        assertThat(apiCollectionEndpointDTO.inputs()
+            .get("region")).isEqualTo("eu");
+    }
+
+    @Test
+    void testUpdateApiCollectionEndpointWorkflowKeepsEnabledAndVersion() {
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = stubEndpointWorkflow(true, 4);
+
+        ProjectDeploymentWorkflowConnection projectDeploymentWorkflowConnection =
+            new ProjectDeploymentWorkflowConnection(62L, "key", "node");
+
+        apiCollectionFacade.updateApiCollectionEndpointWorkflow(
+            7L, List.of(projectDeploymentWorkflowConnection), Map.of("region", "us"));
+
+        ArgumentCaptor<ProjectDeploymentWorkflow> captor = ArgumentCaptor.forClass(ProjectDeploymentWorkflow.class);
+
+        verify(projectDeploymentFacade).updateProjectDeploymentWorkflow(captor.capture());
+
+        ProjectDeploymentWorkflow updatedProjectDeploymentWorkflow = captor.getValue();
+
+        assertThat(updatedProjectDeploymentWorkflow.getId()).isEqualTo(901L);
+        assertThat(updatedProjectDeploymentWorkflow.getConnections()).containsExactly(
+            projectDeploymentWorkflowConnection);
+        assertThat(updatedProjectDeploymentWorkflow.getInputs()
+            .get("region")).isEqualTo("us");
+        assertThat(updatedProjectDeploymentWorkflow.isEnabled()).isEqualTo(projectDeploymentWorkflow.isEnabled());
+        assertThat(updatedProjectDeploymentWorkflow.isEnabled()).isTrue();
+        assertThat(updatedProjectDeploymentWorkflow.getVersion()).isEqualTo(4);
+    }
+
+    private ProjectDeploymentWorkflow stubEndpointWorkflow(boolean enabled, int version) {
+        ApiCollectionEndpoint apiCollectionEndpoint = new ApiCollectionEndpoint();
+
+        apiCollectionEndpoint.setApiCollectionId(100L);
+        apiCollectionEndpoint.setHttpMethod(HttpMethod.GET);
+        apiCollectionEndpoint.setId(7L);
+        apiCollectionEndpoint.setName("list-invoices");
+        apiCollectionEndpoint.setPath("invoices");
+        apiCollectionEndpoint.setProjectDeploymentWorkflowId(901L);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setConnections(List.of(new ProjectDeploymentWorkflowConnection(61L, "key", "node")));
+        projectDeploymentWorkflow.setEnabled(enabled);
+        projectDeploymentWorkflow.setId(901L);
+        projectDeploymentWorkflow.setInputs(Map.of("region", "eu"));
+        projectDeploymentWorkflow.setProjectDeploymentId(200L);
+        projectDeploymentWorkflow.setVersion(version);
+        projectDeploymentWorkflow.setWorkflowId("workflow-1");
+
+        when(apiCollectionEndpointService.getOpenApiEndpoint(7L)).thenReturn(apiCollectionEndpoint);
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(901L))
+            .thenReturn(projectDeploymentWorkflow);
+        lenient().when(projectWorkflowService.getProjectWorkflowUuid(200L, "workflow-1"))
+            .thenReturn("uuid-1");
+
+        return projectDeploymentWorkflow;
     }
 
     /**
