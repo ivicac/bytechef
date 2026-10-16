@@ -19,28 +19,37 @@ package com.bytechef.automation.configuration.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
 import com.bytechef.automation.configuration.security.EnvironmentScopeFilter;
 import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
@@ -77,6 +86,7 @@ class ProjectDeploymentFacadeTest {
     private static final long HIDDEN_PROJECT_ID = 2L;
     private static final long WORKSPACE_ID = 3L;
     private static final long SYSTEM_PROJECT_ID = 4L;
+    private static final long ARMED_PROJECT_DEPLOYMENT_ID = 5L;
 
     @Mock
     private ApplicationProperties applicationProperties;
@@ -93,7 +103,13 @@ class ProjectDeploymentFacadeTest {
         objectProvider(permissionServiceHoldingEveryEnvironment()));
 
     @Mock
+    private ConnectionService connectionService;
+
+    @Mock
     private EnvironmentService environmentService;
+
+    @Mock
+    private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
 
     @Mock
     private ProjectDeploymentService projectDeploymentService;
@@ -121,6 +137,61 @@ class ProjectDeploymentFacadeTest {
 
     @InjectMocks
     private ProjectDeploymentFacadeImpl projectDeploymentFacade;
+
+    @Test
+    void testUpdateProjectDeploymentWorkflowRefusesConnectionFromAnotherEnvironment() {
+        stubProjectDeploymentWorkflowUpdate(Environment.DEVELOPMENT, Environment.PRODUCTION);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = submittedProjectDeploymentWorkflow();
+
+        assertThatThrownBy(() -> projectDeploymentFacade.updateProjectDeploymentWorkflow(projectDeploymentWorkflow))
+            .isInstanceOf(ConfigurationException.class);
+
+        verify(projectDeploymentWorkflowService, never()).update(any(ProjectDeploymentWorkflow.class));
+    }
+
+    @Test
+    void testUpdateProjectDeploymentWorkflowAcceptsConnectionFromTheDeploymentEnvironment() {
+        stubProjectDeploymentWorkflowUpdate(Environment.DEVELOPMENT, Environment.DEVELOPMENT);
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = submittedProjectDeploymentWorkflow();
+
+        projectDeploymentFacade.updateProjectDeploymentWorkflow(projectDeploymentWorkflow);
+
+        verify(projectDeploymentWorkflowService).update(projectDeploymentWorkflow);
+    }
+
+    private void
+        stubProjectDeploymentWorkflowUpdate(Environment deploymentEnvironment, Environment connectionEnvironment) {
+        ProjectDeploymentWorkflow persistedProjectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        persistedProjectDeploymentWorkflow.setId(30L);
+        persistedProjectDeploymentWorkflow.setProjectDeploymentId(ARMED_PROJECT_DEPLOYMENT_ID);
+
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(30L))
+            .thenReturn(persistedProjectDeploymentWorkflow);
+        when(projectDeploymentService.getProjectDeployment(ARMED_PROJECT_DEPLOYMENT_ID))
+            .thenReturn(projectDeployment(ARMED_PROJECT_DEPLOYMENT_ID, VISIBLE_PROJECT_ID, deploymentEnvironment));
+
+        Connection connection = new Connection();
+
+        connection.setEnvironmentId(connectionEnvironment.ordinal());
+        connection.setName("connection");
+
+        when(connectionService.getConnection(61L)).thenReturn(connection);
+    }
+
+    private static ProjectDeploymentWorkflow submittedProjectDeploymentWorkflow() {
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+        projectDeploymentWorkflow.setConnections(List.of(new ProjectDeploymentWorkflowConnection(61L, "key", "node")));
+        projectDeploymentWorkflow.setEnabled(false);
+        projectDeploymentWorkflow.setId(30L);
+        projectDeploymentWorkflow.setProjectDeploymentId(ARMED_PROJECT_DEPLOYMENT_ID);
+
+        return projectDeploymentWorkflow;
+    }
+
 
     @Test
     void testWorkspaceDeploymentsHideDeploymentsOfHiddenProjects() {

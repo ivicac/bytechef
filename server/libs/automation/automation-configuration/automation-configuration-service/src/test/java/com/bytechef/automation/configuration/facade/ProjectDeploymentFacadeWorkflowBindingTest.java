@@ -19,9 +19,12 @@ package com.bytechef.automation.configuration.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.junit.jupiter.api.Test;
@@ -52,6 +55,8 @@ class ProjectDeploymentFacadeWorkflowBindingTest {
     private static final long OWN_PROJECT_DEPLOYMENT_ID = 1L;
     private static final long OTHER_PROJECT_DEPLOYMENT_ID = 2L;
     private static final long PROJECT_DEPLOYMENT_WORKFLOW_ID = 30L;
+
+    private final ProjectDeploymentService projectDeploymentService = Mockito.mock(ProjectDeploymentService.class);
 
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         Mockito.mock(ProjectDeploymentWorkflowService.class);
@@ -164,10 +169,22 @@ class ProjectDeploymentFacadeWorkflowBindingTest {
      * removed. {@code ApplicationProperties} is the one exception -- the constructor itself dereferences it.
      */
     private ProjectDeploymentFacadeImpl createProjectDeploymentFacade() {
+        Mockito.when(projectDeploymentService.getProjectDeployment(OWN_PROJECT_DEPLOYMENT_ID))
+            .thenReturn(ownProjectDeployment());
+
         return new ProjectDeploymentFacadeImpl(
-            null, null, null, null, null, null, null, null, null, List.of(), null,
+            null, null, null, null, null, null, null, null, null, List.of(), projectDeploymentService,
             projectDeploymentWorkflowService,
             null, null, null, null, null, null, null, Mockito.mock(ApplicationProperties.class), null, null);
+    }
+
+    private static ProjectDeployment ownProjectDeployment() {
+        ProjectDeployment projectDeployment = new ProjectDeployment();
+
+        projectDeployment.setEnvironment(Environment.DEVELOPMENT);
+        projectDeployment.setId(OWN_PROJECT_DEPLOYMENT_ID);
+
+        return projectDeployment;
     }
 
     /**
