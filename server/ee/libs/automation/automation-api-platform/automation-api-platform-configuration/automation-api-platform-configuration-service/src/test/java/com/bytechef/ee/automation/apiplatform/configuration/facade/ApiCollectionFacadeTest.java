@@ -368,6 +368,50 @@ class ApiCollectionFacadeTest {
     }
 
     @Test
+    void testGetApiCollectionEndpointsOrdersByPathThenMethod() {
+        ApiCollectionEndpoint postInvoices = createEndpoint(1L, "invoices", HttpMethod.POST, 901L);
+        ApiCollectionEndpoint getOrders = createEndpoint(2L, "orders", HttpMethod.GET, 902L);
+        ApiCollectionEndpoint getInvoices = createEndpoint(3L, "invoices", HttpMethod.GET, 903L);
+
+        when(apiCollectionEndpointService.getApiEndpoints(100L))
+            .thenReturn(List.of(postInvoices, getOrders, getInvoices));
+
+        for (long projectDeploymentWorkflowId : List.of(901L, 902L, 903L)) {
+            ProjectDeploymentWorkflow projectDeploymentWorkflow = new ProjectDeploymentWorkflow();
+
+            projectDeploymentWorkflow.setProjectDeploymentId(200L);
+            projectDeploymentWorkflow.setWorkflowId("workflow-" + projectDeploymentWorkflowId);
+
+            when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(projectDeploymentWorkflowId))
+                .thenReturn(projectDeploymentWorkflow);
+            when(projectWorkflowService.getProjectWorkflowUuid(200L, "workflow-" + projectDeploymentWorkflowId))
+                .thenReturn("uuid-" + projectDeploymentWorkflowId);
+        }
+
+        List<ApiCollectionEndpointDTO> apiCollectionEndpointDTOs = apiCollectionFacade.getApiCollectionEndpoints(100L);
+
+        assertThat(apiCollectionEndpointDTOs).extracting(ApiCollectionEndpointDTO::id)
+            .containsExactly(3L, 1L, 2L);
+        assertThat(apiCollectionEndpointDTOs).extracting(ApiCollectionEndpointDTO::workflowUuid)
+            .containsExactly("uuid-903", "uuid-901", "uuid-902");
+    }
+
+    private static ApiCollectionEndpoint createEndpoint(
+        long id, String path, HttpMethod httpMethod, long projectDeploymentWorkflowId) {
+
+        ApiCollectionEndpoint apiCollectionEndpoint = new ApiCollectionEndpoint();
+
+        apiCollectionEndpoint.setApiCollectionId(100L);
+        apiCollectionEndpoint.setHttpMethod(httpMethod);
+        apiCollectionEndpoint.setId(id);
+        apiCollectionEndpoint.setName(path);
+        apiCollectionEndpoint.setPath(path);
+        apiCollectionEndpoint.setProjectDeploymentWorkflowId(projectDeploymentWorkflowId);
+
+        return apiCollectionEndpoint;
+    }
+
+    @Test
     void testGetApiCollectionEndpointReturnsTheEndpointWithItsWorkflowUuid() {
         ApiCollectionEndpoint apiCollectionEndpoint = new ApiCollectionEndpoint();
 

@@ -126,6 +126,13 @@ class ApiCollectionFacadeAuthorizationTest {
     }
 
     @Test
+    void testGetApiCollectionEndpointsRequiresViewOnTheCollection() throws NoSuchMethodException {
+        assertPreAuthorize(
+            method("getApiCollectionEndpoints", long.class),
+            "hasPermission(#apiCollectionId, 'ApiCollection', 'API_PLATFORM_VIEW')");
+    }
+
+    @Test
     void testDeleteApiCollectionEndpointRequiresEdit() throws NoSuchMethodException {
         assertPreAuthorize(
             method("deleteApiCollectionEndpoint", long.class),

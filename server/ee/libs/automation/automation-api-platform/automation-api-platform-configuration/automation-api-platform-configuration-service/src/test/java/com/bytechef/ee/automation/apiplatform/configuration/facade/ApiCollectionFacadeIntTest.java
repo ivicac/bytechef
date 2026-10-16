@@ -192,6 +192,28 @@ class ApiCollectionFacadeIntTest {
     }
 
     @Nested
+    class GetApiCollectionEndpoints {
+
+        @Test
+        void testViewerCanListEndpoints() {
+            authenticate(VIEWER);
+
+            assertThatCode(() -> apiCollectionFacade.getApiCollectionEndpoints(API_COLLECTION))
+                .doesNotThrowAnyException();
+        }
+
+        @Test
+        void testMemberOfAnotherWorkspaceIsDeniedListEndpoints() {
+            authenticate(OUTSIDER);
+
+            assertThatThrownBy(() -> apiCollectionFacade.getApiCollectionEndpoints(API_COLLECTION))
+                .isInstanceOf(AccessDeniedException.class);
+
+            verify(apiCollectionEndpointService, never()).getApiEndpoints(anyLong());
+        }
+    }
+
+    @Nested
     class DeleteApiCollectionEndpoint {
 
         @Test
