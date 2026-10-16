@@ -2,6 +2,7 @@ dependencies {
     compileOnly("com.github.spotbugs:spotbugs-annotations")
 
     implementation(project(":cli:cli-core"))
+    implementation(project(":cli:clients:automation-api-platform"))
     implementation(project(":cli:clients:automation-configuration"))
     implementation(project(":cli:clients:automation-data-table"))
     implementation("com.fasterxml.jackson.core:jackson-databind")
