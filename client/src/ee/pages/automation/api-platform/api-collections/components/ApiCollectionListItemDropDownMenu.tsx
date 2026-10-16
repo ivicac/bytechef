@@ -11,21 +11,21 @@ import {DownloadIcon, EditIcon, EllipsisVerticalIcon, PlusIcon, RefreshCcwIcon, 
 
 interface ApiCollectionListItemDropdownMenuProps {
     apiCollectionId: number;
-    onChangeProjectVersionClick: () => void;
     onDeleteClick: () => void;
     onEditClick: () => void;
     onNewEndpoint: () => void;
     onPromoteClick: () => void;
+    onUpdateProjectVersionClick: () => void;
     showPromoteToEnvironment: boolean;
 }
 
 const ApiCollectionListItemDropDownMenu = ({
     apiCollectionId,
-    onChangeProjectVersionClick,
     onDeleteClick,
     onEditClick,
     onNewEndpoint,
     onPromoteClick,
+    onUpdateProjectVersionClick,
     showPromoteToEnvironment,
 }: ApiCollectionListItemDropdownMenuProps) => {
     return (
@@ -39,8 +39,8 @@ const ApiCollectionListItemDropDownMenu = ({
                     <EditIcon /> Edit
                 </DropdownMenuItem>
 
-                <DropdownMenuItem className="dropdown-menu-item" onClick={onChangeProjectVersionClick}>
-                    <RefreshCcwIcon /> Change Project Version
+                <DropdownMenuItem className="dropdown-menu-item" onClick={onUpdateProjectVersionClick}>
+                    <RefreshCcwIcon /> Update Project Version
                 </DropdownMenuItem>
 
                 {showPromoteToEnvironment && (

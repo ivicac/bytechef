@@ -25,6 +25,9 @@ import {
 } from '../models/UpdateTagsRequest';
 
 export interface GetApiCollectionTagsRequest {
+    /**
+     * The id of a workspace.
+     */
     id: number;
 }
 
