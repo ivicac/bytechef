@@ -6,6 +6,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ApiCollectionDialog from '@/ee/pages/automation/api-platform/api-collections/components/ApiCollectionDialog';
 import ApiCollectionEndpointDialog from '@/ee/pages/automation/api-platform/api-collections/components/ApiCollectionEndpointDialog';
 import ApiCollectionListItemDropDownMenu from '@/ee/pages/automation/api-platform/api-collections/components/ApiCollectionListItemDropDownMenu';
+import ApiCollectionProjectVersionDialog from '@/ee/pages/automation/api-platform/api-collections/components/ApiCollectionProjectVersionDialog';
 import {useApiCollectionsEnabledStore} from '@/ee/pages/automation/api-platform/api-collections/stores/useApiCollectionsEnabledStore';
 import EnvironmentPromotionDialog from '@/ee/shared/components/environment-promotion/EnvironmentPromotionDialog';
 import {ApiCollection, Tag} from '@/ee/shared/middleware/automation/api-platform';
@@ -13,15 +14,13 @@ import {useUpdateApiCollectionTagsMutation} from '@/ee/shared/mutations/automati
 import {ApiCollectionTagKeys} from '@/ee/shared/mutations/automation/apiCollectionTags.queries';
 import {useDeleteApiCollectionMutation} from '@/ee/shared/mutations/automation/apiCollections.mutations';
 import {ApiCollectionKeys} from '@/ee/shared/mutations/automation/apiCollections.queries';
-import ProjectDeploymentDialog from '@/pages/automation/project-deployments/components/project-deployment-dialog/ProjectDeploymentDialog';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import TagList from '@/shared/components/TagList';
 import {PromotionResourceType, useEnvironmentsQuery} from '@/shared/middleware/graphql';
 import {useEnableProjectDeploymentMutation} from '@/shared/mutations/automation/projectDeployments.mutations';
-import {useGetProjectDeploymentQuery} from '@/shared/queries/automation/projectDeployments.queries';
 import {useQueryClient} from '@tanstack/react-query';
 import {ChevronDownIcon} from 'lucide-react';
-import {useCallback, useMemo, useRef, useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 
 interface ApiCollectionListItemProps {
     apiCollection: ApiCollection;
@@ -32,7 +31,7 @@ const ApiCollectionListItem = ({apiCollection, tags}: ApiCollectionListItemProps
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showApiEndpointDialog, setShowApiEndpointDialog] = useState(false);
-    const [showChangeProjectVersionDialog, setShowChangeProjectVersionDialog] = useState(false);
+    const [showProjectVersionDialog, setShowProjectVersionDialog] = useState(false);
     const [showPromotionDialog, setShowPromotionDialog] = useState(false);
 
     const setApiCollectionEnabled = useApiCollectionsEnabledStore(
@@ -44,8 +43,6 @@ const ApiCollectionListItem = ({apiCollection, tags}: ApiCollectionListItemProps
     const endpointsCollapsibleTriggerRef = useRef<HTMLButtonElement | null>(null);
 
     const apiCollectionTagIds = apiCollection.tags?.map((tag) => tag.id);
-
-    const {data: projectDeployment} = useGetProjectDeploymentQuery(apiCollection.projectDeploymentId!);
 
     const environmentsQuery = useEnvironmentsQuery();
 
@@ -120,20 +117,7 @@ const ApiCollectionListItem = ({apiCollection, tags}: ApiCollectionListItemProps
         );
     };
 
-    const endpointWorkflowUuids = useMemo(
-        () => [...new Set(apiCollection.endpoints?.map((endpoint) => endpoint.workflowUuid) || [])],
-        [apiCollection.endpoints]
-    );
-
     const showPromoteToEnvironment = (environmentsQuery.data?.environments?.length ?? 0) >= 2;
-
-    const handleOnProjectDeploymentDialogClose = () => {
-        queryClient
-            .invalidateQueries({
-                queryKey: ApiCollectionKeys.apiCollections,
-            })
-            .then(() => setShowChangeProjectVersionDialog(false));
-    };
 
     return (
         <>
@@ -232,11 +216,11 @@ const ApiCollectionListItem = ({apiCollection, tags}: ApiCollectionListItemProps
 
                         <ApiCollectionListItemDropDownMenu
                             apiCollectionId={apiCollection.id!}
-                            onChangeProjectVersionClick={() => setShowChangeProjectVersionDialog(true)}
                             onDeleteClick={() => setShowDeleteDialog(true)}
                             onEditClick={() => setShowEditDialog(true)}
                             onNewEndpoint={() => setShowApiEndpointDialog(true)}
                             onPromoteClick={() => setShowPromotionDialog(true)}
+                            onUpdateProjectVersionClick={() => setShowProjectVersionDialog(true)}
                             showPromoteToEnvironment={showPromoteToEnvironment}
                         />
                     </div>
@@ -267,13 +251,10 @@ const ApiCollectionListItem = ({apiCollection, tags}: ApiCollectionListItemProps
                 />
             )}
 
-            {showChangeProjectVersionDialog && (
-                <ProjectDeploymentDialog
-                    changeProjectVersion={true}
-                    filterWorkflowUuids={endpointWorkflowUuids}
-                    onClose={handleOnProjectDeploymentDialogClose}
-                    projectDeployment={projectDeployment}
-                    redirectOnSubmit={false}
+            {showProjectVersionDialog && (
+                <ApiCollectionProjectVersionDialog
+                    apiCollection={apiCollection}
+                    onClose={() => setShowProjectVersionDialog(false)}
                 />
             )}
 
