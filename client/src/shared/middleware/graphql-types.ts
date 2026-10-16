@@ -1976,6 +1976,7 @@ export type AutomationWorkflowProjectTag = {
 
 export type AutomationWorkflowProjectVersion = {
   __typename?: 'AutomationWorkflowProjectVersion';
+  description?: Maybe<Scalars['String']['output']>;
   publishedDate?: Maybe<Scalars['String']['output']>;
   status: Scalars['String']['output'];
   version: Scalars['Int']['output'];
@@ -4366,7 +4367,6 @@ export type Mutation = {
   updateKnowledgeBaseDocumentTags: Scalars['Boolean']['output'];
   updateKnowledgeBaseSource: KnowledgeBaseSource;
   updateKnowledgeBaseTags: Scalars['Boolean']['output'];
-  updateManagementMcpServerAuthenticationRequired: Scalars['Boolean']['output'];
   updateManagementMcpServerUrl: Scalars['String']['output'];
   updateMcpComponentWithTools?: Maybe<McpComponent>;
   updateMcpIntegrationInstanceConfiguration?: Maybe<McpIntegrationInstanceConfiguration>;
@@ -4467,11 +4467,11 @@ export type MutationAttachAiHubChatToolArgs = {
   input: AttachAiHubChatToolInput;
 };
 
+
 export type MutationBindAppApiCollectionArgs = {
   apiCollectionId: Scalars['ID']['input'];
   appId: Scalars['ID']['input'];
 };
-
 
 
 export type MutationBindAppConnectionArgs = {
@@ -5541,6 +5541,7 @@ export type MutationPromoteToEnvironmentArgs = {
 
 
 export type MutationPublishAutomationWorkflowProjectArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
 };
 
@@ -5931,11 +5932,11 @@ export type MutationUnassignNotificationFromWorkspaceArgs = {
   notificationId: Scalars['ID']['input'];
 };
 
+
 export type MutationUnbindAppApiCollectionArgs = {
   apiCollectionId: Scalars['ID']['input'];
   appId: Scalars['ID']['input'];
 };
-
 
 
 export type MutationUnbindAppConnectionArgs = {
@@ -6446,11 +6447,6 @@ export type MutationUpdateKnowledgeBaseSourceArgs = {
 
 export type MutationUpdateKnowledgeBaseTagsArgs = {
   input: UpdateKnowledgeBaseTagsInput;
-};
-
-
-export type MutationUpdateManagementMcpServerAuthenticationRequiredArgs = {
-  authenticationRequired: Scalars['Boolean']['input'];
 };
 
 
@@ -7159,14 +7155,14 @@ export type Query = {
   aiSkillFileContent: Scalars['String']['output'];
   aiSkillFilePaths: Array<Scalars['String']['output']>;
   aiSkillTags: Array<Tag>;
-  appApiCollections: Array<AppApiCollectionBinding>;
-  appBindableApiCollections: Array<AppBindableApiCollection>;
   aiSkills: Array<AiSkill>;
   apiConnector?: Maybe<ApiConnector>;
   apiConnectors: Array<ApiConnector>;
   apiKey?: Maybe<ApiKey>;
   apiKeys?: Maybe<Array<Maybe<ApiKey>>>;
   app: App;
+  appApiCollections: Array<AppApiCollectionBinding>;
+  appBindableApiCollections: Array<AppBindableApiCollection>;
   appBindableConnections: Array<AppBindableConnection>;
   appBindableWorkflows: Array<AppBindableWorkflow>;
   appBindings: Array<AppBinding>;
@@ -7333,7 +7329,6 @@ export type Query = {
   knowledgeBaseTagsByKnowledgeBase?: Maybe<Array<KnowledgeBaseTagsEntry>>;
   knowledgeBases?: Maybe<Array<Maybe<KnowledgeBase>>>;
   licence?: Maybe<LicenceType>;
-  managementMcpServerAuthenticationRequired: Scalars['Boolean']['output'];
   managementMcpServerUrl?: Maybe<Scalars['String']['output']>;
   mcpComponent?: Maybe<McpComponent>;
   mcpComponentDefinitions: Array<ComponentDefinition>;
@@ -7931,6 +7926,13 @@ export type QueryApiKeysArgs = {
   environmentId: Scalars['ID']['input'];
   type: PlatformType;
 };
+
+
+export type QueryAppArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type QueryAppApiCollectionsArgs = {
   appId: Scalars['ID']['input'];
 };
@@ -7938,13 +7940,6 @@ export type QueryAppApiCollectionsArgs = {
 
 export type QueryAppBindableApiCollectionsArgs = {
   appId: Scalars['ID']['input'];
-};
-
-
-
-
-export type QueryAppArgs = {
-  id: Scalars['ID']['input'];
 };
 
 

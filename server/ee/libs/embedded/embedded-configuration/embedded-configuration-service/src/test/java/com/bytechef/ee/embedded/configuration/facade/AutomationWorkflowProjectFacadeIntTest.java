@@ -31,6 +31,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
@@ -164,6 +165,12 @@ class AutomationWorkflowProjectFacadeIntTest {
 
     @Autowired
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Autowired
+    private IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
+
+    @Autowired
+    private IntegrationService integrationService;
 
     @Autowired
     private ProjectCodeWorkflowService projectCodeWorkflowService;
@@ -321,6 +328,23 @@ class AutomationWorkflowProjectFacadeIntTest {
             .filteredOn(project -> project.id() == projectId)
             .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
             .containsExactly(false);
+    }
+
+    @Test
+    void testGetProjectVersionsListsNewestFirstWithTheirDescriptions() {
+        long projectId = automationWorkflowProjectFacade.createProject("Versioned", "", null, List.of(), null, null);
+
+        automationWorkflowProjectFacade.createProjectWorkflow(projectId, null, null);
+        automationWorkflowProjectFacade.publishProject(projectId, "First release");
+        automationWorkflowProjectFacade.publishProject(projectId, "Second release");
+
+        assertThat(automationWorkflowProjectFacade.getProjectVersions(projectId))
+            .extracting(
+                AutomationWorkflowProjectVersionDTO::version, AutomationWorkflowProjectVersionDTO::status,
+                AutomationWorkflowProjectVersionDTO::description)
+            .containsExactly(
+                tuple(3, "DRAFT", null), tuple(2, "PUBLISHED", "Second release"),
+                tuple(1, "PUBLISHED", "First release"));
     }
 
     @Test

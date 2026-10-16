@@ -1247,7 +1247,6 @@ export type UpdateAiGatewayProjectMutation = { updateAiGatewayProject: { id: str
 
 export type DeleteAiGatewayProjectMutationVariables = Exact<{
   id: string | number;
-  description?: string | null | undefined;
 }>;
 
 
@@ -3422,7 +3421,7 @@ export type AutomationWorkflowProjectVersionsQueryVariables = Exact<{
 }>;
 
 
-export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProjectVersions: Array<{ version: number, status: string, publishedDate: string | null }> };
+export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProjectVersions: Array<{ version: number, status: string, publishedDate: string | null, description: string | null }> };
 
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3496,6 +3495,7 @@ export type DeleteAutomationWorkflowProjectWorkflowMutation = { deleteAutomation
 
 export type PublishAutomationWorkflowProjectMutationVariables = Exact<{
   id: string | number;
+  description?: string | null | undefined;
 }>;
 
 

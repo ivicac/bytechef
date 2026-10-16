@@ -91,6 +91,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     private final ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager;
     private final ConnectedUserService connectedUserService;
     private final EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
+    private final IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
+    private final IntegrationService integrationService;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
     private final ProjectService projectService;
     private final ProjectWorkflowFacade projectWorkflowFacade;
@@ -109,7 +111,9 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         AutomationWorkflowProjectService automationWorkflowProjectService, CategoryService categoryService,
         ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager,
         ConnectedUserService connectedUserService, EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
-        ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
+        IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
+        IntegrationService integrationService, ProjectCodeWorkflowService projectCodeWorkflowService,
+        ProjectService projectService,
         ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
         TagService tagService, WorkflowComponentResolver workflowComponentResolver,
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
@@ -121,6 +125,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         this.connectedUserReferenceRolloutManager = connectedUserReferenceRolloutManager;
         this.connectedUserService = connectedUserService;
         this.embeddedPermissionEvaluator = embeddedPermissionEvaluator;
+        this.integrationInstanceConfigurationService = integrationInstanceConfigurationService;
+        this.integrationService = integrationService;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
         this.projectService = projectService;
         this.projectWorkflowFacade = projectWorkflowFacade;

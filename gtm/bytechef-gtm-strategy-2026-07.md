@@ -1,8 +1,9 @@
 # ByteChef Go-To-Market Strategy
 
-**Version:** 1.1 — July 28, 2026
+**Version:** 1.2 — July 28, 2026
 **Owners:** Ivica + co-founder — both part-time on content AND outbound; ownership per track defined in §8
 **Updated:** October 9, 2026 - target lists linked in §6.4 and §7.3
+**Updated:** October 16, 2026 - merged the April 2026 GTM playbook: regulated/self-hosted ICP (§6.1), community and founder-content plays (§6.2), partner channel (§6.5), outbound sourcing and cadence rules (§7.3), weekly checklist (§8), case-study template (Appendix D), homepage copy (Appendix E). Dropped from April: the ICP execution order that put embedded last, the € pricing tables, "100+ connectors", and the April 90-day numeric targets. This document replaced them.
 **Review cadence:** biweekly metrics review; full revision at the Day-90 gate (~October 31, 2026)
 
 ---
@@ -137,11 +138,21 @@ Our cloud pricing meters tasks and connected users — the same structure we att
 - Self-host preference: data control, EU/compliance, cost predictability.
 - Currently on Zapier/Make (hitting per-task price walls) or evaluating/outgrowing n8n (license discomfort, AI-agent needs, Java-shop affinity).
 - Secondary: teams standardizing AI agents who need orchestration + guardrails + human-in-the-loop.
+- Secondary: **regulated and self-hosted buyers**. That means finance and insurance, plus professional services (consulting, law and accounting firms) that want data control, compliance and annual contracts. These deals close on referrals and trust, not outbound volume. Work the warm network and the two financial-industry pilots. Treat this segment as opportunistic, not systematic.
+- Not separate segments: digital agencies and automation consultants are a distribution channel (§6.5), not buyers to chase.
 
 ### 6.2 Funnel and plays
 
 **Awareness → Install:**
-- **Comparison/SEO content** (the compounding asset): "ByteChef vs n8n", "vs Activepieces", "open-source Zapier alternative", "self-hosted Make alternative", "open-source AI agent orchestration". One well-researched piece every 2 weeks minimum, on the existing blog.
+- **Comparison/SEO content** (the compounding asset): "ByteChef vs n8n", "vs Activepieces", "vs Zapier", "open-source Zapier alternative", "self-hosted Make alternative", "open-source AI agent orchestration". One well-researched piece every 2 weeks minimum, on the existing blog. Be honest and don't trash n8n: respect earns links. Expect long-tail rankings in 3–6 months. Until then, the pages pay off as URLs to share in outreach, Reddit and LinkedIn.
+- **Community posts** (one every 2 weeks, rotate the venue): r/selfhosted first, then r/SaaS, r/opensource, r/devops, r/startups, r/indiehackers, r/webdev, r/programming for architecture deep-dives, r/nocode / r/lowcode, and r/LocalLLaMA for agent features. Lead with value, not the product: "I built an open-source alternative to X because…" or "How we solved Y". Link GitHub, not the marketing page. Post Wednesday 9–11am ET and answer every comment, critical ones first. On HN, Show HN works once, so save it for a notable release. Between releases, comment helpfully on threads about Zapier pricing, n8n and integration pain.
+- **Founder LinkedIn** (personal accounts, not the company page; founder posts far outperform company posts at this stage). Target 1 longer post plus up to 2 short ones a week; the floor is 1 a week. Post Tue–Thu, 8–10am CET, with at least ~18h between posts. Rotate the longer posts through four types:
+  - problem-aware (the hidden cost of building integrations one by one);
+  - behind-the-scenes (building GTM as a technical founding team);
+  - contrarian (per-task pricing is a tax on customer success);
+  - milestone (what users actually automate, anonymized data).
+
+  The first line must hook. Keep longer posts under 1,300 characters and end with a question, not always a product link. Reply to every comment within 4h and engage with a few relevant posts daily. When capacity allows, DM people who post about Zapier/Make pricing frustration.
 - **Directories and lists:** every "n8n alternatives" / "open-source automation" listicle (Nango-style vendors, awesome-lists, alternativeto, G2 categories). One-time sweep, then quarterly.
 - **Release-driven launches:** each meaningful release gets a launch post + short demo video + community posts (HN Show HN when genuinely notable, r/selfhosted, relevant Discords). **Next launch spine: the error-handling/reliability release** (error workflows, auto-recovery, crash recovery, per-run timeouts, alert rules) — framed as *"automations you can trust in production."* Reliability is precisely what separates toy automation from paid automation, and it tees up the conversion play.
 
@@ -150,11 +161,13 @@ Our cloud pricing meters tasks and connected users — the same structure we att
 
 **Activation → Community:**
 - Fast, human responses in GitHub issues/Discord (existing behavior, keep it). Monthly "what shipped" community note. Highlight community connectors/workflows.
+- **GitHub is top of funnel.** The README's first three lines must answer what this is, who it's for, and why to care, with a GIF or screenshot. Keep "good first issue" labels fresh and GitHub Discussions on and answered. Put a star CTA in every post. Track the weekly star delta and what drove it.
 
 **Community → Paid (first payers live here):**
 - **Instrument first:** we currently lack a reliable view of heaviest users. Cheapest instruments: cloud signup data; Discord/GitHub activity ranking; optional anonymous telemetry ping (opt-in, self-hosted) if acceptable; "who's running this in production?" thread.
 - **Talk to the top 10–20 users** (Ivica, 30-min calls): what would production adoption require? The answers are the EE/paid roadmap.
 - **Make the upgrade path visible:** in-product and in-docs signposts where paid gates live (RBAC, workspaces, log retention, support SLA). A happy self-hosted user should never wonder *whether* there's a commercial tier or *how* to talk to us.
+- **Conversion nudge:** after ~30 days of self-hosted use, show one non-intrusive prompt offering managed cloud or Enterprise support, with prices per §5.1.
 - Expected first payers: Growth-tier cloud teams and self-hosted Enterprise (support + production features). Price points are already live.
 
 ### 6.3 Track A metrics
@@ -179,6 +192,19 @@ This list is for selective, founder-led outreach in the home market, aimed at fi
 6. **Close the research gaps** listed in the Notes tab (partner directories, Power Platform partners, manual job-board sweep, GitHub stargazers).
 7. **Pace:** a handful of personalized touches per week. Never at the expense of Track B outreach hours before the Day-90 gate.
 
+### 6.5 Partner channel — agencies and automation consultants
+
+Partners are a channel, not an ICP. Automation consultants implement ByteChef for Track A buyers as a Zapier/Make replacement. Agencies that build SaaS products for clients can embed ByteChef (Track B) instead of building an integration layer. The Croatian partners in §6.4 are the first instance of this channel. Broader recruitment starts after the Day-90 gate.
+
+**Where to find them:**
+- **n8n ambassadors with client-facing businesses.** n8n has no white-label mode, so this is a real gap. Template in Appendix B.
+- Automation communities: No Code Founders (Slack), Make user communities, r/nocode, r/automation.
+- LinkedIn searches for "automation consultant", "no-code agency", "Zapier expert" and "Make expert", aimed at solo practitioners and agencies of 1–20 people.
+
+**Draft program terms** (from the April playbook, not yet ratified; confirm before the first offer): 20% partner discount, with the partner setting their own client markup; co-marketing through joint case studies and a partner-directory listing; founding-partner benefits for the first 10 partners for 12 months; a referral bonus of 15% of first-year revenue on referred direct customers.
+
+**Rules:** no partner portal until there are 5+ active partners. Spend at most 2–3 hrs/week on recruitment. Treat every partner conversation as a test of whether the channel works. If partners aren't converting after 3 months, stop investing.
+
 ---
 
 ## 7. Track B — Embedded iPaaS: 90-Day Validation Sprint
@@ -198,6 +224,8 @@ This list is for selective, founder-led outreach in the home market, aimed at fi
 1. **"Open-source Paragon & Prismatic alternative"** — the comparison page; honest about polish gaps, brutal on pricing structure and lock-in. (Primary SEO + outbound artifact.)
 2. **"The success tax: how embedded iPaaS pricing punishes your growth"** — tasks/instances/data-messages exposé with the unit-economics table; our flat self-hosted framing per §5.2. (The shareable thesis piece.)
 3. **"How embedding ByteChef works"** — technical walkthrough derived from the quickstart. (Credibility piece for the engineer who gets forwarded the email.)
+
+**Backlog after the anchors:** "The real cost of building integrations in-house" (a calculator: engineering hours × rate × connectors, plus auth, rate limits and maintenance); "How to add workflow automation to your SaaS product" (a non-promotional tutorial with ByteChef as one option); "Open-source iPaaS: what it means and why it matters" (thought leadership).
 
 ### 7.3 Founder-led outreach (Weeks 3–12)
 
@@ -221,6 +249,22 @@ This list is for selective, founder-led outreach in the home market, aimed at fi
 5. **Log everything** in the yellow columns: touch dates, reply, call booked, call held, partner status. The Day-90 gate in §7.5 is read from this workbook.
 
 **Sequence:** personalized founder-to-founder email (template in Appendix B) → follow-up at day 4 → break-up at day 10. Sustained weekly volume beats a week-one blast. Every reply gets a 15-min call offer, not a deck. Calls can be taken by either founder; log every call against the §7.3 script questions in the shared sheet.
+
+**Buyer personas:** the primary buyer is the CTO / VP Engineering, who feels the build cost. Second is the CPO / Head of Product, who hears the integration requests. At small companies, the CEO is often the product leader.
+
+**Sourcing for later waves** (signal-based, highest intent first):
+- GitHub repos where a company is building its own integration layer (`integrations`, `workflow`, `zapier`, `n8n`);
+- job posts for "integrations engineer" or "partnerships (integrations)" on LinkedIn Jobs, Welcome to the Jungle (Otta) and Wellfound;
+- n8n/Zapier community threads where SaaS companies ask about white-label or embedded options;
+- G2/Capterra reviews that complain about missing integrations;
+- YC/Techstars directories, filtered to B2B SaaS at Series A–B.
+
+**Cadence rules:**
+- Send a LinkedIn connection request with a short note on the same day as the first email.
+- Send at most ~10 cold emails/day per sending domain, and warm up any new domain first.
+- Answer positive replies within 2 hours.
+- Put every "not now" on a 90-day re-engagement list.
+- Test 2–3 subject lines, e.g. "integrations on {{Product}}'s roadmap?", "{{Company}} + embedded integrations?", or "saw you're hiring an integrations engineer".
 
 **Design-partner offer (cap at 5):** we build your first 3 integrations with you; shared Slack; roadmap influence; first-year terms per §5.3; you give us feedback calls + a case study at ship.
 
@@ -264,13 +308,18 @@ Both founders split their part-time GTM hours between content and outbound. Duri
 - **Co-founder (~6–8 hrs/wk):** weeks 1–2: build the 50–80-company target list + pre-write two Track A comparison pieces; weeks 3–12: embedded outreach (~8–10 touches/wk, own list segment) + anchor-piece drafting + community responsiveness + reliability-release launch coordination. Content cadence during the sprint leans on the three anchor pieces doing double duty as published content.
 - **Voice consistency:** shared templates (Appendix B), shared tracking sheet (company, touch dates, reply, call notes against the script questions), and both founders sit in on each other's first two calls to calibrate.
 - **Biweekly metrics review (30 min):** the two dashboards in §6.3 / §7.5 only. No vanity metrics.
-- **What we are explicitly NOT doing** (capacity protection): paid ads; conferences/sponsorships; separate embedded brand or domain; unified-API pivot; sales hires; pricing restructure before the gate; more than one launch per month.
+- **Monday checklist** (before the GTM sync):
+  - **Outreach:** touches sent vs the §7.3 pace; every reply answered; calls booked or held; the workbook updated; pipeline sorted into close / needs follow-up / dead.
+  - **Content:** this week's LinkedIn posts drafted; Reddit/HN post drafted if it's a posting week; comments answered.
+  - **Assets:** progress on the landing page, quickstart and case study until each ships, then their conversion numbers.
+  - **Community:** GitHub issues triaged; "good first issue" labels added; Discussions answered; the star delta and its cause noted.
+- **What we are explicitly NOT doing** (capacity protection): paid ads; conferences/sponsorships; separate embedded brand or domain; unified-API pivot; sales hires; pricing restructure before the gate; more than one launch per month; company-page LinkedIn content (founder accounts only); building features instead of selling (the product is good enough for design partners); treating agencies as a customer segment (§6.5); an EIC Accelerator application before the Day-90 gate gives us traction data to put in it.
 
 ---
 
 ## 9. 12-Month Arc (assuming Day-90 PASS)
 
-- **Q4 2026:** 2–5 design partners shipping; first case study; embedded pricing hardened (flat self-hosted tier formalized); reliability-release launch compounds Track A.
+- **Q4 2026:** 2–5 design partners shipping; first case study (Appendix D; start with the two financial-industry pilots); embedded pricing hardened (flat self-hosted tier formalized); reliability-release launch compounds Track A.
 - **Q1 2027:** repeatable embedded playbook documented (ICP refined from won/lost, standard demo, standard order form); Track A conversion path instrumented end-to-end; first $50–100k ARR target.
 - **Q2 2027:** decide on first GTM hire (likely content→full-time or a technical founder-sales support) from revenue, not hope.
 
@@ -331,8 +380,70 @@ Both founders split their part-time GTM hours between content and outbound. Duri
 
 **Ecosystem-listing email (to Nango/Merge/Albato content teams):** "You maintain {{'X alternatives' post}}. ByteChef is an open-source embedded iPaaS ({{repo, 190+ connectors, self-hosted}}) — likely relevant to your readers comparing options. Happy to provide a summary blurb + screenshots if useful."
 
+**Partner DM (n8n ambassadors, LinkedIn, 5–10/week once §6.5 starts):**
+
+> Hi {{Name}}, I've seen your work in the n8n community, and you clearly know automation deeply. I'm building ByteChef, an open-source automation platform with something n8n doesn't have: a proper white-label/embedded mode, so your clients get a workflow builder under your brand and domain. Pricing is transparent, so you know your cost before you set your client's price. Not pitching. I'm genuinely curious whether this fills a gap you've run into with clients.
+
 ---
 
 ## Appendix C — Source Notes (competitive pricing)
 
 Assembled July 2026 from: Nango and Merge pricing-critique posts (Paragon, Prismatic), Albato comparison posts (Paragon vs Prismatic, Prismatic vs Tray), Paragon docs (task billing), Capterra/SaaSworthy/SoftwareSuggest/GetApp (Appmixer tiers), vendor pricing pages where reachable. Vendor sites block automated access; **manually re-verify any number before it appears in public comparison content.** Key figures: Paragon 5-figure annual floor, tasks + connected users; Prismatic ~$500/mo entry per-instance; Appmixer Starter $500/mo (10 users / 1,000 data messages), Professional from $1,300/mo; ByteChef overage $1/1,000 tasks.
+
+---
+
+## Appendix D — Case Study Template
+
+**Length:** 500–800 words, one page. Use hard numbers wherever possible.
+
+- **Headline:** How {{Customer}} {{achieved specific result}} with ByteChef.
+- **One-line summary:** {{Customer}} used ByteChef to {{deliver X integrations / automate Y workflows / save Z engineering hours}}, which led to {{outcome}}.
+- **About {{Customer}}** (2–3 sentences): what they do, their size, their product.
+- **The challenge** (3–5 sentences): what their customers or teams asked for, what it cost them (engineering time, opportunity cost, churn), and why the alternatives failed (price, not embeddable, lock-in). Add one customer quote stating the pain.
+- **The solution** (3–5 sentences): the deployment model (embedded, self-hosted, cloud), the key connectors and workflows, the time to go live, and the features that mattered (white-label, self-host, pricing, open source).
+- **The results** (3–5 bullets): time to ship ("0 to X live integrations in Y weeks vs Z months in-house"), engineering hours saved per month, customer activation rate, cost vs the previous solution, and workflow success rate or support-ticket reduction. Add one customer quote stating the results.
+- **What's next** (1–2 sentences), then the CTA: "Want results like {{Customer}}? Talk to us → {{link}}".
+
+**Getting it from a pilot or design partner:**
+1. Ask for 30 minutes: "We're writing up how the integration has gone. Can I ask a few questions? Happy to anonymize."
+2. Ask these questions:
+   - How did you handle this before, and what did that cost?
+   - Why ByteChef instead of building in-house or buying an alternative?
+   - How long did it take to go live, and what did that look like?
+   - What's the measurable impact so far?
+   - What would you tell another CTO considering this?
+   - Can we use your name, or should we anonymize?
+3. Draft it and send it for approval. If they want anonymity, use the "{{European Fintech Company}}" format. That's still credible.
+4. **Minimum viable version:** if a full case study is a no, get a 1–2 sentence testimonial for the landing pages.
+
+---
+
+## Appendix E — Homepage Copy (Track A path)
+
+Track A's half of the segmented homepage in §7.1 item 4. Appendix A is the embedded half. The audience is developers, ops engineers and technical founders who are hitting Zapier/Make limits.
+
+**Hero:**
+> ## Open-source workflow automation and AI agents, with no per-task fees when you self-host
+> Build workflows, connect 190+ apps and run AI agents, self-hosted or in the cloud. Your automation bill shouldn't grow faster than your business.
+>
+> [Deploy free (self-hosted)] [Start on cloud]
+
+**Social proof strip:** GitHub stars · 190+ connectors · open source · self-host or cloud.
+
+**Problem block:** "Zapier charges you more as you grow. We don't."
+- **Per-task pricing punishes growth.** Automation costs grow faster than the business.
+- **Vendor lock-in.** Proprietary platforms own your workflows, and switching costs are real.
+- **Not enough control.** You can't self-host, write real code or inspect the source. You're renting, not owning.
+
+**Three pillars:**
+- **Unmetered when self-hosted.** Cloud starts at $29/mo, with overage at $1 per 1,000 tasks (§5.1).
+- **Open source.** Self-host for free, inspect every line, fork it if you need to.
+- **Code when you need it.** The visual builder is for speed; code steps in Java, JavaScript, Python and Ruby cover what no-code can't.
+
+**How it works ("Running in 5 minutes"):** Deploy with `docker compose up` or sign up for cloud → build in the visual editor with 190+ connectors and code steps → scale horizontally with the coordinator/worker architecture.
+
+**Pricing block:** if it compares us with Zapier or Make, every competitor number must be manually verified on publish day (see the Appendix C caveat). Otherwise, show only our own §5.1 table.
+
+**Final CTA:** "Stop paying the automation tax." [Self-host free (Docker)] [Start on cloud], with the GitHub link prominent.
+
+**Implementation notes:** keep the page under 5 scroll-lengths on desktop and build it mobile-first (LinkedIn traffic is mostly mobile). Use product screenshots, architecture diagrams and code, not stock photos. Add a Cal.com booking widget. Track page views, CTA clicks, GitHub clicks, demo bookings and installs.
