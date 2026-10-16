@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.534439+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.830908+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "api-collection-endpoint", description = "The Automation API Platform Collection Endpoint Internal API")
 public interface ApiCollectionEndpointApi {
@@ -83,6 +83,7 @@ public interface ApiCollectionEndpointApi {
 
     }
 
+
     String PATH_DELETE_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**
      * DELETE /api-collection-endpoints/{id} : Delete an API collection endpoint
@@ -110,6 +111,7 @@ public interface ApiCollectionEndpointApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
+
 
     String PATH_GET_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**
@@ -150,6 +152,7 @@ public interface ApiCollectionEndpointApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
+
 
     String PATH_UPDATE_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**

@@ -33,6 +33,7 @@ import com.bytechef.ee.automation.configuration.service.PermissionServiceImpl;
 import com.bytechef.ee.automation.configuration.service.ResourceVisibilityResolverImpl;
 import com.bytechef.ee.automation.configuration.service.WorkspaceScopeCacheService;
 import com.bytechef.ee.platform.resource.grant.service.ResourceGrantService;
+import com.bytechef.platform.configuration.facade.ComponentConnectionFacade;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.security.domain.ResourceVisibilityPolicy;
 import com.bytechef.platform.security.domain.ResourceVisibilityPolicyRegistry;
@@ -85,6 +86,11 @@ public class ApiCollectionFacadeIntTestConfiguration {
     @Bean
     CacheManager cacheManager() {
         return new ConcurrentMapCacheManager();
+    }
+
+    @Bean
+    ComponentConnectionFacade componentConnectionFacade() {
+        return resettingMock(ComponentConnectionFacade.class);
     }
 
     @Bean

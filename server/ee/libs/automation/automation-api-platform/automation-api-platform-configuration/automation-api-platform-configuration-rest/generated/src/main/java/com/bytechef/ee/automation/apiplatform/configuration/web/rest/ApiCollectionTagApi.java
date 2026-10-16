@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.534439+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.830908+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "api-collection-tag", description = "The Automation API Platform Collection Tag Internal API")
 public interface ApiCollectionTagApi {
@@ -43,7 +43,7 @@ public interface ApiCollectionTagApi {
         return Optional.empty();
     }
 
-    String PATH_GET_API_COLLECTION_TAGS = "/api-collections/tags";
+    String PATH_GET_API_COLLECTION_TAGS = "/workspaces/{id}/api-collection-tags";
     /**
      * GET /workspaces/{id}/api-collection-tags : Get API collection tags
      * Get API collection tags for a workspace.
@@ -82,6 +82,7 @@ public interface ApiCollectionTagApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
+
 
     String PATH_UPDATE_API_COLLECTION_TAGS = "/api-collections/{id}/tags";
     /**

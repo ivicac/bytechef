@@ -34,5 +34,11 @@ public enum ApiCollectionAuditEvent {
     /**
      * An endpoint of an API collection was deleted. Payload: {@code name}, {@code path}, {@code httpMethod}.
      */
-    API_COLLECTION_ENDPOINT_DELETED
+    API_COLLECTION_ENDPOINT_DELETED,
+
+    /**
+     * An API collection moved its backing deployment to another project version in place. Payload: {@code from},
+     * {@code to}.
+     */
+    API_COLLECTION_PROJECT_VERSION_UPDATED
 }

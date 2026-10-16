@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.534439+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.830908+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "api-client", description = "The Automation API Platform Client Internal API")
 public interface ApiClientApi {
@@ -84,6 +84,7 @@ public interface ApiClientApi {
 
     }
 
+
     String PATH_DELETE_API_CLIENT = "/api-client/{id}";
     /**
      * DELETE /api-client/{id} : Delete an API client
@@ -111,6 +112,7 @@ public interface ApiClientApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
+
 
     String PATH_GET_API_CLIENT = "/api-client/{id}";
     /**
@@ -152,6 +154,7 @@ public interface ApiClientApi {
 
     }
 
+
     String PATH_GET_API_CLIENTS = "/api-clients";
     /**
      * GET /api-clients : Get API clients
@@ -190,6 +193,7 @@ public interface ApiClientApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
+
 
     String PATH_UPDATE_API_CLIENT = "/api-client/{id}";
     /**

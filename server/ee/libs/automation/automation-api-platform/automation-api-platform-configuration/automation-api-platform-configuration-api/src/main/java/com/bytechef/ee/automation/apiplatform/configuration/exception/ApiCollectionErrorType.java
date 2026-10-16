@@ -21,6 +21,8 @@ public class ApiCollectionErrorType extends AbstractErrorType {
     public static final ApiCollectionErrorType INVALID_CONTEXT_PATH = new ApiCollectionErrorType(101);
     public static final ApiCollectionErrorType NAME_ALREADY_EXISTS = new ApiCollectionErrorType(102);
     public static final ApiCollectionErrorType WORKFLOW_NOT_FOUND = new ApiCollectionErrorType(103);
+    public static final ApiCollectionErrorType PROJECT_VERSION_INVALID = new ApiCollectionErrorType(104);
+    public static final ApiCollectionErrorType ENDPOINT_WORKFLOW_REMOVED = new ApiCollectionErrorType(105);
 
     private ApiCollectionErrorType(int errorKey) {
         super(ApiCollection.class, errorKey);
