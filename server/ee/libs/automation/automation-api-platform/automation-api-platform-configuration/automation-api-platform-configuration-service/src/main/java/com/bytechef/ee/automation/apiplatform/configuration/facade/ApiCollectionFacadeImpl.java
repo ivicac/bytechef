@@ -24,6 +24,7 @@ import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.ee.automation.apiplatform.configuration.audit.ApiCollectionAuditEvent;
+import com.bytechef.ee.automation.apiplatform.configuration.audit.ApiCollectionAuditEvents;
 import com.bytechef.ee.automation.apiplatform.configuration.audit.ApiCollectionAuditPublisher;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection;
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint;
@@ -37,6 +38,8 @@ import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectio
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.audit.AuditData;
+import com.bytechef.platform.audit.Audited;
 import com.bytechef.platform.configuration.domain.ComponentConnection;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
@@ -73,6 +76,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -137,6 +141,13 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
      * branch lives in the expression itself, so a client omitting the field gets today's behaviour instead of a 500.
      */
     @Override
+    @Audited(event = ApiCollectionAuditEvents.API_COLLECTION_CREATED, data = {
+        @AuditData(key = "apiCollectionId", value = "#result?.id"),
+        @AuditData(key = "name", value = "#apiCollectionDTO.name"),
+        @AuditData(key = "projectId", value = "#apiCollectionDTO.projectId"),
+        @AuditData(key = "projectDeploymentId", value = "#result?.projectDeploymentId"),
+        @AuditData(key = "environment", value = "#apiCollectionDTO.environment")
+    })
     @PreAuthorize("hasResourceScopeInEnvironment(#apiCollectionDTO.projectId, 'Project', 'API_PLATFORM_CREATE', " +
         "#apiCollectionDTO.environment) and hasPermission(#apiCollectionDTO.projectId, 'Project', 'DEPLOYMENT_PUSH')")
     public ApiCollectionDTO createApiCollection(ApiCollectionDTO apiCollectionDTO) {
@@ -168,14 +179,6 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
 
         ApiCollection createdApiCollection = apiCollectionService.create(apiCollection);
 
-        Map<String, Object> data = new HashMap<>();
-
-        data.put("name", apiCollectionDTO.name());
-        data.put("projectId", apiCollectionDTO.projectId());
-
-        apiCollectionAuditPublisher.publish(
-            ApiCollectionAuditEvent.API_COLLECTION_CREATED, createdApiCollection.getId(), data);
-
         return toApiCollectionDTO(createdApiCollection);
     }
 
@@ -199,7 +202,37 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
             apiCollectionEndpointDTO.workflowUuid());
     }
 
+    /**
+     * Calls {@link #createApiCollectionEndpoint(ApiCollectionEndpointDTO)} and
+     * {@link #updateApiCollectionEndpointWorkflow} on this instance, so the collection-keyed gate above is the only one
+     * evaluated for the whole operation.
+     */
     @Override
+    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.apiCollectionId, 'ApiCollection', 'API_PLATFORM_EDIT')")
+    public ApiCollectionEndpointDTO createApiCollectionEndpoint(
+        ApiCollectionEndpointDTO apiCollectionEndpointDTO, List<ProjectDeploymentWorkflowConnection> connections,
+        Map<String, ?> inputs) {
+
+        ApiCollectionEndpointDTO createdApiCollectionEndpointDTO = createApiCollectionEndpoint(
+            apiCollectionEndpointDTO);
+
+        if (connections == null && inputs == null) {
+            return createdApiCollectionEndpointDTO;
+        }
+
+        ApiCollectionEndpointDTO currentApiCollectionEndpointDTO = toApiCollectionEndpointDTO(
+            apiCollectionEndpointService.getOpenApiEndpoint(createdApiCollectionEndpointDTO.id()));
+
+        return updateApiCollectionEndpointWorkflow(
+            createdApiCollectionEndpointDTO.id(),
+            connections == null ? currentApiCollectionEndpointDTO.connections() : connections,
+            inputs == null ? currentApiCollectionEndpointDTO.inputs() : inputs);
+    }
+
+    @Override
+    @Audited(event = ApiCollectionAuditEvents.API_COLLECTION_DELETED, data = {
+        @AuditData(key = "apiCollectionId", value = "#id")
+    })
     @PreAuthorize("hasPermission(#id, 'ApiCollection', 'API_PLATFORM_EDIT')")
     public void deleteApiCollection(long id) {
         ApiCollection apiCollection = apiCollectionService.getApiCollection(id);
@@ -210,8 +243,6 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
 
         apiCollectionService.delete(id);
         projectDeploymentFacade.deleteProjectDeployment(apiCollection.getProjectDeploymentId());
-
-        apiCollectionAuditPublisher.publish(ApiCollectionAuditEvent.API_COLLECTION_DELETED, id);
     }
 
     @Override
@@ -400,18 +431,32 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
      * from the persisted collection. Without the re-resolution an endpoint whose {@code workflowUuid} changed kept
      * pointing at its previous workflow, silently serving the wrong one.
      * </p>
+     *
+     * <p>
+     * The gate is keyed on the endpoint the body writes, and the body refuses an endpoint that does not belong to the
+     * collection the DTO names, so an editor of one collection cannot reach another collection's endpoint by pairing
+     * its id with a collection id they can edit.
+     * </p>
      */
     @Override
-    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.apiCollectionId, 'ApiCollection', 'API_PLATFORM_EDIT')")
+    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')")
     public ApiCollectionEndpointDTO updateApiCollectionEndpoint(ApiCollectionEndpointDTO apiCollectionEndpointDTO) {
         ApiCollectionEndpoint apiCollectionEndpoint = apiCollectionEndpointDTO.toApiCollectionEndpoint();
+
+        ApiCollectionEndpoint persistedApiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(
+            Objects.requireNonNull(apiCollectionEndpoint.getId(), "id"));
+
+        if (!Objects.equals(
+            persistedApiCollectionEndpoint.getApiCollectionId(), apiCollectionEndpointDTO.apiCollectionId())) {
+
+            throw new AccessDeniedException(
+                "API collection endpoint %s does not belong to API collection %s".formatted(
+                    apiCollectionEndpoint.getId(), apiCollectionEndpointDTO.apiCollectionId()));
+        }
 
         String workflowUuid = apiCollectionEndpointDTO.workflowUuid();
 
         if (workflowUuid != null) {
-            ApiCollectionEndpoint persistedApiCollectionEndpoint = apiCollectionEndpointService.getOpenApiEndpoint(
-                Objects.requireNonNull(apiCollectionEndpoint.getId(), "id"));
-
             ApiCollection apiCollection = apiCollectionService.getApiCollection(
                 persistedApiCollectionEndpoint.getApiCollectionId());
 
@@ -422,6 +467,30 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
         }
 
         return toApiCollectionEndpointDTO(apiCollectionEndpointService.update(apiCollectionEndpoint));
+    }
+
+    /**
+     * Calls {@link #updateApiCollectionEndpoint(ApiCollectionEndpointDTO)} and
+     * {@link #updateApiCollectionEndpointWorkflow} on this instance, so the endpoint-keyed gate above is the only one
+     * evaluated, both changes share one transaction, and the collection check of the former runs before the latter.
+     */
+    @Override
+    @PreAuthorize("hasPermission(#apiCollectionEndpointDTO.id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')")
+    public ApiCollectionEndpointDTO updateApiCollectionEndpoint(
+        ApiCollectionEndpointDTO apiCollectionEndpointDTO, List<ProjectDeploymentWorkflowConnection> connections,
+        Map<String, ?> inputs) {
+
+        ApiCollectionEndpointDTO updatedApiCollectionEndpointDTO = updateApiCollectionEndpoint(
+            apiCollectionEndpointDTO);
+
+        if (connections == null && inputs == null) {
+            return updatedApiCollectionEndpointDTO;
+        }
+
+        return updateApiCollectionEndpointWorkflow(
+            updatedApiCollectionEndpointDTO.id(),
+            connections == null ? updatedApiCollectionEndpointDTO.connections() : connections,
+            inputs == null ? updatedApiCollectionEndpointDTO.inputs() : inputs);
     }
 
     @Override

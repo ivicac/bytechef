@@ -110,12 +110,22 @@ class ApiCollectionFacadeAuthorizationTest {
     }
 
     @Test
-    void testEndpointMutationsAreKeyedOnTheParentCollection() throws NoSuchMethodException {
+    void testEndpointCreatesAreKeyedOnTheParentCollection() throws NoSuchMethodException {
         String expected = "hasPermission(#apiCollectionEndpointDTO.apiCollectionId, 'ApiCollection', "
             + "'API_PLATFORM_EDIT')";
 
         assertPreAuthorize(method("createApiCollectionEndpoint", ApiCollectionEndpointDTO.class), expected);
+        assertPreAuthorize(
+            method("createApiCollectionEndpoint", ApiCollectionEndpointDTO.class, List.class, Map.class), expected);
+    }
+
+    @Test
+    void testEndpointUpdatesAreKeyedOnTheEndpointTheyWrite() throws NoSuchMethodException {
+        String expected = "hasPermission(#apiCollectionEndpointDTO.id, 'ApiCollectionEndpoint', 'API_PLATFORM_EDIT')";
+
         assertPreAuthorize(method("updateApiCollectionEndpoint", ApiCollectionEndpointDTO.class), expected);
+        assertPreAuthorize(
+            method("updateApiCollectionEndpoint", ApiCollectionEndpointDTO.class, List.class, Map.class), expected);
     }
 
     @Test
