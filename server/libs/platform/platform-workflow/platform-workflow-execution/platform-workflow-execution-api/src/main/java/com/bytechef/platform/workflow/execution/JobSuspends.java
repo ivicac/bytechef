@@ -95,10 +95,14 @@ public final class JobSuspends {
      * Tells whether the job's current approval was closed by its expiry.
      */
     public static boolean isApprovalExpired(Job job) {
-        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+        return isApprovalClosedBy(job, MetadataConstants.EXPIRED_JOB_RESUME_ID);
+    }
 
-        return jobResumeId != null &&
-            Objects.equals(jobResumeId, job.getMetadata(MetadataConstants.EXPIRED_JOB_RESUME_ID));
+    /**
+     * Tells whether the job's current approval was closed by cancelling the run.
+     */
+    public static boolean isApprovalCancelled(Job job) {
+        return isApprovalClosedBy(job, MetadataConstants.CANCELLED_JOB_RESUME_ID);
     }
 
     private static void closeApproval(Job job, String closureMetadataKey) {
@@ -116,5 +120,11 @@ public final class JobSuspends {
         }
 
         job.setMetadata(jobMetadata);
+    }
+
+    private static boolean isApprovalClosedBy(Job job, String closureMetadataKey) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        return jobResumeId != null && Objects.equals(jobResumeId, job.getMetadata(closureMetadataKey));
     }
 }
