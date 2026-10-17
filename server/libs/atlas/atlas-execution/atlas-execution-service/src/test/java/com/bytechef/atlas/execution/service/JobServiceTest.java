@@ -26,7 +26,9 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.repository.JobRepository;
+import com.bytechef.error.ExecutionError;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -45,11 +47,14 @@ class JobServiceTest {
     void testResumeToStatusStartedRestartsFailedJobFromCurrentTask() {
         Job job = stubJob(Job.Status.FAILED);
 
+        job.setError(new ExecutionError("The pending approval expired", List.of()));
+
         Job resumedJob = jobService.resumeToStatusStarted(JOB_ID);
 
         assertThat(resumedJob.getStatus()).isEqualTo(Job.Status.STARTED);
         assertThat(resumedJob.getCurrentTask()).isEqualTo(2);
         assertThat(resumedJob.getEndDate()).isNull();
+        assertThat(resumedJob.getError()).isNull();
         assertThat(resumedJob.getStartDate()).isAfter(ORIGINAL_START_DATE);
 
         verify(jobRepository).save(job);
@@ -71,6 +76,16 @@ class JobServiceTest {
     @Test
     void testResumeToStatusStartedRejectsCompletedJob() {
         stubJob(Job.Status.COMPLETED);
+
+        assertThatThrownBy(() -> jobService.resumeToStatusStarted(JOB_ID))
+            .isInstanceOf(IllegalArgumentException.class);
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void testResumeToStatusStartedRejectsStartedJob() {
+        stubJob(Job.Status.STARTED);
 
         assertThatThrownBy(() -> jobService.resumeToStatusStarted(JOB_ID))
             .isInstanceOf(IllegalArgumentException.class);

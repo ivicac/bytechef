@@ -191,14 +191,16 @@ public class JobFacadeImpl implements JobFacade {
             throw new IllegalArgumentException("Approval already processed");
         }
 
+        if (!jobService.tryClaimResume(jobService.getJob(jobId))) {
+            throw new IllegalStateException("Job %s approval was already resolved".formatted(jobId));
+        }
+
         approvalMap.put(uuid, approved);
 
         jobContext.put(APPROVALS, approvalMap);
 
         contextService.push(
             jobId, Context.Classname.JOB, taskFileStorage.storeContextValue(jobId, Context.Classname.JOB, jobContext));
-
-        jobService.resumeToStatusStarted(jobId);
 
         List<TaskExecution> taskExecutions = taskExecutionService.getJobTaskExecutions(jobId);
 
@@ -225,6 +227,11 @@ public class JobFacadeImpl implements JobFacade {
     @Override
     public void resumeJob(long id, long taskExecutionId, @Nullable Map<String, ?> data) {
         eventPublisher.publishEvent(new ResumeJobEvent(id, taskExecutionId, data));
+    }
+
+    @Override
+    public void resumeClaimedJob(long id, @Nullable Long taskExecutionId, @Nullable Map<String, ?> data) {
+        eventPublisher.publishEvent(ResumeJobEvent.ofStartedJob(id, taskExecutionId, data));
     }
 
     @Override

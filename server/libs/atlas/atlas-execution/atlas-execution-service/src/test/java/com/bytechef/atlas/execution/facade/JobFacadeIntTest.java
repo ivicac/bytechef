@@ -18,12 +18,21 @@ package com.bytechef.atlas.execution.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.bytechef.atlas.configuration.converter.StringToWorkflowTaskConverter;
 import com.bytechef.atlas.configuration.converter.WorkflowTaskToStringConverter;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
+import com.bytechef.atlas.coordinator.event.TaskExecutionCompleteEvent;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
@@ -52,6 +61,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -65,6 +79,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -77,7 +94,13 @@ import tools.jackson.databind.ObjectMapper;
 @Import({
     JacksonConfiguration.class, LiquibaseConfiguration.class, PostgreSQLContainerConfiguration.class
 })
+@RecordApplicationEvents
 public class JobFacadeIntTest {
+
+    private static final String WORKFLOW_ID = "demo:1234";
+
+    @Autowired
+    private ApplicationEvents applicationEvents;
 
     @Autowired
     private JobFacade jobFacade;
@@ -85,11 +108,15 @@ public class JobFacadeIntTest {
     @Autowired
     private JobRepository jobRepository;
 
-    @Autowired
+    @MockitoSpyBean
     private JobService jobService;
 
     @Autowired
     private TaskExecutionRepository taskExecutionRepository;
+
+    @Autowired
+    private TaskFileStorage taskFileStorage;
+
 
     @Test
     public void testRequiredParameters() {
@@ -195,44 +222,138 @@ public class JobFacadeIntTest {
     }
 
     @Test
-    public void testResumeToStatusStartedIsIdempotentForAlreadyClaimedJob() {
-        Job job = newJob();
+    public void testResumeToStatusStartedRejectsAStartedJob() {
+        long jobId = saveJob(Job.Status.STARTED);
 
-        job.setStatus(Job.Status.STARTED);
-
-        long jobId = Validate.notNull(jobRepository.save(job)
-            .getId(), "id");
-
-        // A run the resume facade already claimed (STARTED) must be returned as-is, not rejected as non-restartable.
-        assertThat(jobService.resumeToStatusStarted(jobId)
-            .getStatus()).isEqualTo(Job.Status.STARTED);
+        assertThatThrownBy(() -> jobService.resumeToStatusStarted(jobId))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    public void testResumeToStatusStartedResumesSuspendedSubflowChild() {
-        Job parentJob = jobRepository.save(newJob());
-        long parentJobId = Validate.notNull(parentJob.getId(), "id");
+    public void testResumeJobRejectsARestartOfAStartedJob() {
+        long jobId = saveJob(Job.Status.FAILED);
 
-        TaskExecution parentTaskExecution = taskExecutionRepository.save(newTaskExecution(parentJobId, null));
-        long parentTaskExecutionId = Validate.notNull(parentTaskExecution.getId(), "id");
+        jobFacade.resumeJob(jobId);
 
+        assertThatThrownBy(() -> jobFacade.resumeJob(jobId))
+            .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(applicationEvents.stream(ResumeJobEvent.class)).hasSize(1);
+    }
+
+    @Test
+    public void testResumeClaimedJobPublishesAStartedResumeEvent() {
+        jobFacade.resumeClaimedJob(1L, 2L, Map.of("approved", true));
+
+        assertThat(applicationEvents.stream(ResumeJobEvent.class))
+            .singleElement()
+            .satisfies(resumeJobEvent -> {
+                assertThat(resumeJobEvent.getJobId()).isEqualTo(1L);
+                assertThat(resumeJobEvent.isStarted()).isTrue();
+                assertThat(resumeJobEvent.getTaskExecutionId()).isEqualTo(2L);
+                assertThat(resumeJobEvent.getData()).isEqualTo(Map.of("approved", true));
+            });
+    }
+
+    @Test
+    public void testConcurrentResumeApprovalsCompleteTheWaitingTaskExecutionOnce() throws Exception {
+        long jobId = saveJob(Job.Status.STOPPED);
+
+        long taskExecutionId = saveStartedTaskExecution(jobId);
+
+        CyclicBarrier statusCheckBarrier = new CyclicBarrier(2);
+
+        doAnswer(invocation -> {
+            Object job = invocation.callRealMethod();
+
+            statusCheckBarrier.await(10, TimeUnit.SECONDS);
+
+            return job;
+        }).when(jobService)
+            .getJob(jobId);
+
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<Boolean> firstApproval = executorService.submit(() -> resumeApproval(jobId, "uuid-1"));
+            Future<Boolean> secondApproval = executorService.submit(() -> resumeApproval(jobId, "uuid-2"));
+
+            List<Boolean> results = List.of(
+                firstApproval.get(30, TimeUnit.SECONDS), secondApproval.get(30, TimeUnit.SECONDS));
+
+            assertThat(results).containsExactlyInAnyOrder(true, false);
+        } finally {
+            executorService.shutdownNow();
+        }
+
+        verify(taskFileStorage, times(1)).storeTaskExecutionOutput(eq(jobId), eq(taskExecutionId), anyMap());
+    }
+
+    @Test
+    public void testResumeApprovalRejectsAJobThatIsNotStopped() {
+        long jobId = saveJob(Job.Status.STARTED);
+
+        saveStartedTaskExecution(jobId);
+
+        assertThatThrownBy(() -> jobFacade.resumeApproval(jobId, "uuid-1", true))
+            .isInstanceOf(IllegalStateException.class);
+
+        verify(taskFileStorage, never()).storeTaskExecutionOutput(eq(jobId), anyLong(), anyMap());
+
+        assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).isEmpty();
+    }
+
+    @Test
+    public void testResumeApprovalCompletesTheWaitingTaskExecution() {
+        long jobId = saveJob(Job.Status.STOPPED);
+
+        long taskExecutionId = saveStartedTaskExecution(jobId);
+
+        jobFacade.resumeApproval(jobId, "uuid-1", true);
+
+        assertThat(jobRepository.findById(jobId))
+            .get()
+            .extracting(Job::getStatus)
+            .isEqualTo(Job.Status.STARTED);
+
+        verify(taskFileStorage).storeTaskExecutionOutput(jobId, taskExecutionId, Map.of("approved", true));
+
+        assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).hasSize(1);
+    }
+
+    private boolean resumeApproval(long jobId, String uuid) {
+        try {
+            jobFacade.resumeApproval(jobId, uuid, true);
+
+            return true;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return false;
+        }
+    }
+
+    private long saveJob(Job.Status status) {
         Job job = newJob();
 
-        job.setParentTaskExecutionId(parentTaskExecutionId);
-        job.setStatus(Job.Status.STOPPED);
+        job.setStatus(status);
 
-        long jobId = Validate.notNull(jobRepository.save(job)
+        return Validate.notNull(jobRepository.save(job)
             .getId(), "id");
+    }
 
-        assertThat(jobService.resumeToStatusStarted(jobId)
-            .getStatus()).isEqualTo(Job.Status.STARTED);
+    private long saveStartedTaskExecution(long jobId) {
+        TaskExecution taskExecution = newTaskExecution(jobId, null);
+
+        taskExecution.setStatus(TaskExecution.Status.STARTED);
+
+        return Validate.notNull(taskExecutionRepository.save(taskExecution)
+            .getId(), "id");
     }
 
     private static Job newJob() {
         Job job = new Job();
 
         job.setStatus(Job.Status.COMPLETED);
-        job.setWorkflowId("demo:1234");
+        job.setWorkflowId(WORKFLOW_ID);
 
         return job;
     }

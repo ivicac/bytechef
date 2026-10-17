@@ -452,6 +452,10 @@ class AgentSubflowBridgeIntTest {
         }
 
         @Override
+        public void resumeClaimedJob(long id, Long taskExecutionId, Map<String, ?> data) {
+        }
+
+        @Override
         public void stopJob(long id) {
             throw new UnsupportedOperationException();
         }
@@ -652,6 +656,12 @@ class AgentSubflowBridgeIntTest {
 
             @Override
             public void resumeJob(long id, long taskExecutionId, Map<String, ?> data) {
+                resumedJobId = id;
+                resumeData = data;
+            }
+
+            @Override
+            public void resumeClaimedJob(long id, Long taskExecutionId, Map<String, ?> data) {
                 resumedJobId = id;
                 resumeData = data;
             }

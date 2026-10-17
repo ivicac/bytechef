@@ -36,5 +36,10 @@ public interface JobFacade {
 
     void resumeJob(long id, long taskExecutionId, @Nullable Map<String, ?> data);
 
+    /**
+     * Continues a job the caller has already moved from STOPPED to STARTED with {@code JobService.tryClaimResume}.
+     */
+    void resumeClaimedJob(long id, @Nullable Long taskExecutionId, @Nullable Map<String, ?> data);
+
     void stopJob(long id);
 }

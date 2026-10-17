@@ -51,7 +51,17 @@ public class ResumeJobEvent extends AbstractEvent {
     }
 
     public static ResumeJobEvent ofStartedJob(long jobId) {
-        ResumeJobEvent resumeJobEvent = new ResumeJobEvent(jobId);
+        return ofStartedJob(jobId, null, null);
+    }
+
+    /**
+     * Creates an event for a job the publisher has already moved to STARTED, e.g. through a conditional resume claim,
+     * so the coordinator continues it without transitioning its status again.
+     */
+    public static ResumeJobEvent ofStartedJob(
+        long jobId, @Nullable Long taskExecutionId, @Nullable Map<String, ?> data) {
+
+        ResumeJobEvent resumeJobEvent = new ResumeJobEvent(jobId, taskExecutionId, data);
 
         resumeJobEvent.started = true;
 
