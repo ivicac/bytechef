@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * @author Ivica Cardic
@@ -1204,6 +1206,37 @@ class InMemoryTaskExecutionRepositoryTest {
 
             assertEquals(7, taskExecutions.size());
         });
+    }
+
+    @Test
+    void testSaveOfAStaleTaskExecutionFailsWithAnOptimisticLockingFailure() {
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.setJobId(401L);
+
+        long taskExecutionId = Objects.requireNonNull(inMemoryTaskExecutionRepository.save(taskExecution)
+            .getId());
+
+        TaskExecution firstTaskExecution = inMemoryTaskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+        TaskExecution secondTaskExecution = inMemoryTaskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+
+        firstTaskExecution.putMetadata("consumedBy", "first");
+
+        inMemoryTaskExecutionRepository.save(firstTaskExecution);
+
+        secondTaskExecution.putMetadata("consumedBy", "second");
+
+        assertThrows(
+            OptimisticLockingFailureException.class, () -> inMemoryTaskExecutionRepository.save(secondTaskExecution));
+
+        TaskExecution storedTaskExecution = inMemoryTaskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+
+        assertEquals("first", storedTaskExecution.getMetadata()
+            .get("consumedBy"));
+        assertEquals(firstTaskExecution.getVersion(), storedTaskExecution.getVersion());
     }
 
     private TaskExecution saveTaskExecution(long jobId, Long parentId, boolean retried) {

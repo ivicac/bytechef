@@ -27,8 +27,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Keeps an in-flight task execution's last-modified timestamp fresh while its worker is alive: on each heartbeat the
  * STARTED row is re-saved, bumping the auditing timestamp. Orphan detection then treats a STARTED row whose timestamp
- * has gone stale as evidence of a dead worker rather than a long-running task. Best-effort: a heartbeat racing the
- * task's own completion update may fail on optimistic locking and is simply skipped.
+ * has gone stale as evidence of a dead worker rather than a long-running task. Best-effort: the update runs under the
+ * row lock, so a heartbeat racing the task's own completion never turns a terminated row back to STARTED.
  *
  * @author Ivica Cardic
  */

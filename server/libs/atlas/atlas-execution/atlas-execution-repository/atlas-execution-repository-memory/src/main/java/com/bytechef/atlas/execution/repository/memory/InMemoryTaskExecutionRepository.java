@@ -40,6 +40,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.util.comparator.Comparators;
 
 /**
@@ -597,11 +598,11 @@ public class InMemoryTaskExecutionRepository implements TaskExecutionRepository 
 
     @Override
     public TaskExecution save(TaskExecution taskExecution) {
-        if (taskExecution.isNew()) {
+        boolean newTaskExecution = taskExecution.isNew();
+
+        if (newTaskExecution) {
             taskExecution.setId(Math.abs(Math.max(RandomUtils.nextLong(), Long.MIN_VALUE + 1)));
         }
-
-        TaskExecution clonedTaskExecution = clone(taskExecution);
 
         String storeKey = getStoreKey();
 
@@ -641,6 +642,12 @@ public class InMemoryTaskExecutionRepository implements TaskExecutionRepository 
         }
 
         try {
+            if (!newTaskExecution) {
+                incrementVersion(store, taskExecution);
+            }
+
+            TaskExecution clonedTaskExecution = clone(taskExecution);
+
             // by id
             store.byId.put(Objects.requireNonNull(clonedTaskExecution.getId()), clonedTaskExecution);
 
@@ -773,6 +780,18 @@ public class InMemoryTaskExecutionRepository implements TaskExecutionRepository 
         int comparison = taskExecutionCreatedDate.compareTo(createdDate);
 
         return comparison < 0 || (comparison == 0 && Objects.requireNonNull(taskExecution.getId()) <= id);
+    }
+
+    private static void incrementVersion(Store store, TaskExecution taskExecution) {
+        TaskExecution storedTaskExecution = store.byId.get(Objects.requireNonNull(taskExecution.getId()));
+
+        if (storedTaskExecution != null && storedTaskExecution.getVersion() != taskExecution.getVersion()) {
+            throw new OptimisticLockingFailureException(
+                "TaskExecution with id '%s' was modified since version %d".formatted(
+                    taskExecution.getId(), taskExecution.getVersion()));
+        }
+
+        taskExecution.setVersion(taskExecution.getVersion() + 1);
     }
 
     private TaskExecution clone(TaskExecution taskExecution) {

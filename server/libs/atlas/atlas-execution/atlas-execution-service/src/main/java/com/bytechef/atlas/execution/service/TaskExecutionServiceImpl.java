@@ -335,6 +335,10 @@ public class TaskExecutionServiceImpl implements TaskExecutionService {
                 taskExecution.setStartDate(currentTaskExecution.getStartDate());
             }
 
+            if (taskExecution.getVersion() != currentTaskExecution.getVersion()) {
+                mergeStaleCopy(taskExecution, currentTaskExecution);
+            }
+
             // Do not override initial workflow task definition
 
             taskExecution.setWorkflowTask(currentTaskExecution.getWorkflowTask());
@@ -345,17 +349,20 @@ public class TaskExecutionServiceImpl implements TaskExecutionService {
         }
     }
 
-    @Override
-    public TaskExecution update(long id, Consumer<TaskExecution> taskExecutionModifier) {
-        TaskExecution taskExecution = taskExecutionRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new IllegalStateException(String.format("TaskExecution with id '%s' not found", id)));
+    /**
+     * Applies a copy loaded before the last save of the row onto the locked current row. The copy's own state wins, but
+     * metadata entries written by other writers in the meantime are kept unless the copy removed them.
+     */
+    private static void mergeStaleCopy(TaskExecution staleTaskExecution, TaskExecution currentTaskExecution) {
+        Map<String, Object> metadata = new HashMap<>(currentTaskExecution.getMetadata());
 
-        try {
-            taskExecutionModifier.accept(taskExecution);
-
-            return taskExecutionRepository.save(taskExecution);
-        } finally {
-            taskExecutionRepository.unlockForUpdate(id);
+        for (String removedMetadataKey : staleTaskExecution.getRemovedMetadataKeys()) {
+            metadata.remove(removedMetadataKey);
         }
+
+        metadata.putAll(staleTaskExecution.getMetadata());
+
+        staleTaskExecution.setMetadata(metadata);
+        staleTaskExecution.setVersion(currentTaskExecution.getVersion());
     }
 }

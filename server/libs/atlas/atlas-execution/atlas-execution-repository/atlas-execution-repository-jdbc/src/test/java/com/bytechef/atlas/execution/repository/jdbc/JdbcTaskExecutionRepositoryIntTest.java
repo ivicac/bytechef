@@ -27,12 +27,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -55,6 +57,33 @@ public class JdbcTaskExecutionRepositoryIntTest {
     public void afterEach() {
         taskExecutionRepository.deleteAll();
         jobRepository.deleteAll();
+    }
+
+    @Test
+    public void testSaveOfAStaleTaskExecutionFailsWithAnOptimisticLockingFailure() {
+        long taskExecutionId = Validate.notNull(taskExecutionRepository.save(newTaskExecution())
+            .getId(), "id");
+
+        TaskExecution firstTaskExecution = taskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+        TaskExecution secondTaskExecution = taskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+
+        firstTaskExecution.putMetadata("consumedBy", "first");
+
+        taskExecutionRepository.save(firstTaskExecution);
+
+        secondTaskExecution.putMetadata("consumedBy", "second");
+
+        Assertions.assertThrows(
+            OptimisticLockingFailureException.class, () -> taskExecutionRepository.save(secondTaskExecution));
+
+        TaskExecution storedTaskExecution = taskExecutionRepository.findById(taskExecutionId)
+            .orElseThrow();
+
+        Assertions.assertEquals("first", storedTaskExecution.getMetadata()
+            .get("consumedBy"));
+        Assertions.assertEquals(firstTaskExecution.getVersion(), storedTaskExecution.getVersion());
     }
 
     @Test
@@ -641,6 +670,17 @@ public class JdbcTaskExecutionRepositoryIntTest {
             .build();
 
         return taskExecutionRepository.save(taskExecution);
+    }
+
+    private TaskExecution newTaskExecution() {
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(new WorkflowTask(Map.of("name", "task1", "type", "test/v1/noop")))
+            .build();
+
+        taskExecution.setJobId(saveJob());
+        taskExecution.setTaskNumber(1);
+
+        return taskExecution;
     }
 
     private static List<Long> toIds(List<TaskExecution> taskExecutions) {

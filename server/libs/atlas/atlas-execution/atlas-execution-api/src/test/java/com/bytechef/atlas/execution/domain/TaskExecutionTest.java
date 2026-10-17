@@ -27,9 +27,11 @@ import com.bytechef.commons.util.MapUtils;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.ExpressionEvaluationException;
 import com.bytechef.evaluator.SpelEvaluator;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -40,12 +42,13 @@ class TaskExecutionTest {
 
     private static final Evaluator EVALUATOR = new TestEvaluator();
 
+    private static final JsonMapper JSON_MAPPER = JsonMapper.builder()
+        .build();
+
     private static final Evaluator SPEL_EVALUATOR = SpelEvaluator.create();
 
     static {
-        JsonMapper.Builder builder = JsonMapper.builder();
-
-        MapUtils.setObjectMapper(builder.build());
+        MapUtils.setObjectMapper(JSON_MAPPER);
 
         DeferredEvaluationParameterKeys.register("condition/", "caseTrue", "caseFalse");
     }
@@ -322,6 +325,102 @@ class TaskExecutionTest {
         Map<String, ?> parameters = (Map<String, ?>) tool.get(WorkflowConstants.PARAMETERS);
 
         return parameters.get("script");
+    }
+
+    @Test
+    void testRemoveMetadataRecordsTheRemovedKey() {
+        TaskExecution taskExecution = TaskExecution.builder()
+            .metadata(Map.of("resumeId", "resume-1", "approvalId", "approval-1"))
+            .build();
+
+        taskExecution.removeMetadata("resumeId");
+
+        assertEquals(Map.of("approvalId", "approval-1"), taskExecution.getMetadata());
+        assertEquals(Set.of("resumeId"), taskExecution.getRemovedMetadataKeys());
+
+        taskExecution.putMetadata("resumeId", "resume-2");
+
+        assertEquals(Set.of(), taskExecution.getRemovedMetadataKeys());
+    }
+
+    @Test
+    void testVersionAndRemovedMetadataKeysSurviveJsonRoundTrip() {
+        TaskExecution taskExecution = TaskExecution.builder()
+            .id(1L)
+            .metadata(Map.of("resumeId", "resume-1"))
+            .build();
+
+        taskExecution.setVersion(3);
+        taskExecution.removeMetadata("resumeId");
+
+        TaskExecution deserializedTaskExecution = JSON_MAPPER.readValue(
+            JSON_MAPPER.writeValueAsString(taskExecution), TaskExecution.class);
+
+        assertEquals(3, deserializedTaskExecution.getVersion());
+        assertEquals(Set.of("resumeId"), deserializedTaskExecution.getRemovedMetadataKeys());
+    }
+
+    @Test
+    void testChangingEvaluatedParametersLeavesTheReferencedContextValueUnchanged() {
+        Map<String, Object> context = createContextWithPrecedingOutput();
+
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(
+                new WorkflowTask(
+                    Map.of(
+                        WorkflowConstants.NAME, "dataMapper_1",
+                        WorkflowConstants.TYPE, "dataMapper/v1/renameKeys",
+                        WorkflowConstants.PARAMETERS, Map.of("input", "${action_1}"))))
+            .build();
+
+        taskExecution.evaluate(context, EVALUATOR);
+
+        changeInput(taskExecution);
+
+        assertEquals(createContextWithPrecedingOutput(), context);
+    }
+
+    @Test
+    void testChangingEvaluatedParametersOfATaskWithDeferredKeysLeavesTheReferencedContextValueUnchanged() {
+        Map<String, Object> context = createContextWithPrecedingOutput();
+
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(
+                new WorkflowTask(
+                    Map.of(
+                        WorkflowConstants.NAME, "condition_1",
+                        WorkflowConstants.TYPE, "condition/v1",
+                        WorkflowConstants.PARAMETERS, Map.of("input", "${action_1}", "caseTrue", List.of()))))
+            .build();
+
+        taskExecution.evaluate(context, EVALUATOR);
+
+        changeInput(taskExecution);
+
+        assertEquals(createContextWithPrecedingOutput(), context);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void changeInput(TaskExecution taskExecution) {
+        Map<String, Object> input = (Map<String, Object>) taskExecution.getParameters()
+            .get("input");
+
+        input.put("total", input.remove("amount"));
+
+        ((List<Object>) input.get("items")).add("third");
+    }
+
+    private static Map<String, Object> createContextWithPrecedingOutput() {
+        Map<String, Object> output = new LinkedHashMap<>();
+
+        output.put("amount", 10);
+        output.put("items", new ArrayList<>(List.of("first", "second")));
+
+        Map<String, Object> context = new LinkedHashMap<>();
+
+        context.put("action_1", output);
+
+        return context;
     }
 
     private static class TestEvaluator implements Evaluator {

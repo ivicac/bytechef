@@ -29,6 +29,7 @@ import com.bytechef.error.ExecutionError;
 import com.bytechef.file.storage.domain.FileEntry;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -493,6 +494,93 @@ public class TaskExecutionServiceIntTest {
                     .getId());
     }
 
+    @Test
+    public void testUpdateIncrementsVersion() {
+        TaskExecution taskExecution = createTaskExecution(Map.of());
+
+        int version = taskExecution.getVersion();
+
+        taskExecution.setProgress(50);
+
+        TaskExecution updatedTaskExecution = taskExecutionService.update(taskExecution);
+
+        assertThat(updatedTaskExecution.getVersion()).isEqualTo(version + 1);
+
+        TaskExecution storedTaskExecution = taskExecutionService.getTaskExecution(getId(taskExecution));
+
+        assertThat(storedTaskExecution.getProgress()).isEqualTo(50);
+        assertThat(storedTaskExecution.getVersion()).isEqualTo(version + 1);
+    }
+
+    @Test
+    public void testUpdateOfStaleCopyKeepsMetadataWrittenConcurrently() {
+        long id = getId(createTaskExecution(Map.of()));
+
+        TaskExecution firstCopy = taskExecutionService.getTaskExecution(id);
+        TaskExecution secondCopy = taskExecutionService.getTaskExecution(id);
+
+        secondCopy.putMetadata("approvalId", "approval-1");
+
+        taskExecutionService.update(secondCopy);
+
+        firstCopy.putMetadata("resumeId", "resume-1");
+        firstCopy.setStatus(TaskExecution.Status.COMPLETED);
+
+        taskExecutionService.update(firstCopy);
+
+        TaskExecution storedTaskExecution = taskExecutionService.getTaskExecution(id);
+
+        Map<String, Object> metadata = new HashMap<>(storedTaskExecution.getMetadata());
+
+        assertThat(metadata).containsEntry("approvalId", "approval-1")
+            .containsEntry("resumeId", "resume-1");
+        assertThat(storedTaskExecution.getStatus()).isEqualTo(TaskExecution.Status.COMPLETED);
+        assertThat(storedTaskExecution.getVersion()).isEqualTo(firstCopy.getVersion());
+    }
+
+    @Test
+    public void testUpdateOfStaleCopyDropsMetadataTheCopyRemoved() {
+        long id = getId(createTaskExecution(Map.of("resumeId", "resume-1")));
+
+        TaskExecution firstCopy = taskExecutionService.getTaskExecution(id);
+        TaskExecution secondCopy = taskExecutionService.getTaskExecution(id);
+
+        secondCopy.putMetadata("approvalId", "approval-1");
+
+        taskExecutionService.update(secondCopy);
+
+        firstCopy.removeMetadata("resumeId");
+
+        taskExecutionService.update(firstCopy);
+
+        TaskExecution storedTaskExecution = taskExecutionService.getTaskExecution(id);
+
+        Map<String, Object> metadata = new HashMap<>(storedTaskExecution.getMetadata());
+
+        assertThat(metadata).containsEntry("approvalId", "approval-1")
+            .doesNotContainKey("resumeId");
+    }
+
+    @Test
+    public void testUpdateOfStaleCopyCanBeUpdatedAgain() {
+        long id = getId(createTaskExecution(Map.of()));
+
+        TaskExecution firstCopy = taskExecutionService.getTaskExecution(id);
+        TaskExecution secondCopy = taskExecutionService.getTaskExecution(id);
+
+        taskExecutionService.update(secondCopy);
+        taskExecutionService.update(firstCopy);
+
+        firstCopy.setProgress(100);
+
+        taskExecutionService.update(firstCopy);
+
+        TaskExecution storedTaskExecution = taskExecutionService.getTaskExecution(id);
+
+        assertThat(storedTaskExecution.getProgress()).isEqualTo(100);
+        assertThat(storedTaskExecution.getVersion()).isEqualTo(firstCopy.getVersion());
+    }
+
     private static void appendBranchName(TaskExecution taskExecution, String branchName) {
         FileEntry output = taskExecution.getOutput();
 
@@ -530,6 +618,18 @@ public class TaskExecutionServiceIntTest {
 
             throw new IllegalStateException(interruptedException);
         }
+    }
+
+    private TaskExecution createTaskExecution(Map<String, ?> metadata) {
+        TaskExecution taskExecution = TaskExecution.builder()
+            .jobId(saveJob())
+            .metadata(metadata)
+            .status(TaskExecution.Status.STARTED)
+            .taskNumber(1)
+            .workflowTask(newWorkflowTask("task1"))
+            .build();
+
+        return taskExecutionService.create(taskExecution);
     }
 
     private static long getId(TaskExecution taskExecution) {
