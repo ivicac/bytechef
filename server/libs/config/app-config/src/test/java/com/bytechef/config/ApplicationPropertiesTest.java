@@ -17,14 +17,15 @@
 package com.bytechef.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.config.ApplicationProperties.Ai.Memory.Redis;
 import com.bytechef.config.ApplicationProperties.App;
 import com.bytechef.config.ApplicationProperties.Oauth2;
 import com.bytechef.config.ApplicationProperties.Oauth2.ResourceServer;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -93,8 +94,18 @@ class ApplicationPropertiesTest {
         properties.put("bytechef.approval.signed-token.previous-secrets[1]", "previous-secret-2");
         properties.put("bytechef.automation.approval-task.reconciliation.enabled", "false");
         properties.put("bytechef.webhook.discord.public-key", "discord-public-key");
+        properties.put("bytechef.webhook.url", "https://hooks.example.com/webhooks/{id}");
         properties.put("bytechef.webhook.whatsapp.verify-token", "whatsapp-verify-token");
+        properties.put("bytechef.workflow.execution.agent.max-subflow-depth", "4");
         properties.put("bytechef.workflow.execution.approval-expiry.enabled", "false");
+        properties.put("bytechef.workflow.execution.recovery.enabled", "false");
+        properties.put("bytechef.workflow.execution.recovery.auto-resume", "true");
+        properties.put("bytechef.workflow.execution.recovery.max-auto-resume-attempts", "7");
+        properties.put("bytechef.workflow.execution.recovery.staleness-threshold", "PT10M");
+        properties.put("bytechef.workflow.execution.retention.enabled", "false");
+        properties.put("bytechef.workflow.execution.retention.default-retention-days", "90");
+        properties.put("bytechef.workflow.execution.timeout.enabled", "false");
+        properties.put("bytechef.workflow.execution.timeout.default-timeout", "PT2H");
 
         Binder binder = new Binder(new MapConfigurationPropertySource(properties));
 
@@ -123,6 +134,7 @@ class ApplicationPropertiesTest {
 
         assertThat(webhook.getDiscord()
             .getPublicKey()).isEqualTo("discord-public-key");
+        assertThat(webhook.getUrl()).isEqualTo("https://hooks.example.com/webhooks/{id}");
         assertThat(webhook.getWhatsapp()
             .getVerifyToken()).isEqualTo("whatsapp-verify-token");
 
@@ -130,21 +142,49 @@ class ApplicationPropertiesTest {
 
         ApplicationProperties.Workflow.Execution execution = workflow.getExecution();
 
+        assertThat(execution.getAgent()
+            .getMaxSubflowDepth()).isEqualTo(4);
+
         assertThat(execution.getApprovalExpiry()
             .isEnabled()).isFalse();
+
+        ApplicationProperties.Workflow.Execution.Recovery recovery = execution.getRecovery();
+
+        assertThat(recovery.isEnabled()).isFalse();
+        assertThat(recovery.isAutoResume()).isTrue();
+        assertThat(recovery.getMaxAutoResumeAttempts()).isEqualTo(7);
+        assertThat(recovery.getStalenessThreshold()).isEqualTo(Duration.ofMinutes(10));
+
+        ApplicationProperties.Workflow.Execution.Retention retention = execution.getRetention();
+
+        assertThat(retention.isEnabled()).isFalse();
+        assertThat(retention.getDefaultRetentionDays()).isEqualTo(90);
+
+        ApplicationProperties.Workflow.Execution.Timeout timeout = execution.getTimeout();
+
+        assertThat(timeout.isEnabled()).isFalse();
+        assertThat(timeout.getDefaultTimeout()).isEqualTo(Duration.ofHours(2));
     }
 
     @Test
     void testLeavesTheOptionalApprovalAndExecutionMonitorSettingsNullUntilBound() {
-        ApplicationProperties applicationProperties = bind(
-            new MapPropertySource("test", Map.of("bytechef.workflow.execution.approval-expiry.enabled", "true")));
+        MapConfigurationPropertySource mapConfigurationPropertySource = new MapConfigurationPropertySource(
+            Map.of("bytechef.workflow.execution.recovery.enabled", "true"));
+
+        Binder binder = new Binder(mapConfigurationPropertySource);
+
+        ApplicationProperties applicationProperties = binder.bind(
+            "bytechef", Bindable.of(ApplicationProperties.class), new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
+            .get();
 
         ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
 
         ApplicationProperties.Workflow.Execution execution = workflow.getExecution();
 
-        assertThat(execution.getApprovalExpiry()
-            .isEnabled()).isTrue();
+        assertThat(execution.getRetention()
+            .getDefaultRetentionDays()).isNull();
+        assertThat(execution.getTimeout()
+            .getDefaultTimeout()).isNull();
 
         ApplicationProperties.Approval approval = applicationProperties.getApproval();
 

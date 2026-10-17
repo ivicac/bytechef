@@ -62,24 +62,30 @@ public class ApplicationProperties {
      */
     private Analytics analytics = new Analytics();
 
-    private Approval approval = new Approval();
-
     /**
      * Apps (EE) configuration
      */
     private App app = new App();
 
     /**
+     * Approval link signing configuration
+     */
+    private Approval approval = new Approval();
+
+    /**
      * Default @Async executor configuration
      */
     private Async async = new Async();
-
-    private Automation automation = new Automation();
 
     /**
      * Audit events configuration
      */
     private Audit audit = new Audit();
+
+    /**
+     * Automation configuration
+     */
+    private Automation automation = new Automation();
 
     /**
      * Cache provider configuration
@@ -301,6 +307,10 @@ public class ApplicationProperties {
         return app;
     }
 
+    public Approval getApproval() {
+        return approval;
+    }
+
     public Async getAsync() {
         return async;
     }
@@ -495,6 +505,10 @@ public class ApplicationProperties {
 
     public void setApp(App app) {
         this.app = app;
+    }
+
+    public void setApproval(Approval approval) {
+        this.approval = approval;
     }
 
     public void setAsync(Async async) {
@@ -1025,6 +1039,150 @@ public class ApplicationProperties {
 
         public void setVectorstore(Vectorstore vectorstore) {
             this.vectorstore = vectorstore;
+        }
+
+        /**
+         * AI Agent Utils tools configuration. Isolates the file and shell tools of each agent in its own workspace.
+         */
+        public static class AgentUtils {
+
+            /**
+             * Hosts the web fetch and A2A agent tools may reach even though they resolve to a private or loopback
+             * address.
+             */
+            private List<String> allowedPrivateHosts;
+
+            private Shell shell = new Shell();
+            private Workspace workspace = new Workspace();
+
+            public List<String> getAllowedPrivateHosts() {
+                return allowedPrivateHosts;
+            }
+
+            public Shell getShell() {
+                return shell;
+            }
+
+            public Workspace getWorkspace() {
+                return workspace;
+            }
+
+            public void setAllowedPrivateHosts(List<String> allowedPrivateHosts) {
+                this.allowedPrivateHosts = allowedPrivateHosts;
+            }
+
+            public void setShell(Shell shell) {
+                this.shell = shell;
+            }
+
+            public void setWorkspace(Workspace workspace) {
+                this.workspace = workspace;
+            }
+
+            /**
+             * Shell Tools configuration. The tool is only offered when explicitly enabled; its commands run in a Docker
+             * container unless running them on the server is allowed.
+             */
+            public static class Shell {
+
+                /**
+                 * Whether a Shell Tools element may run commands directly on the server instead of in a Docker
+                 * container
+                 */
+                private boolean allowLocal;
+
+                private Docker docker = new Docker();
+                private boolean enabled;
+
+                public Docker getDocker() {
+                    return docker;
+                }
+
+                public boolean isAllowLocal() {
+                    return allowLocal;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setAllowLocal(boolean allowLocal) {
+                    this.allowLocal = allowLocal;
+                }
+
+                public void setDocker(Docker docker) {
+                    this.docker = docker;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+
+                /**
+                 * Docker sandbox for shell commands. Each agent workspace gets its own container with the workspace
+                 * bind-mounted at the same path.
+                 */
+                public static class Docker {
+
+                    /**
+                     * Docker-compatible CLI used to manage the containers, e.g. docker or podman
+                     */
+                    private String command;
+
+                    /**
+                     * How long a container may stay unused before it is removed
+                     */
+                    private Duration idleTimeout;
+
+                    /**
+                     * Container image; it must provide /bin/bash and sleep
+                     */
+                    private String image;
+
+                    public String getCommand() {
+                        return command;
+                    }
+
+                    public Duration getIdleTimeout() {
+                        return idleTimeout;
+                    }
+
+                    public String getImage() {
+                        return image;
+                    }
+
+                    public void setCommand(String command) {
+                        this.command = command;
+                    }
+
+                    public void setIdleTimeout(Duration idleTimeout) {
+                        this.idleTimeout = idleTimeout;
+                    }
+
+                    public void setImage(String image) {
+                        this.image = image;
+                    }
+                }
+            }
+
+            /**
+             * Agent workspace configuration.
+             */
+            public static class Workspace {
+
+                /**
+                 * Base directory under which each tenant's agents get their own workspace directory
+                 */
+                private String basedir;
+
+                public String getBasedir() {
+                    return basedir;
+                }
+
+                public void setBasedir(String basedir) {
+                    this.basedir = basedir;
+                }
+            }
         }
 
         /**
@@ -1565,11 +1723,6 @@ public class ApplicationProperties {
             private String apiKey;
 
             /**
-             * Brave Search API base URL
-             */
-            private String baseUrl = "https://api.search.brave.com/res/v1";
-
-            /**
              * Whether Brave Search is enabled
              */
             private boolean enabled;
@@ -1580,14 +1733,6 @@ public class ApplicationProperties {
 
             public void setApiKey(String apiKey) {
                 this.apiKey = apiKey;
-            }
-
-            public String getBaseUrl() {
-                return baseUrl;
-            }
-
-            public void setBaseUrl(String baseUrl) {
-                this.baseUrl = baseUrl;
             }
 
             public boolean isEnabled() {
@@ -1992,7 +2137,7 @@ public class ApplicationProperties {
             /**
              * Maximum total size in bytes of all knowledge base documents in a tenant. 0 means unlimited. Default 1 GB.
              */
-            private long maxSizeBytes = 1_073_741_824L;
+            private long maxSizeBytes;
 
             /**
              * OCR configuration
@@ -3855,72 +4000,6 @@ public class ApplicationProperties {
         }
     }
 
-    public static class Approval {
-
-        private SignedToken signedToken = new SignedToken();
-
-        public SignedToken getSignedToken() {
-            return signedToken;
-        }
-
-        public void setSignedToken(SignedToken signedToken) {
-            this.signedToken = signedToken;
-        }
-
-        public static class SignedToken {
-
-            private Duration clockSkew;
-
-            private Duration defaultTtl;
-
-            private List<String> previousSecrets = new ArrayList<>();
-
-            private boolean required;
-
-            private String secret;
-
-            public Duration getClockSkew() {
-                return clockSkew;
-            }
-
-            public Duration getDefaultTtl() {
-                return defaultTtl;
-            }
-
-            public List<String> getPreviousSecrets() {
-                return previousSecrets;
-            }
-
-            public String getSecret() {
-                return secret;
-            }
-
-            public boolean isRequired() {
-                return required;
-            }
-
-            public void setClockSkew(Duration clockSkew) {
-                this.clockSkew = clockSkew;
-            }
-
-            public void setDefaultTtl(Duration defaultTtl) {
-                this.defaultTtl = defaultTtl;
-            }
-
-            public void setPreviousSecrets(List<String> previousSecrets) {
-                this.previousSecrets = previousSecrets;
-            }
-
-            public void setRequired(boolean required) {
-                this.required = required;
-            }
-
-            public void setSecret(String secret) {
-                this.secret = secret;
-            }
-        }
-    }
-
     /**
      * Apps (EE) configuration: the app-facing execution, HTTP proxy and workflow run surfaces. Defaults live in
      * application-bytechef.yml.
@@ -4103,6 +4182,89 @@ public class ApplicationProperties {
         }
     }
 
+    /**
+     * Signing of approval and resume links.
+     */
+    public static class Approval {
+
+        private SignedToken signedToken = new SignedToken();
+
+        public SignedToken getSignedToken() {
+            return signedToken;
+        }
+
+        public void setSignedToken(SignedToken signedToken) {
+            this.signedToken = signedToken;
+        }
+
+        public static class SignedToken {
+
+            /**
+             * Tolerance applied to signed link expiry checks
+             */
+            private Duration clockSkew;
+
+            /**
+             * Lifetime of a signed approval/resume link
+             */
+            private Duration defaultTtl;
+
+            /**
+             * Base64 signing secrets still accepted for verification after a rotation
+             */
+            private List<String> previousSecrets = new ArrayList<>();
+
+            /**
+             * Fail startup when no signing secret can be resolved
+             */
+            private boolean required;
+
+            /**
+             * Base64 signing secret (at least 32 bytes); derived from the encryption key when unset
+             */
+            private String secret;
+
+            public Duration getClockSkew() {
+                return clockSkew;
+            }
+
+            public Duration getDefaultTtl() {
+                return defaultTtl;
+            }
+
+            public List<String> getPreviousSecrets() {
+                return previousSecrets;
+            }
+
+            public String getSecret() {
+                return secret;
+            }
+
+            public boolean isRequired() {
+                return required;
+            }
+
+            public void setClockSkew(Duration clockSkew) {
+                this.clockSkew = clockSkew;
+            }
+
+            public void setDefaultTtl(Duration defaultTtl) {
+                this.defaultTtl = defaultTtl;
+            }
+
+            public void setPreviousSecrets(List<String> previousSecrets) {
+                this.previousSecrets = previousSecrets;
+            }
+
+            public void setRequired(boolean required) {
+                this.required = required;
+            }
+
+            public void setSecret(String secret) {
+                this.secret = secret;
+            }
+        }
+    }
 
     /**
      * Configuration of the default {@code @Async} executor, which carries mail, notifications and other background
@@ -4122,45 +4284,6 @@ public class ApplicationProperties {
 
         public void setConcurrencyLimit(int concurrencyLimit) {
             this.concurrencyLimit = concurrencyLimit;
-        }
-    }
-
-    public static class Automation {
-
-        private ApprovalTask approvalTask = new ApprovalTask();
-
-        public ApprovalTask getApprovalTask() {
-            return approvalTask;
-        }
-
-        public void setApprovalTask(ApprovalTask approvalTask) {
-            this.approvalTask = approvalTask;
-        }
-
-        public static class ApprovalTask {
-
-            private Reconciliation reconciliation = new Reconciliation();
-
-            public Reconciliation getReconciliation() {
-                return reconciliation;
-            }
-
-            public void setReconciliation(Reconciliation reconciliation) {
-                this.reconciliation = reconciliation;
-            }
-
-            public static class Reconciliation {
-
-                private boolean enabled;
-
-                public boolean isEnabled() {
-                    return enabled;
-                }
-
-                public void setEnabled(boolean enabled) {
-                    this.enabled = enabled;
-                }
-            }
         }
     }
 
@@ -4254,6 +4377,48 @@ public class ApplicationProperties {
 
         public void setRetentionDays(long retentionDays) {
             this.retentionDays = retentionDays;
+        }
+    }
+
+    /**
+     * Automation configuration.
+     */
+    public static class Automation {
+
+        private ApprovalTask approvalTask = new ApprovalTask();
+
+        public ApprovalTask getApprovalTask() {
+            return approvalTask;
+        }
+
+        public void setApprovalTask(ApprovalTask approvalTask) {
+            this.approvalTask = approvalTask;
+        }
+
+        public static class ApprovalTask {
+
+            private Reconciliation reconciliation = new Reconciliation();
+
+            public Reconciliation getReconciliation() {
+                return reconciliation;
+            }
+
+            public void setReconciliation(Reconciliation reconciliation) {
+                this.reconciliation = reconciliation;
+            }
+
+            public static class Reconciliation {
+
+                private boolean enabled;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
         }
     }
 
@@ -7000,7 +7165,7 @@ public class ApplicationProperties {
     }
 
     /**
-     * Webhook node configuration for serving the public webhook endpoints.
+     * Webhook node configuration for serving the public webhook endpoints, and chat interactivity configuration.
      */
     public static class Webhook {
 
@@ -7011,10 +7176,16 @@ public class ApplicationProperties {
          */
         private boolean enabled;
 
+        private String url;
+
         private Whatsapp whatsapp = new Whatsapp();
 
         public Discord getDiscord() {
             return discord;
+        }
+
+        public String getUrl() {
+            return url;
         }
 
         public Whatsapp getWhatsapp() {
@@ -7033,12 +7204,19 @@ public class ApplicationProperties {
             this.enabled = enabled;
         }
 
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
         public void setWhatsapp(Whatsapp whatsapp) {
             this.whatsapp = whatsapp;
         }
 
         public static class Discord {
 
+            /**
+             * Discord application public key used to verify interactivity callbacks
+             */
             private String publicKey;
 
             public String getPublicKey() {
@@ -7052,6 +7230,9 @@ public class ApplicationProperties {
 
         public static class Whatsapp {
 
+            /**
+             * Token Meta echoes back when verifying the WhatsApp interactivity webhook
+             */
             private String verifyToken;
 
             public String getVerifyToken() {
@@ -7065,7 +7246,7 @@ public class ApplicationProperties {
     }
 
     /**
-     * Outbound webhook delivery, such as job status, task started, notification, Slack and approval reminder webhooks.
+     * Outbound webhook delivery, such as job status, task started, notification and Slack webhooks.
      */
     public static class WebhookDelivery {
 
@@ -7207,6 +7388,11 @@ public class ApplicationProperties {
         private Config config = new Config();
 
         /**
+         * Workflow execution, approval and execution monitor configuration
+         */
+        private Execution execution = new Execution();
+
+        /**
          * Output storage configuration for workflow results
          */
         private OutputStorage outputStorage = new OutputStorage();
@@ -7229,6 +7415,10 @@ public class ApplicationProperties {
             return config;
         }
 
+        public Execution getExecution() {
+            return execution;
+        }
+
         public OutputStorage getOutputStorage() {
             return outputStorage;
         }
@@ -7247,6 +7437,10 @@ public class ApplicationProperties {
 
         public void setConfig(Config config) {
             this.config = config;
+        }
+
+        public void setExecution(Execution execution) {
+            this.execution = execution;
         }
 
         public void setOutputStorage(OutputStorage outputStorage) {
@@ -7306,18 +7500,6 @@ public class ApplicationProperties {
          */
         public static class CodeWorkflow {
 
-            public void setApprovalEscalation(ApprovalEscalation approvalEscalation) {
-                this.approvalEscalation = approvalEscalation;
-            }
-
-            public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
-                this.approvalExpiry = approvalExpiry;
-            }
-
-            public void setApprovalReminder(ApprovalReminder approvalReminder) {
-                this.approvalReminder = approvalReminder;
-            }
-
             /**
              * Whether uploading of Java (jar) code workflows is enabled. When disabled, Java code workflow upload
              * requests are rejected while other languages (JavaScript, Python, Ruby) and previously uploaded Java code
@@ -7332,27 +7514,82 @@ public class ApplicationProperties {
             public void setJavaEnabled(boolean javaEnabled) {
                 this.javaEnabled = javaEnabled;
             }
+        }
 
-            public static class ApprovalEscalation {
+        /**
+         * Workflow execution, approval and execution monitor configuration.
+         */
+        public static class Execution {
 
-                private Duration after;
+            /**
+             * AI agent execution configuration
+             */
+            private Agent agent = new Agent();
 
-                private boolean enabled;
+            private ApprovalExpiry approvalExpiry = new ApprovalExpiry();
 
-                public Duration getAfter() {
-                    return after;
+            private Recovery recovery = new Recovery();
+
+            private Retention retention = new Retention();
+
+            private Timeout timeout = new Timeout();
+
+            public Agent getAgent() {
+                return agent;
+            }
+
+            public ApprovalExpiry getApprovalExpiry() {
+                return approvalExpiry;
+            }
+
+            public Recovery getRecovery() {
+                return recovery;
+            }
+
+            public Retention getRetention() {
+                return retention;
+            }
+
+            public Timeout getTimeout() {
+                return timeout;
+            }
+
+            public void setAgent(Agent agent) {
+                this.agent = agent;
+            }
+
+            public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
+                this.approvalExpiry = approvalExpiry;
+            }
+
+            public void setRecovery(Recovery recovery) {
+                this.recovery = recovery;
+            }
+
+            public void setRetention(Retention retention) {
+                this.retention = retention;
+            }
+
+            public void setTimeout(Timeout timeout) {
+                this.timeout = timeout;
+            }
+
+            /**
+             * AI agent execution configuration.
+             */
+            public static class Agent {
+
+                /**
+                 * Maximum nesting depth of sub-workflows called by AI agent tools
+                 */
+                private int maxSubflowDepth;
+
+                public int getMaxSubflowDepth() {
+                    return maxSubflowDepth;
                 }
 
-                public boolean isEnabled() {
-                    return enabled;
-                }
-
-                public void setAfter(Duration after) {
-                    this.after = after;
-                }
-
-                public void setEnabled(boolean enabled) {
-                    this.enabled = enabled;
+                public void setMaxSubflowDepth(int maxSubflowDepth) {
+                    this.maxSubflowDepth = maxSubflowDepth;
                 }
             }
 
@@ -7369,26 +7606,104 @@ public class ApplicationProperties {
                 }
             }
 
-            public static class ApprovalReminder {
+            public static class Recovery {
+
+                /**
+                 * Resume an orphaned top-level job after failing it
+                 */
+                private boolean autoResume;
 
                 private boolean enabled;
 
-                private Duration leadTime;
+                private int maxAutoResumeAttempts;
 
-                public Duration getLeadTime() {
-                    return leadTime;
+                /**
+                 * A running job without a heartbeat for this long is treated as orphaned
+                 */
+                private Duration stalenessThreshold;
+
+                public int getMaxAutoResumeAttempts() {
+                    return maxAutoResumeAttempts;
+                }
+
+                public Duration getStalenessThreshold() {
+                    return stalenessThreshold;
+                }
+
+                public boolean isAutoResume() {
+                    return autoResume;
                 }
 
                 public boolean isEnabled() {
                     return enabled;
                 }
 
+                public void setAutoResume(boolean autoResume) {
+                    this.autoResume = autoResume;
+                }
+
                 public void setEnabled(boolean enabled) {
                     this.enabled = enabled;
                 }
 
-                public void setLeadTime(Duration leadTime) {
-                    this.leadTime = leadTime;
+                public void setMaxAutoResumeAttempts(int maxAutoResumeAttempts) {
+                    this.maxAutoResumeAttempts = maxAutoResumeAttempts;
+                }
+
+                public void setStalenessThreshold(Duration stalenessThreshold) {
+                    this.stalenessThreshold = stalenessThreshold;
+                }
+            }
+
+            public static class Retention {
+
+                /**
+                 * Days to keep finished job executions; nothing is purged while unset
+                 */
+                private Integer defaultRetentionDays;
+
+                private boolean enabled;
+
+                public Integer getDefaultRetentionDays() {
+                    return defaultRetentionDays;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setDefaultRetentionDays(Integer defaultRetentionDays) {
+                    this.defaultRetentionDays = defaultRetentionDays;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            public static class Timeout {
+
+                /**
+                 * Fail jobs running longer than this; no timeout while unset
+                 */
+                private Duration defaultTimeout;
+
+                private boolean enabled;
+
+                public Duration getDefaultTimeout() {
+                    return defaultTimeout;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setDefaultTimeout(Duration defaultTimeout) {
+                    this.defaultTimeout = defaultTimeout;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
                 }
             }
         }
