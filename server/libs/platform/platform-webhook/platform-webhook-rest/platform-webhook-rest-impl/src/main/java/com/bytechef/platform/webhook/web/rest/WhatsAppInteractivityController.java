@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -25,7 +26,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,13 +58,16 @@ public final class WhatsAppInteractivityController {
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public WhatsAppInteractivityController(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        @Value("${bytechef.webhook.whatsapp.verify-token:}") String verifyToken) {
+        ApplicationProperties applicationProperties, ConnectionService connectionService,
+        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
+        ApplicationProperties.Webhook webhook = applicationProperties.getWebhook();
+
+        ApplicationProperties.Webhook.Whatsapp whatsapp = webhook.getWhatsapp();
+
+        this.verifyToken = whatsapp.getVerifyToken();
         this.whatsAppInteractivityHandler = new WhatsAppInteractivityHandler(
             connectionService, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable());
-        this.verifyToken = verifyToken;
     }
 
     /**
