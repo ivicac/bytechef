@@ -27,6 +27,7 @@ import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
 import com.bytechef.platform.ai.tool.ToolSuspension;
 import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
@@ -101,6 +102,8 @@ public final class ToolApprovalRequests {
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
 
+        Instant raisedAt = Instant.now();
+
         if (actionContext.isEditorEnvironment()) {
             sendEditorApprovalRequestEvent(request, formUrl);
         } else {
@@ -114,10 +117,22 @@ public final class ToolApprovalRequests {
         continueParameters.put(FORM_URL, formUrl);
         continueParameters.put(FORM_TITLE, request.title());
         continueParameters.put(FORM_DESCRIPTION, request.description());
+        continueParameters.put(MetadataConstants.APPROVAL_RESUME, true);
+        continueParameters.put(MetadataConstants.APPROVAL_RAISED_AT, raisedAt.toString());
+        continueParameters.put(MetadataConstants.APPROVAL_FORM_PARAMETERS, getFormParameters(request));
 
         actionContext.suspend(new ActionContext.Suspend(continueParameters, request.expiresAt()));
 
         return ToolSuspension.suspendedToolResult(actionContext);
+    }
+
+    private static Map<String, Object> getFormParameters(Request request) {
+        Map<String, Object> formParameters = new HashMap<>();
+
+        formParameters.put(FORM_TITLE, request.title());
+        formParameters.put(FORM_DESCRIPTION, request.description());
+
+        return formParameters;
     }
 
     private static void sendEditorApprovalRequestEvent(Request request, String formUrl) {
