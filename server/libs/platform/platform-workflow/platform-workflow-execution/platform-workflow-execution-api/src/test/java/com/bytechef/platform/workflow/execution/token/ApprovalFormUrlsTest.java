@@ -17,11 +17,17 @@
 package com.bytechef.platform.workflow.execution.token;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * @author Ivica Cardic
@@ -36,6 +42,65 @@ class ApprovalFormUrlsTest {
 
         assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens))
             .contains("https://example.com/resume/v1.signed");
+    }
+
+    @Test
+    void testFormUrlTokenExpiresWithTheApprovalPlusTheMargin() {
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.toSignedTokenIfConfigured(eq("inner"), any(Duration.class)))
+            .thenReturn(Optional.of("v1.signed"));
+
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofDays(2));
+
+        assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, expiresAt))
+            .contains("https://example.com/resume/v1.signed");
+
+        ArgumentCaptor<Duration> ttlArgumentCaptor = ArgumentCaptor.forClass(Duration.class);
+
+        verify(approvalTokens).toSignedTokenIfConfigured(eq("inner"), ttlArgumentCaptor.capture());
+
+        Duration ttl = ttlArgumentCaptor.getValue();
+
+        assertThat(ttl).isBetween(
+            Duration.ofDays(2)
+                .plus(Duration.ofMinutes(59)),
+            Duration.ofDays(2)
+                .plus(ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN));
+    }
+
+    @Test
+    void testFormUrlTokenOfAnExpiredApprovalOnlyGetsTheMargin() {
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.toSignedTokenIfConfigured("inner", ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN))
+            .thenReturn(Optional.of("v1.signed"));
+
+        Instant expiresAt = Instant.now()
+            .minusSeconds(60);
+
+        assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, expiresAt))
+            .contains("https://example.com/resume/v1.signed");
+    }
+
+    @Test
+    void testFormUrlTokenWithoutExpiryGetsTheDefaultTtl() {
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.toSignedTokenIfConfigured("inner")).thenReturn(Optional.of("v1.signed"));
+
+        assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, null))
+            .contains("https://example.com/resume/v1.signed");
+    }
+
+    @Test
+    void testResumeTokenWithExpiryFallsBackToInnerTokenWithoutSigner() {
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofDays(1));
+
+        assertThat(ApprovalFormUrls.buildResumeToken("inner", null, expiresAt)).contains("inner");
+        assertThat(ApprovalFormUrls.buildResumeToken(" ", null, expiresAt)).isEmpty();
     }
 
     @Test
