@@ -83,6 +83,10 @@ public final class ApprovalFormUrls {
                     .orElse(jobResumeId));
     }
 
+    /**
+     * Builds the resume token so it expires together with the approval, plus {@link #APPROVAL_TOKEN_TTL_MARGIN};
+     * without an expiry the token gets the default time-to-live.
+     */
     public static Optional<String> buildResumeToken(
         @Nullable String jobResumeId, @Nullable ApprovalTokens approvalTokens, @Nullable Instant expiresAt) {
 
@@ -98,14 +102,22 @@ public final class ApprovalFormUrls {
             return Optional.of(jobResumeId);
         }
 
+        return Optional.of(
+            approvalTokens.toSignedTokenIfConfigured(jobResumeId, getApprovalTokenTtl(expiresAt))
+                .orElse(jobResumeId));
+    }
+
+    /**
+     * The time-to-live of a token for an approval expiring at the given instant: the time left until it expires, plus
+     * {@link #APPROVAL_TOKEN_TTL_MARGIN}.
+     */
+    public static Duration getApprovalTokenTtl(Instant expiresAt) {
         Duration remaining = Duration.between(Instant.now(), expiresAt);
 
         if (remaining.isNegative()) {
             remaining = Duration.ZERO;
         }
 
-        return Optional.of(
-            approvalTokens.toSignedTokenIfConfigured(jobResumeId, remaining.plus(APPROVAL_TOKEN_TTL_MARGIN))
-                .orElse(jobResumeId));
+        return remaining.plus(APPROVAL_TOKEN_TTL_MARGIN);
     }
 }

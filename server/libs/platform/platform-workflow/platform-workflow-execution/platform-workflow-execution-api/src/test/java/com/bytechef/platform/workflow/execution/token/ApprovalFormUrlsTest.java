@@ -57,15 +57,17 @@ class ApprovalFormUrlsTest {
         assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, expiresAt))
             .contains("https://example.com/resume/v1.signed");
 
-        ArgumentCaptor<Duration> ttlCaptor = ArgumentCaptor.forClass(Duration.class);
+        ArgumentCaptor<Duration> ttlArgumentCaptor = ArgumentCaptor.forClass(Duration.class);
 
-        verify(approvalTokens).toSignedTokenIfConfigured(eq("inner"), ttlCaptor.capture());
+        verify(approvalTokens).toSignedTokenIfConfigured(eq("inner"), ttlArgumentCaptor.capture());
 
-        assertThat(ttlCaptor.getValue())
-            .isBetween(Duration.ofDays(2), Duration.ofDays(2)
+        Duration ttl = ttlArgumentCaptor.getValue();
+
+        assertThat(ttl).isBetween(
+            Duration.ofDays(2)
+                .plus(Duration.ofMinutes(59)),
+            Duration.ofDays(2)
                 .plus(ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN));
-        assertThat(ttlCaptor.getValue()).isGreaterThan(Duration.ofDays(2)
-            .plus(Duration.ofMinutes(59)));
     }
 
     @Test
@@ -75,11 +77,11 @@ class ApprovalFormUrlsTest {
         when(approvalTokens.toSignedTokenIfConfigured("inner", ApprovalFormUrls.APPROVAL_TOKEN_TTL_MARGIN))
             .thenReturn(Optional.of("v1.signed"));
 
-        assertThat(
-            ApprovalFormUrls.buildFormUrl(
-                "https://example.com", "inner", approvalTokens, Instant.now()
-                    .minusSeconds(60)))
-                        .contains("https://example.com/resume/v1.signed");
+        Instant expiresAt = Instant.now()
+            .minusSeconds(60);
+
+        assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, expiresAt))
+            .contains("https://example.com/resume/v1.signed");
     }
 
     @Test
@@ -90,6 +92,15 @@ class ApprovalFormUrlsTest {
 
         assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", "inner", approvalTokens, null))
             .contains("https://example.com/resume/v1.signed");
+    }
+
+    @Test
+    void testResumeTokenWithExpiryFallsBackToInnerTokenWithoutSigner() {
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofDays(1));
+
+        assertThat(ApprovalFormUrls.buildResumeToken("inner", null, expiresAt)).contains("inner");
+        assertThat(ApprovalFormUrls.buildResumeToken(" ", null, expiresAt)).isEmpty();
     }
 
     @Test
