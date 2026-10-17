@@ -67,9 +67,19 @@ public class ApplicationProperties {
     private App app = new App();
 
     /**
+     * Approval link signing configuration
+     */
+    private Approval approval = new Approval();
+
+    /**
      * Default @Async executor configuration
      */
     private Async async = new Async();
+
+    /**
+     * Automation configuration
+     */
+    private Automation automation = new Automation();
 
     /**
      * Cache provider configuration
@@ -248,6 +258,11 @@ public class ApplicationProperties {
     private UserGuiding userGuiding = new UserGuiding();
 
     /**
+     * Webhook and chat interactivity configuration
+     */
+    private Webhook webhook = new Webhook();
+
+    /**
      * Webhook URL for external integrations
      */
     private String webhookUrl;
@@ -270,8 +285,16 @@ public class ApplicationProperties {
         return app;
     }
 
+    public Approval getApproval() {
+        return approval;
+    }
+
     public Async getAsync() {
         return async;
+    }
+
+    public Automation getAutomation() {
+        return automation;
     }
 
     public Cache getCache() {
@@ -418,6 +441,10 @@ public class ApplicationProperties {
         return userGuiding;
     }
 
+    public Webhook getWebhook() {
+        return webhook;
+    }
+
     public String getWebhookUrl() {
         return webhookUrl;
     }
@@ -442,8 +469,16 @@ public class ApplicationProperties {
         this.app = app;
     }
 
+    public void setApproval(Approval approval) {
+        this.approval = approval;
+    }
+
     public void setAsync(Async async) {
         this.async = async;
+    }
+
+    public void setAutomation(Automation automation) {
+        this.automation = automation;
     }
 
     public void setCache(Cache cache) {
@@ -588,6 +623,10 @@ public class ApplicationProperties {
 
     public void setUserGuiding(UserGuiding userGuiding) {
         this.userGuiding = userGuiding;
+    }
+
+    public void setWebhook(Webhook webhook) {
+        this.webhook = webhook;
     }
 
     public void setWebhookUrl(String webhookUrl) {
@@ -3950,6 +3989,90 @@ public class ApplicationProperties {
     }
 
     /**
+     * Signing of approval and resume links.
+     */
+    public static class Approval {
+
+        private SignedToken signedToken = new SignedToken();
+
+        public SignedToken getSignedToken() {
+            return signedToken;
+        }
+
+        public void setSignedToken(SignedToken signedToken) {
+            this.signedToken = signedToken;
+        }
+
+        public static class SignedToken {
+
+            /**
+             * Tolerance applied to signed link expiry checks
+             */
+            private Duration clockSkew;
+
+            /**
+             * Lifetime of a signed approval/resume link
+             */
+            private Duration defaultTtl;
+
+            /**
+             * Base64 signing secrets still accepted for verification after a rotation
+             */
+            private List<String> previousSecrets = new ArrayList<>();
+
+            /**
+             * Fail startup when no signing secret can be resolved
+             */
+            private boolean required;
+
+            /**
+             * Base64 signing secret (at least 32 bytes); derived from the encryption key when unset
+             */
+            private String secret;
+
+            public Duration getClockSkew() {
+                return clockSkew;
+            }
+
+            public Duration getDefaultTtl() {
+                return defaultTtl;
+            }
+
+            public List<String> getPreviousSecrets() {
+                return previousSecrets;
+            }
+
+            public String getSecret() {
+                return secret;
+            }
+
+            public boolean isRequired() {
+                return required;
+            }
+
+            public void setClockSkew(Duration clockSkew) {
+                this.clockSkew = clockSkew;
+            }
+
+            public void setDefaultTtl(Duration defaultTtl) {
+                this.defaultTtl = defaultTtl;
+            }
+
+            public void setPreviousSecrets(List<String> previousSecrets) {
+                this.previousSecrets = previousSecrets;
+            }
+
+            public void setRequired(boolean required) {
+                this.required = required;
+            }
+
+            public void setSecret(String secret) {
+                this.secret = secret;
+            }
+        }
+    }
+
+    /**
      * Configuration of the default {@code @Async} executor, which carries mail, notifications and other background
      * work. Workflow task and trigger execution are bounded separately by the worker task properties.
      */
@@ -3967,6 +4090,48 @@ public class ApplicationProperties {
 
         public void setConcurrencyLimit(int concurrencyLimit) {
             this.concurrencyLimit = concurrencyLimit;
+        }
+    }
+
+    /**
+     * Automation configuration.
+     */
+    public static class Automation {
+
+        private ApprovalTask approvalTask = new ApprovalTask();
+
+        public ApprovalTask getApprovalTask() {
+            return approvalTask;
+        }
+
+        public void setApprovalTask(ApprovalTask approvalTask) {
+            this.approvalTask = approvalTask;
+        }
+
+        public static class ApprovalTask {
+
+            private Reconciliation reconciliation = new Reconciliation();
+
+            public Reconciliation getReconciliation() {
+                return reconciliation;
+            }
+
+            public void setReconciliation(Reconciliation reconciliation) {
+                this.reconciliation = reconciliation;
+            }
+
+            public static class Reconciliation {
+
+                private boolean enabled;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
         }
     }
 
@@ -6567,6 +6732,74 @@ public class ApplicationProperties {
     }
 
     /**
+     * Webhook and chat interactivity configuration.
+     */
+    public static class Webhook {
+
+        private Discord discord = new Discord();
+
+        private String url;
+
+        private Whatsapp whatsapp = new Whatsapp();
+
+        public Discord getDiscord() {
+            return discord;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public Whatsapp getWhatsapp() {
+            return whatsapp;
+        }
+
+        public void setDiscord(Discord discord) {
+            this.discord = discord;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public void setWhatsapp(Whatsapp whatsapp) {
+            this.whatsapp = whatsapp;
+        }
+
+        public static class Discord {
+
+            /**
+             * Discord application public key used to verify interactivity callbacks
+             */
+            private String publicKey;
+
+            public String getPublicKey() {
+                return publicKey;
+            }
+
+            public void setPublicKey(String publicKey) {
+                this.publicKey = publicKey;
+            }
+        }
+
+        public static class Whatsapp {
+
+            /**
+             * Token Meta echoes back when verifying the WhatsApp interactivity webhook
+             */
+            private String verifyToken;
+
+            public String getVerifyToken() {
+                return verifyToken;
+            }
+
+            public void setVerifyToken(String verifyToken) {
+                this.verifyToken = verifyToken;
+            }
+        }
+    }
+
+    /**
      * Worker node configuration for task execution.
      */
     public static class Worker {
@@ -6661,6 +6894,11 @@ public class ApplicationProperties {
         private Config config = new Config();
 
         /**
+         * Workflow execution, approval and execution monitor configuration
+         */
+        private Execution execution = new Execution();
+
+        /**
          * Output storage configuration for workflow results
          */
         private OutputStorage outputStorage = new OutputStorage();
@@ -6678,6 +6916,10 @@ public class ApplicationProperties {
             return config;
         }
 
+        public Execution getExecution() {
+            return execution;
+        }
+
         public OutputStorage getOutputStorage() {
             return outputStorage;
         }
@@ -6692,6 +6934,10 @@ public class ApplicationProperties {
 
         public void setConfig(Config config) {
             this.config = config;
+        }
+
+        public void setExecution(Execution execution) {
+            this.execution = execution;
         }
 
         public void setOutputStorage(OutputStorage outputStorage) {
@@ -6741,6 +6987,270 @@ public class ApplicationProperties {
 
             public void setJavaEnabled(boolean javaEnabled) {
                 this.javaEnabled = javaEnabled;
+            }
+        }
+
+        /**
+         * Workflow execution, approval and execution monitor configuration.
+         */
+        public static class Execution {
+
+            /**
+             * AI agent execution configuration
+             */
+            private Agent agent = new Agent();
+
+            private ApprovalEscalation approvalEscalation = new ApprovalEscalation();
+
+            private ApprovalExpiry approvalExpiry = new ApprovalExpiry();
+
+            private ApprovalReminder approvalReminder = new ApprovalReminder();
+
+            private Recovery recovery = new Recovery();
+
+            private Retention retention = new Retention();
+
+            private Timeout timeout = new Timeout();
+
+            public Agent getAgent() {
+                return agent;
+            }
+
+            public ApprovalEscalation getApprovalEscalation() {
+                return approvalEscalation;
+            }
+
+            public ApprovalExpiry getApprovalExpiry() {
+                return approvalExpiry;
+            }
+
+            public ApprovalReminder getApprovalReminder() {
+                return approvalReminder;
+            }
+
+            public Recovery getRecovery() {
+                return recovery;
+            }
+
+            public Retention getRetention() {
+                return retention;
+            }
+
+            public Timeout getTimeout() {
+                return timeout;
+            }
+
+            public void setAgent(Agent agent) {
+                this.agent = agent;
+            }
+
+            public void setApprovalEscalation(ApprovalEscalation approvalEscalation) {
+                this.approvalEscalation = approvalEscalation;
+            }
+
+            public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
+                this.approvalExpiry = approvalExpiry;
+            }
+
+            public void setApprovalReminder(ApprovalReminder approvalReminder) {
+                this.approvalReminder = approvalReminder;
+            }
+
+            public void setRecovery(Recovery recovery) {
+                this.recovery = recovery;
+            }
+
+            public void setRetention(Retention retention) {
+                this.retention = retention;
+            }
+
+            public void setTimeout(Timeout timeout) {
+                this.timeout = timeout;
+            }
+
+            /**
+             * AI agent execution configuration.
+             */
+            public static class Agent {
+
+                /**
+                 * Maximum nesting depth of sub-workflows called by AI agent tools
+                 */
+                private int maxSubflowDepth;
+
+                public int getMaxSubflowDepth() {
+                    return maxSubflowDepth;
+                }
+
+                public void setMaxSubflowDepth(int maxSubflowDepth) {
+                    this.maxSubflowDepth = maxSubflowDepth;
+                }
+            }
+
+            public static class ApprovalEscalation {
+
+                /**
+                 * Escalate a pending approval after this duration; the sweep is a no-op while unset
+                 */
+                private Duration after;
+
+                private boolean enabled;
+
+                public Duration getAfter() {
+                    return after;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setAfter(Duration after) {
+                    this.after = after;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            public static class ApprovalExpiry {
+
+                private boolean enabled;
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            public static class ApprovalReminder {
+
+                private boolean enabled;
+
+                /**
+                 * Remind approvers this long before an approval expires
+                 */
+                private Duration leadTime;
+
+                public Duration getLeadTime() {
+                    return leadTime;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+
+                public void setLeadTime(Duration leadTime) {
+                    this.leadTime = leadTime;
+                }
+            }
+
+            public static class Recovery {
+
+                /**
+                 * Resume an orphaned top-level job after failing it
+                 */
+                private boolean autoResume;
+
+                private boolean enabled;
+
+                private int maxAutoResumeAttempts;
+
+                /**
+                 * A running job without a heartbeat for this long is treated as orphaned
+                 */
+                private Duration stalenessThreshold;
+
+                public int getMaxAutoResumeAttempts() {
+                    return maxAutoResumeAttempts;
+                }
+
+                public Duration getStalenessThreshold() {
+                    return stalenessThreshold;
+                }
+
+                public boolean isAutoResume() {
+                    return autoResume;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setAutoResume(boolean autoResume) {
+                    this.autoResume = autoResume;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+
+                public void setMaxAutoResumeAttempts(int maxAutoResumeAttempts) {
+                    this.maxAutoResumeAttempts = maxAutoResumeAttempts;
+                }
+
+                public void setStalenessThreshold(Duration stalenessThreshold) {
+                    this.stalenessThreshold = stalenessThreshold;
+                }
+            }
+
+            public static class Retention {
+
+                /**
+                 * Days to keep finished job executions; nothing is purged while unset
+                 */
+                private Integer defaultRetentionDays;
+
+                private boolean enabled;
+
+                public Integer getDefaultRetentionDays() {
+                    return defaultRetentionDays;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setDefaultRetentionDays(Integer defaultRetentionDays) {
+                    this.defaultRetentionDays = defaultRetentionDays;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
+            public static class Timeout {
+
+                /**
+                 * Fail jobs running longer than this; no timeout while unset
+                 */
+                private Duration defaultTimeout;
+
+                private boolean enabled;
+
+                public Duration getDefaultTimeout() {
+                    return defaultTimeout;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setDefaultTimeout(Duration defaultTimeout) {
+                    this.defaultTimeout = defaultTimeout;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
             }
         }
 
