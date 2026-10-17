@@ -26,12 +26,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.converter.StringToWorkflowTaskConverter;
 import com.bytechef.atlas.configuration.converter.WorkflowTaskToStringConverter;
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
+import com.bytechef.atlas.coordinator.event.StartJobEvent;
 import com.bytechef.atlas.coordinator.event.TaskExecutionCompleteEvent;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
@@ -66,6 +69,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -117,6 +121,8 @@ public class JobFacadeIntTest {
     @Autowired
     private TaskFileStorage taskFileStorage;
 
+    @Autowired
+    private WorkflowService workflowService;
 
     @Test
     public void testRequiredParameters() {
@@ -321,6 +327,43 @@ public class JobFacadeIntTest {
         assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).hasSize(1);
     }
 
+    @Test
+    public void testCreateJobPassesTheJobIdToTheCallbackInsideTheCreationTransaction() {
+        stubWorkflow();
+
+        AtomicReference<Job> linkedJob = new AtomicReference<>();
+
+        long jobId = jobFacade.createJob(
+            new JobParametersDTO(WORKFLOW_ID, Map.of()),
+            createdJobId -> linkedJob.set(jobRepository.findById(createdJobId)
+                .orElseThrow()));
+
+        assertThat(linkedJob.get()
+            .getId()).isEqualTo(jobId);
+        assertThat(applicationEvents.stream(StartJobEvent.class)).hasSize(1);
+    }
+
+    @Test
+    public void testCreateJobRollsTheJobBackWhenTheCallbackFails() {
+        stubWorkflow();
+
+        AtomicReference<Long> createdJobIdReference = new AtomicReference<>();
+
+        assertThatThrownBy(
+            () -> jobFacade.createJob(
+                new JobParametersDTO(WORKFLOW_ID, Map.of()),
+                createdJobId -> {
+                    createdJobIdReference.set(createdJobId);
+
+                    throw new IllegalStateException("linking failed");
+                }))
+                    .isInstanceOf(IllegalStateException.class);
+
+        assertThat(createdJobIdReference.get()).isNotNull();
+        assertThat(jobRepository.findById(createdJobIdReference.get())).isEmpty();
+        assertThat(applicationEvents.stream(StartJobEvent.class)).isEmpty();
+    }
+
     private boolean resumeApproval(long jobId, String uuid) {
         try {
             jobFacade.resumeApproval(jobId, uuid, true);
@@ -347,6 +390,36 @@ public class JobFacadeIntTest {
 
         return Validate.notNull(taskExecutionRepository.save(taskExecution)
             .getId(), "id");
+    }
+
+    private void stubWorkflow() {
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflow.getId()).thenReturn(WORKFLOW_ID);
+        when(workflow.getInputs()).thenReturn(List.of());
+        when(workflow.getTasks()).thenReturn(List.of());
+
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
+    }
+
+    @Test
+    public void testResumeToStatusStartedResumesSuspendedSubflowChild() {
+        Job parentJob = jobRepository.save(newJob());
+        long parentJobId = Validate.notNull(parentJob.getId(), "id");
+
+        TaskExecution parentTaskExecution = taskExecutionRepository.save(newTaskExecution(parentJobId, null));
+        long parentTaskExecutionId = Validate.notNull(parentTaskExecution.getId(), "id");
+
+        Job job = newJob();
+
+        job.setParentTaskExecutionId(parentTaskExecutionId);
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        assertThat(jobService.resumeToStatusStarted(jobId)
+            .getStatus()).isEqualTo(Job.Status.STARTED);
     }
 
     private static Job newJob() {

@@ -24,11 +24,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.repository.JobRepository;
 import com.bytechef.error.ExecutionError;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +95,28 @@ class JobServiceTest {
             .isInstanceOf(IllegalArgumentException.class);
 
         verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void testCreatePassesTheSavedJobIdToTheCallback() {
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflow.getId()).thenReturn("workflow1");
+        when(workflow.getInputs()).thenReturn(List.of());
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> {
+            Job savedJob = invocation.getArgument(0);
+
+            savedJob.setId(JOB_ID);
+
+            return savedJob;
+        });
+
+        List<Long> createdJobIds = new ArrayList<>();
+
+        Job job = jobService.create(new JobParametersDTO("workflow1", Map.of()), workflow, createdJobIds::add);
+
+        assertThat(job.getId()).isEqualTo(JOB_ID);
+        assertThat(createdJobIds).containsExactly(JOB_ID);
     }
 
     private Job stubJob(Job.Status status) {

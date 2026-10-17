@@ -70,6 +70,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -433,6 +434,11 @@ class AgentSubflowBridgeIntTest {
         }
 
         @Override
+        public long createJob(JobParametersDTO jobParametersDTO, LongConsumer jobCreatedCallback) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void deleteJob(long id) {
             throw new UnsupportedOperationException();
         }
@@ -635,6 +641,11 @@ class AgentSubflowBridgeIntTest {
 
             @Override
             public long createJob(JobParametersDTO jobParametersDTO) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long createJob(JobParametersDTO jobParametersDTO, LongConsumer jobCreatedCallback) {
                 throw new UnsupportedOperationException();
             }
 

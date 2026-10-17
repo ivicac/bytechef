@@ -15,6 +15,7 @@ import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongConsumer;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -44,6 +45,11 @@ public class RemoteJobServiceClient implements JobService {
                 .path(JOB_SERVICE + "/create")
                 .build(),
             new JobCreateRequest(jobParametersDTO, workflow), Job.class);
+    }
+
+    @Override
+    public Job create(JobParametersDTO jobParametersDTO, Workflow workflow, LongConsumer jobCreatedCallback) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
