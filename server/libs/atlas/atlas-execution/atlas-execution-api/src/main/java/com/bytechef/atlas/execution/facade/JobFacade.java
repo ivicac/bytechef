@@ -45,7 +45,11 @@ public interface JobFacade {
     void resumeJob(long id, long taskExecutionId, @Nullable Map<String, ?> data);
 
     /**
-     * Continues a job the caller has already moved from STOPPED to STARTED with {@code JobService.tryClaimResume}.
+     * Continues a job the caller has already moved from STOPPED to STARTED.
+     *
+     * @param id              the job id
+     * @param taskExecutionId the suspended task execution id, or null
+     * @param data            the resume data, or null
      */
     void resumeClaimedJob(long id, @Nullable Long taskExecutionId, @Nullable Map<String, ?> data);
 

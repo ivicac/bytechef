@@ -18,15 +18,20 @@ package com.bytechef.atlas.execution.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.execution.config.AtlasExecutionServiceIntTestConfiguration;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
+import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.repository.JobRepository;
 import com.bytechef.atlas.execution.repository.TaskExecutionRepository;
 import com.bytechef.error.ExecutionError;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -103,6 +108,27 @@ public class JobServiceIntTest {
     }
 
     @Test
+    public void testResumeToStatusStartedClearsTheErrorOfFailedJob() {
+        long jobId = saveResumableJob(Job.Status.FAILED);
+
+        Job failedJob = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        failedJob.setError(new ExecutionError("The pending approval expired", List.of()));
+
+        jobRepository.save(failedJob);
+
+        Job resumedJob = jobService.resumeToStatusStarted(jobId);
+
+        assertThat(resumedJob.getError()).isNull();
+
+        Job persistedJob = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        assertThat(persistedJob.getError()).isNull();
+    }
+
+    @Test
     public void testResumeToStatusStartedContinuesStoppedJob() {
         long jobId = saveResumableJob(Job.Status.STOPPED);
 
@@ -134,6 +160,38 @@ public class JobServiceIntTest {
         assertThat(persistedJob.getStatus()).isEqualTo(Job.Status.COMPLETED);
         assertThat(persistedJob.getEndDate()).isEqualTo(originalJob.getEndDate());
         assertThat(persistedJob.getLastModifiedDate()).isEqualTo(originalJob.getLastModifiedDate());
+    }
+
+    @Test
+    public void testResumeToStatusStartedRejectsStartedJob() {
+        long jobId = saveResumableJob(Job.Status.STARTED);
+
+        Job originalJob = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        assertThatThrownBy(() -> jobService.resumeToStatusStarted(jobId))
+            .isInstanceOf(IllegalArgumentException.class);
+
+        Job persistedJob = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        assertThat(persistedJob.getLastModifiedDate()).isEqualTo(originalJob.getLastModifiedDate());
+    }
+
+    @Test
+    public void testCreatePassesTheSavedJobIdToTheCallback() {
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflow.getId()).thenReturn("demo:1234");
+        when(workflow.getInputs()).thenReturn(List.of());
+
+        List<Long> createdJobIds = new ArrayList<>();
+
+        Job job = jobService.create(new JobParametersDTO("demo:1234", Map.of()), workflow, createdJobIds::add);
+
+        assertThat(job.getId()).isNotNull();
+        assertThat(createdJobIds).containsExactly(job.getId());
+        assertThat(jobRepository.findById(job.getId())).isPresent();
     }
 
     @Test

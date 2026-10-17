@@ -42,12 +42,12 @@ public class RemoteJobFacadeClient implements JobFacade {
     }
 
     @Override
-    public void deleteJob(long id) {
-        loadBalancedRestClient.delete(
-            uriBuilder -> uriBuilder
-                .host("execution-app")
-                .path("/remote/job-facade/delete-job/{id}")
-                .build(id));
+    public long createJob(JobParametersDTO jobParametersDTO, LongConsumer jobCreatedCallback) {
+        long jobId = createJob(jobParametersDTO);
+
+        jobCreatedCallback.accept(jobId);
+
+        return jobId;
     }
 
     @Override

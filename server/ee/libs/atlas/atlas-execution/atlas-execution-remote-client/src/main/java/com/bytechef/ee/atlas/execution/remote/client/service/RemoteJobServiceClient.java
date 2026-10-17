@@ -15,6 +15,7 @@ import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongConsumer;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -98,11 +99,6 @@ public class RemoteJobServiceClient implements JobService {
     }
 
     @Override
-    public List<Job> getChildJobs(List<Long> parentTaskExecutionIds) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public List<Job> getStaleJobs(Job.Status status, java.time.Instant lastModifiedDateBefore) {
         return loadBalancedRestClient.get(
             uriBuilder -> uriBuilder
@@ -112,6 +108,11 @@ public class RemoteJobServiceClient implements JobService {
                 .queryParam("lastModifiedDateBefore", lastModifiedDateBefore.toString())
                 .build(),
             new ParameterizedTypeReference<>() {});
+    }
+
+    @Override
+    public List<Job> getChildJobs(List<Long> parentTaskExecutionIds) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

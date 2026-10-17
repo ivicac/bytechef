@@ -22,17 +22,22 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.converter.StringToWorkflowTaskConverter;
 import com.bytechef.atlas.configuration.converter.WorkflowTaskToStringConverter;
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
+import com.bytechef.atlas.coordinator.event.StartJobEvent;
 import com.bytechef.atlas.coordinator.event.TaskExecutionCompleteEvent;
+import com.bytechef.atlas.execution.domain.Context;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.SuspendedJobs;
 import com.bytechef.atlas.execution.domain.TaskExecution;
@@ -71,6 +76,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -82,6 +89,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.event.EventListener;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -104,6 +112,7 @@ public class JobFacadeIntTest {
 
     private static final List<Job.Status> RESUME_EVENT_JOB_STATUSES = new CopyOnWriteArrayList<>();
     private static final List<UpdatedJobState> UPDATED_JOB_STATES = new CopyOnWriteArrayList<>();
+    private static final String WAIT_FOR_APPROVAL_TYPE = "waitForApproval/v1";
     private static final String WORKFLOW_ID = "demo:1234";
 
     @Autowired
@@ -126,11 +135,11 @@ public class JobFacadeIntTest {
     @Autowired
     private TaskFileStorage taskFileStorage;
 
+    @Autowired
+    private WorkflowService workflowService;
 
     @Test
     public void testRequiredParameters() {
-        // The referenced workflow does not exist (the mocked WorkflowService returns null), so job creation must reject
-        // the request rather than proceed with a null workflow.
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> jobFacade.createJob(new JobParametersDTO("aGVsbG8x", Collections.emptyMap())));
@@ -274,11 +283,14 @@ public class JobFacadeIntTest {
 
     @Test
     public void testResumeClaimedJobPublishesAStartedResumeEvent() {
-        jobFacade.resumeClaimedJob(1L, 2L, Map.of("approved", true));
+        long jobId = saveJob(Job.Status.STARTED);
+
+        jobFacade.resumeClaimedJob(jobId, 2L, Map.of("approved", true));
 
         assertThat(applicationEvents.stream(ResumeJobEvent.class))
             .singleElement()
             .satisfies(resumeJobEvent -> {
+                assertThat(resumeJobEvent.getJobId()).isEqualTo(jobId);
                 assertThat(resumeJobEvent.isStarted()).isTrue();
                 assertThat(resumeJobEvent.getTaskExecutionId()).isEqualTo(2L);
                 assertThat(resumeJobEvent.getData()).isEqualTo(Map.of("approved", true));
@@ -409,6 +421,43 @@ public class JobFacadeIntTest {
         assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).isEmpty();
     }
 
+    @Test
+    public void testCreateJobPassesTheJobIdToTheCallbackInsideTheCreationTransaction() {
+        stubWorkflow();
+
+        AtomicReference<Job> linkedJob = new AtomicReference<>();
+
+        long jobId = jobFacade.createJob(
+            new JobParametersDTO(WORKFLOW_ID, Map.of()),
+            createdJobId -> linkedJob.set(jobRepository.findById(createdJobId)
+                .orElseThrow()));
+
+        assertThat(linkedJob.get()
+            .getId()).isEqualTo(jobId);
+        assertThat(applicationEvents.stream(StartJobEvent.class)).hasSize(1);
+    }
+
+    @Test
+    public void testCreateJobRollsTheJobBackWhenTheCallbackFails() {
+        stubWorkflow();
+
+        AtomicReference<Long> createdJobIdReference = new AtomicReference<>();
+
+        assertThatThrownBy(
+            () -> jobFacade.createJob(
+                new JobParametersDTO(WORKFLOW_ID, Map.of()),
+                createdJobId -> {
+                    createdJobIdReference.set(createdJobId);
+
+                    throw new IllegalStateException("linking failed");
+                }))
+                    .isInstanceOf(IllegalStateException.class);
+
+        assertThat(createdJobIdReference.get()).isNotNull();
+        assertThat(jobRepository.findById(createdJobIdReference.get())).isEmpty();
+        assertThat(applicationEvents.stream(StartJobEvent.class)).isEmpty();
+    }
+
     private long saveJob(Job.Status status) {
         Job job = newJob();
 
@@ -426,199 +475,6 @@ public class JobFacadeIntTest {
         taskExecution.setJobId(jobId);
         taskExecution.setStatus(TaskExecution.Status.STARTED);
         taskExecution.setTaskNumber(1);
-
-        return Validate.notNull(taskExecutionRepository.save(taskExecution)
-            .getId(), "id");
-    }
-
-    @Test
-    public void testOptimisticLockRejectsConcurrentStoppedResumeClaim() {
-        Job job = newJob();
-
-        job.setStatus(Job.Status.STOPPED);
-
-        long jobId = Validate.notNull(jobRepository.save(job)
-            .getId(), "id");
-
-        // Two racers read the run at the same version and both attempt to claim it (STOPPED -> STARTED).
-        Job racerA = jobRepository.findById(jobId)
-            .orElseThrow();
-        Job racerB = jobRepository.findById(jobId)
-            .orElseThrow();
-
-        racerA.setStatus(Job.Status.STARTED);
-
-        jobRepository.save(racerA);
-
-        racerB.setStatus(Job.Status.STARTED);
-
-        // The loser's stale-version update must be rejected — the mechanism behind JobResumeFacadeImpl's single-winner
-        // resume claim (one OK, one GONE) and its rejection of resurrecting a run the expiry sweep flipped to FAILED.
-        assertThatThrownBy(() -> jobRepository.save(racerB)).isInstanceOf(OptimisticLockingFailureException.class);
-
-        assertThat(jobRepository.findById(jobId))
-            .get()
-            .extracting(Job::getStatus)
-            .isEqualTo(Job.Status.STARTED);
-    }
-
-    @Test
-    public void testTryClaimResumeReturnsFalseWithoutThrowingWhenClaimIsLost() {
-        Job job = newJob();
-
-        job.setStatus(Job.Status.STOPPED);
-
-        long jobId = Validate.notNull(jobRepository.save(job)
-            .getId(), "id");
-
-        Job racerA = jobRepository.findById(jobId)
-            .orElseThrow();
-        Job racerB = jobRepository.findById(jobId)
-            .orElseThrow();
-
-        assertThat(jobService.tryClaimResume(racerA)).isTrue();
-
-        // The loser's stale-version claim must return false, NOT throw OptimisticLockingFailureException, so the
-        // @Transactional resume facade is not left with a rollback-only transaction when it reports GONE.
-        assertThat(jobService.tryClaimResume(racerB)).isFalse();
-    }
-
-    @Test
-    public void testResumeToStatusStartedTransitionsStoppedJob() {
-        Job job = newJob();
-
-        job.setStatus(Job.Status.STOPPED);
-
-        long jobId = Validate.notNull(jobRepository.save(job)
-            .getId(), "id");
-
-        assertThat(jobService.resumeToStatusStarted(jobId)
-            .getStatus()).isEqualTo(Job.Status.STARTED);
-    }
-
-    @Test
-    public void testResumeToStatusStartedRejectsAStartedJob() {
-        long jobId = saveJob(Job.Status.STARTED);
-
-        assertThatThrownBy(() -> jobService.resumeToStatusStarted(jobId))
-            .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    public void testResumeJobRejectsARestartOfAStartedJob() {
-        long jobId = saveJob(Job.Status.FAILED);
-
-        jobFacade.resumeJob(jobId);
-
-        assertThatThrownBy(() -> jobFacade.resumeJob(jobId))
-            .isInstanceOf(IllegalArgumentException.class);
-
-        assertThat(applicationEvents.stream(ResumeJobEvent.class)).hasSize(1);
-    }
-
-    @Test
-    public void testResumeClaimedJobPublishesAStartedResumeEvent() {
-        jobFacade.resumeClaimedJob(1L, 2L, Map.of("approved", true));
-
-        assertThat(applicationEvents.stream(ResumeJobEvent.class))
-            .singleElement()
-            .satisfies(resumeJobEvent -> {
-                assertThat(resumeJobEvent.getJobId()).isEqualTo(1L);
-                assertThat(resumeJobEvent.isStarted()).isTrue();
-                assertThat(resumeJobEvent.getTaskExecutionId()).isEqualTo(2L);
-                assertThat(resumeJobEvent.getData()).isEqualTo(Map.of("approved", true));
-            });
-    }
-
-    @Test
-    public void testConcurrentResumeApprovalsCompleteTheWaitingTaskExecutionOnce() throws Exception {
-        long jobId = saveJob(Job.Status.STOPPED);
-
-        long taskExecutionId = saveStartedTaskExecution(jobId);
-
-        CyclicBarrier statusCheckBarrier = new CyclicBarrier(2);
-
-        doAnswer(invocation -> {
-            Object job = invocation.callRealMethod();
-
-            statusCheckBarrier.await(10, TimeUnit.SECONDS);
-
-            return job;
-        }).when(jobService)
-            .getJob(jobId);
-
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-
-        try {
-            Future<Boolean> firstApproval = executorService.submit(() -> resumeApproval(jobId, "uuid-1"));
-            Future<Boolean> secondApproval = executorService.submit(() -> resumeApproval(jobId, "uuid-2"));
-
-            List<Boolean> results = List.of(
-                firstApproval.get(30, TimeUnit.SECONDS), secondApproval.get(30, TimeUnit.SECONDS));
-
-            assertThat(results).containsExactlyInAnyOrder(true, false);
-        } finally {
-            executorService.shutdownNow();
-        }
-
-        verify(taskFileStorage, times(1)).storeTaskExecutionOutput(eq(jobId), eq(taskExecutionId), anyMap());
-    }
-
-    @Test
-    public void testResumeApprovalRejectsAJobThatIsNotStopped() {
-        long jobId = saveJob(Job.Status.STARTED);
-
-        saveStartedTaskExecution(jobId);
-
-        assertThatThrownBy(() -> jobFacade.resumeApproval(jobId, "uuid-1", true))
-            .isInstanceOf(IllegalStateException.class);
-
-        verify(taskFileStorage, never()).storeTaskExecutionOutput(eq(jobId), anyLong(), anyMap());
-
-        assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).isEmpty();
-    }
-
-    @Test
-    public void testResumeApprovalCompletesTheWaitingTaskExecution() {
-        long jobId = saveJob(Job.Status.STOPPED);
-
-        long taskExecutionId = saveStartedTaskExecution(jobId);
-
-        jobFacade.resumeApproval(jobId, "uuid-1", true);
-
-        assertThat(jobRepository.findById(jobId))
-            .get()
-            .extracting(Job::getStatus)
-            .isEqualTo(Job.Status.STARTED);
-
-        verify(taskFileStorage).storeTaskExecutionOutput(jobId, taskExecutionId, Map.of("approved", true));
-
-        assertThat(applicationEvents.stream(TaskExecutionCompleteEvent.class)).hasSize(1);
-    }
-
-    private boolean resumeApproval(long jobId, String uuid) {
-        try {
-            jobFacade.resumeApproval(jobId, uuid, true);
-
-            return true;
-        } catch (IllegalArgumentException | IllegalStateException exception) {
-            return false;
-        }
-    }
-
-    private long saveJob(Job.Status status) {
-        Job job = newJob();
-
-        job.setStatus(status);
-
-        return Validate.notNull(jobRepository.save(job)
-            .getId(), "id");
-    }
-
-    private long saveStartedTaskExecution(long jobId) {
-        TaskExecution taskExecution = newTaskExecution(jobId, null);
-
-        taskExecution.setStatus(TaskExecution.Status.STARTED);
 
         return Validate.notNull(taskExecutionRepository.save(taskExecution)
             .getId(), "id");
@@ -672,6 +528,16 @@ public class JobFacadeIntTest {
         assertThat(UPDATED_JOB_STATES)
             .as("the marker must not be removed while the job is still stopped")
             .doesNotContain(new UpdatedJobState(Job.Status.STOPPED, false));
+    }
+
+    private void stubWorkflow() {
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflow.getId()).thenReturn(WORKFLOW_ID);
+        when(workflow.getInputs()).thenReturn(List.of());
+        when(workflow.getTasks()).thenReturn(List.of());
+
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
     }
 
     @Test
