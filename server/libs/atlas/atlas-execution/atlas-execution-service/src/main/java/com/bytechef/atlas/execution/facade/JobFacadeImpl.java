@@ -228,7 +228,7 @@ public class JobFacadeImpl implements JobFacade {
             throw new IllegalArgumentException("Approval already processed");
         }
 
-        if (!jobService.tryClaimResume(job)) {
+        if (!jobService.tryClaimResume(jobService.getJob(jobId))) {
             throw new IllegalStateException("Job %s approval was already resolved".formatted(jobId));
         }
 
@@ -239,7 +239,7 @@ public class JobFacadeImpl implements JobFacade {
         contextService.push(
             jobId, Context.Classname.JOB, taskFileStorage.storeContextValue(jobId, Context.Classname.JOB, jobContext));
 
-        Job resumedJob = jobService.getJob(jobId);
+        Job job = jobService.getJob(jobId);
 
         Map<String, Object> metadata = new HashMap<>(resumedJob.getMetadata());
 
