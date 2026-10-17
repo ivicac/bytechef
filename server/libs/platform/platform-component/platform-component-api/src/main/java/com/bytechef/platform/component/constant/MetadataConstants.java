@@ -22,18 +22,22 @@ package com.bytechef.platform.component.constant;
 public class MetadataConstants {
 
     public static final String APPROVAL_FORM_PARAMETERS = "approvalFormParameters";
+    public static final String APPROVAL_RAISED_AT = "approvalRaisedAt";
     public static final String APPROVAL_RESUME = "__bytechef_approval_resume__";
     public static final String CALLABLE_RESPONSE = "__callableResponse";
+    public static final String CANCELLED_JOB_RESUME_ID = "cancelledJobResumeId";
     public static final String CONNECTION_IDS = "connectionIds";
     public static final String DRY_RUN = "dryRun";
     public static final String CONSUMED_JOB_RESUME_ID = "consumedJobResumeId";
     public static final String WEBHOOK_RESPONSE = "__webhookResponse";
     public static final String EDITOR_ENVIRONMENT = "editorEnvironment";
     public static final String ENVIRONMENT_ID = "environmentId";
+    public static final String EXPIRED_JOB_RESUME_ID = "expiredJobResumeId";
     public static final String JOB_PRINCIPAL_ID = "jobPrincipalId";
     public static final String JOB_PRINCIPAL_WORKFLOW_ID = "jobPrincipalWorkflowId";
     public static final String JOB_RESUME_ID = "jobResumeId";
     public static final String RESUME_DATA = "__resumeData";
+    public static final String STREAMED_EXECUTION = "__bytechef_streamed_execution__";
     public static final String STREAMING_RESUME = "__bytechef_streaming_resume__";
     public static final String SUSPEND = "suspend";
     public static final String TASK_EXECUTION_RESUME_ID = "taskExecutionResumeId";
