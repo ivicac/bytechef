@@ -31,7 +31,7 @@ import com.bytechef.task.dispatcher.subflow.SubflowTaskDispatcher;
 import com.bytechef.task.dispatcher.subflow.event.listener.AgentSubflowLauncher;
 import com.bytechef.task.dispatcher.subflow.event.listener.AgentSubflowResumeListener;
 import com.bytechef.task.dispatcher.subflow.event.listener.SubflowJobStatusEventListener;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -68,16 +68,20 @@ public class SubflowTaskDispatcherConfiguration {
 
     @Configuration
     @ConditionalOnCoordinator
+    @ConditionalOnClass(name = "com.bytechef.task.dispatcher.suspend.completion.SuspendTaskCompletionHandler")
     public static class AgentSubflowBridgeConfiguration {
 
         @Bean
         AgentSubflowLauncher agentSubflowLauncher(
-            ChildJobPrincipalFactory childJobPrincipalFactory, JobFacade jobFacade, JobService jobService,
-            @Value("${bytechef.workflow.execution.agent.max-subflow-depth:10}") int maxSubflowDepth,
-            TaskExecutionService taskExecutionService) {
+            ApplicationProperties applicationProperties, ChildJobPrincipalFactory childJobPrincipalFactory,
+            JobFacade jobFacade, JobService jobService, TaskStateFacade taskStateFacade) {
+
+            ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
+            ApplicationProperties.Workflow.Execution execution = workflow.getExecution();
+            ApplicationProperties.Workflow.Execution.Agent agent = execution.getAgent();
 
             return new AgentSubflowLauncher(
-                childJobPrincipalFactory, jobFacade, jobService, maxSubflowDepth, taskExecutionService);
+                childJobPrincipalFactory, jobFacade, jobService, agent.getMaxSubflowDepth(), taskStateFacade);
         }
 
         @Bean

@@ -17,12 +17,12 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,12 +52,16 @@ public final class DiscordInteractivityController {
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public DiscordInteractivityController(
-        ApprovalShortTokenStore approvalShortTokenStore, JobResumeFacade jobResumeFacade,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        @Value("${bytechef.webhook.discord.public-key:}") String publicKey) {
+        ApplicationProperties applicationProperties, ApprovalShortTokenStore approvalShortTokenStore,
+        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+
+        ApplicationProperties.Webhook webhook = applicationProperties.getWebhook();
+
+        ApplicationProperties.Webhook.Discord discord = webhook.getDiscord();
 
         this.discordInteractivityHandler = new DiscordInteractivityHandler(
-            approvalShortTokenStore, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(), publicKey);
+            approvalShortTokenStore, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(),
+            discord.getPublicKey());
     }
 
     @SuppressFBWarnings(

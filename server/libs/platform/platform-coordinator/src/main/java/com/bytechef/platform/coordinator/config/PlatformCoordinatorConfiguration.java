@@ -25,36 +25,38 @@ import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.message.broker.MessageBroker;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.coordinator.ErrorWorkflowDispatchCounter;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowPayloadFactory;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowResolver;
+import com.bytechef.platform.coordinator.event.listener.ExecutionDataJobCompletionListener;
+import com.bytechef.platform.coordinator.event.listener.ExecutionDataJobDeletionListener;
 import com.bytechef.platform.coordinator.event.listener.NotificationJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SuspendedTaskStateJobDeletionListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
-import com.bytechef.platform.coordinator.monitor.ApprovalEscalationMonitor;
 import com.bytechef.platform.coordinator.monitor.ApprovalExpiryMonitor;
-import com.bytechef.platform.coordinator.monitor.ApprovalReminderMonitor;
 import com.bytechef.platform.coordinator.monitor.JobRetentionMonitor;
 import com.bytechef.platform.coordinator.monitor.JobTimeoutMonitor;
 import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
+import com.bytechef.platform.coordinator.notification.NotificationHandlerContexts;
 import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.notification.delivery.WebhookDeliveryService;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.facade.TaskStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
-import com.bytechef.platform.workflow.execution.service.TaskStateService;
-import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
@@ -105,39 +107,39 @@ public class PlatformCoordinatorConfiguration {
     @ConditionalOnProperty(
         name = "bytechef.workflow.execution.recovery.enabled", havingValue = "true", matchIfMissing = true)
     OrphanedJobRecoveryMonitor orphanedJobRecoveryMonitor(
-        @Value("${bytechef.workflow.execution.recovery.auto-resume:false}") boolean autoResume,
-        ApplicationEventPublisher eventPublisher,
-        @Value("${bytechef.workflow.execution.recovery.max-auto-resume-attempts:3}") int maxAutoResumeAttempts,
-        @Value("${bytechef.workflow.execution.recovery.staleness-threshold:PT5M}") Duration stalenessThreshold,
-        TaskExecutionService taskExecutionService, TenantService tenantService) {
+        ApplicationEventPublisher eventPublisher, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
+
+        ApplicationProperties.Workflow.Execution.Recovery recovery = execution.getRecovery();
 
         return new OrphanedJobRecoveryMonitor(
-            autoResume, eventPublisher, jobService, maxAutoResumeAttempts, stalenessThreshold, taskExecutionService,
-            tenantService);
+            recovery.isAutoResume(), eventPublisher, jobService, recovery.getMaxAutoResumeAttempts(),
+            recovery.getStalenessThreshold(), taskExecutionService, tenantService);
     }
 
     @Bean
     @ConditionalOnProperty(
         name = "bytechef.workflow.execution.timeout.enabled", havingValue = "true", matchIfMissing = true)
     JobTimeoutMonitor jobTimeoutMonitor(
-        @Value("${bytechef.workflow.execution.timeout.default-timeout:#{null}}") Duration defaultTimeout,
-        ApplicationEventPublisher eventPublisher,
-        TaskExecutionService taskExecutionService, TenantService tenantService) {
+        ApplicationEventPublisher eventPublisher, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
+
+        ApplicationProperties.Workflow.Execution.Timeout timeout = execution.getTimeout();
 
         return new JobTimeoutMonitor(
-            defaultTimeout, eventPublisher, jobService, taskExecutionService, tenantService);
+            timeout.getDefaultTimeout(), eventPublisher, jobService, taskExecutionService, tenantService);
     }
 
     @Bean
     @ConditionalOnProperty(
         name = "bytechef.workflow.execution.retention.enabled", havingValue = "true", matchIfMissing = true)
     JobRetentionMonitor jobRetentionMonitor(
-        ObjectProvider<DataStorage> dataStorageObjectProvider,
-        @Value("${bytechef.workflow.execution.retention.default-retention-days:#{null}}") Integer defaultRetentionDays,
-        JobFacade jobFacade, TenantService tenantService) {
+        ObjectProvider<DataStorage> dataStorageObjectProvider, JobFacade jobFacade, TenantService tenantService) {
+
+        ApplicationProperties.Workflow.Execution.Retention retention = execution.getRetention();
 
         return new JobRetentionMonitor(
-            dataStorageObjectProvider, defaultRetentionDays, jobFacade, jobService, tenantService);
+            dataStorageObjectProvider, retention.getDefaultRetentionDays(), jobFacade, jobService, tenantService);
     }
 
     @Bean
@@ -149,10 +151,12 @@ public class PlatformCoordinatorConfiguration {
 
     @Bean
     WebhookTaskStartedApplicationEventListener taskStartedWebhookEventListener(
+        WebhookDeliveryService webhookDeliveryService,
         @Value("${bytechef.security.ssrf.enabled:true}") boolean ssrfEnabled,
         @Value("${bytechef.security.ssrf.allowed-hosts:}") Set<String> ssrfAllowedHosts) {
 
-        return new WebhookTaskStartedApplicationEventListener(jobService, ssrfEnabled, ssrfAllowedHosts);
+        return new WebhookTaskStartedApplicationEventListener(
+            jobService, webhookDeliveryService, ssrfEnabled, ssrfAllowedHosts);
     }
 
     @Bean
@@ -189,39 +193,24 @@ public class PlatformCoordinatorConfiguration {
     }
 
     @Bean
+    ExecutionDataJobCompletionListener executionDataJobCompletionListener(
+        ObjectProvider<DataStorage> dataStorageObjectProvider) {
+
+        return new ExecutionDataJobCompletionListener(dataStorageObjectProvider.getIfAvailable(), jobService);
+    }
+
+    @Bean
+    ExecutionDataJobDeletionListener executionDataJobDeletionListener(
+        ObjectProvider<DataStorage> dataStorageObjectProvider) {
+
+        return new ExecutionDataJobDeletionListener(dataStorageObjectProvider.getIfAvailable());
+    }
+
+    @Bean
     SuspendedTaskStateJobDeletionListener suspendedTaskStateJobDeletionListener(
-        ObjectProvider<TaskStateService> taskStateServiceObjectProvider) {
+        ObjectProvider<TaskStateFacade> taskStateServiceObjectProvider) {
 
         return new SuspendedTaskStateJobDeletionListener(taskStateServiceObjectProvider.getIfAvailable());
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-        name = "bytechef.workflow.execution.approval-reminder.enabled", havingValue = "true", matchIfMissing = true)
-    ApprovalReminderMonitor approvalReminderMonitor(
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        @Value("${bytechef.workflow.execution.approval-reminder.lead-time:PT24H}") Duration leadTime,
-        @Value("${bytechef.public-url:#{null}}") String publicUrl, TaskExecutionService taskExecutionService,
-        TenantService tenantService) {
-
-        return new ApprovalReminderMonitor(
-            approvalTokensObjectProvider.getIfAvailable(), jobService, leadTime, notificationHandlerRegistry,
-            notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-        name = "bytechef.workflow.execution.approval-escalation.enabled", havingValue = "true",
-        matchIfMissing = true)
-    ApprovalEscalationMonitor approvalEscalationMonitor(
-        @Value("${bytechef.workflow.execution.approval-escalation.after:#{null}}") Duration after,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        @Value("${bytechef.public-url:#{null}}") String publicUrl, TaskExecutionService taskExecutionService,
-        TenantService tenantService) {
-
-        return new ApprovalEscalationMonitor(
-            after, approvalTokensObjectProvider.getIfAvailable(), jobService, notificationHandlerRegistry,
-            notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
     }
 
     @Bean
@@ -249,8 +238,9 @@ public class PlatformCoordinatorConfiguration {
 
     @Bean
     SseStreamApplicationEventListener sseStreamApplicationEventListener(
-        MessageBroker messageBroker, TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
+        JobService jobService, MessageBroker messageBroker, TaskExecutionService taskExecutionService,
+        TaskFileStorage taskFileStorage) {
 
-        return new SseStreamApplicationEventListener(messageBroker, taskExecutionService, taskFileStorage);
+        return new SseStreamApplicationEventListener(jobService, messageBroker, taskExecutionService, taskFileStorage);
     }
 }
