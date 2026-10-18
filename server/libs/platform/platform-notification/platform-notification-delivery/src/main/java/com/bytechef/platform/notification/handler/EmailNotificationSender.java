@@ -20,24 +20,21 @@ import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.email.NotificationEmailGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
  * Delivers EMAIL-channel notifications through the {@link NotificationEmailGateway} port. The monolith and
  * configuration-app bind the port to {@code MailService} — the single email path for everything the platform sends —
- * while the distributed coordinator binds it to a remote client that proxies the send to configuration-app. Without a
- * gateway bean at all the channel warn-skips. Settings: {@code email} (recipient address, required).
+ * while the distributed coordinator binds it to a remote client that proxies the send to configuration-app. The send is
+ * synchronous: a missing recipient, a missing gateway bean or a failed send throws, so the caller sees the notification
+ * as not delivered. Settings: {@code email} (recipient address, required).
  *
  * @author Matija Petanjek
  * @author Ivica Cardic
  */
 @Component
 public class EmailNotificationSender implements NotificationSender<EmailNotificationHandler> {
-
-    private static final Logger log = LoggerFactory.getLogger(EmailNotificationSender.class);
 
     private final ObjectProvider<NotificationEmailGateway> notificationEmailGatewayObjectProvider;
 
@@ -61,19 +58,15 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
         String email = (String) settings.get("email");
 
         if (email == null || email.isBlank()) {
-            log.warn("Notification {} has no email address configured; skipping delivery", notification.getId());
-
-            return;
+            throw new IllegalStateException(
+                "Notification " + notification.getId() + " has no email address configured");
         }
 
         NotificationEmailGateway notificationEmailGateway = notificationEmailGatewayObjectProvider.getIfAvailable();
 
         if (notificationEmailGateway == null) {
-            log.warn(
-                "No email gateway is available in this deployment; skipping email delivery for notification {}",
-                notification.getId());
-
-            return;
+            throw new IllegalStateException(
+                "No email gateway is available in this deployment to deliver notification " + notification.getId());
         }
 
         notificationEmailGateway.sendEmail(
