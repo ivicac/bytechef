@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.workflow.execution.remote.client.facade;
 
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
@@ -35,6 +36,16 @@ public class RemoteJobResumeFacadeClient implements JobResumeFacade {
     }
 
     @Override
+    public boolean cancelApproval(long jobId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isApprovalResumeId(String id) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public JobResumeOutcome resumeExpiredJob(String id) {
         return loadBalancedRestClient.post(
             uriBuilder -> uriBuilder
@@ -42,6 +53,11 @@ public class RemoteJobResumeFacadeClient implements JobResumeFacade {
                 .path(JOB_RESUME_FACADE + "/resume-expired-job")
                 .build(),
             new ResumeExpiredJobRequest(id), JobResumeOutcome.class);
+    }
+
+    @Override
+    public JobResumeOutcome resumeApproval(ApprovalId approvalId) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
