@@ -17,7 +17,6 @@
 package com.bytechef.tenant.sql;
 
 import com.bytechef.tenant.TenantContext;
-import com.bytechef.tenant.TenantIdValidator;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -129,8 +128,6 @@ public abstract class BaseDataSource implements DataSource {
     protected void setSearchPath(Connection connection) throws SQLException {
         String currentDatabaseSchema = TenantContext.getCurrentDatabaseSchema(getVectorSchemaSuffix());
 
-        TenantIdValidator.validateDatabaseSchema(currentDatabaseSchema);
-
         try (PreparedStatement statement =
             connection.prepareStatement(SET_SEARCH_PATH_STATEMENT + getSearchPath(currentDatabaseSchema))) {
 
@@ -144,15 +141,17 @@ public abstract class BaseDataSource implements DataSource {
      * extensions such as pgvector's {@code vector} type and its {@code <=>} operator) stay resolvable without explicit
      * schema qualification. For the default tenant the schema already is {@code public}, so nothing is appended.
      *
-     * @param currentDatabaseSchema the validated tenant schema
+     * @param currentDatabaseSchema the tenant schema
      * @return the search path value
      */
     protected String getSearchPath(String currentDatabaseSchema) {
+        String quotedDatabaseSchema = SchemaNameUtils.quote(currentDatabaseSchema);
+
         if (Objects.equals(currentDatabaseSchema, TenantContext.DEFAULT_TENANT_ID)) {
-            return currentDatabaseSchema;
+            return quotedDatabaseSchema;
         }
 
-        return currentDatabaseSchema + ", " + TenantContext.DEFAULT_TENANT_ID;
+        return quotedDatabaseSchema + ", " + SchemaNameUtils.quote(TenantContext.DEFAULT_TENANT_ID);
     }
 
     /**

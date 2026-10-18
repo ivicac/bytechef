@@ -17,6 +17,7 @@
 package com.bytechef.tenant.sql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -107,6 +108,15 @@ class BaseDataSourceIntTest {
             assertThat(querySingleValue(connection, "SELECT origin FROM marker")).isEqualTo("vector");
             assertThat(querySingleValue(connection, "SELECT origin FROM public_only")).isEqualTo("public");
         }
+    }
+
+    @Test
+    void testGetConnectionRejectsAnInvalidVectorSchemaSuffix() {
+        TenantContext.setCurrentTenantId("000004");
+
+        BaseDataSource dataSource = new TestDataSource(delegate, "vector.store");
+
+        assertThatThrownBy(dataSource::getConnection).isInstanceOf(IllegalArgumentException.class);
     }
 
     private static String querySingleValue(Connection connection, String sql) throws SQLException {
