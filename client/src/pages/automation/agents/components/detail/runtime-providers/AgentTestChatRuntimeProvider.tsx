@@ -197,7 +197,7 @@ export function useAgentTestChatRuntime(workflowId: string): UseAgentTestChatRun
                 }
             },
         }),
-        [setMessage]
+        []
     );
 
     const {connectionState} = useSSE(streamRequest, {
