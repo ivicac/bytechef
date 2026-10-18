@@ -1,0 +1,101 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.component.whatsapp.cluster;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.bytechef.component.definition.ClusterElementContext;
+import com.bytechef.component.definition.Context.Http;
+import com.bytechef.component.definition.Context.Http.Body;
+import com.bytechef.component.definition.TypeReference;
+import com.bytechef.component.definition.approval.ApprovalChannelFunction;
+import com.bytechef.component.test.definition.MockParametersFactory;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+/**
+ * @author Ivica Cardic
+ */
+class WhatsAppApprovalChannelTest {
+
+    private static final String FORM_URL = "https://example.com/approval/form-token";
+
+    private final ArgumentCaptor<Body> bodyArgumentCaptor = ArgumentCaptor.forClass(Body.class);
+    private final ClusterElementContext context = mock(ClusterElementContext.class);
+
+    @BeforeEach
+    void setUp() {
+        Http.Executor executor = mock(Http.Executor.class);
+        Http.Response response = mock(Http.Response.class);
+
+        when(context.http(any())).thenReturn(executor);
+        when(executor.body(bodyArgumentCaptor.capture())).thenReturn(executor);
+        when(executor.configuration(any())).thenReturn(executor);
+        when(executor.execute()).thenReturn(response);
+        when(response.getBody(any(TypeReference.class))).thenReturn(Map.of());
+    }
+
+    @Test
+    void testReplyButtonsCarryTheResumeId() throws Exception {
+        perform("resume-token");
+
+        Map<String, ?> content = getContent();
+
+        assertThat(content.get("type")).isEqualTo("interactive");
+        assertThat(content.toString()).contains("a:resume-token", "d:resume-token")
+            .doesNotContain("a:form-token");
+    }
+
+    @Test
+    void testMissingResumeIdFallsBackToFormLinks() throws Exception {
+        perform(null);
+
+        Map<String, ?> content = getContent();
+
+        assertThat(content.get("type")).isEqualTo("text");
+        assertThat(content.toString()).contains(FORM_URL);
+    }
+
+    private void perform(String resumeId) throws Exception {
+        ApprovalChannelFunction approvalChannelFunction = WhatsAppApprovalChannel.CLUSTER_ELEMENT_DEFINITION
+            .getElement();
+
+        Map<String, Object> inputParameters = new HashMap<>(Map.of("to", "+15550000", "inputs", List.of()));
+
+        if (resumeId != null) {
+            inputParameters.put(ApprovalChannelFunction.RESUME_ID, resumeId);
+        }
+
+        approvalChannelFunction.apply(
+            MockParametersFactory.create(inputParameters),
+            MockParametersFactory.create(Map.of("appSecret", "secret", "phoneNumberId", "1")), FORM_URL, context);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, ?> getContent() {
+        Body body = bodyArgumentCaptor.getValue();
+
+        return (Map<String, ?>) body.getContent();
+    }
+}

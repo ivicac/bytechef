@@ -23,6 +23,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.RESUME_ID;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.APP_SECRET;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.BODY;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.MESSAGING_PRODUCT;
@@ -74,18 +75,17 @@ public class WhatsAppApprovalChannel {
 
         String appSecret = connectionParameters.getString(APP_SECRET);
 
-        boolean inPlace = appSecret != null && !appSecret.isBlank();
+        String resumeId = inputParameters.getString(RESUME_ID);
+
+        boolean inPlace = appSecret != null && !appSecret.isBlank() && resumeId != null && !resumeId.isBlank();
 
         Body body;
 
         if (inputs.isEmpty() && inPlace && formUrl != null && !formUrl.isBlank()) {
             // The connection carries the Meta app secret, so the app's webhook can be verified server-side: send
             // in-place reply buttons that resolve the approval without leaving WhatsApp (see
-            // WhatsAppInteractivityController). The button ids carry the tokenized resume id (the form-URL tail —
-            // WhatsApp allows 256 chars, so the signed token fits) prefixed with the decision, and must be unique
-            // within the message.
-            String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
-
+            // WhatsAppInteractivityController). The button ids carry the tokenized resume id (WhatsApp allows 256
+            // chars, so the signed token fits) prefixed with the decision, and must be unique within the message.
             body = Body.of(
                 MESSAGING_PRODUCT, "whatsapp",
                 RECIPIENT_TYPE, "individual",
