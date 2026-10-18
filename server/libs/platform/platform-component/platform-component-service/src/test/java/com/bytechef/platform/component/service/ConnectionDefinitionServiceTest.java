@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.component.service;
 
+import static com.bytechef.component.definition.Authorization.DEFAULT_REFRESH_ON;
 import static com.bytechef.component.definition.ComponentDsl.action;
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.connection;
@@ -25,13 +26,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.platform.component.ComponentDefinitionRegistry;
 import com.bytechef.platform.component.aspect.TokenRefreshHandler;
 import com.bytechef.platform.component.context.ContextFactory;
 import com.bytechef.platform.component.definition.ScriptComponentDefinition;
 import com.bytechef.platform.component.domain.ConnectionDefinition;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +51,40 @@ public class ConnectionDefinitionServiceTest {
 
     private final ConnectionDefinitionServiceImpl connectionDefinitionService = new ConnectionDefinitionServiceImpl(
         componentDefinitionRegistry, contextFactory, tokenRefreshHandler);
+
+    @Test
+    public void testGetAuthorizationRefreshOnIsEmptyForCustomAuthorizationWithoutAcquire() {
+        when(componentDefinitionRegistry.fetchAuthorization("telegram", 1, AuthorizationType.CUSTOM))
+            .thenReturn(Optional.of(ComponentDsl.authorization(AuthorizationType.CUSTOM)));
+
+        assertThat(connectionDefinitionService.getAuthorizationRefreshOn("telegram", 1, AuthorizationType.CUSTOM))
+            .isEmpty();
+    }
+
+    @Test
+    public void testGetAuthorizationRefreshOnKeepsTheDefaultForCustomAuthorizationWithAcquire() {
+        when(componentDefinitionRegistry.fetchAuthorization("custom", 1, AuthorizationType.CUSTOM))
+            .thenReturn(
+                Optional.of(
+                    ComponentDsl.authorization(AuthorizationType.CUSTOM)
+                        .acquire((connectionParameters, context) -> Map.of("token", "acquired"))));
+
+        assertThat(connectionDefinitionService.getAuthorizationRefreshOn("custom", 1, AuthorizationType.CUSTOM))
+            .isEqualTo(DEFAULT_REFRESH_ON);
+    }
+
+    @Test
+    public void testGetAuthorizationRefreshOnKeepsTheDefaultForOAuth2AuthorizationCode() {
+        when(
+            componentDefinitionRegistry.fetchAuthorization(
+                "oauth", 1, AuthorizationType.OAUTH2_AUTHORIZATION_CODE))
+                    .thenReturn(Optional.of(ComponentDsl.authorization(AuthorizationType.OAUTH2_AUTHORIZATION_CODE)));
+
+        assertThat(
+            connectionDefinitionService.getAuthorizationRefreshOn(
+                "oauth", 1, AuthorizationType.OAUTH2_AUTHORIZATION_CODE))
+                    .isEqualTo(DEFAULT_REFRESH_ON);
+    }
 
     @Test
     void testGetConnectionDefinitionsForScriptComponentUsesStubEnumeration() {

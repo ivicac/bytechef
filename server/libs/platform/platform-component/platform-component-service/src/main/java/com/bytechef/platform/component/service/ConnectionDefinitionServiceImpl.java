@@ -270,8 +270,15 @@ public class ConnectionDefinitionServiceImpl implements ConnectionDefinitionServ
             return List.of();
         }
 
-        return authorizationOptional.get()
-            .getRefreshOn();
+        Authorization authorization = authorizationOptional.get();
+
+        if (!isOAuth2AuthorizationCode(authorizationType) && authorization.getAcquire()
+            .isEmpty()) {
+
+            return List.of();
+        }
+
+        return authorization.getRefreshOn();
     }
 
     @Override
@@ -807,5 +814,10 @@ public class ConnectionDefinitionServiceImpl implements ConnectionDefinitionServ
                 .orElseThrow(),
             componentDefinition.getName(),
             titleOptional.orElse(componentDefinition.getName()), descriptionOptional.orElse(null));
+    }
+
+    private static boolean isOAuth2AuthorizationCode(AuthorizationType authorizationType) {
+        return authorizationType == AuthorizationType.OAUTH2_AUTHORIZATION_CODE ||
+            authorizationType == AuthorizationType.OAUTH2_AUTHORIZATION_CODE_PKCE;
     }
 }
