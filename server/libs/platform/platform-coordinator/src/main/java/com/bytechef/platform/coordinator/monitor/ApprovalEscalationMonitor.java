@@ -23,14 +23,12 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
-import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.domain.NotificationEvent;
-import com.bytechef.platform.notification.handler.NotificationHandler;
 import com.bytechef.platform.notification.handler.NotificationHandlerContext;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
-import com.bytechef.platform.notification.handler.NotificationSender;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.workflow.execution.JobSuspends;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
@@ -39,11 +37,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
@@ -57,9 +55,11 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>
  * The escalation window is measured from when the approval was raised (the suspended task execution's start). With no
  * {@code after} configured the sweep is a no-op — escalation is opt-in. An approval whose expiry has already passed is
- * left to {@link ApprovalExpiryMonitor}. Escalations are per-suspend idempotent: the send is recorded in job metadata
- * under {@code approvalEscalatedAt} (cleared on resume), so each pending approval is escalated at most once. Disable
- * the sweep with {@code bytechef.workflow.execution.approval-escalation.enabled=false}.
+ * left to {@link ApprovalExpiryMonitor}, and suspends that are not approvals are ignored. Escalations are per-suspend
+ * idempotent: the sweep claims the escalation under {@code approvalEscalatedAt} in job metadata (cleared on resume)
+ * before sending, so two coordinator replicas cannot both send it, and keeps the claim only when at least one
+ * notification was delivered. When no notification is configured or every send fails, the claim is released and the
+ * next sweep tries again. Disable the sweep with {@code bytechef.workflow.execution.approval-escalation.enabled=false}.
  * </p>
  *
  * <p>
@@ -77,11 +77,9 @@ public class ApprovalEscalationMonitor {
     private static final Logger log = LoggerFactory.getLogger(ApprovalEscalationMonitor.class);
 
     private final @Nullable Duration after;
+    private final ApprovalNotificationDispatcher approvalNotificationDispatcher;
     private final @Nullable ApprovalTokens approvalTokens;
     private final JobService jobService;
-    private final NotificationHandlerRegistry notificationHandlerRegistry;
-    private final NotificationSenderRegistry notificationSenderRegistry;
-    private final NotificationService notificationService;
     private final @Nullable String publicUrl;
     private final TaskExecutionService taskExecutionService;
     private final TenantService tenantService;
@@ -94,11 +92,10 @@ public class ApprovalEscalationMonitor {
         @Nullable String publicUrl, TaskExecutionService taskExecutionService, TenantService tenantService) {
 
         this.after = after;
+        this.approvalNotificationDispatcher = new ApprovalNotificationDispatcher(
+            notificationHandlerRegistry, notificationSenderRegistry, notificationService);
         this.approvalTokens = approvalTokens;
         this.jobService = jobService;
-        this.notificationHandlerRegistry = notificationHandlerRegistry;
-        this.notificationSenderRegistry = notificationSenderRegistry;
-        this.notificationService = notificationService;
         this.publicUrl = publicUrl;
         this.taskExecutionService = taskExecutionService;
         this.tenantService = tenantService;
@@ -128,52 +125,72 @@ public class ApprovalEscalationMonitor {
         Instant now = Instant.now();
 
         for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, now)) {
-            Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-            if (jobResumeId == null || job.getMetadata(APPROVAL_ESCALATED_AT) != null) {
-                continue;
-            }
-
-            TaskExecution taskExecution = fetchSuspendedTaskExecution(job);
-
-            if (taskExecution == null) {
-                continue;
-            }
-
-            Instant raisedAt = taskExecution.getStartDate();
-
-            if (raisedAt == null || raisedAt.plus(after)
-                .isAfter(now)) {
-
-                continue;
-            }
-
-            Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
-
-            // An approval that has already expired is left to the expiry sweep; escalating it would re-deliver a dead
-            // request.
-            if (expiresAt != null && !expiresAt.isAfter(now)) {
-                continue;
-            }
-
             try {
-                sendEscalation(job, jobResumeId.toString(), expiresAt);
-
-                markEscalated(job, now);
-            } catch (Exception exception) {
-                log.warn(
-                    "Could not send approval escalation for job {}: {}", job.getId(), exception.getMessage());
+                escalateJob(job, now);
+            } catch (RuntimeException runtimeException) {
+                log.warn("Could not process the approval escalation for job {}", job.getId(), runtimeException);
             }
         }
     }
 
-    @SuppressWarnings({
-        "rawtypes", "unchecked"
-    })
-    private void sendEscalation(Job job, String jobResumeId, @Nullable Instant expiresAt) {
+    private void escalateJob(Job job, Instant now) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (jobResumeId == null || !JobSuspends.isSuspendedForApproval(job) ||
+            job.getMetadata(APPROVAL_ESCALATED_AT) != null) {
+
+            return;
+        }
+
+        TaskExecution taskExecution = fetchSuspendedTaskExecution(job);
+
+        if (taskExecution == null) {
+            return;
+        }
+
+        Instant raisedAt = taskExecution.getStartDate();
+
+        if (raisedAt == null || raisedAt.plus(after)
+            .isAfter(now)) {
+
+            return;
+        }
+
+        Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+
+        if (expiresAt != null && !expiresAt.isAfter(now)) {
+            return;
+        }
+
+        Job claimedJob;
+
+        try {
+            claimedJob = putMarker(job, now.toString());
+        } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
+            return;
+        }
+
+        ApprovalNotificationDispatcher.Result result;
+
+        try {
+            result = sendEscalation(job, jobResumeId.toString(), expiresAt);
+        } catch (RuntimeException runtimeException) {
+            log.warn("Could not send approval escalation for job {}", job.getId(), runtimeException);
+
+            result = ApprovalNotificationDispatcher.Result.FAILED;
+        }
+
+        if (result != ApprovalNotificationDispatcher.Result.DELIVERED) {
+            releaseClaim(claimedJob);
+        }
+    }
+
+    private ApprovalNotificationDispatcher.Result sendEscalation(
+        Job job, String jobResumeId, @Nullable Instant expiresAt) {
+
         NotificationEvent.Type eventType = NotificationEvent.Type.JOB_APPROVAL_ESCALATED;
 
-        String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId, approvalTokens)
+        String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId, approvalTokens, expiresAt)
             .orElse(null);
 
         NotificationHandlerContext notificationHandlerContext = new NotificationHandlerContext.Builder()
@@ -184,35 +201,31 @@ public class ApprovalEscalationMonitor {
             .jobName(job.getLabel())
             .build();
 
-        List<Notification> notifications = notificationService.getNotifications(eventType);
+        return approvalNotificationDispatcher.dispatch(eventType, notificationHandlerContext);
+    }
 
-        for (Notification notification : notifications) {
-            NotificationSender notificationSender = notificationSenderRegistry.getNotificationSender(
-                notification.getType());
-
-            NotificationHandler notificationHandler = notificationHandlerRegistry.getNotificationHandler(
-                eventType, notification.getType());
-
-            if (notificationSender == null || notificationHandler == null) {
-                log.warn(
-                    "No {} found for notification {} and event type {}; skipping",
-                    notificationSender == null ? "sender" : "handler", notification.getId(), eventType);
-
-                continue;
-            }
-
-            notificationSender.send(notification, notificationHandler, notificationHandlerContext);
+    private void releaseClaim(Job claimedJob) {
+        try {
+            putMarker(claimedJob, null);
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not release the approval escalation claim on job {}; it will not be retried",
+                claimedJob.getId(), runtimeException);
         }
     }
 
-    private void markEscalated(Job job, Instant escalatedAt) {
+    private Job putMarker(Job job, @Nullable String escalatedAt) {
         Map<String, Object> metadata = new HashMap<>(job.getMetadata());
 
-        metadata.put(APPROVAL_ESCALATED_AT, escalatedAt.toString());
+        if (escalatedAt == null) {
+            metadata.remove(APPROVAL_ESCALATED_AT);
+        } else {
+            metadata.put(APPROVAL_ESCALATED_AT, escalatedAt);
+        }
 
         job.setMetadata(metadata);
 
-        jobService.update(job);
+        return jobService.update(job);
     }
 
     private @Nullable TaskExecution fetchSuspendedTaskExecution(Job job) {
@@ -224,7 +237,11 @@ public class ApprovalEscalationMonitor {
 
         try {
             return taskExecutionService.getTaskExecution(taskExecutionResumeId);
-        } catch (Exception exception) {
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the suspended task execution {} of job {}; skipping its escalation this sweep",
+                taskExecutionResumeId, job.getId(), runtimeException);
+
             return null;
         }
     }

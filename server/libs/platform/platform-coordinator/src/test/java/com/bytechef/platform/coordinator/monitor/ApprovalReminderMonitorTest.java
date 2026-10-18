@@ -18,10 +18,14 @@ package com.bytechef.platform.coordinator.monitor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -143,7 +147,7 @@ class ApprovalReminderMonitorTest {
 
         job.setMetadata(
             Map.of(
-                "jobResumeId", "abc", "taskExecutionResumeId", 7L,
+                "jobResumeId", "abc", "taskExecutionResumeId", 7L, "__bytechef_approval_resume__", true,
                 "approvalReminderSentAt", Instant.now()
                     .toString()));
 
@@ -152,6 +156,22 @@ class ApprovalReminderMonitorTest {
         approvalReminderMonitor.remindExpiringApprovals();
 
         verify(notificationService, never()).getNotifications(any());
+        verify(jobService, never()).update(any());
+    }
+
+    @Test
+    void testSuspendThatIsNotAnApprovalIsSkipped() {
+        Job job = new Job();
+
+        job.setId(42L);
+        job.setStatus(Job.Status.STOPPED);
+        job.setMetadata(Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        verify(taskExecutionService, never()).getTaskExecution(anyLong());
         verify(jobService, never()).update(any());
     }
 
@@ -181,13 +201,128 @@ class ApprovalReminderMonitorTest {
         verify(jobService, never()).update(any());
     }
 
+    @Test
+    void testNoConfiguredNotificationClearsTheReminderMarkerForTheNextSweep() {
+        Job job = stoppedApprovalJob(Instant.now()
+            .plus(Duration.ofHours(4)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(notificationService.getNotifications(NotificationEvent.Type.JOB_APPROVAL_EXPIRING))
+            .thenReturn(List.of());
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        verify(jobService, times(2)).update(job);
+
+        assertNull(job.getMetadata("approvalReminderSentAt"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testTotalSendFailureClearsTheReminderMarkerForTheNextSweep() {
+        Job job = stoppedApprovalJob(Instant.now()
+            .plus(Duration.ofHours(4)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        stubNotifications(notification(1L), notification(2L));
+
+        doThrow(new IllegalStateException("smtp down"))
+            .when(notificationSender)
+            .send(any(), any(), any());
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        verify(notificationSender, times(2)).send(any(), any(), any());
+        verify(jobService, times(2)).update(job);
+
+        assertNull(job.getMetadata("approvalReminderSentAt"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testOneFailingNotificationDoesNotSkipTheOthers() {
+        Job job = stoppedApprovalJob(Instant.now()
+            .plus(Duration.ofHours(4)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification firstNotification = notification(1L);
+        Notification secondNotification = notification(2L);
+
+        stubNotifications(firstNotification, secondNotification);
+
+        doThrow(new IllegalStateException("smtp down"))
+            .when(notificationSender)
+            .send(eq(firstNotification), any(), any());
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        verify(notificationSender).send(eq(secondNotification), any(), any());
+        verify(jobService).update(job);
+
+        assertNotNull(job.getMetadata("approvalReminderSentAt"));
+    }
+
+    @Test
+    void testReminderSweepContinuesPastAJobWhoseClaimFailsUnexpectedly() {
+        Instant expiresAt = Instant.now()
+            .plus(Duration.ofHours(4));
+
+        Job failingJob = stoppedApprovalJob(expiresAt);
+        Job remindedJob = stoppedApprovalJob(expiresAt);
+
+        remindedJob.setId(43L);
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(failingJob, remindedJob));
+        when(jobService.update(any()))
+            .thenThrow(new IllegalStateException("database unavailable"))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        stubNotifications(notification(1L));
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        ArgumentCaptor<NotificationHandlerContext> notificationHandlerContextArgumentCaptor =
+            ArgumentCaptor.forClass(NotificationHandlerContext.class);
+
+        verify(notificationSender).send(any(), any(), notificationHandlerContextArgumentCaptor.capture());
+
+        NotificationHandlerContext notificationHandlerContext = notificationHandlerContextArgumentCaptor.getValue();
+
+        assertEquals(Long.valueOf(43L), notificationHandlerContext.getJobId());
+    }
+
+    private void stubNotifications(Notification... notifications) {
+        when(notificationService.getNotifications(NotificationEvent.Type.JOB_APPROVAL_EXPIRING))
+            .thenReturn(List.of(notifications));
+        when(notificationSenderRegistry.getNotificationSender(Notification.Type.EMAIL))
+            .thenReturn(notificationSender);
+        when(notificationHandlerRegistry.getNotificationHandler(
+            NotificationEvent.Type.JOB_APPROVAL_EXPIRING, Notification.Type.EMAIL))
+                .thenReturn(notificationHandler);
+    }
+
+    private static Notification notification(long id) {
+        Notification notification = new Notification();
+
+        notification.setId(id);
+        notification.setType(Notification.Type.EMAIL);
+
+        return notification;
+    }
+
     private Job stoppedApprovalJob(Instant expiresAt) {
         Job job = new Job();
 
         job.setId(42L);
         job.setLabel("Test Workflow");
         job.setStatus(Job.Status.STOPPED);
-        job.setMetadata(Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L));
+        job.setMetadata(
+            Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L, "__bytechef_approval_resume__", true));
 
         TaskExecution taskExecution = new TaskExecution();
 

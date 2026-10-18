@@ -23,14 +23,12 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
-import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.domain.NotificationEvent;
-import com.bytechef.platform.notification.handler.NotificationHandler;
 import com.bytechef.platform.notification.handler.NotificationHandlerContext;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
-import com.bytechef.platform.notification.handler.NotificationSender;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.workflow.execution.JobSuspends;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
@@ -39,7 +37,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -52,8 +49,10 @@ import org.springframework.scheduling.annotation.Scheduled;
  * sits STOPPED until someone resolves it; once the suspend expiry passes, {@link ApprovalExpiryMonitor} fails the run.
  * This sweep fires a {@code JOB_APPROVAL_EXPIRING} notification through the central notification registry while there
  * is still time to act — delivery targets are the admin-configured {@code Notification} rows, the same registry the
- * job-status notifications use. Reminders are per-run idempotent: the send is recorded in the job metadata under
- * {@code approvalReminderSentAt}, so each paused run is reminded at most once.
+ * job-status notifications use. Only runs paused on an approval are reminded, not other suspends. Reminders are per-run
+ * idempotent: the sweep claims the reminder under {@code approvalReminderSentAt} in the job metadata before sending, so
+ * two coordinator replicas cannot both send it, and keeps the claim only when at least one notification was delivered.
+ * When no notification is configured or every send fails, the claim is released and the next sweep tries again.
  *
  * <p>
  * The lead time defaults to 24 hours before expiry and is configurable via
@@ -72,12 +71,10 @@ public class ApprovalReminderMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(ApprovalReminderMonitor.class);
 
+    private final ApprovalNotificationDispatcher approvalNotificationDispatcher;
     private final @Nullable ApprovalTokens approvalTokens;
     private final JobService jobService;
     private final Duration leadTime;
-    private final NotificationHandlerRegistry notificationHandlerRegistry;
-    private final NotificationSenderRegistry notificationSenderRegistry;
-    private final NotificationService notificationService;
     private final @Nullable String publicUrl;
     private final TaskExecutionService taskExecutionService;
     private final TenantService tenantService;
@@ -89,12 +86,11 @@ public class ApprovalReminderMonitor {
         NotificationSenderRegistry notificationSenderRegistry, NotificationService notificationService,
         @Nullable String publicUrl, TaskExecutionService taskExecutionService, TenantService tenantService) {
 
+        this.approvalNotificationDispatcher = new ApprovalNotificationDispatcher(
+            notificationHandlerRegistry, notificationSenderRegistry, notificationService);
         this.approvalTokens = approvalTokens;
         this.jobService = jobService;
         this.leadTime = leadTime;
-        this.notificationHandlerRegistry = notificationHandlerRegistry;
-        this.notificationSenderRegistry = notificationSenderRegistry;
-        this.notificationService = notificationService;
         this.publicUrl = publicUrl;
         this.taskExecutionService = taskExecutionService;
         this.tenantService = tenantService;
@@ -120,44 +116,56 @@ public class ApprovalReminderMonitor {
         Instant now = Instant.now();
 
         for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, now)) {
-            Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-            if (jobResumeId == null || job.getMetadata(APPROVAL_REMINDER_SENT_AT) != null) {
-                continue;
-            }
-
-            Instant expiresAt = readSuspendExpiry(job);
-
-            if (expiresAt == null || !expiresAt.isAfter(now) || expiresAt.isAfter(now.plus(leadTime))) {
-                continue;
-            }
-
-            // Claim the reminder BEFORE sending so two coordinator replicas cannot both send it: the first to commit
-            // the APPROVAL_REMINDER_SENT_AT marker wins under the job's @Version, and the loser's stale-version update
-            // throws and skips. Writing the marker first degrades a send failure to a missed reminder rather than a
-            // duplicate — acceptable because the expiry sweep is the real safety net.
             try {
-                markReminderSent(job, now);
-            } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
-                continue;
-            }
-
-            try {
-                sendReminder(job, jobResumeId.toString(), expiresAt);
-            } catch (Exception exception) {
-                log.warn(
-                    "Could not send approval reminder for job {}: {}", job.getId(), exception.getMessage());
+                remindJob(job, now);
+            } catch (RuntimeException runtimeException) {
+                log.warn("Could not process the approval reminder for job {}", job.getId(), runtimeException);
             }
         }
     }
 
-    @SuppressWarnings({
-        "rawtypes", "unchecked"
-    })
-    private void sendReminder(Job job, String jobResumeId, Instant expiresAt) {
+    private void remindJob(Job job, Instant now) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (jobResumeId == null || !JobSuspends.isSuspendedForApproval(job) ||
+            job.getMetadata(APPROVAL_REMINDER_SENT_AT) != null) {
+
+            return;
+        }
+
+        Instant expiresAt = readSuspendExpiry(job);
+
+        if (expiresAt == null || !expiresAt.isAfter(now) || expiresAt.isAfter(now.plus(leadTime))) {
+            return;
+        }
+
+        Job claimedJob;
+
+        try {
+            claimedJob = putMarker(job, now.toString());
+        } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
+            return;
+        }
+
+        ApprovalNotificationDispatcher.Result result;
+
+        try {
+            result = sendReminder(job, jobResumeId.toString(), expiresAt);
+        } catch (RuntimeException runtimeException) {
+            log.warn("Could not send approval reminder for job {}", job.getId(), runtimeException);
+
+            result = ApprovalNotificationDispatcher.Result.FAILED;
+        }
+
+        if (result != ApprovalNotificationDispatcher.Result.DELIVERED) {
+            releaseClaim(claimedJob);
+        }
+    }
+
+    private ApprovalNotificationDispatcher.Result sendReminder(Job job, String jobResumeId, Instant expiresAt) {
         NotificationEvent.Type eventType = NotificationEvent.Type.JOB_APPROVAL_EXPIRING;
 
-        String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId, approvalTokens)
+        String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId, approvalTokens, expiresAt)
             .orElse(null);
 
         NotificationHandlerContext notificationHandlerContext = new NotificationHandlerContext.Builder()
@@ -168,35 +176,31 @@ public class ApprovalReminderMonitor {
             .jobName(job.getLabel())
             .build();
 
-        List<Notification> notifications = notificationService.getNotifications(eventType);
+        return approvalNotificationDispatcher.dispatch(eventType, notificationHandlerContext);
+    }
 
-        for (Notification notification : notifications) {
-            NotificationSender notificationSender = notificationSenderRegistry.getNotificationSender(
-                notification.getType());
-
-            NotificationHandler notificationHandler = notificationHandlerRegistry.getNotificationHandler(
-                eventType, notification.getType());
-
-            if (notificationSender == null || notificationHandler == null) {
-                log.warn(
-                    "No {} found for notification {} and event type {}; skipping",
-                    notificationSender == null ? "sender" : "handler", notification.getId(), eventType);
-
-                continue;
-            }
-
-            notificationSender.send(notification, notificationHandler, notificationHandlerContext);
+    private void releaseClaim(Job claimedJob) {
+        try {
+            putMarker(claimedJob, null);
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not release the approval reminder claim on job {}; it will not be retried",
+                claimedJob.getId(), runtimeException);
         }
     }
 
-    private void markReminderSent(Job job, Instant sentAt) {
+    private Job putMarker(Job job, @Nullable String sentAt) {
         Map<String, Object> metadata = new HashMap<>(job.getMetadata());
 
-        metadata.put(APPROVAL_REMINDER_SENT_AT, sentAt.toString());
+        if (sentAt == null) {
+            metadata.remove(APPROVAL_REMINDER_SENT_AT);
+        } else {
+            metadata.put(APPROVAL_REMINDER_SENT_AT, sentAt);
+        }
 
         job.setMetadata(metadata);
 
-        jobService.update(job);
+        return jobService.update(job);
     }
 
     private @Nullable Instant readSuspendExpiry(Job job) {
@@ -210,7 +214,11 @@ public class ApprovalReminderMonitor {
             TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
 
             return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
-        } catch (Exception exception) {
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the suspended task execution {} of job {}; skipping its reminder this sweep",
+                taskExecutionResumeId, job.getId(), runtimeException);
+
             return null;
         }
     }
