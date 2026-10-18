@@ -1,6 +1,7 @@
 import {
     appendToLastAssistantMessage as appendHelper,
     setLastAssistantMessageContent as setContentHelper,
+    setLastEmptyAssistantMessage as setLastEmptyAssistantMessageHelper,
 } from '@/shared/util/assistant-message-utils';
 import {ThreadMessageLike} from '@assistant-ui/react';
 import {create} from 'zustand';
@@ -40,10 +41,6 @@ const generateId = () =>
         .fill(0)
         .map(() => Math.random().toString(36).charAt(2))
         .join('');
-
-const isEmptyAssistantMessage = (message: ThreadMessageLike | undefined) =>
-    message?.role === 'assistant' &&
-    (message.content === '' || (Array.isArray(message.content) && message.content.length === 0));
 
 const initialState = {
     activeWorkflowExecutionId: null as string | null,
@@ -92,15 +89,9 @@ export const useChatsStore = create<ChatStateI>()(
                 messages: setContentHelper(state.messages, content),
             })),
         setLastEmptyAssistantMessage: (message) =>
-            set((state) => {
-                const lastMessage = state.messages[state.messages.length - 1];
-
-                if (isEmptyAssistantMessage(lastMessage)) {
-                    return {messages: [...state.messages.slice(0, -1), message]};
-                }
-
-                return {messages: [...state.messages, message]};
-            }),
+            set((state) => ({
+                messages: setLastEmptyAssistantMessageHelper(state.messages, message),
+            })),
         setMessage: (message) =>
             set((state) => ({
                 messages: [...state.messages, message],

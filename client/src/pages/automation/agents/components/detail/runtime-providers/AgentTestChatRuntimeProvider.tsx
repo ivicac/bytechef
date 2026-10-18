@@ -7,6 +7,7 @@ import {
     appendToLastAssistantMessage,
     formatAskUserQuestionMessage,
     setLastAssistantMessageContent,
+    setLastEmptyAssistantMessage,
 } from '@/shared/util/assistant-message-utils';
 import {generateRandomId} from '@/shared/util/random-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
@@ -125,23 +126,25 @@ export function useAgentTestChatRuntime(workflowId: string): UseAgentTestChatRun
                 // Render an interactive approval card that resolves through the job-resume endpoint.
                 // Deliberately do NOT set a resume URL for the chat input — typing never resolves an
                 // approval; only the card (or the hosted form) does.
-                setMessage({
-                    content: [
-                        {
-                            data: {
-                                expiresAt: approvalEvent.expiresAt,
-                                formDescription: approvalEvent.formDescription,
-                                formTitle: approvalEvent.formTitle,
-                                formUrl: approvalEvent.formUrl,
-                                hasInputs: Array.isArray(approvalEvent.inputs) && approvalEvent.inputs.length > 0,
-                                kind: 'approval-request',
-                                resumeId: approvalEvent.resumeId,
+                setMessages((previousMessages) =>
+                    setLastEmptyAssistantMessage(previousMessages, {
+                        content: [
+                            {
+                                data: {
+                                    expiresAt: approvalEvent.expiresAt,
+                                    formDescription: approvalEvent.formDescription,
+                                    formTitle: approvalEvent.formTitle,
+                                    formUrl: approvalEvent.formUrl,
+                                    hasInputs: Array.isArray(approvalEvent.inputs) && approvalEvent.inputs.length > 0,
+                                    kind: 'approval-request',
+                                    resumeId: approvalEvent.resumeId,
+                                },
+                                type: 'data-approval-request',
                             },
-                            type: 'data-approval-request',
-                        },
-                    ],
-                    role: 'assistant',
-                });
+                        ],
+                        role: 'assistant',
+                    })
+                );
                 setIsRunning(false);
                 setStreamRequest(null);
             },

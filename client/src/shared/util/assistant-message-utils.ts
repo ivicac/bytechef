@@ -143,6 +143,27 @@ export function appendToLastAssistantMessage(messages: ThreadMessageLike[], delt
  * If no assistant message exists, creates a new one with the content.
  * Supports both string content and content array formats.
  */
+function isEmptyAssistantMessage(message: ThreadMessageLike | undefined): boolean {
+    return (
+        message?.role === 'assistant' &&
+        (message.content === '' || (Array.isArray(message.content) && message.content.length === 0))
+    );
+}
+
+/**
+ * Replaces the trailing empty assistant placeholder with the message, or appends the message when there is none.
+ */
+export function setLastEmptyAssistantMessage(
+    messages: ThreadMessageLike[],
+    message: ThreadMessageLike
+): ThreadMessageLike[] {
+    if (isEmptyAssistantMessage(messages[messages.length - 1])) {
+        return [...messages.slice(0, -1), message];
+    }
+
+    return [...messages, message];
+}
+
 export function setLastAssistantMessageContent(messages: ThreadMessageLike[], content: string): ThreadMessageLike[] {
     const updatedMessages = [...messages];
 
@@ -187,15 +208,6 @@ export function formatAskUserQuestionMessage(event: AskUserQuestionEventI): stri
             return `**${question.header}**: ${question.question}\n${optionLines}`;
         })
         .join('\n\n');
-}
-
-export function formatApprovalRequestMessage(event: ApprovalRequestEventI): string {
-    const title = event.formTitle || 'Approval requested';
-    const description = event.formDescription ? `\n\n${event.formDescription}` : '';
-    const expiry = event.expiresAt ? `\n\nExpires ${new Date(event.expiresAt).toLocaleString()}` : '';
-    const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
-
-    return `**${title}**${description}${expiry}${link}`;
 }
 
 /**
