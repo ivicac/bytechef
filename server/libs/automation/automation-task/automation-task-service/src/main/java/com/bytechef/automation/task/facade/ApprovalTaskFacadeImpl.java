@@ -33,6 +33,7 @@ import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.JobSuspends;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -104,7 +105,7 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
             Long jobId = job.getId();
 
-            if (jobResumeId == null || jobId == null) {
+            if (jobResumeId == null || jobId == null || !JobSuspends.isAwaitingApproval(job)) {
                 continue;
             }
 
@@ -119,12 +120,14 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
                 }
             }
 
-            String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId.toString(), approvalTokens)
+            Instant expiresAt = resolveExpiresAt(job);
+
+            String formUrl = ApprovalFormUrls.buildFormUrl(
+                publicUrl, jobResumeId.toString(), approvalTokens, expiresAt)
                 .orElse(null);
 
             pendingApprovals.add(
-                new PendingApproval(
-                    jobId, resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), resolveExpiresAt(job)));
+                new PendingApproval(jobId, resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), expiresAt));
         }
 
         pendingApprovals.sort(
