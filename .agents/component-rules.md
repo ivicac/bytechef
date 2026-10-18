@@ -99,7 +99,7 @@ and the approved re-execution raised a second approval — an approval loop with
 (in CE the enforcer list is empty and `build` short-circuits before wrapping). It also
 double-evaluated every rule on a gated call. The skip fixes both; pinned by
 `ClusterElementToolCallbacksTest.testAnAlreadyGovernedCallbackIsNotWrappedASecondTime` and
-`AbstractAiAgentChatActionResumeGateTest.testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain`.
+`AbstractAiAgentChatActionTest$ResumeGate.testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain`.
 
 ## Precedence and the approval protocol
 
