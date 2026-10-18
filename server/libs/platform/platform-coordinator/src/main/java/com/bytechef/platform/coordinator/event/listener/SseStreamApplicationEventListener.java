@@ -135,7 +135,15 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
      * streaming-path gap where an approval-only chat workflow (no streaming task) lost its final reply text.
      */
     private void publishFinalResultEvent(long jobId) {
-        String message = readWebhookResponseMessage(jobId);
+        String message;
+
+        try {
+            message = readWebhookResponseMessage(jobId);
+        } catch (Exception exception) {
+            log.warn("Failed to read the final reply of job {}", jobId, exception);
+
+            return;
+        }
 
         if (message == null || message.isEmpty()) {
             return;

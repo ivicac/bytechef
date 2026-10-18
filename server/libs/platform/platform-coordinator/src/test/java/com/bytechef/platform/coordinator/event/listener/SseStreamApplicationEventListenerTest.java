@@ -282,6 +282,19 @@ class SseStreamApplicationEventListenerTest {
     }
 
     @Test
+    void testCompletedJobStatusEventIsSentWhenTheFinalReplyLookupFails() {
+        when(taskExecutionService.getJobTaskExecutions(anyLong())).thenThrow(new IllegalStateException("DB down"));
+
+        sseStreamApplicationEventListener.onApplicationEvent(
+            new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
+
+        SseStreamEvent sseStreamEvent = captureSentEvent();
+
+        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_JOB_STATUS);
+        assertThat(sseStreamEvent.getPayload()).isEqualTo("COMPLETED");
+    }
+
+    @Test
     void testStoppedJobStatusEventOfASuspendedJobIsMarkedSuspended() {
         sseStreamApplicationEventListener.onApplicationEvent(
             JobStatusApplicationEvent.suspended(JOB_ID));
