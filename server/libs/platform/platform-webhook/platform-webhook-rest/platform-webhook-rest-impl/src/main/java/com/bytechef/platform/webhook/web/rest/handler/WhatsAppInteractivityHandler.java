@@ -20,7 +20,9 @@ import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.webhook.web.rest.ResumeExceptions;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -40,6 +42,18 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
+ * Handles WhatsApp Cloud API inbound webhooks that resolve an approval in place. The WhatsApp approval channel sends
+ * in-place Approve/Discard reply buttons only when the connection carries the Meta app secret; a button tap arrives
+ * here as an {@code interactive.button_reply} inbound message whose id is the decision-prefixed tokenized resume id
+ * ({@code a:<token>} / {@code d:<token>}). This handler verifies the request's {@code X-Hub-Signature-256} HMAC against
+ * every WhatsApp connection carrying an app secret in the tenant anchored by the resume id, resolves the approval
+ * through {@link JobResumeFacade}, and echoes nothing (Meta expects only a 200).
+ *
+ * <p>
+ * An unverifiable request is rejected without acting — the resume id alone is a capability, so acting on an unsigned
+ * inbound webhook would let anyone who saw a resume id forge resolutions.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public class WhatsAppInteractivityHandler {
@@ -50,7 +64,11 @@ public class WhatsAppInteractivityHandler {
 
     private static final String ALREADY_RESOLVED_TEXT = "ℹ️ This approval was already resolved.";
     private static final String EXPIRED_TEXT = "⌛ This approval expired before it was resolved.";
+    private static final String JOB_FAILED_TEXT = "❌ The workflow failed before this approval could be applied.";
     private static final String NO_LONGER_AVAILABLE_TEXT = "⚠️ This approval is no longer available.";
+    private static final String FAILED_TEXT = "⚠️ This approval could not be applied — try again in a moment.";
+    private static final String NOT_APPLIED_TEXT =
+        "⚠️ This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
 
     private static final Connection UNAVAILABLE = new Connection();
@@ -128,8 +146,36 @@ public class WhatsAppInteractivityHandler {
 
         String userName = extractContactName(payload);
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId,
+                () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        } catch (RuntimeException runtimeException) {
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
+                runtimeException);
+
+            if (approvalInputException != null) {
+                log.info(
+                    "WhatsApp in-place approval resolution needs the approval form: {}",
+                    approvalInputException.getMessage());
+
+                reply(connection, payload, NOT_APPLIED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error("WhatsApp in-place approval resolution failed", runtimeException);
+
+                reply(connection, payload, FAILED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            outcome = JobResumeOutcome.GONE;
+        }
 
         if (outcome != JobResumeOutcome.OK) {
             log.warn("WhatsApp in-place approval resolution returned {}", outcome);
@@ -147,8 +193,9 @@ public class WhatsAppInteractivityHandler {
                 case EXPIRED -> EXPIRED_TEXT;
                 case UNAVAILABLE -> NO_LONGER_AVAILABLE_TEXT;
             };
+            case JOB_FAILED -> JOB_FAILED_TEXT;
             case NOT_YET_SUSPENDED -> NOT_YET_SUSPENDED_TEXT;
-            case OK, INVALID_ID, JOB_FAILED, STREAMING_NOT_ALLOWED -> NO_LONGER_AVAILABLE_TEXT;
+            case OK, INVALID_ID, STREAMING_NOT_ALLOWED -> NO_LONGER_AVAILABLE_TEXT;
         };
     }
 

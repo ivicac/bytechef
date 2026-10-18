@@ -26,7 +26,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.commons.util.EncodingUtils;
+import com.bytechef.platform.webhook.web.rest.ApprovalShortTokenStore;
 import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup.Resolution;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -47,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * @author Ivica Cardic
@@ -60,6 +63,7 @@ class DiscordInteractivityHandlerTest {
     private static final String TIMESTAMP = "1700000000";
 
     private final ApprovalResolutionLookup approvalResolutionLookup = mock(ApprovalResolutionLookup.class);
+    private final ApprovalShortTokenStore approvalShortTokenStore = mock(ApprovalShortTokenStore.class);
     private final ApprovalTokens defaultApprovalTokens = mock(ApprovalTokens.class);
     private final JobResumeFacade jobResumeFacade = mock(JobResumeFacade.class);
 
@@ -156,6 +160,63 @@ class DiscordInteractivityHandlerTest {
             Map.of(
                 "type", 7, "data",
                 Map.of("content", "⌛ This approval expired before it was resolved.", "components", List.of())));
+    }
+
+    @Test
+    void testApprovalNeedingFormInputRepliesWithTheFormHint() throws Exception {
+        String rawBody = buttonClickBody(SHORT_ID + ":a");
+
+        when(jobResumeFacade.resumeJob(eq(RESUME_ID), eq(Map.of("approved", true)), eq("@jane")))
+            .thenThrow(new ApprovalInputException(List.of("'Amount' is required")));
+
+        DiscordInteractivityHandler interactivityHandler = handler(publicKeyHex);
+
+        DiscordInteractivityHandler.Response response = interactivityHandler.handle(
+            rawBody, sign(rawBody), TIMESTAMP);
+
+        assertThat(response.body()).isEqualTo(
+            Map.of(
+                "type", 4, "data",
+                Map.of(
+                    "content", "This approval could not be applied here — open the approval form.", "flags", 64)));
+    }
+
+    @Test
+    void testLostConcurrentResumeRaceSaysItWasAlreadyResolved() throws Exception {
+        String rawBody = buttonClickBody(SHORT_ID + ":a");
+
+        when(jobResumeFacade.resumeJob(eq(RESUME_ID), eq(Map.of("approved", true)), eq("@jane")))
+            .thenThrow(new RuntimeException(new OptimisticLockingFailureException("stale job version")));
+        when(approvalResolutionLookup.describe(RESUME_ID)).thenReturn(Resolution.RESOLVED);
+
+        DiscordInteractivityHandler interactivityHandler = handler(publicKeyHex);
+
+        DiscordInteractivityHandler.Response response = interactivityHandler.handle(
+            rawBody, sign(rawBody), TIMESTAMP);
+
+        assertThat(response.body()).isEqualTo(
+            Map.of(
+                "type", 7, "data",
+                Map.of("content", "ℹ️ This approval was already resolved.", "components", List.of())));
+    }
+
+    @Test
+    void testUnexpectedResumeFailureAsksToTryAgain() throws Exception {
+        String rawBody = buttonClickBody(SHORT_ID + ":a");
+
+        when(jobResumeFacade.resumeJob(eq(RESUME_ID), eq(Map.of("approved", true)), eq("@jane")))
+            .thenThrow(new IllegalStateException("database unavailable"));
+
+        DiscordInteractivityHandler interactivityHandler = handler(publicKeyHex);
+
+        DiscordInteractivityHandler.Response response = interactivityHandler.handle(
+            rawBody, sign(rawBody), TIMESTAMP);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(
+            Map.of(
+                "type", 4, "data",
+                Map.of("content", "This approval could not be applied — try again in a moment.", "flags", 64)));
     }
 
     @Test
@@ -301,7 +362,7 @@ class DiscordInteractivityHandlerTest {
         String rawBody = buttonClickBody(SHORT_ID + ":a");
 
         DiscordInteractivityHandler signedTokenHandler = new DiscordInteractivityHandler(
-            approvalResolutionLookup, jobResumeFacade, approvalTokens, publicKeyHex);
+            approvalResolutionLookup, approvalShortTokenStore, jobResumeFacade, approvalTokens, publicKeyHex);
 
         DiscordInteractivityHandler.Response response = signedTokenHandler.handle(rawBody, sign(rawBody), TIMESTAMP);
 
@@ -309,6 +370,27 @@ class DiscordInteractivityHandlerTest {
             Map.of("type", 7, "data", Map.of("content", "✅ Approved by @jane.", "components", List.of())));
 
         verify(jobResumeFacade).resumeJob(signedValue, Map.of("approved", true), "@jane");
+    }
+
+    @Test
+    void testShortIdMintedInProcessResolvesThroughTheShortTokenStore() throws Exception {
+        String shortId = "inprocess";
+
+        when(approvalShortTokenStore.resolve(shortId)).thenReturn(RESUME_ID);
+        when(jobResumeFacade.resumeJob(eq(RESUME_ID), eq(Map.of("approved", true)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.OK);
+
+        String rawBody = buttonClickBody(shortId + ":a");
+
+        DiscordInteractivityHandler storeHandler = new DiscordInteractivityHandler(
+            approvalResolutionLookup, approvalShortTokenStore, jobResumeFacade, null, publicKeyHex);
+
+        DiscordInteractivityHandler.Response response = storeHandler.handle(rawBody, sign(rawBody), TIMESTAMP);
+
+        assertThat(response.body()).isEqualTo(
+            Map.of("type", 7, "data", Map.of("content", "✅ Approved by @jane.", "components", List.of())));
+
+        verify(jobResumeFacade).resumeJob(RESUME_ID, Map.of("approved", true), "@jane");
     }
 
     @Test
@@ -323,7 +405,7 @@ class DiscordInteractivityHandlerTest {
         String rawBody = buttonClickBody(SHORT_ID + ":a");
 
         DiscordInteractivityHandler signedTokenHandler = new DiscordInteractivityHandler(
-            approvalResolutionLookup, jobResumeFacade, approvalTokens, publicKeyHex);
+            approvalResolutionLookup, approvalShortTokenStore, jobResumeFacade, approvalTokens, publicKeyHex);
 
         DiscordInteractivityHandler.Response response = signedTokenHandler.handle(rawBody, sign(rawBody), TIMESTAMP);
 
@@ -337,7 +419,7 @@ class DiscordInteractivityHandlerTest {
 
     private DiscordInteractivityHandler handler(String publicKey) {
         return new DiscordInteractivityHandler(
-            approvalResolutionLookup, jobResumeFacade, defaultApprovalTokens, publicKey);
+            approvalResolutionLookup, approvalShortTokenStore, jobResumeFacade, defaultApprovalTokens, publicKey);
     }
 
     private String sign(String rawBody) throws Exception {

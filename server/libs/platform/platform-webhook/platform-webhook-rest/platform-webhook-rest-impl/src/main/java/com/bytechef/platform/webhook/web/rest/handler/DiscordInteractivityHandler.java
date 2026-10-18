@@ -18,7 +18,10 @@ package com.bytechef.platform.webhook.web.rest.handler;
 
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.approval.ApprovalButtonPayload;
+import com.bytechef.platform.webhook.web.rest.ApprovalShortTokenStore;
+import com.bytechef.platform.webhook.web.rest.ResumeExceptions;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -32,12 +35,21 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Handles Discord interaction webhooks that resolve an approval in place. The Discord approval channel sends
+ * interaction buttons only when the connection carries the app public key; a button tap arrives here as a {@code
+ * MESSAGE_COMPONENT} (type 3) interaction whose {@code custom_id} is {@code <shortId>:a|d}. The short id is resolved
+ * back to the tokenized resume id through {@link ApprovalTokens#parseShortToken} or, for an id minted in process,
+ * {@link ApprovalShortTokenStore}. Every request is authenticated by the Ed25519 signature ({@code
+ * X-Signature-Ed25519}/{@code -Timestamp}) verified against the configured app public key, including the {@code PING}
+ * (type 1) handshake Discord uses to register the Interactions Endpoint URL.
+ *
  * @author Ivica Cardic
  */
 public class DiscordInteractivityHandler {
@@ -46,12 +58,15 @@ public class DiscordInteractivityHandler {
     private static final byte[] ED25519_DER_PREFIX = HEX_FORMAT.parseHex("302a300506032b6570032100");
 
     private static final int EPHEMERAL_FLAG = 64;
+    private static final String FAILED_TEXT = "This approval could not be applied — try again in a moment.";
+    private static final String NOT_APPLIED_TEXT = "This approval could not be applied here — open the approval form.";
 
     private static final Logger log = LoggerFactory.getLogger(DiscordInteractivityHandler.class);
 
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
 
     private final ApprovalResolutionLookup approvalResolutionLookup;
+    private final ApprovalShortTokenStore approvalShortTokenStore;
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
     private final AtomicBoolean invalidPublicKeyWarned = new AtomicBoolean();
@@ -59,10 +74,11 @@ public class DiscordInteractivityHandler {
 
     @SuppressFBWarnings("EI")
     public DiscordInteractivityHandler(
-        ApprovalResolutionLookup approvalResolutionLookup, JobResumeFacade jobResumeFacade,
-        @Nullable ApprovalTokens approvalTokens, @Nullable String publicKeyHex) {
+        ApprovalResolutionLookup approvalResolutionLookup, ApprovalShortTokenStore approvalShortTokenStore,
+        JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens, @Nullable String publicKeyHex) {
 
         this.approvalResolutionLookup = approvalResolutionLookup;
+        this.approvalShortTokenStore = approvalShortTokenStore;
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokens;
         this.publicKeyHex = publicKeyHex;
@@ -128,9 +144,34 @@ public class DiscordInteractivityHandler {
 
         String userName = extractUserName(payload);
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId,
-            () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId,
+                () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        } catch (RuntimeException runtimeException) {
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
+                runtimeException);
+
+            if (approvalInputException != null) {
+                log.info(
+                    "Discord approval interaction for short id {} needs the approval form: {}",
+                    approvalButtonPayload.shortId(), approvalInputException.getMessage());
+
+                return new Response(200, ephemeralReply(NOT_APPLIED_TEXT));
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error(
+                    "Discord approval interaction for short id {} failed", approvalButtonPayload.shortId(),
+                    runtimeException);
+
+                return new Response(200, ephemeralReply(FAILED_TEXT));
+            }
+
+            outcome = JobResumeOutcome.GONE;
+        }
 
         if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
             return new Response(200, ephemeralReply(NOT_YET_SUSPENDED_TEXT));
@@ -145,8 +186,9 @@ public class DiscordInteractivityHandler {
                 case EXPIRED -> "⌛ This approval expired before it was resolved.";
                 case UNAVAILABLE -> "⚠️ This approval is no longer available.";
             };
-            case INVALID_ID, JOB_FAILED, NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED ->
-                "⚠️ This approval is no longer available.";
+            case INVALID_ID -> "⚠️ This approval is no longer available.";
+            case JOB_FAILED -> "❌ The workflow failed before this approval could be applied.";
+            case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> "⚠️ This approval could not be applied yet.";
         };
 
         return new Response(200, updateMessage(text));
@@ -268,11 +310,14 @@ public class DiscordInteractivityHandler {
     }
 
     private @Nullable String resolveResumeId(String shortId) {
-        if (approvalTokens == null) {
-            return null;
+        if (approvalTokens != null) {
+            Optional<String> resumeIdOptional = approvalTokens.parseShortToken(shortId);
+
+            if (resumeIdOptional.isPresent()) {
+                return resumeIdOptional.get();
+            }
         }
 
-        return approvalTokens.parseShortToken(shortId)
-            .orElse(null);
+        return approvalShortTokenStore.resolve(shortId);
     }
 }

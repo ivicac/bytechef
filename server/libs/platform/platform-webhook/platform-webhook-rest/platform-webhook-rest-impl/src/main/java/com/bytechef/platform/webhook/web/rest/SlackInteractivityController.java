@@ -19,6 +19,8 @@ package com.bytechef.platform.webhook.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup;
+import com.bytechef.platform.webhook.web.rest.handler.SlackInteractivityHandler;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -67,7 +69,8 @@ public final class SlackInteractivityController {
 
     /**
      * Slack retries interactivity callbacks that do not answer 200 within 3 seconds, so ignorable payloads (other
-     * action ids, non-block_actions types) still answer 200; only a failed signature check answers 401.
+     * action ids, non-block_actions types) still answer 200; only a failed signature check answers 401, and a failed
+     * connection lookup answers 503 so Slack retries.
      */
     @SuppressFBWarnings(
         value = "SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING",
@@ -86,6 +89,8 @@ public final class SlackInteractivityController {
             case HANDLED, IGNORED -> ResponseEntity.ok()
                 .build();
             case UNAUTHORIZED -> ResponseEntity.status(401)
+                .build();
+            case UNAVAILABLE -> ResponseEntity.status(503)
                 .build();
         };
     }
