@@ -4,6 +4,48 @@ import {useGetApprovalFormQuery} from '@/shared/queries/platform/approvalForms.q
 import {useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+interface ApprovalFormInputI {
+    fieldName?: string;
+    fieldType?: number;
+}
+
+export const toSubmittedValues = (
+    inputs: ApprovalFormInputI[] | undefined,
+    values: Record<string, unknown>
+): Record<string, unknown> => {
+    const submittedValues = {...values};
+
+    (inputs || []).forEach((input) => {
+        const {fieldName, fieldType} = input;
+
+        if (!fieldName || fieldType !== FieldType.NUMBER_INPUT) {
+            return;
+        }
+
+        const value = submittedValues[fieldName];
+
+        if (typeof value !== 'string') {
+            return;
+        }
+
+        const trimmedValue = value.trim();
+
+        if (trimmedValue === '') {
+            delete submittedValues[fieldName];
+
+            return;
+        }
+
+        const numberValue = Number(trimmedValue);
+
+        if (!Number.isNaN(numberValue)) {
+            submittedValues[fieldName] = numberValue;
+        }
+    });
+
+    return submittedValues;
+};
+
 interface UseApprovalFormOptionsI {
     onSubmitted?: (approved: boolean) => void;
 
@@ -50,12 +92,14 @@ export default function useApprovalForm(id: string | undefined, options?: UseApp
             return;
         }
 
+        const submittedValues = toSubmittedValues(definition?.inputs, values);
+
         if (options?.submitOverride) {
             setOverrideSubmitting(true);
             setOverrideError(null);
 
             try {
-                await options.submitOverride(values, approveValue);
+                await options.submitOverride(submittedValues, approveValue);
 
                 setApproved(approveValue);
                 setOverrideSubmitted(true);
@@ -71,7 +115,7 @@ export default function useApprovalForm(id: string | undefined, options?: UseApp
         }
 
         try {
-            await resumeJobMutation.mutateAsync({approved: approveValue, data: values, id});
+            await resumeJobMutation.mutateAsync({approved: approveValue, data: submittedValues, id});
 
             setApproved(approveValue);
 
