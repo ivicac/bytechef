@@ -21,11 +21,14 @@ import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
@@ -69,7 +72,9 @@ public final class SlackInteractivityController {
     public ResponseEntity<Void> handleInteractivity(
         @RequestHeader(value = "X-Slack-Request-Timestamp", required = false) String timestamp,
         @RequestHeader(value = "X-Slack-Signature", required = false) String signature,
-        @RequestBody String rawBody) {
+        HttpServletRequest httpServletRequest) throws IOException {
+
+        String rawBody = readRawBody(httpServletRequest);
 
         SlackInteractivityHandler.Result result = slackInteractivityHandler.handle(rawBody, timestamp, signature);
 
@@ -79,5 +84,13 @@ public final class SlackInteractivityController {
             case UNAUTHORIZED -> ResponseEntity.status(401)
                 .build();
         };
+    }
+
+    private static String readRawBody(HttpServletRequest httpServletRequest) throws IOException {
+        try (InputStream inputStream = httpServletRequest.getInputStream()) {
+            byte[] bytes = inputStream.readAllBytes();
+
+            return new String(bytes, StandardCharsets.UTF_8);
+        }
     }
 }
