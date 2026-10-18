@@ -71,7 +71,7 @@ public class SuspendUtils {
 
     /**
      * Extracts the suspend expiry from a task execution's metadata (the {@code suspend.expiresAt} value the worker
-     * persisted), or {@code null} when the metadata carries no suspend or no expiry. Handles both the epoch-millis
+     * persisted, or the {@link ActionContext.Suspend} recorded when the task suspended), or {@code null} when the metadata carries no suspend or no expiry. Handles both the epoch-millis
      * number form (JSON round-trip) and the ISO-8601 string form.
      *
      * @param taskExecutionMetadata the suspended task execution's metadata map
@@ -80,6 +80,10 @@ public class SuspendUtils {
     @SuppressWarnings("unchecked")
     public static @Nullable Instant extractSuspendExpiresAt(Map<String, ?> taskExecutionMetadata) {
         Object suspendValue = taskExecutionMetadata.get(MetadataConstants.SUSPEND);
+
+        if (suspendValue instanceof ActionContext.Suspend suspend) {
+            return suspend.expiresAt();
+        }
 
         if (!(suspendValue instanceof Map)) {
             return null;
