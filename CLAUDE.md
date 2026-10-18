@@ -190,19 +190,31 @@ components at all (`build`, `libs`). For the current number, count the generated
 
 ### Agent HITL approvals (chat cards + tool gate)
 
-Two disjoint primitives: **Approval** (a decision; a comment is valid on BOTH outcomes) and
-**AskUserQuestion** (LLM clarification). Typing in chat NEVER resolves an approval. Delivery fans out
-best-effort over 15 channel elements (chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail,
-Outlook 365, SMTP email, WhatsApp via Meta/Twilio/Infobip, SMS via Twilio/Infobip, approval task), failing the
-step only when every configured channel fails. Besides the chat card, five resolve in place through a signed
-interactivity callback: Slack, Discord, Telegram, WhatsApp (Meta) and Mattermost. The gate is the
-`aiAgentUtils/v1/approvalGateTool` cluster element: every tool nested in it is wrapped in
-`ApprovalGateToolCallback`, which suspends via the sentinel protocol. On Agents, a TOOL row with
-`requiresApproval: true` is generated into that gate, and only when the agent also has an `APPROVAL_GATE` row.
-Expiry, reminders, and escalation each run a 15-minute platform-coordinator sweep. Never add notification logic
-under `server/libs/atlas/`.
-See `.agents/hitl-approvals.md`. The AI Hub chat has a separate, unrelated tool approval gate — see
-`.agents/ai-hub.md`'s "Tool approval gate" section.
+Two separate primitives: **Approval** (a decision with a boolean `approved`; a comment is valid on BOTH outcomes) and
+**AskUserQuestion** (clarification for the LLM). Typing in chat NEVER resolves an approval. Delivery goes out
+best-effort over 15 `APPROVAL_CHANNELS` elements: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail,
+Outlook 365, SMTP email, WhatsApp via Meta/Twilio/Infobip, SMS via Twilio/Infobip, and approval task. The step fails
+only when every configured channel fails. Besides the chat card, five resolve in place through a signed interactivity
+callback: Slack, Discord, Telegram, WhatsApp (Meta) and Mattermost.
+
+The gate is the `aiAgentUtils/v1/approvalGate` cluster element. It wraps every tool nested in it in
+`ApprovalGateToolCallback`, which suspends via the sentinel protocol. On resume, an approved call runs the original
+arguments, and any calls the suspend deferred are issued again (`DeferredToolCallReplay`). A gate inside a gate,
+`requestApproval` inside a gate, and either of them under a subagent are rejected both by `WorkflowValidator` and at
+run time. On Agents, a TOOL row with `requiresApproval: true` is generated into that gate, and only when the agent
+also has an `APPROVAL_GATE` row.
+
+The resume contract:
+- An approval resumes only with a signed token and a boolean `approved`.
+- A GET of an approval resume link, or a HEAD of any resume link, answers 405.
+- Restarting a run that waits on an approval answers 409, and stop cancels the approval.
+
+An expired approval FAILS the run, and its links answer 410. A synchronous run cannot pause: a workflow with a
+step that could pause it, an approval gate included, is rejected before it starts. Expiry runs a 15-minute
+platform-coordinator sweep, acting only on approval suspends. There are no approval reminders or escalation.
+
+Never add notification logic under `server/libs/atlas/`. See `.agents/hitl-approvals.md`. The AI Hub chat has a
+separate, unrelated tool approval gate — see `.agents/ai-hub.md`'s "Tool approval gate" section.
 
 ### Component Rules (EE)
 
@@ -236,26 +248,34 @@ created counterpart is always disabled. See `.agents/environment-promotion.md`.
     - Resolve collection dependencies via `context.beanProvider(Class).orderedStream().toList()` (replaces `beanFactory.getBeansOfType()`)
     - Resolve named beans via `context.bean("beanName", Class)` in supplier
     - Test `BeanRegistrar` specs by capturing `Consumer<Spec<T>>` with `ArgumentCaptor`, applying to mock `Spec`, and verifying fluent calls
-- **Five executors, no queues.** `AsyncConfiguration` defines `taskExecutor` (default `@Async`, limit
+- **Six executors, no queues.** `AsyncConfiguration` defines `taskExecutor` (default `@Async`, limit
   `bytechef.async.concurrency-limit`), `workerExecutor` (task handlers + trigger executions, limit
   `bytechef.worker.task.subscriptions.default`), `syncWorkerExecutor` (the API-Platform sync path and the editor's
   Test button, limit `bytechef.worker.task.sync-concurrency-limit`), `appExecutor` (the actions, tools and proxy calls
   Apps request, limit `bytechef.app.execution.concurrency-limit`; registered only when that property is set, which only
-  `server-app`'s `application-bytechef.yml` does) and `messageEventExecutor` (Spring-event→broker bridge, unbounded).
+  `server-app`'s `application-bytechef.yml` does), `messageEventExecutor` (Spring-event→broker bridge, unbounded) and
+  `webhookDeliveryExecutor` (outbound webhook POSTs: job status and task started webhooks, notification webhooks,
+  Slack; unbounded).
   The sync lane is a bulkhead, not extra capacity: without it a burst of scheduled runs saturates the worker lane and
   an interactive caller blocks on a permit while holding a request thread. The app lane is the same bulkhead one step
   further: apps are external, machine-driven callers, and on the sync lane a burst from them would starve the editor's
   Test button and the API-Platform sync path. App workflow runs do not use it — they go through the job path on
   `workerExecutor`. All are queue-less `SimpleAsyncTaskExecutor`s: a submitter waits for a permit. Anything that runs
-  component code or blocks on I/O goes on `workerExecutor`, never the default. Virtual threads change only the thread
-  factory — they do not lift a limit, which is why these are not `ThreadPoolTaskExecutor`s. The bridge stays unbounded
+  component code or blocks on I/O goes on `workerExecutor`, never the default. Work handed off by a thread that must
+  not wait on a remote endpoint goes on an unbounded lane and bounds itself inside the task, as `WebhookDeliveryService`
+  does with `bytechef.webhook-delivery.concurrency-limit` (one global permit per POST) and `max-pending-deliveries`
+  (per endpoint); each endpoint receives one delivery at a time, so a slow endpoint cannot take every permit. On
+  shutdown the executor interrupts its tasks and waits up to 10 s. On virtual threads the interrupt closes a blocked
+  POST's socket; on platform threads `SimpleClientHttpRequestFactory` does not respond to it, so a POST blocked in its
+  read (up to 30 s) is abandoned when the JVM exits. Virtual threads change only the thread factory — they do not
+  lift a limit, which is why these are not `ThreadPoolTaskExecutor`s. The bridge stays unbounded
   because it only hands messages to the broker: starving it stalls every workflow, while the real work is already
   bounded at `workerExecutor` (and DB connections at Hikari's `maximum-pool-size`). Don't bound
   `AsyncMessageBroker`'s own dispatch executor either — it carries work-initiating and completion events together,
   and each `JobSyncExecutor` builds a private instance whose latch waits on events from it, so a bound there can
   wedge the API-Platform sync path and the editor's Test button. Its per-route ordered executors (single thread,
   bounded queue, blocking put) are a separate, deliberate case and stay bounded. `AsyncConfigurationTest`
-  enumerates them, so it catches the decorator being dropped from `createExecutor` — a sixth executor built
+  enumerates them, so it catches the decorator being dropped from `createExecutor` — a seventh executor built
   outside that factory isn't covered; every executor must go through `createExecutor`. The one deliberate exception is
   `WorkflowSubflowSyncExecutorConfiguration`, which builds its own unbounded executor: subflows nest through a
   `SubflowTaskDispatcher`, so a parent holds a permit while its child needs one, and a shared bounded lane would
@@ -402,7 +422,7 @@ Moving authorization down into a facade also changes its HTTP status silently: a
 - `ComponentDefinitionRegistry` loads NO ServiceLoader components at Spring startup — all registry beans are `lazyInit`, and the registry constructor only captures suppliers
 - server-app's `generateComponentIndex` Gradle task writes `META-INF/bytechef/component-index.json` at build time; the components-list view is served from index stubs (zero handlers loaded), single components load on demand via recorded provider class names
 - **When an index is present it is authoritative**: a ServiceLoader component missing from the index is invisible (both in the list and per-name resolution). Apps that assemble their classpath differently (EE apps) must either run the generator or ship without an index — absent/corrupt index falls back transparently to full loading on first registry access
-- The first deep read (`getComponentDefinitions()` consumers, first task execution) still triggers a one-time full load; stubs never reach detail/execution paths
+- With an index, a by-name read loads only that component, while the no-arg `getComponentDefinitions()` and the first task/trigger handler resolution each trigger their own one-time full load (the registry loads from the index's providers; the task and trigger handler providers share a separate `ServiceLoader` sweep); stubs never reach detail/execution paths
 - **A derived flag is false on a stub unless the index carries its source data.** A plain `ModifiableComponentDefinition` cannot implement a platform interface (it is an SDK class), so `clusterRoot` read false for every component in list views until the index recorded each component's `clusterElementTypes` and `ComponentIndex` started wrapping stubs in `StubClusterRootComponentDefinition`. Any new list-visible flag computed from a capability interface needs the same treatment — check the stub path, not just the loaded one
 
 ### OpenAPI Development Workflow
@@ -422,6 +442,10 @@ Moving authorization down into a facade also changes its HTTP status silently: a
 
 ### Code Quality Workflow
 - When committing, only stage files directly modified by the current task — do not include pre-existing unstaged changes that are unrelated
+- **A sudden, strange `./gradlew` failure** (`NoClassDefFoundError`, `zip file closed`, errors in code nobody
+  changed) is often a stale daemon: run `./gradlew --stop` and rerun before investigating. `--stop` drops daemon
+  memory (e.g. Spotless formatter classloaders), not `~/.gradle/caches`; daemon logs are in
+  `~/.gradle/daemon/<gradle-version>/daemon-*.out.log`
 - **Never judge a Gradle run piped into `tail`/`grep`** — the pipeline exit code is the filter's, not Gradle's,
   and `${PIPESTATUS[0]}` is already clobbered if another command ran. Redirect to a file, check `$?` on its own
   line, then grep the file. Use `--continue` so one failing task doesn't hide the rest, and grep
