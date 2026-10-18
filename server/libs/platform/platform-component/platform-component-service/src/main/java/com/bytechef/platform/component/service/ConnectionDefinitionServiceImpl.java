@@ -270,8 +270,15 @@ public class ConnectionDefinitionServiceImpl implements ConnectionDefinitionServ
             return List.of();
         }
 
-        return authorizationOptional.get()
-            .getRefreshOn();
+        Authorization authorization = authorizationOptional.get();
+
+        if (!isOAuth2AuthorizationCode(authorizationType) && authorization.getAcquire()
+            .isEmpty()) {
+
+            return List.of();
+        }
+
+        return authorization.getRefreshOn();
     }
 
     @Override
