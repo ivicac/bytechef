@@ -657,11 +657,11 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "name": "aiAgent_1",
                             "type": "aiAgent/v1/chat",
                             "parameters": {},
-                            "clusterElements": {"tools": [%s]}
+                            "clusterElements": {"tools": [TOOLS]}
                         }
                     ]
                 }
-                """.formatted(String.join(",", tools));
+                """.replace("TOOLS", String.join(",", tools));
         }
 
         private static String taskTool(String name, String... subagents) {
