@@ -23,6 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.Objects;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
@@ -43,6 +45,9 @@ public class ApprovalTokensAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(ApprovalTokensAutoConfiguration.class);
 
     static final String DERIVATION_LABEL = "bytechef-approval-token-signed-v1";
+
+    static final Duration DEFAULT_CLOCK_SKEW = Duration.ofSeconds(60);
+    static final Duration DEFAULT_TTL = Duration.ofDays(30);
 
     @Bean
     @ConditionalOnMissingBean
@@ -85,8 +90,9 @@ public class ApprovalTokensAutoConfiguration {
         Clock clock = clockProvider.getIfAvailable(Clock::systemUTC);
 
         return new ApprovalTokensImpl(
-            clock, effectiveSecret, signedToken.getPreviousSecrets(), signedToken.getDefaultTtl(),
-            signedToken.getClockSkew(), signedToken.isRequired());
+            clock, effectiveSecret, signedToken.getPreviousSecrets(),
+            Objects.requireNonNullElse(signedToken.getDefaultTtl(), DEFAULT_TTL),
+            Objects.requireNonNullElse(signedToken.getClockSkew(), DEFAULT_CLOCK_SKEW), signedToken.isRequired());
     }
 
     private static String deriveSecretFromEncryptionKey(EncryptionKey encryptionKey) {
