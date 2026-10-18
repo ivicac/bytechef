@@ -22,6 +22,7 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
@@ -36,34 +37,24 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
- * Fails runs whose pending human approval expired. A suspended run sits STOPPED with a {@code jobResumeId} in its job
- * metadata and the suspend expiry ({@code suspend.expiresAt}) on the suspended task execution; without this sweep an
- * abandoned approval keeps the run STOPPED until retention purges it, silently. Expired runs are marked FAILED — task
- * execution and job, mirroring {@link OrphanedJobRecoveryMonitor}'s semantics — which fires the normal job-status
- * fan-out (notifications, SSE, alert rules). The resume endpoint independently rejects expired resumes; this sweep is
- * the janitor for runs nobody ever came back to.
- *
- * <p>
- * Metrics: {@code bytechef_approval_expired{source=sweep}} counts expired runs; the {@code bytechef_approval_pending}
- * gauge tracks the number of runs currently paused on an (unexpired) approval, refreshed on every sweep across all
- * tenants. In the distributed EE deployment the stale-STOPPED-jobs finder is served over REST by the execution app (see
- * {@code RemoteJobServiceClient#getStaleJobs}), so the sweep runs there too; the {@code UnsupportedOperationException}
- * catch below is a defensive fallback for any finder implementation that does not support it.
- * </p>
- *
  * @author Ivica Cardic
  */
 public class ApprovalExpiryMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(ApprovalExpiryMonitor.class);
+
+    private static final String ORPHANED_APPROVAL_REASON =
+        "The suspended task execution of the pending approval no longer exists";
 
     private final ApplicationEventPublisher eventPublisher;
     private final JobService jobService;
@@ -90,6 +81,7 @@ public class ApprovalExpiryMonitor {
     }
 
     @Scheduled(initialDelayString = "PT5M", fixedDelayString = "PT15M")
+    @SchedulerLock(name = "approvalExpiryMonitor", lockAtLeastFor = "PT5M", lockAtMostFor = "PT1H")
     public void sweepExpiredApprovals() {
         registerPendingGaugeIfNeeded();
 
@@ -98,49 +90,33 @@ public class ApprovalExpiryMonitor {
         for (String tenantId : tenantService.getTenantIds()) {
             try {
                 pending += TenantContext.callWithTenantId(tenantId, this::sweepCurrentTenant);
-            } catch (UnsupportedOperationException unsupportedOperationException) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Stale-job finder unavailable for tenant {}; skipping approval-expiry sweep", tenantId);
-                }
-            } catch (Exception exception) {
-                log.warn(
-                    "Approval-expiry sweep failed for tenant {}: {}", tenantId, exception.getMessage());
+            } catch (RuntimeException runtimeException) {
+                log.warn("Approval-expiry sweep failed for tenant {}", tenantId, runtimeException);
             }
         }
 
         pendingApprovalCount.set(pending);
     }
 
-    /**
-     * Sweeps the current tenant's STOPPED jobs: fails those whose suspend expired, and returns the count of runs still
-     * legitimately pending an approval (feeding the pending gauge).
-     */
     private long sweepCurrentTenant() {
-        List<Job> stoppedJobs = jobService.getStaleJobs(Job.Status.STOPPED, Instant.now());
+        Instant now = Instant.now();
+
+        List<Job> stoppedJobs;
+
+        try {
+            stoppedJobs = jobService.getStaleJobs(Job.Status.STOPPED, now);
+        } catch (UnsupportedOperationException unsupportedOperationException) {
+            if (log.isDebugEnabled()) {
+                log.debug("Stale-job finder unavailable; skipping approval-expiry sweep");
+            }
+
+            return 0;
+        }
 
         long pending = 0;
 
         for (Job job : stoppedJobs) {
-            if (!JobSuspends.isAwaitingApproval(job)) {
-                continue;
-            }
-
-            Instant expiresAt = readSuspendExpiry(job);
-
-            if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
-                try {
-                    failExpiredJob(job, expiresAt);
-
-                    incrementExpiredCounter();
-                } catch (Exception exception) {
-                    // A concurrent resume or a competing replica may have already moved this job (optimistic-lock
-                    // failure). That is fine — another actor got there first; log and keep sweeping the rest of the
-                    // tenant's jobs instead of aborting the whole cycle.
-                    log.warn(
-                        "Could not fail expired job {}; skipping it this cycle: {}", job.getId(),
-                        exception.getMessage());
-                }
-            } else {
+            if (JobSuspends.isAwaitingApproval(job) && !sweepJob(job, now)) {
                 pending++;
             }
         }
@@ -148,70 +124,100 @@ public class ApprovalExpiryMonitor {
         return pending;
     }
 
-    private @Nullable Instant readSuspendExpiry(Job job) {
+    private boolean sweepJob(Job job, Instant now) {
         Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
 
         if (taskExecutionResumeId == null) {
-            return null;
+            return false;
         }
+
+        TaskExecution taskExecution;
 
         try {
-            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+            taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+        } catch (IllegalStateException illegalStateException) {
+            log.warn(
+                "The suspended task execution {} of job {} no longer exists; failing the orphaned job",
+                taskExecutionResumeId, job.getId(), illegalStateException);
 
-            return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
-        } catch (Exception exception) {
-            return null;
+            return failJob(job, null, null);
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the suspended task execution {} of job {}; retrying next sweep", taskExecutionResumeId,
+                job.getId(), runtimeException);
+
+            return false;
         }
+
+        Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+
+        if (expiresAt == null || !expiresAt.isBefore(now)) {
+            return false;
+        }
+
+        return failJob(job, taskExecution, expiresAt);
     }
 
-    private void failExpiredJob(Job job, Instant expiresAt) {
+    private boolean failJob(Job job, @Nullable TaskExecution taskExecution, @Nullable Instant expiresAt) {
         long jobId = Objects.requireNonNull(job.getId(), "id");
 
         Instant now = Instant.now();
 
-        String jobResumeId = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+        if (expiresAt == null) {
+            job.setEndDate(now);
+            job.setError(new ExecutionError(ORPHANED_APPROVAL_REASON, List.of()));
+            job.setStatus(Job.Status.FAILED);
+        } else {
+            JobSuspends.failExpiredApproval(job, expiresAt, now);
+        }
 
-        JobSuspends.failExpiredApproval(job, expiresAt, now);
+        String reason = expiresAt == null ? ORPHANED_APPROVAL_REASON : JobSuspends.approvalExpiredReason(expiresAt);
 
-        jobService.update(job);
+        try {
+            jobService.update(job);
+        } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
+            log.info("Job {} was resolved concurrently; not failing it", jobId);
 
-        failSuspendedTaskExecution(job, now);
+            return true;
+        } catch (RuntimeException runtimeException) {
+            log.warn("Could not fail job {}; retrying next sweep", jobId, runtimeException);
 
-        // The suspended-task state row (keyed by jobResumeId) is otherwise deleted only on resume, so an expired
-        // approval would leak it — and the stored suspend payload (the rendered approval request) with it. Delete it
-        // best-effort: a cleanup failure must never keep the run STOPPED.
+            return false;
+        }
+
+        if (taskExecution != null) {
+            failTaskExecution(taskExecution, jobId, now, reason);
+        }
+
         deleteTaskState(job);
 
-        log.warn("Failed job {}: its pending approval expired at {}", jobId, expiresAt);
+        incrementExpiredCounter();
+
+        log.warn("Failed job {}: {}", jobId, reason);
 
         eventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.FAILED));
-        eventPublisher.publishEvent(
-            new JobApprovalClosedEvent(jobId, jobResumeId, JobApprovalClosedEvent.Reason.EXPIRED));
+        eventPublisher.publishEvent(new JobApprovalClosedEvent(jobId));
+
+        return true;
     }
 
-    private void failSuspendedTaskExecution(Job job, Instant now) {
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+    private void failTaskExecution(TaskExecution taskExecution, long jobId, Instant now, String reason) {
+        TaskExecution.Status status = taskExecution.getStatus();
 
-        if (taskExecutionResumeId == null) {
+        if (status != null && status.isTerminated()) {
             return;
         }
 
+        taskExecution.setStatus(TaskExecution.Status.FAILED);
+        taskExecution.setEndDate(now);
+        taskExecution.setError(new ExecutionError(reason, List.of()));
+
         try {
-            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
-
-            TaskExecution.Status status = taskExecution.getStatus();
-
-            if (status == null || !status.isTerminated()) {
-                taskExecution.setStatus(TaskExecution.Status.FAILED);
-                taskExecution.setEndDate(now);
-                taskExecution.setError(job.getError());
-
-                taskExecutionService.update(taskExecution);
-            }
-        } catch (Exception exception) {
+            taskExecutionService.update(taskExecution);
+        } catch (RuntimeException runtimeException) {
             log.warn(
-                "Could not mark suspended task execution {} of job {} failed: {}", taskExecutionResumeId,
-                job.getId(), exception.getMessage());
+                "Could not mark suspended task execution {} of job {} failed", taskExecution.getId(), jobId,
+                runtimeException);
         }
     }
 
@@ -227,10 +233,9 @@ public class ApprovalExpiryMonitor {
         }
 
         try {
-            taskStateService.delete(JobResumeId.parse(jobResumeId.toString()));
-        } catch (Exception exception) {
-            log.warn(
-                "Could not delete task state for expired job {}: {}", job.getId(), exception.getMessage());
+            taskStateFacade.delete(JobResumeId.parse(jobResumeId.toString()));
+        } catch (RuntimeException runtimeException) {
+            log.warn("Could not delete task state for expired job {}", job.getId(), runtimeException);
         }
     }
 
