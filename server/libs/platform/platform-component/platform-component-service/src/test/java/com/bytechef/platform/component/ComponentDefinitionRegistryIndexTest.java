@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.component.slack.SlackComponentHandler;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
@@ -31,6 +32,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -271,7 +273,7 @@ public class ComponentDefinitionRegistryIndexTest {
                     List.of("tag1"),
                     new ComponentIndex.ConnectionSummary(2, false),
                     List.of(new ComponentIndex.ItemSummary("doIt", "Do It", "Does it.")),
-                    List.of(new ComponentIndex.TriggerSummary("onEvent", "On Event", null, "STATIC_WEBHOOK")),
+                    List.of(new ComponentIndex.TriggerSummary("onEvent", "On Event", null, TriggerType.STATIC_WEBHOOK)),
                     List.of(
                         new ComponentIndex.ClusterElementSummary(
                             "myTool", "My Tool", null, "TOOLS", "tools", "Tools", true, false)),
@@ -339,28 +341,51 @@ public class ComponentDefinitionRegistryIndexTest {
     }
 
     @Test
-    public void testGetStaticComponentDefinitionsFallsBackToFullLoadingOnBrokenStub() {
-        // An unknown trigger-type name makes stub building throw; the list must degrade to full definitions
-        // instead of propagating the failure to the components-list view.
-        ComponentIndex brokenComponentIndex = new ComponentIndex(
-            List.of(
-                new ComponentIndex.Entry(
-                    "slack", 1, "Slack", null, null, null, null, null, null,
-                    List.of(new ComponentIndex.TriggerSummary("newMessage", null, null, "NOT_A_REAL_TRIGGER_TYPE")),
-                    null, null, null, null, SlackComponentHandler.class.getName(), "default")));
+    public void testCorruptTriggerTypeInIndexFallsBackToFullLoading() throws Exception {
+        Path indexPath = tempDir.resolve(ComponentIndex.RESOURCE_PATH);
 
-        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(brokenComponentIndex);
+        Files.createDirectories(Objects.requireNonNull(indexPath.getParent()));
+        Files.writeString(indexPath, """
+            {"entries":[
+              {"name":"slack","version":1,"providerClassName":"com.bytechef.component.slack.SlackComponentHandler",
+               "loaderKind":"default","triggers":[{"name":"newMessage","type":"NOT_A_REAL_TRIGGER_TYPE"}]}
+            ]}""");
 
-        List<ComponentDefinition> componentDefinitions = componentDefinitionRegistry.getStaticComponentDefinitions();
+        AtomicInteger bulkLoadCount = new AtomicInteger();
 
-        ComponentDefinition slackComponentDefinition = componentDefinitions.stream()
-            .filter(componentDefinition -> "slack".equals(componentDefinition.getName()))
-            .findFirst()
-            .orElseThrow();
+        Supplier<List<ComponentHandlerEntry>> countingSupplier = () -> {
+            bulkLoadCount.incrementAndGet();
 
-        // The fallback serves the real, fully loaded definition — actions carry property trees, unlike stubs.
-        assertThat(slackComponentDefinition.getActions())
-            .anySatisfy(actionDefinition -> assertThat(actionDefinition.getProperties()).isNotEmpty());
+            return List.of();
+        };
+
+        try (URLClassLoader classLoader = new URLClassLoader(
+            new URL[] {
+                tempDir.toUri()
+                    .toURL()
+            }, null)) {
+
+            ApplicationProperties applicationProperties = new ApplicationProperties();
+            ApplicationProperties.Component component = new ApplicationProperties.Component();
+
+            component.setRegistry(new ApplicationProperties.Component.Registry());
+            applicationProperties.setComponent(component);
+
+            ComponentDefinitionRegistry componentDefinitionRegistry = new ComponentDefinitionRegistry(
+                applicationProperties, List.of(new SlackComponentHandler()), countingSupplier, List.of(),
+                () -> ComponentIndex.load(classLoader));
+
+            List<ComponentDefinition> componentDefinitions =
+                componentDefinitionRegistry.getStaticComponentDefinitions();
+
+            assertThat(componentDefinitions)
+                .filteredOn(componentDefinition -> "slack".equals(componentDefinition.getName()))
+                .singleElement()
+                .satisfies(slackComponentDefinition -> assertThat(slackComponentDefinition.getActions())
+                    .anySatisfy(actionDefinition -> assertThat(actionDefinition.getProperties()).isNotEmpty()));
+        }
+
+        assertThat(bulkLoadCount.get()).isOne();
     }
 
     @Test

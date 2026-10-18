@@ -212,4 +212,54 @@ public class ComponentIndexTest {
         assertThat(stubAgentReplyDefinition.getChannelParameters()).containsEntry("channelId", "response.channelId");
         assertThat(stubAgentReplyDefinition.getFixedParameters()).containsEntry("response.locale", "en-US");
     }
+
+    @Test
+    public void testLoadReturnsEmptyOnUnknownTriggerType() throws Exception {
+        Path root = writeIndex("trigger", """
+            {"entries":[
+              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"default",
+               "triggers":[{"name":"onEvent","type":"NOT_A_REAL_TRIGGER_TYPE"}]}
+            ]}""");
+
+        try (URLClassLoader classLoader = classLoaderOf(root)) {
+            assertThat(ComponentIndex.load(classLoader)).isEmpty();
+        }
+    }
+
+    @Test
+    public void testLoadReturnsEmptyOnMissingProviderClassName() throws Exception {
+        Path root = writeIndex("provider", """
+            {"entries":[
+              {"name":"alpha","version":1,"loaderKind":"default"}
+            ]}""");
+
+        try (URLClassLoader classLoader = classLoaderOf(root)) {
+            assertThat(ComponentIndex.load(classLoader)).isEmpty();
+        }
+    }
+
+    @Test
+    public void testLoadReadsTriggerTypeAndDefaultsMissingListsToEmpty() throws Exception {
+        Path root = writeIndex("lists", """
+            {"entries":[
+              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"default",
+               "triggers":[{"name":"onEvent","type":"POLLING"}]}
+            ]}""");
+
+        try (URLClassLoader classLoader = classLoaderOf(root)) {
+            ComponentIndex.Entry alphaEntry = ComponentIndex.load(classLoader)
+                .orElseThrow()
+                .entries()
+                .getFirst();
+
+            assertThat(alphaEntry.triggers()
+                .getFirst()
+                .type()).isEqualTo(TriggerType.POLLING);
+            assertThat(alphaEntry.actions()).isEmpty();
+            assertThat(alphaEntry.tags()).isEmpty();
+            assertThat(alphaEntry.inputs()).isEmpty();
+            assertThat(alphaEntry.clusterElementTypes()).isEmpty();
+            assertThat(alphaEntry.agentChannels()).isEmpty();
+        }
+    }
 }

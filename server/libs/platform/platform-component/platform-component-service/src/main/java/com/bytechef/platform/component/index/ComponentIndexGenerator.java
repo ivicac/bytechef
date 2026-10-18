@@ -233,15 +233,13 @@ public class ComponentIndexGenerator {
     }
 
     private static TriggerSummary toTriggerSummary(TriggerDefinition triggerDefinition) {
-        TriggerDefinition.TriggerType triggerType = triggerDefinition.getType();
-
         return new TriggerSummary(
             triggerDefinition.getName(),
             triggerDefinition.getTitle()
                 .orElse(null),
             triggerDefinition.getDescription()
                 .orElse(null),
-            triggerType == null ? null : triggerType.name());
+            triggerDefinition.getType());
     }
 
     private static ClusterElementSummary toClusterElementSummary(

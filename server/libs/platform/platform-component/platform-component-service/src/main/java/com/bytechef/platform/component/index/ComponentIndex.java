@@ -155,7 +155,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<CategorySummary> componentCategories = entry.componentCategories();
 
-        if (componentCategories != null && !componentCategories.isEmpty()) {
+        if (!componentCategories.isEmpty()) {
             componentDefinition.categories(
                 componentCategories
                     .stream()
@@ -165,7 +165,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<String> tags = entry.tags();
 
-        if (tags != null && !tags.isEmpty()) {
+        if (!tags.isEmpty()) {
             componentDefinition.tags(tags.toArray(String[]::new));
         }
 
@@ -180,7 +180,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<ItemSummary> actions = entry.actions();
 
-        if (actions != null && !actions.isEmpty()) {
+        if (!actions.isEmpty()) {
             componentDefinition.actions(
                 actions
                     .stream()
@@ -190,7 +190,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<TriggerSummary> triggers = entry.triggers();
 
-        if (triggers != null && !triggers.isEmpty()) {
+        if (!triggers.isEmpty()) {
             componentDefinition.triggers(
                 triggers
                     .stream()
@@ -200,7 +200,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<ClusterElementSummary> clusterElements = entry.clusterElements();
 
-        if (clusterElements != null && !clusterElements.isEmpty()) {
+        if (!clusterElements.isEmpty()) {
             componentDefinition.clusterElements(
                 clusterElements
                     .stream()
@@ -210,7 +210,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<String> inputs = entry.inputs();
 
-        if (inputs != null && !inputs.isEmpty()) {
+        if (!inputs.isEmpty()) {
             componentDefinition.inputs(
                 inputs
                     .stream()
@@ -223,7 +223,7 @@ public record ComponentIndex(List<Entry> entries) {
         // agentChannel(...) validates the pair eagerly at construction time.
         List<AgentChannelSummary> agentChannels = entry.agentChannels();
 
-        if (agentChannels != null && !agentChannels.isEmpty()) {
+        if (!agentChannels.isEmpty()) {
             componentDefinition.agentChannels(
                 agentChannels
                     .stream()
@@ -233,7 +233,7 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<ClusterElementTypeSummary> clusterElementTypes = entry.clusterElementTypes();
 
-        if (clusterElementTypes == null || clusterElementTypes.isEmpty()) {
+        if (clusterElementTypes.isEmpty()) {
             return componentDefinition;
         }
 
@@ -270,7 +270,7 @@ public record ComponentIndex(List<Entry> entries) {
         ModifiableTriggerDefinition triggerDefinition = trigger(triggerSummary.name());
 
         if (triggerSummary.type() != null) {
-            triggerDefinition.type(TriggerType.valueOf(triggerSummary.type()));
+            triggerDefinition.type(triggerSummary.type());
         }
 
         if (triggerSummary.title() != null) {
@@ -418,15 +418,36 @@ public record ComponentIndex(List<Entry> entries) {
             .approvalChannel(agentChannelSummary.approvalChannelName());
     }
 
-    @SuppressFBWarnings("EI")
+    /**
+     * One indexed component. List components absent from the index file read as empty lists; a missing name, provider
+     * class or loader kind is rejected while the index is loaded, so {@link #load(ClassLoader)} falls back to full
+     * component loading instead of serving a broken components list.
+     */
     public record Entry(
         String name, int version, @Nullable String title, @Nullable String description, @Nullable String icon,
-        @Nullable List<CategorySummary> componentCategories, @Nullable List<String> tags,
-        @Nullable ConnectionSummary connection, @Nullable List<ItemSummary> actions,
-        @Nullable List<TriggerSummary> triggers, @Nullable List<ClusterElementSummary> clusterElements,
-        @Nullable List<ClusterElementTypeSummary> clusterElementTypes,
-        @Nullable List<AgentChannelSummary> agentChannels, @Nullable List<String> inputs, String providerClassName,
-        String loaderKind) {
+        List<CategorySummary> componentCategories, List<String> tags, @Nullable ConnectionSummary connection,
+        List<ItemSummary> actions, List<TriggerSummary> triggers, List<ClusterElementSummary> clusterElements,
+        List<ClusterElementTypeSummary> clusterElementTypes, List<AgentChannelSummary> agentChannels,
+        List<String> inputs, String providerClassName, String loaderKind) {
+
+        public Entry {
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(providerClassName, "providerClassName");
+            Objects.requireNonNull(loaderKind, "loaderKind");
+
+            componentCategories = copyOrEmpty(componentCategories);
+            tags = copyOrEmpty(tags);
+            actions = copyOrEmpty(actions);
+            triggers = copyOrEmpty(triggers);
+            clusterElements = copyOrEmpty(clusterElements);
+            clusterElementTypes = copyOrEmpty(clusterElementTypes);
+            agentChannels = copyOrEmpty(agentChannels);
+            inputs = copyOrEmpty(inputs);
+        }
+
+        private static <T> List<T> copyOrEmpty(@Nullable List<T> list) {
+            return list == null ? List.of() : List.copyOf(list);
+        }
     }
 
     /**
@@ -542,7 +563,7 @@ public record ComponentIndex(List<Entry> entries) {
     }
 
     public record TriggerSummary(
-        String name, @Nullable String title, @Nullable String description, @Nullable String type) {
+        String name, @Nullable String title, @Nullable String description, @Nullable TriggerType type) {
     }
 
     public record ClusterElementSummary(
