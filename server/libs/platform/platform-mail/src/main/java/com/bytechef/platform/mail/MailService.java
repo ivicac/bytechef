@@ -110,28 +110,27 @@ public class MailService {
     }
 
     /**
-     * Mails the claim link on which an admin-provisioned user sets their own password. This is the only invitation
-     * path: the superseded one mailed a temporary password in the message body, which left a working credential in the
-     * recipient's mailbox indefinitely and known to whoever sent it.
+     * Mails an invited user the link on which they set their own password. Sent synchronously; a delivery failure is
+     * thrown as a {@link MailException}.
      */
-    @Async
     public void sendCreationEmail(User user) {
         log.debug("Sending creation email to '{}'", user.getEmail());
 
-        this.sendEmailFromTemplateSync(user, "mail/creationEmail", "email.invitation.title");
+        if (Objects.isNull(user.getEmail())) {
+            throw new MailPreparationException("Email misses for user '" + user.getLogin() + "'");
+        }
+
+        deliverEmailFromTemplate(user, "mail/creationEmail", "email.invitation.title");
     }
 
-    /**
-     * Tells an existing account holder they were added to a workspace. Distinct from the claim link: this recipient
-     * already has a password, so mailing them a reset link would be both useless and alarming. Without this they are
-     * added silently and only discover the workspace by chance.
-     */
     @Async
     public void sendWorkspaceMembershipEmail(User user, String workspaceName) {
         log.debug("Sending workspace membership email to '{}'", user.getEmail());
 
         if (Objects.isNull(user.getEmail())) {
-            throw new MailPreparationException("Email misses for user '" + user.getLogin() + "'");
+            log.warn("Email misses for user '{}'", user.getLogin());
+
+            return;
         }
 
         Locale locale = Locale.forLanguageTag(user.getLangKey());
@@ -183,6 +182,16 @@ public class MailService {
 
         try {
             deliverEmail(user.getEmail(), subject, content, false, true);
+        } catch (MessagingException messagingException) {
+            throw new MailPreparationException(messagingException);
+        }
+    }
+
+    public void sendEmailOrThrow(
+        String recipient, String subject, String content, boolean isMultipart, boolean isHtml) {
+
+        try {
+            deliverEmail(recipient, subject, content, isMultipart, isHtml);
         } catch (MessagingException messagingException) {
             throw new MailPreparationException(messagingException);
         }
