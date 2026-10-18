@@ -81,7 +81,6 @@ import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
-import com.bytechef.platform.component.definition.ActionContextAware.ApprovalLinks;
 import com.bytechef.platform.component.definition.ApprovalFormInputs;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
@@ -104,6 +103,9 @@ public class ApprovalRequestApprovalAction {
 
     private static final Logger log = LoggerFactory.getLogger(ApprovalRequestApprovalAction.class);
 
+    private static final String APPROVED = "approved";
+    private static final String APPROVED_BY = "approvedBy";
+    private static final String COMMENT = "comment";
     private static final String FORM_URL = "formUrl";
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -258,14 +260,14 @@ public class ApprovalRequestApprovalAction {
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
         List<ModifiableValueProperty<?, ?>> properties = new ArrayList<>();
 
-        properties.add(bool("approved"));
+        properties.add(bool(APPROVED));
         // The reviewer's optional note, valid on BOTH outcomes (approve-with-comment and reject-with-comment alike).
         // "comment" is a reserved key on the approval form; a user-defined field with that name takes precedence and
         // suppresses the built-in comment box.
-        properties.add(string("comment"));
+        properties.add(string(COMMENT));
         // The verified identity of whoever resolved the approval, when the resolving channel could establish one
-        // (e.g. Slack in-place resolution). Absent for the anonymous hosted form, which has no trusted identity.
-        properties.add(string("approvedBy"));
+        // (e.g. Slack in-place resolution). Empty for the anonymous hosted form, which has no trusted identity.
+        properties.add(string(APPROVED_BY));
 
         for (Map<String, ?> input : inputs) {
             String fieldName = (String) input.get(FIELD_NAME);
@@ -428,7 +430,13 @@ public class ApprovalRequestApprovalAction {
     }
 
     private static void suspend(ActionContext context, String formUrl, Instant expiresAt) {
-        context.suspend(new Suspend(Map.of(FORM_URL, formUrl, MetadataConstants.APPROVAL_RESUME, true), expiresAt));
+        context.suspend(
+            new Suspend(
+                Map.of(
+                    FORM_URL, formUrl, MetadataConstants.APPROVAL_RAISED_AT, Instant.now()
+                        .toString(),
+                    MetadataConstants.APPROVAL_RESUME, true),
+                expiresAt));
     }
 
     /**
