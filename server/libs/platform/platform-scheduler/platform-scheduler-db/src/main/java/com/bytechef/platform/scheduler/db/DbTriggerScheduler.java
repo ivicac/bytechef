@@ -139,8 +139,8 @@ public class DbTriggerScheduler implements TriggerScheduler {
     }
 
     /**
-     * The db-scheduler table is shared by all tenants while job ids are per-tenant sequences, so the instance id carries
-     * the tenant. Tasks scheduled before the tenant was part of the instance id use the bare job id.
+     * The db-scheduler table is shared by all tenants while job ids are per-tenant sequences, so the instance id
+     * carries the tenant. Tasks scheduled before the tenant was part of the instance id use the bare job id.
      */
     static String getOneTimeTaskInstanceId(String tenantId, long jobId) {
         return tenantId + ":" + jobId;

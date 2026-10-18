@@ -99,10 +99,13 @@ class DbTriggerSchedulerTest {
     void testCancelOneTimeTaskCancelsAResumeScheduledUnderTheLegacyInstanceId() {
         TaskInstanceId legacyTaskInstanceId = DbSchedulerTaskDescriptors.ONE_TIME_RESUME.instanceId("42");
 
+        ScheduledExecution<Object> legacyScheduledExecution = scheduledExecution(
+            new OneTimeResumeData(42L, null, "tenant_1"));
+
         Mockito.when(schedulerClient.getScheduledExecution(Mockito.any()))
             .thenReturn(Optional.empty());
         Mockito.when(schedulerClient.getScheduledExecution(legacyTaskInstanceId))
-            .thenReturn(Optional.of(scheduledExecution(new OneTimeResumeData(42L, null, "tenant_1"))));
+            .thenReturn(Optional.of(legacyScheduledExecution));
 
         TenantContext.runWithTenantId("tenant_1", () -> triggerScheduler.cancelOneTimeTask(42L));
 
@@ -114,10 +117,13 @@ class DbTriggerSchedulerTest {
     void testCancelOneTimeTaskKeepsALegacyResumeOfAnotherTenant() {
         TaskInstanceId legacyTaskInstanceId = DbSchedulerTaskDescriptors.ONE_TIME_RESUME.instanceId("42");
 
+        ScheduledExecution<Object> legacyScheduledExecution = scheduledExecution(
+            new OneTimeResumeData(42L, null, "tenant_2"));
+
         Mockito.when(schedulerClient.getScheduledExecution(Mockito.any()))
             .thenReturn(Optional.empty());
         Mockito.when(schedulerClient.getScheduledExecution(legacyTaskInstanceId))
-            .thenReturn(Optional.of(scheduledExecution(new OneTimeResumeData(42L, null, "tenant_2"))));
+            .thenReturn(Optional.of(legacyScheduledExecution));
 
         TenantContext.runWithTenantId("tenant_1", () -> triggerScheduler.cancelOneTimeTask(42L));
 
