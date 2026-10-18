@@ -24,13 +24,17 @@ import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandler;
 import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandlerFactory;
 import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcher;
 import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcherResolver;
+import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcherResolverFactory;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.ContextService;
 import com.bytechef.atlas.execution.service.CounterService;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.evaluator.Evaluator;
-import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
+import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.job.sync.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
+import com.bytechef.platform.job.sync.executor.SyncExecutionSuspendRejectingTaskDispatcher;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.CallableAiAgentDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
@@ -77,19 +81,25 @@ class WebhookConfigurationTest {
     }
 
     @Test
-    void testSyncChainStartsWithSuspendRejectingHandler() {
-        List<TaskCompletionHandlerFactory> taskCompletionHandlerFactories = webhookConfiguration
-            .getSyncTaskCompletionHandlerFactories(
+    void testTheFirstSyncTaskCompletionHandlerRejectsASuspendingStep() {
+        List<TaskCompletionHandlerFactory> taskCompletionHandlerFactories =
+            webhookConfiguration.getSyncTaskCompletionHandlerFactories(
                 mock(ContextService.class), mock(ApplicationEventPublisher.class), mock(CounterService.class),
                 mock(Evaluator.class), mock(JobService.class), mock(TaskExecutionService.class),
                 mock(TaskFileStorage.class));
 
-        TaskCompletionHandlerFactory firstTaskCompletionHandlerFactory = taskCompletionHandlerFactories.getFirst();
+        TaskCompletionHandlerFactory taskCompletionHandlerFactory = taskCompletionHandlerFactories.getFirst();
 
-        assertThat(
-            firstTaskCompletionHandlerFactory.createTaskCompletionHandler(
-                mock(TaskCompletionHandler.class), mockTaskDispatcher()))
-                    .isInstanceOf(SyncExecutionSuspendRejectingTaskCompletionHandler.class);
+        TaskCompletionHandler taskCompletionHandler = taskCompletionHandlerFactory.createTaskCompletionHandler(
+            mock(TaskCompletionHandler.class), mockTaskDispatcher());
+
+        assertThat(taskCompletionHandler).isInstanceOf(SyncExecutionSuspendRejectingTaskCompletionHandler.class);
+
+        TaskExecution suspendedTaskExecution = new TaskExecution();
+
+        suspendedTaskExecution.putMetadata(MetadataConstants.JOB_RESUME_ID, "resume-id");
+
+        assertThat(taskCompletionHandler.canHandle(suspendedTaskExecution)).isTrue();
     }
 
     @Test
@@ -109,6 +119,21 @@ class WebhookConfigurationTest {
             .collect(Collectors.toSet());
 
         assertThat(registeredClassNames).containsAll(findClassNames(TaskDispatcherResolver.class));
+    }
+
+    @Test
+    void testSyncDispatcherChainStartsWithSuspendRejectingDispatcher() {
+        List<TaskDispatcherResolverFactory> taskDispatcherResolverFactories = webhookConfiguration
+            .getTaskDispatcherResolverFactories(
+                emptyObjectProvider(), mock(ChildJobPrincipalFactory.class), mock(ContextService.class),
+                mock(CounterService.class), mock(ApplicationEventPublisher.class), mock(Evaluator.class),
+                mock(JobService.class), mock(SubflowResolver.class), mock(TaskExecutionService.class),
+                mock(TaskFileStorage.class));
+
+        TaskDispatcherResolverFactory firstTaskDispatcherResolverFactory = taskDispatcherResolverFactories.getFirst();
+
+        assertThat(firstTaskDispatcherResolverFactory.createTaskDispatcherResolver(mockTaskDispatcher()))
+            .isInstanceOf(SyncExecutionSuspendRejectingTaskDispatcher.class);
     }
 
     private static Set<String> findClassNames(Class<?> type) {

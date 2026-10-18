@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -49,6 +50,7 @@ import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry.Registration;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.coordinator.event.TriggerWebhookEvent;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -123,21 +125,45 @@ public class WebhookWorkflowExecutorTest {
 
     @Test
     public void testExecuteAsyncWithStreamBridgeMarksTheJobAsStreamed() {
-        Registration registration = mock(Registration.class);
-
-        when(registration.completion()).thenReturn(new CompletableFuture<>());
-        when(sseStreamBridgeRegistry.register(anyLong(), any())).thenReturn(registration);
-        when(webhookWorkflowSyncExecutor.execute(any(), any())).thenReturn(new TriggerOutput(Map.of(), null, false));
-        when(principalJobFacade.createJob(any(), anyLong(), any())).thenReturn(7L);
+        when(webhookWorkflowSyncExecutor.execute(any(), any())).thenReturn(new TriggerOutput("payload", null, false));
+        when(principalJobFacade.createJob(any(JobParametersDTO.class), eq(1L), any())).thenReturn(9L);
+        when(sseStreamBridgeRegistry.register(eq(9L), any()))
+            .thenReturn(new Registration(() -> {}, new CompletableFuture<>()));
 
         webhookWorkflowExecutor.executeAsync(workflowExecutionId, webhookRequest, mock(SseStreamBridge.class));
 
         ArgumentCaptor<JobParametersDTO> jobParametersArgumentCaptor = ArgumentCaptor.forClass(JobParametersDTO.class);
 
-        verify(principalJobFacade).createJob(jobParametersArgumentCaptor.capture(), anyLong(), any());
+        verify(principalJobFacade).createJob(jobParametersArgumentCaptor.capture(), eq(1L), any());
 
-        assertThat(jobParametersArgumentCaptor.getValue()
-            .getMetadata()).containsEntry(MetadataConstants.STREAMED_EXECUTION, true);
+        JobParametersDTO jobParametersDTO = jobParametersArgumentCaptor.getValue();
+
+        assertThat(jobParametersDTO.getMetadata()).containsEntry(MetadataConstants.STREAMED_EXECUTION, true);
+    }
+
+    @Test
+    public void testExecuteSyncRejectsWorkflowWithApprovalGateBeforeRunning() {
+        WorkflowTask agentWorkflowTask = new WorkflowTask(
+            Map.of(
+                "name", "agent", "type", "aiAgent/v1/chat",
+                "clusterElements", Map.of(
+                    "tools", List.of(
+                        Map.of(
+                            "name", "gate", "type", "aiAgentUtils/v1/approvalGate",
+                            "clusterElements", Map.of(
+                                "tools", List.of(Map.of("name", "send", "type", "gmail/v1/sendEmail"))))))));
+
+        Workflow workflow = mock(Workflow.class);
+
+        when(workflow.getTasks(true)).thenReturn(List.of(agentWorkflowTask));
+        when(workflowService.getWorkflow("workflow-id")).thenReturn(workflow);
+
+        assertThatThrownBy(() -> webhookWorkflowExecutor.executeSync(workflowExecutionId, webhookRequest))
+            .isInstanceOf(ConfigurationException.class)
+            .hasMessage(WebhookWorkflowExecutorImpl.suspendingTaskMessage("agent", "aiAgent/v1/chat"));
+
+        verify(webhookWorkflowSyncExecutor, never()).execute(any(), any());
+        verify(jobSyncExecutor, never()).execute(any(), any(), anyBoolean(), any(), any());
     }
 
     @Test
@@ -176,12 +202,13 @@ public class WebhookWorkflowExecutorTest {
 
     @Test
     public void testExecuteSyncUsesDefaultTimeoutWhenTriggerTimeoutIsNotSet() {
-        assertThat(executeSyncAndCaptureTimeout(Map.of())).isNull();
+        assertThat(executeSyncAndCaptureTimeout(Map.of())).isEqualTo(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
     }
 
     @Test
     public void testExecuteSyncUsesDefaultTimeoutWhenTriggerTimeoutIsNotNumber() {
-        assertThat(executeSyncAndCaptureTimeout(Map.of("timeout", "${input.timeout}"))).isNull();
+        assertThat(executeSyncAndCaptureTimeout(Map.of("timeout", "${input.timeout}")))
+            .isEqualTo(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
     }
 
     @Test

@@ -46,7 +46,6 @@ import com.bytechef.platform.job.sync.executor.SyncExecutionSuspendRejectingTask
 import com.bytechef.platform.job.sync.executor.SyncExecutionSuspendRejectingTaskDispatcher;
 import com.bytechef.platform.job.sync.file.storage.InMemoryTaskFileStorage;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry;
-import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutorImpl;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowSyncExecutor;
@@ -159,7 +158,7 @@ public class WebhookConfiguration {
 
         TaskCompletionHandlerFactory suspendRejectingTaskCompletionHandlerFactory =
             (taskCompletionHandler, taskDispatcher) -> new SyncExecutionSuspendRejectingTaskCompletionHandler(
-                eventPublisher, jobService, taskExecutionService);
+                eventPublisher, jobService, taskExecutionService, WebhookWorkflowExecutorImpl::suspendingTaskMessage);
 
         return CollectionUtils.concat(
             List.of(suspendRejectingTaskCompletionHandlerFactory),

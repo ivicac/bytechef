@@ -55,6 +55,22 @@ class SuspendingTasksTest {
     }
 
     @Test
+    void testAgentWithAnApprovalGateUnderASubagentIsSuspending() {
+        WorkflowTask workflowTask = new WorkflowTask(
+            Map.of(
+                "name", "agent", "type", "aiAgent/v1/chat",
+                "clusterElements", Map.of(
+                    "tools", List.of(
+                        Map.of(
+                            "name", "subagent", "type", "aiAgentUtils/v1/taskTool",
+                            "clusterElements", Map.of(
+                                "tools", List.of(
+                                    Map.of("name", "gate", "type", "aiAgentUtils/v1/approvalGate"))))))));
+
+        assertThat(SuspendingTasks.isSuspending(workflowTask)).isTrue();
+    }
+
+    @Test
     void testAgentWithoutAnApprovalGateIsNotSuspending() {
         WorkflowTask workflowTask = new WorkflowTask(
             Map.of(

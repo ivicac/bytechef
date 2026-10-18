@@ -81,6 +81,11 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
      */
     static final Duration DEFAULT_STREAM_TIMEOUT = Duration.ofMinutes(30);
 
+    private static final String SUSPENDING_TASK_MESSAGE =
+        "Workflows that return a synchronous response can't contain steps that pause the run, such as approval " +
+            "or wait steps. Step '%s' (%s) would pause it. Use a trigger that responds asynchronously, or remove " +
+            "the step.";
+
     private final Evaluator evaluator;
     private final ApplicationEventPublisher eventPublisher;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
@@ -141,7 +146,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             workflowExecutionId.getTenantId(),
             () -> principalJobFacade.createJob(
                 new JobParametersDTO(workflowId, inputs, Map.of(MetadataConstants.STREAMED_EXECUTION, true)),
-                workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()));
+                workflowExecutionId.getJobPrincipalId(),
+                workflowExecutionId.getType()));
 
         Registration registration = sseStreamBridgeRegistry.register(jobId, sseStreamBridge);
 
@@ -167,8 +173,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
         findSuspendingTask(workflowId).ifPresent(workflowTask -> {
             throw new ConfigurationException(
-                SyncExecutionSuspendRejectingTaskCompletionHandler.getMessage(
-                    workflowTask.getName(), workflowTask.getType()),
+                suspendingTaskMessage(workflowTask.getName(), workflowTask.getType()),
                 WebhookErrorType.SUSPENDING_TASK_IN_SYNC_EXECUTION);
         });
 
@@ -186,7 +191,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
                 AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
                 Job job = executeSyncJob(
-                    workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse, timeout);
+                    workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse,
+                    syncTimeout);
 
                 Object webhookResponse = collectedWebhookResponse.get();
 
@@ -206,7 +212,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
             Job job = executeSyncJob(
-                workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse, timeout);
+                workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse,
+                syncTimeout);
 
             Object webhookResponse = collectedWebhookResponse.get();
 
@@ -271,7 +278,9 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
     @Override
     public boolean hasSuspendingTask(WorkflowExecutionId workflowExecutionId) {
-        return findSuspendingTask(getWorkflowId(workflowExecutionId)).isPresent();
+        Optional<WorkflowTask> suspendingTask = findSuspendingTask(getWorkflowId(workflowExecutionId));
+
+        return suspendingTask.isPresent();
     }
 
     @Override
@@ -335,20 +344,6 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest) {
 
         return webhookWorkflowSyncExecutor.validateOnEnable(workflowExecutionId, webhookRequest);
-    }
-
-    private Optional<WorkflowTask> findSuspendingTask(String workflowId) {
-        Workflow workflow = workflowService.getWorkflow(workflowId);
-
-        return workflow.getTasks(true)
-            .stream()
-            .filter(workflowTask -> {
-                String type = workflowTask.getType();
-
-                return type != null && SUSPENDING_TASK_TYPE_PREFIXES.stream()
-                    .anyMatch(type::startsWith);
-            })
-            .findFirst();
     }
 
     private void collectWebhookResponse(
