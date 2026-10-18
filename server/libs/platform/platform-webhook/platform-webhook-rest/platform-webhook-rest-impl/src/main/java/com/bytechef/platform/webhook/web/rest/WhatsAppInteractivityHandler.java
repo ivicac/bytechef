@@ -28,6 +28,7 @@ import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import javax.crypto.Mac;
@@ -35,6 +36,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Handles WhatsApp Cloud API inbound webhooks that resolve an approval in place. The WhatsApp approval channel sends
@@ -55,17 +58,32 @@ public class WhatsAppInteractivityHandler {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppInteractivityHandler.class);
 
+    private static final String GRAPH_API_URL = "https://graph.facebook.com/v17.0/";
+
+    private static final String ALREADY_RESOLVED_TEXT = "ℹ️ This approval was already resolved.";
+    private static final String EXPIRED_TEXT = "⌛ This approval expired before it was resolved.";
+    private static final String JOB_FAILED_TEXT = "❌ The workflow failed before this approval could be applied.";
+    private static final String NO_LONGER_AVAILABLE_TEXT = "⚠️ This approval is no longer available.";
+    private static final String NOT_APPLIED_TEXT =
+        "⚠️ This approval could not be applied here — open the approval form.";
+    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
+
+    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final ConnectionService connectionService;
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
+    private final RestClient restClient;
 
     @SuppressFBWarnings("EI")
     public WhatsAppInteractivityHandler(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens) {
+        ApprovalResolutionLookup approvalResolutionLookup, ConnectionService connectionService,
+        JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens, RestClient restClient) {
 
+        this.approvalResolutionLookup = approvalResolutionLookup;
         this.connectionService = connectionService;
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokens;
+        this.restClient = restClient;
     }
 
     public enum Result {
@@ -109,7 +127,9 @@ public class WhatsAppInteractivityHandler {
             return Result.IGNORED;
         }
 
-        if (signature == null || !verifySignature(tenantId, rawBody, signature)) {
+        Connection connection = signature == null ? null : findVerifiedConnection(tenantId, rawBody, signature);
+
+        if (connection == null) {
             log.warn("Rejected WhatsApp interactivity callback with an unverifiable signature");
 
             return Result.UNAUTHORIZED;
@@ -117,14 +137,77 @@ public class WhatsAppInteractivityHandler {
 
         String userName = extractContactName(payload);
 
-        JobResumeOutcome outcome = TenantContext.callWithTenantId(
-            tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = TenantContext.callWithTenantId(
+                tenantId,
+                () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
+        } catch (RuntimeException runtimeException) {
+            log.warn("WhatsApp in-place approval resolution could not be applied", runtimeException);
+
+            reply(connection, payload, NOT_APPLIED_TEXT);
+
+            return Result.HANDLED;
+        }
 
         if (outcome != JobResumeOutcome.OK) {
-            log.info("WhatsApp in-place approval resolution returned {}", outcome);
+            log.warn("WhatsApp in-place approval resolution returned {}", outcome);
+
+            reply(connection, payload, toReplyText(resumeId, outcome));
         }
 
         return Result.HANDLED;
+    }
+
+    private String toReplyText(String resumeId, JobResumeOutcome outcome) {
+        return switch (outcome) {
+            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
+                case RESOLVED -> ALREADY_RESOLVED_TEXT;
+                case EXPIRED -> EXPIRED_TEXT;
+                case UNAVAILABLE -> NO_LONGER_AVAILABLE_TEXT;
+            };
+            case JOB_FAILED -> JOB_FAILED_TEXT;
+            case NOT_YET_SUSPENDED -> NOT_YET_SUSPENDED_TEXT;
+            case OK, INVALID_ID, STREAMING_NOT_ALLOWED -> NO_LONGER_AVAILABLE_TEXT;
+        };
+    }
+
+    private void reply(Connection connection, Map<String, ?> payload, String text) {
+        Map<String, ?> parameters = connection.getParameters();
+
+        Object accessToken = parameters.get("systemUserAccessToken");
+        Object phoneNumberId = parameters.get("phoneNumberId");
+        String recipient = extractSender(payload);
+
+        if (!(accessToken instanceof String accessTokenString) || accessTokenString.isBlank() ||
+            !(phoneNumberId instanceof String phoneNumberIdString) || phoneNumberIdString.isBlank() ||
+            recipient == null) {
+
+            log.warn("Could not reply to the WhatsApp approver: the connection or the callback lacks reply details");
+
+            return;
+        }
+
+        try {
+            restClient.post()
+                .uri(GRAPH_API_URL + phoneNumberIdString + "/messages")
+                .header("Authorization", "Bearer " + accessTokenString)
+                .body(
+                    Map.of(
+                        "messaging_product", "whatsapp", "recipient_type", "individual", "to", recipient,
+                        "type", "text", "text", Map.of("body", text)))
+                .retrieve()
+                .toBodilessEntity();
+        } catch (RestClientResponseException restClientResponseException) {
+            log.warn(
+                "Could not reply to the WhatsApp approver; Graph answered {}",
+                restClientResponseException.getStatusCode());
+        } catch (Exception exception) {
+            Class<? extends Exception> exceptionClass = exception.getClass();
+
+            log.warn("Could not reply to the WhatsApp approver: {}", exceptionClass.getName());
+        }
     }
 
     private @Nullable String resolveTenantId(String resumeId) {
@@ -146,11 +229,12 @@ public class WhatsAppInteractivityHandler {
     }
 
     /**
-     * Verifies {@code X-Hub-Signature-256: sha256=hex(HMAC-SHA256(appSecret, rawBody))} against the tenant's WhatsApp
-     * connections carrying an app secret. Constant-time comparison; the first match wins.
+     * Finds the tenant's WhatsApp connection whose app secret verifies
+     * {@code X-Hub-Signature-256: sha256=hex(HMAC-SHA256(appSecret, rawBody))}. Constant-time comparison; the first
+     * match wins.
      */
-    private boolean verifySignature(String tenantId, String rawBody, String signature) {
-        return Boolean.TRUE.equals(TenantContext.callWithTenantId(tenantId, () -> {
+    private @Nullable Connection findVerifiedConnection(String tenantId, String rawBody, String signature) {
+        return TenantContext.callWithTenantId(tenantId, () -> {
             byte[] signatureBytes = signature.getBytes(StandardCharsets.UTF_8);
 
             for (PlatformType platformType : PlatformType.values()) {
@@ -165,7 +249,7 @@ public class WhatsAppInteractivityHandler {
                             if (MessageDigest.isEqual(
                                 expected.getBytes(StandardCharsets.UTF_8), signatureBytes)) {
 
-                                return true;
+                                return connection;
                             }
                         }
                     }
@@ -177,8 +261,8 @@ public class WhatsAppInteractivityHandler {
                 }
             }
 
-            return false;
-        }));
+            return null;
+        });
     }
 
     private static String hmacSha256Hex(String secret, String rawBody) {
@@ -187,8 +271,9 @@ public class WhatsAppInteractivityHandler {
 
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
 
-            return java.util.HexFormat.of()
-                .formatHex(mac.doFinal(rawBody.getBytes(StandardCharsets.UTF_8)));
+            HexFormat hexFormat = HexFormat.of();
+
+            return hexFormat.formatHex(mac.doFinal(rawBody.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to compute the WhatsApp request signature", exception);
         }
@@ -225,6 +310,16 @@ public class WhatsAppInteractivityHandler {
         Map<String, ?> interactive = asMap(message.get("interactive"));
 
         return interactive == null ? null : asMap(interactive.get("button_reply"));
+    }
+
+    private static @Nullable String extractSender(Map<String, ?> payload) {
+        Map<String, ?> value = firstChangeValue(payload);
+
+        Map<String, ?> message = value == null ? null : firstOfList(value.get("messages"));
+
+        Object from = message == null ? null : message.get("from");
+
+        return from instanceof String fromString && !fromString.isBlank() ? fromString : null;
     }
 
     private static @Nullable String extractContactName(Map<String, ?> payload) {

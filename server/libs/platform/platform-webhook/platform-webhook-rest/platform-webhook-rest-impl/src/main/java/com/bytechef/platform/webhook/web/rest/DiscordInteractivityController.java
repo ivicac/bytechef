@@ -17,7 +17,10 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup;
+import com.bytechef.platform.webhook.web.rest.handler.DiscordInteractivityHandler;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -53,15 +56,18 @@ public final class DiscordInteractivityController {
     })
     public DiscordInteractivityController(
         ApplicationProperties applicationProperties, ApprovalShortTokenStore approvalShortTokenStore,
-        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+        JobResumeFacade jobResumeFacade, JobService jobService,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
         ApplicationProperties.Webhook webhook = applicationProperties.getWebhook();
 
         ApplicationProperties.Webhook.Discord discord = webhook.getDiscord();
 
+        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+
         this.discordInteractivityHandler = new DiscordInteractivityHandler(
-            approvalShortTokenStore, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(),
-            discord.getPublicKey());
+            new ApprovalResolutionLookup(jobService, approvalTokens), approvalShortTokenStore, jobResumeFacade,
+            approvalTokens, discord.getPublicKey());
     }
 
     @SuppressFBWarnings(

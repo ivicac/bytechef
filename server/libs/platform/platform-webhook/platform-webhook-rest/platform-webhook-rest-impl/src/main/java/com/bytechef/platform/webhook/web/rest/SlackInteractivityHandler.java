@@ -41,6 +41,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Handles Slack interactivity callbacks that resolve an approval in place. The Slack approval channel sends in-place
@@ -72,11 +73,15 @@ public class SlackInteractivityHandler {
 
     private static final String COMMENT_ACTION_ID = "comment";
     private static final String COMMENT_BLOCK_ID = "comment_block";
+    private static final String NOT_APPLIED_TEXT =
+        ":warning: This approval could not be applied here — open the approval form.";
+    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
     private static final long TIMESTAMP_TOLERANCE_SECONDS = 300;
     private static final String VIEWS_OPEN_URL = "https://slack.com/api/views.open";
 
     private static final Logger log = LoggerFactory.getLogger(SlackInteractivityHandler.class);
 
+    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final ConnectionService connectionService;
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
@@ -84,9 +89,10 @@ public class SlackInteractivityHandler {
 
     @SuppressFBWarnings("EI")
     public SlackInteractivityHandler(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade,
-        @Nullable ApprovalTokens approvalTokens, RestClient restClient) {
+        ApprovalResolutionLookup approvalResolutionLookup, ConnectionService connectionService,
+        JobResumeFacade jobResumeFacade, @Nullable ApprovalTokens approvalTokens, RestClient restClient) {
 
+        this.approvalResolutionLookup = approvalResolutionLookup;
         this.connectionService = connectionService;
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokens;
@@ -166,10 +172,7 @@ public class SlackInteractivityHandler {
         // The Slack user is verified by the same signature check above, so it is a trustworthy resolver identity.
         String userName = extractUserName(payload);
 
-        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
-            resumeId, Map.of("approved", approved), asApprovedBy(userName));
-
-        rewriteMessage(responseUrl, outcome, approved, userName);
+        resolve(resumeId, Map.of("approved", approved), userName, responseUrl, approved);
 
         return Result.HANDLED;
     }
@@ -212,9 +215,7 @@ public class SlackInteractivityHandler {
             data.put("comment", comment);
         }
 
-        JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeId, data, asApprovedBy(userName));
-
-        rewriteMessage((String) privateMetadata.get("responseUrl"), outcome, false, userName);
+        resolve(resumeId, data, userName, (String) privateMetadata.get("responseUrl"), false);
 
         return Result.HANDLED;
     }
@@ -247,6 +248,10 @@ public class SlackInteractivityHandler {
                 .orElse(null);
 
         if (innerToken == null) {
+            log.warn(
+                "Ignored Slack approval callback with an unverifiable or expired resume id {}",
+                abbreviate(resumeId));
+
             return UNPARSEABLE;
         }
 
@@ -255,6 +260,8 @@ public class SlackInteractivityHandler {
         try {
             jobResumeId = JobResumeId.parse(innerToken);
         } catch (Exception exception) {
+            log.warn("Ignored Slack approval callback with a malformed resume id {}", abbreviate(resumeId));
+
             return UNPARSEABLE;
         }
 
@@ -272,6 +279,31 @@ public class SlackInteractivityHandler {
         }
 
         return connection;
+    }
+
+    private void resolve(
+        String resumeId, Map<String, Object> data, @Nullable String userName, @Nullable String responseUrl,
+        boolean approved) {
+
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeJob(resumeId, data, asApprovedBy(userName));
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Slack approval callback for resume id {} could not be applied", abbreviate(resumeId),
+                runtimeException);
+
+            postEphemeral(responseUrl, NOT_APPLIED_TEXT);
+
+            return;
+        }
+
+        rewriteMessage(responseUrl, resumeId, outcome, approved, userName);
+    }
+
+    private static String abbreviate(String resumeId) {
+        return resumeId.length() <= 12 ? resumeId : resumeId.substring(0, 12) + "…";
     }
 
     private static @Nullable String asApprovedBy(@Nullable String userName) {
@@ -443,6 +475,10 @@ public class SlackInteractivityHandler {
             .get("access_token");
 
         if (!(botToken instanceof String botTokenString) || botTokenString.isBlank()) {
+            log.warn(
+                "Could not open the Slack discard-comment modal: the matched Slack connection has no bot token; " +
+                    "discarding without a comment");
+
             return false;
         }
 
@@ -462,9 +498,21 @@ public class SlackInteractivityHandler {
                 .retrieve()
                 .body(Map.class);
 
-            return response != null && Boolean.TRUE.equals(response.get("ok"));
+            if (response != null && Boolean.TRUE.equals(response.get("ok"))) {
+                return true;
+            }
+
+            log.warn(
+                "Could not open the Slack discard-comment modal: Slack answered {}; discarding without a comment",
+                response == null ? "with an empty body" : response.get("error"));
+
+            return false;
         } catch (Exception exception) {
-            log.warn("Could not open the Slack discard-comment modal: {}", exception.getMessage());
+            Class<? extends Exception> exceptionClass = exception.getClass();
+
+            log.warn(
+                "Could not open the Slack discard-comment modal; discarding without a comment: {}",
+                exceptionClass.getName());
 
             return false;
         }
@@ -499,7 +547,14 @@ public class SlackInteractivityHandler {
      * buttons stop being actionable. Best-effort — a rewrite failure never fails the resolution.
      */
     private void rewriteMessage(
-        @Nullable String responseUrl, JobResumeOutcome outcome, boolean approved, @Nullable String userName) {
+        @Nullable String responseUrl, String resumeId, JobResumeOutcome outcome, boolean approved,
+        @Nullable String userName) {
+
+        if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
+            postEphemeral(responseUrl, NOT_YET_SUSPENDED_TEXT);
+
+            return;
+        }
 
         if (responseUrl == null || responseUrl.isBlank()) {
             return;
@@ -509,20 +564,43 @@ public class SlackInteractivityHandler {
 
         String text = switch (outcome) {
             case OK -> (approved ? ":white_check_mark: Approved" : ":no_entry_sign: Discarded") + by + ".";
-            case GONE -> ":hourglass: This approval expired before it was resolved.";
+            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
+                case RESOLVED -> ":information_source: This approval was already resolved.";
+                case EXPIRED -> ":hourglass: This approval expired before it was resolved.";
+                case UNAVAILABLE -> ":warning: This approval is no longer available.";
+            };
             case INVALID_ID -> ":warning: This approval is no longer available.";
             case JOB_FAILED -> ":x: The workflow failed before this approval could be applied.";
             case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> ":warning: This approval could not be applied yet.";
         };
 
+        postToResponseUrl(responseUrl, Map.of("replace_original", true, "text", text));
+    }
+
+    private void postEphemeral(@Nullable String responseUrl, String text) {
+        if (responseUrl == null || responseUrl.isBlank()) {
+            return;
+        }
+
+        postToResponseUrl(
+            responseUrl, Map.of("response_type", "ephemeral", "replace_original", false, "text", text));
+    }
+
+    private void postToResponseUrl(String responseUrl, Map<String, Object> body) {
         try {
             restClient.post()
                 .uri(responseUrl)
-                .body(Map.of("replace_original", true, "text", text))
+                .body(body)
                 .retrieve()
                 .toBodilessEntity();
+        } catch (RestClientResponseException restClientResponseException) {
+            log.warn(
+                "Could not update the Slack approval message; Slack answered {}",
+                restClientResponseException.getStatusCode());
         } catch (Exception exception) {
-            log.warn("Could not rewrite the Slack approval message: {}", exception.getMessage());
+            Class<? extends Exception> exceptionClass = exception.getClass();
+
+            log.warn("Could not update the Slack approval message: {}", exceptionClass.getName());
         }
     }
 }
