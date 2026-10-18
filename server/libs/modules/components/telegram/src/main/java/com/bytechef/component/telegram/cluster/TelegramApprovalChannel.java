@@ -35,6 +35,7 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDe
 import com.bytechef.component.definition.Context.Http;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
+import com.bytechef.component.definition.approval.ApprovalButtonPayload;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import java.util.List;
 import java.util.Map;
@@ -96,8 +97,8 @@ public class TelegramApprovalChannel {
                 // durable fallback in case the short id is lost (e.g. a coordinator restart).
                 inlineKeyboard = List.of(
                     List.of(
-                        callbackButton("Approve", shortId + ":a"),
-                        callbackButton("Discard", shortId + ":d")));
+                        callbackButton("Approve", ApprovalButtonPayload.encode(shortId, true)),
+                        callbackButton("Discard", ApprovalButtonPayload.encode(shortId, false))));
 
                 text = text + "\nApprove or Discard below, or open the form: " + formUrl;
             } else if (inputs.isEmpty()) {
