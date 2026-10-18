@@ -22,6 +22,7 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
@@ -175,7 +176,7 @@ public class ApprovalExpiryMonitor {
 
         jobService.update(job);
 
-        failSuspendedTaskExecution(job, now);
+        failTaskExecutions(job, jobId);
 
         // The suspended-task state row (keyed by jobResumeId) is otherwise deleted only on resume, so an expired
         // approval would leak it — and the stored suspend payload (the rendered approval request) with it. Delete it
@@ -189,29 +190,17 @@ public class ApprovalExpiryMonitor {
             new JobApprovalClosedEvent(jobId, jobResumeId, JobApprovalClosedEvent.Reason.EXPIRED));
     }
 
-    private void failSuspendedTaskExecution(Job job, Instant now) {
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
-
-        if (taskExecutionResumeId == null) {
-            return;
-        }
+    private void failTaskExecutions(Job job, long jobId) {
+        ExecutionError executionError = Objects.requireNonNull(job.getError(), "error");
 
         try {
-            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+            List<TaskExecution> nonTerminalTaskExecutions = JobMonitorSupport.getNonTerminalTaskExecutions(
+                taskExecutionService, jobId);
 
-            TaskExecution.Status status = taskExecution.getStatus();
-
-            if (status == null || !status.isTerminated()) {
-                taskExecution.setStatus(TaskExecution.Status.FAILED);
-                taskExecution.setEndDate(now);
-                taskExecution.setError(job.getError());
-
-                taskExecutionService.update(taskExecution);
-            }
+            JobMonitorSupport.failAndCancelTaskExecutions(
+                jobId, nonTerminalTaskExecutions, executionError.getMessage(), taskExecutionService, eventPublisher);
         } catch (Exception exception) {
-            log.warn(
-                "Could not mark suspended task execution {} of job {} failed: {}", taskExecutionResumeId,
-                job.getId(), exception.getMessage());
+            log.warn("Could not mark the task executions of job {} failed: {}", jobId, exception.getMessage());
         }
     }
 

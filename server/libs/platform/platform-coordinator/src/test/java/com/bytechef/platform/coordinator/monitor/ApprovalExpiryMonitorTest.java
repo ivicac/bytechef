@@ -18,6 +18,8 @@ package com.bytechef.platform.coordinator.monitor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,11 +27,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.CancelControlTask;
 import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.atlas.worker.event.CancelControlTaskEvent;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.event.JobApprovalClosedEvent;
 import com.bytechef.tenant.service.TenantService;
@@ -50,9 +54,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
- * Pins the approval-expiry sweep semantics: a STOPPED run whose suspend expired is marked FAILED (task execution and
- * job, firing the job-status fan-out) and counted into {@code bytechef_approval_expired}; unexpired pending approvals
- * feed the {@code bytechef_approval_pending} gauge; STOPPED jobs without a resume id are ignored entirely.
+ * Pins the approval-expiry sweep semantics: a STOPPED run whose suspend expired is marked FAILED (its unfinished task
+ * executions and the job, firing the job-status fan-out) and counted into {@code bytechef_approval_expired}; unexpired
+ * pending approvals feed the {@code bytechef_approval_pending} gauge; STOPPED jobs without a resume id are ignored
+ * entirely.
  *
  * @author Ivica Cardic
  */
@@ -110,25 +115,37 @@ class ApprovalExpiryMonitorTest {
             .minusSeconds(3600));
 
         when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(List.of(taskExecution));
+        when(taskExecutionService.failIfUnfinished(eq(TASK_EXECUTION_ID), anyString())).thenReturn(true);
 
         monitor.sweepExpiredApprovals();
 
-        assertThat(taskExecution.getStatus()).isEqualTo(TaskExecution.Status.FAILED);
         assertThat(job.getStatus()).isEqualTo(Job.Status.FAILED);
+        assertThat(job.getError()
+            .getMessage()).startsWith("The pending approval expired at ");
 
         verify(jobService).update(job);
-        verify(taskExecutionService).update(taskExecution);
-
-        // The suspended-task state row is cleaned up so an expired approval does not leak it.
+        verify(taskExecutionService).failIfUnfinished(TASK_EXECUTION_ID, job.getError()
+            .getMessage());
+        verify(taskExecutionService, never()).update(any());
         verify(taskStateService).delete(any());
 
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
 
-        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
 
         List<Object> events = eventCaptor.getAllValues();
 
         assertThat(events.getFirst()).isInstanceOfSatisfying(
+            CancelControlTaskEvent.class,
+            cancelControlTaskEvent -> {
+                CancelControlTask cancelControlTask = cancelControlTaskEvent.getControlTask();
+
+                assertThat(cancelControlTask.getJobId()).isEqualTo(JOB_ID);
+                assertThat(cancelControlTask.getTaskExecutionId()).isEqualTo(TASK_EXECUTION_ID);
+            });
+
+        assertThat(events.get(1)).isInstanceOfSatisfying(
             JobStatusApplicationEvent.class,
             jobStatusApplicationEvent -> assertThat(jobStatusApplicationEvent.getStatus())
                 .isEqualTo(Job.Status.FAILED));
@@ -138,14 +155,36 @@ class ApprovalExpiryMonitorTest {
         assertThat(events.getLast()).isEqualTo(
             new JobApprovalClosedEvent(JOB_ID, jobResumeId, JobApprovalClosedEvent.Reason.EXPIRED));
 
-        assertThat(job.getError()
-            .getMessage()).startsWith("The pending approval expired at ");
         assertThat(job.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID)).isEqualTo(jobResumeId);
         assertThat(job.getMetadata(MetadataConstants.EXPIRED_JOB_RESUME_ID)).isEqualTo(jobResumeId);
-        assertThat(taskExecution.getError()).isEqualTo(job.getError());
 
         assertThat(meterRegistry.counter("bytechef_approval_expired", "source", "sweep")
             .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    void testExpiredApprovalSkipsTaskExecutionsThatAlreadyTerminated() {
+        Job job = stoppedJobWithResumeId();
+
+        lenient().when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class)))
+            .thenReturn(List.of(job));
+
+        TaskExecution taskExecution = suspendedTaskExecution(Instant.now()
+            .minusSeconds(3600));
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(List.of(taskExecution));
+        when(taskExecutionService.failIfUnfinished(eq(TASK_EXECUTION_ID), anyString())).thenReturn(false);
+
+        monitor.sweepExpiredApprovals();
+
+        assertThat(job.getStatus()).isEqualTo(Job.Status.FAILED);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+
+        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+
+        assertThat(eventCaptor.getAllValues()).noneMatch(CancelControlTaskEvent.class::isInstance);
     }
 
     @Test
@@ -232,6 +271,7 @@ class ApprovalExpiryMonitorTest {
         TaskExecution taskExecution = new TaskExecution();
 
         taskExecution.setId(TASK_EXECUTION_ID);
+        taskExecution.setStatus(TaskExecution.Status.STARTED);
         taskExecution.putMetadata("suspend", Map.of("expiresAt", expiresAt.toEpochMilli()));
 
         return taskExecution;
