@@ -45,6 +45,7 @@ import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,8 +119,9 @@ class ApprovalFormFacadeIntTest {
             jobResumeId,
             Map.of("formTitle", "Approve tool call: SLACK_SEND_MESSAGE", "formDescription", "channel: #general"));
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm)
             .containsEntry("formTitle", "Approve tool call: SLACK_SEND_MESSAGE")
@@ -134,8 +136,9 @@ class ApprovalFormFacadeIntTest {
             jobResumeId, Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
         stubStoredSuspend(jobResumeId, Map.of("formUrl", "https://example.com/resume/abc"));
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm).containsEntry("formTitle", "Approve the refund");
     }
@@ -149,8 +152,9 @@ class ApprovalFormFacadeIntTest {
 
         when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(Optional.empty());
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm)
             .containsEntry("formTitle", "Approve the refund")
