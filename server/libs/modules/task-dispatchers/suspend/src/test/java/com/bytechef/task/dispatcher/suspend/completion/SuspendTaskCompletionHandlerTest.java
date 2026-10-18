@@ -44,8 +44,11 @@ import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.file.storage.base64.service.Base64FileStorageService;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.service.TaskStateService;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -217,7 +220,7 @@ class SuspendTaskCompletionHandlerTest {
         taskExecution.setId(1L);
         taskExecution.setJobId(100L);
         taskExecution.putMetadata(MetadataConstants.JOB_RESUME_ID, jobResumeIdString);
-        taskExecution.putMetadata(MetadataConstants.SUSPEND, suspend);
+        taskExecution.setOutput(taskFileStorage.storeTaskExecutionOutput(100L, 1L, suspend));
 
         when(taskExecutionService.update(any(TaskExecution.class)))
             .thenReturn(taskExecution);
@@ -225,6 +228,40 @@ class SuspendTaskCompletionHandlerTest {
             .thenReturn(null);
 
         assertThrows(IllegalStateException.class, () -> suspendTaskCompletionHandler.handle(taskExecution));
+    }
+
+    @Test
+    void testHandleRecordsTheSuspendOnTheSuspendedTaskExecution() {
+        Instant expiresAt = Instant.parse("2026-10-17T10:00:00Z");
+
+        String jobResumeIdString = createJobResumeIdString(100L);
+        Suspend suspend = new Suspend(Map.of(MetadataConstants.APPROVAL_RESUME, true), expiresAt);
+
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(
+                new WorkflowTask(
+                    Map.of(WorkflowConstants.NAME, "testTask", WorkflowConstants.TYPE, "suspend/v1")))
+            .build();
+
+        taskExecution.setId(1L);
+        taskExecution.setJobId(100L);
+        taskExecution.putMetadata(MetadataConstants.JOB_RESUME_ID, jobResumeIdString);
+        taskExecution.setOutput(taskFileStorage.storeTaskExecutionOutput(100L, 1L, suspend));
+
+        ArgumentCaptor<TaskExecution> taskExecutionCaptor = ArgumentCaptor.forClass(TaskExecution.class);
+
+        when(taskExecutionService.update(taskExecutionCaptor.capture()))
+            .thenReturn(taskExecution);
+        when(jobService.getTaskExecutionJob(1L))
+            .thenReturn(null);
+
+        assertThrows(IllegalStateException.class, () -> suspendTaskCompletionHandler.handle(taskExecution));
+
+        List<TaskExecution> updatedTaskExecutions = taskExecutionCaptor.getAllValues();
+
+        TaskExecution updatedTaskExecution = updatedTaskExecutions.getFirst();
+
+        assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(updatedTaskExecution.getMetadata()));
     }
 
     private Map<String, ?> handleSuspendAndGetJobMetadata(Map<String, Object> continueParameters) {

@@ -26,6 +26,7 @@ import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.JobSuspends;
 import com.bytechef.platform.workflow.execution.service.TaskStateService;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
@@ -120,7 +121,7 @@ public class ApprovalExpiryMonitor {
         long pending = 0;
 
         for (Job job : stoppedJobs) {
-            if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) == null) {
+            if (!JobSuspends.isAwaitingApproval(job)) {
                 continue;
             }
 

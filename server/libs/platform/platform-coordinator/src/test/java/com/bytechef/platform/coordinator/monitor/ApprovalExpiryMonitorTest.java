@@ -29,6 +29,7 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -158,6 +159,26 @@ class ApprovalExpiryMonitorTest {
     }
 
     @Test
+    void testExpiredSuspendThatIsNotAnApprovalIsIgnored() {
+        Job job = stoppedJobWithResumeId();
+
+        Map<String, Object> metadata = new HashMap<>(job.getMetadata());
+
+        metadata.remove(MetadataConstants.APPROVAL_RESUME);
+
+        job.setMetadata(metadata);
+
+        when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class))).thenReturn(List.of(job));
+
+        monitor.sweepExpiredApprovals();
+
+        assertThat(job.getStatus()).isEqualTo(Job.Status.STOPPED);
+
+        verify(taskExecutionService, never()).getTaskExecution(TASK_EXECUTION_ID);
+        verify(jobService, never()).update(any());
+    }
+
+    @Test
     void testStoppedJobWithoutResumeIdIsIgnored() {
         Job job = new Job(JOB_ID);
 
@@ -184,6 +205,7 @@ class ApprovalExpiryMonitorTest {
             com.bytechef.commons.util.EncodingUtils.base64EncodeToString(
                 "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         metadata.put("taskExecutionResumeId", TASK_EXECUTION_ID);
+        metadata.put(MetadataConstants.APPROVAL_RESUME, true);
 
         job.setMetadata(metadata);
 

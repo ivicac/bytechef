@@ -109,4 +109,24 @@ class SuspendUtilsTest {
             originalContinueParameters.containsKey(MetadataConstants.JOB_RESUME_ID),
             "Original continueParameters map must not be mutated");
     }
+
+    @Test
+    void testExtractSuspendExpiresAtReadsASuspendInstance() {
+        Instant expiresAt = Instant.parse("2026-10-17T10:00:00Z");
+
+        Map<String, ?> metadata = Map.of(
+            MetadataConstants.SUSPEND, new ActionContext.Suspend(Map.of(), expiresAt));
+
+        assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(metadata));
+    }
+
+    @Test
+    void testExtractSuspendExpiresAtReadsTheEpochMillisOfAPersistedSuspend() {
+        Instant expiresAt = Instant.parse("2026-10-17T10:00:00Z");
+
+        Map<String, ?> metadata = Map.of(
+            MetadataConstants.SUSPEND, Map.of("expiresAt", expiresAt.toEpochMilli()));
+
+        assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(metadata));
+    }
 }
