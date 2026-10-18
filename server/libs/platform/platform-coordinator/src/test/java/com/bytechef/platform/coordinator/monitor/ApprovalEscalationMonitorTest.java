@@ -18,10 +18,14 @@ package com.bytechef.platform.coordinator.monitor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,6 +50,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * @author Ivica Cardic
@@ -136,7 +141,7 @@ class ApprovalEscalationMonitorTest {
 
         job.setMetadata(
             Map.of(
-                "jobResumeId", "abc", "taskExecutionResumeId", 7L,
+                "jobResumeId", "abc", "taskExecutionResumeId", 7L, "__bytechef_approval_resume__", true,
                 "approvalEscalatedAt", now.toString()));
 
         when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
@@ -169,17 +174,166 @@ class ApprovalEscalationMonitorTest {
         verify(notificationService, never()).getNotifications(any());
     }
 
-    private Job stoppedApprovalJob(Instant raisedAt, Instant expiresAt) {
+    @Test
+    void testSuspendThatIsNotAnApprovalIsSkipped() {
+        Job job = new Job();
+
+        job.setId(42L);
+        job.setStatus(Job.Status.STOPPED);
+        job.setMetadata(Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(taskExecutionService, never()).getTaskExecution(anyLong());
+        verify(jobService, never()).update(any());
+    }
+
+    @Test
+    void testEscalationIsNotSentWhenAnotherReplicaAlreadyClaimedIt() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenThrow(new OptimisticLockingFailureException("claimed"));
+
+        stubNotifications(notification(1L));
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(notificationSender, never()).send(any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testOneFailingNotificationDoesNotSkipTheOthers() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification firstNotification = notification(1L);
+        Notification secondNotification = notification(2L);
+
+        stubNotifications(firstNotification, secondNotification);
+
+        doThrow(new IllegalStateException("smtp down"))
+            .when(notificationSender)
+            .send(eq(firstNotification), any(), any());
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(notificationSender).send(eq(secondNotification), any(), any());
+        verify(jobService).update(job);
+
+        assertNotNull(job.getMetadata("approvalEscalatedAt"));
+    }
+
+    @Test
+    void testNoConfiguredNotificationClearsTheEscalationMarkerForTheNextSweep() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(notificationService.getNotifications(NotificationEvent.Type.JOB_APPROVAL_ESCALATED))
+            .thenReturn(List.of());
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(jobService, times(2)).update(job);
+
+        assertNull(job.getMetadata("approvalEscalatedAt"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testTotalSendFailureClearsTheEscalationMarkerForTheNextSweep() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        stubNotifications(notification(1L));
+
+        doThrow(new IllegalStateException("smtp down"))
+            .when(notificationSender)
+            .send(any(), any(), any());
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(jobService, times(2)).update(job);
+
+        assertNull(job.getMetadata("approvalEscalatedAt"));
+    }
+
+    @Test
+    void testEscalationSweepContinuesPastAJobWhoseClaimFailsUnexpectedly() {
+        Instant now = Instant.now();
+
+        Job failingJob = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+        Job escalatedJob = stoppedApprovalJob(now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)));
+
+        escalatedJob.setId(43L);
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(failingJob, escalatedJob));
+        when(jobService.update(any()))
+            .thenThrow(new IllegalStateException("database unavailable"))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        stubNotifications(notification(1L));
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        ArgumentCaptor<NotificationHandlerContext> notificationHandlerContextArgumentCaptor =
+            ArgumentCaptor.forClass(NotificationHandlerContext.class);
+
+        verify(notificationSender).send(any(), any(), notificationHandlerContextArgumentCaptor.capture());
+
+        NotificationHandlerContext notificationHandlerContext = notificationHandlerContextArgumentCaptor.getValue();
+
+        assertEquals(Long.valueOf(43L), notificationHandlerContext.getJobId());
+    }
+
+    private void stubNotifications(Notification... notifications) {
+        when(notificationService.getNotifications(NotificationEvent.Type.JOB_APPROVAL_ESCALATED))
+            .thenReturn(List.of(notifications));
+        when(notificationSenderRegistry.getNotificationSender(Notification.Type.EMAIL))
+            .thenReturn(notificationSender);
+        when(notificationHandlerRegistry.getNotificationHandler(
+            NotificationEvent.Type.JOB_APPROVAL_ESCALATED, Notification.Type.EMAIL))
+                .thenReturn(notificationHandler);
+    }
+
+    private static Notification notification(long id) {
+        Notification notification = new Notification();
+
+        notification.setId(id);
+        notification.setType(Notification.Type.EMAIL);
+
+        return notification;
+    }
+
+    private Job stoppedApprovalJob(Instant startedAt, Instant expiresAt) {
         Job job = new Job();
 
         job.setId(42L);
         job.setLabel("Test Workflow");
         job.setStatus(Job.Status.STOPPED);
-        job.setMetadata(Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L));
+        job.setMetadata(
+            Map.of("jobResumeId", "abc", "taskExecutionResumeId", 7L, "__bytechef_approval_resume__", true));
 
         TaskExecution taskExecution = new TaskExecution();
 
-        taskExecution.setStartDate(raisedAt);
+        taskExecution.setStartDate(startedAt);
+
         taskExecution.setMetadata(Map.of("suspend", Map.of("expiresAt", expiresAt.toString())));
 
         when(taskExecutionService.getTaskExecution(anyLong())).thenReturn(taskExecution);
