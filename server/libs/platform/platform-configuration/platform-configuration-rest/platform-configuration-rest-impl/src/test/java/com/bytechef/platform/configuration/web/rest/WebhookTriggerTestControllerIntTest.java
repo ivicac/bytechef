@@ -24,6 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
@@ -75,6 +76,20 @@ class WebhookTriggerTestControllerIntTest {
 
         webTestClient = MockMvcWebTestClient.bindTo(mockMvc)
             .build();
+    }
+
+    @Test
+    void testExecuteWorkflowRejectsAnInvalidTenantIdWithBadRequest() {
+        String id = EncodingUtils.base64EncodeToString("bad'id:0:-1:workflow-uuid:trigger_1");
+
+        webTestClient
+            .post()
+            .uri("/webhooks/{id}/test/environments/{environmentId}", id, ENVIRONMENT_ID)
+            .exchange()
+            .expectStatus()
+            .isBadRequest();
+
+        verify(webhookTriggerTestFacade, never()).getWebhookTriggerFlags(any());
     }
 
     @Test

@@ -34,7 +34,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -46,6 +45,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -90,10 +90,10 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             RequestMethod.HEAD, RequestMethod.GET, RequestMethod.POST
         },
         value = "/webhooks/{id}")
-    public CompletableFuture<ResponseEntity<?>> executeWorkflow(
+    public ResponseEntity<?> executeWorkflow(
         @PathVariable String id, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
 
-        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
+        WorkflowExecutionId workflowExecutionId = parseWorkflowExecutionId(id);
 
         return callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             boolean head = Objects.equals(httpServletRequest.getMethod(), RequestMethod.HEAD.name());
@@ -118,11 +118,10 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
                         .build();
                 }
 
-                return CompletableFuture.<ResponseEntity<?>>completedFuture(responseEntity);
+                return responseEntity;
             }
 
-            return doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
-                .thenApply(responseEntity -> (ResponseEntity<?>) responseEntity);
+            return doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse);
         });
     }
 
@@ -149,7 +148,7 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
         throws Exception {
 
         SseEmitter emitter = new SseEmitter(TimeUnit.MINUTES.toMillis(30));
-        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
+        WorkflowExecutionId workflowExecutionId = parseWorkflowExecutionId(id);
 
         return callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             SseEmitterStreamBridge bridge = new SseEmitterStreamBridge(emitter);
@@ -173,6 +172,14 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             }
 
             throw runtimeException;
+        }
+    }
+
+    private static WorkflowExecutionId parseWorkflowExecutionId(String id) {
+        try {
+            return WorkflowExecutionId.parse(id);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook id", illegalArgumentException);
         }
     }
 
