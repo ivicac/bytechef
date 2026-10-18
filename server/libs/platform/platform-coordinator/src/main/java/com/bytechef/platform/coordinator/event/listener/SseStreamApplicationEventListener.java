@@ -56,7 +56,8 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
 
     @SuppressFBWarnings("EI")
     public SseStreamApplicationEventListener(
-        MessageBroker messageBroker, TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
+        JobService jobService, MessageBroker messageBroker, TaskExecutionService taskExecutionService,
+        TaskFileStorage taskFileStorage) {
 
         this.jobService = jobService;
         this.messageBroker = messageBroker;
@@ -211,77 +212,6 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
         return errorMessage;
     }
 
-    /**
-     * Emits the run's final chat reply as a named {@code result} data event when the job completes. Async jobs never
-     * persist the webhook response into {@code Job.outputs} (only the synchronous awaiter path does), so the reply is
-     * read back from the {@code WEBHOOK_RESPONSE}-tagged task execution — the same last-to-complete-wins selection
-     * {@code WebhookWorkflowExecutorImpl} applies on the sync path. Runs without a tagged response task (non-chat
-     * workflows) emit nothing; SSE listeners that don't understand the event simply ignore it. This closes the
-     * streaming-path gap where an approval-only chat workflow (no streaming task) lost its final reply text.
-     */
-    private void publishFinalResultEvent(long jobId) {
-        String message = readWebhookResponseMessage(jobId);
-
-        if (message == null || message.isEmpty()) {
-            return;
-        }
-
-        SseStreamEvent sseStreamEvent = new SseStreamEvent(
-            jobId, SseStreamEvent.EVENT_TYPE_DATA, Map.of("event", "result", "result", Map.of("message", message)));
-
-        sseStreamEvent.putMetadata(TenantContext.CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
-
-        messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
-    }
-
-    private @Nullable String readWebhookResponseMessage(long jobId) {
-        TaskExecution lastTaskExecution = taskExecutionService.getJobTaskExecutions(jobId)
-            .stream()
-            .filter(taskExecution -> taskExecution.getMetadata()
-                .containsKey(MetadataConstants.WEBHOOK_RESPONSE))
-            .filter(taskExecution -> taskExecution.getOutput() != null)
-            .max(Comparator
-                .comparing(TaskExecution::getEndDate, Comparator.nullsFirst(Comparator.naturalOrder()))
-                .thenComparing(TaskExecution::getId, Comparator.nullsFirst(Comparator.naturalOrder())))
-            .orElse(null);
-
-        if (lastTaskExecution == null) {
-            return null;
-        }
-
-        FileEntry outputFileEntry = lastTaskExecution.getOutput();
-
-        if (outputFileEntry == null) {
-            return null;
-        }
-
-        return extractMessage(taskFileStorage.readTaskExecutionOutput(outputFileEntry));
-    }
-
-    /**
-     * Extracts the chat reply text from a persisted {@code WebhookResponse} task output (a map with {@code body},
-     * {@code headers}, {@code statusCode} after the JSON round-trip). A JSON chat reply carries {@code body.message}; a
-     * raw-text response carries the text directly as {@code body}. Anything else (binary, redirect, message-less JSON)
-     * yields {@code null} and no event.
-     */
-    private static @Nullable String extractMessage(@Nullable Object output) {
-        if (!(output instanceof Map<?, ?> outputMap)) {
-            return null;
-        }
-
-        Object body = outputMap.get("body");
-
-        if (body instanceof String bodyText) {
-            return bodyText;
-        }
-
-        if (body instanceof Map<?, ?> bodyMap && bodyMap.get("message") instanceof String messageText) {
-            return messageText;
-        }
-
-        return null;
-    }
-
     private void publishTaskStartedEvent(TaskStartedApplicationEvent taskStartedApplicationEvent) {
         Long jobId = taskStartedApplicationEvent.getJobId();
 
@@ -298,19 +228,10 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
 
             messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
         } catch (Exception exception) {
-            if (log.isTraceEnabled()) {
-                log.trace(exception.getMessage(), exception);
-            }
+            log.warn("Failed to publish the task started SSE event of job {}", jobId, exception);
         }
     }
 
-    /**
-     * Builds the {@code task_started} payload. The enriched shape —
-     * {@code {event=task_started, payload={taskExecutionId, name, type}}} — is the {@code "event"}-keyed form both SSE
-     * bridges route as a named {@code task_started} event (mirroring the workflow-test surface's event shape), and the
-     * AG-UI bridge renders as a tool-call step chip with the actual task name. Falls back to the legacy bare
-     * {@code taskExecutionId} when the row can't be loaded (e.g. a remote read failure) so the event still fires.
-     */
     private Object buildTaskStartedPayload(long taskExecutionId) {
         try {
             TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionId);

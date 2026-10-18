@@ -20,9 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
@@ -41,6 +41,7 @@ import com.bytechef.platform.webhook.message.route.SseStreamMessageRoute;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -54,201 +55,9 @@ class SseStreamApplicationEventListenerTest {
     private final JobService jobService = mock(JobService.class);
     private final MessageBroker messageBroker = mock(MessageBroker.class);
     private final TaskExecutionService taskExecutionService = mock(TaskExecutionService.class);
-
     private final TaskFileStorage taskFileStorage = mock(TaskFileStorage.class);
     private final SseStreamApplicationEventListener sseStreamApplicationEventListener =
-        new SseStreamApplicationEventListener(messageBroker, taskExecutionService, taskFileStorage);
-
-    @Test
-    void testCompletedJobWithWebhookResponsePublishesResultBeforeJobStatus() {
-        FileEntry outputFileEntry = new FileEntry("output.json", "file:/tmp/output.json");
-
-        TaskExecution taskExecution = taggedTaskExecution(1L, outputFileEntry);
-
-        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(List.of(taskExecution));
-        when(taskFileStorage.readTaskExecutionOutput(outputFileEntry))
-            .thenReturn(Map.of("body", Map.of("message", "final reply"), "statusCode", 200));
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker, times(2))
-            .send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        List<SseStreamEvent> events = eventCaptor.getAllValues();
-
-        // The result must be published FIRST — the terminal job-status event closes downstream bridges.
-        SseStreamEvent resultEvent = events.get(0);
-
-        assertThat(resultEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_DATA);
-        assertThat(resultEvent.getPayload())
-            .isEqualTo(Map.of("event", "result", "result", Map.of("message", "final reply")));
-
-        SseStreamEvent jobStatusEvent = events.get(1);
-
-        assertThat(jobStatusEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_JOB_STATUS);
-        assertThat(jobStatusEvent.getPayload()).isEqualTo(Job.Status.COMPLETED.name());
-    }
-
-    @Test
-    void testStringBodyIsUsedAsTheMessageDirectly() {
-        FileEntry outputFileEntry = new FileEntry("output.json", "file:/tmp/output.json");
-
-        when(taskExecutionService.getJobTaskExecutions(JOB_ID))
-            .thenReturn(List.of(taggedTaskExecution(1L, outputFileEntry)));
-        when(taskFileStorage.readTaskExecutionOutput(outputFileEntry))
-            .thenReturn(Map.of("body", "raw text reply", "statusCode", 200));
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker, times(2))
-            .send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent resultEvent = eventCaptor.getAllValues()
-            .get(0);
-
-        assertThat(resultEvent.getPayload())
-            .isEqualTo(Map.of("event", "result", "result", Map.of("message", "raw text reply")));
-    }
-
-    @Test
-    void testCompletedJobWithoutWebhookResponseEmitsOnlyJobStatus() {
-        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(List.of());
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
-
-        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_JOB_STATUS);
-    }
-
-    @Test
-    void testFailedJobDoesNotReadTaskOutputs() {
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new JobStatusApplicationEvent(JOB_ID, Job.Status.FAILED));
-
-        verifyNoInteractions(taskFileStorage);
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
-
-        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_JOB_STATUS);
-        assertThat(sseStreamEvent.getPayload()).isEqualTo(Job.Status.FAILED.name());
-    }
-
-    @Test
-    void testLastCompletedTaggedTaskWins() {
-        FileEntry earlierFileEntry = new FileEntry("earlier.json", "file:/tmp/earlier.json");
-        FileEntry laterFileEntry = new FileEntry("later.json", "file:/tmp/later.json");
-
-        TaskExecution earlierTaskExecution = taggedTaskExecution(1L, earlierFileEntry);
-
-        earlierTaskExecution.setEndDate(Instant.parse("2026-07-21T10:00:00Z"));
-
-        TaskExecution laterTaskExecution = taggedTaskExecution(2L, laterFileEntry);
-
-        laterTaskExecution.setEndDate(Instant.parse("2026-07-21T10:05:00Z"));
-
-        when(taskExecutionService.getJobTaskExecutions(JOB_ID))
-            .thenReturn(List.of(laterTaskExecution, earlierTaskExecution));
-        when(taskFileStorage.readTaskExecutionOutput(laterFileEntry))
-            .thenReturn(Map.of("body", Map.of("message", "the later reply")));
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker, times(2))
-            .send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent resultEvent = eventCaptor.getAllValues()
-            .get(0);
-
-        assertThat(resultEvent.getPayload())
-            .isEqualTo(Map.of("event", "result", "result", Map.of("message", "the later reply")));
-    }
-
-    @Test
-    void testTaskStartedIsEnrichedWithTaskNameAndType() {
-        // A real WorkflowTask needs the static JsonUtils ObjectMapper; a mocked TaskExecution keeps this test
-        // free of that global setup.
-        TaskExecution taskExecution = mock(TaskExecution.class);
-
-        when(taskExecution.getName()).thenReturn("slack_1");
-        when(taskExecution.getType()).thenReturn("slack/v1/sendMessage");
-
-        when(taskExecutionService.getTaskExecution(7L)).thenReturn(taskExecution);
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
-
-        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_TASK_STARTED);
-        assertThat(sseStreamEvent.getPayload()).isEqualTo(
-            Map.of(
-                "event", "task_started",
-                "payload",
-                Map.of("taskExecutionId", 7L, "name", "slack_1", "type", "slack/v1/sendMessage")));
-    }
-
-    @Test
-    void testTaskStartedFallsBackToBareIdWhenRowLoadFails() {
-        when(taskExecutionService.getTaskExecution(7L)).thenThrow(new RuntimeException("row gone"));
-
-        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
-            messageBroker, taskExecutionService, taskFileStorage);
-
-        listener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
-
-        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
-
-        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
-
-        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
-
-        assertThat(sseStreamEvent.getPayload()).isEqualTo(7L);
-    }
-
-    private static TaskExecution taggedTaskExecution(long id, FileEntry outputFileEntry) {
-        TaskExecution taskExecution = new TaskExecution();
-
-        taskExecution.setId(id);
-        taskExecution.putMetadata(MetadataConstants.WEBHOOK_RESPONSE, true);
-        taskExecution.setOutput(outputFileEntry);
-
-        return taskExecution;
-    }
+        new SseStreamApplicationEventListener(jobService, messageBroker, taskExecutionService, taskFileStorage);
 
     @Test
     void testFailedJobStatusEventCarriesTheFailedTaskErrorMessage() {
@@ -281,6 +90,73 @@ class SseStreamApplicationEventListenerTest {
 
         assertThat(sseStreamEvent.getPayload()).isEqualTo("FAILED");
         assertThat(sseStreamEvent.getMetadata(SseStreamEvent.METADATA_ERROR_MESSAGE)).isNull();
+    }
+
+    @Test
+    void testCompletedJobWithoutAWebhookResponseSendsOnlyTheStatusEvent() {
+        sseStreamApplicationEventListener.onApplicationEvent(
+            new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
+
+        assertThat(captureSentEvent().getPayload()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void testCompletedJobSendsTheLastWebhookResponseAsAResultEventBeforeTheStatusEvent() {
+        FileEntry earlierOutput = new FileEntry("earlier.json", "memory://earlier");
+        FileEntry laterOutput = new FileEntry("later.json", "memory://later");
+
+        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(
+            List.of(
+                webhookResponseTaskExecution(laterOutput, Instant.parse("2026-10-17T10:00:02Z")),
+                webhookResponseTaskExecution(earlierOutput, Instant.parse("2026-10-17T10:00:01Z"))));
+        when(taskFileStorage.readTaskExecutionOutput(earlierOutput)).thenReturn(
+            Map.of("body", Map.of("message", "earlier reply")));
+        when(taskFileStorage.readTaskExecutionOutput(laterOutput)).thenReturn(
+            Map.of("body", Map.of("message", "final reply")));
+
+        sseStreamApplicationEventListener.onApplicationEvent(
+            new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
+
+        List<SseStreamEvent> sseStreamEvents = captureSentEvents(2);
+
+        assertThat(sseStreamEvents.getFirst()
+            .getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_DATA);
+        assertThat(sseStreamEvents.getFirst()
+            .getPayload()).isEqualTo(Map.of("event", "result", "result", Map.of("message", "final reply")));
+        assertThat(sseStreamEvents.getLast()
+            .getPayload()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void testCompletedJobSendsARawTextWebhookResponseAsTheResultMessage() {
+        FileEntry output = new FileEntry("reply.json", "memory://reply");
+
+        when(taskExecutionService.getJobTaskExecutions(JOB_ID)).thenReturn(
+            List.of(webhookResponseTaskExecution(output, Instant.parse("2026-10-17T10:00:01Z"))));
+        when(taskFileStorage.readTaskExecutionOutput(output)).thenReturn(Map.of("body", "plain reply"));
+
+        sseStreamApplicationEventListener.onApplicationEvent(
+            new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
+
+        assertThat(captureSentEvents(2).getFirst()
+            .getPayload()).isEqualTo(Map.of("event", "result", "result", Map.of("message", "plain reply")));
+    }
+
+    @Test
+    void testCompletedJobStatusEventIsSentWhenTheWebhookResponseLookupFails() {
+        when(taskExecutionService.getJobTaskExecutions(anyLong())).thenThrow(new IllegalStateException("DB down"));
+
+        sseStreamApplicationEventListener.onApplicationEvent(
+            new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
+
+        assertThat(captureSentEvent().getPayload()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void testStoppedJobStatusEventDoesNotLookUpTheWebhookResponse() {
+        sseStreamApplicationEventListener.onApplicationEvent(JobStatusApplicationEvent.suspended(JOB_ID));
+
+        verify(taskExecutionService, never()).getJobTaskExecutions(anyLong());
     }
 
     @Test
@@ -340,6 +216,35 @@ class SseStreamApplicationEventListenerTest {
             new JobStatusApplicationEvent(JOB_ID, Job.Status.COMPLETED));
 
         assertThat(captureSentEvent().getMetadata(SseStreamEvent.METADATA_SUSPENDED)).isNull();
+    }
+
+    @Test
+    void testTaskStartedIsEnrichedWithTaskNameAndType() {
+        TaskExecution taskExecution = mock(TaskExecution.class);
+
+        when(taskExecution.getName()).thenReturn("slack_1");
+        when(taskExecution.getType()).thenReturn("slack/v1/sendMessage");
+        when(taskExecutionService.getTaskExecution(7L)).thenReturn(taskExecution);
+
+        sseStreamApplicationEventListener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
+
+        SseStreamEvent sseStreamEvent = captureSentEvent();
+
+        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_TASK_STARTED);
+        assertThat(sseStreamEvent.getPayload()).isEqualTo(
+            Map.of(
+                "event", "task_started",
+                "payload",
+                Map.of("taskExecutionId", 7L, "name", "slack_1", "type", "slack/v1/sendMessage")));
+    }
+
+    @Test
+    void testTaskStartedFallsBackToBareIdWhenRowLoadFails() {
+        when(taskExecutionService.getTaskExecution(7L)).thenThrow(new RuntimeException("row gone"));
+
+        sseStreamApplicationEventListener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
+
+        assertThat(captureSentEvent().getPayload()).isEqualTo(7L);
     }
 
     private List<SseStreamEvent> captureSentEvents(int count) {
