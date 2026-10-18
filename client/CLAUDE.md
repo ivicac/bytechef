@@ -3,28 +3,34 @@
 Loaded when Claude works with files under `client/`. Repo-wide rules stay in the root `CLAUDE.md`.
 
 ### Client ESLint sort-keys Rule
+
 - Object keys must be in natural ascending (alphabetical) order in client code
 - Applies to mock objects, hoisted state, test data, and component props
 - ESLint `--fix` does NOT auto-fix sort-keys - must be fixed manually
 - Example: `{content: 'x', id: 'y'}` not `{id: 'y', content: 'x'}`
 
 ### Client Interface Naming Convention
+
 - Interface names must end with `I` or `Props` (enforced by `@typescript-eslint/naming-convention`)
 - Example: `EnvironmentConfigI`, `BadgePropsType` — not `EnvironmentConfig`
 
 ### Client Import Destructure Sort Order
+
 - Named imports must be sorted alphabetically within `{}` (enforced by `bytechef/sort-import-destructures`)
 - `type` keyword imports sort by their name, not grouped separately
 - Example: `import {BoxIcon, CheckIcon, type LucideIcon, WrenchIcon} from 'lucide-react'`
 
 ### Non-null Assertion on Optional Chain (Client)
+
 - `@typescript-eslint/no-non-null-asserted-optional-chain` forbids `obj?.prop!`
 - Instead, filter nulls first, then assert: `.filter((item) => item?.id != null).map((item) => { const id = item!.id!; ... })`
 
 ### Ref Name Suffix (Client)
+
 - `useRef` variables must end with `Ref` suffix (enforced by `bytechef/ref-name-suffix`) — e.g., `fileInputRef`, `totalToUploadRef`
 
 ### Lucide Icon Imports (Client)
+
 - Always import icons with the `Icon` suffix: `SearchIcon`, `DatabaseIcon`, `Loader2Icon`
 - Not: `Search`, `Database`, `Loader2`
 
@@ -38,15 +44,18 @@ dropping a `min-h` silently offsets that list's second row against its neighbour
 invisible in the file you edited and only shows on screen.
 
 ### CSS Class Merging (Client)
+
 - Use `twMerge` from `tailwind-merge` for conditional class merging
 - Do not use `cn()` utility
 
 ### React Patterns (Client)
+
 - Use `fieldset` (with `border-0`) for semantic form grouping instead of `div`
 - Use `useMemo` for computed values instead of IIFEs in JSX
 - Prefer `||` over `??` for JSX fallbacks (e.g., `trigger || defaultTrigger`)
 
 ### Zustand subscriptions (Client)
+
 - Never call a store hook without a selector (`useWorkflowDataStore()`) in the workflow editor tree. A bare
   call re-renders on every write to that store, and the editor's node details panel writes `sampleOutputs`
   from an effect whose input is recomputed on each render. In the embedded builder root that pairing was a
@@ -54,17 +63,20 @@ invisible in the file you edited and only shows on screen.
   or a single field with `(state) => state.field`.
 
 ### React Hook Ordering (Client)
+
 - Order hooks in components/custom hooks: `useState` → `useRef` → custom store hooks → other custom hooks → derived values/`useMemo`/`useCallback` → `useEffect` → `return`
 - All `useEffect` calls go last, immediately before the `return` statement
 - Group multiple declarations of the same hook type consecutively (e.g., all `useRef` calls together, then `.current` assignments in a separate block)
 
 ### Client Error Handling
+
 - `useFetchInterceptor.ts` provides centralized error handling for all fetch requests including GraphQL
 - GraphQL errors are automatically parsed and displayed as toast notifications
 - Individual `onError` handlers on mutations are therefore not necessary for basic error display
 - Only add per-mutation `onError` if you need custom behavior beyond the global toast (e.g., resetting form state)
 
 ### Temporal Dead Zone (TDZ) with Synchronous Callbacks
+
 - `const x = fn(callback)` — if `fn` calls `callback` synchronously, `x` is not yet assigned inside `callback`
 - Accessing `x` inside such a callback throws `ReferenceError: Cannot access 'x' before initialization`
 - Fix: defer access to `x` via `setTimeout` or store in a mutable ref before the call
@@ -72,13 +84,14 @@ invisible in the file you edited and only shows on screen.
 ### Sidebar navigation groups (Client)
 
 Nav arrays live in `client/src/shared/navigation/navigationItems.ts` (App.tsx only feature-flag
-filters them). `NavigationItemI` has an optional `group`; `AppSidebar` folds CONSECUTIVE items
-sharing a `group` into one section at the position of their first item — non-adjacent items with the
-same group form SEPARATE sections, so keep group members adjacent in the arrays. Flag filtering runs
-before grouping, so a group renders with whatever members survive their flags.
+filters them). `NavigationItemI` has an optional `group`, a `NavigationGroupI {icon, name}` object
+declared once per group at the top of that file; `AppSidebar` folds CONSECUTIVE items sharing a group
+`name` into one section at the position of their first item — non-adjacent items with the same group
+form SEPARATE sections, so keep group members adjacent in the arrays. Flag filtering runs before
+grouping, so a group renders with whatever members survive their flags.
 
-Expanded, a labeled section renders as a `Collapsible` + `SidebarMenuSub` whose parent row carries an
-icon from `NAVIGATION_GROUP_ICONS` — including a group of one, whose label is the only thing saying
+Expanded, a labeled section renders as a `Collapsible` + `SidebarMenuSub` whose parent row carries the
+group's own `icon` — including a group of one, whose label is the only thing saying
 where the item belongs. On the collapsed icon rail there is no label to show, so a one-item group
 flattens to its own link and only multi-item groups become hover flyouts
 (`AppSidebarCollapsedGroup`). Exactly one group is open at a time: the group holding the current
@@ -90,9 +103,9 @@ The active row is the LONGEST matching href, not merely a matching one: nav entr
 Invocations lives under `/automation/executions`), and a plain prefix test lights up parent and child
 at once.
 
-Current groups: automation Deploy / Monitor / AI / Resources; embedded Build / Configure /
-Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
-Approval Tasks, Projects and Connections; embedded Connections alone.
+Current groups: automation Deploy (MCP and A2A Servers included) / Monitor / Resources; embedded
+Build / Configure / Monitor. Ungrouped rows: automation AI Hub, Chats (every edition), Projects and
+Connections at the top and AI Gateway after Resources; embedded Connections alone.
 
 The embedded Build group and the automation Projects row are Development-only.
 `shared/navigation/developmentOnlyRoutes.ts` is the one list
@@ -144,6 +157,7 @@ This pattern shows up in `Agents.test.tsx` and any test that mocks Zustand
 stores or router hooks via factory-injected mocks.
 
 ### Zustand Store Testing
+
 - Reset store state in `beforeEach` via `store.setState({...initial...})` — avoids cross-test leakage
 - Access store imperatively via `store.getState()` for assertions (no hook needed)
 - Export stores (e.g., `export const featureFlagsStore`) to enable direct state manipulation in tests
@@ -158,6 +172,7 @@ stores or router hooks via factory-injected mocks.
   test and mutate the shared store there (`beforeEach` reset cannot help; the timer outlives the reset).
 
 ### PostHog Mock
+
 - Global mock in `.vitest/setup.ts` — `onFeatureFlags: vi.fn()`, `isFeatureEnabled: vi.fn().mockReturnValue(false)`
 - `onFeatureFlags` returns `() => void` (unsubscribe); mock overrides must return a function: `return () => {}`
 - `import('posthog-js')` dynamic imports resolve to the same mock; multiple synchronous calls share one Promise
