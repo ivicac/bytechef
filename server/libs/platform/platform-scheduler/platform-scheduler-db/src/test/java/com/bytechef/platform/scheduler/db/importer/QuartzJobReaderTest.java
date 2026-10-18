@@ -211,7 +211,8 @@ class QuartzJobReaderTest {
 
         computeFirstFireTime(pollingTrigger);
         stub(List.of(oauth, polling, resume),
-            List.of(oneShot("00000177", "ConnectionOauth2TokenRefresh"), pollingTrigger, oneShot("000001:42", "OneTimeTask")));
+            List.of(oneShot("00000177", "ConnectionOauth2TokenRefresh"), pollingTrigger,
+                oneShot("000001:42", "OneTimeTask")));
 
         Assertions.assertThat(reader.read()
             .jobs())
