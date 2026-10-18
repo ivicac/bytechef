@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.a2a.server.executor;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
@@ -45,6 +46,7 @@ import com.bytechef.platform.ai.a2a.A2AAgentRun;
 import com.bytechef.platform.ai.a2a.A2AInvalidParamsException;
 import com.bytechef.platform.ai.a2a.A2ATaskReference;
 import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
@@ -56,6 +58,7 @@ import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -393,10 +396,30 @@ public class A2AAgentExecutorImpl implements A2AAgentExecutor {
         return ApprovalFormUrls
             .buildFormUrl(
                 publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
-                approvalTokensObjectProvider.getIfAvailable())
+                approvalTokensObjectProvider.getIfAvailable(), resolveApprovalExpiresAt(job))
             .map(formUrl -> "Approval required — the workflow run is paused waiting for a human decision. " +
                 "Resolve it at: " + formUrl)
             .orElse("Approval required — the workflow run is paused waiting for a human decision.");
+    }
+
+    private @Nullable Instant resolveApprovalExpiresAt(Job job) {
+        Object taskExecutionResumeId = job.getMetadata(MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return null;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(
+                ConvertUtils.convertValue(taskExecutionResumeId, Long.class));
+
+            return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+        } catch (RuntimeException runtimeException) {
+            log.warn(
+                "Could not read the approval expiry of job {}: {}", job.getId(), runtimeException.getMessage());
+
+            return null;
+        }
     }
 
     private String readOutputText(Job job) {
