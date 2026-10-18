@@ -101,8 +101,8 @@ public class JobResumeController {
      * <p>
      * The {@code produces} attribute is intentionally unset so Spring content-negotiates by the request's
      * {@code Accept} header: a request whose most preferred Accept type is {@code text/event-stream} (as the chat
-     * client sends when it posts the user's answer) is routed to {@link #resumeStreaming(String, Map)} instead, which
-     * streams the resumed turn's Server-Sent Events. A request that accepts any type stays here.
+     * client sends when it posts the user's answer) is routed to {@link #resumeStreaming(String, Map, HttpMethod)}
+     * instead, which streams the resumed turn's Server-Sent Events. A request that accepts any type stays here.
      *
      * <p>
      * An answer can arrive before the job has finished suspending (the chat client receives the question while the
