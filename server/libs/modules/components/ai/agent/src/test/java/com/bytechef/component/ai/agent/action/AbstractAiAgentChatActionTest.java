@@ -2133,7 +2133,7 @@ class AbstractAiAgentChatActionTest {
          */
         @Test
         void testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain() throws Exception {
-            when(context.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+            when(context.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
             ComponentRuleEnforcer componentRuleEnforcer = mock(ComponentRuleEnforcer.class);

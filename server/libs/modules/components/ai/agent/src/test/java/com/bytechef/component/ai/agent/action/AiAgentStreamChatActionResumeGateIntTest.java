@@ -376,7 +376,7 @@ class AiAgentStreamChatActionResumeGateIntTest {
 
             when(context.getSuspend()).thenAnswer(invocation -> capturedSuspend.get());
             when(context.isEditorEnvironment()).thenReturn(false);
-            when(context.getResumeUrl()).thenReturn("https://example.com/job/resume/tok123");
+            when(context.getResumeUrl(any())).thenReturn("https://example.com/job/resume/tok123");
 
             return context;
         }
