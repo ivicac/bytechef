@@ -31,10 +31,6 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Tests for the chat-only approval channel origin warning: a task that can only deliver its approval requests to the
- * chat channel, in a workflow that does not start from a chat trigger, pauses without a live approval card on
- * webhook/schedule runs.
- *
  * @author Ivica Cardic
  */
 class WorkflowValidatorChatApprovalChannelTest {
@@ -207,8 +203,8 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "tools": [
                                 {
                                     "label": "Destructive",
-                                    "name": "approvalGateTool_1",
-                                    "type": "aiAgentUtils/v1/approvalGateTool",
+                                    "name": "approvalGate_1",
+                                    "type": "aiAgentUtils/v1/approvalGate",
                                     "parameters": {
                                         "name": "Destructive"
                                     },
@@ -234,7 +230,7 @@ class WorkflowValidatorChatApprovalChannelTest {
 
         assertTrue(warnings.contains(CHAT_ONLY_WARNING_FRAGMENT), warnings);
         assertTrue(warnings.contains("aiAgent_1"), warnings);
-        assertTrue(warnings.startsWith("[approvalGateTool_1] "), warnings);
+        assertTrue(warnings.startsWith("[approvalGate_1] "), warnings);
         assertTrue(warnings.contains("the default when no approval channels are configured"), warnings);
     }
 
@@ -261,8 +257,8 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "tools": [
                                 {
                                     "label": "Destructive",
-                                    "name": "approvalGateTool_1",
-                                    "type": "aiAgentUtils/v1/approvalGateTool",
+                                    "name": "approvalGate_1",
+                                    "type": "aiAgentUtils/v1/approvalGate",
                                     "parameters": {
                                         "name": "Destructive"
                                     },
@@ -351,8 +347,8 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "tools": [
                                 {
                                     "label": "Destructive",
-                                    "name": "approvalGateTool_1",
-                                    "type": "aiAgentUtils/v1/approvalGateTool",
+                                    "name": "approvalGate_1",
+                                    "type": "aiAgentUtils/v1/approvalGate",
                                     "parameters": {
                                         "name": "Destructive"
                                     },
@@ -428,7 +424,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                                                             {
                                                                 "label": "Mail gate",
                                                                 "name": "approvalGate_1",
-                                                                "type": "aiAgentUtils/v1/approvalGateTool",
+                                                                "type": "aiAgentUtils/v1/approvalGate",
                                                                 "parameters": {},
                                                                 "clusterElements": {
                                                                     "approvalChannels": [
@@ -484,7 +480,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                                     {
                                         "label": "Mail gate",
                                         "name": "approvalGate_1",
-                                        "type": "aiAgentUtils/v1/approvalGateTool",
+                                        "type": "aiAgentUtils/v1/approvalGate",
                                         "parameters": {},
                                         "clusterElements": {
                                             "tools": [
@@ -534,7 +530,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                                     {
                                         "label": "Gate",
                                         "name": "approvalGate_1",
-                                        "type": "aiAgentUtils/v1/approvalGateTool",
+                                        "type": "aiAgentUtils/v1/approvalGate",
                                         "parameters": {},
                                         "clusterElements": {
                                             "tools": [
@@ -547,7 +543,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                                                 {
                                                     "label": "Inner gate",
                                                     "name": "approvalGate_2",
-                                                    "type": "aiAgentUtils/v1/approvalGateTool",
+                                                    "type": "aiAgentUtils/v1/approvalGate",
                                                     "parameters": {}
                                                 }
                                             ]
@@ -567,6 +563,20 @@ class WorkflowValidatorChatApprovalChannelTest {
                 errors);
             assertTrue(
                 errors.contains("[approvalGate_2] An approval gate cannot be attached to another approval gate"),
+                errors);
+        }
+
+        @Test
+        void validateWorkflowAskUserQuestionToolUnderAnApprovalGateFails() {
+            String errors = validateErrors(
+                SubagentApprovalPlacement.agentWorkflow(
+                    SubagentApprovalPlacement.toolWithChildren(
+                        "approvalGate_1", "aiAgentUtils/v1/approvalGate", "tools",
+                        SubagentApprovalPlacement.tool("askUserQuestionTool_1",
+                            "aiAgentUtils/v1/askUserQuestionTool"))));
+
+            assertTrue(
+                errors.contains("[askUserQuestionTool_1] 'askUserQuestionTool' cannot be attached to an approval gate"),
                 errors);
         }
     }
@@ -599,7 +609,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                             taskTool(
                                 "taskTool_2",
                                 subagent(
-                                    "subagentTool_2", tool("approvalGate_1", "aiAgentUtils/v1/approvalGateTool"),
+                                    "subagentTool_2", tool("approvalGate_1", "aiAgentUtils/v1/approvalGate"),
                                     tool("requestApproval_1", "approval/v1/requestApproval")))))));
 
             assertTrue(
@@ -620,8 +630,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "subagentTool_1",
                             taskTool(
                                 "taskTool_2",
-                                subagent("subagentTool_2",
-                                    tool("approvalGate_1", "aiAgentUtils/v1/approvalGateTool")))))));
+                                subagent("subagentTool_2", tool("approvalGate_1", "aiAgentUtils/v1/approvalGate")))))));
 
             assertEquals(
                 errors.indexOf("[approvalGate_1] An approval gate cannot be placed under a subagent"),
@@ -639,7 +648,7 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "subagentTool_1",
                             toolWithChildren(
                                 "callAgent_1", "aiAgent/v1/chat", "tools",
-                                tool("approvalGate_1", "aiAgentUtils/v1/approvalGateTool"))))));
+                                tool("approvalGate_1", "aiAgentUtils/v1/approvalGate"))))));
 
             assertFalse(errors.contains("subagent"), errors);
         }
@@ -657,11 +666,11 @@ class WorkflowValidatorChatApprovalChannelTest {
                             "name": "aiAgent_1",
                             "type": "aiAgent/v1/chat",
                             "parameters": {},
-                            "clusterElements": {"tools": [%s]}
+                            "clusterElements": {"tools": [TOOLS]}
                         }
                     ]
                 }
-                """.formatted(String.join(",", tools));
+                """.replace("[TOOLS]", "[" + String.join(",", tools) + "]");
         }
 
         private static String taskTool(String name, String... subagents) {
@@ -673,14 +682,14 @@ class WorkflowValidatorChatApprovalChannelTest {
         }
 
         private static String tool(String name, String type) {
-            return """
-                {"label": "%s", "name": "%s", "type": "%s", "parameters": {}}""".formatted(name, name, type);
+            return "{\"label\": \"" + name + "\", \"name\": \"" + name + "\", \"type\": \"" + type +
+                "\", \"parameters\": {}}";
         }
 
         private static String toolWithChildren(String name, String type, String key, String... children) {
-            return """
-                {"label": "%s", "name": "%s", "type": "%s", "parameters": {}, "clusterElements": {"%s": [%s]}}"""
-                .formatted(name, name, type, key, String.join(",", children));
+            return "{\"label\": \"" + name + "\", \"name\": \"" + name + "\", \"type\": \"" + type +
+                "\", \"parameters\": {}, \"clusterElements\": {\"" + key + "\": [" + String.join(",", children) +
+                "]}}";
         }
     }
 
