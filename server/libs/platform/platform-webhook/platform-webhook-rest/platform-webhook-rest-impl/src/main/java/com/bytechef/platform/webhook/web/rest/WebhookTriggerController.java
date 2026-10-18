@@ -18,6 +18,7 @@ package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.exception.AbstractException;
 import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
@@ -32,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.springframework.http.HttpHeaders;
@@ -93,7 +95,7 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
 
-        return TenantContext.callWithTenantId(workflowExecutionId.getTenantId(), () -> {
+        return callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             boolean head = Objects.equals(httpServletRequest.getMethod(), RequestMethod.HEAD.name());
             boolean disabled = webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId);
 
