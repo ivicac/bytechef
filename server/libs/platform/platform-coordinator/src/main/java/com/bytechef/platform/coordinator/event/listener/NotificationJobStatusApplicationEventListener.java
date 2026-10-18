@@ -101,7 +101,13 @@ public class NotificationJobStatusApplicationEventListener implements Applicatio
                     continue;
                 }
 
-                notificationSender.send(notification, notificationHandler, notificationHandlerContext);
+                try {
+                    notificationSender.send(notification, notificationHandler, notificationHandlerContext);
+                } catch (RuntimeException exception) {
+                    log.error(
+                        "Notification id={} of type {} could not be sent for job id={}", notification.getId(),
+                        notification.getType(), job.getId(), exception);
+                }
             }
         }
     }
