@@ -29,7 +29,7 @@ import org.springframework.security.core.Authentication;
  */
 class EmbeddedMcpServerApiKeyAuthenticationConverterTest {
 
-    private static final String MCP_SERVER_SECRET_KEY = String.valueOf(TenantKey.of("tenant-a"));
+    private static final String MCP_SERVER_SECRET_KEY = String.valueOf(TenantKey.of("tenant_a"));
 
     private final EmbeddedMcpServerApiKeyAuthenticationConverter embeddedMcpServerApiKeyAuthenticationConverter =
         new EmbeddedMcpServerApiKeyAuthenticationConverter(() -> List.of(Environment.values()),
@@ -49,7 +49,7 @@ class EmbeddedMcpServerApiKeyAuthenticationConverterTest {
         assertThat(embeddedMcpServerApiKeyAuthenticationToken.getExternalUserId()).isNull();
         assertThat(embeddedMcpServerApiKeyAuthenticationToken.getMcpServerSecretKey())
             .isEqualTo(MCP_SERVER_SECRET_KEY);
-        assertThat(embeddedMcpServerApiKeyAuthenticationToken.getTenantId()).isEqualTo("tenant-a");
+        assertThat(embeddedMcpServerApiKeyAuthenticationToken.getTenantId()).isEqualTo("tenant_a");
     }
 
     @Test
@@ -65,7 +65,7 @@ class EmbeddedMcpServerApiKeyAuthenticationConverterTest {
             (EmbeddedMcpServerApiKeyAuthenticationToken) authentication;
 
         assertThat(embeddedMcpServerApiKeyAuthenticationToken.getExternalUserId()).isNull();
-        assertThat(embeddedMcpServerApiKeyAuthenticationToken.getTenantId()).isEqualTo("tenant-a");
+        assertThat(embeddedMcpServerApiKeyAuthenticationToken.getTenantId()).isEqualTo("tenant_a");
     }
 
     @Test
