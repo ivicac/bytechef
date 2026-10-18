@@ -33,10 +33,6 @@ import com.bytechef.message.broker.MessageBroker;
 import org.springframework.stereotype.Component;
 
 /**
- * Spring-declared rather than {@code @AutoService}, because the approval channel it ships needs an injected
- * {@link MessageBroker} to publish onto the run's SSE stream. Spring-declared handlers are always loaded, so the
- * component never depends on the build-time ServiceLoader index.
- *
  * @author Ivica Cardic
  */
 @Component(CHAT + "_v1_ComponentHandler")
@@ -44,7 +40,7 @@ public class ChatComponentHandler implements ComponentHandler {
 
     private final ComponentDefinition componentDefinition;
 
-    public ChatComponentHandler(MessageBroker messageBroker) {
+    public ChatComponentHandler(MessageBroker messageBroker, JobService jobService) {
         this.componentDefinition = component(CHAT)
             .title("Chat")
             .description("Actions and triggers for using with the chat widget.")
@@ -52,7 +48,7 @@ public class ChatComponentHandler implements ComponentHandler {
             .categories(ComponentCategory.HELPERS)
             .triggers(ChatNewRequestTrigger.TRIGGER_DEFINITION)
             .actions(ChatResponseToRequestAction.ACTION_DEFINITION)
-            .clusterElements(ChatApprovalChannel.of(messageBroker))
+            .clusterElements(ChatApprovalChannel.of(messageBroker, jobService))
             .agentChannels(
                 agentChannel(
                     CHAT, ChatNewRequestTrigger.TRIGGER_DEFINITION, ChatResponseToRequestAction.ACTION_DEFINITION)
