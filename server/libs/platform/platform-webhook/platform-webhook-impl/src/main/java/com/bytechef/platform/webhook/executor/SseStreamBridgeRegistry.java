@@ -313,17 +313,11 @@ public class SseStreamBridgeRegistry {
             return;
         }
 
-        boolean paymentRequired = "PAYMENT_REQUIRED".equals(status);
-
-        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "CANCELLED".equals(status) ||
-            ("STOPPED".equals(status) && !suspended) || paymentRequired) {
-
+        if ("COMPLETED".equals(status) || "FAILED".equals(status) || ("STOPPED".equals(status) && !suspended)) {
             activatePendingRegistrations(jobKey);
         }
 
-        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status) ||
-            "CANCELLED".equals(status) || paymentRequired) {
-
+        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status)) {
             CopyOnWriteArrayList<SseStreamBridge> sseStreamBridges = bridges.getIfPresent(jobKey);
 
             if (sseStreamBridges != null) {
@@ -388,6 +382,7 @@ public class SseStreamBridgeRegistry {
     }
 
     private void publishQuestionDelivered(JobKey jobKey, @Nullable Object payload) {
+        long jobId = jobKey.jobId();
         String jobResumeId = getJobResumeId(payload);
 
         if (messageBroker == null || jobResumeId == null) {
@@ -479,9 +474,8 @@ public class SseStreamBridgeRegistry {
         }
 
         private static JobKey of(SseStreamEvent sseStreamEvent) {
-            String tenantId =
-                sseStreamEvent.getMetadata(TenantContext.CURRENT_TENANT_ID) instanceof String eventTenantId
-                    ? eventTenantId : TenantContext.getCurrentTenantId();
+            String tenantId = sseStreamEvent.getMetadata(TenantContext.CURRENT_TENANT_ID) instanceof String eventTenantId
+                ? eventTenantId : TenantContext.getCurrentTenantId();
 
             return new JobKey(tenantId, sseStreamEvent.getJobId());
         }
