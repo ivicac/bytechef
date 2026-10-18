@@ -44,6 +44,7 @@ import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -117,8 +118,9 @@ class ApprovalFormFacadeIntTest {
             jobResumeId,
             Map.of("formTitle", "Approve tool call: SLACK_SEND_MESSAGE", "formDescription", "channel: #general"));
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm)
             .containsEntry("formTitle", "Approve tool call: SLACK_SEND_MESSAGE")
@@ -133,8 +135,9 @@ class ApprovalFormFacadeIntTest {
             jobResumeId, Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
         stubStoredSuspend(jobResumeId, Map.of("formUrl", "https://example.com/resume/abc"));
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm).containsEntry("formTitle", "Approve the refund");
     }
@@ -146,10 +149,11 @@ class ApprovalFormFacadeIntTest {
         stubStoppedJobWithTaskExecutionParameters(
             jobResumeId, Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
 
-        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(Optional.empty());
+        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(Optional.empty());
 
-        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
-            .orElseThrow();
+        Map<String, Object> approvalForm = new HashMap<>(
+            approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+                .orElseThrow());
 
         assertThat(approvalForm)
             .containsEntry("formTitle", "Approve the refund")
@@ -224,7 +228,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(
+        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(
             Optional.of(
                 new Suspend(
                     Map.of(MetadataConstants.APPROVAL_FORM_PARAMETERS, Map.of("formTitle", "Refund order 42")),
@@ -246,7 +250,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(
+        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(
             Optional.of(new Suspend(Map.of("formUrl", "https://example.com/resume/abc"), null)));
 
         Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
@@ -333,7 +337,7 @@ class ApprovalFormFacadeIntTest {
     }
 
     private void stubStoredSuspend(JobResumeId jobResumeId, Map<String, ?> continueParameters) {
-        when(taskStateService.<Suspend>fetchValue(jobResumeId))
+        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId))
             .thenReturn(Optional.of(new Suspend(continueParameters, null)));
     }
 
@@ -344,7 +348,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(Optional.empty());
+        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(Optional.empty());
     }
 
     private static Job stoppedJob(JobResumeId storedJobResumeId) {
