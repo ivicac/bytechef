@@ -225,9 +225,9 @@ public final class ToolApprovalRequests {
                 ComponentConnection componentConnection = componentConnections.get(
                     approvalChannel.getWorkflowNodeName());
 
-                Map<String, Object> mergedInputParameters = new HashMap<>(channelInputParameters);
+                Map<String, Object> mergedInputParameters = new HashMap<>(approvalChannel.getParameters());
 
-                mergedInputParameters.putAll(approvalChannel.getParameters());
+                mergedInputParameters.putAll(channelInputParameters);
 
                 deliver(
                     delivery, approvalChannel.getComponentName(), approvalChannel.getClusterElementName(),

@@ -21,24 +21,32 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.configuration.domain.ClusterElement;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * @author Ivica Cardic
  */
 class ToolApprovalRequestsTest {
+
+    private static final Instant EXPIRES_AT = Instant.parse("2030-01-01T00:00:00Z");
 
     @Test
     void testRaiseWithNoResumeUrlThrowsApprovalUnavailable() {
@@ -57,6 +65,54 @@ class ToolApprovalRequestsTest {
     @Test
     void testRaiseMarksTheSuspendAsAnApproval() {
         ActionContextAware actionContext = mock(ActionContextAware.class);
+        AtomicReference<Suspend> suspendReference = mockSuspendingActionContext(actionContext);
+
+        ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
+            "gatedTool", "{}", "title", "description", EXPIRES_AT, List.of(), Map.of(), Map.of(),
+            mock(ClusterElementDefinitionService.class), actionContext, null);
+
+        ToolApprovalRequests.raise(request);
+
+        Map<String, ?> continueParameters = suspendReference.get()
+            .continueParameters();
+
+        assertThat(continueParameters.get(MetadataConstants.APPROVAL_RESUME)).isEqualTo(true);
+        assertThat(continueParameters.get(MetadataConstants.APPROVAL_RAISED_AT)).isInstanceOf(String.class);
+        assertThat(continueParameters.get(MetadataConstants.APPROVAL_FORM_PARAMETERS))
+            .isEqualTo(Map.of(FORM_TITLE, "title", FORM_DESCRIPTION, "description"));
+    }
+
+    @Test
+    void testRaiseKeepsServerOwnedChannelParameters() {
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        mockSuspendingActionContext(actionContext);
+
+        ClusterElement slackChannel = new ClusterElement(
+            null, null, Map.of(), null, "slack/v1/approvalChannel",
+            Map.of(FORM_TITLE, "spoofed", "expiresAt", "never", "channel", "#general"), "slack_1");
+
+        ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
+            "gatedTool", "{}", "title", "description", EXPIRES_AT, List.of(slackChannel), Map.of(), Map.of(),
+            clusterElementDefinitionService, actionContext, null);
+
+        ToolApprovalRequests.raise(request);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> inputParametersArgumentCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("slack"), eq(1), eq("approvalChannel"), inputParametersArgumentCaptor.capture(), anyString(), isNull(),
+            eq(actionContext));
+
+        assertThat(inputParametersArgumentCaptor.getValue())
+            .containsEntry(FORM_TITLE, "title")
+            .containsEntry("expiresAt", EXPIRES_AT.toString())
+            .containsEntry("channel", "#general");
+    }
+
+    private static AtomicReference<Suspend> mockSuspendingActionContext(ActionContextAware actionContext) {
         AtomicReference<Suspend> suspendReference = new AtomicReference<>();
 
         when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
@@ -69,18 +125,6 @@ class ToolApprovalRequestsTest {
         }).when(actionContext)
             .suspend(any(Suspend.class));
 
-        ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
-            "gatedTool", "{}", "title", "description", Instant.parse("2030-01-01T00:00:00Z"), List.of(), Map.of(),
-            Map.of(), mock(ClusterElementDefinitionService.class), actionContext, null);
-
-        ToolApprovalRequests.raise(request);
-
-        Map<String, ?> continueParameters = suspendReference.get()
-            .continueParameters();
-
-        assertThat(continueParameters.get(MetadataConstants.APPROVAL_RESUME)).isEqualTo(true);
-        assertThat(continueParameters.get(MetadataConstants.APPROVAL_RAISED_AT)).isInstanceOf(String.class);
-        assertThat(continueParameters.get(MetadataConstants.APPROVAL_FORM_PARAMETERS))
-            .isEqualTo(Map.of(FORM_TITLE, "title", FORM_DESCRIPTION, "description"));
+        return suspendReference;
     }
 }
