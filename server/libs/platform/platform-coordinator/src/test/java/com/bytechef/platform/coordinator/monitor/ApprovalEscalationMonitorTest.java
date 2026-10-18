@@ -33,6 +33,7 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.domain.NotificationEvent;
 import com.bytechef.platform.notification.handler.NotificationHandler;
@@ -47,6 +48,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -131,6 +133,44 @@ class ApprovalEscalationMonitorTest {
 
         verify(notificationService, never()).getNotifications(any());
         verify(jobService, never()).update(any());
+    }
+
+    @Test
+    void testEscalationWindowIsMeasuredFromWhenTheApprovalWasRaised() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(
+            now.minus(Duration.ofHours(5)), now.plus(Duration.ofHours(10)),
+            Map.of(
+                MetadataConstants.APPROVAL_RAISED_AT, now.minus(Duration.ofHours(1))
+                    .toString()));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(notificationService, never()).getNotifications(any());
+        verify(jobService, never()).update(any());
+    }
+
+    @Test
+    void testApprovalRaisedBeforeTheWindowEscalatesWithoutATaskStartDate() {
+        Instant now = Instant.now();
+
+        Job job = stoppedApprovalJob(
+            null, now.plus(Duration.ofHours(10)),
+            Map.of(
+                MetadataConstants.APPROVAL_RAISED_AT, now.minus(Duration.ofHours(5))
+                    .toString()));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        stubNotifications(notification(1L));
+
+        monitorWithAfter(Duration.ofHours(4)).escalateStalledApprovals();
+
+        verify(notificationSender).send(any(), any(), any());
     }
 
     @Test
@@ -322,6 +362,12 @@ class ApprovalEscalationMonitorTest {
     }
 
     private Job stoppedApprovalJob(Instant startedAt, Instant expiresAt) {
+        return stoppedApprovalJob(startedAt, expiresAt, Map.of());
+    }
+
+    private Job stoppedApprovalJob(
+        @Nullable Instant startedAt, Instant expiresAt, Map<String, Object> continueParameters) {
+
         Job job = new Job();
 
         job.setId(42L);
@@ -334,7 +380,9 @@ class ApprovalEscalationMonitorTest {
 
         taskExecution.setStartDate(startedAt);
 
-        taskExecution.setMetadata(Map.of("suspend", Map.of("expiresAt", expiresAt.toString())));
+        taskExecution.setMetadata(
+            Map.of(
+                "suspend", Map.of("continueParameters", continueParameters, "expiresAt", expiresAt.toString())));
 
         when(taskExecutionService.getTaskExecution(anyLong())).thenReturn(taskExecution);
 

@@ -53,9 +53,10 @@ import org.springframework.scheduling.annotation.Scheduled;
  * recipient. Delivery goes through the same central notification registry the job-status notifications use.
  *
  * <p>
- * The escalation window is measured from when the approval was raised (the suspended task execution's start). With no
- * {@code after} configured the sweep is a no-op — escalation is opt-in. An approval whose expiry has already passed is
- * left to {@link ApprovalExpiryMonitor}, and suspends that are not approvals are ignored. Escalations are per-suspend
+ * The escalation window is measured from when the approval was raised (the suspend's {@code approvalRaisedAt}, else the
+ * suspended task execution's start, which predates the approval for a tool gate raised mid-run). With no {@code after}
+ * configured the sweep is a no-op — escalation is opt-in. An approval whose expiry has already passed is left to
+ * {@link ApprovalExpiryMonitor}, and suspends that are not approvals are ignored. Escalations are per-suspend
  * idempotent: the sweep claims the escalation under {@code approvalEscalatedAt} in job metadata (cleared on resume)
  * before sending, so two coordinator replicas cannot both send it, and keeps the claim only when at least one
  * notification was delivered. When no notification is configured or every send fails, the claim is released and the
@@ -148,7 +149,11 @@ public class ApprovalEscalationMonitor {
             return;
         }
 
-        Instant raisedAt = taskExecution.getStartDate();
+        Instant raisedAt = SuspendUtils.extractApprovalRaisedAt(taskExecution.getMetadata());
+
+        if (raisedAt == null) {
+            raisedAt = taskExecution.getStartDate();
+        }
 
         if (raisedAt == null || raisedAt.plus(after)
             .isAfter(now)) {

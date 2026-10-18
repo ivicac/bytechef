@@ -129,4 +129,40 @@ class SuspendUtilsTest {
 
         assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(metadata));
     }
+
+    @Test
+    void testExtractApprovalRaisedAtReadsTheContinueParametersOfASuspendInstance() {
+        Instant raisedAt = Instant.parse("2026-10-17T09:00:00Z");
+
+        Map<String, ?> metadata = Map.of(
+            MetadataConstants.SUSPEND,
+            new ActionContext.Suspend(
+                Map.of(MetadataConstants.APPROVAL_RAISED_AT, raisedAt.toString()), Instant.now()));
+
+        assertEquals(raisedAt, SuspendUtils.extractApprovalRaisedAt(metadata));
+    }
+
+    @Test
+    void testExtractApprovalRaisedAtReadsTheContinueParametersOfAPersistedSuspend() {
+        Instant raisedAt = Instant.parse("2026-10-17T09:00:00Z");
+
+        Map<String, ?> metadata = Map.of(
+            MetadataConstants.SUSPEND,
+            Map.of("continueParameters", Map.of(MetadataConstants.APPROVAL_RAISED_AT, raisedAt.toString())));
+
+        assertEquals(raisedAt, SuspendUtils.extractApprovalRaisedAt(metadata));
+    }
+
+    @Test
+    void testExtractApprovalRaisedAtIsNullWhenAbsentOrUnparseable() {
+        assertNull(SuspendUtils.extractApprovalRaisedAt(Map.of()));
+        assertNull(
+            SuspendUtils.extractApprovalRaisedAt(
+                Map.of(MetadataConstants.SUSPEND, new ActionContext.Suspend(Map.of(), Instant.now()))));
+        assertNull(
+            SuspendUtils.extractApprovalRaisedAt(
+                Map.of(
+                    MetadataConstants.SUSPEND,
+                    Map.of("continueParameters", Map.of(MetadataConstants.APPROVAL_RAISED_AT, "not-a-date")))));
+    }
 }

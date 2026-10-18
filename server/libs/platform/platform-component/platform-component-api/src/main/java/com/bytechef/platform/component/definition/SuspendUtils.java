@@ -19,6 +19,7 @@ package com.bytechef.platform.component.definition;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -90,14 +91,50 @@ public class SuspendUtils {
             return null;
         }
 
-        Object expiresAtValue = ((Map<String, ?>) suspendValue).get("expiresAt");
+        return toInstant(((Map<String, ?>) suspendValue).get("expiresAt"));
+    }
 
-        if (expiresAtValue instanceof Number expiresAtNumber) {
-            return Instant.ofEpochMilli(expiresAtNumber.longValue());
-        } else if (expiresAtValue instanceof String expiresAtString) {
+    /**
+     * Extracts when the pending approval was raised ({@link MetadataConstants#APPROVAL_RAISED_AT} in the suspend's
+     * continue parameters) from a task execution's metadata, or {@code null} when the suspend does not record it.
+     *
+     * @param taskExecutionMetadata the suspended task execution's metadata map
+     * @return the instant the approval was raised, or {@code null} when absent
+     */
+    @SuppressWarnings("unchecked")
+    public static @Nullable Instant extractApprovalRaisedAt(Map<String, ?> taskExecutionMetadata) {
+        Object suspendValue = taskExecutionMetadata.get(MetadataConstants.SUSPEND);
+
+        Object continueParametersValue;
+
+        if (suspendValue instanceof ActionContext.Suspend suspend) {
+            continueParametersValue = suspend.continueParameters();
+        } else if (suspendValue instanceof Map) {
+            continueParametersValue = ((Map<String, ?>) suspendValue).get("continueParameters");
+        } else {
+            return null;
+        }
+
+        if (!(continueParametersValue instanceof Map)) {
+            return null;
+        }
+
+        return toInstant(((Map<String, ?>) continueParametersValue).get(MetadataConstants.APPROVAL_RAISED_AT));
+    }
+
+    private static @Nullable Instant toInstant(@Nullable Object value) {
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+
+        if (value instanceof Number number) {
+            return Instant.ofEpochMilli(number.longValue());
+        }
+
+        if (value instanceof String string) {
             try {
-                return Instant.parse(expiresAtString);
-            } catch (Exception exception) {
+                return Instant.parse(string);
+            } catch (DateTimeParseException dateTimeParseException) {
                 return null;
             }
         }
