@@ -46,6 +46,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -93,7 +94,7 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
     public CompletableFuture<ResponseEntity<?>> executeWorkflow(
         @PathVariable String id, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
 
-        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
+        WorkflowExecutionId workflowExecutionId = parseWorkflowExecutionId(id);
 
         return callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             boolean head = Objects.equals(httpServletRequest.getMethod(), RequestMethod.HEAD.name());
@@ -149,7 +150,7 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
         throws Exception {
 
         SseEmitter emitter = new SseEmitter(TimeUnit.MINUTES.toMillis(30));
-        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(id);
+        WorkflowExecutionId workflowExecutionId = parseWorkflowExecutionId(id);
 
         return callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             SseEmitterStreamBridge bridge = new SseEmitterStreamBridge(emitter);
@@ -173,6 +174,14 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             }
 
             throw runtimeException;
+        }
+    }
+
+    private static WorkflowExecutionId parseWorkflowExecutionId(String id) {
+        try {
+            return WorkflowExecutionId.parse(id);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook id", illegalArgumentException);
         }
     }
 

@@ -22,8 +22,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.exception.ConfigurationException;
@@ -40,9 +42,11 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * @author Ivica Cardic
@@ -186,6 +190,34 @@ class WebhookTriggerControllerTest {
         when(webhookWorkflowExecutor.executeSync(any(), any())).thenThrow(configurationException);
 
         assertThatThrownBy(() -> executeWorkflow("POST")).isSameAs(configurationException);
+    }
+
+    @Test
+    void testExecuteWorkflowRejectsAnInvalidTenantIdWithBadRequest() {
+        String id = EncodingUtils.base64EncodeToString("x;y:0:1:workflow-uuid:trigger_1");
+
+        MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest("POST", "/webhooks/" + id);
+
+        assertThatThrownBy(
+            () -> webhookTriggerController.executeWorkflow(
+                id, mockHttpServletRequest, new MockHttpServletResponse()))
+                    .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verifyNoInteractions(webhookWorkflowExecutor);
+    }
+
+    @Test
+    void testSseStreamWorkflowRejectsAMalformedIdWithBadRequest() {
+        MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest("GET", "/webhooks/a b/sse");
+
+        assertThatThrownBy(() -> webhookTriggerController.sseStreamWorkflow("a b", mockHttpServletRequest))
+            .isInstanceOfSatisfying(
+                ResponseStatusException.class,
+                exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verifyNoInteractions(webhookWorkflowExecutor);
     }
 
     private ResponseEntity<?> executeWorkflow(String method) {
