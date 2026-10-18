@@ -70,7 +70,9 @@ public class TaskExecutionServiceImpl implements TaskExecutionService {
             .orElseThrow(() -> new IllegalStateException(String.format("TaskExecution with id '%s' not found", id)));
 
         try {
-            if (taskExecution.getStatus() == TaskExecution.Status.CANCELLED) {
+            TaskExecution.Status status = taskExecution.getStatus();
+
+            if (status == TaskExecution.Status.CANCELLED || status == TaskExecution.Status.FAILED) {
                 return false;
             }
 

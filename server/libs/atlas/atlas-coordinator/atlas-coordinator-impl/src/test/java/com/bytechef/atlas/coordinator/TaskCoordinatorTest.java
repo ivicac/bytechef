@@ -18,6 +18,8 @@ package com.bytechef.atlas.coordinator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,8 +28,10 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.configuration.domain.Task;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
 import com.bytechef.atlas.coordinator.event.ResumeJobEvent;
 import com.bytechef.atlas.coordinator.event.TaskExecutionCompleteEvent;
+import com.bytechef.atlas.coordinator.event.TaskExecutionErrorEvent;
 import com.bytechef.atlas.coordinator.job.JobExecutor;
 import com.bytechef.atlas.coordinator.task.completion.TaskCompletionHandler;
 import com.bytechef.atlas.coordinator.task.dispatcher.TaskDispatcher;
@@ -35,12 +39,16 @@ import com.bytechef.atlas.execution.domain.Context;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.repository.JobRepository;
+import com.bytechef.atlas.execution.repository.TaskExecutionRepository;
 import com.bytechef.atlas.execution.service.ContextService;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.JobServiceImpl;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.atlas.execution.service.TaskExecutionServiceImpl;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
+import com.bytechef.error.ExecutionError;
 import com.bytechef.evaluator.SpelEvaluator;
+import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Instant;
 import java.util.List;
@@ -86,6 +94,87 @@ class TaskCoordinatorTest {
         taskCoordinator.onTaskExecutionCompleteEvent(new TaskExecutionCompleteEvent(completedTaskExecution));
 
         verify(taskCompletionHandler).handle(completedTaskExecution);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testCompletionOfTaskExecutionFailedByMonitorIsDropped() {
+        TaskExecution failedTaskExecution = createTaskExecution(TaskExecution.Status.FAILED);
+
+        TaskExecutionRepository taskExecutionRepository = mock(TaskExecutionRepository.class);
+
+        when(taskExecutionRepository.findByIdForUpdate(12L))
+            .thenReturn(Optional.of(failedTaskExecution));
+
+        JobService jobService = mock(JobService.class);
+        TaskDispatcher<? super Task> taskDispatcher = (TaskDispatcher<? super Task>) mock(TaskDispatcher.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+
+        TaskCoordinator monitoredTaskCoordinator = new TaskCoordinator(
+            List.of(), List.of(), eventPublisher, mock(JobExecutor.class), jobService, taskCompletionHandler,
+            taskDispatcher, new TaskExecutionServiceImpl(taskExecutionRepository));
+
+        TaskExecution workerTaskExecution = createTaskExecution(TaskExecution.Status.COMPLETED);
+
+        workerTaskExecution.setOutput(new FileEntry("output.json", "base64:///output.json"));
+
+        monitoredTaskCoordinator.onTaskExecutionCompleteEvent(new TaskExecutionCompleteEvent(workerTaskExecution));
+
+        assertThat(failedTaskExecution.getStatus()).isEqualTo(TaskExecution.Status.FAILED);
+        assertThat(failedTaskExecution.getOutput()).isNull();
+
+        verify(taskExecutionRepository, never()).save(any());
+        verify(taskCompletionHandler, never()).handle(any());
+        verify(taskDispatcher, never()).dispatch(any());
+        verify(jobService, never()).update(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testResumeFailureOfJobWhoseLastTaskExecutionFailedFailsJobDirectly() {
+        Job job = new Job();
+
+        job.setCurrentTask(1);
+        job.setId(4567L);
+        job.setStatus(Job.Status.FAILED);
+        job.setWorkflowId("workflow1");
+
+        JobService jobService = mock(JobService.class);
+
+        when(jobService.resumeToStatusStarted(4567L))
+            .thenReturn(job);
+
+        JobExecutor jobExecutor = mock(JobExecutor.class);
+
+        doThrow(new IllegalStateException("cannot evaluate"))
+            .when(jobExecutor)
+            .execute(job);
+
+        TaskExecutionService taskExecutionService = mock(TaskExecutionService.class);
+
+        when(taskExecutionService.fetchLastJobTaskExecution(4567L))
+            .thenReturn(Optional.of(createTaskExecution(TaskExecution.Status.FAILED)));
+
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+
+        TaskCoordinator resumingTaskCoordinator = new TaskCoordinator(
+            List.of(), List.of(), eventPublisher, jobExecutor, jobService, taskCompletionHandler,
+            (TaskDispatcher<? super Task>) mock(TaskDispatcher.class), taskExecutionService);
+
+        resumingTaskCoordinator.onResumeJobEvent(new ResumeJobEvent(4567L));
+
+        assertThat(job.getStatus()).isEqualTo(Job.Status.FAILED);
+        assertThat(job.getEndDate()).isNotNull();
+
+        ExecutionError error = job.getError();
+
+        assertThat(error).isNotNull();
+        assertThat(error.getMessage()).isEqualTo("cannot evaluate");
+
+        verify(jobService).update(job);
+        verify(eventPublisher, never()).publishEvent(isA(TaskExecutionErrorEvent.class));
+        verify(eventPublisher).publishEvent(isA(JobStatusApplicationEvent.class));
     }
 
     @Test

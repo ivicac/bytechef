@@ -89,6 +89,29 @@ class TaskExecutionServiceTest {
     }
 
     @Test
+    void testCompleteIfNotCancelledLeavesFailedTaskExecution() {
+        TaskExecution taskExecution = stubTaskExecution(TaskExecution.Status.FAILED);
+
+        assertThat(taskExecutionService.completeIfNotCancelled(TASK_EXECUTION_ID)).isFalse();
+
+        assertThat(taskExecution.getStatus()).isEqualTo(TaskExecution.Status.FAILED);
+
+        verify(taskExecutionRepository, never()).save(any());
+        verify(taskExecutionRepository).unlockForUpdate(TASK_EXECUTION_ID);
+    }
+
+    @Test
+    void testCompleteIfNotCancelledCompletesAlreadyCompletedTaskExecution() {
+        TaskExecution taskExecution = stubTaskExecution(TaskExecution.Status.COMPLETED);
+
+        assertThat(taskExecutionService.completeIfNotCancelled(TASK_EXECUTION_ID)).isTrue();
+
+        assertThat(taskExecution.getStatus()).isEqualTo(TaskExecution.Status.COMPLETED);
+
+        verify(taskExecutionRepository).unlockForUpdate(TASK_EXECUTION_ID);
+    }
+
+    @Test
     void testUpdateKeepsStartDateOfClaimedTaskExecution() {
         Instant startDate = Instant.parse("2026-09-25T10:00:00Z");
 

@@ -27,6 +27,12 @@ public interface TaskExecutionService {
 
     boolean cancelIfUnfinished(long id);
 
+    /**
+     * Atomically marks the task execution COMPLETED unless it is already CANCELLED or FAILED.
+     *
+     * @param id the task execution id
+     * @return false when the task execution was already cancelled or failed
+     */
     boolean completeIfNotCancelled(long id);
 
     TaskExecution create(TaskExecution taskExecution);

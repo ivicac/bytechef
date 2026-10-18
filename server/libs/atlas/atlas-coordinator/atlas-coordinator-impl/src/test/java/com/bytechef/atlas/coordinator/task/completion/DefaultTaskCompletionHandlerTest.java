@@ -78,6 +78,7 @@ class DefaultTaskCompletionHandlerTest {
     void beforeEach() {
         job.setWorkflowId("workflow1");
         job.setCurrentTask(0);
+        job.setStatus(Job.Status.STARTED);
 
         taskExecution.setId(100L);
 
@@ -131,6 +132,21 @@ class DefaultTaskCompletionHandlerTest {
 
         verify(jobExecutor).completeJob(job);
         verify(transactionManager, never()).getTransaction(any());
+    }
+
+    @Test
+    void testHandleDropsCompletionForJobThatIsNoLongerStarted() {
+        job.setStatus(Job.Status.FAILED);
+
+        DefaultTaskCompletionHandler taskCompletionHandler = getTaskCompletionHandler(null);
+
+        taskCompletionHandler.handle(taskExecution);
+
+        verify(taskExecutionService, never()).update(any());
+        verify(jobService, never()).update(any());
+        verify(jobExecutor, never()).execute(any());
+        verify(jobExecutor, never()).completeJob(any());
+        verify(contextService, never()).push(anyLong(), any(), any());
     }
 
     private DefaultTaskCompletionHandler getTaskCompletionHandler(
