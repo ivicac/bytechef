@@ -141,8 +141,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         long jobId = TenantContext.callWithTenantId(
             workflowExecutionId.getTenantId(),
             () -> principalJobFacade.createJob(
-                new JobParametersDTO(workflowId, inputs), workflowExecutionId.getJobPrincipalId(),
-                workflowExecutionId.getType()));
+                new JobParametersDTO(workflowId, inputs, Map.of(MetadataConstants.STREAMED_EXECUTION, true)),
+                workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()));
 
         Registration registration = sseStreamBridgeRegistry.register(jobId, sseStreamBridge);
 

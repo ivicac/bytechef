@@ -475,6 +475,26 @@ public class WebhookWorkflowExecutorTest {
         verify(sseStreamBridge, never()).onError(any());
     }
 
+    @Test
+    public void testExecuteAsyncWithStreamBridgeMarksTheJobAsStreamed() {
+        stubTrigger("payload");
+
+        when(principalJobFacade.createJob(any(JobParametersDTO.class), eq(JOB_PRINCIPAL_ID), any()))
+            .thenReturn(9L);
+        when(sseStreamBridgeRegistry.register(eq(9L), any()))
+            .thenReturn(new SseStreamBridgeRegistry.Registration(() -> {}, new CompletableFuture<>()));
+
+        webhookWorkflowExecutor.executeAsync(workflowExecutionId, mockWebhookRequest(), mock(SseStreamBridge.class));
+
+        ArgumentCaptor<JobParametersDTO> jobParametersArgumentCaptor = ArgumentCaptor.forClass(JobParametersDTO.class);
+
+        verify(principalJobFacade).createJob(jobParametersArgumentCaptor.capture(), eq(JOB_PRINCIPAL_ID), any());
+
+        JobParametersDTO jobParametersDTO = jobParametersArgumentCaptor.getValue();
+
+        assertThat(jobParametersDTO.getMetadata()).containsEntry(MetadataConstants.STREAMED_EXECUTION, true);
+    }
+
     private Duration executeSyncAndCaptureTimeout(Map<String, ?> triggerParameters) {
         Workflow workflow = workflow(workflowTask("respond", "webhook/v1/responseToWebhookRequest"));
 
