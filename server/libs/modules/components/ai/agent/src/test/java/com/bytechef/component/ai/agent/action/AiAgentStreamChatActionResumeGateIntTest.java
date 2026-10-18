@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
-import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGateTool;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGate;
 import com.bytechef.component.ai.llm.ChatModel;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.llm.tool.ClusterElementToolCallbacks;
@@ -83,12 +83,11 @@ import org.springframework.ai.tool.resolution.DelegatingToolCallbackResolver;
 import reactor.core.publisher.Flux;
 
 /**
- * End-to-end integration test for the platform tool gate (an {@code approvalGateTool} cluster element) inside the
- * streaming AI agent suspend/resume flow. Uses an ordinary EXECUTING tool nested beneath a gate: the first model tool
- * call must be intercepted by the gate (tool not executed, approval delivered through the default chat channel, suspend
- * carries the GATED_* continuation keys); an approved resume must execute the tool with the originally captured
- * arguments and patch its real result into the conversation; a rejected resume must patch a denial without ever
- * executing the tool.
+ * End-to-end integration test for the platform tool gate (an {@code approvalGate} cluster element) inside the streaming
+ * AI agent suspend/resume flow. Uses an ordinary EXECUTING tool nested beneath a gate: the first model tool call must
+ * be intercepted by the gate (tool not executed, approval delivered through the default chat channel, suspend carries
+ * the GATED_* continuation keys); an approved resume must execute the tool with the originally captured arguments and
+ * patch its real result into the conversation; a rejected resume must patch a denial without ever executing the tool.
  *
  * @author Ivica Cardic
  */
@@ -346,15 +345,14 @@ class AiAgentStreamChatActionResumeGateIntTest {
 
             // The gate is the real cluster element, not a stub: this test exists to prove the agent action and the
             // gate still speak the same suspend protocol now that they live in different modules.
-            AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
-                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service, List.of()), service, null,
-                null);
+            AiAgentUtilsApprovalGate approvalGateTool = new AiAgentUtilsApprovalGate(
+                new ClusterElementToolCallbacks(mock(AiAgentToolFacade.class), service, List.of()), service);
 
             ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateDefinition =
                 approvalGateTool.clusterElementDefinition;
 
             when(service.<MultipleConnectionsToolCallbackProviderFunction>getClusterElement(
-                eq("aiAgentUtils"), eq(1), eq("approvalGateTool"))).thenReturn(gateDefinition.getElement());
+                eq("aiAgentUtils"), eq(1), eq("approvalGate"))).thenReturn(gateDefinition.getElement());
 
             // The gate's default chat channel delivery goes through the same mocked service; returning null is a
             // successful no-op delivery for the purposes of this test.
@@ -376,7 +374,7 @@ class AiAgentStreamChatActionResumeGateIntTest {
 
             when(context.getSuspend()).thenAnswer(invocation -> capturedSuspend.get());
             when(context.isEditorEnvironment()).thenReturn(false);
-            when(context.getResumeUrl()).thenReturn("https://example.com/job/resume/tok123");
+            when(context.getResumeUrl(any())).thenReturn("https://example.com/job/resume/tok123");
 
             return context;
         }
@@ -395,12 +393,12 @@ class AiAgentStreamChatActionResumeGateIntTest {
         toolElementMap.put("type", "testComponent/v1/" + TOOL_NAME);
         toolElementMap.put("parameters", Map.of());
 
-        // The load-bearing structure: nesting the tool beneath an approvalGateTool is what routes it through
+        // The load-bearing structure: nesting the tool beneath an approvalGate is what routes it through
         // ApprovalGateToolCallback. The gate declares no channels, so delivery falls back to the chat channel.
         Map<String, Object> gateElementMap = new HashMap<>();
 
-        gateElementMap.put("name", "approvalGateTool_1");
-        gateElementMap.put("type", "aiAgentUtils/v1/approvalGateTool");
+        gateElementMap.put("name", "approvalGate_1");
+        gateElementMap.put("type", "aiAgentUtils/v1/approvalGate");
         gateElementMap.put("parameters", Map.of("name", "Destructive"));
         gateElementMap.put("clusterElements", Map.of("tools", List.of(toolElementMap)));
 

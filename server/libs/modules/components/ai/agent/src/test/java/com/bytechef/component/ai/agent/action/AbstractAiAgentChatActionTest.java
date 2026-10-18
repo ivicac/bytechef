@@ -39,10 +39,11 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import com.bytechef.component.ai.agent.action.event.ToolExecutionEvent;
+import com.bytechef.component.ai.agent.action.event.listener.ToolExecutionListener;
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.agent.tool.ConversationState;
-import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGateTool;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGate;
 import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
 import com.bytechef.component.ai.llm.advisor.JsonSchemaValidationAdvisor;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
@@ -53,15 +54,14 @@ import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
-import com.bytechef.platform.ai.constant.ToolSuspendConstants;
-import com.bytechef.platform.ai.tool.GateDecision;
-import com.bytechef.platform.ai.tool.GatedToolSuspension;
-import com.bytechef.platform.ai.tool.ToolSuspension;
 import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.ai.sensitivedata.SensitiveDataMetrics;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSession;
 import com.bytechef.platform.ai.sensitivedata.tokenization.PiiTokenSessionToolContext;
+import com.bytechef.platform.ai.tool.GateDecision;
+import com.bytechef.platform.ai.tool.GatedToolSuspension;
+import com.bytechef.platform.ai.tool.ToolSuspension;
 import com.bytechef.platform.ai.tool.ToolSuspensionException;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -81,11 +81,6 @@ import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
-import com.bytechef.platform.constant.PlatformType;
-import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
-import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
-import com.bytechef.platform.tool.execution.ToolExecutionSurface;
-import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -2275,8 +2270,8 @@ class AbstractAiAgentChatActionTest {
                     "tools",
                     List.of(
                         Map.of(
-                            "name", "approvalGateTool_1",
-                            "type", "aiAgentUtils/v1/approvalGateTool",
+                            "name", "approvalGate_1",
+                            "type", "aiAgentUtils/v1/approvalGate",
                             "parameters", Map.of("name", "Destructive"),
                             "clusterElements",
                             Map.of(
@@ -2318,9 +2313,9 @@ class AbstractAiAgentChatActionTest {
         void testApprovedExecutesToolWithOriginalArgumentsAndReportsResult() throws Exception {
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, "ship it"), Map.of(), EXTENSIONS, context, null);
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+                data(true, "ship it"), Map.of(), EXTENSIONS, context);
 
             // The RAW callback must execute the originally captured arguments — not whatever the human typed.
             verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
@@ -2333,9 +2328,9 @@ class AbstractAiAgentChatActionTest {
 
         @Test
         void testRejectedFeedsDenialWithCommentWithoutExecutingTheTool() throws Exception {
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(false, "not now"), Map.of(), EXTENSIONS, context, null);
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+                data(false, "not now"), Map.of(), EXTENSIONS, context);
 
             assertThat(resumeData)
                 .contains("denied")
@@ -2350,9 +2345,9 @@ class AbstractAiAgentChatActionTest {
         void testApprovedCarriesVerifiedReviewerIdentity() throws Exception {
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context, null);
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+                dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
 
             assertThat(resumeData)
                 .contains("approvedByReviewer")
@@ -2364,8 +2359,8 @@ class AbstractAiAgentChatActionTest {
         void testApprovedReExecutionCarriesTheReviewerIntoTheToolContext() throws Exception {
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
-            action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
                 dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
 
             ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
@@ -2389,8 +2384,8 @@ class AbstractAiAgentChatActionTest {
             // "already approved" signal is missing, so a REQUIRE_APPROVAL rule would re-raise the same approval on
             // every
             // resume and suspend forever.
-            action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
                 data(true, null), Map.of(), EXTENSIONS, context);
 
             ArgumentCaptor<ToolContext> toolContextCaptor = ArgumentCaptor.forClass(ToolContext.class);
@@ -2405,9 +2400,9 @@ class AbstractAiAgentChatActionTest {
 
         @Test
         void testRejectedCarriesVerifiedReviewerIdentity() throws Exception {
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context, null);
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+                dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context);
 
             assertThat(resumeData)
                 .contains("denied")
@@ -2420,9 +2415,9 @@ class AbstractAiAgentChatActionTest {
         @Test
         void testApprovedButToolNoLongerConfiguredFailsLoudly() {
             assertThatThrownBy(
-                () -> action.resolveGatedToolResumeData(
-                    NO_SIMULATION_INPUT, continueParameters("REMOVED_TOOL"),
-                    data(true, null), Map.of(), EXTENSIONS, context, null))
+                () -> resolveGatedToolResumeData(
+                    action, NO_SIMULATION_INPUT, continueParameters("REMOVED_TOOL"),
+                    data(true, null), Map.of(), EXTENSIONS, context))
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessageContaining("REMOVED_TOOL");
         }
@@ -2432,195 +2427,14 @@ class AbstractAiAgentChatActionTest {
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class)))
                 .thenThrow(new RuntimeException("connection refused"));
 
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, null), Map.of(), EXTENSIONS, context, null);
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+                data(true, null), Map.of(), EXTENSIONS, context);
 
             assertThat(resumeData)
                 .contains("approvedByReviewer")
                 .contains("connection refused")
                 .doesNotContain("\"result\"");
-        }
-
-        @Test
-        @SuppressWarnings("unchecked")
-        void testRejectedRecordsApprovalDeniedAuditEvent() throws Exception {
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
-
-            auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(false, "not now"), Map.of(), EXTENSIONS, context);
-
-            ArgumentCaptor<com.bytechef.platform.tool.execution.ToolExecutionEvent> eventArgumentCaptor =
-                ArgumentCaptor.forClass(com.bytechef.platform.tool.execution.ToolExecutionEvent.class);
-
-            verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
-
-            assertThat(toolExecutionEvent.surface()).isEqualTo(ToolExecutionSurface.AI_AGENT);
-            assertThat(toolExecutionEvent.toolName()).isEqualTo(GATED_TOOL_NAME);
-            assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.APPROVAL_DENIED);
-        }
-
-        @Test
-        @SuppressWarnings("unchecked")
-        void testApprovedExecutionRunsThroughTheAuditRecorder() throws Exception {
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-
-            // The recorder wraps the execution — make the mock actually run the supplier so the tool executes.
-            when(toolExecutionRecorder.record(
-                any(com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder.class), any(Supplier.class)))
-                    .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
-
-            String resumeData = auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, null), Map.of(), EXTENSIONS, context);
-
-            ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> approvalGateDefinition =
-                aiAgentUtilsApprovalGate.clusterElementDefinition;
-
-            when(clusterElementDefinitionService.getClusterElement("aiAgentUtils", 1, "approvalGate"))
-                .thenReturn(approvalGateDefinition.getElement());
-        }
-
-        @Test
-        void testRejectedScopesTheApprovalDeniedEventToTheRunEnvironmentAndWorkspace() throws Exception {
-            when(context.getEnvironmentId()).thenReturn(2L);
-            when(context.getJobPrincipalId()).thenReturn(5L);
-            when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-            ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver =
-                mock(ToolInvocationWorkspaceResolver.class);
-
-            when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L)).thenReturn(9L);
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(
-                toolExecutionRecorder, toolInvocationWorkspaceResolver);
-
-            auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(false, "not now"), Map.of(), EXTENSIONS, context);
-
-            ArgumentCaptor<com.bytechef.platform.tool.execution.ToolExecutionEvent> eventArgumentCaptor =
-                ArgumentCaptor.forClass(com.bytechef.platform.tool.execution.ToolExecutionEvent.class);
-
-            verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
-
-            assertThat(toolExecutionEvent.environment()).isEqualTo(2);
-            assertThat(toolExecutionEvent.workspaceId()).isEqualTo(9L);
-        }
-
-        @Test
-        void testRejectedRecordsTheEnvironmentWithoutAWorkspaceWhenNoResolverIsPresent() throws Exception {
-            when(context.getEnvironmentId()).thenReturn(1L);
-            when(context.getJobPrincipalId()).thenReturn(5L);
-            when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder, null);
-
-            auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(false, "not now"), Map.of(), EXTENSIONS, context);
-
-            ArgumentCaptor<com.bytechef.platform.tool.execution.ToolExecutionEvent> eventArgumentCaptor =
-                ArgumentCaptor.forClass(com.bytechef.platform.tool.execution.ToolExecutionEvent.class);
-
-            verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
-
-            assertThat(toolExecutionEvent.environment()).isEqualTo(1);
-            assertThat(toolExecutionEvent.workspaceId()).isNull();
-        }
-
-        @Test
-        @SuppressWarnings("unchecked")
-        void testApprovedExecutionScopesTheAuditEventToTheRunEnvironmentAndWorkspace() throws Exception {
-            when(context.getEnvironmentId()).thenReturn(2L);
-            when(context.getJobPrincipalId()).thenReturn(5L);
-            when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-            ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver =
-                mock(ToolInvocationWorkspaceResolver.class);
-
-            when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L)).thenReturn(9L);
-            when(toolExecutionRecorder.record(
-                any(com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder.class), any(Supplier.class)))
-                    .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(
-                toolExecutionRecorder, toolInvocationWorkspaceResolver);
-
-            auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, null), Map.of(), EXTENSIONS, context);
-
-            ArgumentCaptor<com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder> builderArgumentCaptor =
-                ArgumentCaptor.forClass(
-                    com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder.class);
-
-            verify(toolExecutionRecorder).record(builderArgumentCaptor.capture(), any(Supplier.class));
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder builder = builderArgumentCaptor.getValue();
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent toolExecutionEvent = builder.build();
-
-            assertThat(toolExecutionEvent.environment()).isEqualTo(2);
-            assertThat(toolExecutionEvent.workspaceId()).isEqualTo(9L);
-        }
-
-        @Test
-        @SuppressWarnings("unchecked")
-        void testApprovedToolStillRunsWhenTheWorkspaceResolverThrows() throws Exception {
-            when(context.getEnvironmentId()).thenReturn(2L);
-            when(context.getJobPrincipalId()).thenReturn(5L);
-            when(context.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-            ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver =
-                mock(ToolInvocationWorkspaceResolver.class);
-
-            when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L))
-                .thenThrow(new IllegalStateException("workspace lookup failed"));
-            when(toolExecutionRecorder.record(
-                any(com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder.class), any(Supplier.class)))
-                    .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
-
-            AbstractAiAgentChatAction auditedAction = createAuditedAction(
-                toolExecutionRecorder, toolInvocationWorkspaceResolver);
-
-            String resumeData = auditedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, null), Map.of(), EXTENSIONS, context);
-
-            ArgumentCaptor<com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder> builderArgumentCaptor =
-                ArgumentCaptor.forClass(
-                    com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder.class);
-
-            verify(toolExecutionRecorder).record(builderArgumentCaptor.capture(), any(Supplier.class));
-
-            com.bytechef.platform.tool.execution.ToolExecutionEvent toolExecutionEvent =
-                builderArgumentCaptor.getValue()
-                    .build();
-
-            assertThat(resumeData).contains("message sent: ts=1721");
-            assertThat(toolExecutionEvent.environment()).isEqualTo(2);
-            assertThat(toolExecutionEvent.workspaceId()).isNull();
         }
 
         /**
@@ -2634,23 +2448,23 @@ class AbstractAiAgentChatActionTest {
          */
         @Test
         void testApprovedResumeOfAGatedToolUnderRulesExecutesOnceWithoutSuspendingAgain() throws Exception {
-            when(context.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+            when(context.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
             when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
             ComponentRuleEnforcer componentRuleEnforcer = mock(ComponentRuleEnforcer.class);
 
             when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(new ComponentRuleEnforcer.Decision.Allow());
 
-            AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
+            AiAgentUtilsApprovalGate approvalGate = new AiAgentUtilsApprovalGate(
                 new ClusterElementToolCallbacks(
                     aiAgentToolFacade, clusterElementDefinitionService, List.of(componentRuleEnforcer)),
-                clusterElementDefinitionService, null, null);
+                clusterElementDefinitionService);
 
             ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> gateClusterElementDefinition =
-                approvalGateTool.clusterElementDefinition;
+                approvalGate.clusterElementDefinition;
 
             when(clusterElementDefinitionService.<MultipleConnectionsToolCallbackProviderFunction>getClusterElement(
-                eq("aiAgentUtils"), eq(1), eq("approvalGateTool")))
+                eq("aiAgentUtils"), eq(1), eq("approvalGate")))
                     .thenReturn(gateClusterElementDefinition.getElement());
 
             AbstractAiAgentChatAction governedAction = new AbstractAiAgentChatAction(
@@ -2658,8 +2472,8 @@ class AbstractAiAgentChatActionTest {
                 new AgentToolCallingManagers(mock(ToolCallingManager.class)), null, null, null, null,
                 List.of(componentRuleEnforcer)) {};
 
-            String resumeData = governedAction.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
+            String resumeData = resolveGatedToolResumeData(
+                governedAction, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
                 GATED_EXTENSIONS, context);
 
             verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
@@ -2671,34 +2485,260 @@ class AbstractAiAgentChatActionTest {
                 .contains("message sent: ts=1721");
         }
 
-        @SuppressWarnings("unchecked")
-        private AbstractAiAgentChatAction createAuditedAction(ToolExecutionRecorder toolExecutionRecorder) {
-            ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider = mock(ObjectProvider.class);
+        @Test
+        void testApprovedToolThatSuspendsReturnsItsSuspendedToolResult() throws Exception {
+            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
 
-            when(toolExecutionRecorderObjectProvider.getIfAvailable()).thenReturn(toolExecutionRecorder);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
+            when(context.getSuspend()).thenReturn(
+                new ActionContext.Suspend(
+                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
+                    null));
 
-            return new AbstractAiAgentChatAction(
-                aiAgentToolFacade, clusterElementDefinitionService,
-                new AgentToolCallingManagers(mock(ToolCallingManager.class)), toolExecutionRecorderObjectProvider) {};
+            String resumeData = resolveGatedToolResumeData(
+                action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
+                EXTENSIONS, context);
+
+            assertThat(resumeData).isEqualTo(childSuspendedToolResult);
         }
 
-        @SuppressWarnings("unchecked")
-        private AbstractAiAgentChatAction createAuditedAction(
-            ToolExecutionRecorder toolExecutionRecorder,
-            @Nullable ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver) {
+        @Test
+        void testResumingAnApprovedToolThatSuspendsKeepsTheAgentSuspendedWithoutCallingTheModel() throws Exception {
+            String gateSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:gate";
+            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
 
-            ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider = mock(ObjectProvider.class);
-            ObjectProvider<ToolInvocationWorkspaceResolver> toolInvocationWorkspaceResolverObjectProvider = mock(
-                ObjectProvider.class);
+            AgentToolSuspension agentToolSuspension = new AgentToolSuspension(
+                ConversationState.from(
+                    List.of(
+                        new UserMessage("send the message"),
+                        ToolResponseMessage.builder()
+                            .responses(
+                                List.of(
+                                    new ToolResponseMessage.ToolResponse(
+                                        "call_1", GATED_TOOL_NAME, gateSuspendedToolResult)))
+                            .build())),
+                "call_1", gateSuspendedToolResult, null, null);
 
-            when(toolExecutionRecorderObjectProvider.getIfAvailable()).thenReturn(toolExecutionRecorder);
-            when(toolInvocationWorkspaceResolverObjectProvider.getIfAvailable()).thenReturn(
-                toolInvocationWorkspaceResolver);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
+            when(context.getSuspend()).thenReturn(
+                new ActionContext.Suspend(
+                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
+                    null));
 
-            return new AbstractAiAgentChatAction(
-                aiAgentToolFacade, clusterElementDefinitionService,
-                new AgentToolCallingManagers(mock(ToolCallingManager.class)), toolExecutionRecorderObjectProvider, null,
-                null, null, toolInvocationWorkspaceResolverObjectProvider, List.of()) {};
+            Map<String, Object> continueParameters = new HashMap<>();
+
+            continueParameters.put(AgentToolSuspension.CONTINUE_PARAMETER_KEY, agentToolSuspension);
+            continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, GATED_TOOL_NAME);
+            continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, GATED_TOOL_INPUT);
+
+            ChatClient.ChatClientRequestSpec chatClientRequestSpec = action.buildResumedRequestSpec(
+                NO_SIMULATION_INPUT, Map.of(), EXTENSIONS, ParametersFactory.create(continueParameters),
+                ParametersFactory.create(Map.of("approved", true)), null, (ActionContext) context);
+
+            assertThat(chatClientRequestSpec).isNull();
+
+            ArgumentCaptor<ActionContext.Suspend> suspendCaptor = ArgumentCaptor.forClass(ActionContext.Suspend.class);
+
+            verify(context).suspend(suspendCaptor.capture());
+
+            ActionContext.Suspend suspend = suspendCaptor.getValue();
+
+            Map<String, Object> suspendedContinueParameters = new HashMap<>(suspend.continueParameters());
+
+            assertThat(suspendedContinueParameters)
+                .containsEntry("childJobId", 42L)
+                .containsEntry(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult);
+            assertThat(suspendedContinueParameters.get(AgentToolSuspension.CONTINUE_PARAMETER_KEY))
+                .usingRecursiveComparison()
+                .ignoringFields("suspendedClusterElementCallId", "suspendedClusterElementWorkflowNodeName")
+                .isEqualTo(agentToolSuspension);
+        }
+
+        @Test
+        void testApprovedToolNestedUnderAnApprovalGateIsRecordedUnderItsOwnNode() throws Exception {
+            stubApprovalGate();
+
+            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
+            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+            List<ClusterElementCallRecord> records;
+
+            try {
+                resolveGatedToolResumeData(
+                    action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
+                    GATED_EXTENSIONS, context, new ClusterElementCallRef("gate-call", "approvalGate_1"));
+            } finally {
+                records = ClusterElementCallRecorder.getInstance()
+                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
+                    .records();
+            }
+
+            assertThat(records).hasSize(1);
+
+            ClusterElementCallRecord callRecord = records.getFirst();
+
+            assertThat(callRecord.parentId()).isEqualTo("gate-call");
+            assertThat(callRecord.workflowNodeName()).isEqualTo("slack_1");
+            assertThat(callRecord.componentName()).isEqualTo("slack");
+            assertThat(callRecord.status()).isEqualTo(ClusterElementCallRecord.Status.COMPLETED);
+        }
+
+        @Test
+        void testResumingAnApprovedToolThatSuspendsRecordsTheApprovalAndResumesTheToolCall() throws Exception {
+            stubApprovalGate();
+
+            String gateSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:gate";
+            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
+
+            AgentToolSuspension agentToolSuspension = new AgentToolSuspension(
+                ConversationState.from(
+                    List.of(
+                        new UserMessage("send the message"),
+                        ToolResponseMessage.builder()
+                            .responses(
+                                List.of(
+                                    new ToolResponseMessage.ToolResponse(
+                                        "call_1", GATED_TOOL_NAME, gateSuspendedToolResult)))
+                            .build())),
+                "call_1", gateSuspendedToolResult, "gate-call", "approvalGate_1");
+
+            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
+            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
+            when(context.getSuspend()).thenReturn(
+                new ActionContext.Suspend(
+                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
+                    null));
+
+            Map<String, Object> continueParameters = new HashMap<>();
+
+            continueParameters.put(AgentToolSuspension.CONTINUE_PARAMETER_KEY, agentToolSuspension);
+            continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, GATED_TOOL_NAME);
+            continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, GATED_TOOL_INPUT);
+
+            List<ClusterElementCallRecord> records;
+
+            try {
+                action.buildResumedRequestSpec(
+                    NO_SIMULATION_INPUT, Map.of(), GATED_EXTENSIONS, ParametersFactory.create(continueParameters),
+                    ParametersFactory.create(Map.of("approved", true, "comment", "ship it")), null,
+                    (ActionContext) context);
+            } finally {
+                records = ClusterElementCallRecorder.getInstance()
+                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
+                    .records();
+            }
+
+            ArgumentCaptor<ActionContext.Suspend> suspendCaptor = ArgumentCaptor.forClass(ActionContext.Suspend.class);
+
+            verify(context).suspend(suspendCaptor.capture());
+
+            ActionContext.Suspend suspend = suspendCaptor.getValue();
+
+            Map<String, ?> suspendedContinueParameters = suspend.continueParameters();
+
+            AgentToolSuspension resumedAgentToolSuspension =
+                (AgentToolSuspension) suspendedContinueParameters.get(AgentToolSuspension.CONTINUE_PARAMETER_KEY);
+
+            assertThat(records).hasSize(2);
+
+            ClusterElementCallRecord gateRecord = findRecord(records, "gate-call");
+
+            assertThat(gateRecord.status()).isEqualTo(ClusterElementCallRecord.Status.APPROVED);
+            assertThat(gateRecord.output()).contains("\"comment\":\"ship it\"");
+
+            ClusterElementCallRecord toolRecord = records.get(records.indexOf(gateRecord) == 0 ? 1 : 0);
+
+            assertThat(toolRecord.parentId()).isEqualTo("gate-call");
+            assertThat(toolRecord.workflowNodeName()).isEqualTo("slack_1");
+            assertThat(toolRecord.status()).isEqualTo(ClusterElementCallRecord.Status.SUSPENDED);
+
+            assertThat(resumedAgentToolSuspension.pendingToolCallId()).isEqualTo("call_1");
+            assertThat(resumedAgentToolSuspension.suspendedToolResult()).isEqualTo(gateSuspendedToolResult);
+            assertThat(resumedAgentToolSuspension.suspendedClusterElementCallId()).isEqualTo(toolRecord.id());
+            assertThat(resumedAgentToolSuspension.suspendedClusterElementWorkflowNodeName()).isEqualTo("slack_1");
+        }
+
+        @Test
+        @SuppressWarnings("PMD.UnusedLocalVariable")
+        void testApprovedRunIsRecordedAsAnAgentCallNestedUnderTheGateCall() throws Exception {
+            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
+            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+            ClusterElementCallRecorder recorder = ClusterElementCallRecorder.getInstance();
+
+            List<ClusterElementCallRecord> records;
+
+            try (AutoCloseable handle = recorder.addListener(TOOL_CALL_JOB_ID, event -> {})) {
+                resolveGatedToolResumeData(
+                    action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, "ship it"), Map.of(),
+                    EXTENSIONS, context, new ClusterElementCallRef("gate-call", "slack_1"));
+            } finally {
+                records = recorder.drain(TOOL_CALL_TASK_EXECUTION_ID)
+                    .records();
+            }
+
+            assertThat(records).hasSize(1);
+
+            ClusterElementCallRecord callRecord = records.getFirst();
+
+            assertThat(callRecord.parentId()).isEqualTo("gate-call");
+            assertThat(callRecord.workflowNodeName()).isEqualTo("slack_1");
+            assertThat(callRecord.componentName()).isEqualTo("slack");
+            assertThat(callRecord.toolName()).isEqualTo(GATED_TOOL_NAME);
+            assertThat(callRecord.status()).isEqualTo(ClusterElementCallRecord.Status.COMPLETED);
+            assertThat(callRecord.input()).isEqualTo(GATED_TOOL_INPUT);
+            assertThat(callRecord.output()).isEqualTo("message sent: ts=1721");
+        }
+
+        @Test
+        void testApprovedRunFailureIsRecordedAsAFailedAgentCall() throws Exception {
+            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
+            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
+            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class)))
+                .thenThrow(new IllegalStateException("slack is down"));
+
+            String resumeData;
+            List<ClusterElementCallRecord> records;
+
+            try {
+                resumeData = resolveGatedToolResumeData(
+                    action, NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
+                    EXTENSIONS, context, null);
+            } finally {
+                records = ClusterElementCallRecorder.getInstance()
+                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
+                    .records();
+            }
+
+            assertThat(resumeData).contains("slack is down");
+            assertThat(records).hasSize(1);
+            assertThat(records.getFirst()
+                .status()).isEqualTo(ClusterElementCallRecord.Status.FAILED);
+        }
+
+        private void stubApprovalGate() {
+            AiAgentUtilsApprovalGate aiAgentUtilsApprovalGate = new AiAgentUtilsApprovalGate(
+                new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
+                clusterElementDefinitionService);
+
+            ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> approvalGateDefinition =
+                aiAgentUtilsApprovalGate.clusterElementDefinition;
+
+            when(clusterElementDefinitionService.getClusterElement("aiAgentUtils", 1, "approvalGate"))
+                .thenReturn(approvalGateDefinition.getElement());
+        }
+
+        private static ClusterElementCallRecord findRecord(List<ClusterElementCallRecord> records, String id) {
+            for (ClusterElementCallRecord record : records) {
+                if (id.equals(record.id())) {
+                    return record;
+                }
+            }
+
+            throw new AssertionError("No call record with id " + id);
         }
 
         private static Parameters continueParameters(String gatedToolName) {
@@ -2716,5 +2756,28 @@ class AbstractAiAgentChatActionTest {
         private static Parameters dataWithApprovedBy(boolean approved, String approvedBy) {
             return ParametersFactory.create(Map.of("approved", approved, "approvedBy", approvedBy));
         }
+    }
+
+    private static String resolveGatedToolResumeData(
+        AbstractAiAgentChatAction action, Parameters inputParameters, Parameters continueParameters, Parameters data,
+        Map<String, ComponentConnection> connectionParameters, Parameters extensions, ActionContext context)
+        throws Exception {
+
+        return resolveGatedToolResumeData(
+            action, inputParameters, continueParameters, data, connectionParameters, extensions, context, null);
+    }
+
+    private static String resolveGatedToolResumeData(
+        AbstractAiAgentChatAction action, Parameters inputParameters, Parameters continueParameters, Parameters data,
+        Map<String, ComponentConnection> connectionParameters, Parameters extensions, ActionContext context,
+        @Nullable ClusterElementCallRef suspendedCallRef)
+        throws Exception {
+
+        GatedToolSuspension gatedToolSuspension = GatedToolSuspension.from(continueParameters.toMap())
+            .orElseThrow();
+
+        return action.resolveGatedToolResumeData(
+            inputParameters, continueParameters, gatedToolSuspension, GateDecision.from(data.toMap()),
+            connectionParameters, extensions, context, suspendedCallRef);
     }
 }
