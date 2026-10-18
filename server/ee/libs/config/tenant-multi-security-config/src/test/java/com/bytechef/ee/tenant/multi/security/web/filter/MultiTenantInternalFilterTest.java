@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.constant.TenantConstants;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -42,13 +43,17 @@ class MultiTenantInternalFilterTest {
     }
 
     @Test
-    void testOtherInternalRequestWithoutASessionTenantIsStillRejected() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/platform/internal/approval-tasks");
+    void testAnonymousTriggerFormRequestPassesWithoutASessionTenant() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+            "GET", "/api/automation/internal/trigger-form/MDAwMDAzOjA6MTA1MDp1dWlkOnRyaWdnZXJfMQ==");
 
-        assertThatThrownBy(() -> multiTenantInternalFilter.doFilter(
-            request, new MockHttpServletResponse(), (servletRequest, servletResponse) -> {}))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Tenant ID is not set in the session");
+        AtomicBoolean passed = new AtomicBoolean();
+
+        multiTenantInternalFilter.doFilter(
+            request, new MockHttpServletResponse(), (servletRequest, servletResponse) -> passed.set(true));
+
+        assertThat(passed.get()).isTrue();
+        assertThat(request.getSession(false)).isNull();
     }
 
     @Test
@@ -89,5 +94,25 @@ class MultiTenantInternalFilterTest {
             (servletRequest, servletResponse) -> tenantId.set(TenantContext.getCurrentTenantId()));
 
         assertThat(tenantId.get()).isEqualTo("000042");
+    }
+
+    @Test
+    void testOtherAnonymousAutomationInternalRequestIsStillRejected() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/automation/internal/projects");
+
+        assertThatThrownBy(() -> multiTenantInternalFilter.doFilter(
+            request, new MockHttpServletResponse(), (servletRequest, servletResponse) -> {}))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Tenant ID is not set in the session");
+    }
+
+    @Test
+    void testOtherInternalRequestWithoutASessionTenantIsStillRejected() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/platform/internal/approval-tasks");
+
+        assertThatThrownBy(() -> multiTenantInternalFilter.doFilter(
+            request, new MockHttpServletResponse(), (servletRequest, servletResponse) -> {}))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Tenant ID is not set in the session");
     }
 }

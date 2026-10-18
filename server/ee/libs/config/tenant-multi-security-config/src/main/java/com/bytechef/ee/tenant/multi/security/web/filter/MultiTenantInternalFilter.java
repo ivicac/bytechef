@@ -17,6 +17,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.List;
 import org.springframework.boot.web.servlet.FilterRegistration;
 
 /**
@@ -27,7 +28,8 @@ import org.springframework.boot.web.servlet.FilterRegistration;
 })
 public class MultiTenantInternalFilter implements Filter {
 
-    private static final String APPROVAL_FORM_PATH = "/api/platform/internal/approval-form/";
+    private static final List<String> TENANT_FROM_REQUEST_PATHS = List.of(
+        "/api/automation/internal/trigger-form/", "/api/platform/internal/approval-form/");
 
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
@@ -36,7 +38,7 @@ public class MultiTenantInternalFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         String requestURI = request.getRequestURI();
 
-        if (requestURI.startsWith(APPROVAL_FORM_PATH)) {
+        if (isTenantFromRequestPath(requestURI)) {
             filterChain.doFilter(servletRequest, servletResponse);
 
             return;
@@ -74,5 +76,15 @@ public class MultiTenantInternalFilter implements Filter {
         } else {
             filterChain.doFilter(servletRequest, servletResponse);
         }
+    }
+
+    private static boolean isTenantFromRequestPath(String requestURI) {
+        for (String tenantFromRequestPath : TENANT_FROM_REQUEST_PATHS) {
+            if (requestURI.startsWith(tenantFromRequestPath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
