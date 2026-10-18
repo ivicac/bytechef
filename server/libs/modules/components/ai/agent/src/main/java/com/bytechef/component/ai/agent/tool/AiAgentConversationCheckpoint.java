@@ -16,6 +16,8 @@
 
 package com.bytechef.component.ai.agent.tool;
 
+import java.util.Objects;
+
 /**
  * Durable checkpoint of an in-flight agent conversation, written to execution-scoped data storage after every completed
  * tool round so a crash mid-loop can resume from the last completed tool call instead of re-running the whole turn. The
@@ -28,4 +30,9 @@ package com.bytechef.component.ai.agent.tool;
 public record AiAgentConversationCheckpoint(String fingerprint, ConversationState conversationState) {
 
     public static final String DATA_KEY = "aiAgentConversationCheckpoint";
+
+    public AiAgentConversationCheckpoint {
+        Objects.requireNonNull(fingerprint, "fingerprint");
+        Objects.requireNonNull(conversationState, "conversationState");
+    }
 }
