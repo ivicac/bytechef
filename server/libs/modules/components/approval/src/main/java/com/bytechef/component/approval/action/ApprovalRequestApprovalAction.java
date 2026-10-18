@@ -354,7 +354,8 @@ public class ApprovalRequestApprovalAction {
         }
 
         int deliveredCount = 0;
-        Exception lastException = null;
+        List<String> failureMessages = new ArrayList<>();
+        List<Exception> failureExceptions = new ArrayList<>();
 
         for (ClusterElement approvalChannel : approvalChannels) {
             ComponentConnection componentConnection = componentConnections.get(
@@ -373,7 +374,10 @@ public class ApprovalRequestApprovalAction {
 
                 deliveredCount++;
             } catch (Exception exception) {
-                lastException = exception;
+                failureMessages.add(
+                    approvalChannel.getComponentName() + "/" + approvalChannel.getClusterElementName() + ": " +
+                        getRootCauseMessage(exception));
+                failureExceptions.add(exception);
 
                 log.warn(
                     "Approval channel {}/{} failed to deliver the approval request: {}",
@@ -383,11 +387,36 @@ public class ApprovalRequestApprovalAction {
         }
 
         if (deliveredCount == 0) {
-            throw new IllegalStateException(
+            IllegalStateException illegalStateException = new IllegalStateException(
                 "None of the " + approvalChannels.size() + " configured approval channels could deliver the " +
-                    "approval request.",
-                lastException);
+                    "approval request. " + String.join("; ", failureMessages));
+
+            failureExceptions.forEach(illegalStateException::addSuppressed);
+
+            throw illegalStateException;
         }
+    }
+
+    private static String getRootCauseMessage(Throwable throwable) {
+        Throwable rootCause = throwable;
+
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+
+        String message = rootCause.getMessage();
+
+        if (message == null || message.isBlank()) {
+            message = throwable.getMessage();
+        }
+
+        if (message == null || message.isBlank()) {
+            Class<?> rootCauseClass = rootCause.getClass();
+
+            return rootCauseClass.getSimpleName();
+        }
+
+        return message;
     }
 
     private static void suspend(ActionContext context, String formUrl, Instant expiresAt) {

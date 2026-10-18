@@ -165,11 +165,20 @@ class ApprovalRequestApprovalActionTest {
                 Map.of(
                     "approvalChannels",
                     List.of(
-                        Map.of("name", "slack_1", "parameters", Map.of(), "type", "slack/v1/approvalChannel")))));
+                        Map.of("name", "slack_1", "parameters", Map.of(), "type", "slack/v1/approvalChannel"),
+                        Map.of(
+                            "name", "discord_1", "parameters", Map.of(), "type", "discord/v1/approvalChannel")))));
 
-        assertThrows(
+        IllegalStateException illegalStateException = assertThrows(
             IllegalStateException.class,
             () -> performFunction.apply(inputParameters, Map.of(), extensions, context));
+
+        assertThat(illegalStateException.getCause()).isNull();
+        assertThat(illegalStateException.getMessage())
+            .startsWith("None of the 2 configured approval channels could deliver the approval request.")
+            .contains("slack/approvalChannel: channel_not_found")
+            .contains("discord/approvalChannel: channel_not_found");
+        assertThat(illegalStateException.getSuppressed()).hasSize(2);
 
         verify(context, never()).suspend(any(ActionContext.Suspend.class));
     }

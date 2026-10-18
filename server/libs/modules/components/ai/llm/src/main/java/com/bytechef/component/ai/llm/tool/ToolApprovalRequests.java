@@ -33,6 +33,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -239,10 +240,13 @@ public final class ToolApprovalRequests {
         }
 
         if (delivery.deliveredCount == 0) {
-            throw new IllegalStateException(
+            IllegalStateException illegalStateException = new IllegalStateException(
                 "None of the " + delivery.attemptedCount + " approval channels could deliver the approval request " +
-                    "for tool '" + request.toolName() + "'.",
-                delivery.lastException);
+                    "for tool '" + request.toolName() + "'. " + String.join("; ", delivery.failureMessages));
+
+            delivery.failureExceptions.forEach(illegalStateException::addSuppressed);
+
+            throw illegalStateException;
         }
     }
 
@@ -266,12 +270,36 @@ public final class ToolApprovalRequests {
 
             delivery.deliveredCount++;
         } catch (Exception exception) {
-            delivery.lastException = exception;
+            delivery.failureMessages
+                .add(componentName + "/" + clusterElementName + ": " + getRootCauseMessage(exception));
+            delivery.failureExceptions.add(exception);
 
             log.warn(
                 "Approval channel {}/{} failed to deliver the tool approval request: {}", componentName,
                 clusterElementName, exception.getMessage());
         }
+    }
+
+    private static String getRootCauseMessage(Throwable throwable) {
+        Throwable rootCause = throwable;
+
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+
+        String message = rootCause.getMessage();
+
+        if (message == null || message.isBlank()) {
+            message = throwable.getMessage();
+        }
+
+        if (message == null || message.isBlank()) {
+            Class<?> rootCauseClass = rootCause.getClass();
+
+            return rootCauseClass.getSimpleName();
+        }
+
+        return message;
     }
 
     /**
@@ -282,8 +310,7 @@ public final class ToolApprovalRequests {
 
         private int attemptedCount;
         private int deliveredCount;
-
-        @Nullable
-        private Exception lastException;
+        private final List<Exception> failureExceptions = new ArrayList<>();
+        private final List<String> failureMessages = new ArrayList<>();
     }
 }
