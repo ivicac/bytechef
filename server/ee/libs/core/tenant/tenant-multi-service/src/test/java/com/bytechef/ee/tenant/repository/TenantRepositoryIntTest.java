@@ -95,11 +95,11 @@ class TenantRepositoryIntTest {
 
     @Test
     void testCreateTenantWithHyphenId() {
-        // The hyphen passes validation, but an unquoted schema identifier cannot contain one, so Postgres rejects the
-        // statement and no schema is created.
+        // An unquoted schema identifier cannot contain a hyphen, so TenantIdValidator rejects it before any statement
+        // reaches Postgres and no schema is created.
         assertThatThrownBy(() -> tenantRepository.createTenant("tenant-123"))
-            .isInstanceOf(RuntimeException.class)
-            .isNotInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Invalid tenant ID");
 
         assertSchemasAndTablesUnchanged();
     }
@@ -223,6 +223,30 @@ class TenantRepositoryIntTest {
     }
 
     @Test
+    void testFindTenantIdsByUserEmailSkipsASchemaWhoseChangelogHasNotCreatedTheUserTable() {
+        createUserTable(SENTINEL_SCHEMA);
+        createUserTable("bytechef_000003");
+
+        jdbcTemplate.execute("CREATE SCHEMA bytechef_000002");
+
+        List<String> tenantIds = tenantRepository.findTenantIdsByUserEmail("USER@localhost.com");
+
+        assertThat(tenantIds).containsExactlyInAnyOrder("000001", "000003");
+    }
+
+    @Test
+    void testFindTenantIdsByUserLoginSkipsASchemaWhoseChangelogHasNotCreatedTheUserTable() {
+        createUserTable(SENTINEL_SCHEMA);
+        createUserTable("bytechef_000003");
+
+        jdbcTemplate.execute("CREATE SCHEMA bytechef_000002");
+
+        List<String> tenantIds = tenantRepository.findTenantIdsByUserLogin("User");
+
+        assertThat(tenantIds).containsExactlyInAnyOrder("000001", "000003");
+    }
+
+    @Test
     void testDeleteTenantWithNull() {
         assertThatThrownBy(() -> tenantRepository.deleteTenant(null))
             .isInstanceOf(IllegalArgumentException.class)
@@ -235,6 +259,16 @@ class TenantRepositoryIntTest {
         assertThat(fetchSchemas()).containsExactlyElementsOf(schemasBefore);
         assertThat(fetchTables()).containsExactlyElementsOf(tablesBefore);
         assertThat(tablesBefore).contains(SENTINEL_SCHEMA + ".users", "public.users");
+    }
+
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private void createUserTable(String schema) {
+        if (!fetchSchemas().contains(schema)) {
+            jdbcTemplate.execute("CREATE SCHEMA " + schema);
+        }
+
+        jdbcTemplate.execute("CREATE TABLE " + schema + ".\"user\" (email VARCHAR(256), login VARCHAR(256))");
+        jdbcTemplate.execute("INSERT INTO " + schema + ".\"user\" VALUES ('user@localhost.com', 'user')");
     }
 
     private List<String> fetchSchemas() {
