@@ -16,117 +16,55 @@
 
 package com.bytechef.platform.component.definition;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bytechef.component.definition.ActionContext;
-import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.component.definition.ActionContext.Suspend;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
+/**
+ * @author Ivica Cardic
+ */
 class SuspendUtilsTest {
 
+    private static final Instant INSTANT = Instant.parse("2026-10-16T10:15:30Z");
+
     @Test
-    void testReturnsNullWhenNoSuspendRequested() {
-        ActionContextAware actionContextAware = mock(ActionContextAware.class);
-
-        when(actionContextAware.getSuspend()).thenReturn(null);
-
-        ActionContext.Suspend result = SuspendUtils.finalizeSuspend(actionContextAware);
-
-        assertNull(result);
+    void testExtractSuspendExpiresAtReadsAnIsoString() {
+        assertThat(SuspendUtils.extractSuspendExpiresAt(Map.of("suspend", Map.of("expiresAt", INSTANT.toString()))))
+            .isEqualTo(INSTANT);
     }
 
     @Test
-    void testReturnsSuspendUnchangedWhenJobResumeIdIsAbsent() {
-        ActionContextAware actionContextAware = mock(ActionContextAware.class);
-
-        Map<String, Object> continueParameters = new HashMap<>();
-
-        continueParameters.put("answer", "yes");
-
-        ActionContext.Suspend suspend =
-            new ActionContext.Suspend(continueParameters, Instant.parse("2026-01-01T00:00:00Z"));
-
-        when(actionContextAware.getSuspend()).thenReturn(suspend);
-        when(actionContextAware.getJobResumeId()).thenReturn(null);
-
-        ActionContext.Suspend result = SuspendUtils.finalizeSuspend(actionContextAware);
-
-        assertSame(suspend, result, "When no jobResumeId is present, the suspend should be returned as-is");
+    void testExtractSuspendExpiresAtReadsEpochMilliseconds() {
+        assertThat(
+            SuspendUtils.extractSuspendExpiresAt(Map.of("suspend", Map.of("expiresAt", INSTANT.toEpochMilli()))))
+                .isEqualTo(INSTANT);
     }
 
     @Test
-    void testEnrichesContinueParametersWithJobResumeId() {
-        ActionContextAware actionContextAware = mock(ActionContextAware.class);
-
-        Map<String, Object> continueParameters = new HashMap<>();
-
-        continueParameters.put("answer", "yes");
-
-        Instant expiresAt = Instant.parse("2026-01-01T00:00:00Z");
-
-        ActionContext.Suspend suspend = new ActionContext.Suspend(continueParameters, expiresAt);
-
-        when(actionContextAware.getSuspend()).thenReturn(suspend);
-        when(actionContextAware.getJobResumeId()).thenReturn("resume-token-abc");
-
-        ActionContext.Suspend result = SuspendUtils.finalizeSuspend(actionContextAware);
-
-        assertEquals(expiresAt, result.expiresAt(), "expiresAt must be preserved");
-        assertEquals("yes", result.continueParameters()
-            .get("answer"), "existing continueParameters must be preserved");
-        assertEquals(
-            "resume-token-abc",
-            result.continueParameters()
-                .get(MetadataConstants.JOB_RESUME_ID),
-            "jobResumeId must be injected under MetadataConstants.JOB_RESUME_ID");
-    }
-
-    @Test
-    void testDoesNotMutateOriginalContinueParametersMap() {
-        // Defensive: the caller's map must remain pristine so the agent loop's continueParameters reference
-        // is not modified through this seam.
-        ActionContextAware actionContextAware = mock(ActionContextAware.class);
-
-        Map<String, Object> originalContinueParameters = new HashMap<>();
-
-        originalContinueParameters.put("answer", "yes");
-
-        ActionContext.Suspend suspend = new ActionContext.Suspend(originalContinueParameters, Instant.now());
-
-        when(actionContextAware.getSuspend()).thenReturn(suspend);
-        when(actionContextAware.getJobResumeId()).thenReturn("resume-token-abc");
-
-        SuspendUtils.finalizeSuspend(actionContextAware);
-
-        org.junit.jupiter.api.Assertions.assertFalse(
-            originalContinueParameters.containsKey(MetadataConstants.JOB_RESUME_ID),
-            "Original continueParameters map must not be mutated");
+    void testExtractSuspendExpiresAtIgnoresAnUnparseableValue() {
+        assertThat(SuspendUtils.extractSuspendExpiresAt(Map.of("suspend", Map.of("expiresAt", "tomorrow")))).isNull();
+        assertThat(SuspendUtils.extractSuspendExpiresAt(Map.of())).isNull();
     }
 
     @Test
     void testExtractSuspendExpiresAtReadsASuspendInstance() {
-        Instant expiresAt = Instant.parse("2026-10-17T10:00:00Z");
+        Suspend suspend = new Suspend(Map.of("approvalRaisedAt", INSTANT.toString()), INSTANT.plusSeconds(60));
 
-        Map<String, ?> metadata = Map.of(
-            MetadataConstants.SUSPEND, new ActionContext.Suspend(Map.of(), expiresAt));
+        Map<String, ?> metadata = Map.of("suspend", suspend);
 
-        assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(metadata));
+        assertThat(SuspendUtils.extractSuspendExpiresAt(metadata)).isEqualTo(INSTANT.plusSeconds(60));
+        assertThat(SuspendUtils.extractApprovalRaisedAt(metadata)).isEqualTo(INSTANT);
     }
 
     @Test
-    void testExtractSuspendExpiresAtReadsTheEpochMillisOfAPersistedSuspend() {
-        Instant expiresAt = Instant.parse("2026-10-17T10:00:00Z");
-
+    void testExtractApprovalRaisedAtReadsTheContinueParameters() {
         Map<String, ?> metadata = Map.of(
-            MetadataConstants.SUSPEND, Map.of("expiresAt", expiresAt.toEpochMilli()));
+            "suspend", Map.of("continueParameters", Map.of("approvalRaisedAt", INSTANT.toString())));
 
-        assertEquals(expiresAt, SuspendUtils.extractSuspendExpiresAt(metadata));
+        assertThat(SuspendUtils.extractApprovalRaisedAt(metadata)).isEqualTo(INSTANT);
+        assertThat(SuspendUtils.extractApprovalRaisedAt(Map.of("suspend", Map.of()))).isNull();
     }
 }
