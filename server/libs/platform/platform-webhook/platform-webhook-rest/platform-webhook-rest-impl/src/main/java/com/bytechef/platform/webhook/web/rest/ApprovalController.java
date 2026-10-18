@@ -74,7 +74,7 @@ public class ApprovalController {
         JobResumeOutcome outcome;
 
         try {
-            outcome = jobResumeFacade.resumeApproval(approvalIdOptional.get());
+            outcome = jobResumeFacade.resumeApproval(id);
         } catch (ApprovalInputException approvalInputException) {
             return invalidApprovalInput(approvalInputException);
         }
@@ -84,7 +84,13 @@ public class ApprovalController {
     }
 
     private Optional<ApprovalId> parseApprovalId(String id) {
-        Optional<String> innerTokenOptional = resolveInnerToken(id);
+        ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
+
+        if (approvalTokens == null) {
+            return Optional.empty();
+        }
+
+        Optional<String> innerTokenOptional = approvalTokens.parseSignedToken(id);
 
         if (innerTokenOptional.isEmpty()) {
             return Optional.empty();
@@ -95,16 +101,6 @@ public class ApprovalController {
         } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
             return Optional.empty();
         }
-    }
-
-    private Optional<String> resolveInnerToken(String id) {
-        ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
-
-        if (approvalTokens == null) {
-            return Optional.of(id);
-        }
-
-        return approvalTokens.resolveInnerToken(id);
     }
 
     private static HttpStatus getStatus(JobResumeOutcome outcome) {

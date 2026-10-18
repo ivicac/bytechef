@@ -211,7 +211,17 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     @Override
-    public JobResumeOutcome resumeApproval(ApprovalId approvalId) {
+    public JobResumeOutcome resumeApproval(String token) {
+        Optional<ApprovalId> approvalIdOptional = parseSignedApprovalId(token);
+
+        if (approvalIdOptional.isEmpty()) {
+            log.warn("Rejected an approval link: an approval needs a valid signed token");
+
+            return JobResumeOutcome.INVALID_ID;
+        }
+
+        ApprovalId approvalId = approvalIdOptional.get();
+
         AtomicReference<List<String>> approvalInputErrorsReference = new AtomicReference<>();
 
         JobResumeOutcome outcome = TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
@@ -549,6 +559,26 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         return TenantContext.callWithTenantId(
             jobResumeId.getTenantId(),
             () -> Objects.requireNonNull(transactionOperations.execute(transactionCallback)));
+    }
+
+    private Optional<ApprovalId> parseSignedApprovalId(String token) {
+        ApprovalTokens approvalTokens = approvalTokensProvider.getIfAvailable();
+
+        if (approvalTokens == null) {
+            return Optional.empty();
+        }
+
+        Optional<String> innerTokenOptional = approvalTokens.parseSignedToken(token);
+
+        if (innerTokenOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(ApprovalId.parse(innerTokenOptional.get()));
+        } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
+            return Optional.empty();
+        }
     }
 
     private boolean isVerifiedSignedToken(String id) {

@@ -17,7 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,28 +71,32 @@ class ApprovalControllerIntTest {
 
     @BeforeEach
     void beforeEach() {
-        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.OK);
+        when(jobResumeFacade.resumeApproval(anyString())).thenReturn(JobResumeOutcome.OK);
     }
 
     @Test
     void testApproveResumesJobForSignedToken() throws Exception {
         ApprovalId approvalId = ApprovalId.of(JOB_ID, true);
 
-        mockMvc
-            .perform(post("/approvals/{id}", approvalTokens.toSignedToken(approvalId.toString(), Duration.ofHours(1))))
+        String signedToken = approvalTokens.toSignedToken(approvalId.toString(), Duration.ofHours(1));
+
+        mockMvc.perform(post("/approvals/{id}", signedToken))
             .andExpect(status().isNoContent());
 
-        assertThat(captureResumedApprovalId()).hasToString(approvalId.toString());
+        assertThat(captureResumedToken()).isEqualTo(signedToken);
     }
 
     @Test
-    void testApproveResumesJobForLegacyUnsignedToken() throws Exception {
+    void testApproveRejectsUnsignedToken() throws Exception {
         ApprovalId approvalId = ApprovalId.of(JOB_ID, false);
 
         mockMvc.perform(get("/approvals/{id}", approvalId.toString()))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isBadRequest());
 
-        assertThat(captureResumedApprovalId()).hasToString(approvalId.toString());
+        mockMvc.perform(post("/approvals/{id}", approvalId.toString()))
+            .andExpect(status().isBadRequest());
+
+        verify(jobResumeFacade, never()).resumeApproval(anyString());
     }
 
     @Test
@@ -111,7 +115,7 @@ class ApprovalControllerIntTest {
         mockMvc.perform(post("/approvals/{id}", tamperedToken))
             .andExpect(status().isBadRequest());
 
-        verify(jobResumeFacade, never()).resumeApproval(any(ApprovalId.class));
+        verify(jobResumeFacade, never()).resumeApproval(anyString());
     }
 
     @Test
@@ -119,12 +123,12 @@ class ApprovalControllerIntTest {
         mockMvc.perform(post("/approvals/{id}", "not-a-token"))
             .andExpect(status().isBadRequest());
 
-        verify(jobResumeFacade, never()).resumeApproval(any(ApprovalId.class));
+        verify(jobResumeFacade, never()).resumeApproval(anyString());
     }
 
     @Test
     void testApproveIsGoneWhenTheApprovalWasAlreadyResolved() throws Exception {
-        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.GONE);
+        when(jobResumeFacade.resumeApproval(anyString())).thenReturn(JobResumeOutcome.GONE);
 
         mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
             .andExpect(status().isGone());
@@ -132,7 +136,7 @@ class ApprovalControllerIntTest {
 
     @Test
     void testApproveIsUnprocessableWhenTheJobFailed() throws Exception {
-        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.JOB_FAILED);
+        when(jobResumeFacade.resumeApproval(anyString())).thenReturn(JobResumeOutcome.JOB_FAILED);
 
         mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
             .andExpect(status().isUnprocessableContent());
@@ -140,7 +144,7 @@ class ApprovalControllerIntTest {
 
     @Test
     void testApproveIsConflictWhileTheJobIsNotYetSuspended() throws Exception {
-        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenReturn(JobResumeOutcome.NOT_YET_SUSPENDED);
+        when(jobResumeFacade.resumeApproval(anyString())).thenReturn(JobResumeOutcome.NOT_YET_SUSPENDED);
 
         mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
             .andExpect(status().isConflict());
@@ -148,7 +152,7 @@ class ApprovalControllerIntTest {
 
     @Test
     void testApproveIsBadRequestWhenTheApprovalFormRequiresInputs() throws Exception {
-        when(jobResumeFacade.resumeApproval(any(ApprovalId.class))).thenThrow(
+        when(jobResumeFacade.resumeApproval(anyString())).thenThrow(
             new ApprovalInputException(List.of("'reason' is required")));
 
         mockMvc.perform(post("/approvals/{id}", signedApprovalToken()))
@@ -156,12 +160,12 @@ class ApprovalControllerIntTest {
             .andExpect(jsonPath("$.errors[0]").value("'reason' is required"));
     }
 
-    private ApprovalId captureResumedApprovalId() {
-        ArgumentCaptor<ApprovalId> approvalIdCaptor = ArgumentCaptor.forClass(ApprovalId.class);
+    private String captureResumedToken() {
+        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
 
-        verify(jobResumeFacade).resumeApproval(approvalIdCaptor.capture());
+        verify(jobResumeFacade).resumeApproval(tokenCaptor.capture());
 
-        return approvalIdCaptor.getValue();
+        return tokenCaptor.getValue();
     }
 
     private String signedApprovalToken() {

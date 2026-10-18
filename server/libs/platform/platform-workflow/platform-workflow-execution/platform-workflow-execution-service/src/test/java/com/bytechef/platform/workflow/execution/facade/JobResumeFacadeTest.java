@@ -1313,13 +1313,55 @@ class JobResumeFacadeTest {
     class ResumeApproval {
 
         @Test
+        void testResumeApprovalRejectsAnUnsignedToken() {
+            String unsignedToken = ApprovalId.of(TENANT_ID, JOB_ID, true)
+                .toString();
+
+            JobResumeOutcome outcome = jobResumeFacade.resumeApproval(unsignedToken);
+
+            assertThat(outcome).isEqualTo(JobResumeOutcome.INVALID_ID);
+
+            verify(jobService, never()).getJob(anyLong());
+            verify(jobFacade, never()).resumeClaimedJob(anyLong(), any(), anyMap());
+            verify(jobFacade, never()).resumeApproval(anyLong(), any(), anyBoolean());
+        }
+
+        @Test
+        void testResumeApprovalRejectsATamperedToken() {
+            String tamperedToken = tamperSignature(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true)));
+
+            JobResumeOutcome outcome = jobResumeFacade.resumeApproval(tamperedToken);
+
+            assertThat(outcome).isEqualTo(JobResumeOutcome.INVALID_ID);
+
+            verify(jobService, never()).getJob(anyLong());
+            verify(jobFacade, never()).resumeClaimedJob(anyLong(), any(), anyMap());
+        }
+
+        @Test
+        void testResumeApprovalRejectsAnUnsignedTokenWhenApprovalTokensAbsent() {
+            JobResumeFacadeImpl unsignedJobResumeFacade = new JobResumeFacadeImpl(
+                applicationEventPublisher, approvalTokensProvider(null), jobFacade, jobService,
+                meterRegistryObjectProvider, taskExecutionService, taskStateService, transactionOperations);
+
+            String unsignedToken = ApprovalId.of(TENANT_ID, JOB_ID, true)
+                .toString();
+
+            JobResumeOutcome outcome = unsignedJobResumeFacade.resumeApproval(unsignedToken);
+
+            assertThat(outcome).isEqualTo(JobResumeOutcome.INVALID_ID);
+
+            verify(jobService, never()).getJob(anyLong());
+        }
+
+        @Test
         void testResumeApprovalResumesAJobSuspendedOnAnApproval() {
             Job job = approvalJobOf(Job.Status.STOPPED, JobResumeId.of(JOB_ID)
                 .toString());
 
             when(jobService.getJob(JOB_ID)).thenReturn(job);
 
-            JobResumeOutcome outcome = jobResumeFacade.resumeApproval(ApprovalId.of(TENANT_ID, JOB_ID, true));
+            JobResumeOutcome outcome = jobResumeFacade.resumeApproval(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true)));
 
             assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
             assertThat(job.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID))
@@ -1345,7 +1387,7 @@ class JobResumeFacadeTest {
 
             ApprovalId approvalId = ApprovalId.of(TENANT_ID, JOB_ID, true);
 
-            assertThatThrownBy(() -> jobResumeFacade.resumeApproval(approvalId))
+            assertThatThrownBy(() -> jobResumeFacade.resumeApproval(signedApprovalToken(approvalId)))
                 .isInstanceOf(ApprovalInputException.class)
                 .hasMessage("The approval form is incomplete: 'Reason' is required.");
 
@@ -1368,7 +1410,7 @@ class JobResumeFacadeTest {
 
             when(jobService.getJob(JOB_ID)).thenReturn(job);
 
-            assertThat(jobResumeFacade.resumeApproval(ApprovalId.of(TENANT_ID, JOB_ID, true)))
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true))))
                 .isEqualTo(JobResumeOutcome.GONE);
 
             verify(jobFacade, never()).resumeClaimedJob(anyLong(), any(), anyMap());
@@ -1380,7 +1422,7 @@ class JobResumeFacadeTest {
                 .toString()));
             when(jobService.tryClaimResume(any())).thenReturn(false);
 
-            assertThat(jobResumeFacade.resumeApproval(ApprovalId.of(TENANT_ID, JOB_ID, true)))
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true))))
                 .isEqualTo(JobResumeOutcome.GONE);
 
             verify(jobFacade, never()).resumeClaimedJob(anyLong(), any(), anyMap());
@@ -1396,7 +1438,7 @@ class JobResumeFacadeTest {
 
             ApprovalId approvalId = ApprovalId.of(TENANT_ID, JOB_ID, false);
 
-            assertThat(jobResumeFacade.resumeApproval(approvalId)).isEqualTo(JobResumeOutcome.OK);
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId))).isEqualTo(JobResumeOutcome.OK);
 
             verify(jobFacade).resumeApproval(JOB_ID, approvalId.getUuidAsString(), false);
         }
@@ -1415,7 +1457,7 @@ class JobResumeFacadeTest {
                 .when(jobFacade)
                 .resumeApproval(JOB_ID, approvalId.getUuidAsString(), true);
 
-            assertThat(jobResumeFacade.resumeApproval(approvalId)).isEqualTo(JobResumeOutcome.GONE);
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId))).isEqualTo(JobResumeOutcome.GONE);
         }
 
         @Test
@@ -1432,7 +1474,11 @@ class JobResumeFacadeTest {
                 .when(jobFacade)
                 .resumeApproval(JOB_ID, approvalId.getUuidAsString(), true);
 
-            assertThat(jobResumeFacade.resumeApproval(approvalId)).isEqualTo(JobResumeOutcome.GONE);
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId))).isEqualTo(JobResumeOutcome.GONE);
+        }
+
+        private String signedApprovalToken(ApprovalId approvalId) {
+            return approvalTokens.toSignedToken(approvalId.toString(), Duration.ofHours(1));
         }
     }
 
