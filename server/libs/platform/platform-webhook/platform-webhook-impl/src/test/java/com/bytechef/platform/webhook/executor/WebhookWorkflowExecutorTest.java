@@ -444,6 +444,30 @@ public class WebhookWorkflowExecutorTest {
     }
 
     @Test
+    public void testExecuteSyncRejectsWorkflowWithApprovalGateBeforeRunning() {
+        WorkflowTask agentWorkflowTask = new WorkflowTask(
+            Map.of(
+                "name", "agent", "type", "aiAgent/v1/chat",
+                "clusterElements", Map.of(
+                    "tools", List.of(
+                        Map.of(
+                            "name", "gate", "type", "aiAgentUtils/v1/approvalGateTool",
+                            "clusterElements", Map.of(
+                                "tools", List.of(Map.of("name", "send", "type", "gmail/v1/sendEmail"))))))));
+
+        Workflow workflow = workflow(agentWorkflowTask);
+
+        when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
+
+        assertThatThrownBy(() -> webhookWorkflowExecutor.executeSync(workflowExecutionId, mockWebhookRequest()))
+            .isInstanceOf(ConfigurationException.class)
+            .hasMessage(SyncExecutionSuspendRejectingTaskCompletionHandler.getMessage("agent", "aiAgent/v1/chat"));
+
+        verify(webhookWorkflowSyncExecutor, never()).execute(any(), any());
+        verify(jobSyncExecutor, never()).execute(any(), any(), anyBoolean(), any(), any());
+    }
+
+    @Test
     public void testHasSuspendingTaskDetectsApprovalWaitAndLegacyWaitForApproval() {
         Workflow approvalWorkflow = workflow(workflowTask("approve", "approval/v1/requestApproval"));
         Workflow waitWorkflow = workflow(workflowTask("pause", "wait/v1/waitOnWebhookCall"));

@@ -80,8 +80,6 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
      */
     static final Duration DEFAULT_STREAM_TIMEOUT = Duration.ofMinutes(30);
 
-    private static final List<String> SUSPENDING_TASK_TYPE_PREFIXES = List.of("approval/", "wait/", "waitForApproval/");
-
     private final Evaluator evaluator;
     private final ApplicationEventPublisher eventPublisher;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
@@ -334,12 +332,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
         return workflow.getTasks(true)
             .stream()
-            .filter(workflowTask -> {
-                String type = workflowTask.getType();
-
-                return type != null && SUSPENDING_TASK_TYPE_PREFIXES.stream()
-                    .anyMatch(type::startsWith);
-            })
+            .filter(SuspendingTasks::isSuspending)
             .findFirst();
     }
 

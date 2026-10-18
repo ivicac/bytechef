@@ -44,6 +44,7 @@ import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.job.sync.file.storage.InMemoryTaskFileStorage;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry;
 import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskCompletionHandler;
+import com.bytechef.platform.webhook.executor.SyncExecutionSuspendRejectingTaskDispatcher;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutorImpl;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowSyncExecutor;
@@ -255,6 +256,8 @@ public class WebhookConfiguration {
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
 
         return List.of(
+            (taskDispatcher) -> new SyncExecutionSuspendRejectingTaskDispatcher(
+                eventPublisher, jobService, taskExecutionService),
             (taskDispatcher) -> new BranchTaskDispatcher(
                 contextService, evaluator, eventPublisher, taskDispatcher, taskExecutionService, taskFileStorage),
             (taskDispatcher) -> new CallAiAgentTaskDispatcher(

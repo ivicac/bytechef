@@ -35,7 +35,8 @@ import org.springframework.context.ApplicationEventPublisher;
  * without this handler a suspended task (an approval, a wait, an AI agent tool awaiting approval) would be completed
  * like any other and the workflow would continue past it. It must be the first handler in the sync engine's completion
  * chain. {@link WebhookWorkflowExecutorImpl#executeSync} rejects workflows with a statically known suspending step
- * before they start; this handler covers the ones only visible at runtime.
+ * before they start and {@link SyncExecutionSuspendRejectingTaskDispatcher} fails such a step before it is dispatched;
+ * this handler covers the ones only visible at runtime.
  *
  * @author Ivica Cardic
  */
@@ -73,11 +74,20 @@ public class SyncExecutionSuspendRejectingTaskCompletionHandler implements TaskC
     public void handle(TaskExecution taskExecution) {
         taskExecution.setHandled(true);
 
+        failJob(taskExecution, eventPublisher, jobService, taskExecutionService);
+    }
+
+    static void failJob(
+        TaskExecution taskExecution, ApplicationEventPublisher eventPublisher, JobService jobService,
+        TaskExecutionService taskExecutionService) {
+
         Instant endDate = Instant.now();
 
+        ExecutionError executionError = new ExecutionError(
+            getMessage(taskExecution.getName(), taskExecution.getType()), List.of());
+
         taskExecution.setEndDate(endDate);
-        taskExecution.setError(
-            new ExecutionError(getMessage(taskExecution.getName(), taskExecution.getType()), List.of()));
+        taskExecution.setError(executionError);
         taskExecution.setStatus(TaskExecution.Status.FAILED);
 
         taskExecution = taskExecutionService.update(taskExecution);
@@ -96,6 +106,7 @@ public class SyncExecutionSuspendRejectingTaskCompletionHandler implements TaskC
         Validate.notNull(job, "No job found for task execution %s", taskExecution.getId());
 
         job.setEndDate(endDate);
+        job.setError(executionError);
         job.setStatus(Job.Status.FAILED);
 
         job = jobService.update(job);
