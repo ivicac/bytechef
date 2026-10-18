@@ -59,7 +59,7 @@ import org.springframework.ai.tool.ToolCallbackProvider;
  */
 public class AiAgentUtilsApprovalGateTool {
 
-    private static final String APPROVAL = "approval";
+    static final String APPROVAL = "approval";
     /**
      * The gate's cluster element name. Public because {@code AiAgentUtilsComponentHandler} (which registers its allowed
      * child types) and {@code AiAgentUtilsTaskTool} (which refuses to run a gate inside a subagent) both match on it —
@@ -68,7 +68,7 @@ public class AiAgentUtilsApprovalGateTool {
     public static final String APPROVAL_GATE = "approvalGateTool";
     private static final String DAYS = "DAYS";
     private static final String NAME = "name";
-    private static final String REQUEST_APPROVAL = "requestApproval";
+    static final String REQUEST_APPROVAL = "requestApproval";
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
     private final ClusterElementToolCallbacks clusterElementToolCallbacks;

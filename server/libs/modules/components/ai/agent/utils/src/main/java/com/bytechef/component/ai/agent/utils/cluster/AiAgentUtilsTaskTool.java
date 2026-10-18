@@ -62,6 +62,8 @@ import org.springframework.ai.tool.ToolCallbackProvider;
  */
 public class AiAgentUtilsTaskTool {
 
+    private static final String TASK_TOOL = "taskTool";
+
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -82,7 +84,7 @@ public class AiAgentUtilsTaskTool {
             toolInvocationWorkspaceResolver);
 
         this.clusterElementDefinition =
-            ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement("taskTool")
+            ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement(TASK_TOOL)
                 .title("Task Tool")
                 .description("Delegate tasks to subagents you define, each limited to the tools you attach to it.")
                 .type(TOOLS)
@@ -96,9 +98,11 @@ public class AiAgentUtilsTaskTool {
 
         ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
-        ChatModel defaultChatModel = resolveChatModel(clusterElementMap, componentConnections);
-
         List<ClusterElement> subagentClusterElements = clusterElementMap.getClusterElements(SUBAGENT);
+
+        checkSubagentTools(subagentClusterElements);
+
+        ChatModel defaultChatModel = resolveChatModel(clusterElementMap, componentConnections);
 
         ClusterElementSubagentResolver subagentResolver = new ClusterElementSubagentResolver(subagentClusterElements);
 
@@ -122,6 +126,45 @@ public class AiAgentUtilsTaskTool {
             .build();
 
         return ToolCallbackProvider.from(taskToolCallback, taskOutputToolCallback);
+    }
+
+    static void checkSubagentTools(List<ClusterElement> subagentClusterElements) {
+        for (ClusterElement subagentClusterElement : subagentClusterElements) {
+            ClusterElementMap subagentClusterElementMap = ClusterElementMap.of(subagentClusterElement.getExtensions());
+
+            for (ClusterElement toolClusterElement : subagentClusterElementMap.getClusterElements(TOOLS)) {
+                checkSubagentTool(subagentClusterElement, toolClusterElement);
+
+                if (TASK_TOOL.equals(toolClusterElement.getClusterElementName())) {
+                    ClusterElementMap taskToolClusterElementMap = ClusterElementMap.of(
+                        toolClusterElement.getExtensions());
+
+                    checkSubagentTools(taskToolClusterElementMap.getClusterElements(SUBAGENT));
+                }
+            }
+        }
+    }
+
+    private static void checkSubagentTool(ClusterElement subagentClusterElement, ClusterElement toolClusterElement) {
+        String clusterElementName = toolClusterElement.getClusterElementName();
+
+        if (AiAgentUtilsApprovalGateTool.APPROVAL_GATE.equals(clusterElementName)) {
+            throw new IllegalStateException(
+                ("Approval gate '%s' cannot be attached to subagent '%s' — a subagent cannot pause for an approval. " +
+                    "Attach the gate directly to the agent instead.")
+                        .formatted(
+                            toolClusterElement.getWorkflowNodeName(), subagentClusterElement.getWorkflowNodeName()));
+        }
+
+        if (AiAgentUtilsApprovalGateTool.APPROVAL.equals(toolClusterElement.getComponentName()) &&
+            AiAgentUtilsApprovalGateTool.REQUEST_APPROVAL.equals(clusterElementName)) {
+
+            throw new IllegalStateException(
+                ("'requestApproval' tool '%s' cannot be attached to subagent '%s' — a subagent cannot pause for an " +
+                    "approval. Attach it directly to the agent instead.")
+                        .formatted(
+                            toolClusterElement.getWorkflowNodeName(), subagentClusterElement.getWorkflowNodeName()));
+        }
     }
 
     private List<ToolCallback> buildSubagentToolCallbacks(
