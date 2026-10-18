@@ -22,6 +22,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
@@ -33,8 +35,11 @@ import com.bytechef.atlas.execution.service.ContextService;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
+import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.variable.WorkflowVariablesResolver;
 import com.bytechef.platform.workflow.execution.config.PrincipalJobFacadeIntTestConfiguration;
+import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.Map;
@@ -43,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -70,6 +76,9 @@ class PrincipalJobFacadeIntTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private LicenceJobUsageService licenceJobUsageService;
 
     @Autowired
     private JobService jobService;
@@ -115,6 +124,32 @@ class PrincipalJobFacadeIntTest {
         assertThat(principalJobService.fetchJobPrincipalId(jobId, PlatformType.AUTOMATION)).contains(PRINCIPAL_ID);
         assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
             Map.entry(jobId, Optional.of(PRINCIPAL_ID)));
+
+        verify(licenceJobUsageService).consumeOrThrow();
+    }
+
+    @Test
+    void testCreateJobRollsBackTheJobWhenThePrincipalLinkFails() {
+        doThrow(new DataIntegrityViolationException("link failed"))
+            .when(principalJobService)
+            .create(anyLong(), eq(PRINCIPAL_ID), eq(PlatformType.AUTOMATION));
+
+        assertThatThrownBy(
+            () -> principalJobFacade.createJob(newJobParameters(), PRINCIPAL_ID, PlatformType.AUTOMATION))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(countJobs()).isZero();
+        assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).isEmpty();
+    }
+
+    @Test
+    void testCreateJobAddsNoVariablesWithoutAResolver() {
+        long jobId = principalJobFacade.createJob(
+            new JobParametersDTO(WORKFLOW_ID, Map.of("name", "x"), Map.of()), PRINCIPAL_ID, PlatformType.AUTOMATION);
+
+        Job job = jobService.getJob(jobId);
+
+        assertThat(job.getInputs()).isEqualTo(Map.of("name", "x"));
     }
 
     @Test
@@ -124,20 +159,19 @@ class PrincipalJobFacadeIntTest {
         long childJobId = principalJobFacade.createChildJob(
             parentJobId, newJobParameters(), PlatformType.AUTOMATION);
 
-        assertThat(principalJobService.fetchJobPrincipalId(childJobId, PlatformType.AUTOMATION))
-            .contains(PRINCIPAL_ID);
         assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
             Map.entry(childJobId, Optional.of(PRINCIPAL_ID)));
+
+        verify(licenceJobUsageService, never()).consumeOrThrow();
     }
 
     @Test
-    void testCreateChildJobStartsWithoutPrincipalWhenTheParentHasNone() {
+    void testCreateChildJobOfAParentWithoutAPrincipalStartsTheJobWithoutOne() {
         long parentJobId = createJob();
 
         long childJobId = principalJobFacade.createChildJob(
             parentJobId, newJobParameters(), PlatformType.AUTOMATION);
 
-        assertThat(principalJobService.fetchJobPrincipalId(childJobId, PlatformType.AUTOMATION)).isEmpty();
         assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
             Map.entry(childJobId, Optional.empty()));
     }
@@ -152,6 +186,8 @@ class PrincipalJobFacadeIntTest {
         assertThat(principalJobService.fetchJobPrincipalId(jobId, PlatformType.AUTOMATION)).contains(PRINCIPAL_ID);
         assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
             Map.entry(jobId, Optional.of(PRINCIPAL_ID)));
+
+        verify(licenceJobUsageService, never()).consumeOrThrow();
     }
 
     @Test
@@ -185,16 +221,41 @@ class PrincipalJobFacadeIntTest {
         assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).isEmpty();
     }
 
-    @Test
-    void testCreatePrincipalLinkedJobRejectsASubflowChild() {
-        long referenceJobId = createReferenceJob(PRINCIPAL_ID);
+    @Nested
+    class WithAVariablesResolver {
 
-        assertThatThrownBy(
-            () -> principalJobFacade.createPrincipalLinkedJob(
-                referenceJobId, new JobParametersDTO(WORKFLOW_ID, 10L, Map.of()), PlatformType.AUTOMATION))
-                    .isInstanceOf(IllegalArgumentException.class);
+        @MockitoBean
+        private WorkflowVariablesResolver workflowVariablesResolver;
 
-        assertThat(countJobs()).isEqualTo(1);
+        @Test
+        void testCreateJobSeedsTheVariablesInput() {
+            when(workflowVariablesResolver.resolveForJobPrincipal(PRINCIPAL_ID, PlatformType.AUTOMATION))
+                .thenReturn(Map.of("API_URL", "https://api"));
+
+            long jobId = principalJobFacade.createJob(
+                new JobParametersDTO(WORKFLOW_ID, Map.of("name", "x"), Map.of()), PRINCIPAL_ID,
+                PlatformType.AUTOMATION);
+
+            Job job = jobService.getJob(jobId);
+
+            assertThat(job.getInputs()).isEqualTo(
+                Map.of("name", "x", JobInputConstants.VARIABLES_INPUT, Map.of("API_URL", "https://api")));
+        }
+
+        @Test
+        void testCreateJobOverwritesACallerSuppliedVariablesInput() {
+            when(workflowVariablesResolver.resolveForJobPrincipal(PRINCIPAL_ID, PlatformType.AUTOMATION))
+                .thenReturn(Map.of());
+
+            long jobId = principalJobFacade.createJob(
+                new JobParametersDTO(
+                    WORKFLOW_ID, Map.of(JobInputConstants.VARIABLES_INPUT, Map.of("EVIL", "1")), Map.of()),
+                PRINCIPAL_ID, PlatformType.AUTOMATION);
+
+            Job job = jobService.getJob(jobId);
+
+            assertThat(job.getInputs()).isEqualTo(Map.of(JobInputConstants.VARIABLES_INPUT, Map.of()));
+        }
     }
 
     private long countJobs() {
@@ -208,11 +269,11 @@ class PrincipalJobFacadeIntTest {
     }
 
     private long createReferenceJob(long principalId) {
-        long referenceJobId = createJob();
+        long jobId = createJob();
 
-        principalJobService.create(referenceJobId, principalId, PlatformType.AUTOMATION);
+        principalJobService.create(jobId, principalId, PlatformType.AUTOMATION);
 
-        return referenceJobId;
+        return jobId;
     }
 
     private static JobParametersDTO newJobParameters() {
