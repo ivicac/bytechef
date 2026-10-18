@@ -34,6 +34,8 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Suspend;
+import com.bytechef.component.definition.ActionDefinition.ResumePerformFunction;
+import com.bytechef.component.definition.ActionDefinition.ResumePerformFunction.ResumeResponse;
 import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler.SseEmitter;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
@@ -49,6 +51,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -402,5 +405,81 @@ class ApprovalRequestApprovalActionTest {
         Map<String, ?> continueParameters = suspend.continueParameters();
 
         assertThat((Boolean) continueParameters.get(MetadataConstants.APPROVAL_RESUME)).isTrue();
+        assertThat(continueParameters.get(MetadataConstants.APPROVAL_RAISED_AT)).isNotNull();
+    }
+
+    @Test
+    void testResumePerformAlwaysOutputsACommentAndAnApprover() throws Exception {
+        ResumePerformFunction resumePerformFunction = getResumePerformFunction();
+
+        Parameters emptyParameters = ParametersFactory.create(Map.of());
+
+        ResumeResponse withoutComment = resumePerformFunction.apply(
+            emptyParameters, emptyParameters, emptyParameters, ParametersFactory.create(Map.of("approved", true)),
+            mock(ActionContext.class));
+
+        assertThat(withoutComment)
+            .containsEntry("approved", true)
+            .containsEntry("approvedBy", "")
+            .containsEntry("comment", "");
+
+        ResumeResponse withComment = resumePerformFunction.apply(
+            emptyParameters, emptyParameters, emptyParameters,
+            ParametersFactory.create(Map.of("approved", false, "comment", "Too expensive")),
+            mock(ActionContext.class));
+
+        assertThat(withComment)
+            .containsEntry("approved", false)
+            .containsEntry("comment", "Too expensive");
+
+        ResumeResponse withApprover = resumePerformFunction.apply(
+            emptyParameters, emptyParameters, emptyParameters,
+            ParametersFactory.create(Map.of("approved", true, "approvedBy", "@jane")), mock(ActionContext.class));
+
+        assertThat(withApprover).containsEntry("approvedBy", "@jane");
+
+        Map<String, Object> nullApproverData = new HashMap<>();
+
+        nullApproverData.put("approved", true);
+        nullApproverData.put("approvedBy", null);
+
+        ResumeResponse withNullApprover = resumePerformFunction.apply(
+            emptyParameters, emptyParameters, emptyParameters, ParametersFactory.create(nullApproverData),
+            mock(ActionContext.class));
+
+        assertThat(withNullApprover).containsEntry("approvedBy", "");
+    }
+
+    @Test
+    void testResumePerformOutputsEveryFormInputWithItsDeclaredType() throws Exception {
+        ResumePerformFunction resumePerformFunction = getResumePerformFunction();
+
+        Parameters emptyParameters = ParametersFactory.create(Map.of());
+        Parameters inputParameters = ParametersFactory.create(
+            Map.of(
+                "inputs",
+                List.of(
+                    Map.of("fieldName", "amount", "fieldType", 9, "required", true),
+                    Map.of("fieldName", "reason", "fieldType", 6),
+                    Map.of("fieldName", "confirmed", "fieldType", 1),
+                    Map.of("fieldName", "dueDate", "fieldType", 2))));
+
+        ResumeResponse resumeResponse = resumePerformFunction.apply(
+            inputParameters, emptyParameters, emptyParameters,
+            ParametersFactory.create(Map.of("approved", true, "amount", "7")), mock(ActionContext.class));
+
+        assertThat(resumeResponse)
+            .containsEntry("amount", 7L)
+            .containsEntry("reason", "")
+            .containsEntry("confirmed", false)
+            .containsEntry("dueDate", null);
+    }
+
+    private static ResumePerformFunction getResumePerformFunction() {
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(
+            mock(ClusterElementDefinitionService.class));
+
+        return (ResumePerformFunction) actionDefinition.getResumePerform()
+            .orElseThrow();
     }
 }

@@ -77,6 +77,7 @@ import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
+import com.bytechef.platform.component.definition.ApprovalFormInputs;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -98,6 +99,9 @@ public class ApprovalRequestApprovalAction {
 
     private static final Logger log = LoggerFactory.getLogger(ApprovalRequestApprovalAction.class);
 
+    private static final String APPROVED = "approved";
+    private static final String APPROVED_BY = "approvedBy";
+    private static final String COMMENT = "comment";
     private static final String FORM_URL = "formUrl";
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -252,14 +256,14 @@ public class ApprovalRequestApprovalAction {
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
         List<ModifiableValueProperty<?, ?>> properties = new ArrayList<>();
 
-        properties.add(bool("approved"));
+        properties.add(bool(APPROVED));
         // The reviewer's optional note, valid on BOTH outcomes (approve-with-comment and reject-with-comment alike).
         // "comment" is a reserved key on the approval form; a user-defined field with that name takes precedence and
         // suppresses the built-in comment box.
-        properties.add(string("comment"));
+        properties.add(string(COMMENT));
         // The verified identity of whoever resolved the approval, when the resolving channel could establish one
-        // (e.g. Slack in-place resolution). Absent for the anonymous hosted form, which has no trusted identity.
-        properties.add(string("approvedBy"));
+        // (e.g. Slack in-place resolution). Empty for the anonymous hosted form, which has no trusted identity.
+        properties.add(string(APPROVED_BY));
 
         for (Map<String, ?> input : inputs) {
             String fieldName = (String) input.get(FIELD_NAME);
@@ -420,7 +424,13 @@ public class ApprovalRequestApprovalAction {
     }
 
     private static void suspend(ActionContext context, String formUrl, Instant expiresAt) {
-        context.suspend(new Suspend(Map.of(FORM_URL, formUrl, MetadataConstants.APPROVAL_RESUME, true), expiresAt));
+        context.suspend(
+            new Suspend(
+                Map.of(
+                    FORM_URL, formUrl, MetadataConstants.APPROVAL_RAISED_AT, Instant.now()
+                        .toString(),
+                    MetadataConstants.APPROVAL_RESUME, true),
+                expiresAt));
     }
 
     /**
@@ -474,7 +484,21 @@ public class ApprovalRequestApprovalAction {
         Parameters inputParameters, Parameters connectionParameters, Parameters continueParameters, Parameters data,
         ActionContext context) {
 
-        Map<String, Object> dataMap = new HashMap<>(data.toMap());
+        Map<String, Object> submittedData = new HashMap<>(data.toMap());
+
+        ApprovalFormInputs.Resolution resolution = ApprovalFormInputs.resolve(
+            inputParameters.getList(INPUTS, List.of()), submittedData,
+            Boolean.TRUE.equals(submittedData.get(APPROVED)));
+
+        Map<String, Object> dataMap = resolution.data();
+
+        if (dataMap.get(COMMENT) == null) {
+            dataMap.put(COMMENT, "");
+        }
+
+        if (dataMap.get(APPROVED_BY) == null) {
+            dataMap.put(APPROVED_BY, "");
+        }
 
         // ResumeResponse.of() wraps the map as {data, resumed}, but the output schema declared by this action is
         // flat (top-level `approved` + form-field names), so expressions like ${approval_1.name} work. Reshape the
