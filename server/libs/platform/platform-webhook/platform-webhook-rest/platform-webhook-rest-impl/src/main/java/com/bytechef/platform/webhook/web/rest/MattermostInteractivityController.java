@@ -19,6 +19,7 @@ package com.bytechef.platform.webhook.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -49,6 +50,7 @@ public final class MattermostInteractivityController {
 
     private static final Logger log = LoggerFactory.getLogger(MattermostInteractivityController.class);
 
+    private static final String FAILED_TEXT = ":warning: This approval could not be applied — try again in a moment.";
     private static final String NOT_APPLIED_TEXT =
         ":warning: This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
@@ -104,9 +106,23 @@ public final class MattermostInteractivityController {
             outcome = TenantContext.callWithTenantId(
                 tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved)));
         } catch (RuntimeException runtimeException) {
-            log.warn("Mattermost approval callback could not be applied", runtimeException);
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
+                runtimeException);
 
-            return ResponseEntity.ok(Map.of("ephemeral_text", NOT_APPLIED_TEXT));
+            if (approvalInputException != null) {
+                log.info("Mattermost approval callback needs the approval form: {}",
+                    approvalInputException.getMessage());
+
+                return ResponseEntity.ok(Map.of("ephemeral_text", NOT_APPLIED_TEXT));
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error("Mattermost approval callback failed", runtimeException);
+
+                return ResponseEntity.ok(Map.of("ephemeral_text", FAILED_TEXT));
+            }
+
+            outcome = JobResumeOutcome.GONE;
         }
 
         if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {

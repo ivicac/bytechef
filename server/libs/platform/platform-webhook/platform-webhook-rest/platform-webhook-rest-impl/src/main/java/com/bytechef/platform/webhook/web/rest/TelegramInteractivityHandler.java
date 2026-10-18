@@ -22,6 +22,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -52,6 +53,7 @@ public class TelegramInteractivityHandler {
     private static final Logger log = LoggerFactory.getLogger(TelegramInteractivityHandler.class);
 
     private static final String NO_LONGER_AVAILABLE_TEXT = "This approval is no longer available.";
+    private static final String FAILED_TEXT = "This approval could not be applied — try again in a moment.";
     private static final String NOT_APPLIED_TEXT = "This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
 
@@ -147,13 +149,30 @@ public class TelegramInteractivityHandler {
                 tenantId,
                 () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
         } catch (RuntimeException runtimeException) {
-            log.warn(
-                "Telegram approval callback for short id {} could not be applied", approvalButtonPayload.shortId(),
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
                 runtimeException);
 
-            answerCallback(connection, callbackQuery, NOT_APPLIED_TEXT);
+            if (approvalInputException != null) {
+                log.info(
+                    "Telegram approval callback for short id {} needs the approval form: {}",
+                    approvalButtonPayload.shortId(), approvalInputException.getMessage());
 
-            return Result.HANDLED;
+                answerCallback(connection, callbackQuery, NOT_APPLIED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error(
+                    "Telegram approval callback for short id {} failed", approvalButtonPayload.shortId(),
+                    runtimeException);
+
+                answerCallback(connection, callbackQuery, FAILED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            outcome = JobResumeOutcome.GONE;
         }
 
         if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {

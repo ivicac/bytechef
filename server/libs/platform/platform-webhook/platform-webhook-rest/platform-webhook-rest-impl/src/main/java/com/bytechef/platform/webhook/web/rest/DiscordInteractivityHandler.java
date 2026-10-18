@@ -19,6 +19,7 @@ package com.bytechef.platform.webhook.web.rest;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.approval.ApprovalButtonPayload;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -58,6 +59,7 @@ public class DiscordInteractivityHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordInteractivityHandler.class);
 
+    private static final String FAILED_TEXT = "This approval could not be applied — try again in a moment.";
     private static final String NOT_APPLIED_TEXT = "This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
 
@@ -156,11 +158,26 @@ public class DiscordInteractivityHandler {
                 tenantId,
                 () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
         } catch (RuntimeException runtimeException) {
-            log.warn(
-                "Discord approval interaction for short id {} could not be applied", approvalButtonPayload.shortId(),
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
                 runtimeException);
 
-            return new Response(200, ephemeralReply(NOT_APPLIED_TEXT));
+            if (approvalInputException != null) {
+                log.info(
+                    "Discord approval interaction for short id {} needs the approval form: {}",
+                    approvalButtonPayload.shortId(), approvalInputException.getMessage());
+
+                return new Response(200, ephemeralReply(NOT_APPLIED_TEXT));
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error(
+                    "Discord approval interaction for short id {} failed", approvalButtonPayload.shortId(),
+                    runtimeException);
+
+                return new Response(200, ephemeralReply(FAILED_TEXT));
+            }
+
+            outcome = JobResumeOutcome.GONE;
         }
 
         if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {

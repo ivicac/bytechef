@@ -21,6 +21,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -73,6 +74,7 @@ public class SlackInteractivityHandler {
 
     private static final String COMMENT_ACTION_ID = "comment";
     private static final String COMMENT_BLOCK_ID = "comment_block";
+    private static final String FAILED_TEXT = ":warning: This approval could not be applied — try again in a moment.";
     private static final String NOT_APPLIED_TEXT =
         ":warning: This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
@@ -290,13 +292,29 @@ public class SlackInteractivityHandler {
         try {
             outcome = jobResumeFacade.resumeJob(resumeId, data, asApprovedBy(userName));
         } catch (RuntimeException runtimeException) {
-            log.warn(
-                "Slack approval callback for resume id {} could not be applied", abbreviate(resumeId),
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
                 runtimeException);
 
-            postEphemeral(responseUrl, NOT_APPLIED_TEXT);
+            if (approvalInputException != null) {
+                log.info(
+                    "Slack approval callback for resume id {} needs the approval form: {}", abbreviate(resumeId),
+                    approvalInputException.getMessage());
 
-            return;
+                postEphemeral(responseUrl, NOT_APPLIED_TEXT);
+
+                return;
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error(
+                    "Slack approval callback for resume id {} failed", abbreviate(resumeId), runtimeException);
+
+                postEphemeral(responseUrl, FAILED_TEXT);
+
+                return;
+            }
+
+            outcome = JobResumeOutcome.GONE;
         }
 
         rewriteMessage(responseUrl, resumeId, outcome, approved, userName);

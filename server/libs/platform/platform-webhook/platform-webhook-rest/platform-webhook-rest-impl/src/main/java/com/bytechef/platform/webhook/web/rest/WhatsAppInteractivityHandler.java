@@ -21,6 +21,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -64,6 +65,7 @@ public class WhatsAppInteractivityHandler {
     private static final String EXPIRED_TEXT = "⌛ This approval expired before it was resolved.";
     private static final String JOB_FAILED_TEXT = "❌ The workflow failed before this approval could be applied.";
     private static final String NO_LONGER_AVAILABLE_TEXT = "⚠️ This approval is no longer available.";
+    private static final String FAILED_TEXT = "⚠️ This approval could not be applied — try again in a moment.";
     private static final String NOT_APPLIED_TEXT =
         "⚠️ This approval could not be applied here — open the approval form.";
     private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
@@ -144,11 +146,28 @@ public class WhatsAppInteractivityHandler {
                 tenantId,
                 () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved), asApprovedBy(userName)));
         } catch (RuntimeException runtimeException) {
-            log.warn("WhatsApp in-place approval resolution could not be applied", runtimeException);
+            ApprovalInputException approvalInputException = ResumeExceptions.findApprovalInputException(
+                runtimeException);
 
-            reply(connection, payload, NOT_APPLIED_TEXT);
+            if (approvalInputException != null) {
+                log.info(
+                    "WhatsApp in-place approval resolution needs the approval form: {}",
+                    approvalInputException.getMessage());
 
-            return Result.HANDLED;
+                reply(connection, payload, NOT_APPLIED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            if (!ResumeExceptions.isOptimisticLockingFailure(runtimeException)) {
+                log.error("WhatsApp in-place approval resolution failed", runtimeException);
+
+                reply(connection, payload, FAILED_TEXT);
+
+                return Result.HANDLED;
+            }
+
+            outcome = JobResumeOutcome.GONE;
         }
 
         if (outcome != JobResumeOutcome.OK) {
