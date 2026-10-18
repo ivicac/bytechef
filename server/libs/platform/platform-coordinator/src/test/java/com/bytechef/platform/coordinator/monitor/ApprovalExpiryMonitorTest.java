@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +31,7 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.workflow.execution.event.JobApprovalClosedEvent;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -120,13 +122,27 @@ class ApprovalExpiryMonitorTest {
         // The suspended-task state row is cleaned up so an expired approval does not leak it.
         verify(taskStateService).delete(any());
 
-        ArgumentCaptor<JobStatusApplicationEvent> eventCaptor =
-            ArgumentCaptor.forClass(JobStatusApplicationEvent.class);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
 
-        assertThat(eventCaptor.getValue()
-            .getStatus()).isEqualTo(Job.Status.FAILED);
+        List<Object> events = eventCaptor.getAllValues();
+
+        assertThat(events.getFirst()).isInstanceOfSatisfying(
+            JobStatusApplicationEvent.class,
+            jobStatusApplicationEvent -> assertThat(jobStatusApplicationEvent.getStatus())
+                .isEqualTo(Job.Status.FAILED));
+
+        String jobResumeId = (String) job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        assertThat(events.getLast()).isEqualTo(
+            new JobApprovalClosedEvent(JOB_ID, jobResumeId, JobApprovalClosedEvent.Reason.EXPIRED));
+
+        assertThat(job.getError()
+            .getMessage()).startsWith("The pending approval expired at ");
+        assertThat(job.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID)).isEqualTo(jobResumeId);
+        assertThat(job.getMetadata(MetadataConstants.EXPIRED_JOB_RESUME_ID)).isEqualTo(jobResumeId);
+        assertThat(taskExecution.getError()).isEqualTo(job.getError());
 
         assertThat(meterRegistry.counter("bytechef_approval_expired", "source", "sweep")
             .count()).isEqualTo(1.0);
