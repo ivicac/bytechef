@@ -25,7 +25,9 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.connection;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.component.definition.ComponentDsl.trigger;
+import static com.bytechef.component.definition.ComponentDsl.unifiedApi;
 
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.AgentChannelDefinition;
 import com.bytechef.component.definition.ClusterElementDefinition;
@@ -48,7 +50,9 @@ import com.bytechef.component.definition.Resources;
 import com.bytechef.component.definition.TriggerDefinition;
 import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.component.definition.UnifiedApiDefinition;
+import com.bytechef.component.definition.UnifiedApiDefinition.UnifiedApiCategory;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,7 +70,6 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Build-time generated index of every {@code ServiceLoader}-discoverable component: the list-view metadata (name,
@@ -82,15 +85,15 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-@SuppressFBWarnings("EI")
 public record ComponentIndex(List<Entry> entries) {
+
+    public ComponentIndex {
+        entries = List.copyOf(entries);
+    }
 
     public static final String RESOURCE_PATH = "META-INF/bytechef/component-index.json";
 
     private static final Logger log = LoggerFactory.getLogger(ComponentIndex.class);
-
-    private static final JsonMapper JSON_MAPPER = JsonMapper.builder()
-        .build();
 
     /**
      * Loads and merges every {@value #RESOURCE_PATH} resource on the classpath. Returns empty when none exist or when
@@ -108,7 +111,7 @@ public record ComponentIndex(List<Entry> entries) {
                 URL url = resources.nextElement();
 
                 try (InputStream inputStream = url.openStream()) {
-                    ComponentIndex componentIndex = JSON_MAPPER.readValue(inputStream, ComponentIndex.class);
+                    ComponentIndex componentIndex = JsonUtils.read(inputStream, ComponentIndex.class);
 
                     for (Entry entry : componentIndex.entries()) {
                         if (seenComponents.add(entry.name() + "/" + entry.version())) {
@@ -155,17 +158,16 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<CategorySummary> componentCategories = entry.componentCategories();
 
-        if (componentCategories != null && !componentCategories.isEmpty()) {
+        if (!componentCategories.isEmpty()) {
             componentDefinition.categories(
-                componentCategories
-                    .stream()
+                componentCategories.stream()
                     .map(category -> new ComponentCategory(category.name(), category.label()))
                     .toList());
         }
 
         List<String> tags = entry.tags();
 
-        if (tags != null && !tags.isEmpty()) {
+        if (!tags.isEmpty()) {
             componentDefinition.tags(tags.toArray(String[]::new));
         }
 
@@ -180,42 +182,44 @@ public record ComponentIndex(List<Entry> entries) {
 
         List<ItemSummary> actions = entry.actions();
 
-        if (actions != null && !actions.isEmpty()) {
+        if (!actions.isEmpty()) {
             componentDefinition.actions(
-                actions
-                    .stream()
+                actions.stream()
                     .map(ComponentIndex::toStubActionDefinition)
                     .toList());
         }
 
         List<TriggerSummary> triggers = entry.triggers();
 
-        if (triggers != null && !triggers.isEmpty()) {
+        if (!triggers.isEmpty()) {
             componentDefinition.triggers(
-                triggers
-                    .stream()
+                triggers.stream()
                     .map(ComponentIndex::toStubTriggerDefinition)
                     .toList());
         }
 
         List<ClusterElementSummary> clusterElements = entry.clusterElements();
 
-        if (clusterElements != null && !clusterElements.isEmpty()) {
+        if (!clusterElements.isEmpty()) {
             componentDefinition.clusterElements(
-                clusterElements
-                    .stream()
+                clusterElements.stream()
                     .map(ComponentIndex::toStubClusterElementDefinition)
                     .toArray(ClusterElementDefinition<?>[]::new));
         }
 
         List<String> inputs = entry.inputs();
 
-        if (inputs != null && !inputs.isEmpty()) {
+        if (!inputs.isEmpty()) {
             componentDefinition.inputs(
-                inputs
-                    .stream()
+                inputs.stream()
                     .map(ComponentDsl::propertyGroup)
                     .toArray(ModifiablePropertyGroup[]::new));
+        }
+
+        UnifiedApiCategory unifiedApiCategory = entry.unifiedApiCategory();
+
+        if (unifiedApiCategory != null) {
+            componentDefinition.unifiedApi(unifiedApi(unifiedApiCategory));
         }
 
         // Triggers and actions must already be attached above: agent-channel rebuilding pairs a channel against
@@ -223,17 +227,16 @@ public record ComponentIndex(List<Entry> entries) {
         // agentChannel(...) validates the pair eagerly at construction time.
         List<AgentChannelSummary> agentChannels = entry.agentChannels();
 
-        if (agentChannels != null && !agentChannels.isEmpty()) {
+        if (!agentChannels.isEmpty()) {
             componentDefinition.agentChannels(
-                agentChannels
-                    .stream()
+                agentChannels.stream()
                     .map(agentChannelSummary -> toStubAgentChannelDefinition(componentDefinition, agentChannelSummary))
                     .toList());
         }
 
         List<ClusterElementTypeSummary> clusterElementTypes = entry.clusterElementTypes();
 
-        if (clusterElementTypes == null || clusterElementTypes.isEmpty()) {
+        if (clusterElementTypes.isEmpty()) {
             return componentDefinition;
         }
 
@@ -243,8 +246,7 @@ public record ComponentIndex(List<Entry> entries) {
         // since that flag is derived from the types rather than stored.
         return new StubClusterRootComponentDefinition(
             componentDefinition,
-            clusterElementTypes
-                .stream()
+            clusterElementTypes.stream()
                 .map(
                     clusterElementType -> new ClusterElementType(
                         clusterElementType.name(), clusterElementType.key(), clusterElementType.label(),
@@ -270,7 +272,7 @@ public record ComponentIndex(List<Entry> entries) {
         ModifiableTriggerDefinition triggerDefinition = trigger(triggerSummary.name());
 
         if (triggerSummary.type() != null) {
-            triggerDefinition.type(TriggerType.valueOf(triggerSummary.type()));
+            triggerDefinition.type(triggerSummary.type());
         }
 
         if (triggerSummary.title() != null) {
@@ -418,15 +420,38 @@ public record ComponentIndex(List<Entry> entries) {
             .approvalChannel(agentChannelSummary.approvalChannelName());
     }
 
+    /**
+     * One indexed component. List components absent from the index file read as empty lists; a missing name, provider
+     * class or loader kind is rejected while the index is loaded, so {@link #load(ClassLoader)} falls back to full
+     * component loading instead of serving a broken components list.
+     */
     @SuppressFBWarnings("EI")
     public record Entry(
         String name, int version, @Nullable String title, @Nullable String description, @Nullable String icon,
-        @Nullable List<CategorySummary> componentCategories, @Nullable List<String> tags,
-        @Nullable ConnectionSummary connection, @Nullable List<ItemSummary> actions,
-        @Nullable List<TriggerSummary> triggers, @Nullable List<ClusterElementSummary> clusterElements,
-        @Nullable List<ClusterElementTypeSummary> clusterElementTypes,
-        @Nullable List<AgentChannelSummary> agentChannels, @Nullable List<String> inputs, String providerClassName,
-        String loaderKind) {
+        List<CategorySummary> componentCategories, List<String> tags, @Nullable ConnectionSummary connection,
+        List<ItemSummary> actions, List<TriggerSummary> triggers, List<ClusterElementSummary> clusterElements,
+        List<ClusterElementTypeSummary> clusterElementTypes, List<AgentChannelSummary> agentChannels,
+        List<String> inputs, @Nullable UnifiedApiCategory unifiedApiCategory, String providerClassName,
+        ComponentHandlerLoaderKind loaderKind) {
+
+        public Entry {
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(providerClassName, "providerClassName");
+            Objects.requireNonNull(loaderKind, "loaderKind");
+
+            componentCategories = copyOrEmpty(componentCategories);
+            tags = copyOrEmpty(tags);
+            actions = copyOrEmpty(actions);
+            triggers = copyOrEmpty(triggers);
+            clusterElements = copyOrEmpty(clusterElements);
+            clusterElementTypes = copyOrEmpty(clusterElementTypes);
+            agentChannels = copyOrEmpty(agentChannels);
+            inputs = copyOrEmpty(inputs);
+        }
+
+        private static <T> List<T> copyOrEmpty(@Nullable List<T> list) {
+            return list == null ? List.of() : List.copyOf(list);
+        }
     }
 
     /**
@@ -542,7 +567,7 @@ public record ComponentIndex(List<Entry> entries) {
     }
 
     public record TriggerSummary(
-        String name, @Nullable String title, @Nullable String description, @Nullable String type) {
+        String name, @Nullable String title, @Nullable String description, @Nullable TriggerType type) {
     }
 
     public record ClusterElementSummary(

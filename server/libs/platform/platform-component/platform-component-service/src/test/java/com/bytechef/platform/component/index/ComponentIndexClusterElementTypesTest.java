@@ -24,6 +24,7 @@ import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
 import com.bytechef.platform.component.definition.voice.VoiceAgentFunction;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +44,8 @@ class ComponentIndexClusterElementTypesTest {
                     .title("Voice Agent")
                     .type(VoiceAgentFunction.VOICE_AGENT));
 
-        ComponentIndex.Entry entry = ComponentIndexGenerator.toEntry(definition, "com.example.Handler", "default");
+        ComponentIndex.Entry entry = ComponentIndexGenerator.toEntry(
+            definition, "com.example.Handler", ComponentHandlerLoaderKind.DEFAULT);
 
         ComponentDefinition stub = ComponentIndex.toStubComponentDefinition(entry);
 

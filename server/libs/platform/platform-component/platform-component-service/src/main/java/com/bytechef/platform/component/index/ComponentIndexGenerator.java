@@ -27,9 +27,11 @@ import com.bytechef.component.definition.ConnectionDefinition;
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.definition.PropertyGroup;
 import com.bytechef.component.definition.TriggerDefinition;
+import com.bytechef.component.definition.UnifiedApiDefinition;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ProviderEntry;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
 import com.bytechef.platform.component.index.ComponentIndex.AgentChannelSummary;
 import com.bytechef.platform.component.index.ComponentIndex.CategorySummary;
@@ -105,7 +107,7 @@ public class ComponentIndexGenerator {
     }
 
     static Entry toEntry(
-        ComponentDefinition componentDefinition, String providerClassName, String loaderKind) {
+        ComponentDefinition componentDefinition, String providerClassName, ComponentHandlerLoaderKind loaderKind) {
 
         return new Entry(
             componentDefinition.getName(),
@@ -145,6 +147,9 @@ public class ComponentIndexGenerator {
                 .stream()
                 .map(PropertyGroup::getName)
                 .toList(),
+            componentDefinition.getUnifiedApi()
+                .map(UnifiedApiDefinition::getCategory)
+                .orElse(null),
             providerClassName,
             loaderKind);
     }
@@ -233,15 +238,13 @@ public class ComponentIndexGenerator {
     }
 
     private static TriggerSummary toTriggerSummary(TriggerDefinition triggerDefinition) {
-        TriggerDefinition.TriggerType triggerType = triggerDefinition.getType();
-
         return new TriggerSummary(
             triggerDefinition.getName(),
             triggerDefinition.getTitle()
                 .orElse(null),
             triggerDefinition.getDescription()
                 .orElse(null),
-            triggerType == null ? null : triggerType.name());
+            triggerDefinition.getType());
     }
 
     private static ClusterElementSummary toClusterElementSummary(

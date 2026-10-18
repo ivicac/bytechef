@@ -28,6 +28,7 @@ import com.bytechef.platform.component.definition.AbstractComponentDefinitionWra
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
 import com.bytechef.platform.component.definition.voice.VoiceAgentFunction;
 import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +43,8 @@ class ComponentIndexTriggerClusterRootTest {
             component("browserLike")
                 .triggers(trigger("voiceSession").type(TriggerType.WEBSOCKET)));
 
-        ComponentIndex.Entry entry = ComponentIndexGenerator.toEntry(definition, "com.example.Handler", "default");
+        ComponentIndex.Entry entry = ComponentIndexGenerator.toEntry(
+            definition, "com.example.Handler", ComponentHandlerLoaderKind.DEFAULT);
 
         assertThat(ComponentIndex.toStubComponentDefinition(entry))
             .isInstanceOfSatisfying(ClusterRootComponentDefinition.class, stub -> {
