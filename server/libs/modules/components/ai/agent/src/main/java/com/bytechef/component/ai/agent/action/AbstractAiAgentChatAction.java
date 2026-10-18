@@ -42,6 +42,7 @@ import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.agent.tool.AiAgentConversationCheckpoint;
 import com.bytechef.component.ai.agent.tool.ConversationState;
+import com.bytechef.component.ai.agent.tool.DeferredToolCallReplay;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
 import com.bytechef.component.ai.llm.ChatModel.ResponseFormat;
 import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
@@ -295,6 +296,17 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
         List<Message> messages, boolean resumedTurn) throws Exception {
 
+        return getChatClientRequestSpec(
+            inputParameters, connectionParameters, extensions, toolExecutionListener, context, messages, resumedTurn,
+            null);
+    }
+
+    private ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
+        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
+        List<Message> messages, boolean resumedTurn, @Nullable DeferredToolCallReplay deferredToolCallReplay)
+        throws Exception {
+
         ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
         ChatModel chatModel = resolveChatModel(inputParameters, connectionParameters, clusterElementMap);
@@ -311,7 +323,8 @@ public abstract class AbstractAiAgentChatAction {
         Map<String, Map<String, String>> toolSimulations =
             (Map<String, Map<String, String>>) inputParameters.get(TOOL_SIMULATIONS);
 
-        ChatClient chatClient = ChatClient.builder(chatModel)
+        ChatClient chatClient = ChatClient.builder(
+            deferredToolCallReplay == null ? chatModel : deferredToolCallReplay.replayingChatModel(chatModel))
             .build();
 
         List<Advisor> workspaceAdvisors = new ArrayList<>();
@@ -566,9 +579,12 @@ public abstract class AbstractAiAgentChatAction {
             toolResult = resumeData.isEmpty() ? NO_HUMAN_RESPONSE_TOOL_RESULT : JsonUtils.write(resumeData);
         }
 
+        DeferredToolCallReplay deferredToolCallReplay = DeferredToolCallReplay.of(
+            agentToolSuspension.resumeConversation(toolResult));
+
         return getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, toolExecutionListener, context,
-            agentToolSuspension.resumeConversation(toolResult), true);
+            deferredToolCallReplay.conversation(), true, deferredToolCallReplay);
     }
 
     @SuppressWarnings("unchecked")
