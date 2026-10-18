@@ -21,6 +21,8 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -110,6 +112,32 @@ class ToolApprovalRequestsTest {
             .containsEntry(FORM_TITLE, "title")
             .containsEntry("expiresAt", EXPIRES_AT.toString())
             .containsEntry("channel", "#general");
+    }
+
+    @Test
+    void testRaiseReportsEveryChannelFailure() {
+        ActionContextAware actionContext = mock(ActionContextAware.class);
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        mockSuspendingActionContext(actionContext);
+
+        when(clusterElementDefinitionService.executeApprovalChannel(
+            anyString(), anyInt(), anyString(), anyMap(), anyString(), any(), any()))
+                .thenThrow(new RuntimeException("wrapper", new IllegalStateException("channel_not_found")));
+
+        ClusterElement slackChannel = new ClusterElement(
+            null, null, Map.of(), null, "slack/v1/approvalChannel", Map.of(), "slack_1");
+
+        ToolApprovalRequests.Request request = new ToolApprovalRequests.Request(
+            "gatedTool", "{}", "title", "description", EXPIRES_AT, List.of(slackChannel), Map.of(), Map.of(),
+            clusterElementDefinitionService, actionContext, null);
+
+        assertThatThrownBy(() -> ToolApprovalRequests.raise(request))
+            .isInstanceOf(IllegalStateException.class)
+            .hasNoCause()
+            .hasMessageContaining("approvalTask/approvalTask: channel_not_found")
+            .hasMessageContaining("slack/approvalChannel: channel_not_found")
+            .satisfies(throwable -> assertThat(throwable.getSuppressed()).hasSize(2));
     }
 
     private static AtomicReference<Suspend> mockSuspendingActionContext(ActionContextAware actionContext) {
