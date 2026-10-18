@@ -22,72 +22,19 @@ import {checkVoiceSupport} from '@/lib/BrowserVoiceSession';
 import {createWebhookVoiceAdapter} from '@/lib/ByteChefRealtimeVoiceAdapter';
 import {extractStreamChunk} from '@/utils/stream-utils';
 import {drainSseResponse} from '@/utils/sse-parser';
+import {canRenderApprovalFormInChat} from '@/utils/approval-form';
+import {
+    ApprovalRequestEventI,
+    AskUserQuestionEventI,
+    formatApprovalRequest,
+    formatAskUserQuestion,
+    getApprovalResumeUrl,
+    isAcceptedResumeResponse,
+    toApprovalResumeError,
+    isEventStreamResponse,
+} from '@/utils/approval-utils';
 import {AutomationChatContext} from '@/hooks/useAutomationChatConfig';
 import type {AutomationChatConfig} from '@/types';
-
-// Mirrors `AskUserQuestionEventI` in client/src/shared/util/assistant-message-utils.ts. The widget
-// cannot import from @/shared (it ships as an external npm package consumed by customer sites), so the
-// shape is duplicated here; the formatter below matches `formatAskUserQuestionMessage` in that file
-// byte-for-byte so questions render identically across the editor panel, AI Hub, and this widget.
-interface AskUserQuestionOptionI {
-    description: string;
-    label: string;
-}
-
-interface AskUserQuestionI {
-    header: string;
-    multiSelect: boolean;
-    options: AskUserQuestionOptionI[];
-    question: string;
-}
-
-interface AskUserQuestionEventI {
-    questions: AskUserQuestionI[];
-    resumeUrl?: string;
-}
-
-// Mirrors `ApprovalRequestEventI` in client/src/shared/util/assistant-message-utils.ts (same
-// cannot-import-from-@/shared constraint as above). Field-less approvals render as an inline
-// Approve/Discard card (see ApprovalCard); approvals with form fields render as markdown with a link to
-// the hosted approval form. Either way, resolution never happens through the chat input.
-interface ApprovalRequestEventI {
-    expiresAt?: string;
-    formDescription?: string;
-    formTitle?: string;
-    formUrl?: string;
-    inputs?: unknown[];
-    resumeId: string;
-}
-
-function formatApprovalRequest(event: ApprovalRequestEventI): string {
-    const title = event.formTitle || 'Approval requested';
-    const description = event.formDescription ? `\n\n${event.formDescription}` : '';
-    const expiry = event.expiresAt ? `\n\nExpires ${new Date(event.expiresAt).toLocaleString()}` : '';
-    const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
-
-    return `**${title}**${description}${expiry}${link}`;
-}
-
-function formatAskUserQuestion(event: AskUserQuestionEventI): string {
-    if (!Array.isArray(event.questions) || event.questions.length === 0) {
-        return '';
-    }
-
-    return event.questions
-        .map((question) => {
-            const options = Array.isArray(question.options) ? question.options : [];
-            const optionLines = options
-                .map((option, index) => `  ${index + 1}. **${option.label}** — ${option.description}`)
-                .join('\n');
-
-            const header = question.header ?? '';
-            const text = question.question ?? '';
-            const headerSegment = header ? `**${header}**: ` : '';
-
-            return optionLines ? `${headerSegment}${text}\n${optionLines}` : `${headerSegment}${text}`;
-        })
-        .join('\n\n');
-}
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
     return message;
@@ -283,18 +230,15 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
 
             const event = data as ApprovalRequestEventI;
 
-            const hasInputs = Array.isArray(event.inputs) && event.inputs.length > 0;
-            // The hosted form page lives at /resume/{id}; the resolution endpoint at /job/resume/{id} —
-            // the inverse of the server-side derivation in ApprovalRequestApprovalAction.
-            const approvalResumeUrl = event.formUrl ? event.formUrl.replace('/resume/', '/job/resume/') : null;
+            const inputs = Array.isArray(event.inputs) ? event.inputs : [];
+            const approvalResumeUrl = getApprovalResumeUrl(event, webhookUrl);
 
-            // Deliberately do NOT set the chat-input resume URL — typing never resolves an approval; only
-            // the inline card's buttons or the linked hosted form do.
-            if (!hasInputs && approvalResumeUrl) {
+            if (approvalResumeUrl && canRenderApprovalFormInChat(inputs)) {
                 useChatStore.getState().setPendingApproval({
                     expiresAt: event.expiresAt,
                     formDescription: event.formDescription,
                     formTitle: event.formTitle,
+                    inputs: inputs.length > 0 ? inputs : undefined,
                     resumeUrl: approvalResumeUrl,
                 });
             } else {
@@ -304,7 +248,7 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
             setIsRunning(false);
             setStreamRequest(null);
         },
-        [setMessage]
+        [setMessage, webhookUrl]
     );
 
     const eventHandlers = useMemo(
@@ -319,8 +263,6 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
         [handleApprovalRequest, handleAskUserQuestion, handleError, handleResult, handleStream]
     );
 
-    // Continuation streaming for the inline approval card: resolve through the SSE-negotiated resume endpoint
-    // and drain the resumed run's output into the conversation through the same event handlers as a normal turn.
     const resolveApproval = useCallback(
         async (pendingApproval: PendingApprovalI, payload: Record<string, unknown>) => {
             const response = await fetch(pendingApproval.resumeUrl, {
@@ -329,8 +271,8 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 method: 'POST',
             });
 
-            if (!response.ok) {
-                throw new Error(`Resume request failed with status ${response.status}`);
+            if (!isAcceptedResumeResponse(response)) {
+                throw await toApprovalResumeError(response);
             }
 
             const resolvedTitle = pendingApproval.formTitle || 'Approval requested';
@@ -341,9 +283,7 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 role: 'assistant',
             });
 
-            const contentType = response.headers.get('content-type') ?? '';
-
-            if (contentType.includes('text/event-stream')) {
+            if (isEventStreamResponse(response)) {
                 setIsRunning(true);
                 setMessage({content: '', role: 'assistant'});
 
@@ -373,20 +313,22 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 setMessage({attachments: [...(message.attachments ?? [])], content: input, role: 'user'});
                 setIsRunning(true);
 
+                const headers: Record<string, string> = sseEnabled
+                    ? {Accept: 'text/event-stream', 'Content-Type': 'application/json'}
+                    : {'Content-Type': 'application/json'};
+
                 try {
                     const response = await fetch(currentResumeUrl, {
                         body: JSON.stringify({message: input}),
-                        headers: {'Content-Type': 'application/json'},
+                        headers,
                         method: 'POST',
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`Resume request failed with status ${response.status}`);
+                    if (!isAcceptedResumeResponse(response)) {
+                        throw new Error(`Resume request was not accepted (status ${response.status})`);
                     }
 
-                    const contentType = response.headers.get('content-type') ?? '';
-
-                    if (contentType.includes('text/event-stream')) {
+                    if (isEventStreamResponse(response)) {
                         setMessage({content: '', role: 'assistant'});
 
                         await drainSseResponse(response, eventHandlers);
