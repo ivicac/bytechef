@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.workflow.execution.facade;
 
+import com.bytechef.platform.workflow.execution.ApprovalId;
 import java.util.Map;
 import java.util.function.LongConsumer;
 
@@ -62,14 +63,14 @@ public interface JobResumeFacade {
     JobResumeOutcome resumeExpiredJob(String id);
 
     /**
-     * Resolves a legacy approval link; each approve/reject pair is one-shot. Only a verified signed token is accepted,
-     * whatever {@code bytechef.approval.signed-token.required} says: an unsigned, tampered or expired token gets
-     * {@link JobResumeOutcome#INVALID_ID}.
+     * Resolves a legacy one-click approval link. A run suspended on an approval is resumed like a form submission, so
+     * the form's required inputs still apply.
      *
-     * @param token the signed approval token carried by the link
+     * @param approvalId the approval id carried by the link
      * @return the outcome of the resume
+     * @throws ApprovalInputException when the approval form requires inputs the link cannot carry
      */
-    JobResumeOutcome resumeApproval(String token);
+    JobResumeOutcome resumeApproval(ApprovalId approvalId);
 
     JobResumeOutcome resumeJob(String id, Map<String, Object> data);
 

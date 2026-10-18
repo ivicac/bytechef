@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.workflow.execution.remote.client.facade;
 
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class RemoteJobResumeFacadeClient implements JobResumeFacade {
     }
 
     @Override
-    public JobResumeOutcome resumeApproval(String token) {
+    public JobResumeOutcome resumeApproval(ApprovalId approvalId) {
         throw new UnsupportedOperationException();
     }
 

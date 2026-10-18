@@ -144,7 +144,8 @@ import tools.jackson.databind.ObjectMapper;
     },
     properties = {
         "bytechef.file-storage.provider=jdbc", "bytechef.public-url=http://localhost:9555",
-        "bytechef.workflow.repository.classpath.enabled=true"
+        "bytechef.workflow.repository.classpath.enabled=true", "bytechef.approval.signed-token.clock-skew=PT60S",
+        "bytechef.approval.signed-token.default-ttl=P30D"
     })
 class AiAgentChatActionIntTest {
 
@@ -283,8 +284,8 @@ class AiAgentChatActionIntTest {
             event -> {}, approvalTokensBeanFactory.getBeanProvider(ApprovalTokens.class),
             new JobFacadeImpl(
                 eventPublisher, contextService, jobService, taskExecutionService, taskFileStorage, workflowService),
-            jobService, new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class), taskExecutionService,
-            TransactionOperations.withoutTransaction());
+            jobService, meterRegistryBeanFactory.getBeanProvider(MeterRegistry.class),
+            TransactionOperations.withoutTransaction(), taskExecutionService, taskStateFacade);
     }
 
     @Test
@@ -639,6 +640,11 @@ class AiAgentChatActionIntTest {
         @Override
         public String toSignedToken(String innerToken, Duration ttl) {
             return PREFIX + innerToken + ".signature";
+        }
+
+        @Override
+        public String toSignedToken(String innerToken) {
+            return toSignedToken(innerToken, Duration.ZERO);
         }
 
         @Override
