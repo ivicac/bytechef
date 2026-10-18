@@ -21,7 +21,6 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
-import com.bytechef.error.ExecutionError;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -138,23 +137,13 @@ public class JobTimeoutMonitor {
 
         Instant now = Instant.now();
 
-        List<TaskExecution> nonTerminalTaskExecutions = taskExecutionService.getJobTaskExecutions(jobId)
-            .stream()
-            .filter(taskExecution -> taskExecution.getStatus() == null ||
-                !taskExecution.getStatus()
-                    .isTerminated())
-            .toList();
+        List<TaskExecution> nonTerminalTaskExecutions = JobMonitorSupport.getNonTerminalTaskExecutions(
+            taskExecutionService, jobId);
 
-        for (TaskExecution taskExecution : nonTerminalTaskExecutions) {
-            taskExecution.setStatus(TaskExecution.Status.FAILED);
-            taskExecution.setEndDate(now);
-            taskExecution.setError(
-                new ExecutionError(
-                    "Execution timed out: the run exceeded the configured limit of %s".formatted(timeout),
-                    List.of()));
-
-            taskExecutionService.update(taskExecution);
-        }
+        JobMonitorSupport.failAndCancelTaskExecutions(
+            jobId, nonTerminalTaskExecutions,
+            "Execution timed out: the run exceeded the configured limit of %s".formatted(timeout),
+            taskExecutionService, eventPublisher);
 
         job.setStatus(Job.Status.FAILED);
         job.setEndDate(now);
