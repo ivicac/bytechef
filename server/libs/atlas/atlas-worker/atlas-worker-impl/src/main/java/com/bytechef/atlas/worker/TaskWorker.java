@@ -191,7 +191,7 @@ public class TaskWorker {
      * tasks on a live worker from tasks orphaned by a worker crash. Published under the tenant captured at task
      * receipt, since this runs on a scheduler thread with no tenant context of its own.
      */
-    private void publishTaskHeartbeats() {
+    void publishTaskHeartbeats() {
         for (TaskExecutionFuture<?> taskExecutionFuture : taskExecutionFutureMap.values()) {
             TaskExecution taskExecution = taskExecutionFuture.taskExecution;
 

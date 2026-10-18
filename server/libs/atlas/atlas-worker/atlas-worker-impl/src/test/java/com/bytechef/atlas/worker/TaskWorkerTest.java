@@ -29,6 +29,7 @@ import com.bytechef.atlas.configuration.domain.CancelControlTask;
 import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.coordinator.event.TaskExecutionCompleteEvent;
 import com.bytechef.atlas.coordinator.event.TaskExecutionErrorEvent;
+import com.bytechef.atlas.coordinator.event.TaskHeartbeatApplicationEvent;
 import com.bytechef.atlas.coordinator.event.TaskStartedApplicationEvent;
 import com.bytechef.atlas.coordinator.message.route.TaskCoordinatorMessageRoute;
 import com.bytechef.atlas.execution.domain.TaskExecution;
@@ -43,6 +44,7 @@ import com.bytechef.evaluator.SpelEvaluator;
 import com.bytechef.file.storage.base64.service.Base64FileStorageService;
 import com.bytechef.message.broker.memory.SyncMessageBroker;
 import com.bytechef.message.event.MessageEvent;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
@@ -50,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -535,6 +538,76 @@ public class TaskWorkerTest {
         Assertions.assertEquals(1, MapUtils.size(worker.getTaskExecutions()));
 
         singleThreadExecutor.shutdownNow();
+    }
+
+    @Test
+    public void testPublishTaskHeartbeatsPublishesUnderTheTenantOfARunningTaskUntilItCompletes()
+        throws InterruptedException {
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch releaseLatch = new CountDownLatch(1);
+        List<String> heartbeatTenantIds = new CopyOnWriteArrayList<>();
+        List<Long> heartbeatTaskExecutionIds = new CopyOnWriteArrayList<>();
+
+        TaskWorker worker = new TaskWorker(
+            null, EVALUATOR,
+            event -> {
+                if (event instanceof TaskHeartbeatApplicationEvent taskHeartbeatApplicationEvent) {
+                    heartbeatTenantIds.add(TenantContext.getCurrentTenantId());
+                    heartbeatTaskExecutionIds.add(taskHeartbeatApplicationEvent.getTaskExecutionId());
+                }
+            },
+            singleThreadExecutor::execute,
+            task -> taskExecution -> {
+                try {
+                    if (!releaseLatch.await(10, TimeUnit.SECONDS)) {
+                        throw new TaskExecutionException("Timed out waiting for release");
+                    }
+                } catch (InterruptedException interruptedException) {
+                    throw new TaskExecutionException("Unable to wait due interruption");
+                }
+
+                return null;
+            }, taskFileStorage, List.of());
+
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(new WorkflowTask(Map.of(NAME, "name", TYPE, "type")))
+            .build();
+
+        taskExecution.setId(1234L);
+        taskExecution.setJobId(4567L);
+
+        try {
+            executorService.submit(() -> TenantContext.runWithTenantId(
+                "tenant_a", () -> worker.onTaskExecutionEvent(new TaskExecutionEvent(taskExecution))));
+
+            waitForCondition(() -> {
+                worker.publishTaskHeartbeats();
+
+                return !heartbeatTaskExecutionIds.isEmpty();
+            }, 5000);
+
+            Assertions.assertEquals(1234L, heartbeatTaskExecutionIds.getFirst());
+            Assertions.assertEquals("tenant_a", heartbeatTenantIds.getFirst());
+
+            releaseLatch.countDown();
+
+            waitForCondition(() -> MapUtils.size(worker.getTaskExecutions()) == 0, 5000);
+
+            Assertions.assertEquals(0, MapUtils.size(worker.getTaskExecutions()));
+
+            int heartbeatCount = heartbeatTaskExecutionIds.size();
+
+            worker.publishTaskHeartbeats();
+
+            Assertions.assertEquals(heartbeatCount, heartbeatTaskExecutionIds.size());
+        } finally {
+            releaseLatch.countDown();
+
+            executorService.shutdownNow();
+            singleThreadExecutor.shutdownNow();
+        }
     }
 
     private void waitForCondition(java.util.function.BooleanSupplier condition, long timeoutMs)
