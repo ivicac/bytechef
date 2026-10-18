@@ -16,8 +16,10 @@
 
 package com.bytechef.platform.notification.delivery;
 
-import com.bytechef.commons.util.UrlValidationException;
-import com.bytechef.commons.util.UrlValidator;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -44,19 +46,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriTemplateHandler;
 
 /**
- * The single outbound-webhook transport for every surface that posts webhooks — platform notifications (job-status
- * channel), the Atlas per-job callback webhooks ({@code WebhookJobStatusApplicationEventListener} delegates here), the
- * EE AI-observability alert channels, and Slack (via {@code SlackNotificationClient}). One {@code RestTemplate}, one
- * retry mechanism (Spring core {@code RetryTemplate} with an exponential {@code RetryPolicy} delay — the mechanics that previously lived
- * inline in the job-status listener), one place for SSRF validation, standard headers, and HMAC signing.
- *
- * <p>
- * Signature scheme (Sim-compatible): {@code X-ByteChef-Signature: t=<epochMillis>,v1=<hex>} where {@code v1} is
- * HMAC-SHA256 over {@code "<t>.<rawBody>"} with the configured secret. Every string-payload delivery also carries
- * {@code X-ByteChef-Event}, {@code X-ByteChef-Timestamp}, and a random {@code X-ByteChef-Delivery} id for receiver-side
- * idempotency.
- * </p>
- *
  * @author Ivica Cardic
  */
 @Component
@@ -64,7 +53,8 @@ public class WebhookNotificationClient {
 
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
     private static final int READ_TIMEOUT_MILLIS = 30_000;
-
+    private static final String DEFAULT_ACCEPT_HEADER =
+        "text/plain, application/json, application/yaml, application/xml, text/xml, application/*+json, application/*+xml, */*";
     private static final String HMAC_SHA256 = "HmacSHA256";
     private static final int MAX_BODY_BYTES = 4000;
     private static final int MAX_BODY_CHARACTERS = 1000;
@@ -79,37 +69,20 @@ public class WebhookNotificationClient {
 
         this.restTemplate = new RestTemplate(requestFactory);
 
-    /**
-     * Retry schedule for a delivery. {@code null} anywhere means the single-attempt default; use {@link #none()} for an
-     * explicit single attempt.
-     */
-    public record WebhookRetry(int maxRetries, Duration initialInterval, double multiplier) {
+        this.restTemplate.setErrorHandler(new ResponseErrorHandler() {
 
             @Override
             public boolean hasError(ClientHttpResponse clientHttpResponse) throws IOException {
                 HttpStatusCode statusCode = clientHttpResponse.getStatusCode();
 
-    /**
-     * Delivers an admin-configured notification webhook: SSRF-validated, standard headers, optional HMAC signature,
-     * single attempt. Throws {@link WebhookDeliveryException} on transport failure or a non-2xx response and
-     * {@link IllegalArgumentException} when the URL fails validation. Callers decide bookkeeping policy.
-     */
-    public void deliver(WebhookDeliveryRequest webhookDeliveryRequest) {
-        deliver(webhookDeliveryRequest, WebhookRetry.none());
-    }
+                return !statusCode.is2xxSuccessful();
+            }
 
-    /**
-     * Same as {@link #deliver(WebhookDeliveryRequest)} with a retry schedule; each attempt reposts the identical signed
-     * body.
-     */
-    public void deliver(WebhookDeliveryRequest webhookDeliveryRequest, WebhookRetry webhookRetry) {
-        String url = webhookDeliveryRequest.url();
+            @Override
+            public void handleError(URI requestUri, HttpMethod httpMethod, ClientHttpResponse clientHttpResponse)
+                throws IOException {
 
-        try {
-            UrlValidator.validate(url, Set.of());
-        } catch (UrlValidationException urlValidationException) {
-            throw new IllegalArgumentException(urlValidationException.getMessage(), urlValidationException);
-        }
+                HttpStatusCode statusCode = clientHttpResponse.getStatusCode();
 
                 String responseBody = readBody(clientHttpResponse);
 
@@ -141,10 +114,16 @@ public class WebhookNotificationClient {
 
         httpHeaders.setContentType(MediaType.APPLICATION_JSON);
 
-        for (Map.Entry<String, String> header : webhookDeliveryRequest.headers()
-            .entrySet()) {
+        Instant suppliedTimestamp = webhookDelivery.timestamp();
+        String suppliedDeliveryId = webhookDelivery.deliveryId();
 
-            httpHeaders.set(header.getKey(), header.getValue());
+        long timestamp = suppliedTimestamp == null ? System.currentTimeMillis() : suppliedTimestamp.toEpochMilli();
+
+        if (webhookDelivery.eventType() != null) {
+            httpHeaders.set("X-ByteChef-Event", webhookDelivery.eventType());
+            httpHeaders.set("X-ByteChef-Timestamp", String.valueOf(timestamp));
+            httpHeaders.set("X-ByteChef-Delivery",
+                suppliedDeliveryId == null ? String.valueOf(UUID.randomUUID()) : suppliedDeliveryId);
         }
 
         String secret = webhookDelivery.secret();
@@ -154,20 +133,6 @@ public class WebhookNotificationClient {
                 "X-ByteChef-Signature", "t=" + timestamp + ",v1=" + sign(secret, timestamp + "." + payloadJson));
         }
 
-        post(url, new HttpEntity<>(webhookDeliveryRequest.payloadJson(), httpHeaders), webhookRetry);
-    }
-
-    /**
-     * Delivers a caller-registered callback webhook (Atlas per-job {@code Job.Webhook} entries): the payload object is
-     * serialized by the message converters exactly as the pre-consolidation listener did, and the URL is NOT
-     * SSRF-validated — job callbacks are registered by authenticated API callers and may legitimately target internal
-     * hosts in self-hosted deployments (pre-existing contract).
-     */
-    public void deliverEvent(String url, Object payload, WebhookRetry webhookRetry) {
-        post(url, new HttpEntity<>(payload), webhookRetry);
-    }
-
-    private void post(String url, HttpEntity<?> httpEntity, WebhookRetry webhookRetry) {
         try {
             byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
 
