@@ -21,12 +21,14 @@ import static org.mockito.Mockito.mock;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 public class ChatComponentHandlerTest {
 
     @Test
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
-            "definition/chat_v1.json", new ChatComponentHandler(mock(MessageBroker.class)).getDefinition());
+            "definition/chat_v1.json",
+            new ChatComponentHandler(mock(MessageBroker.class), mock(ObjectProvider.class)).getDefinition());
     }
 }

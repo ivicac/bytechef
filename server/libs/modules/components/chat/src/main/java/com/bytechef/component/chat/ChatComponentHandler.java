@@ -22,6 +22,7 @@ import static com.bytechef.component.chat.constant.ChatConstants.MODE_HOSTED_CHA
 import static com.bytechef.component.definition.ComponentDsl.agentChannel;
 import static com.bytechef.component.definition.ComponentDsl.component;
 
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.chat.action.ChatResponseToRequestAction;
 import com.bytechef.component.chat.cluster.ChatApprovalChannel;
@@ -29,6 +30,7 @@ import com.bytechef.component.chat.trigger.ChatNewRequestTrigger;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.message.broker.MessageBroker;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -43,7 +45,7 @@ public class ChatComponentHandler implements ComponentHandler {
 
     private final ComponentDefinition componentDefinition;
 
-    public ChatComponentHandler(MessageBroker messageBroker) {
+    public ChatComponentHandler(MessageBroker messageBroker, ObjectProvider<JobService> jobServiceProvider) {
         this.componentDefinition = component(CHAT)
             .title("Chat")
             .description("Actions and triggers for using with the chat widget.")
@@ -51,7 +53,7 @@ public class ChatComponentHandler implements ComponentHandler {
             .categories(ComponentCategory.HELPERS)
             .triggers(ChatNewRequestTrigger.TRIGGER_DEFINITION)
             .actions(ChatResponseToRequestAction.ACTION_DEFINITION)
-            .clusterElements(ChatApprovalChannel.of(messageBroker))
+            .clusterElements(ChatApprovalChannel.of(messageBroker, jobServiceProvider))
             .agentChannels(
                 agentChannel(
                     CHAT, ChatNewRequestTrigger.TRIGGER_DEFINITION, ChatResponseToRequestAction.ACTION_DEFINITION)

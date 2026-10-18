@@ -18,6 +18,9 @@ package com.bytechef.component.chat.cluster;
 
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 
+import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
@@ -25,11 +28,14 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import com.bytechef.platform.webhook.event.SseStreamEvent;
 import com.bytechef.platform.webhook.message.route.SseStreamMessageRoute;
 import com.bytechef.tenant.TenantContext;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Delivers an approval request into the chat conversation that started the workflow run, as an {@code approval_request}
@@ -49,7 +55,9 @@ public class ChatApprovalChannel {
     private ChatApprovalChannel() {
     }
 
-    public static ClusterElementDefinition<ApprovalChannelFunction> of(MessageBroker messageBroker) {
+    public static ClusterElementDefinition<ApprovalChannelFunction> of(
+        MessageBroker messageBroker, ObjectProvider<JobService> jobServiceProvider) {
+
         return ComponentDsl.<ApprovalChannelFunction>clusterElement("chat")
             .title("Chat")
             .description(
@@ -58,18 +66,20 @@ public class ChatApprovalChannel {
             .type(APPROVAL_CHANNELS)
             .object(
                 () -> (inputParameters, connectionParameters, formUrl, context) -> perform(
-                    inputParameters, formUrl, context, messageBroker));
+                    inputParameters, formUrl, context, messageBroker, jobServiceProvider.getIfAvailable()));
     }
 
-    static Object perform(
-        Parameters inputParameters, String formUrl, ClusterElementContext context, MessageBroker messageBroker) {
+    static @Nullable Object perform(
+        Parameters inputParameters, String formUrl, ClusterElementContext context, MessageBroker messageBroker,
+        @Nullable JobService jobService) {
 
         Long jobId = ((ClusterElementContextAware) context).getJobId();
 
-        if (jobId == null) {
+        if (jobId == null || !isStreamedExecution(jobService, jobId)) {
             throw new IllegalStateException(
-                "The chat approval channel requires a running job with a chat origin. Configure a fallback approval " +
-                    "channel for runs that are not started from a chat conversation.");
+                "The chat approval channel requires a run with a chat origin, but this run was not started from a " +
+                    "chat conversation. Configure a fallback approval channel for runs that are not started from " +
+                    "chat.");
         }
 
         Map<String, Object> eventData = ApprovalRequestEvents.buildApprovalRequestEventData(inputParameters, formUrl);
@@ -81,5 +91,15 @@ public class ChatApprovalChannel {
         messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
 
         return null;
+    }
+
+    private static boolean isStreamedExecution(@Nullable JobService jobService, long jobId) {
+        if (jobService == null) {
+            return true;
+        }
+
+        Job job = jobService.getJob(jobId);
+
+        return MapUtils.getBoolean(job.getMetadata(), MetadataConstants.STREAMED_EXECUTION, false);
     }
 }
