@@ -1361,7 +1361,8 @@ class JobResumeFacadeTest {
 
             when(jobService.getJob(JOB_ID)).thenReturn(job);
 
-            JobResumeOutcome outcome = jobResumeFacade.resumeApproval(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true)));
+            JobResumeOutcome outcome =
+                jobResumeFacade.resumeApproval(signedApprovalToken(ApprovalId.of(TENANT_ID, JOB_ID, true)));
 
             assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
             assertThat(job.getMetadata(MetadataConstants.CONSUMED_JOB_RESUME_ID))
@@ -1457,7 +1458,8 @@ class JobResumeFacadeTest {
                 .when(jobFacade)
                 .resumeApproval(JOB_ID, approvalId.getUuidAsString(), true);
 
-            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId))).isEqualTo(JobResumeOutcome.GONE);
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId)))
+                .isEqualTo(JobResumeOutcome.GONE);
         }
 
         @Test
@@ -1474,7 +1476,8 @@ class JobResumeFacadeTest {
                 .when(jobFacade)
                 .resumeApproval(JOB_ID, approvalId.getUuidAsString(), true);
 
-            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId))).isEqualTo(JobResumeOutcome.GONE);
+            assertThat(jobResumeFacade.resumeApproval(signedApprovalToken(approvalId)))
+                .isEqualTo(JobResumeOutcome.GONE);
         }
 
         private String signedApprovalToken(ApprovalId approvalId) {
