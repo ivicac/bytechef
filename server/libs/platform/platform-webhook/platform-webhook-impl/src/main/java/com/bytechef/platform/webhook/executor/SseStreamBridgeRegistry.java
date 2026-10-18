@@ -403,8 +403,9 @@ public class SseStreamBridgeRegistry {
         }
 
         private static JobKey of(SseStreamEvent sseStreamEvent) {
-            String tenantId = sseStreamEvent.getMetadata(TenantContext.CURRENT_TENANT_ID) instanceof String eventTenantId
-                ? eventTenantId : TenantContext.getCurrentTenantId();
+            String tenantId =
+                sseStreamEvent.getMetadata(TenantContext.CURRENT_TENANT_ID) instanceof String eventTenantId
+                    ? eventTenantId : TenantContext.getCurrentTenantId();
 
             return new JobKey(tenantId, sseStreamEvent.getJobId());
         }

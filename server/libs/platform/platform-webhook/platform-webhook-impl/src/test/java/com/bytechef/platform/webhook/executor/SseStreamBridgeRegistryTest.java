@@ -510,7 +510,8 @@ class SseStreamBridgeRegistryTest {
         registerInTenant(TENANT_B, tenantBSseStreamBridge);
 
         sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_DATA, "card"));
-        sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
+        sseStreamBridgeRegistry
+            .onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
 
         verify(tenantBSseStreamBridge).onEvent("card");
         verify(tenantBSseStreamBridge).onSuspend();
@@ -525,7 +526,8 @@ class SseStreamBridgeRegistryTest {
 
     @Test
     void testRegisterForResumeIgnoresAStoppedStatusSeenInAnotherTenant() {
-        sseStreamBridgeRegistry.onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
+        sseStreamBridgeRegistry
+            .onSseStreamEvent(tenantEvent(TENANT_B, SseStreamEvent.EVENT_TYPE_JOB_STATUS, "STOPPED"));
 
         TenantContext.runWithTenantId(
             TENANT_A, () -> sseStreamBridgeRegistry.registerForResume(JOB_ID, sseStreamBridge));
