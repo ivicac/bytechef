@@ -37,7 +37,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.util.backoff.ExponentialBackOff;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
@@ -45,7 +44,7 @@ import org.springframework.web.client.RestTemplate;
  * The single outbound-webhook transport for every surface that posts webhooks — platform notifications (job-status
  * channel), the Atlas per-job callback webhooks ({@code WebhookJobStatusApplicationEventListener} delegates here), the
  * EE AI-observability alert channels, and Slack (via {@code SlackNotificationClient}). One {@code RestTemplate}, one
- * retry mechanism (Spring core {@code RetryTemplate} + {@code ExponentialBackOff} — the mechanics that previously lived
+ * retry mechanism (Spring core {@code RetryTemplate} with an exponential {@code RetryPolicy} delay — the mechanics that previously lived
  * inline in the job-status listener), one place for SSRF validation, standard headers, and HMAC signing.
  *
  * <p>
@@ -152,12 +151,9 @@ public class WebhookNotificationClient {
             } else {
                 RetryTemplate retryTemplate = new RetryTemplate(
                     RetryPolicy.builder()
-                        .backOff(
-                            new ExponentialBackOff(
-                                webhookRetry.initialInterval()
-                                    .toMillis(),
-                                webhookRetry.multiplier()))
                         .maxRetries(webhookRetry.maxRetries())
+                        .delay(webhookRetry.initialInterval())
+                        .multiplier(webhookRetry.multiplier())
                         .build());
 
                 retryTemplate.execute(() -> {

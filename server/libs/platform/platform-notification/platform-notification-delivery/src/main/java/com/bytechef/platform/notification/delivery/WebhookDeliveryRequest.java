@@ -17,6 +17,7 @@
 package com.bytechef.platform.notification.delivery;
 
 import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,6 +38,10 @@ public record WebhookDeliveryRequest(
     String url, String eventType, String payloadJson, Map<String, String> headers, @Nullable String secret) {
 
     public WebhookDeliveryRequest {
+        Objects.requireNonNull(url, "url");
+        Objects.requireNonNull(eventType, "eventType");
+        Objects.requireNonNull(payloadJson, "payloadJson");
+
         headers = headers == null ? Map.of() : Map.copyOf(headers);
     }
 
