@@ -17,18 +17,17 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.facade.JobFacade;
-import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.commons.util.MapUtils;
-import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.ApprovalId;
+import com.bytechef.platform.workflow.execution.facade.ApprovalInputException;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
-import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,16 +46,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApprovalController {
 
     private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
-    private final JobFacade jobFacade;
-    private final JobService jobService;
+    private final JobResumeFacade jobResumeFacade;
 
     @SuppressFBWarnings("EI")
-    public ApprovalController(
-        ObjectProvider<ApprovalTokens> approvalTokensProvider, JobFacade jobFacade, JobService jobService) {
-
+    public ApprovalController(ObjectProvider<ApprovalTokens> approvalTokensProvider, JobResumeFacade jobResumeFacade) {
         this.approvalTokensProvider = approvalTokensProvider;
-        this.jobFacade = jobFacade;
-        this.jobService = jobService;
+        this.jobResumeFacade = jobResumeFacade;
     }
 
     /**
@@ -68,45 +63,38 @@ public class ApprovalController {
     @RequestMapping(method = {
         RequestMethod.GET, RequestMethod.POST
     }, value = "/approvals/{id}")
-    public ResponseEntity<Void> approve(@PathVariable String id) {
+    public ResponseEntity<?> approve(@PathVariable String id) {
+        Optional<ApprovalId> approvalIdOptional = parseApprovalId(id);
+
+        if (approvalIdOptional.isEmpty()) {
+            return ResponseEntity.badRequest()
+                .build();
+        }
+
+        JobResumeOutcome outcome;
+
+        try {
+            outcome = jobResumeFacade.resumeApproval(approvalIdOptional.get());
+        } catch (ApprovalInputException approvalInputException) {
+            return invalidApprovalInput(approvalInputException);
+        }
+
+        return ResponseEntity.status(getStatus(outcome))
+            .build();
+    }
+
+    private Optional<ApprovalId> parseApprovalId(String id) {
         Optional<String> innerTokenOptional = resolveInnerToken(id);
 
         if (innerTokenOptional.isEmpty()) {
-            return ResponseEntity.badRequest()
-                .build();
+            return Optional.empty();
         }
-
-        ApprovalId approvalId;
 
         try {
-            approvalId = ApprovalId.parse(innerTokenOptional.get());
+            return Optional.of(ApprovalId.parse(innerTokenOptional.get()));
         } catch (IllegalArgumentException | IndexOutOfBoundsException exception) {
-            return ResponseEntity.badRequest()
-                .build();
+            return Optional.empty();
         }
-
-        return TenantContext.callWithTenantId(approvalId.getTenantId(), () -> {
-            resume(approvalId);
-
-            return ResponseEntity.noContent()
-                .build();
-        });
-    }
-
-    private void resume(ApprovalId approvalId) {
-        long jobId = approvalId.getJobId();
-
-        Job job = jobService.getJob(jobId);
-
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
-
-        if (job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null && taskExecutionResumeId != null) {
-            jobFacade.resumeJob(jobId, taskExecutionResumeId, Map.of("approved", approvalId.isApproved()));
-
-            return;
-        }
-
-        jobFacade.resumeApproval(jobId, approvalId.getUuidAsString(), approvalId.isApproved());
     }
 
     private Optional<String> resolveInnerToken(String id) {
@@ -117,5 +105,26 @@ public class ApprovalController {
         }
 
         return approvalTokens.resolveInnerToken(id);
+    }
+
+    private static HttpStatus getStatus(JobResumeOutcome outcome) {
+        return switch (outcome) {
+            case OK -> HttpStatus.NO_CONTENT;
+            case INVALID_ID, STREAMING_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
+            case GONE -> HttpStatus.GONE;
+            case JOB_FAILED -> HttpStatus.UNPROCESSABLE_CONTENT;
+            case NOT_YET_SUSPENDED -> HttpStatus.CONFLICT;
+        };
+    }
+
+    private static ResponseEntity<ProblemDetail> invalidApprovalInput(ApprovalInputException approvalInputException) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, approvalInputException.getMessage());
+
+        problemDetail.setProperty("errors", approvalInputException.getErrors());
+
+        return ResponseEntity.badRequest()
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .body(problemDetail);
     }
 }
