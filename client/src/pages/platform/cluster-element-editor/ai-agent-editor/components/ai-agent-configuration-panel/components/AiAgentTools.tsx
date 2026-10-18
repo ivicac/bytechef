@@ -1,16 +1,18 @@
 import Button from '@/components/Button/Button';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import WorkflowNodesPopoverMenu from '@/pages/platform/workflow-editor/components/WorkflowNodesPopoverMenu';
-import {InfoIcon, PlusIcon, ShieldCheckIcon} from 'lucide-react';
+import {InfoIcon, PlusIcon, SettingsIcon, ShieldCheckIcon, TrashIcon} from 'lucide-react';
 
 import AiAgentTool from './AiAgentTool';
 import {SKILLS_TOOL_OPERATION_NAME} from './hooks/useAiAgentSkills';
+import useAiAgentToolActions from './hooks/useAiAgentToolActions';
 import useAiAgentTools from './hooks/useAiAgentTools';
 
 const HIDDEN_TOOL_NAMES = [SKILLS_TOOL_OPERATION_NAME];
 
 export default function AiAgentTools() {
     const {configuredConnectionKeys, rootWorkflowNodeName, toolGroups, tools} = useAiAgentTools();
+    const {handleConfigureTool, handleRemoveTool} = useAiAgentToolActions();
 
     return (
         <div className="space-y-2">
@@ -61,7 +63,11 @@ export default function AiAgentTools() {
             ))}
 
             {toolGroups.map((toolGroup) => (
-                <fieldset className="space-y-2 rounded border border-stroke-neutral-secondary p-2" key={toolGroup.name}>
+                <fieldset
+                    aria-label={`${toolGroup.label} requires approval`}
+                    className="space-y-2 rounded border border-stroke-neutral-secondary p-2"
+                    key={toolGroup.name}
+                >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1">
                             <ShieldCheckIcon className="size-3.5 text-content-warning-primary" />
@@ -71,17 +77,37 @@ export default function AiAgentTools() {
                             <span className="text-xs text-muted-foreground">requires approval</span>
                         </div>
 
-                        <WorkflowNodesPopoverMenu
-                            clusterElementType="tools"
-                            hideActionComponents
-                            hideClusterRootComponents
-                            hideTaskDispatchers
-                            hideTriggerComponents
-                            multipleClusterElementsNode
-                            sourceNodeId={toolGroup.name}
-                        >
-                            <Button icon={<PlusIcon />} label="Add Tool" size="sm" variant="ghost" />
-                        </WorkflowNodesPopoverMenu>
+                        <div className="flex items-center">
+                            <WorkflowNodesPopoverMenu
+                                clusterElementType="tools"
+                                hideActionComponents
+                                hideClusterRootComponents
+                                hideTaskDispatchers
+                                hideTriggerComponents
+                                multipleClusterElementsNode
+                                sourceNodeId={toolGroup.name}
+                            >
+                                <Button icon={<PlusIcon />} label="Add Tool" size="sm" variant="ghost" />
+                            </WorkflowNodesPopoverMenu>
+
+                            <Button
+                                aria-label="Configure approval gate"
+                                className="size-6"
+                                icon={<SettingsIcon />}
+                                onClick={() => handleConfigureTool(toolGroup.tool)}
+                                size="iconSm"
+                                variant="ghost"
+                            />
+
+                            <Button
+                                aria-label="Remove approval gate"
+                                className="size-6"
+                                icon={<TrashIcon />}
+                                onClick={() => handleRemoveTool(toolGroup.tool)}
+                                size="iconSm"
+                                variant="destructiveGhost"
+                            />
+                        </div>
                     </div>
 
                     {toolGroup.tools.length === 0 && (
@@ -98,9 +124,7 @@ export default function AiAgentTools() {
 
                     <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
-                            {toolGroup.channelLabels.length
-                                ? `Channels: ${toolGroup.channelLabels.join(', ')}`
-                                : 'Channels: chat (default)'}
+                            {toolGroup.channels.length ? 'Channels:' : 'Channels: chat (default)'}
                         </span>
 
                         <WorkflowNodesPopoverMenu
@@ -114,6 +138,14 @@ export default function AiAgentTools() {
                             <Button icon={<PlusIcon />} label="Add Channel" size="sm" variant="ghost" />
                         </WorkflowNodesPopoverMenu>
                     </div>
+
+                    {toolGroup.channels.map((channel, channelIndex) => (
+                        <AiAgentTool
+                            configuredConnectionKeys={configuredConnectionKeys}
+                            key={`${channel.name}-${channelIndex}`}
+                            tool={channel}
+                        />
+                    ))}
                 </fieldset>
             ))}
         </div>
