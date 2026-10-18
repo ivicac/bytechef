@@ -21,6 +21,7 @@ import {useAutomationChatVoiceSession} from '@/hooks/useAutomationChatVoiceSessi
 import {checkVoiceSupport} from '@/lib/BrowserVoiceSession';
 import {createWebhookVoiceAdapter} from '@/lib/ByteChefRealtimeVoiceAdapter';
 import {extractStreamChunk} from '@/utils/stream-utils';
+import {isAcceptedResumeResponse, isEventStreamResponse} from '@/utils/approval-utils';
 import {drainSseResponse} from '@/utils/sse-parser';
 import {AutomationChatContext} from '@/hooks/useAutomationChatConfig';
 import type {AutomationChatConfig} from '@/types';
@@ -329,8 +330,8 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 method: 'POST',
             });
 
-            if (!response.ok) {
-                throw new Error(`Resume request failed with status ${response.status}`);
+            if (!isAcceptedResumeResponse(response)) {
+                throw new Error(`Resume request was not accepted (status ${response.status})`);
             }
 
             const resolvedTitle = pendingApproval.formTitle || 'Approval requested';
@@ -341,9 +342,7 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 role: 'assistant',
             });
 
-            const contentType = response.headers.get('content-type') ?? '';
-
-            if (contentType.includes('text/event-stream')) {
+            if (isEventStreamResponse(response)) {
                 setIsRunning(true);
                 setMessage({content: '', role: 'assistant'});
 
@@ -373,20 +372,22 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 setMessage({attachments: [...(message.attachments ?? [])], content: input, role: 'user'});
                 setIsRunning(true);
 
+                const headers: Record<string, string> = sseEnabled
+                    ? {Accept: 'text/event-stream', 'Content-Type': 'application/json'}
+                    : {'Content-Type': 'application/json'};
+
                 try {
                     const response = await fetch(currentResumeUrl, {
                         body: JSON.stringify({message: input}),
-                        headers: {'Content-Type': 'application/json'},
+                        headers,
                         method: 'POST',
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`Resume request failed with status ${response.status}`);
+                    if (!isAcceptedResumeResponse(response)) {
+                        throw new Error(`Resume request was not accepted (status ${response.status})`);
                     }
 
-                    const contentType = response.headers.get('content-type') ?? '';
-
-                    if (contentType.includes('text/event-stream')) {
+                    if (isEventStreamResponse(response)) {
                         setMessage({content: '', role: 'assistant'});
 
                         await drainSseResponse(response, eventHandlers);
