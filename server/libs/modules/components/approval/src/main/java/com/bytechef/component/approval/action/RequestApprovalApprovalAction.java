@@ -77,12 +77,14 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.definition.BaseOutputDefinition.OutputResponse;
+import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ActionContextAware.ApprovalLinks;
 import com.bytechef.platform.component.definition.ApprovalFormInputs;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
+import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
@@ -314,7 +316,17 @@ public class RequestApprovalApprovalAction {
 
         String formUrl = approvalLinks.formUrl();
 
-        if (!actionContextAware.isEditorEnvironment()) {
+        if (actionContextAware.isEditorEnvironment()) {
+            // Editor test runs skip channels (they are production transports), but the canvas test run listens on
+            // the job's SSE stream. Deliver the same approval card event the chat channel would send by returning a
+            // one-shot SSE emitter output: the in-process post-output processor drains it into the test-run stream
+            // bridges. The suspend must happen inside the emitter handler — suspending before returning would make
+            // the service layer replace the emitter output with the Suspend and the card would never be sent.
+            if (actionContextAware.getJobId() != null) {
+                return createEditorApprovalRequestEmitterHandler(
+                    inputParameters, formUrl, expiresAt, actionContextAware);
+            }
+        } else {
             ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
             List<ClusterElement> approvalChannels = clusterElementMap.getClusterElements(APPROVAL_CHANNELS);
@@ -439,6 +451,30 @@ public class RequestApprovalApprovalAction {
             .plus(expiresIn, chronoUnit);
     }
 
+    /**
+     * Builds the editor-run delivery for the approval card: a {@link SuspendAwareSseEmitterHandler} that sends the
+     * {@code approval_request} data event onto the run's SSE stream, suspends the run, and completes. The wrapper
+     * carries the action context so the post-output processor can observe the suspend once the stream is drained — the
+     * same mechanism the AI agent's streaming action uses for mid-stream suspends.
+     */
+    private static SuspendAwareSseEmitterHandler createEditorApprovalRequestEmitterHandler(
+        Parameters inputParameters, String formUrl, Instant expiresAt, ActionContextAware actionContextAware) {
+
+        Map<String, Object> eventData = ApprovalRequestEvents.buildApprovalRequestEventData(inputParameters, formUrl);
+
+        eventData.put(EXPIRES_AT, expiresAt.toString());
+
+        return new SuspendAwareSseEmitterHandler(
+            sseEmitter -> {
+                sseEmitter.send(eventData);
+
+                suspend(actionContextAware, formUrl, expiresAt);
+
+                sseEmitter.complete();
+            },
+            actionContextAware);
+    }
+
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private static ResumeResponse resumePerform(
         Parameters inputParameters, Parameters connectionParameters, Parameters continueParameters, Parameters data,
@@ -460,6 +496,9 @@ public class RequestApprovalApprovalAction {
             dataMap.put(APPROVED_BY, "");
         }
 
+        // ResumeResponse.of() wraps the map as {data, resumed}, but the output schema declared by this action is
+        // flat (top-level `approved` + form-field names), so expressions like ${approval_1.name} work. Reshape the
+        // response to match the schema by replacing the wrapped contents with the flat data.
         ResumeResponse response = ResumeResponse.of(dataMap);
 
         response.clear();

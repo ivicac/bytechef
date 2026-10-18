@@ -262,7 +262,7 @@ class RuleEnforcingToolCallbackTest {
 
     @Test
     void testRequireApprovalSuspendsWithTheGateContinueParametersPlusTheRuleIds() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(
             new Decision.RequireApproval(
@@ -327,7 +327,7 @@ class RuleEnforcingToolCallbackTest {
      */
     @Test
     void testARuleApprovalWithNoConfiguredChannelsStillReachesTheApprovalTaskChannel() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(requireApproval());
 
@@ -343,7 +343,7 @@ class RuleEnforcingToolCallbackTest {
 
     @Test
     void testDeliveryStillSucceedsWhenOnlyTheApprovalTaskChannelDelivers() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(requireApproval());
         when(
@@ -360,7 +360,7 @@ class RuleEnforcingToolCallbackTest {
 
     @Test
     void testDeliveryFailsWhenEveryChannelIncludingTheApprovalTaskChannelFails() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
         when(componentRuleEnforcer.checkBeforeCall(any())).thenReturn(requireApproval());
         when(

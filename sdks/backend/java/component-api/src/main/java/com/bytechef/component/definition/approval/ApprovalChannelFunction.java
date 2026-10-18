@@ -36,8 +36,6 @@ public interface ApprovalChannelFunction {
     ClusterElementType APPROVAL_CHANNELS =
         new ClusterElementType("APPROVAL_CHANNELS", "approvalChannels", "Channels", true, false);
 
-    String EXPIRES_AT = "expiresAt";
-
     /**
      * Key under which the calling approval action publishes the request's expiry as an ISO-8601 instant string, so a
      * channel can tell the approver when the request lapses. Absent when the caller has no expiry.
@@ -60,6 +58,28 @@ public interface ApprovalChannelFunction {
      * of one-click Approve/Discard actions (when the list is empty).
      */
     String INPUTS = "inputs";
+
+    /**
+     * Key under which the platform publishes its public base URL, so a channel can build links back to it.
+     */
+    String PUBLIC_URL = "publicUrl";
+
+    /**
+     * Key under which the platform publishes the resume token of the request, the tail of {@code formUrl}, so a channel
+     * that resolves the request in place can name it.
+     */
+    String RESUME_ID = "resumeId";
+
+    /**
+     * Key under which the platform publishes the full resume URL of the request.
+     */
+    String RESUME_URL = "resumeUrl";
+
+    /**
+     * Key under which the platform publishes a short id standing for the resume token, for channels whose button
+     * payloads cannot hold the whole token. Absent when the platform could not mint one.
+     */
+    String SHORT_RESUME_ID = "shortResumeId";
 
     /**
      * Delivers the approval request through this channel and returns the channel-specific result.

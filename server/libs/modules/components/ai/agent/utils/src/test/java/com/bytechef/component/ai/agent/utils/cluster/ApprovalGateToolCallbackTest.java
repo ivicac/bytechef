@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
@@ -37,15 +38,10 @@ import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
 import com.bytechef.platform.ai.tool.ToolSuspension;
+import com.bytechef.platform.ai.tool.ToolSuspensionException;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
-import com.bytechef.platform.constant.PlatformType;
-import com.bytechef.platform.tool.execution.ToolExecutionEvent;
-import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
-import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
-import com.bytechef.platform.tool.execution.ToolExecutionSurface;
-import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -63,6 +59,9 @@ import org.springframework.ai.tool.definition.DefaultToolDefinition;
  * @author Ivica Cardic
  */
 class ApprovalGateToolCallbackTest {
+
+    private static final ClusterElement GATED_TOOL_CLUSTER_ELEMENT = new ClusterElement(
+        null, null, Map.of(), null, "slack/v1/sendMessage", Map.of(), "slack_2");
 
     private final ToolCallback delegate = mock(ToolCallback.class);
     private final ClusterElementDefinitionService clusterElementDefinitionService = mock(
@@ -96,11 +95,12 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFirstCallDeliversDefaultChatChannelAndSuspends() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, List.of(), Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         String result = gate.call("{\"channel\": \"#general\"}", null);
 
@@ -127,107 +127,13 @@ class ApprovalGateToolCallbackTest {
     }
 
     @Test
-    void testFirstCallRecordsApprovalRequiredAuditEvent() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
-        when(actionContext.isEditorEnvironment()).thenReturn(false);
-        when(actionContext.getJobId()).thenReturn(42L);
-
-        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-
-        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, toolExecutionRecorder);
-
-        gate.call("{\"channel\": \"#general\"}", null);
-
-        ArgumentCaptor<ToolExecutionEvent> eventCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
-
-        verify(toolExecutionRecorder).record(eventCaptor.capture());
-
-        ToolExecutionEvent toolExecutionEvent = eventCaptor.getValue();
-
-        assertThat(toolExecutionEvent.surface()).isEqualTo(ToolExecutionSurface.AI_AGENT);
-        assertThat(toolExecutionEvent.toolName()).isEqualTo("SLACK_SEND_MESSAGE");
-        assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.APPROVAL_REQUIRED);
-        assertThat(toolExecutionEvent.jobId()).isEqualTo(42L);
-    }
-
-    @Test
-    void testFirstCallScopesTheApprovalRequiredEventToTheRunEnvironmentAndWorkspace() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
-        when(actionContext.isEditorEnvironment()).thenReturn(false);
-        when(actionContext.getEnvironmentId()).thenReturn(2L);
-        when(actionContext.getJobPrincipalId()).thenReturn(5L);
-        when(actionContext.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-
-        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-        ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver = mock(ToolInvocationWorkspaceResolver.class);
-
-        when(toolInvocationWorkspaceResolver.resolve(PlatformType.AUTOMATION, 5L)).thenReturn(9L);
-
-        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, toolExecutionRecorder,
-            toolInvocationWorkspaceResolver, null);
-
-        gate.call("{\"channel\": \"#general\"}", null);
-
-        ToolExecutionEvent toolExecutionEvent = captureRecordedEvent(toolExecutionRecorder);
-
-        assertThat(toolExecutionEvent.environment()).isEqualTo(2);
-        assertThat(toolExecutionEvent.workspaceId()).isEqualTo(9L);
-    }
-
-    @Test
-    void testFirstCallRecordsTheEnvironmentWithoutAWorkspaceWhenNoResolverIsPresent() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
-        when(actionContext.isEditorEnvironment()).thenReturn(false);
-        when(actionContext.getEnvironmentId()).thenReturn(1L);
-        when(actionContext.getJobPrincipalId()).thenReturn(5L);
-        when(actionContext.getPlatformType()).thenReturn(PlatformType.AUTOMATION);
-
-        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-
-        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, toolExecutionRecorder,
-            null, null);
-
-        gate.call("{\"channel\": \"#general\"}", null);
-
-        ToolExecutionEvent toolExecutionEvent = captureRecordedEvent(toolExecutionRecorder);
-
-        assertThat(toolExecutionEvent.environment()).isEqualTo(1);
-        assertThat(toolExecutionEvent.workspaceId()).isNull();
-    }
-
-    @Test
-    void testFirstCallLeavesTheEventUnscopedWhenTheRunHasNoEnvironmentOrWorkspace() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
-        when(actionContext.isEditorEnvironment()).thenReturn(true);
-        when(actionContext.getEnvironmentId()).thenReturn(null);
-
-        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
-        ToolInvocationWorkspaceResolver toolInvocationWorkspaceResolver = mock(ToolInvocationWorkspaceResolver.class);
-
-        when(toolInvocationWorkspaceResolver.resolve(any(), any())).thenReturn(null);
-
-        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, toolExecutionRecorder,
-            toolInvocationWorkspaceResolver, null);
-
-        gate.call("{\"channel\": \"#general\"}", null);
-
-        ToolExecutionEvent toolExecutionEvent = captureRecordedEvent(toolExecutionRecorder);
-
-        assertThat(toolExecutionEvent.environment()).isNull();
-        assertThat(toolExecutionEvent.workspaceId()).isNull();
-    }
-
-    @Test
     void testSecondFlaggedCallInSameRoundDefersWithoutSecondSuspend() {
         when(actionContext.getSuspend()).thenReturn(
             new ActionContext.Suspend(Map.of(), Instant.now()));
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, List.of(), Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         String result = gate.call("{}", null);
 
@@ -242,11 +148,12 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testEditorEnvironmentSkipsChannelDeliveryButStillSuspends() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, List.of(), Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         String result = gate.call("{}", null);
 
@@ -258,7 +165,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testEditorEnvironmentEmitsApprovalRequestEventThroughToolContext() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(true);
 
         SseTransport sseTransport = new SseTransport();
@@ -266,7 +173,8 @@ class ApprovalGateToolCallbackTest {
         ToolContext toolContext = new ToolContext(new AiAgentToolContext(actionContext, sseTransport).toMap());
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, List.of(), Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         String result = gate.call("{\"channel\": \"#general\"}", toolContext);
 
@@ -295,7 +203,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFanOutDeliversRemainingChannelsWhenOneFails() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         when(clusterElementDefinitionService.executeApprovalChannel(
@@ -308,7 +216,8 @@ class ApprovalGateToolCallbackTest {
                 null, null, Map.of(), null, "approvalTask/v1/approvalTask", Map.of(), "approvalTask_1"));
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, approvalChannels, Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, approvalChannels, Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         String result = gate.call("{}", null);
 
@@ -322,7 +231,7 @@ class ApprovalGateToolCallbackTest {
 
     @Test
     void testFanOutFailsWhenEveryChannelFails() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         when(clusterElementDefinitionService.executeApprovalChannel(
@@ -333,23 +242,26 @@ class ApprovalGateToolCallbackTest {
             new ClusterElement(null, null, Map.of(), null, "slack/v1/approvalChannel", Map.of(), "slack_1"));
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, approvalChannels, Map.of(), clusterElementDefinitionService, actionContext);
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, approvalChannels, Map.of(), clusterElementDefinitionService,
+            actionContext, null);
 
         // When every configured channel fails nobody was notified, so the gate must fail rather than suspend into a
         // silent no-op that would leave the run paused with no delivered approval request.
-        assertThatThrownBy(() -> gate.call("{}", null)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> gate.call("{}", null))
+            .isInstanceOf(ToolSuspensionException.class)
+            .hasCauseInstanceOf(IllegalStateException.class);
 
         verify(actionContext, never()).suspend(any());
     }
 
     @Test
     void testConfiguredApprovalExpiryDrivesSuspendExpiry() {
-        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
         when(actionContext.isEditorEnvironment()).thenReturn(false);
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
-            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, null,
-            null, Duration.ofHours(4));
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, null, List.of(), Map.of(), clusterElementDefinitionService,
+            actionContext, Duration.ofHours(4));
 
         gate.call("{}", null);
 
@@ -366,11 +278,21 @@ class ApprovalGateToolCallbackTest {
                 .plus(Duration.ofHours(5)));
     }
 
-    private static ToolExecutionEvent captureRecordedEvent(ToolExecutionRecorder toolExecutionRecorder) {
-        ArgumentCaptor<ToolExecutionEvent> toolExecutionEventCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
+    @Test
+    void testGateNameTitlesTheApprovalRequest() {
+        when(actionContext.getResumeUrl(any())).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(false);
 
-        verify(toolExecutionRecorder).record(toolExecutionEventCaptor.capture());
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, GATED_TOOL_CLUSTER_ELEMENT, "Billing gate", List.of(), Map.of(),
+            clusterElementDefinitionService, actionContext, null);
 
-        return toolExecutionEventCaptor.getValue();
+        gate.call("{}", null);
+
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("chat"), eq(1), eq("chat"),
+            argThat(inputParameters -> "Billing gate: approve tool call SLACK_SEND_MESSAGE".equals(
+                inputParameters.get("formTitle"))),
+            anyString(), isNull(), eq(actionContext));
     }
 }

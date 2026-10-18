@@ -32,11 +32,14 @@ import com.bytechef.platform.file.storage.TempFileStorage;
 import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalShortResumeIds;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,6 +64,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
 
     private final String actionName;
     private @Nullable Approval approval;
+    private final @Nullable ApprovalShortResumeIds approvalShortResumeIds;
     private final @Nullable ApprovalTokens approvalTokens;
     private final CacheManager cacheManager;
     private final Data data;
@@ -100,6 +104,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             builder.tempFileStorage, builder.logFileStorageWriter, true, null);
 
         this.actionName = builder.actionName;
+        this.approvalShortResumeIds = builder.approvalShortResumeIds;
         this.approvalTokens = builder.approvalTokens;
         this.cacheManager = builder.cacheManager;
         this.dataStorage = builder.dataStorage;
@@ -154,6 +159,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
         return builder(
             componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
             eventPublisher, httpClientExecutor, tempFileStorage, jobService, approvalTokens)
+                .approvalShortResumeIds(approvalShortResumeIds)
                 .componentConnection(componentConnection)
                 .environmentId(environmentId)
                 .jobId(jobId)
@@ -195,6 +201,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
     static final class Builder {
 
         private final String actionName;
+        private @Nullable ApprovalShortResumeIds approvalShortResumeIds;
         private final @Nullable ApprovalTokens approvalTokens;
         private final CacheManager cacheManager;
         private @Nullable ComponentConnection componentConnection;
@@ -235,6 +242,12 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             this.tempFileStorage = tempFileStorage;
             this.jobService = jobService;
             this.approvalTokens = approvalTokens;
+        }
+
+        Builder approvalShortResumeIds(@Nullable ApprovalShortResumeIds approvalShortResumeIds) {
+            this.approvalShortResumeIds = approvalShortResumeIds;
+
+            return this;
         }
 
         Builder componentConnection(@Nullable ComponentConnection componentConnection) {
@@ -399,6 +412,40 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
 
         return approvalTokens.toShortToken(resumeId)
             .orElse(null);
+    }
+
+    @Override
+    @Nullable
+    public String getResumeUrl(Instant expiresAt) {
+        if (suspendTarget != null) {
+            return suspendTarget.getResumeUrl(expiresAt);
+        }
+
+        if (publicUrl == null || jobId == null) {
+            return null;
+        }
+
+        return ApprovalFormUrls.toResumeUrl(publicUrl, toResumeToken(getOrCreateJobResumeId(jobId), expiresAt));
+    }
+
+    @Override
+    @Nullable
+    public String mintShortResumeId(String resumeToken, Instant expiresAt) {
+        if (suspendTarget != null) {
+            return suspendTarget.mintShortResumeId(resumeToken, expiresAt);
+        }
+
+        if (approvalShortResumeIds == null) {
+            return null;
+        }
+
+        try {
+            return approvalShortResumeIds.mint(resumeToken, expiresAt);
+        } catch (RuntimeException runtimeException) {
+            log.warn("Could not mint an approval short id; channels fall back to form links", runtimeException);
+
+            return null;
+        }
     }
 
     private synchronized String getOrCreateJobResumeId(long jobId) {
@@ -570,6 +617,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             .builder(
                 componentName, componentVersion, clusterElementName, editorEnvironment, cacheManager, dataStorage,
                 eventPublisher, httpClientExecutor, tempFileStorage)
+            .approvalShortResumeIds(approvalShortResumeIds)
             .approvalTokens(approvalTokens)
             .componentConnection(componentConnection)
             .environmentId(environmentId)

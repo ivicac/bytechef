@@ -17,6 +17,8 @@
 package com.bytechef.component.approval.action;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,15 +36,18 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.component.definition.ActionDefinition.ResumePerformFunction;
 import com.bytechef.component.definition.ActionDefinition.ResumePerformFunction.ResumeResponse;
+import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler.SseEmitter;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.platform.ai.constant.AiAgentSseEventType;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ActionContextAware.ApprovalLinks;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.ParametersFactory;
+import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.time.Instant;
@@ -96,6 +101,8 @@ class RequestApprovalApprovalActionTest {
 
         performFunction.apply(inputParameters, Map.of("googleMail_1", componentConnection), extensions, context);
 
+        // The channel must run through the aspect-wrapped service method, with the form URL derived from the resume URL
+        // and the channel's own connection threaded in so a token refresh can retry against fresh credentials.
         verify(clusterElementDefinitionService, times(1)).executeApprovalChannel(
             eq("googleMail"), eq(1), eq("googleMail"), any(), eq("https://example.com/api/resume/abc"),
             eq(componentConnection), eq(context));
@@ -339,6 +346,58 @@ class RequestApprovalApprovalActionTest {
             .plus(3, ChronoUnit.HOURS)));
         assertTrue(expiresAt.isBefore(Instant.now()
             .plus(5, ChronoUnit.HOURS)));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testPerformInEditorEnvironmentEmitsApprovalCardOnTestStream() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = RequestApprovalApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(true);
+        when(context.getJobId()).thenReturn(42L);
+        when(context.getApprovalLinks(any())).thenReturn(APPROVAL_LINKS);
+
+        Parameters inputParameters = ParametersFactory.create(Map.of("formTitle", "Approve this"));
+        Parameters extensions = ParametersFactory.create(Map.of());
+
+        Object result = performFunction.apply(inputParameters, Map.of(), extensions, context);
+
+        // The editor run must deliver the approval card through the run's SSE stream instead of channels: the action
+        // returns a suspend-aware emitter output that the in-process post-output processor drains into the test-run
+        // stream bridges.
+        SuspendAwareSseEmitterHandler emitterHandler = assertInstanceOf(SuspendAwareSseEmitterHandler.class, result);
+
+        SseEmitter sseEmitter = mock(SseEmitter.class);
+
+        emitterHandler.handle(sseEmitter);
+
+        ArgumentCaptor<Object> payloadArgumentCaptor = ArgumentCaptor.forClass(Object.class);
+
+        verify(sseEmitter).send(payloadArgumentCaptor.capture());
+
+        Map<String, Object> eventData = (Map<String, Object>) payloadArgumentCaptor.getValue();
+
+        assertEquals(AiAgentSseEventType.APPROVAL_REQUEST, eventData.get(AiAgentSseEventType.EVENT_TYPE));
+        assertEquals("abc", eventData.get("resumeId"));
+        assertEquals("https://example.com/api/resume/abc", eventData.get("formUrl"));
+        assertEquals("Approve this", eventData.get("formTitle"));
+
+        // The suspend happens inside the emitter handler (after the card event is sent), so the post-output
+        // processor observes it once the stream is drained; suspending before returning would have made the
+        // service layer swallow the emitter output.
+        verify(context).suspend(any(ActionContext.Suspend.class));
+        verify(sseEmitter).complete();
+
+        verify(clusterElementDefinitionService, never()).executeApprovalChannel(
+            anyString(), anyInt(), anyString(), any(), anyString(), any(), any());
     }
 
     @Test

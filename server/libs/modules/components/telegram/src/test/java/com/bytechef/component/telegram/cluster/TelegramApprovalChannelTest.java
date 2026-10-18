@@ -78,7 +78,7 @@ class TelegramApprovalChannelTest {
 
         Map<String, Object> inputParameters = new HashMap<>(
             Map.of(
-                "chat_id", "7", "inputs", List.of(), ApprovalChannelFunction.PUBLIC_URL, "https://example.com",
+                "chat_id", "7", "inputs", List.of(),
                 ApprovalChannelFunction.RESUME_ID, "resume-token"));
 
         if (shortResumeId != null) {
