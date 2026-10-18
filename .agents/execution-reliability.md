@@ -76,6 +76,16 @@ read this before working in the areas below.
   — protects against a different agent node in the same job) and clears it on success. Editor /
   job-less runs skip it; all checkpoint I/O is fail-open (a storage failure never fails the
   turn). Fingerprint computation is deliberately lazy (inside the write lambda).
+- **Open gap: gated tool calls under auto-resume.** A worker that dies after an approved gated tool
+  started but before its result was stored leaves no record that the call ran. The approval lives
+  in the suspended task's resume data, which a crash-resumed run does not get, so the conversation
+  restored from the agent-loop checkpoint is expected to re-gate the same call and ask for a second
+  approval (not verified end to end) — a reviewer who approves again
+  runs the side effect twice (e.g. a second email). Before enabling `auto-resume` by default, record
+  a started marker on the gated call before executing it and, when a recovered run finds the marker
+  without a result, report the outcome as unknown to the model and reviewer instead of re-running.
+  An idempotency key (approval id + tool call id) helps only tools whose API dedupes on one; SMTP
+  cannot. Raised on #6332.
 
 ## Notification delivery (central point)
 
