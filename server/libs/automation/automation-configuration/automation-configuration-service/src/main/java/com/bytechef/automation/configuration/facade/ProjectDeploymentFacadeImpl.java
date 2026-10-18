@@ -57,6 +57,8 @@ import com.bytechef.component.definition.TriggerDefinition.WebhookEnableOutput;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.audit.AuditData;
+import com.bytechef.platform.audit.Audited;
 import com.bytechef.platform.component.domain.ConnectionDefinition;
 import com.bytechef.platform.component.domain.TriggerDefinition;
 import com.bytechef.platform.component.service.ConnectionDefinitionService;
@@ -81,9 +83,9 @@ import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerLifecycleFacade;
+import com.bytechef.platform.workflow.execution.facade.TriggerStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
-import com.bytechef.platform.workflow.execution.service.TriggerStateService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -158,7 +160,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     private final TriggerDefinitionService triggerDefinitionService;
     private final TriggerExecutionService triggerExecutionService;
     private final TriggerLifecycleFacade triggerLifecycleFacade;
-    private final TriggerStateService triggerStateService;
+    private final TriggerStateFacade triggerStateFacade;
     private final String webhookUrl;
     private final ComponentConnectionFacade componentConnectionFacade;
     private final WorkflowService workflowService;
@@ -184,7 +186,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
         ComponentConnectionFacade componentConnectionFacade, WorkflowService workflowService,
         @Lazy ConnectionDefinitionService connectionDefinitionService, @Lazy PermissionService permissionService,
         @Lazy WorkspaceConnectionFacade workspaceConnectionFacade, PlatformTransactionManager transactionManager,
-        TriggerStateService triggerStateService) {
+        TriggerStateFacade triggerStateFacade) {
 
         this.applicationEventPublisher = applicationEventPublisher;
         this.connectionService = connectionService;
@@ -206,7 +208,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
         this.triggerDefinitionService = triggerDefinitionService;
         this.triggerExecutionService = triggerExecutionService;
         this.triggerLifecycleFacade = triggerLifecycleFacade;
-        this.triggerStateService = triggerStateService;
+        this.triggerStateFacade = triggerStateFacade;
         this.webhookUrl = applicationProperties.getWebhookUrl();
         this.componentConnectionFacade = componentConnectionFacade;
         this.workflowService = workflowService;
@@ -222,6 +224,11 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     }
 
     @Override
+    @Audited(event = ProjectDeploymentAuditEvents.DEPLOYMENT_CREATED, data = {
+        @AuditData(key = "projectDeploymentId", value = "#result"),
+        @AuditData(key = "projectId", value = "#projectDeploymentDTO.projectId"),
+        @AuditData(key = "name", value = "#projectDeploymentDTO.name")
+    })
     // The whole DTO, not its projectId: the evaluator reads the target environment off it so that the role
     // checked is the one held in the environment being deployed into.
     @PreAuthorize("hasPermission(#projectDeploymentDTO, 'WORKFLOW_EDIT') and " +
@@ -282,6 +289,9 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
                 ProjectDeploymentErrorType.INVALID_PROJECT_VERSION);
         }
 
+        normalizeProjectDeploymentWorkflowIds(
+            projectDeployment, projectDeploymentWorkflows, projectWorkflowService.getProjectWorkflows(projectId));
+
         if (!tags.isEmpty()) {
             projectDeployment.setTags(checkTags(tags));
         }
@@ -338,6 +348,9 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     }
 
     @Override
+    @Audited(event = ProjectDeploymentAuditEvents.DEPLOYMENT_DELETED, data = {
+        @AuditData(key = "projectDeploymentId", value = "#id")
+    })
     @PreAuthorize("hasPermission(#id, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
     public void deleteProjectDeployment(long id) {
         ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(id);
@@ -482,6 +495,10 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
      * are re-armed.
      */
     @Override
+    @Audited(event = ProjectDeploymentAuditEvents.DEPLOYMENT_ENABLED_UPDATED, data = {
+        @AuditData(key = "projectDeploymentId", value = "#projectDeploymentId"),
+        @AuditData(key = "enabled", value = "#enable")
+    })
     @PreAuthorize("hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
     public void enableProjectDeployment(long projectDeploymentId, boolean enable) {
         changeWorkflowTriggers(
@@ -494,6 +511,11 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
      * the jobs the workflow had running when its triggers were disarmed, and only once everything else succeeded.
      */
     @Override
+    @Audited(event = ProjectDeploymentAuditEvents.DEPLOYMENT_WORKFLOW_ENABLED_UPDATED, data = {
+        @AuditData(key = "projectDeploymentId", value = "#projectDeploymentId"),
+        @AuditData(key = "workflowId", value = "#workflowId"),
+        @AuditData(key = "enabled", value = "#enable")
+    })
     @PreAuthorize("hasPermission(#projectDeploymentId, 'ProjectDeployment', 'DEPLOYMENT_EDIT')")
     public void enableProjectDeploymentWorkflow(long projectDeploymentId, String workflowId, boolean enable) {
         changeWorkflowTriggers(workflowTriggerJournal -> {
@@ -817,8 +839,8 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
 
         Environment environment = environmentId == null ? null : environmentService.getEnvironment(environmentId);
 
-        List<ProjectDeployment> projectDeployments = projectDeploymentService.getProjectDeployments(
-            false, environment, projectId, tagId, id);
+        List<ProjectDeployment> projectDeployments = filterOutSystemProjectDeployments(
+            projectDeploymentService.getProjectDeployments(false, environment, projectId, tagId, id));
 
         if (environment == null) {
             projectDeployments = environmentScopeFilter.filterByEnvironment(
@@ -876,6 +898,11 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
     }
 
     @Override
+    @Audited(event = ProjectDeploymentAuditEvents.DEPLOYMENT_UPDATED, data = {
+        @AuditData(key = "projectDeploymentId", value = "#projectDeploymentDTO.id"),
+        @AuditData(key = "projectId", value = "#projectDeploymentDTO.projectId"),
+        @AuditData(key = "name", value = "#projectDeploymentDTO.name")
+    })
     @PreAuthorize("hasPermission(#projectDeploymentDTO.id, 'ProjectDeployment', 'DEPLOYMENT_EDIT') and " +
         "hasPermission(#projectDeploymentDTO, 'DEPLOYMENT_PUSH')")
     public void updateProjectDeployment(ProjectDeploymentDTO projectDeploymentDTO) {
@@ -962,11 +989,16 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
         ProjectDeployment oldProjectDeployment = projectDeploymentService.getProjectDeployment(
             projectDeployment.getId());
 
+        List<ProjectWorkflow> allProjectWorkflows = projectWorkflowService.getProjectWorkflows(
+            projectDeployment.getProjectId());
+
+        normalizeProjectDeploymentWorkflowIds(projectDeployment, projectDeploymentWorkflows, allProjectWorkflows);
+
         projectDeploymentService.update(projectDeployment);
 
         checkProjectDeploymentWorkflows(
             projectDeployment, oldProjectDeployment.getProjectVersion(), projectDeploymentWorkflows,
-            projectWorkflowService.getProjectWorkflows(projectDeployment.getProjectId()));
+            allProjectWorkflows);
     }
 
     @Override
@@ -1055,6 +1087,41 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
             enableWorkflowTriggers(previousProjectDeploymentWorkflow);
         } catch (RuntimeException enableException) {
             exception.addSuppressed(enableException);
+        }
+    }
+
+    /**
+     * Points every workflow row at the workflow of the deployed project version: a row may name the same workflow (by
+     * uuid) in another version of the project. A workflow id that is not part of the project, or a workflow missing
+     * from the deployed version, is rejected.
+     */
+    private static void normalizeProjectDeploymentWorkflowIds(
+        ProjectDeployment projectDeployment, List<ProjectDeploymentWorkflow> projectDeploymentWorkflows,
+        List<ProjectWorkflow> allProjectWorkflows) {
+
+        for (ProjectDeploymentWorkflow projectDeploymentWorkflow : projectDeploymentWorkflows) {
+            String workflowId = projectDeploymentWorkflow.getWorkflowId();
+
+            ProjectWorkflow projectWorkflow = allProjectWorkflows.stream()
+                .filter(curProjectWorkflow -> Objects.equals(curProjectWorkflow.getWorkflowId(), workflowId))
+                .findFirst()
+                .orElseThrow(() -> new ConfigurationException(
+                    "Workflow id=%s does not belong to project id=%s".formatted(
+                        workflowId, projectDeployment.getProjectId()),
+                    ProjectDeploymentErrorType.INVALID_PROJECT_WORKFLOW));
+
+            String deployedWorkflowId = allProjectWorkflows.stream()
+                .filter(curProjectWorkflow -> Objects.equals(
+                    curProjectWorkflow.getUuidAsString(), projectWorkflow.getUuidAsString()) &&
+                    curProjectWorkflow.getProjectVersion() == projectDeployment.getProjectVersion())
+                .map(ProjectWorkflow::getWorkflowId)
+                .findFirst()
+                .orElseThrow(() -> new ConfigurationException(
+                    "Workflow id=%s does not exist in project version v=%s".formatted(
+                        workflowId, projectDeployment.getProjectVersion()),
+                    ProjectDeploymentErrorType.INVALID_PROJECT_WORKFLOW));
+
+            projectDeploymentWorkflow.setWorkflowId(deployedWorkflowId);
         }
     }
 
@@ -1741,10 +1808,10 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
             return;
         }
 
-        Optional<Object> storedTriggerState = triggerStateService.fetchValue(workflowExecutionId);
+        Optional<Object> storedTriggerState = triggerStateFacade.fetchValue(workflowExecutionId);
 
         if (!Objects.equals(storedTriggerState.orElse(null), armedTriggerState)) {
-            triggerStateService.save(workflowExecutionId, armedTriggerState);
+            triggerStateFacade.save(workflowExecutionId, armedTriggerState);
         }
     }
 
@@ -2289,7 +2356,7 @@ public class ProjectDeploymentFacadeImpl implements ProjectDeploymentFacade {
             Object armedTriggerState;
 
             try {
-                armedTriggerState = triggerStateService.fetchValue(workflowExecutionId)
+                armedTriggerState = triggerStateFacade.fetchValue(workflowExecutionId)
                     .filter(WebhookEnableOutput.class::isInstance)
                     .orElse(null);
             } catch (RuntimeException exception) {
