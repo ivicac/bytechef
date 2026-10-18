@@ -8,7 +8,7 @@
 package com.bytechef.ee.platform.scheduler.tenant;
 
 import com.bytechef.tenant.TenantContext;
-import com.bytechef.tenant.TenantIdValidator;
+import com.bytechef.tenant.sql.SchemaNameUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.sql.Connection;
@@ -605,17 +605,12 @@ public class MultiTenantDriverDelegate extends StdJDBCDelegate {
      * Sets the PostgreSQL search_path to the specified schema.
      *
      * <p>
-     * <b>Security Note:</b> The SQL injection suppression is for schema name injection which cannot be parameterized in
-     * PostgreSQL. The search_path is set using a tenant ID that is validated to contain only alphanumeric characters,
-     * underscores, and hyphens. This is a PostgreSQL limitation for DDL/schema operations, not a security
-     * vulnerability.
+     * The schema name is validated and quoted by {@link SchemaNameUtils#quote(String)}.
      */
     @SuppressFBWarnings("SQL_INJECTION_JDBC")
     private static void setSearchPath(Connection connection, String databaseSchemaName) throws SQLException {
-        TenantIdValidator.validateDatabaseSchema(databaseSchemaName);
-
         try (Statement statement = connection.createStatement()) {
-            statement.execute("SET search_path TO " + databaseSchemaName);
+            statement.execute("SET search_path TO " + SchemaNameUtils.quote(databaseSchemaName));
         }
     }
 

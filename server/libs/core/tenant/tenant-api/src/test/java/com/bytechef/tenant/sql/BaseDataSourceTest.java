@@ -17,7 +17,9 @@
 package com.bytechef.tenant.sql;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +65,7 @@ class BaseDataSourceTest {
 
         dataSource.getConnection();
 
-        assertEquals("SET search_path TO public", capturedSearchPathStatement());
+        assertEquals("SET search_path TO \"public\"", capturedSearchPathStatement());
     }
 
     @Test
@@ -78,7 +80,7 @@ class BaseDataSourceTest {
 
             dataSource.getConnection();
 
-            assertEquals("SET search_path TO bytechef_000004, public", capturedSearchPathStatement());
+            assertEquals("SET search_path TO \"bytechef_000004\", \"public\"", capturedSearchPathStatement());
         } finally {
             TenantContext.resetCurrentTenantId();
         }
@@ -97,7 +99,24 @@ class BaseDataSourceTest {
             dataSource.getConnection();
 
             assertEquals(
-                "SET search_path TO bytechef_vectorstore_000004, public", capturedSearchPathStatement());
+                "SET search_path TO \"bytechef_vectorstore_000004\", \"public\"", capturedSearchPathStatement());
+        } finally {
+            TenantContext.resetCurrentTenantId();
+        }
+    }
+
+    @Test
+    void testGetConnectionRejectsAnInvalidVectorSchemaSuffix() throws SQLException {
+        when(delegate.getConnection()).thenReturn(connection);
+
+        TenantContext.setCurrentTenantId("000004");
+
+        try {
+            BaseDataSource dataSource = new TestDataSource(delegate, "vector.store");
+
+            assertThrows(IllegalArgumentException.class, dataSource::getConnection);
+
+            verify(connection, never()).prepareStatement(anyString());
         } finally {
             TenantContext.resetCurrentTenantId();
         }
