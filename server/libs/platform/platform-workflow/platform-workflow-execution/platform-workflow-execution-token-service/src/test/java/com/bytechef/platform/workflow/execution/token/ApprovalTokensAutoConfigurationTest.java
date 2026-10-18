@@ -46,12 +46,25 @@ class ApprovalTokensAutoConfigurationTest {
 
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
 
+        beanFactory.addBean("applicationProperties", applicationProperties);
+
         ApprovalTokens approvalTokens = new ApprovalTokensAutoConfiguration().approvalTokens(
-            applicationProperties, beanFactory.getBeanProvider(Clock.class),
+            beanFactory.getBeanProvider(ApplicationProperties.class), beanFactory.getBeanProvider(Clock.class),
             beanFactory.getBeanProvider(EncryptionKey.class));
 
         String token = approvalTokens.toSignedToken(INNER);
 
         assertThat(approvalTokens.parseSignedToken(token)).contains(INNER);
+    }
+
+    @Test
+    void testApprovalTokensAreCreatedWithoutAnApplicationPropertiesBean() {
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+
+        ApprovalTokens approvalTokens = new ApprovalTokensAutoConfiguration().approvalTokens(
+            beanFactory.getBeanProvider(ApplicationProperties.class), beanFactory.getBeanProvider(Clock.class),
+            beanFactory.getBeanProvider(EncryptionKey.class));
+
+        assertThat(approvalTokens.toSignedTokenIfConfigured(INNER)).isEmpty();
     }
 }
