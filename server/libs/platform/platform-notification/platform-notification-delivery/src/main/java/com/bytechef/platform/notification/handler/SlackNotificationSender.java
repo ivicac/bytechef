@@ -19,21 +19,17 @@ package com.bytechef.platform.notification.handler;
 import com.bytechef.platform.notification.delivery.SlackNotificationClient;
 import com.bytechef.platform.notification.domain.Notification;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
  * Delivers SLACK-channel notifications through the shared {@link SlackNotificationClient}. Settings:
- * {@code slackWebhookUrl} (Slack incoming-webhook URL, required).
+ * {@code slackWebhookUrl} (Slack incoming-webhook URL, required). The send is synchronous and throws on a missing URL
+ * or a failed delivery.
  *
  * @author Ivica Cardic
  */
 @Component
 public class SlackNotificationSender implements NotificationSender<SlackNotificationHandler> {
-
-    private static final Logger log = LoggerFactory.getLogger(SlackNotificationSender.class);
 
     private final SlackNotificationClient slackNotificationClient;
 
@@ -46,7 +42,6 @@ public class SlackNotificationSender implements NotificationSender<SlackNotifica
         return Notification.Type.SLACK;
     }
 
-    @Async
     @Override
     public void send(
         Notification notification, SlackNotificationHandler slackNotificationHandler,
@@ -57,17 +52,10 @@ public class SlackNotificationSender implements NotificationSender<SlackNotifica
         String slackWebhookUrl = (String) settings.get("slackWebhookUrl");
 
         if (slackWebhookUrl == null || slackWebhookUrl.isBlank()) {
-            log.warn(
-                "Notification {} has no Slack webhook URL configured; skipping delivery", notification.getId());
-
-            return;
+            throw new IllegalStateException(
+                "Notification " + notification.getId() + " has no Slack webhook URL configured");
         }
 
-        try {
-            slackNotificationClient.send(
-                slackWebhookUrl, slackNotificationHandler.getText(notificationHandlerContext));
-        } catch (RuntimeException exception) {
-            log.error("Failed to deliver Slack notification {}", notification.getId(), exception);
-        }
+        slackNotificationClient.send(slackWebhookUrl, slackNotificationHandler.getText(notificationHandlerContext));
     }
 }

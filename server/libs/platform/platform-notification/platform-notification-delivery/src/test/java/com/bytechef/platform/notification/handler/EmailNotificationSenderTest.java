@@ -16,7 +16,6 @@
 
 package com.bytechef.platform.notification.handler;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -31,9 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
- * Pins the EMAIL channel's gateway-port semantics: a bound gateway receives the handler-rendered subject/content, a
- * deployment without a gateway bean warn-skips instead of failing the fan-out, and a notification without a recipient
- * address never reaches the gateway.
+ * Pins the EMAIL channel's gateway-port semantics: a bound gateway receives the handler-rendered subject/content, and a
+ * gateway failure, a deployment without a gateway bean, or a notification without a recipient address throws.
  *
  * @author Ivica Cardic
  */
@@ -68,21 +66,36 @@ public class EmailNotificationSenderTest {
     }
 
     @Test
-    public void testMissingGatewaySkipsWithoutFailing() {
+    public void testMissingGatewayThrows() {
         EmailNotificationSender emailNotificationSender = new EmailNotificationSender(objectProviderOf(null));
 
-        assertThatCode(
+        assertThatThrownBy(
             () -> emailNotificationSender.send(
                 notification(Map.of("email", "ops@example.com")), handler(), contextStub()))
-                    .doesNotThrowAnyException();
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No email gateway");
     }
 
     @Test
-    public void testMissingRecipientSkipsGateway() {
+    public void testMissingRecipientThrowsWithoutCallingGateway() {
         EmailNotificationSender emailNotificationSender = new EmailNotificationSender(
             objectProviderOf(notificationEmailGateway));
 
-        emailNotificationSender.send(notification(Map.of()), handler(), contextStub());
+        assertThatThrownBy(() -> emailNotificationSender.send(notification(Map.of()), handler(), contextStub()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("no email address");
+
+        verifyNoInteractions(notificationEmailGateway);
+    }
+
+    @Test
+    public void testBlankRecipientThrowsWithoutCallingGateway() {
+        EmailNotificationSender emailNotificationSender = new EmailNotificationSender(
+            objectProviderOf(notificationEmailGateway));
+
+        assertThatThrownBy(
+            () -> emailNotificationSender.send(notification(Map.of("email", " ")), handler(), contextStub()))
+                .isInstanceOf(IllegalStateException.class);
 
         verifyNoInteractions(notificationEmailGateway);
     }
