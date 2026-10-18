@@ -44,6 +44,15 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
 /**
+ * Gates the tools attached beneath it: every call raises an approval request through this gate's own channels and
+ * suspends the run instead of executing. Enforcement is structural rather than a flag on a tool, so gating is visible
+ * on the canvas and the LLM cannot route around it: it never sees the gate at all, only the tools, which arrive already
+ * wrapped.
+ *
+ * <p>
+ * Channels and expiry belong to the gate rather than the agent, so one agent can escalate destructive tools to Slack
+ * with a short expiry while routine ones go to chat.
+ *
  * @author Ivica Cardic
  */
 public class AiAgentUtilsApprovalGate {
@@ -139,14 +148,13 @@ public class AiAgentUtilsApprovalGate {
             checkGatableChild(toolClusterElement.getComponentName(), toolClusterElement.getClusterElementName());
 
             List<ToolCallback> elementToolCallbacks = clusterElementToolCallbacks.build(
-                toolClusterElement, componentConnections, context);
+                toolClusterElement, componentConnections, context, approvalChannelClusterElements);
 
             for (ToolCallback toolCallback : elementToolCallbacks) {
                 toolCallbacks.add(
                     new ApprovalGateToolCallback(
                         toolCallback, toolClusterElement, gateName, approvalChannelClusterElements,
-                        componentConnections,
-                        clusterElementDefinitionService, context, approvalExpiry));
+                        componentConnections, clusterElementDefinitionService, context, approvalExpiry));
             }
         }
 

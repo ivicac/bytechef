@@ -65,12 +65,13 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
 /**
- * Provides a task tool that delegates complex tasks to specialized built-in sub-agents (Explore, General-Purpose, Plan,
- * Bash). The sub-agent model is supplied by a Model child cluster element configured on this tool.
+ * Provides a task tool that delegates complex tasks to specialized sub-agents.
  *
  * @author Ivica Cardic
  */
 public class AiAgentUtilsTaskTool {
+
+    private static final String TASK_TOOL = "taskTool";
 
     /**
      * Shared across runs because a repository is built per invocation while the executor must outlive any one of them.
@@ -99,7 +100,7 @@ public class AiAgentUtilsTaskTool {
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement(TASK_TOOL)
                 .title("Task Tool")
-                .description("Delegate complex tasks to specialized sub-agents for parallel execution.")
+                .description("Delegate tasks to subagents you define, each limited to the tools you attach to it.")
                 .type(TOOLS)
                 .object(() -> this::apply);
     }
@@ -109,7 +110,7 @@ public class AiAgentUtilsTaskTool {
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
         Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
 
-        ChatModel chatModel = resolveChatModel(extensions, componentConnections);
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
         List<ClusterElement> subagentClusterElements = clusterElementMap.getClusterElements(SUBAGENT);
 
@@ -192,7 +193,7 @@ public class AiAgentUtilsTaskTool {
             // A gate here would suspend on the AGENT's context and return the sentinel into the subagent's own
             // ChatClient, which treats it as an ordinary result and continues; the parent then cannot find the
             // sentinel among its own tool responses and the suspend is orphaned.
-            if (AiAgentUtilsApprovalGateTool.APPROVAL_GATE.equals(toolClusterElement.getClusterElementName())) {
+            if (AiAgentUtilsApprovalGate.APPROVAL_GATE.equals(toolClusterElement.getClusterElementName())) {
                 throw new IllegalStateException(
                     "Approval gates cannot be attached to a subagent — a suspended subagent run cannot be resumed. " +
                         "Attach the gate to the agent instead.");
@@ -276,43 +277,5 @@ public class AiAgentUtilsTaskTool {
 
         return new ClusterElementFailureAttributingChatModel(
             chatModel, element.getWorkflowNodeName(), element.getComponentName(), clusterElementCallTarget.get());
-    }
-
-    private ChatModel resolveChatModel(
-        Parameters extensions, Map<String, ComponentConnection> componentConnections) throws Exception {
-
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
-
-        Optional<ClusterElement> modelElement = clusterElementMap.fetchClusterElement(MODEL);
-
-        if (modelElement.isEmpty()) {
-            throw new IllegalStateException(
-                "Task Tool requires a Model child cluster element. Attach a chat-capable model.");
-        }
-
-        ClusterElement element = modelElement.get();
-
-        ModelFunction modelFunction = clusterElementDefinitionService.getClusterElement(
-            element.getComponentName(), element.getComponentVersion(), element.getClusterElementName());
-
-        ComponentConnection connection = componentConnections.get(element.getWorkflowNodeName());
-
-        Object model = modelFunction.apply(
-            ParametersFactory.create(element.getParameters()),
-            ParametersFactory.create(connection == null ? Map.of() : connection.getParameters()),
-            false);
-
-        if (!(model instanceof ChatModel chatModel)) {
-            String returnedType = model == null ? "null" : model.getClass()
-                .getName();
-
-            throw new IllegalArgumentException(
-                "MODEL child '%s' on component '%s' v%s returned %s; Task Tool requires a ChatModel. Attach a chat-capable model."
-                    .formatted(
-                        element.getClusterElementName(), element.getComponentName(),
-                        element.getComponentVersion(), returnedType));
-        }
-
-        return chatModel;
     }
 }

@@ -108,7 +108,7 @@ class AiAgentUtilsTaskToolTest {
 
         try {
             List<ToolCallback> toolCallbacks = new AiAgentUtilsTaskTool(
-                aiAgentToolFacade, clusterElementDefinitionService)
+                aiAgentToolFacade, clusterElementDefinitionService, List.of(), null, null)
                     .buildSubagentToolCallbacks(subagentClusterElement, Map.of(), actionContext);
 
             toolCallbacks.getFirst()
@@ -183,7 +183,7 @@ class AiAgentUtilsTaskToolTest {
 
         try {
             List<ToolCallback> toolCallbacks = new AiAgentUtilsTaskTool(
-                aiAgentToolFacade, clusterElementDefinitionService)
+                aiAgentToolFacade, clusterElementDefinitionService, List.of(), null, null)
                     .buildSubagentToolCallbacks(subagentClusterElement, Map.of(), actionContext);
 
             toolCallbacks.getFirst()
@@ -227,7 +227,7 @@ class AiAgentUtilsTaskToolTest {
             Map.of("clusterElements", Map.of("subagent", List.of(subagentElementMap))));
 
         AiAgentUtilsTaskTool aiAgentUtilsTaskTool = new AiAgentUtilsTaskTool(
-            aiAgentToolFacade, clusterElementDefinitionService);
+            aiAgentToolFacade, clusterElementDefinitionService, List.of(), null, null);
 
         MultipleConnectionsToolCallbackProviderFunction toolCallbackProviderFunction =
             aiAgentUtilsTaskTool.clusterElementDefinition.getElement();
@@ -284,20 +284,6 @@ class AiAgentUtilsTaskToolTest {
         };
     }
 
-    private static final class FailingChatModel implements ChatModel {
-
-        @Override
-        public ChatResponse call(Prompt prompt) {
-            throw new IllegalStateException("model unavailable");
-        }
-
-        @Override
-        public ChatOptions getDefaultOptions() {
-            return ChatOptions.builder()
-                .build();
-        }
-    }
-
     @Test
     void testRejectsAnApprovalGateAttachedToASubagent() {
         List<ClusterElement> subagentClusterElements = subagentClusterElements(
@@ -325,13 +311,30 @@ class AiAgentUtilsTaskToolTest {
         Map<String, Object> nestedTaskTool = Map.of(
             "name", "taskTool_2", "type", "aiAgentUtils/v1/taskTool",
             "clusterElements", Map.of(
-                "subagent", List.of(subagent("subagent_2", tool("approvalGate_2", "aiAgentUtils/v1/approvalGate")))));
+                "subagent",
+                List.of(subagent("subagent_2", tool("approvalGate_2", "aiAgentUtils/v1/approvalGate")))));
 
         List<ClusterElement> subagentClusterElements = subagentClusterElements(nestedTaskTool);
 
         assertThatThrownBy(() -> AiAgentUtilsTaskTool.checkSubagentTools(subagentClusterElements))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("approvalGate_2")
+            .hasMessageContaining("subagent_2");
+    }
+
+    @Test
+    void testRejectsRequestApprovalInASubagentOfANestedTaskTool() {
+        Map<String, Object> nestedTaskTool = Map.of(
+            "name", "taskTool_2", "type", "aiAgentUtils/v1/taskTool",
+            "clusterElements", Map.of(
+                "subagent",
+                List.of(subagent("subagent_2", tool("requestApproval_2", "approval/v1/requestApproval")))));
+
+        List<ClusterElement> subagentClusterElements = subagentClusterElements(nestedTaskTool);
+
+        assertThatThrownBy(() -> AiAgentUtilsTaskTool.checkSubagentTools(subagentClusterElements))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("requestApproval_2")
             .hasMessageContaining("subagent_2");
     }
 
@@ -359,5 +362,19 @@ class AiAgentUtilsTaskToolTest {
 
     private static Map<String, Object> tool(String name, String type) {
         return Map.of("name", name, "type", type);
+    }
+
+    private static final class FailingChatModel implements ChatModel {
+
+        @Override
+        public ChatResponse call(Prompt prompt) {
+            throw new IllegalStateException("model unavailable");
+        }
+
+        @Override
+        public ChatOptions getDefaultOptions() {
+            return ChatOptions.builder()
+                .build();
+        }
     }
 }
