@@ -47,6 +47,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         init?: RequestInit;
     } | null>(null);
 
+    const approvalCardShownRef = useRef(false);
     const awaitingStreamEventRef = useRef(false);
     const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
     const pendingResumeUrlRef = useRef<string | null>(null);
@@ -59,6 +60,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         setCurrentStepName,
         setIsRunning,
         setLastAssistantMessageContent,
+        setLastEmptyAssistantMessage,
         setMessage,
         setResumeUrl,
     } = useChatsStore(
@@ -69,6 +71,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             setCurrentStepName: state.setCurrentStepName,
             setIsRunning: state.setIsRunning,
             setLastAssistantMessageContent: state.setLastAssistantMessageContent,
+            setLastEmptyAssistantMessage: state.setLastEmptyAssistantMessage,
             setMessage: state.setMessage,
             setResumeUrl: state.setResumeUrl,
         }))
@@ -208,7 +211,10 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             // Render an interactive approval card (see ApprovalRequestMessage) that resolves through the
             // job-resume endpoint. Deliberately do NOT set a resume URL for the chat input — typing never
             // resolves an approval; only the card (or the hosted form) does.
-            setMessage({
+            approvalCardShownRef.current = true;
+            awaitingStreamEventRef.current = false;
+
+            setLastEmptyAssistantMessage({
                 content: [
                     {
                         data: {
@@ -228,13 +234,13 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             setIsRunning(false);
             setStreamRequest(null);
         },
-        [setIsRunning, setMessage]
+        [setIsRunning, setLastEmptyAssistantMessage]
     );
 
     const handleSuspended = useCallback(() => {
         awaitingStreamEventRef.current = false;
 
-        if (!hasLastAssistantMessageText(useChatsStore.getState().messages)) {
+        if (!approvalCardShownRef.current && !hasLastAssistantMessageText(useChatsStore.getState().messages)) {
             setLastAssistantMessageContent('The workflow is waiting for a response before it can continue.');
         }
 
@@ -272,6 +278,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             const input = message.content[0].text;
             const currentResumeUrl = useChatsStore.getState().resumeUrl;
 
+            approvalCardShownRef.current = false;
             questionShownRef.current = false;
 
             setMessage({attachments: [...(message.attachments ?? [])], content: input, role: 'user'});
@@ -455,6 +462,8 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         (resumeId: string, payload: Record<string, unknown>) =>
             new Promise<void>((resolve, reject) => {
                 pendingResumeRef.current = {reject, resolve};
+
+                approvalCardShownRef.current = false;
 
                 setMessage({content: '', role: 'assistant'});
                 setIsRunning(true);

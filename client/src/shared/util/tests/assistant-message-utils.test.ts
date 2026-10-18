@@ -7,6 +7,7 @@ import {
     getResumeStreamRequest,
     hasLastAssistantMessageText,
     setLastAssistantMessageContent,
+    setLastEmptyAssistantMessage,
 } from '../assistant-message-utils';
 
 describe('assistant-message-utils', () => {
@@ -203,6 +204,37 @@ describe('assistant-message-utils', () => {
                 id: 'msg-123',
                 role: 'assistant',
             });
+        });
+    });
+
+    describe('setLastEmptyAssistantMessage', () => {
+        it('replaces the trailing empty assistant placeholder', () => {
+            const messages: ThreadMessageLike[] = [
+                {content: 'Hi', role: 'user'},
+                {content: '', role: 'assistant'},
+            ];
+
+            expect(setLastEmptyAssistantMessage(messages, {content: 'Card', role: 'assistant'})).toEqual([
+                {content: 'Hi', role: 'user'},
+                {content: 'Card', role: 'assistant'},
+            ]);
+        });
+
+        it('replaces a trailing assistant message with empty content parts', () => {
+            const messages: ThreadMessageLike[] = [{content: [], role: 'assistant'}];
+
+            expect(setLastEmptyAssistantMessage(messages, {content: 'Card', role: 'assistant'})).toEqual([
+                {content: 'Card', role: 'assistant'},
+            ]);
+        });
+
+        it('appends the message when the last assistant message has content', () => {
+            const messages: ThreadMessageLike[] = [{content: 'Streamed text', role: 'assistant'}];
+
+            expect(setLastEmptyAssistantMessage(messages, {content: 'Card', role: 'assistant'})).toEqual([
+                {content: 'Streamed text', role: 'assistant'},
+                {content: 'Card', role: 'assistant'},
+            ]);
         });
     });
 

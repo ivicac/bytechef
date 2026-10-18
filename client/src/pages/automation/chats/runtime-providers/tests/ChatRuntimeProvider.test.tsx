@@ -639,6 +639,114 @@ describe('ChatRuntimeProvider resume', () => {
         });
     });
 
+    it('shows only the approval card when the approval request arrives before any text and the stream closes and suspends', async () => {
+        let connectionState: 'CLOSED' | 'CONNECTED' = 'CLOSED';
+
+        vi.mocked(useSSE).mockImplementation(() => ({
+            close: vi.fn(),
+            connectionState,
+            data: null,
+            error: null,
+            errorStatus: null,
+        }));
+
+        useChatsStore.setState({resumeUrl: null});
+
+        render(
+            <ChatRuntimeProvider environmentName="test" sseStreamResponse={true} workflowExecutionId="workflow-123">
+                child
+            </ChatRuntimeProvider>
+        );
+
+        await act(async () => {
+            await getOnNew()(createTextMessage('Delete the customer record'));
+        });
+
+        connectionState = 'CONNECTED';
+
+        const sseOptions = vi.mocked(useSSE).mock.lastCall![1]!;
+
+        act(() => {
+            sseOptions.eventHandlers!.approval_request({formTitle: 'Approve deletion', resumeId: 'resume-1'});
+        });
+
+        connectionState = 'CLOSED';
+
+        act(() => {
+            useChatsStore.setState({isRunning: true});
+        });
+
+        act(() => {
+            sseOptions.eventHandlers!.suspended?.('');
+        });
+
+        const {isRunning, messages} = useChatsStore.getState();
+
+        expect(isRunning).toBe(false);
+        expect(messages).toHaveLength(2);
+        expect(messages[0]).toMatchObject({content: 'Delete the customer record', role: 'user'});
+        expect(messages[1]).toEqual({
+            content: [
+                {
+                    data: {
+                        expiresAt: undefined,
+                        formDescription: undefined,
+                        formTitle: 'Approve deletion',
+                        formUrl: undefined,
+                        hasInputs: false,
+                        kind: 'approval-request',
+                        resumeId: 'resume-1',
+                    },
+                    type: 'data-approval-request',
+                },
+            ],
+            role: 'assistant',
+        });
+    });
+
+    it('keeps the streamed text and adds the approval card after it', async () => {
+        let connectionState: 'CLOSED' | 'CONNECTED' = 'CLOSED';
+
+        vi.mocked(useSSE).mockImplementation(() => ({
+            close: vi.fn(),
+            connectionState,
+            data: null,
+            error: null,
+            errorStatus: null,
+        }));
+
+        useChatsStore.setState({resumeUrl: null});
+
+        render(
+            <ChatRuntimeProvider environmentName="test" sseStreamResponse={true} workflowExecutionId="workflow-123">
+                child
+            </ChatRuntimeProvider>
+        );
+
+        await act(async () => {
+            await getOnNew()(createTextMessage('Delete the customer record'));
+        });
+
+        connectionState = 'CONNECTED';
+
+        const sseOptions = vi.mocked(useSSE).mock.lastCall![1]!;
+
+        act(() => {
+            sseOptions.eventHandlers!.stream('I need approval first.');
+            sseOptions.eventHandlers!.approval_request({resumeId: 'resume-1'});
+            sseOptions.eventHandlers!.suspended?.('');
+        });
+
+        const {messages} = useChatsStore.getState();
+
+        expect(messages).toHaveLength(3);
+        expect(messages[1]).toEqual({content: 'I need approval first.', role: 'assistant'});
+        expect(messages[2]).toMatchObject({
+            content: [{data: {kind: 'approval-request', resumeId: 'resume-1'}, type: 'data-approval-request'}],
+            role: 'assistant',
+        });
+    });
+
     it('shows an error when the ask_user_question event is malformed', async () => {
         useChatsStore.setState({resumeUrl: null});
 

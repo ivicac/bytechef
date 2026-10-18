@@ -1,6 +1,7 @@
 import {
     appendToLastAssistantMessage as appendHelper,
     setLastAssistantMessageContent as setContentHelper,
+    setLastEmptyAssistantMessage as setLastEmptyAssistantMessageHelper,
 } from '@/shared/util/assistant-message-utils';
 import {ThreadMessageLike} from '@assistant-ui/react';
 import {create} from 'zustand';
@@ -29,6 +30,7 @@ interface ChatStateI {
     setCurrentStepName: (currentStepName: string | null) => void;
     setIsRunning: (isRunning: boolean) => void;
     setLastAssistantMessageContent: (content: string) => void;
+    setLastEmptyAssistantMessage: (message: ThreadMessageLike) => void;
     setMessage: (message: ThreadMessageLike) => void;
     setResumeUrl: (resumeUrl: string | null) => void;
     switchChat: (workflowExecutionId: string) => void;
@@ -85,6 +87,10 @@ export const useChatsStore = create<ChatStateI>()(
         setLastAssistantMessageContent: (content: string) =>
             set((state) => ({
                 messages: setContentHelper(state.messages, content),
+            })),
+        setLastEmptyAssistantMessage: (message) =>
+            set((state) => ({
+                messages: setLastEmptyAssistantMessageHelper(state.messages, message),
             })),
         setMessage: (message) =>
             set((state) => ({

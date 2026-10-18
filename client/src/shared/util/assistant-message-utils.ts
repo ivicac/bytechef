@@ -143,6 +143,27 @@ export function appendToLastAssistantMessage(messages: ThreadMessageLike[], delt
  * If no assistant message exists, creates a new one with the content.
  * Supports both string content and content array formats.
  */
+function isEmptyAssistantMessage(message: ThreadMessageLike | undefined): boolean {
+    return (
+        message?.role === 'assistant' &&
+        (message.content === '' || (Array.isArray(message.content) && message.content.length === 0))
+    );
+}
+
+/**
+ * Replaces the trailing empty assistant placeholder with the message, or appends the message when there is none.
+ */
+export function setLastEmptyAssistantMessage(
+    messages: ThreadMessageLike[],
+    message: ThreadMessageLike
+): ThreadMessageLike[] {
+    if (isEmptyAssistantMessage(messages[messages.length - 1])) {
+        return [...messages.slice(0, -1), message];
+    }
+
+    return [...messages, message];
+}
+
 export function setLastAssistantMessageContent(messages: ThreadMessageLike[], content: string): ThreadMessageLike[] {
     const updatedMessages = [...messages];
 
