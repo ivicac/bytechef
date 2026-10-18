@@ -40,8 +40,10 @@ import com.bytechef.component.ai.agent.action.event.ToolExecutionEvent;
 import com.bytechef.component.ai.agent.action.event.listener.ToolExecutionListener;
 import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
+import com.bytechef.component.ai.agent.tool.AgentToolSuspensionStorage;
 import com.bytechef.component.ai.agent.tool.AiAgentConversationCheckpoint;
 import com.bytechef.component.ai.agent.tool.ConversationState;
+import com.bytechef.component.ai.agent.tool.DeferredToolCallReplay;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
 import com.bytechef.component.ai.llm.ChatModel.ResponseFormat;
 import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
@@ -59,7 +61,6 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
-import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
@@ -94,10 +95,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.constant.WorkflowExtConstants;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
-import com.bytechef.platform.tool.execution.ToolExecutionKind;
-import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
-import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -139,7 +137,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -147,7 +144,6 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class AbstractAiAgentChatAction {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractAiAgentChatAction.class);
-    private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     private static final String APPROVED = "approved";
     private static final String TOOL_SIMULATION_UNAVAILABLE = "[tool simulation unavailable]";
@@ -160,22 +156,11 @@ public abstract class AbstractAiAgentChatAction {
     private final ClusterElementToolCallbacks clusterElementToolCallbacks;
     private final AgentToolCallingManagers agentToolCallingManagers;
 
-    private final @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider;
     private final @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider;
     private final @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider;
     private final @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider;
 
-    /**
-     * Bounds the partial-identity-stamp warning to one line per action instance — see
-     * {@link #recordAgentConversationTurn}. An action is a long-lived singleton, so this trades "every misconfigured
-     * agent is named" for "a misconfigured agent cannot flood the log on every turn"; the first one named is enough to
-     * start diagnosing.
-     */
     private final AtomicBoolean partialIdentityStampWarned = new AtomicBoolean();
-
-    /**
-     * Bounds the recorder-failure warning to one line per action instance — see {@link #warnAboutRecordingFailure}.
-     */
     private final AtomicBoolean recordingFailureWarned = new AtomicBoolean();
 
     protected AbstractAiAgentChatAction(
@@ -183,6 +168,16 @@ public abstract class AbstractAiAgentChatAction {
         ToolCallingManager toolCallingManager) {
 
         this(aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager));
+    }
+
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager),
+            toolExecutionRecorderObjectProvider);
     }
 
     protected AbstractAiAgentChatAction(
@@ -197,7 +192,8 @@ public abstract class AbstractAiAgentChatAction {
         AgentToolCallingManagers agentToolCallingManagers,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, null);
     }
 
@@ -207,7 +203,8 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider, null);
     }
 
@@ -218,7 +215,8 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
             workspaceSystemPromptAdvisorProviderObjectProvider, null);
     }
@@ -232,10 +230,10 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
+        this(
+            aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider,
-            List.of());
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider, List.of());
     }
 
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
@@ -256,11 +254,9 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     /**
-     * {@code CT_CONSTRUCTOR_THROW} is suppressed on this constructor and on the one that delegates to it. The only call
-     * here that can throw is Spring's {@code ObjectProvider.getIfAvailable()}, and a container failure resolving the
-     * audit recorder must surface at bean creation rather than be swallowed into an unaudited agent. The pattern's own
-     * remedy — making the class final — is not available: this class is abstract precisely so the three chat actions
-     * can extend it, and none of them is a subclass an attacker controls.
+     * {@code CT_CONSTRUCTOR_THROW} is suppressed on this constructor and on the constructors that delegate to it. The
+     * only call here that can throw is Spring's {@code ObjectProvider.getIfAvailable()}, and a container failure
+     * resolving the audit recorder must surface at bean creation rather than be swallowed into an unaudited agent.
      */
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     protected AbstractAiAgentChatAction(
@@ -280,20 +276,9 @@ public abstract class AbstractAiAgentChatAction {
             toolInvocationWorkspaceResolverObjectProvider == null
                 ? null : toolInvocationWorkspaceResolverObjectProvider.getIfAvailable());
         this.agentToolCallingManagers = agentToolCallingManagers;
-        this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
         this.aiGuardrailsAdvisorProviderObjectProvider = aiGuardrailsAdvisorProviderObjectProvider;
         this.workspaceSystemPromptAdvisorProviderObjectProvider = workspaceSystemPromptAdvisorProviderObjectProvider;
         this.agentConversationRecorderObjectProvider = agentConversationRecorderObjectProvider;
-    }
-
-    /**
-     * Resolves the optional tool-invocation audit recorder. Absent (null) when the app variant does not carry the
-     * platform-tool-execution service module, or when the action was built through the recorder-less constructor — gate
-     * decisions are then simply not audited.
-     */
-    private @Nullable ToolExecutionRecorder fetchToolExecutionRecorder() {
-        return toolExecutionRecorderObjectProvider == null
-            ? null : toolExecutionRecorderObjectProvider.getIfAvailable();
     }
 
     protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
@@ -312,33 +297,6 @@ public abstract class AbstractAiAgentChatAction {
 
         return getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, toolExecutionListener, context, messages, false);
-    }
-
-    protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
-        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
-        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
-        List<Message> messages, boolean resumedTurn) throws Exception {
-
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
-
-        ClusterElement modelClusterElement = clusterElementMap.getClusterElement(MODEL);
-
-        ModelFunction modelFunction = clusterElementDefinitionService.getClusterElement(
-            modelClusterElement.getComponentName(), modelClusterElement.getComponentVersion(),
-            modelClusterElement.getClusterElementName());
-
-        ComponentConnection modelConnection = connectionParameters.get(modelClusterElement.getWorkflowNodeName());
-
-        Map<String, Object> concatenatedInputParameters = MapUtils.concat(
-            new HashMap<>(inputParameters.toMap()), new HashMap<>(modelClusterElement.getParameters()));
-
-        try {
-            return (ChatModel) modelFunction.apply(
-                ParametersFactory.create(concatenatedInputParameters),
-                ParametersFactory.create(modelConnection.getParameters()), true);
-        } catch (Exception e) {
-            throw clusterElementInitializationException(modelClusterElement, "model", e, context);
-        }
     }
 
     protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
@@ -374,7 +332,9 @@ public abstract class AbstractAiAgentChatAction {
                 clusterElementCallTarget.get());
         }
 
-        String conversationId = resolveConversationId(clusterElementMap);
+        String conversationId = clusterElementMap.fetchClusterElement(CHAT_MEMORY)
+            .map(clusterElement -> resolveConversationId(inputParameters, clusterElement))
+            .orElse(null);
 
         Optional<ChatMemoryFunction.Result> chatMemoryResult =
             clusterElementMap.fetchClusterElement(CHAT_MEMORY)
@@ -388,37 +348,22 @@ public abstract class AbstractAiAgentChatAction {
             deferredToolCallReplay == null ? chatModel : deferredToolCallReplay.replayingChatModel(chatModel))
             .build();
 
-        // Workspace-bound content guardrails, resolved through the optional CE SPI so this component never depends on
-        // the EE guardrails module directly (see AiGuardrailsAdvisorProvider). Its position is GuardrailAdvisorOrder
-        // .WORKSPACE_FLOOR, one outside the per-node check at GuardrailAdvisorOrder.NODE_CHECK; registration order is
-        // NOT what puts it first -- Spring AI breaks an order tie toward the LAST registration, which is why the two
-        // advisors carry distinct constants rather than both declaring HIGHEST_PRECEDENCE.
         List<Advisor> workspaceAdvisors = new ArrayList<>();
 
-        // The metrics PiiTokenBoundaryToolCallingManager records tool-boundary events through, resolved from the same
-        // provider and the same (platformType, jobPrincipalId, surface) arguments as the guardrails advisor above —
-        // see AiGuardrailsAdvisorProvider#getMetrics. This is deliberately NOT resolved as an injected
-        // ObjectProvider<SensitiveDataMetrics> on AgentToolCallingManagers: that bean is a singleton shared by every
-        // agent run in the JVM, while the correct metrics instance is per-call and surface-tagged for "ai_agent"
-        // specifically — there is no single instance an injected provider could hand back that would be correct here.
         SensitiveDataMetrics toolBoundaryMetrics = null;
 
-        if (aiGuardrailsAdvisorProviderObjectProvider != null
-            && context instanceof ActionContextAware actionContextAware) {
+        if (aiGuardrailsAdvisorProviderObjectProvider != null &&
+            context instanceof ActionContextAware actionContextAware) {
+
             AiGuardrailsAdvisorProvider aiGuardrailsAdvisorProvider =
                 aiGuardrailsAdvisorProviderObjectProvider.getIfAvailable();
 
             if (aiGuardrailsAdvisorProvider != null) {
-                // A streaming agent's tokens go to whoever is listening right now -- the realtime action emits them
-                // straight back through a WebSocketEmitter to the person speaking -- so that is a conversation and
-                // restores unconditionally. Only the non-streaming action's return value becomes the task output a
-                // downstream node reads, and only that is a policy question. Tool-call arguments are gated on all
-                // three regardless; they travel on the tool context, not through this advisor.
                 aiGuardrailsAdvisorProvider
-                    .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
+                    .getAdvisor(
+                        actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
                         GuardrailSurface.AI_AGENT,
-                        isStreaming() ? RestorationDestination.CONVERSATION
-                            : RestorationDestination.WORKFLOW_OUTPUT)
+                        isStreaming() ? RestorationDestination.CONVERSATION : RestorationDestination.WORKFLOW_OUTPUT)
                     .ifPresent(workspaceAdvisors::add);
 
                 toolBoundaryMetrics = aiGuardrailsAdvisorProvider.getMetrics(
@@ -427,14 +372,13 @@ public abstract class AbstractAiAgentChatAction {
             }
         }
 
-        // Workspace-level system prompt, resolved through the same optional-CE-SPI idiom (see
-        // WorkspaceSystemPromptAdvisorProvider). The returned advisor self-orders AFTER the guardrails advisor above,
-        // so listing both in one list is order-safe regardless of which providers are present.
-        if (workspaceSystemPromptAdvisorProviderObjectProvider != null
-            && context instanceof ActionContextAware actionContextAware) {
+        if (workspaceSystemPromptAdvisorProviderObjectProvider != null &&
+            context instanceof ActionContextAware actionContextAware) {
+
             workspaceSystemPromptAdvisorProviderObjectProvider.ifAvailable(
                 provider -> provider
-                    .getAdvisor(actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
+                    .getAdvisor(
+                        actionContextAware.getPlatformType(), actionContextAware.getJobPrincipalId(),
                         GuardrailSurface.AI_AGENT)
                     .ifPresent(workspaceAdvisors::add));
         }
@@ -455,7 +399,7 @@ public abstract class AbstractAiAgentChatAction {
                         getToolCallbacks(
                             clusterElementMap.getClusterElements(BaseToolFunction.TOOLS),
                             clusterElementMap.getClusterElements(APPROVAL_CHANNELS), connectionParameters,
-                            toolExecutionListener, toolSimulations, chatModel, conversationId, context),
+                            toolExecutionListener, toolSimulations, providerChatModel, conversationId, context),
                         chatMemoryResult, toolExecutionListener, context)
                             .toArray());
 
@@ -464,6 +408,30 @@ public abstract class AbstractAiAgentChatAction {
         }
 
         return chatClientRequestSpec;
+    }
+
+    private ChatModel resolveChatModel(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
+        ClusterElementMap clusterElementMap, ActionContext context) {
+
+        ClusterElement modelClusterElement = clusterElementMap.getClusterElement(MODEL);
+
+        ModelFunction modelFunction = clusterElementDefinitionService.getClusterElement(
+            modelClusterElement.getComponentName(), modelClusterElement.getComponentVersion(),
+            modelClusterElement.getClusterElementName());
+
+        ComponentConnection modelConnection = connectionParameters.get(modelClusterElement.getWorkflowNodeName());
+
+        Map<String, Object> concatenatedInputParameters = MapUtils.concat(
+            new HashMap<>(inputParameters.toMap()), new HashMap<>(modelClusterElement.getParameters()));
+
+        try {
+            return (ChatModel) modelFunction.apply(
+                ParametersFactory.create(concatenatedInputParameters),
+                ParametersFactory.create(modelConnection.getParameters()), true);
+        } catch (Exception exception) {
+            throw clusterElementInitializationException(modelClusterElement, "model", exception, context);
+        }
     }
 
     private static boolean hasChatMemoryToolCallbacks(Optional<ChatMemoryFunction.Result> chatMemoryResult) {
@@ -482,10 +450,6 @@ public abstract class AbstractAiAgentChatAction {
             clusterElement.getClusterElementName());
 
         try {
-            // The FIVE-argument form, deliberately. ChatMemoryFunction is widened by a default method rather than by
-            // changing its SAM, and Java resolves overloads by arity — a four-argument call here would bind to the
-            // abstract method and never reach an override of the context-carrying form, leaving a vector-store-backed
-            // memory with no owner to resolve.
             return chatMemoryFunction.apply(
                 ParametersFactory.create(clusterElement.getParameters()),
                 getConnectionParameters(componentConnections, clusterElement),
@@ -560,7 +524,7 @@ public abstract class AbstractAiAgentChatAction {
                 Map<String, Object> inputs;
 
                 try {
-                    inputs = JSON_MAPPER.readValue(toolInput, new TypeReference<>() {});
+                    inputs = JsonUtils.read(toolInput, new TypeReference<>() {});
                 } catch (Exception exception) {
                     context.log(
                         log -> log.debug(
@@ -667,8 +631,8 @@ public abstract class AbstractAiAgentChatAction {
             gateDecision = GateDecision.from(data.toMap());
 
             toolResult = resolveGatedToolResumeData(
-                inputParameters, gatedToolSuspensionOptional.get(), gateDecision, connectionParameters, extensions,
-                context, getSuspendedCallRef(agentToolSuspension));
+                inputParameters, continueParameters, gatedToolSuspensionOptional.get(), gateDecision,
+                connectionParameters, extensions, context, getSuspendedCallRef(agentToolSuspension));
 
             if (context instanceof ActionContextAware actionContextAware &&
                 ToolSuspension.isSuspendedToolResult(toolResult, actionContextAware.getSuspend())) {
@@ -745,11 +709,244 @@ public abstract class AbstractAiAgentChatAction {
         });
     }
 
-    /**
-     * Creates the per-tool-round conversation checkpointer for durable (non-editor, job-attached) executions, or
-     * {@code null} when checkpointing does not apply. The checkpoint carries a fingerprint of the evaluated input
-     * parameters so a resume only replays a checkpoint written by this same agent node configuration.
-     */
+    private static String createApprovalDetails(GateDecision.Approved approved) {
+        Map<String, Object> approval = new HashMap<>();
+
+        approval.put("approved", true);
+
+        String reviewer = approved.reviewer();
+
+        if (reviewer != null) {
+            approval.put("approvedBy", reviewer);
+        }
+
+        String comment = approved.comment();
+
+        if (comment != null) {
+            approval.put("comment", comment);
+        }
+
+        return JsonUtils.write(approval);
+    }
+
+    @SuppressWarnings("unchecked")
+    String resolveGatedToolResumeData(
+        Parameters inputParameters, Parameters continueParameters, GatedToolSuspension gatedToolSuspension,
+        GateDecision gateDecision, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
+        ActionContext context, @Nullable ClusterElementCallRef suspendedCallRef)
+        throws Exception {
+
+        String comment = gateDecision.comment();
+        String reviewer = gateDecision.reviewer();
+        String gatedToolName = gatedToolSuspension.toolName();
+
+        List<Long> ruleIds = continueParameters.getList(ToolSuspendConstants.RULE_IDS, Long.class, List.of());
+        String ruleComponentName = continueParameters.getString(ToolSuspendConstants.RULE_COMPONENT_NAME, "");
+        String ruleToolName = continueParameters.getString(ToolSuspendConstants.RULE_TOOL_NAME, "");
+
+        if (gateDecision instanceof GateDecision.Denied) {
+            if (!ruleIds.isEmpty()) {
+                clusterElementToolCallbacks.recordRuleApprovalResolution(
+                    ruleIds, ruleComponentName, ruleToolName, gatedToolName, false, reviewer,
+                    ((ActionContextAware) context).getJobId());
+            }
+
+            Map<String, Object> denial = new HashMap<>();
+
+            denial.put("denied", true);
+            denial.put("reason", comment == null ? "Denied by reviewer." : "Denied by reviewer: " + comment);
+
+            if (reviewer != null) {
+                denial.put("deniedBy", reviewer);
+            }
+
+            return JsonUtils.write(denial);
+        }
+
+        String gatedToolInput = gatedToolSuspension.toolInput();
+        // The hosted approval form is reached anonymously, with no verified reviewer, yet the call IS approved and
+        // is about to re-execute. Leaving approvedBy null on a re-execution would make a rule re-raise the same
+        // approval and suspend again forever.
+        String resolvedApprovedBy = reviewer == null ? "anonymous" : reviewer;
+
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+        List<ClusterElement> approvalChannelClusterElements = clusterElementMap.getClusterElements(
+            APPROVAL_CHANNELS);
+
+        String conversationId = clusterElementMap.fetchClusterElement(CHAT_MEMORY)
+            .map(clusterElement -> resolveConversationId(inputParameters, clusterElement))
+            .orElse(null);
+
+        ClusterElement gatedClusterElement = null;
+        ToolCallback gatedToolCallback = null;
+
+        for (ClusterElement clusterElement : clusterElementMap.getClusterElements(BaseToolFunction.TOOLS)) {
+            for (ToolCallback toolCallback : buildElementToolCallbacks(
+                clusterElement, connectionParameters, conversationId, context, approvalChannelClusterElements)) {
+
+                ToolDefinition toolDefinition = toolCallback.getToolDefinition();
+
+                if (gatedToolName.equals(toolDefinition.name())) {
+                    gatedClusterElement = clusterElement;
+                    gatedToolCallback = toolCallback;
+
+                    break;
+                }
+            }
+
+            if (gatedToolCallback != null) {
+                break;
+            }
+        }
+
+        if (gatedClusterElement == null || gatedToolCallback == null) {
+            throw new IllegalStateException(
+                "The approved tool '" + gatedToolName + "' is no longer configured on the agent node; the " +
+                    "approval cannot be applied.");
+        }
+
+        GatedToolCallback gate = findGatedToolCallback(gatedToolCallback);
+        ToolCallback approvedToolCallback = DelegatingToolCallback.unwrap(gatedToolCallback);
+
+        String approvedToolComponentName =
+            gate == null ? gatedClusterElement.getComponentName() : gate.getGatedComponentName();
+        String approvedToolWorkflowNodeName =
+            gate == null ? gatedClusterElement.getWorkflowNodeName() : gate.getGatedWorkflowNodeName();
+
+        if (!ruleIds.isEmpty()) {
+            clusterElementToolCallbacks.recordRuleApprovalResolution(
+                ruleIds, ruleComponentName, ruleToolName, gatedToolName, true, resolvedApprovedBy,
+                ((ActionContextAware) context).getJobId());
+        }
+
+        Map<String, Map<String, String>> toolSimulations =
+            (Map<String, Map<String, String>>) inputParameters.get(TOOL_SIMULATIONS);
+
+        ToolCallback effectiveToolCallback = observeApprovedToolCallback(
+            toolSimulations == null || toolSimulations.isEmpty()
+                ? approvedToolCallback
+                : createSimulationAwareToolCallback(
+                    approvedToolCallback, toolSimulations,
+                    resolveChatModel(inputParameters, connectionParameters, clusterElementMap, context), context),
+            approvedToolWorkflowNodeName, approvedToolComponentName, context);
+
+        Map<String, Object> approvedResult = new HashMap<>();
+
+        approvedResult.put("approvedByReviewer", true);
+
+        if (comment != null) {
+            approvedResult.put("reviewerComment", comment);
+        }
+
+        if (reviewer != null) {
+            approvedResult.put("reviewer", reviewer);
+        }
+
+        Map<String, Object> toolContextMap = new HashMap<>(new AiAgentToolContext(context).toMap());
+
+        toolContextMap.put(AiAgentToolContextKey.APPROVED_BY, resolvedApprovedBy);
+
+        ToolContext toolContext = new ToolContext(toolContextMap);
+
+        try {
+            String result = ClusterElementCallScope.callWith(
+                suspendedCallRef, () -> effectiveToolCallback.call(gatedToolInput, toolContext));
+
+            if (context instanceof ActionContextAware actionContextAware &&
+                ToolSuspension.isSuspendedToolResult(result, actionContextAware.getSuspend())) {
+
+                return result;
+            }
+
+            approvedResult.put("result", result);
+        } catch (Exception exception) {
+            approvedResult.put(
+                "error", Objects.toString(exception.getMessage(), "Tool execution failed after approval"));
+        }
+
+        return JsonUtils.write(approvedResult);
+    }
+
+    private static @Nullable GatedToolCallback findGatedToolCallback(ToolCallback toolCallback) {
+        ToolCallback current = toolCallback;
+
+        while (current instanceof DelegatingToolCallback delegatingToolCallback) {
+            if (current instanceof GatedToolCallback gatedToolCallback) {
+                return gatedToolCallback;
+            }
+
+            current = delegatingToolCallback.getDelegate();
+        }
+
+        return null;
+    }
+
+    private static ToolCallback observeApprovedToolCallback(
+        ToolCallback toolCallback, String workflowNodeName, String componentName, ActionContext context) {
+
+        if (!(context instanceof ActionContextAware actionContextAware)) {
+            return toolCallback;
+        }
+
+        return ClusterElementCallTarget.of(context)
+            .<ToolCallback>map(target -> new ClusterElementCallObservingToolCallback(
+                toolCallback, workflowNodeName, componentName, target.jobId(), target.taskExecutionId(),
+                target.recorder(), actionContextAware::getSuspend))
+            .orElse(toolCallback);
+    }
+
+    private static void suspendUntilTheApprovedToolResumes(
+        ActionContextAware actionContextAware, AgentToolSuspension agentToolSuspension, GateDecision gateDecision) {
+
+        ActionContext.Suspend suspend = Objects.requireNonNull(actionContextAware.getSuspend());
+
+        Map<String, Object> continueParameters = new HashMap<>(suspend.continueParameters());
+
+        AgentToolSuspensionStorage.put(
+            continueParameters, recordApprovalOfSuspendedTool(actionContextAware, agentToolSuspension, gateDecision),
+            actionContextAware);
+
+        actionContextAware.suspend(new ActionContext.Suspend(continueParameters, suspend.expiresAt()));
+    }
+
+    private static AgentToolSuspension recordApprovalOfSuspendedTool(
+        ActionContextAware actionContextAware, AgentToolSuspension agentToolSuspension, GateDecision gateDecision) {
+
+        Long jobId = actionContextAware.getJobId();
+        Long taskExecutionId = actionContextAware.getTaskExecutionId();
+
+        if (jobId == null || taskExecutionId == null) {
+            return agentToolSuspension;
+        }
+
+        ClusterElementCallRecorder clusterElementCallRecorder = ClusterElementCallRecorder.getInstance();
+
+        ClusterElementCallRef gateCallRef = getSuspendedCallRef(agentToolSuspension);
+        Optional<ClusterElementCallRef> approvedToolCallRefOptional =
+            clusterElementCallRecorder.findSuspendedCall(taskExecutionId);
+
+        if (gateCallRef != null && gateDecision instanceof GateDecision.Approved approved) {
+            clusterElementCallRecorder.callApproved(
+                jobId, taskExecutionId, gateCallRef, createApprovalDetails(approved));
+        }
+
+        if (approvedToolCallRefOptional.isEmpty()) {
+            return agentToolSuspension;
+        }
+
+        ClusterElementCallRef approvedToolCallRef = approvedToolCallRefOptional.get();
+        String gateCallId = gateCallRef == null ? null : gateCallRef.id();
+
+        if (Objects.equals(gateCallId, approvedToolCallRef.id())) {
+            return agentToolSuspension;
+        }
+
+        return new AgentToolSuspension(
+            agentToolSuspension.conversation(), agentToolSuspension.pendingToolCallId(),
+            agentToolSuspension.suspendedToolResult(), approvedToolCallRef.id(),
+            approvedToolCallRef.workflowNodeName());
+    }
+
     protected @Nullable Consumer<List<Message>> createConversationCheckpointer(
         Parameters inputParameters, ActionContext context) {
 
@@ -757,21 +954,23 @@ public abstract class AbstractAiAgentChatAction {
             actionContextAware.isEditorEnvironment()) {
 
             return null;
+        }
 
-        // The fingerprint is computed lazily, at checkpoint-write time: the tool-calling manager catches and logs
-        // checkpointer failures, so a serialization problem can never fail the request-spec build or the turn.
         return conversation -> context.data(
             data -> data.put(
                 ActionContext.Data.Scope.CURRENT_EXECUTION, AiAgentConversationCheckpoint.DATA_KEY,
                 new AiAgentConversationCheckpoint(
                     getConversationFingerprint(inputParameters), ConversationState.from(conversation))));
+    }
 
-     * Returns the conversation restored from a crash checkpoint left by a previous, interrupted run of this job, or
-     * {@code null} when there is none (or it belongs to a differently-parameterized node). Restoration is best-effort:
-     * any failure logs and falls back to a fresh conversation.
     protected @Nullable List<Message> fetchCheckpointedConversation(
+        Parameters inputParameters, ActionContext context) {
 
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
 
+            return null;
+        }
 
         try {
             Optional<Object> checkpointOptional = context.data(
@@ -779,11 +978,15 @@ public abstract class AbstractAiAgentChatAction {
                     ActionContext.Data.Scope.CURRENT_EXECUTION, AiAgentConversationCheckpoint.DATA_KEY));
 
             if (checkpointOptional.isEmpty()) {
+                return null;
+            }
 
             AiAgentConversationCheckpoint checkpoint = ConvertUtils.convertValue(
                 checkpointOptional.get(), AiAgentConversationCheckpoint.class);
 
             if (!Objects.equals(checkpoint.fingerprint(), getConversationFingerprint(inputParameters))) {
+                return null;
+            }
 
             ConversationState conversationState = checkpoint.conversationState();
 
@@ -796,16 +999,28 @@ public abstract class AbstractAiAgentChatAction {
         } catch (RuntimeException exception) {
             log.warn("Failed to restore agent conversation checkpoint; starting fresh", exception);
 
+            return null;
+        }
+    }
 
-    /** Removes this job's conversation checkpoint after the agent turn completed successfully. */
     protected void clearConversationCheckpoint(ActionContext context) {
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
 
+            return;
+        }
 
+        try {
             context.data(
                 data -> data.remove(
+                    ActionContext.Data.Scope.CURRENT_EXECUTION, AiAgentConversationCheckpoint.DATA_KEY));
+        } catch (RuntimeException exception) {
             log.warn("Failed to clear agent conversation checkpoint", exception);
+        }
+    }
 
     private static String getConversationFingerprint(Parameters inputParameters) {
+        try {
             MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
 
             byte[] digest = messageDigest.digest(
@@ -817,6 +1032,8 @@ public abstract class AbstractAiAgentChatAction {
             return hexFormat.formatHex(digest);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
+        }
+    }
 
     /**
      * Whether this action streams its response. Streaming actions always produce text: a streamed response cannot be
@@ -827,7 +1044,6 @@ public abstract class AbstractAiAgentChatAction {
         return false;
     }
 
-    // Package-private for testing the streaming force-to-TEXT guard.
     ChatClient.ChatClientRequestSpec createPrompt(
         ChatClient chatClient, Parameters inputParameters, ActionContext context) {
 
@@ -903,7 +1119,16 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable String conversationId) {
 
         return getAdvisors(
-            clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false,
+            clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false);
+    }
+
+    List<Advisor> getAdvisors(
+        ClusterElementMap clusterElementMap, Map<String, ComponentConnection> connectionParameters,
+        ChatModel chatModel, ActionContext context, Optional<ChatMemoryFunction.Result> chatMemoryResult,
+        @Nullable String conversationId, boolean resumedTurn) {
+
+        return getAdvisors(
+            clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, resumedTurn,
             null, null, null);
     }
 
@@ -924,9 +1149,8 @@ public abstract class AbstractAiAgentChatAction {
 
         if (checkForViolationsCount > 1) {
             throw new IllegalStateException(
-                "Multiple CheckForViolations parent cluster elements configured — they would tie at " +
-                    "GuardrailAdvisorOrder.NODE_CHECK and Spring AI would run the last-registered one outermost. " +
-                    "Configure at most one.");
+                "Multiple CheckForViolations parent cluster elements configured — advisor order collides at " +
+                    "HIGHEST_PRECEDENCE and Spring AI ordering becomes undefined. Configure at most one.");
         }
 
         long sanitizeTextCount = guardrailClusterElements.stream()
@@ -969,12 +1193,14 @@ public abstract class AbstractAiAgentChatAction {
             .map(ChatMemoryFunction.Result::supportsToolMessagePersistence)
             .orElse(false);
 
-        ToolCallingManager agentToolCallingManager = agentToolCallingManagers.getToolCallingManager(
+        ToolCallingManager toolCallingManager = agentToolCallingManagers.getToolCallingManager(
             maxToolCalls, toolBoundaryMetrics);
+
+        ToolCallingManager agentToolCallingManager = toolCallingManager;
 
         if (context instanceof ActionContextAware actionContextAware) {
             agentToolCallingManager = new SuspendableToolCallingManager(
-                agentToolCallingManager, actionContextAware, conversationCheckpointer);
+                toolCallingManager, actionContextAware, conversationCheckpointer);
         }
 
         ToolCallingAdvisor toolCallingAdvisor = persistToolMessagesInLoop
@@ -988,10 +1214,10 @@ public abstract class AbstractAiAgentChatAction {
 
         advisors.add(toolCallingAdvisor);
 
-        // One advisor per knowledge base: RAG is a multiple cluster element, and fetchClusterElement would return
-        // only the first, silently retrieving from one knowledge base while the agent is configured with several.
         for (ClusterElement ragClusterElement : clusterElementMap.getClusterElements(RAG)) {
-            advisors.add(getRagAdvisor(connectionParameters, ragClusterElement, context));
+            Advisor ragAdvisor = getRagAdvisor(connectionParameters, ragClusterElement, context);
+
+            advisors.add(attributeFailures(ragAdvisor, Optional.of(ragClusterElement), clusterElementCallTarget));
         }
 
         advisors.add(new ContextLoggerAdvisor(context));
@@ -1025,23 +1251,15 @@ public abstract class AbstractAiAgentChatAction {
         return ParametersFactory.create(componentConnection);
     }
 
-    /**
-     * Resolves the conversation id off the node's (possibly absent) {@code CHAT_MEMORY} cluster element — extracted so
-     * both {@link #getChatClientRequestSpec} and the turn recorder resolve it the same way. When the element is
-     * configured with no explicit {@code conversationId} parameter, a fresh random one is returned on every call; that
-     * fallback is unreachable for an AI-Agent-generated workflow (its generator always pins an explicit
-     * {@code conversationId} expression), so calling this a second time after the turn completes cannot observe a
-     * different value there — see {@link #recordAgentConversationTurn}.
-     */
     private static @Nullable String resolveConversationId(ClusterElementMap clusterElementMap) {
         return clusterElementMap.fetchClusterElement(CHAT_MEMORY)
             .map(clusterElement -> {
                 Parameters chatMemoryParameters = ParametersFactory.create(clusterElement.getParameters());
 
-                String id = chatMemoryParameters.getString("conversationId");
+                String conversationId = chatMemoryParameters.getString("conversationId");
 
-                if (id != null) {
-                    return id;
+                if (conversationId != null) {
+                    return conversationId;
                 }
 
                 UUID uuid = UUID.randomUUID();
@@ -1052,33 +1270,9 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     /**
-     * Captures the tenant bound to the <b>calling</b> thread and returns a runnable that re-binds it before reporting
-     * the turn, for actions that only know the turn is complete on some other thread — the streaming action reports
-     * from {@code Flux#doOnComplete}, which runs on a reactor thread.
-     *
-     * <p>
-     * {@link com.bytechef.tenant.TenantContext} is a bare {@link ThreadLocal} defaulting to {@code "public"}, so a
-     * reactor thread would otherwise route the Hub write into the wrong tenant's schema — and
-     * {@link #recordAgentConversationTurn}'s fail-open catch would swallow the evidence. The environment gets the same
-     * treatment one level up, through {@code AiAgentStreamChatAction#withEnvironmentContext} and
-     * {@code EnvironmentContextThreadLocalAccessor}; a {@code TenantContextThreadLocalAccessor} exists too, but both
-     * ride on {@code Hooks.enableAutomaticContextPropagation()}, which is installed by a
-     * {@code platform-configuration-service} bean that need not be on the classpath wherever this component runs.
-     * Capturing explicitly here holds regardless.
-     * </p>
-     *
-     * <p>
-     * The returned runnable does not do the work itself: it hands it to {@link Schedulers#boundedElastic()}. Reporting
-     * a turn opens a JDBC transaction and walks the conversation's whole session transcript to refresh the Hub row's
-     * preview and message count, which is an O(number of turns) <b>blocking</b> read — and the completion callback of a
-     * streaming LLM response runs on a shared <b>non-blocking</b> reactor thread ({@code reactor-http-nio-*}). Left
-     * inline, one long-lived channel conversation would stall that event loop for every unrelated request it also
-     * serves. The tenant is captured explicitly (below), so the extra hop costs nothing in fidelity.
-     * </p>
-     *
-     * <p>
-     * Must be called on the perform thread (i.e. while assembling the flux), not from inside the callback.
-     * </p>
+     * Captures the tenant bound to the calling thread and returns a runnable that reports the turn on
+     * {@link Schedulers#boundedElastic()} under that tenant, for actions that only know the turn is complete on a
+     * reactor thread. Must be called on the perform thread, not from inside the callback.
      */
     protected Runnable createAgentConversationTurnRecorder(Parameters extensions, ActionContext context) {
         String tenantId = TenantContext.getCurrentTenantId();
@@ -1089,8 +1283,6 @@ public abstract class AbstractAiAgentChatAction {
             try {
                 scheduler.schedule(() -> recordAgentConversationTurn(tenantId, extensions, context));
             } catch (RejectedExecutionException exception) {
-                // Only reachable once the scheduler is shutting down. Dropping the turn keeps the "never block the
-                // completion thread" invariant absolute; recording is best-effort by contract anyway.
                 context.log(
                     log -> log.warn(
                         "Failed to schedule the agent conversation turn recorder for the AI Hub", exception));
@@ -1099,37 +1291,9 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     /**
-     * Reports a completed agent-chat turn to the optional, EE-only {@link AgentConversationRecorder} port so it can be
-     * surfaced in the AI Hub (ticket 732, {@code 2026-08-17-agent-run-hub-visibility}). Called once per completed turn
-     * by each concrete action, at the point where it considers the turn done — never from a job-status listener, which
-     * would have to recover the turn text from node output and would double-report for subflow children. Use
-     * {@link #createAgentConversationTurnRecorder} instead when the completion point is on another thread.
-     *
-     * <p>
-     * Skips entirely (no recorder interaction) when any of the following holds, all treated as "nothing to report"
-     * rather than an error:
-     * <ul>
-     * <li>no {@code AgentConversationRecorder} bean is registered (CE, or the recorder-less constructor);</li>
-     * <li>the run is an editor-environment test run — an Agent Studio test chat is not a conversation to archive;</li>
-     * <li>{@code conversationId} cannot be resolved — chat memory is off for this agent, so there is no session and
-     * therefore no Hub chat to attribute the turn to;</li>
-     * <li>the {@link WorkflowExtConstants#AI_HUB_WORKSPACE_ID}/{@link WorkflowExtConstants#AI_HUB_AGENT_ID}/
-     * {@link WorkflowExtConstants#AI_HUB_CREATOR_USER_ID} identity stamp {@code AiAgentWorkflowGenerator} writes onto
-     * the node is wholly absent — a hand-built canvas {@code aiAgent} node (out of scope for this feature; see the
-     * design spec's Scope section) never carries it.</li>
-     * </ul>
-     *
-     * <p>
-     * A <b>partial</b> stamp is a different state and is not silent: it means the generator ran but could not resolve
-     * one of the three fields (an agent with no workspace, or a creator that no longer maps to a user), so Hub
-     * visibility is dark for a reason ops needs to see. It is warned about once per action instance — enough to
-     * diagnose, bounded so a misconfigured agent cannot flood the log on every turn.
-     * </p>
-     *
-     * <p>
-     * Fail-open: any exception raised while resolving the stamp or calling the recorder is logged and swallowed — this
-     * method must never fail the agent's turn.
-     * </p>
+     * Reports a completed agent-chat turn to the optional {@link AgentConversationRecorder} so it can be surfaced in
+     * the AI Hub. Skips editor runs, agents without chat memory and nodes without the AI Hub identity stamp; warns once
+     * about a partial stamp. Fail-open: never fails the agent's turn.
      */
     protected void recordAgentConversationTurn(Parameters extensions, ActionContext context) {
         recordAgentConversationTurn(TenantContext.getCurrentTenantId(), extensions, context);
@@ -1147,17 +1311,6 @@ public abstract class AbstractAiAgentChatAction {
         }
     }
 
-    /**
-     * Warns once per action instance about a recorder failure, then drops to debug.
-     *
-     * <p>
-     * A failure here is usually permanent rather than transient: on a distributed EE deployment the recorder's
-     * workspace-verification lookup ({@code RemoteProjectServiceClient#fetchWorkflowProject}) is an unimplemented stub
-     * that throws {@code UnsupportedOperationException}, so an unbounded warn would repeat on <b>every</b> turn of
-     * every agent, forever. Same bounding as {@link #warnAboutPartialIdentityStamp}: the first line is enough to
-     * diagnose, and the rest stay available at debug.
-     * </p>
-     */
     private void warnAboutRecordingFailure(Exception exception, ActionContext context) {
         if (recordingFailureWarned.compareAndSet(false, true)) {
             context.log(
@@ -1203,9 +1356,6 @@ public abstract class AbstractAiAgentChatAction {
             return;
         }
 
-        // The workflow id and environment come from the platform's execution context, NOT from the node definition,
-        // so a hand-authored definition cannot forge them. The recorder needs the workflow id to verify the
-        // (forgeable) workspace stamp above against the workflow's real owning workspace — see AgentConversation.
         String workflowId = null;
         Long environmentId = null;
 
@@ -1274,7 +1424,7 @@ public abstract class AbstractAiAgentChatAction {
             return ragFunction.apply(
                 ParametersFactory.create(clusterElement.getParameters()),
                 getConnectionParameters(componentConnections, clusterElement),
-                ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context);
+                ParametersFactory.create(clusterElement.getExtensions()), componentConnections);
         } catch (Exception e) {
             throw clusterElementInitializationException(clusterElement, "RAG advisor", e, context);
         }
@@ -1338,8 +1488,7 @@ public abstract class AbstractAiAgentChatAction {
 
     private List<ToolCallback> getToolCallbacks(
         List<ClusterElement> toolClusterElements, List<ClusterElement> approvalChannelClusterElements,
-        Map<String, ComponentConnection> connectionParameters,
-        @Nullable ToolExecutionListener toolExecutionListener,
+        Map<String, ComponentConnection> connectionParameters, @Nullable ToolExecutionListener toolExecutionListener,
         @Nullable Map<String, Map<String, String>> toolSimulations, ChatModel chatModel,
         @Nullable String conversationId, ActionContext context) {
 
@@ -1347,9 +1496,8 @@ public abstract class AbstractAiAgentChatAction {
         List<ToolCallback> toolCallbacks = new ArrayList<>();
 
         for (ClusterElement clusterElement : toolClusterElements) {
-            List<ToolCallback> clusterElementCallbacks = clusterElementToolCallbacks.build(
-                clusterElement, connectionParameters, getSubagentConversationId(clusterElement, conversationId),
-                context, approvalChannelClusterElements);
+            List<ToolCallback> clusterElementCallbacks = buildElementToolCallbacks(
+                clusterElement, connectionParameters, conversationId, context, approvalChannelClusterElements);
 
             if (toolSimulations != null && !toolSimulations.isEmpty()) {
                 clusterElementCallbacks = clusterElementCallbacks.stream()
@@ -1388,6 +1536,15 @@ public abstract class AbstractAiAgentChatAction {
         return Arrays.stream(augmentedToolCallbackProvider.getToolCallbacks())
             .map(AbstractAiAgentChatAction::createToolSuspensionFailurePropagatingToolCallback)
             .toList();
+    }
+
+    private List<ToolCallback> buildElementToolCallbacks(
+        ClusterElement clusterElement, Map<String, ComponentConnection> connectionParameters,
+        @Nullable String conversationId, ActionContext context, List<ClusterElement> approvalChannelClusterElements) {
+
+        return clusterElementToolCallbacks.build(
+            clusterElement, connectionParameters, getSubagentConversationId(clusterElement, conversationId), context,
+            approvalChannelClusterElements);
     }
 
     private static ToolCallback createToolSuspensionFailurePropagatingToolCallback(ToolCallback delegate) {
