@@ -12,6 +12,7 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
@@ -56,6 +57,18 @@ public class RemoteTaskExecutionServiceClient implements TaskExecutionService {
             null, Boolean.class);
 
         return Boolean.TRUE.equals(completed);
+    }
+
+    @Override
+    public boolean failIfUnfinished(long id, String errorMessage) {
+        Boolean failed = loadBalancedRestClient.put(
+            uriBuilder -> uriBuilder
+                .host(EXECUTION_APP)
+                .path(TASK_EXECUTION_SERVICE + "/fail-if-unfinished/{id}")
+                .build(id),
+            Map.of("errorMessage", errorMessage), Boolean.class);
+
+        return Boolean.TRUE.equals(failed);
     }
 
     @Override

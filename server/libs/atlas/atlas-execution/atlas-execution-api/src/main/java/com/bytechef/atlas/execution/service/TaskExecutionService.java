@@ -37,6 +37,14 @@ public interface TaskExecutionService {
 
     TaskExecution create(TaskExecution taskExecution);
 
+    /**
+     * Atomically marks the task execution FAILED with the given error message unless it already reached a terminal
+     * status.
+     *
+     * @return false when the task execution had already terminated and was left unchanged
+     */
+    boolean failIfUnfinished(long id, String errorMessage);
+
     void delete(long id);
 
     void deleteJobTaskExecutions(long jobId);

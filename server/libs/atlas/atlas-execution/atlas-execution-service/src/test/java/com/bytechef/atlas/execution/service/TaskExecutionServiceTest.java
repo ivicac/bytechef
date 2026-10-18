@@ -112,6 +112,34 @@ class TaskExecutionServiceTest {
     }
 
     @Test
+    void testFailIfUnfinishedFailsStartedTaskExecution() {
+        TaskExecution taskExecution = stubTaskExecution(TaskExecution.Status.STARTED);
+
+        assertThat(taskExecutionService.failIfUnfinished(TASK_EXECUTION_ID, "timed out")).isTrue();
+
+        assertThat(taskExecution.getStatus()).isEqualTo(TaskExecution.Status.FAILED);
+        assertThat(taskExecution.getEndDate()).isNotNull();
+        assertThat(taskExecution.getError()
+            .getMessage()).isEqualTo("timed out");
+
+        verify(taskExecutionRepository).save(taskExecution);
+        verify(taskExecutionRepository).unlockForUpdate(TASK_EXECUTION_ID);
+    }
+
+    @Test
+    void testFailIfUnfinishedLeavesTaskExecutionCompletedAfterItWasRead() {
+        TaskExecution taskExecution = stubTaskExecution(TaskExecution.Status.COMPLETED);
+
+        assertThat(taskExecutionService.failIfUnfinished(TASK_EXECUTION_ID, "timed out")).isFalse();
+
+        assertThat(taskExecution.getStatus()).isEqualTo(TaskExecution.Status.COMPLETED);
+        assertThat(taskExecution.getError()).isNull();
+
+        verify(taskExecutionRepository, never()).save(any());
+        verify(taskExecutionRepository).unlockForUpdate(TASK_EXECUTION_ID);
+    }
+
+    @Test
     void testUpdateKeepsStartDateOfClaimedTaskExecution() {
         Instant startDate = Instant.parse("2026-09-25T10:00:00Z");
 

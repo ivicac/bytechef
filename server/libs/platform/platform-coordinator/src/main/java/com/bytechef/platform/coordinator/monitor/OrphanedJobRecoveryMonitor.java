@@ -22,7 +22,6 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
-import com.bytechef.error.ExecutionError;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -195,12 +194,8 @@ public class OrphanedJobRecoveryMonitor {
             return;
         }
 
-        List<TaskExecution> nonTerminalTaskExecutions = taskExecutionService.getJobTaskExecutions(jobId)
-            .stream()
-            .filter(taskExecution -> taskExecution.getStatus() == null ||
-                !taskExecution.getStatus()
-                    .isTerminated())
-            .toList();
+        List<TaskExecution> nonTerminalTaskExecutions = JobMonitorSupport.getNonTerminalTaskExecutions(
+            taskExecutionService, jobId);
 
         boolean anyFresh = nonTerminalTaskExecutions.stream()
             .anyMatch(taskExecution -> taskExecution.getLastModifiedDate() != null &&
@@ -217,17 +212,10 @@ public class OrphanedJobRecoveryMonitor {
 
         Instant now = Instant.now();
 
-        for (TaskExecution taskExecution : nonTerminalTaskExecutions) {
-            taskExecution.setStatus(TaskExecution.Status.FAILED);
-            taskExecution.setEndDate(now);
-            taskExecution.setError(
-                new ExecutionError(
-                    "Orphaned execution: no heartbeat received before %s; the executing node likely crashed"
-                        .formatted(cutoff),
-                    List.of()));
-
-            taskExecutionService.update(taskExecution);
-        }
+        JobMonitorSupport.failAndCancelTaskExecutions(
+            jobId, nonTerminalTaskExecutions,
+            "Orphaned execution: no heartbeat received before %s; the executing node likely crashed".formatted(cutoff),
+            taskExecutionService, eventPublisher);
 
         int autoRecoveryAttempts = getAutoRecoveryAttempts(job);
         boolean resume = autoResume && job.getParentTaskExecutionId() == null &&

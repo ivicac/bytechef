@@ -18,6 +18,7 @@ package com.bytechef.atlas.execution.service;
 
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.repository.TaskExecutionRepository;
+import com.bytechef.error.ExecutionError;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.HashMap;
@@ -87,6 +88,30 @@ public class TaskExecutionServiceImpl implements TaskExecutionService {
     }
 
     @Override
+    public boolean failIfUnfinished(long id, String errorMessage) {
+        TaskExecution taskExecution = taskExecutionRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new IllegalStateException(String.format("TaskExecution with id '%s' not found", id)));
+
+        try {
+            TaskExecution.Status status = taskExecution.getStatus();
+
+            if (status.isTerminated()) {
+                return false;
+            }
+
+            taskExecution.setEndDate(Instant.now());
+            taskExecution.setError(new ExecutionError(errorMessage, List.of()));
+            taskExecution.setStatus(TaskExecution.Status.FAILED);
+
+            taskExecutionRepository.save(taskExecution);
+
+            return true;
+        } finally {
+            taskExecutionRepository.unlockForUpdate(id);
+        }
+    }
+
+    @Override
     public TaskExecution create(TaskExecution taskExecution) {
         Validate.notNull(taskExecution, "'taskExecution' must not be null");
         Validate.isTrue(taskExecution.getId() == null, "'taskExecution.id' must be null");
@@ -134,7 +159,7 @@ public class TaskExecutionServiceImpl implements TaskExecutionService {
 
     @Override
     public List<TaskExecution> getStaleTaskExecutions(
-        TaskExecution.Status status, java.time.Instant lastModifiedDateBefore) {
+        TaskExecution.Status status, Instant lastModifiedDateBefore) {
 
         return taskExecutionRepository.findAllByStatusAndLastModifiedDateBefore(
             status.ordinal(), lastModifiedDateBefore);
