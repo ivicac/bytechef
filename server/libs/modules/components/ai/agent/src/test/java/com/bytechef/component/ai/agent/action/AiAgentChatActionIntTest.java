@@ -289,7 +289,8 @@ class AiAgentChatActionIntTest {
             new StaticListableBeanFactory().getBeanProvider(ApprovalTokens.class), jobService, taskExecutionService,
             taskStateService, TransactionOperations.withoutTransaction());
 
-        Map<String, ?> approvalForm = approvalFormFacade.getApprovalForm(getJobResumeId(suspendedJob));
+        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(getJobResumeId(suspendedJob))
+            .orElseThrow();
 
         assertThat(approvalForm)
             .doesNotContainKey("userPrompt")
