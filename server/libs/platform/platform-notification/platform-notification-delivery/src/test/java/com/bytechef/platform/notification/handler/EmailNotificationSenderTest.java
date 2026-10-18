@@ -17,6 +17,8 @@
 package com.bytechef.platform.notification.handler;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -48,6 +50,21 @@ public class EmailNotificationSenderTest {
             notification(Map.of("email", "ops@example.com")), handler(), contextStub());
 
         verify(notificationEmailGateway).sendEmail("ops@example.com", "subject", "content", true);
+    }
+
+    @Test
+    public void testGatewayFailurePropagates() {
+        EmailNotificationSender emailNotificationSender = new EmailNotificationSender(
+            objectProviderOf(notificationEmailGateway));
+
+        doThrow(new IllegalStateException("SMTP unavailable")).when(notificationEmailGateway)
+            .sendEmail("ops@example.com", "subject", "content", true);
+
+        assertThatThrownBy(
+            () -> emailNotificationSender.send(
+                notification(Map.of("email", "ops@example.com")), handler(), contextStub()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("SMTP unavailable");
     }
 
     @Test
