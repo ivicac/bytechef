@@ -24,6 +24,7 @@ import com.bytechef.automation.workflow.execution.web.rest.model.TriggerFormMode
 import com.bytechef.commons.util.HtmlSanitizerUtils;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
+import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
@@ -68,12 +69,23 @@ public class TriggerFormApiController implements TriggerFormApi {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid id: " + id, e);
         }
 
-        String workflowId = projectWorkflowService.getProjectWorkflowWorkflowId(
-            workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid());
+        String previousTenantId = TenantContext.getCurrentTenantId();
 
-        Workflow workflow = workflowService.getWorkflow(workflowId);
+        String workflowId;
+        List<WorkflowTrigger> workflowTriggers;
 
-        List<WorkflowTrigger> workflowTriggers = WorkflowTrigger.of(workflow);
+        TenantContext.setCurrentTenantId(workflowExecutionId.getTenantId());
+
+        try {
+            workflowId = projectWorkflowService.getProjectWorkflowWorkflowId(
+                workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid());
+
+            Workflow workflow = workflowService.getWorkflow(workflowId);
+
+            workflowTriggers = WorkflowTrigger.of(workflow);
+        } finally {
+            TenantContext.setCurrentTenantId(previousTenantId);
+        }
 
         Map<String, Object> parameters = getParameters(workflowExecutionId, workflowId, workflowTriggers);
 
