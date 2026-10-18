@@ -23,9 +23,15 @@ import com.bytechef.automation.task.domain.ApprovalTask.Status;
 import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.facade.ApprovalTaskFacade;
 import com.bytechef.automation.task.service.ApprovalTaskService;
+import com.bytechef.graphql.error.GraphQlBadRequestException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import graphql.schema.DataFetchingEnvironment;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -51,11 +57,13 @@ public class ApprovalTaskGraphQlController {
     }
 
     @MutationMapping
+    @PreAuthorize("isTenantAdmin()")
     public ApprovalTask createApprovalTask(@Argument ApprovalTaskInput approvalTask) {
         return approvalTaskService.create(toApprovalTask(approvalTask));
     }
 
     @MutationMapping
+    @PreAuthorize("isTenantAdmin()")
     public boolean deleteApprovalTask(@Argument long id) {
         approvalTaskService.delete(id);
 
@@ -98,9 +106,51 @@ public class ApprovalTaskGraphQlController {
         return approvalTaskFacade.getPendingApprovals(environmentId);
     }
 
+    /**
+     * Patches the fields present in the input and keeps the stored value of every omitted one. A status change the
+     * task's lifecycle rejects (reopening or resolving it) is reported as a bad request.
+     */
     @MutationMapping
-    public ApprovalTask updateApprovalTask(@Argument ApprovalTaskInput approvalTask) {
-        return approvalTaskService.update(toApprovalTask(approvalTask));
+    @PreAuthorize("isTenantAdmin()")
+    public ApprovalTask updateApprovalTask(
+        @Argument ApprovalTaskInput approvalTask, DataFetchingEnvironment dataFetchingEnvironment) {
+
+        Map<String, Object> approvalTaskArgument = dataFetchingEnvironment.getArgument("approvalTask");
+
+        Set<String> providedFieldNames = approvalTaskArgument == null ? Set.of() : approvalTaskArgument.keySet();
+
+        ApprovalTask currentApprovalTask = approvalTaskService.getApprovalTask(
+            Objects.requireNonNull(approvalTask.id(), "'id' must not be null"));
+
+        ApprovalTask patchedApprovalTask = ApprovalTask.builder()
+            .id(approvalTask.id())
+            .name(providedFieldNames.contains("name") ? approvalTask.name() : currentApprovalTask.getName())
+            .description(
+                providedFieldNames.contains("description")
+                    ? approvalTask.description() : currentApprovalTask.getDescription())
+            .status(providedFieldNames.contains("status") ? approvalTask.status() : currentApprovalTask.getStatus())
+            .priority(
+                providedFieldNames.contains("priority") ? approvalTask.priority() : currentApprovalTask.getPriority())
+            .assigneeId(
+                providedFieldNames.contains("assigneeId")
+                    ? approvalTask.assigneeId() : currentApprovalTask.getAssigneeId())
+            .dueDate(
+                providedFieldNames.contains("dueDate")
+                    ? toInstant(approvalTask.dueDate()) : currentApprovalTask.getDueDate())
+            .version(
+                providedFieldNames.contains("version") && approvalTask.version() != null
+                    ? approvalTask.version() : currentApprovalTask.getVersion())
+            .build();
+
+        try {
+            return approvalTaskService.update(patchedApprovalTask);
+        } catch (IllegalStateException illegalStateException) {
+            throw new GraphQlBadRequestException(illegalStateException.getMessage(), illegalStateException);
+        }
+    }
+
+    private static @Nullable Instant toInstant(@Nullable String dueDate) {
+        return dueDate == null ? null : Instant.parse(dueDate);
     }
 
     private ApprovalTask toApprovalTask(ApprovalTaskInput approvalTaskInput) {
@@ -111,7 +161,7 @@ public class ApprovalTaskGraphQlController {
             .status(approvalTaskInput.status())
             .priority(approvalTaskInput.priority())
             .assigneeId(approvalTaskInput.assigneeId())
-            .dueDate(approvalTaskInput.dueDate() == null ? null : Instant.parse(approvalTaskInput.dueDate()))
+            .dueDate(toInstant(approvalTaskInput.dueDate()))
             .version(approvalTaskInput.version() == null ? 0 : approvalTaskInput.version())
             .build();
     }
