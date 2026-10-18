@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.component.definition.approval.ApprovalButtonPayload;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
@@ -29,6 +30,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,21 +87,18 @@ public class TelegramInteractivityHandler {
 
         Object data = callbackQuery.get("data");
 
-        if (!(data instanceof String dataString) || dataString.length() < 3) {
+        Optional<ApprovalButtonPayload> approvalButtonPayloadOptional = ApprovalButtonPayload.parse(
+            data instanceof String dataString ? dataString : null);
+
+        if (approvalButtonPayloadOptional.isEmpty()) {
             return Result.IGNORED;
         }
 
-        boolean approved;
+        ApprovalButtonPayload approvalButtonPayload = approvalButtonPayloadOptional.get();
 
-        if (dataString.endsWith(":a")) {
-            approved = true;
-        } else if (dataString.endsWith(":d")) {
-            approved = false;
-        } else {
-            return Result.IGNORED;
-        }
+        boolean approved = approvalButtonPayload.approved();
 
-        String resumeId = approvalShortTokenStore.resolve(dataString.substring(0, dataString.length() - 2));
+        String resumeId = approvalShortTokenStore.resolve(approvalButtonPayload.shortId());
 
         if (resumeId == null) {
             // Unknown / expired short id (e.g. after a coordinator restart) — the message also carries the hosted-form

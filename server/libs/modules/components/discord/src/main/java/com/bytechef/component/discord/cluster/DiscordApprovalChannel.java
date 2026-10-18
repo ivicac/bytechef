@@ -35,6 +35,7 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDe
 import com.bytechef.component.definition.Context.Http;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
+import com.bytechef.component.definition.approval.ApprovalButtonPayload;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.component.discord.util.DiscordUtils;
 import java.util.List;
@@ -103,8 +104,8 @@ public class DiscordApprovalChannel {
                 // request is raised) rather than the token; the hosted-form link stays in the content as a durable
                 // fallback.
                 buttons = List.of(
-                    interactionButton("Approve", 1, shortId + ":a"),
-                    interactionButton("Discard", 4, shortId + ":d"));
+                    interactionButton("Approve", 1, ApprovalButtonPayload.encode(shortId, true)),
+                    interactionButton("Discard", 4, ApprovalButtonPayload.encode(shortId, false)));
                 content = content + "\nApprove or Discard below, or open the form: " + formUrl;
             } else if (inputs.isEmpty()) {
                 buttons = List.of(

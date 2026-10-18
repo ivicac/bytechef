@@ -17,6 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.component.definition.approval.ApprovalButtonPayload;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
@@ -31,6 +32,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,21 +115,18 @@ public class DiscordInteractivityHandler {
 
         Object customId = data == null ? null : data.get("custom_id");
 
-        if (!(customId instanceof String customIdString) || customIdString.length() < 3) {
+        Optional<ApprovalButtonPayload> approvalButtonPayloadOptional = ApprovalButtonPayload.parse(
+            customId instanceof String customIdString ? customIdString : null);
+
+        if (approvalButtonPayloadOptional.isEmpty()) {
             return new Response(200, updateMessage("This approval request is malformed."));
         }
 
-        boolean approved;
+        ApprovalButtonPayload approvalButtonPayload = approvalButtonPayloadOptional.get();
 
-        if (customIdString.endsWith(":a")) {
-            approved = true;
-        } else if (customIdString.endsWith(":d")) {
-            approved = false;
-        } else {
-            return new Response(200, updateMessage("This approval request is malformed."));
-        }
+        boolean approved = approvalButtonPayload.approved();
 
-        String resumeId = approvalShortTokenStore.resolve(customIdString.substring(0, customIdString.length() - 2));
+        String resumeId = approvalShortTokenStore.resolve(approvalButtonPayload.shortId());
 
         if (resumeId == null) {
             return new Response(200, updateMessage("⚠️ This approval is no longer available (open the form link)."));
