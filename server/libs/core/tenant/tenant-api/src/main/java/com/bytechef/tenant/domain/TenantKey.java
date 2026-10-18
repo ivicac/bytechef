@@ -19,6 +19,7 @@ package com.bytechef.tenant.domain;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.commons.util.RandomUtils;
 import com.bytechef.tenant.TenantContext;
+import com.bytechef.tenant.TenantIdValidator;
 
 public class TenantKey {
 
@@ -48,7 +49,11 @@ public class TenantKey {
 
         String[] items = tenantKeyString.split(":");
 
-        return new TenantKey(tenantKeyString, items[0]);
+        String tenantId = items[0];
+
+        TenantIdValidator.validate(tenantId);
+
+        return new TenantKey(tenantKeyString, tenantId);
     }
 
     public String getKey() {

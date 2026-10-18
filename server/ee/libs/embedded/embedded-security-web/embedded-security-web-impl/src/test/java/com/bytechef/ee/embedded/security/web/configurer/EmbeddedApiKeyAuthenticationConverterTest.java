@@ -87,7 +87,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithNonJwtTokenAndValidUriReturnsAuthentication() {
-        String tenantId = "test-tenant";
+        String tenantId = "test_tenant";
         String tenantKey = EncodingUtils.base64EncodeToString(tenantId + ":randomData");
         String externalUserId = "user123";
 
@@ -134,7 +134,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithNonJwtTokenAndDevelopmentEnvironmentReturnsAuthentication() {
-        String tenantId = "test-tenant";
+        String tenantId = "test_tenant";
         String tenantKey = EncodingUtils.base64EncodeToString(tenantId + ":randomData");
         String externalUserId = "user456";
 
@@ -156,7 +156,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithNonJwtTokenAndStagingEnvironmentReturnsAuthentication() {
-        String tenantId = "staging-tenant";
+        String tenantId = "staging_tenant";
         String tenantKey = EncodingUtils.base64EncodeToString(tenantId + ":randomData");
         String externalUserId = "staging-user";
 
@@ -444,7 +444,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
         "me", "unified", "workflows"
     })
     void testConvertWithNonJwtTokenAndReservedSegmentThrowsBadCredentialsException(String reservedSegment) {
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
+        String tenantKey = EncodingUtils.base64EncodeToString("test_tenant" + ":randomData");
 
         when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
         when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
@@ -456,7 +456,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithRetiredExternalPrefixRouteThrowsBadCredentialsException() {
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
+        String tenantKey = EncodingUtils.base64EncodeToString("test_tenant" + ":randomData");
 
         when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
         when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
@@ -469,7 +469,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithNonJwtTokenAndMeFrontendRouteThrowsBadCredentialsException() {
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
+        String tenantKey = EncodingUtils.base64EncodeToString("test_tenant" + ":randomData");
 
         when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
         when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
@@ -481,7 +481,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithNonJwtTokenAndRealExternalUserIdPathIsUnchanged() {
-        String tenantId = "test-tenant";
+        String tenantId = "test_tenant";
         String tenantKey = EncodingUtils.base64EncodeToString(tenantId + ":randomData");
         String externalUserId = "real-external-user-42";
 
@@ -503,7 +503,7 @@ class EmbeddedApiKeyAuthenticationConverterTest {
     void testFrontendPathNeverReachesProviderSoNoConnectedUserIsCreated() {
         ApiKeyService apiKeyService = mock(ApiKeyService.class);
         ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
+        String tenantKey = EncodingUtils.base64EncodeToString("test_tenant" + ":randomData");
 
         when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
         when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
