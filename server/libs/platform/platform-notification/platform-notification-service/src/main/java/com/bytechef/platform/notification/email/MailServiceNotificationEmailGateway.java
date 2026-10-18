@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Binds the {@link NotificationEmailGateway} port to {@link MailService} — the single email path for everything the
- * platform sends. The send runs on the calling thread and a failed send throws, so the notification fan-out can tell
- * a delivered notification from a failed one.
+ * platform sends. The send runs on the calling thread and a failed send throws, so the notification fan-out can tell a
+ * delivered notification from a failed one.
  *
  * @author Ivica Cardic
  */

@@ -25,8 +25,8 @@ import org.springframework.stereotype.Component;
 /**
  * Delivers WEBHOOK-channel notifications through the shared {@link WebhookNotificationClient} — the same transport the
  * EE AI-observability alert channels use. Settings: {@code webhook} (destination URL, required) and
- * {@code webhookSecret} (optional HMAC secret; when set, deliveries carry an {@code X-ByteChef-Signature} header).
- * The send is synchronous and throws on a missing URL or a failed delivery.
+ * {@code webhookSecret} (optional HMAC secret; when set, deliveries carry an {@code X-ByteChef-Signature} header). The
+ * send is synchronous and throws on a missing URL or a failed delivery.
  *
  * @author Matija Petanjek
  * @author Ivica Cardic
