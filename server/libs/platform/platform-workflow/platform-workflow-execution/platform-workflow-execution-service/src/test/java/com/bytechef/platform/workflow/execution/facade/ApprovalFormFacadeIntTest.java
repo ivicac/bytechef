@@ -25,6 +25,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.constant.WorkflowConstants;
+import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
@@ -106,6 +108,55 @@ class ApprovalFormFacadeIntTest {
     }
 
     @Test
+    void testTheSuspendContinueParametersOverrideTheTaskExecutionParameters() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        stubStoppedJobWithTaskExecutionParameters(
+            jobResumeId, Map.of("formTitle", "AI Agent", "formDescription", "Answer the user"));
+        stubStoredSuspend(
+            jobResumeId,
+            Map.of("formTitle", "Approve tool call: SLACK_SEND_MESSAGE", "formDescription", "channel: #general"));
+
+        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+            .orElseThrow();
+
+        assertThat(approvalForm)
+            .containsEntry("formTitle", "Approve tool call: SLACK_SEND_MESSAGE")
+            .containsEntry("formDescription", "channel: #general");
+    }
+
+    @Test
+    void testTaskExecutionParametersAreKeptWhenTheSuspendCarriesNoOverride() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        stubStoppedJobWithTaskExecutionParameters(
+            jobResumeId, Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
+        stubStoredSuspend(jobResumeId, Map.of("formUrl", "https://example.com/resume/abc"));
+
+        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+            .orElseThrow();
+
+        assertThat(approvalForm).containsEntry("formTitle", "Approve the refund");
+    }
+
+    @Test
+    void testTaskExecutionParametersAreKeptWhenNoSuspendStateIsStored() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        stubStoppedJobWithTaskExecutionParameters(
+            jobResumeId, Map.of("formTitle", "Approve the refund", "formDescription", "over 1000"));
+
+        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(Optional.empty());
+
+        Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
+            .orElseThrow();
+
+        assertThat(approvalForm)
+            .containsEntry("formTitle", "Approve the refund")
+            .containsEntry("formDescription", "over 1000");
+    }
+
+    @Test
     void testGetApprovalFormOpensItsTransactionUnderTheTenantOfTheResumeId() {
         JobResumeId jobResumeId = TenantContext.callWithTenantId(TENANT_ID, () -> JobResumeId.of(JOB_ID));
 
@@ -173,7 +224,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(
+        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(
             Optional.of(
                 new Suspend(
                     Map.of(MetadataConstants.APPROVAL_FORM_PARAMETERS, Map.of("formTitle", "Refund order 42")),
@@ -195,7 +246,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(
+        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(
             Optional.of(new Suspend(Map.of("formUrl", "https://example.com/resume/abc"), null)));
 
         Map<String, ?> approvalForm = approvalFormFacade.fetchApprovalForm(jobResumeId.toString())
@@ -263,6 +314,29 @@ class ApprovalFormFacadeIntTest {
         return beanFactory.getBeanProvider(ApprovalTokens.class);
     }
 
+    private void stubStoppedJobWithTaskExecutionParameters(
+        JobResumeId jobResumeId, Map<String, ?> taskExecutionParameters) {
+
+        when(jobService.fetchJob(JOB_ID)).thenReturn(Optional.of(stoppedJob(jobResumeId)));
+
+        WorkflowTask workflowTask = new WorkflowTask(
+            Map.of(
+                WorkflowConstants.NAME, "agent",
+                WorkflowConstants.TYPE, "aiAgent/v1/chat",
+                WorkflowConstants.PARAMETERS, taskExecutionParameters));
+
+        TaskExecution agentTaskExecution = new TaskExecution();
+
+        agentTaskExecution.setWorkflowTask(workflowTask);
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(agentTaskExecution);
+    }
+
+    private void stubStoredSuspend(JobResumeId jobResumeId, Map<String, ?> continueParameters) {
+        when(taskStateService.<Suspend>fetchValue(jobResumeId))
+            .thenReturn(Optional.of(new Suspend(continueParameters, null)));
+    }
+
     private void stubStoppedJobWithTaskParameters(JobResumeId jobResumeId) {
         when(jobService.fetchJob(JOB_ID)).thenReturn(Optional.of(stoppedJob(jobResumeId)));
         when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
@@ -270,7 +344,7 @@ class ApprovalFormFacadeIntTest {
             .getParameters();
         doReturn(Map.of()).when(taskExecution)
             .getMetadata();
-        when(taskStateFacade.<Suspend>fetchUnlockedValue(jobResumeId)).thenReturn(Optional.empty());
+        when(taskStateService.<Suspend>fetchValue(jobResumeId)).thenReturn(Optional.empty());
     }
 
     private static Job stoppedJob(JobResumeId storedJobResumeId) {

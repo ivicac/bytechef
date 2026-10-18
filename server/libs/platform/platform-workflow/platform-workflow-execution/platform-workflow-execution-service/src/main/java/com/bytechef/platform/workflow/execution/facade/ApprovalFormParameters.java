@@ -20,6 +20,7 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.component.definition.ActionContext.Suspend;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.workflow.execution.JobResumeId;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +31,9 @@ import java.util.Optional;
  * @author Ivica Cardic
  */
 final class ApprovalFormParameters {
+
+    private static final String FORM_DESCRIPTION = "formDescription";
+    private static final String FORM_TITLE = "formTitle";
 
     private ApprovalFormParameters() {
     }
@@ -54,8 +58,27 @@ final class ApprovalFormParameters {
 
                 return (Map<String, ?>) formParameters;
             }
+
+            Map<String, Object> parameters = new HashMap<>(getTaskExecutionParameters(taskExecution));
+
+            copyIfPresent(suspend.continueParameters(), parameters, FORM_TITLE);
+            copyIfPresent(suspend.continueParameters(), parameters, FORM_DESCRIPTION);
+
+            return parameters;
         }
 
+        return getTaskExecutionParameters(taskExecution);
+    }
+
+    private static void copyIfPresent(Map<String, ?> source, Map<String, Object> target, String key) {
+        Object value = source.get(key);
+
+        if (value != null) {
+            target.put(key, value);
+        }
+    }
+
+    private static Map<String, ?> getTaskExecutionParameters(TaskExecution taskExecution) {
         Map<String, ?> parameters = taskExecution.getParameters();
 
         return parameters == null ? Map.of() : parameters;
