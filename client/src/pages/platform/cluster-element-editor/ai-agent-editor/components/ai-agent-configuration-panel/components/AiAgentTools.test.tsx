@@ -13,8 +13,8 @@ vi.mock('./AiAgentTool', () => ({
     default: ({tool}: {tool: {name: string}}) => <span>{`Tool ${tool.name}`}</span>,
 }));
 
-vi.mock('./AiAgentToolDropdownMenu', () => ({
-    default: ({tool}: {tool: {name: string}}) => <button type="button">{`Tool menu of ${tool.name}`}</button>,
+vi.mock('./hooks/useAiAgentToolActions', () => ({
+    default: () => ({handleConfigureTool: vi.fn(), handleRemoveTool: vi.fn()}),
 }));
 
 vi.mock('./hooks/useAiAgentTools', () => ({
@@ -26,6 +26,7 @@ vi.mock('./hooks/useAiAgentTools', () => ({
                 channels: [
                     {
                         clusterElementType: 'approvalChannels',
+                        clusterRoot: false,
                         componentName: 'slack',
                         componentVersion: 1,
                         label: 'slack_1',
@@ -39,6 +40,7 @@ vi.mock('./hooks/useAiAgentTools', () => ({
                 name: 'approvalGate_1',
                 tool: {
                     clusterElementType: 'tools',
+                    clusterRoot: false,
                     componentName: 'aiAgentUtils',
                     componentVersion: 1,
                     label: 'Approval Gate',
@@ -65,7 +67,7 @@ describe('AiAgentTools', () => {
         expect(screen.getByRole('group', {name: 'Approval Gate requires approval'})).toBeInTheDocument();
     });
 
-    it("offers the gate's configure and remove menu in its group heading", () => {
+    it("offers the gate's configure and remove actions in its group heading", () => {
         render(
             <TooltipProvider>
                 <AiAgentTools />
@@ -74,10 +76,11 @@ describe('AiAgentTools', () => {
 
         const toolGroup = screen.getByRole('group', {name: 'Approval Gate requires approval'});
 
-        expect(within(toolGroup).getByRole('button', {name: 'Tool menu of approvalGate_1'})).toBeInTheDocument();
+        expect(within(toolGroup).getByRole('button', {name: 'Configure approval gate'})).toBeInTheDocument();
+        expect(within(toolGroup).getByRole('button', {name: 'Remove approval gate'})).toBeInTheDocument();
     });
 
-    it('lists each approval channel as an item with its configure and remove menu', () => {
+    it('lists each approval channel as an item with its configure and remove actions', () => {
         render(
             <TooltipProvider>
                 <AiAgentTools />

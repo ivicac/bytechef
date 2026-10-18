@@ -8,9 +8,12 @@ import {useMemo} from 'react';
 
 import {SKILLS_TOOL_OPERATION_NAME} from './useAiAgentSkills';
 
-const APPROVAL_GATE = 'approvalGateTool';
+// The gate's operation name is 'approvalGate' upstream and 'approvalGateTool' in earlier definitions; accept both so
+// either shape groups its tools.
+const APPROVAL_GATE_OPERATION_NAMES = ['approvalGate', 'approvalGateTool'];
 
 export interface ToolItemI {
+    clusterElementType: string;
     clusterRoot: boolean;
     componentName: string;
     componentVersion: number;
@@ -23,9 +26,10 @@ export interface ToolItemI {
 }
 
 export interface ToolGroupI {
-    channelLabels: string[];
+    channels: ToolItemI[];
     label: string;
     name: string;
+    tool: ToolItemI;
     tools: ToolItemI[];
 }
 
@@ -43,7 +47,11 @@ type ToolElementType = NodeDataType & {
 
 type ComponentDefinitionMapType = Map<string, {clusterRoot?: boolean; icon?: string; title?: string}>;
 
-function mapToolElement(toolElement: ToolElementType, definitionsMap: ComponentDefinitionMapType): ToolItemI {
+function mapToolElement(
+    toolElement: ToolElementType,
+    definitionsMap: ComponentDefinitionMapType,
+    clusterElementType = 'tools'
+): ToolItemI {
     // Tool elements can appear in either shape: NodeDataType (workflowNodeName)
     // when synced in-memory, or ClusterElementItemType (name) when loaded from
     // the workflow definition. Fall through both so the first load after an
@@ -56,6 +64,7 @@ function mapToolElement(toolElement: ToolElementType, definitionsMap: ComponentD
     const toolName = toolElement.workflowNodeName || toolElement.name || '';
 
     return {
+        clusterElementType,
         // A cluster root tool is configured through its own nested cluster elements canvas, which the simple
         // editor cannot open, so the flag drives a view-only rendering of the row.
         clusterRoot: !!componentDefinition?.clusterRoot,
@@ -108,26 +117,27 @@ export default function useAiAgentTools(): UseAiAgentToolsI {
                 return;
             }
 
-            if (operationName !== APPROVAL_GATE) {
+            if (!APPROVAL_GATE_OPERATION_NAMES.includes(operationName)) {
                 ungatedTools.push(mapToolElement(element, definitionsMap));
 
                 return;
             }
 
-            const gateClusterElements = element.clusterElements || {};
-            const gatedToolElements = gateClusterElements['tools'];
-            const channelElements = gateClusterElements['approvalChannels'];
+            const gateClusterElements = getNestedClusterElements(element);
+            const gatedToolElements = gateClusterElements?.['tools'];
+            const channelElements = gateClusterElements?.['approvalChannels'];
             const gateParameters = element.parameters as {name?: string} | undefined;
             const gateName = element.workflowNodeName || element.name || '';
 
             groupedTools.push({
-                channelLabels: Array.isArray(channelElements)
-                    ? channelElements.map(
-                          (channelElement) => (channelElement as {type?: string}).type?.split('/')[0] || ''
+                channels: Array.isArray(channelElements)
+                    ? channelElements.map((channelElement) =>
+                          mapToolElement(channelElement as ToolElementType, definitionsMap, 'approvalChannels')
                       )
                     : [],
                 label: gateParameters?.name || gateName,
                 name: gateName,
+                tool: mapToolElement(element, definitionsMap),
                 tools: Array.isArray(gatedToolElements)
                     ? gatedToolElements.map((gatedToolElement) =>
                           mapToolElement(gatedToolElement as ToolElementType, definitionsMap)

@@ -33,9 +33,9 @@ const rootClusterElementNodeData = {
                     approvalChannels: [{name: 'slackChannel_1', type: 'slack/v1/approvalChannel'}],
                     tools: [{name: 'deleteRecord_1', type: 'example/v1/deleteRecord'}],
                 },
-                name: 'approvalGateTool_1',
+                name: 'approvalGate_1',
                 parameters: {name: 'Destructive'},
-                type: 'aiAgentUtils/v1/approvalGateTool',
+                type: 'aiAgentUtils/v1/approvalGate',
             },
         ],
     },
@@ -67,22 +67,36 @@ describe('useAiAgentTools', () => {
         const [toolGroup] = result.current.toolGroups;
 
         expect(toolGroup.label).toBe('Destructive');
-        expect(toolGroup.name).toBe('approvalGateTool_1');
+        expect(toolGroup.name).toBe('approvalGate_1');
         expect(toolGroup.tools.map((tool) => tool.name)).toEqual(['deleteRecord_1']);
-        expect(toolGroup.channelLabels).toEqual(['slack']);
+        expect(toolGroup.channels.map((channel) => [channel.name, channel.clusterElementType])).toEqual([
+            ['slackChannel_1', 'approvalChannels'],
+        ]);
+        expect(toolGroup.tool).toMatchObject({
+            componentName: 'aiAgentUtils',
+            label: 'approvalGate_1',
+            name: 'approvalGate_1',
+            operationName: 'approvalGate',
+            type: 'aiAgentUtils/v1/approvalGate',
+        });
     });
 
-    it('reports a gate with no channels so the panel can show the chat default', () => {
+    it("reads a gate's tools and channels from extensions, the shape of a workflow loaded from the server", () => {
         useWorkflowEditorStoreMock.mockImplementation((selector: (state: unknown) => unknown) =>
             selector({
                 rootClusterElementNodeData: {
                     clusterElements: {
                         tools: [
                             {
-                                clusterElements: {tools: []},
-                                name: 'approvalGateTool_2',
-                                parameters: {},
-                                type: 'aiAgentUtils/v1/approvalGateTool',
+                                extensions: {
+                                    clusterElements: {
+                                        approvalChannels: [{name: 'slack_1', type: 'slack/v1/approvalChannel'}],
+                                        tools: [{name: 'deleteRecord_2', type: 'airtable/v1/deleteRecord'}],
+                                    },
+                                },
+                                name: 'approvalGate_3',
+                                parameters: {name: 'Loaded'},
+                                type: 'aiAgentUtils/v1/approvalGate',
                             },
                         ],
                     },
@@ -95,7 +109,61 @@ describe('useAiAgentTools', () => {
 
         const [toolGroup] = result.current.toolGroups;
 
-        expect(toolGroup.channelLabels).toEqual([]);
-        expect(toolGroup.label).toBe('approvalGateTool_2');
+        expect(toolGroup.tools.map((tool) => tool.name)).toEqual(['deleteRecord_2']);
+        expect(toolGroup.channels.map((channel) => [channel.name, channel.clusterElementType])).toEqual([
+            ['slack_1', 'approvalChannels'],
+        ]);
+    });
+
+    it('reports a gate with no channels so the panel can show the chat default', () => {
+        useWorkflowEditorStoreMock.mockImplementation((selector: (state: unknown) => unknown) =>
+            selector({
+                rootClusterElementNodeData: {
+                    clusterElements: {
+                        tools: [
+                            {
+                                clusterElements: {tools: []},
+                                name: 'approvalGate_2',
+                                parameters: {},
+                                type: 'aiAgentUtils/v1/approvalGate',
+                            },
+                        ],
+                    },
+                    workflowNodeName: 'aiAgent_1',
+                },
+            })
+        );
+
+        const {result} = renderHook(() => useAiAgentTools());
+
+        const [toolGroup] = result.current.toolGroups;
+
+        expect(toolGroup.channels).toEqual([]);
+        expect(toolGroup.label).toBe('approvalGate_2');
+    });
+
+    it('groups a gate whose operation is still named approvalGateTool', () => {
+        useWorkflowEditorStoreMock.mockImplementation((selector: (state: unknown) => unknown) =>
+            selector({
+                rootClusterElementNodeData: {
+                    clusterElements: {
+                        tools: [
+                            {
+                                clusterElements: {tools: [{name: 'deleteRecord_4', type: 'example/v1/deleteRecord'}]},
+                                name: 'approvalGateTool_4',
+                                parameters: {},
+                                type: 'aiAgentUtils/v1/approvalGateTool',
+                            },
+                        ],
+                    },
+                    workflowNodeName: 'aiAgent_1',
+                },
+            })
+        );
+
+        const {result} = renderHook(() => useAiAgentTools());
+
+        expect(result.current.tools).toEqual([]);
+        expect(result.current.toolGroups.map((toolGroup) => toolGroup.name)).toEqual(['approvalGateTool_4']);
     });
 });

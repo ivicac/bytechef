@@ -58,7 +58,7 @@ export default function useAiAgentToolActions(): UseAiAgentToolActionsI {
 
             const toolNodeData: NodeDataType = {
                 clusterElementName: tool.operationName,
-                clusterElementType: 'tools',
+                clusterElementType: tool.clusterElementType,
                 componentName: tool.componentName,
                 label: tool.label,
                 metadata: toolMetadata,
@@ -96,7 +96,7 @@ export default function useAiAgentToolActions(): UseAiAgentToolActionsI {
             }
 
             const toolNodeData: NodeDataType = {
-                clusterElementType: 'tools',
+                clusterElementType: tool.clusterElementType,
                 componentName: tool.componentName,
                 name: tool.name,
                 parentClusterRootId: rootClusterElementNodeData.workflowNodeName,
