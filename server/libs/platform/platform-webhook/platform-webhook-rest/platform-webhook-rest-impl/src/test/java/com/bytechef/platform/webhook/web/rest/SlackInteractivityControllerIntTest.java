@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.JobResumeId;
@@ -71,9 +70,6 @@ class SlackInteractivityControllerIntTest {
 
     @MockitoBean
     private JobResumeFacade jobResumeFacade;
-
-    @MockitoBean
-    private JobService jobService;
 
     @Autowired
     private MockMvc mockMvc;
