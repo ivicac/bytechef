@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-notification:platform-notification-api"))
     implementation(project(":server:libs:platform:platform-notification:platform-notification-delivery"))
 
+    testImplementation("org.springframework:spring-context-support")
     testImplementation("org.springframework.boot:spring-boot-starter-cache-test")
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:test:test-int-support"))

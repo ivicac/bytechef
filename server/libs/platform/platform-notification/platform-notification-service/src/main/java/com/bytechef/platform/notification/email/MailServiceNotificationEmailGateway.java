@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Binds the {@link NotificationEmailGateway} port to {@link MailService} — the single email path for everything the
- * platform sends. {@code MailService.sendEmail} is already {@code @Async} and warn-skips when no mail host is
- * configured, so no extra async or error plumbing is needed here.
+ * platform sends. The send runs on the calling thread and a failed send throws, so the notification fan-out can tell
+ * a delivered notification from a failed one.
  *
  * @author Ivica Cardic
  */
@@ -37,6 +37,6 @@ public class MailServiceNotificationEmailGateway implements NotificationEmailGat
 
     @Override
     public void sendEmail(String to, String subject, String content, boolean html) {
-        mailService.sendEmail(to, subject, content, false, html);
+        mailService.sendEmailOrThrow(to, subject, content, false, html);
     }
 }
