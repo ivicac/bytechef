@@ -177,6 +177,37 @@ class PrincipalJobFacadeIntTest {
     }
 
     @Test
+    void testCreateChildJobOwnedByAPrincipalLinksItWithoutConsumingLicenceQuota() {
+        long childJobId = principalJobFacade.createChildJob(newJobParameters(), PRINCIPAL_ID, PlatformType.AUTOMATION);
+
+        assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
+            Map.entry(childJobId, Optional.of(PRINCIPAL_ID)));
+
+        verify(licenceJobUsageService, never()).consumeOrThrow();
+    }
+
+    @Test
+    void testCreatePrincipalLinkedJobOwnedByAPrincipalLinksItWithoutConsumingLicenceQuota() {
+        long jobId = principalJobFacade.createPrincipalLinkedJob(
+            newJobParameters(), PRINCIPAL_ID, PlatformType.AUTOMATION);
+
+        assertThat(startedJobPrincipalRecorder.principalIdsAtStart()).containsExactly(
+            Map.entry(jobId, Optional.of(PRINCIPAL_ID)));
+
+        verify(licenceJobUsageService, never()).consumeOrThrow();
+    }
+
+    @Test
+    void testCreatePrincipalLinkedJobRejectsASubflowChild() {
+        assertThatThrownBy(
+            () -> principalJobFacade.createPrincipalLinkedJob(
+                new JobParametersDTO(WORKFLOW_ID, 10L, Map.of()), PRINCIPAL_ID, PlatformType.AUTOMATION))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(countJobs()).isZero();
+    }
+
+    @Test
     void testCreatePrincipalLinkedJobCommitsThePrincipalLinkBeforeTheJobStarts() {
         long referenceJobId = createReferenceJob(PRINCIPAL_ID);
 
